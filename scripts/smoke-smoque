@@ -11,6 +11,18 @@ case "${1:-}" in
   *.smoke.mts | */*.smoke.mts)
     exec npx --yes "$SMOQUE_PACKAGE" run "$@"
     ;;
+  container)
+    shift
+    exec npx --yes "$SMOQUE_PACKAGE" run ci/smoke/container/ "$@"
+    ;;
+  native)
+    shift
+    exec npx --yes "$SMOQUE_PACKAGE" run ci/smoke/native/ "$@"
+    ;;
+  native-container)
+    shift
+    exec npx --yes "$SMOQUE_PACKAGE" run ci/smoke/native-container/ "$@"
+    ;;
   agents | doctor | init | list | run | snippets | --help | -h | --version)
     exec npx --yes "$SMOQUE_PACKAGE" "$@"
     ;;

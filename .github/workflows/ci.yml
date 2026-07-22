@@ -228,6 +228,21 @@ jobs:
           ZOLT_SMOKE_PREBUILT: "1"
         run: scripts/smoke-smoque
 
+      - name: Smoke PostgreSQL container workflows
+        env:
+          ZOLT_SMOKE_PREBUILT: "1"
+        run: scripts/smoke-smoque container
+
+      - name: Smoke Native Image workflows
+        env:
+          ZOLT_SMOKE_PREBUILT: "1"
+        run: scripts/smoke-smoque native
+
+      - name: Smoke Native Image PostgreSQL workflow
+        env:
+          ZOLT_SMOKE_PREBUILT: "1"
+        run: scripts/smoke-smoque native-container
+
   managed-toolchain:
     name: managed Java toolchain dogfood ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}

@@ -4,9 +4,11 @@ import {
   copyFixture,
   expectCommandFailureContains,
   expectTestsFound,
+  parseJsonObject,
   packagedZolt,
   runZolt,
 } from "./support/zolt-smoke.mts";
+import { expectNoAnsi } from "./support/terminal-output.mts";
 
 smoke.suite("zolt command options smoke", { tags: ["commands"] }, async (t: SmokeContext) => {
   const root = t.repoRoot();
@@ -51,7 +53,7 @@ smoke.suite("zolt command options smoke", { tags: ["commands"] }, async (t: Smok
       "--format",
       "json",
     ], { check: false });
-    assertNoAnsi(t, plan.stdout, "plan json stdout");
+    expectNoAnsi(t, plan.stdout, "plan json stdout");
     parseJsonObject(t, plan.stdout, "plan json stdout");
     expect.value(plan.stdout).toContain("\"target\": \"package\"");
 
@@ -83,7 +85,7 @@ smoke.suite("zolt command options smoke", { tags: ["commands"] }, async (t: Smok
       "--cache-root",
       zolt.cacheRoot,
     ]);
-    assertNoAnsi(t, packagePlan.stdout, "package plan json stdout");
+    expectNoAnsi(t, packagePlan.stdout, "package plan json stdout");
     parseJsonObject(t, packagePlan.stdout, "package plan json stdout");
     expect.value(packagePlan.stdout).toContain("\"mode\": \"thin\"");
     expect.value(packagePlan.stdout).toContain("\"archive\":");
@@ -181,22 +183,3 @@ smoke.suite("zolt command options smoke", { tags: ["commands"] }, async (t: Smok
     ]);
   });
 });
-
-function parseJsonObject(t: SmokeContext, text: string, label: string): Record<string, unknown> {
-  let parsed: unknown = undefined;
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    t.fail(`${label} should be valid JSON: ${String(error)}\n${text}`);
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    t.fail(`${label} should be a JSON object.`);
-  }
-  return parsed as Record<string, unknown>;
-}
-
-function assertNoAnsi(t: SmokeContext, text: string, label: string): void {
-  if (/\u001B\[[0-?]*[ -/]*[@-~]/u.test(text)) {
-    t.fail(`${label} should not contain ANSI escape sequences.`);
-  }
-}
