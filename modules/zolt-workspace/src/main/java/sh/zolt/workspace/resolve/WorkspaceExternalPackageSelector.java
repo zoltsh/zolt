@@ -6,7 +6,6 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.dependency.VersionComparator;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
-import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.resolve.ResolutionVariant;
@@ -68,23 +67,30 @@ final class WorkspaceExternalPackageSelector {
     }
 
     WorkspaceExternalSelection select(List<LockPackage> candidates) {
-        return select(candidates, false, Map.of());
+        return select(candidates, false, Map.of(), null);
     }
 
     WorkspaceExternalSelection selectMaterialized(List<LockPackage> candidates) {
-        return select(candidates, true, Map.of());
+        return select(candidates, true, Map.of(), null);
     }
 
     WorkspaceExternalSelection selectMaterialized(
             List<LockPackage> candidates,
-            Map<ResolutionVariant, String> fixedSelections) {
-        return select(candidates, true, fixedSelections);
+            Map<ResolutionVariant, String> protectedSelections) {
+        return select(candidates, true, protectedSelections, null);
+    }
+
+    WorkspaceExternalSelection selectMaterialized(
+            List<LockPackage> candidates,
+            WorkspaceProvidedArtifactMediator provided) {
+        return select(candidates, true, Map.of(), provided);
     }
 
     private WorkspaceExternalSelection select(
             List<LockPackage> candidates,
             boolean requireMaterializedMembers,
-            Map<ResolutionVariant, String> fixedSelections) {
+            Map<ResolutionVariant, String> protectedSelections,
+            WorkspaceProvidedArtifactMediator provided) {
         List<LockPackage> regularCandidates = candidates.stream()
                 .filter(candidate -> candidate.scope() != DependencyScope.TOOL_EXEC)
                 .toList();
@@ -106,10 +112,9 @@ final class WorkspaceExternalPackageSelector {
             selections.put(entry.getKey(), selection);
             selectedVersionByVariant.put(entry.getKey(), selection.version());
         }
-        fixedSelections.forEach((variant, version) -> selectedVersionByVariant.put(
-                new PackageVariantKey(
-                        variant.packageId(), variant.artifactVariant()),
-                version));
+        Map<PackageVariantKey, String> protectedVersionByVariant = new LinkedHashMap<>();
+        protectedSelections.forEach((variant, version) -> protectedVersionByVariant.put(
+                new PackageVariantKey(variant.packageId(), variant.artifactVariant()), version));
 
         List<LockPackage> packages = new ArrayList<>();
         List<LockMemberGraph> memberGraphs = new ArrayList<>();
@@ -132,6 +137,8 @@ final class WorkspaceExternalPackageSelector {
                         variantSelectedVersion,
                         scope,
                         selectedVersionByVariant,
+                        protectedVersionByVariant,
+                        provided,
                         requireMaterializedMembers);
                 packages.add(selected.lockPackage());
                 memberGraphs.addAll(selected.memberGraphs());
@@ -163,7 +170,7 @@ final class WorkspaceExternalPackageSelector {
     }
 
     /** Identity of one aggregation lane: a {@link PackageId} plus its artifact variant. */
-    private record PackageVariantKey(PackageId packageId, LockArtifactVariant variant) {
+    record PackageVariantKey(PackageId packageId, LockArtifactVariant variant) {
     }
 
     private static WorkspaceExternalSelection.VersionSelection selectVersion(List<LockPackage> candidates) {
@@ -192,6 +199,8 @@ final class WorkspaceExternalPackageSelector {
             String selectedVersion,
             DependencyScope scope,
             Map<PackageVariantKey, String> selectedVersionByVariant,
+            Map<PackageVariantKey, String> protectedVersionByVariant,
+            WorkspaceProvidedArtifactMediator provided,
             boolean requireMaterializedMembers) {
         List<LockPackage> selectedCandidates = packageCandidates.stream()
                 .filter(lockPackage -> lockPackage.version().equals(selectedVersion))
@@ -229,7 +238,13 @@ final class WorkspaceExternalPackageSelector {
         }
         for (LockPackage candidate : selectedCandidates) {
             List<String> rewrittenDependencies =
-                    rewriteDependencies(candidate.dependencies(), selectedVersionByVariant);
+                    WorkspaceDependencyEdgeRewriter.rewrite(
+                            candidate.dependencies(),
+                            selectedVersionByVariant,
+                            protectedVersionByVariant,
+                            provided,
+                            candidate.members(),
+                            candidate.scope());
             dependencies.addAll(rewrittenDependencies);
             policies.addAll(candidate.policies());
             for (String member : candidate.members()) {
@@ -318,31 +333,4 @@ final class WorkspaceExternalPackageSelector {
             List<String> policies) {
     }
 
-    private static List<String> rewriteDependencies(
-            List<String> dependencies,
-            Map<PackageVariantKey, String> selectedVersionByVariant) {
-        return dependencies.stream()
-                .map(dependency -> rewriteDependency(dependency, selectedVersionByVariant))
-                .sorted()
-                .toList();
-    }
-
-    /** Rewrites an edge within its variant lane while preserving its qualifier and tolerant parsing. */
-    private static String rewriteDependency(
-            String dependency, Map<PackageVariantKey, String> selectedVersionByVariant) {
-        Optional<LockDependencyEdge> parsed = LockDependencyEdge.parse(dependency);
-        if (parsed.isEmpty()) {
-            return dependency;
-        }
-        LockDependencyEdge edge = parsed.orElseThrow();
-        String selectedVersion = selectedVersionByVariant.get(new PackageVariantKey(edge.packageId(), edge.variant()));
-        if (selectedVersion == null) {
-            return dependency;
-        }
-        return edge.scope()
-                .map(scope -> LockDependencyEdge.encode(
-                        edge.packageId(), selectedVersion, edge.variant(), scope))
-                .orElseGet(() -> LockDependencyEdge.encode(
-                        edge.packageId(), selectedVersion, edge.variant()));
-    }
 }

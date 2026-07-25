@@ -11,6 +11,7 @@ import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
 import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -23,7 +24,7 @@ final class WorkspaceOptionalPackageClosure {
             ProjectConfig config,
             ZoltLockfile lockfile) {
         LockDependencyIndex index = new LockDependencyIndex(lockfile.packages());
-        ArrayDeque<LockPackage> queue = new ArrayDeque<>();
+        Set<WorkspaceOptionalPackage> optionalRoots = new LinkedHashSet<>();
         for (DependencyMetadata metadata : config.dependencyMetadata().values()) {
             if (!metadata.optional() || metadata.workspace() != null) {
                 continue;
@@ -38,28 +39,54 @@ final class WorkspaceOptionalPackageClosure {
                     .filter(lockPackage -> LockArtifactVariant.of(lockPackage).equals(variant))
                     .filter(lockPackage -> lockPackage.scope() == scope)
                     .findFirst()
+                    .map(WorkspaceOptionalPackageClosure::identity)
+                    .ifPresent(optionalRoots::add);
+        }
+        Set<WorkspaceOptionalPackage> requiredRoots = new LinkedHashSet<>();
+        lockfile.packages().stream()
+                .filter(LockPackage::direct)
+                .map(WorkspaceOptionalPackageClosure::identity)
+                .filter(identity -> !optionalRoots.contains(identity))
+                .forEach(requiredRoots::add);
+
+        Set<WorkspaceOptionalPackage> optional =
+                closure(optionalRoots, lockfile.packages(), index);
+        optional.removeAll(closure(requiredRoots, lockfile.packages(), index));
+        return Set.copyOf(optional);
+    }
+
+    private static Set<WorkspaceOptionalPackage> closure(
+            Set<WorkspaceOptionalPackage> roots,
+            List<LockPackage> packages,
+            LockDependencyIndex index) {
+        ArrayDeque<LockPackage> queue = new ArrayDeque<>();
+        for (WorkspaceOptionalPackage root : roots) {
+            packages.stream()
+                    .filter(lockPackage -> identity(lockPackage).equals(root))
+                    .findFirst()
                     .ifPresent(queue::addLast);
         }
-        Set<WorkspaceOptionalPackage> optional = new LinkedHashSet<>();
+        Set<WorkspaceOptionalPackage> reached = new LinkedHashSet<>();
         while (!queue.isEmpty()) {
             LockPackage current = queue.removeFirst();
-            WorkspaceOptionalPackage identity = new WorkspaceOptionalPackage(
-                    current.packageId(),
-                    LockArtifactVariant.of(current),
-                    current.scope());
-            if (!optional.add(identity)) {
+            WorkspaceOptionalPackage identity = identity(current);
+            if (!reached.add(identity)) {
                 continue;
             }
             for (String dependency : current.dependencies()) {
                 index.resolveGraphEdge(dependency, "zolt resolve --workspace")
-                        .filter(candidate -> !optional.contains(new WorkspaceOptionalPackage(
-                                candidate.packageId(),
-                                LockArtifactVariant.of(candidate),
-                                candidate.scope())))
+                        .filter(candidate -> !reached.contains(identity(candidate)))
                         .ifPresent(queue::addLast);
             }
         }
-        return Set.copyOf(optional);
+        return reached;
+    }
+
+    private static WorkspaceOptionalPackage identity(LockPackage lockPackage) {
+        return new WorkspaceOptionalPackage(
+                lockPackage.packageId(),
+                LockArtifactVariant.of(lockPackage),
+                lockPackage.scope());
     }
 
     private static DependencyScope scope(String section) {

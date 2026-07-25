@@ -31,7 +31,7 @@ final class WorkspaceShadowGraphPruner {
         }
         ArrayDeque<LockPackage> queue = new ArrayDeque<>();
         packages.stream()
-                .filter(lockPackage -> !provided.shadows(lockPackage))
+                .filter(lockPackage -> !provided.shadows(output.member(), lockPackage))
                 .filter(lockPackage -> lockPackage.direct()
                         || !referenced.contains(
                                 LockDependencyEdge.of(lockPackage).encode()))
@@ -44,10 +44,15 @@ final class WorkspaceShadowGraphPruner {
             if (!visited.add(ref)) {
                 continue;
             }
-            reached.put(ref, withRewrittenWorkspaceEdges(current, provided));
+            reached.put(ref, withRewrittenWorkspaceEdges(current, output.member(), provided));
             for (String dependency : current.dependencies()) {
                 LockDependencyEdge.parse(dependency)
-                        .filter(edge -> provided.provided(edge.packageId()).isPresent()
+                        .filter(edge -> provided
+                                        .provided(
+                                                output.member(),
+                                                edge.packageId(),
+                                                edge.scope().orElse(current.scope()))
+                                        .isPresent()
                                 && edge.variant().isDefault())
                         .ifPresentOrElse(
                                 ignored -> {
@@ -57,7 +62,7 @@ final class WorkspaceShadowGraphPruner {
                                 () -> index.resolveGraphEdge(
                                                 dependency,
                                                 "zolt resolve --workspace")
-                                        .filter(candidate -> !provided.shadows(candidate))
+                                        .filter(candidate -> !provided.shadows(output.member(), candidate))
                                         .filter(candidate -> !visited.contains(
                                                 LockDependencyEdge.of(candidate).encode()))
                                         .ifPresent(queue::addLast));
@@ -68,9 +73,10 @@ final class WorkspaceShadowGraphPruner {
 
     private static LockPackage withRewrittenWorkspaceEdges(
             LockPackage lockPackage,
+            String consumer,
             WorkspaceProvidedArtifactMediator provided) {
         List<String> dependencies = lockPackage.dependencies().stream()
-                .map(dependency -> rewrite(dependency, provided))
+                .map(dependency -> rewrite(dependency, consumer, lockPackage.scope(), provided))
                 .sorted()
                 .toList();
         if (dependencies.equals(lockPackage.dependencies())) {
@@ -100,10 +106,16 @@ final class WorkspaceShadowGraphPruner {
 
     private static String rewrite(
             String dependency,
+            String consumer,
+            sh.zolt.dependency.DependencyScope parentScope,
             WorkspaceProvidedArtifactMediator provided) {
         return LockDependencyEdge.parse(dependency)
                 .filter(edge -> edge.variant().isDefault())
-                .flatMap(edge -> provided.provided(edge.packageId())
+                .flatMap(edge -> provided
+                        .provided(
+                                consumer,
+                                edge.packageId(),
+                                edge.scope().orElse(parentScope))
                         .map(target -> edge.scope()
                                 .map(scope -> LockDependencyEdge.encode(
                                         edge.packageId(),

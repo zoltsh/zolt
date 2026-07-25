@@ -1,6 +1,7 @@
 package sh.zolt.sbom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
@@ -224,6 +225,86 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
                 dependsOn(model, "pkg:maven/com.example/worker@1.0.0?type=jar"));
         assertEquals(List.of(), dependsOn(model, coreContext));
         assertEquals(List.of(leafRef), dependsOn(model, workerContext));
+    }
+
+    @Test
+    void includesTypedArtifactsAlongsideThePlainJarWithExactHashAndGraph() {
+        List<SbomWorkspaceMember> members =
+                List.of(member("modules/core", "com.example", "core", "1.0.0"));
+        LockPackage leaf = externalWithMembers(
+                "org.ext",
+                "leaf",
+                "1.0.0",
+                DependencyScope.COMPILE,
+                SHA_C,
+                List.of(),
+                List.of("modules/core"));
+        LockPackage plain = externalWithMembers(
+                "org.ext",
+                "native",
+                "1.0.0",
+                DependencyScope.COMPILE,
+                SHA_B,
+                List.of(),
+                List.of("modules/core"));
+        String base = "org/ext/native/1.0.0/native-1.0.0";
+        LockPackage typed = new LockPackage(
+                new PackageId("org.ext", "native"),
+                "1.0.0",
+                "maven-central",
+                DependencyScope.COMPILE,
+                false,
+                Optional.empty(),
+                Optional.of(base + ".pom"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(base + "-bundle.zip"),
+                Optional.of("zip"),
+                Optional.of(SHA_A),
+                Optional.empty(),
+                Optional.empty(),
+                List.of("org.ext:leaf:1.0.0:jar:compile"),
+                List.of("modules/core"),
+                List.of(),
+                List.of(),
+                List.of());
+        ZoltLockfile lockfile =
+                lockfile(Optional.of("sha256:typed-workspace"), plain, typed, leaf);
+
+        SbomModel model = assembler.assemble(
+                "typed-workspace",
+                members,
+                lockfile,
+                SbomScopeSelection.requiredOnly(),
+                Optional.empty(),
+                TOOL_VERSION,
+                LicenseIndex.empty());
+
+        String jarRef = "pkg:maven/org.ext/native@1.0.0?type=jar";
+        String zipRef = "pkg:maven/org.ext/native@1.0.0?classifier=bundle&type=zip";
+        assertTrue(model.components().stream().anyMatch(component ->
+                component.bomRef().equals(jarRef)
+                        && component.hashes().equals(List.of(new SbomHash("SHA-256", SHA_B)))));
+        assertTrue(model.components().stream().anyMatch(component ->
+                component.bomRef().equals(zipRef)
+                        && component.hashes().equals(List.of(new SbomHash("SHA-256", SHA_A)))));
+        assertEquals(
+                List.of("pkg:maven/org.ext/leaf@1.0.0?type=jar"),
+                dependsOn(model, zipRef));
+        assertEquals(
+                List.of(
+                        "pkg:maven/org.ext/leaf@1.0.0?type=jar",
+                        zipRef,
+                        jarRef),
+                dependsOn(model, "pkg:maven/com.example/core@1.0.0?type=jar"));
+        assertEquals(writer.write(model), writer.write(assembler.assemble(
+                "typed-workspace",
+                members,
+                lockfile,
+                SbomScopeSelection.requiredOnly(),
+                Optional.empty(),
+                TOOL_VERSION,
+                LicenseIndex.empty())));
     }
 
     private static LockPackage workspacePackage(

@@ -20,6 +20,51 @@ import org.junit.jupiter.api.Test;
 
 final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServiceTestSupport {
     @Test
+    void requiredPathWinsWhenATransitiveIsAlsoReachableThroughAnOptionalRoot() throws IOException {
+        addArtifact("com.example", "shared", "1.0.0", pom("com.example", "shared", "1.0.0"));
+        addArtifact(
+                "com.example",
+                "optional-root",
+                "1.0.0",
+                dependencyPom("optional-root", "shared"));
+        addArtifact(
+                "com.example",
+                "required-root",
+                "1.0.0",
+                dependencyPom("required-root", "shared"));
+        workspace("""
+                [workspace]
+                name = "optional-required-reachability"
+                members = ["modules/core", "apps/app"]
+
+                [repositories]
+                test = "%s"
+                """.formatted(baseUri));
+        member("modules/core", "core", """
+
+                [api.dependencies]
+                "com.example:optional-root" = { version = "1.0.0", optional = true }
+                "com.example:required-root" = "1.0.0"
+                """);
+        member("apps/app", "app", """
+
+                [dependencies]
+                "com.acme:core" = { workspace = "modules/core" }
+                """);
+
+        Path cache = tempDir.resolve("cache");
+        service.resolve(tempDir, cache, false, false);
+        ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
+        Workspace workspace = new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        var app = new WorkspaceClasspathService()
+                .classpathsFor(workspace, lockfile, cache, "apps/app");
+
+        assertAbsent(app.compile(), "optional-root");
+        assertContains(app.compile(), "required-root-1.0.0.jar");
+        assertContains(app.compile(), "shared-1.0.0.jar");
+    }
+
+    @Test
     void optionalDependenciesStayLocalButRemainPublishedAsOptional() throws IOException {
         addArtifact("com.example", "optional-api", "1.0.0", pom("com.example", "optional-api", "1.0.0"));
         addArtifact("com.example", "optional-impl", "1.0.0", pom("com.example", "optional-impl", "1.0.0"));
@@ -134,5 +179,24 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
             offset += needle.length();
         }
         return count;
+    }
+
+    private static String dependencyPom(
+            String artifact,
+            String dependency) {
+        return """
+                <project>
+                  <groupId>com.example</groupId>
+                  <artifactId>%s</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.example</groupId>
+                      <artifactId>%s</artifactId>
+                      <version>1.0.0</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """.formatted(artifact, dependency);
     }
 }

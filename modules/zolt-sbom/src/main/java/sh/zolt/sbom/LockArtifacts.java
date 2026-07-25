@@ -31,6 +31,10 @@ final class LockArtifacts {
                 .map(value -> new SbomHash("SHA-256", value));
     }
 
+    static boolean materialized(LockPackage lockPackage) {
+        return lockPackage.jar().isPresent() || lockPackage.artifact().isPresent();
+    }
+
     static String extension(LockPackage lockPackage) {
         if (lockPackage.artifactType().isPresent()) {
             return lockPackage.artifactType().orElseThrow();

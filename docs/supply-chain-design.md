@@ -9,6 +9,11 @@ Status: decided 2026-07-22. Implementation contract for `zolt sbom`,
 carries `dependencies = ["g:a:v", ...]` written by
 `LockfileAssembler.dependenciesFor` from the resolve graph, and `zolt tree` /
 `zolt why` already reconstruct the full graph offline from exactly this field
+as component-graph views. They intentionally flatten path-specific exclusion
+contexts: an edge shown for a component says that the component has that
+relationship in at least one locked path, not that every path to the component
+has the relationship. Member-qualified graph contexts remain available to
+workspace SBOM and classpath consumers that require path-sensitive projection.
 (defensive lookup, cycle-guarded). Therefore the SBOM graph is a READ of the
 lock — no re-resolution (rejected: needs warm cache/network, drags zolt-resolve
 in, re-derives persisted data) and no lock schema change (rejected: a parallel

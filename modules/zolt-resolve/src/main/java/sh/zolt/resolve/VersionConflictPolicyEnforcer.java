@@ -42,11 +42,15 @@ final class VersionConflictPolicyEnforcer {
             return;
         }
         List<String> conflicts = selection.conflicts().stream()
+                .filter(VersionConflict::active)
                 .sorted(Comparator
                         .comparing((VersionConflict conflict) -> conflict.packageId().toString())
                         .thenComparing(conflict -> conflict.variant().key()))
                 .map(VersionConflictPolicyEnforcer::conflictDescription)
                 .toList();
+        if (conflicts.isEmpty()) {
+            return;
+        }
         throw ResolveException.actionable(message(toolName), remediation(toolName, retryCommand, conflicts));
     }
 
@@ -100,6 +104,7 @@ final class VersionConflictPolicyEnforcer {
         return switch (reason) {
             case DIRECT_DEPENDENCY -> "direct dependency wins";
             case NEWEST_VERSION -> "newest version wins";
+            case SELECTED_GRAPH -> "selected materialized graph wins";
         };
     }
 }

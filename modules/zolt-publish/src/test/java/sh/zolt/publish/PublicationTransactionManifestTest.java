@@ -155,6 +155,33 @@ final class PublicationTransactionManifestTest {
                 .requirePlan(staged());
     }
 
+    @Test
+    void lateCleanupFailureDoesNotClaimAnAlreadyDeletedManifestWasRetained() {
+        Path manifest = PublicationTransactionManifest.transactionPath(
+                tempDir.resolve("staging"),
+                "https://repo.example/releases",
+                "com.acme:demo:1.0.0");
+        PublicationTransactionManifest.of(
+                        "https://repo.example/releases",
+                        "unsigned",
+                        staged())
+                .write(manifest);
+
+        java.util.Optional<String> warning =
+                PublicationTransactionManifest.deleteTransaction(
+                        manifest,
+                        path -> {
+                            if (path.getFileName().toString().contains(".completed-")) {
+                                throw new java.io.IOException("injected final directory failure");
+                            }
+                            Files.deleteIfExists(path);
+                        });
+
+        assertTrue(warning.isPresent());
+        assertTrue(warning.orElseThrow().contains("manifest was already removed"));
+        assertFalse(warning.orElseThrow().contains("retained manifest can be used"));
+    }
+
     private static List<StagedPublicationFile> staged() {
         return List.of(
                 new StagedPublicationFile(

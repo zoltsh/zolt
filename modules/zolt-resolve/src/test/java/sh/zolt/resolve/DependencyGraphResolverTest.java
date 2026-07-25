@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.maven.repository.EffectiveRawPom;
 import sh.zolt.maven.repository.RawPom;
@@ -80,6 +81,50 @@ final class DependencyGraphResolverTest {
         assertSelectedVersionMaterialized(
                 DependencyScope.TEST,
                 DependencyScope.COMPILE);
+    }
+
+    @Test
+    void discardedParentGraphCannotResurrectItsNewerChildRequest() {
+        Map<String, EffectiveRawPom> poms = new HashMap<>();
+        poms.put("com.example:driver:1.0.0", pom("com.example", "driver", "1.0.0", List.of()));
+        poms.put("com.example:driver:3.0.0", pom("com.example", "driver", "3.0.0", List.of()));
+        poms.put(
+                "com.example:engine:1.0.0",
+                pom("com.example", "engine", "1.0.0", List.of(dependency("com.example", "driver", "3.0.0"))));
+        poms.put(
+                "com.example:engine:2.0.0",
+                pom("com.example", "engine", "2.0.0", List.of(dependency("com.example", "driver", "1.0.0"))));
+        poms.put(
+                "com.example:root-a:1.0.0",
+                pom("com.example", "root-a", "1.0.0", List.of(dependency("com.example", "engine", "1.0.0"))));
+        poms.put(
+                "com.example:root-b:1.0.0",
+                pom("com.example", "root-b", "1.0.0", List.of(dependency("com.example", "engine", "2.0.0"))));
+
+        for (List<DependencyRequest> requests : List.of(
+                List.of(
+                        direct("root-a", "1.0.0", DependencyScope.COMPILE),
+                        direct("root-b", "1.0.0", DependencyScope.COMPILE)),
+                List.of(
+                        direct("root-b", "1.0.0", DependencyScope.COMPILE),
+                        direct("root-a", "1.0.0", DependencyScope.COMPILE)))) {
+            DependencyGraphResolution result = resolver.resolve(
+                    coordinate -> poms.get(coordinate.toString()),
+                    DependencyPolicySettings.defaults(),
+                    Map.of(),
+                    requests,
+                    new TrackingMetrics());
+
+            assertTrue(result.selection().selectedNodes().contains(
+                    new PackageNode(new PackageId("com.example", "driver"), "1.0.0")));
+            var driverConflict = result.selection().conflicts().stream()
+                    .filter(conflict -> conflict.packageId().equals(
+                            new PackageId("com.example", "driver")))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(ConflictSelectionReason.SELECTED_GRAPH, driverConflict.selectionReason());
+            assertFalse(driverConflict.active());
+        }
     }
 
     private void assertSelectedVersionMaterialized(

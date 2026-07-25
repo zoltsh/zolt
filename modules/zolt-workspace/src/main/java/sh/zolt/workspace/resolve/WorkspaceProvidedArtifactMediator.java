@@ -6,6 +6,7 @@ import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.resolve.ResolutionVariant;
+import sh.zolt.project.PackageMode;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.util.ArrayList;
@@ -18,18 +19,23 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The authoritative plain-jar artifacts supplied by workspace members.
+ * The authoritative plain-jar artifacts supplied by explicit workspace dependency visibility.
  *
- * <p>Scope is deliberately absent from this identity: Maven scope controls graph propagation, not
- * artifact identity. A member output therefore shadows an external plain jar of the same GA in every
- * scope, while classified and typed attachments remain separate variant lanes.
+ * <p>Merely listing a member does not replace a released artifact of the same GA. A consumer shadows
+ * an external plain jar only when the provider is in that consumer's explicit, scope-correct workspace
+ * dependency closure. Classified and typed attachments remain separate variant lanes, and member modes
+ * that do not supply a plain jar (BOM and WAR) are not providers.
  */
 final class WorkspaceProvidedArtifactMediator {
     private final Map<PackageId, ProvidedArtifact> provided;
+    private final Map<VisibilityKey, Set<String>> visibleMembers;
 
     WorkspaceProvidedArtifactMediator(Workspace workspace) {
         Map<PackageId, ProvidedArtifact> values = new LinkedHashMap<>();
         for (WorkspaceMember member : workspace.members()) {
+            if (!suppliesPlainJar(member)) {
+                continue;
+            }
             PackageId packageId = new PackageId(
                     member.config().project().group(),
                     member.config().project().name());
@@ -39,16 +45,31 @@ final class WorkspaceProvidedArtifactMediator {
                     member.config().project().version()));
         }
         provided = Map.copyOf(values);
+        visibleMembers = visibility(workspace);
     }
 
-    boolean shadows(LockPackage lockPackage) {
+    boolean shadows(String consumer, LockPackage lockPackage) {
         return lockPackage.workspace().isEmpty()
                 && LockArtifactVariant.of(lockPackage).isDefault()
-                && provided.containsKey(lockPackage.packageId());
+                && provided(consumer, lockPackage.packageId(), lockPackage.scope()).isPresent();
     }
 
     Optional<ProvidedArtifact> provided(PackageId packageId) {
         return Optional.ofNullable(provided.get(packageId));
+    }
+
+    Optional<ProvidedArtifact> provided(
+            String consumer,
+            PackageId packageId,
+            DependencyScope scope) {
+        ProvidedArtifact artifact = provided.get(packageId);
+        if (artifact == null
+                || !visibleMembers
+                        .getOrDefault(new VisibilityKey(consumer, scope), Set.of())
+                        .contains(artifact.member())) {
+            return Optional.empty();
+        }
+        return Optional.of(artifact);
     }
 
     Map<ResolutionVariant, String> selectedVersions() {
@@ -68,11 +89,124 @@ final class WorkspaceProvidedArtifactMediator {
         List<LockPackage> candidates = new ArrayList<>();
         for (WorkspaceMemberResolveOutput output : outputs) {
             output.lockfile().packages().stream()
-                    .filter(this::shadows)
+                    .filter(lockPackage -> shadows(output.member(), lockPackage))
                     .map(lockPackage -> withMember(lockPackage, output.member()))
                     .forEach(candidates::add);
         }
         return List.copyOf(candidates);
+    }
+
+    private static boolean suppliesPlainJar(WorkspaceMember member) {
+        PackageMode mode = member.config().packageSettings().mode();
+        return mode == PackageMode.THIN
+                || mode == PackageMode.SPRING_BOOT
+                || mode == PackageMode.QUARKUS
+                || mode == PackageMode.UBER;
+    }
+
+    private static Map<VisibilityKey, Set<String>> visibility(Workspace workspace) {
+        Map<String, List<sh.zolt.workspace.service.WorkspaceProjectEdge>> edges = new LinkedHashMap<>();
+        workspace.members().forEach(member -> edges.put(member.path(), new ArrayList<>()));
+        workspace.edges().forEach(edge ->
+                edges.computeIfAbsent(edge.from(), ignored -> new ArrayList<>()).add(edge));
+        Map<VisibilityKey, Set<String>> visibility = new LinkedHashMap<>();
+        for (WorkspaceMember member : workspace.members()) {
+            String consumer = member.path();
+            Set<String> compile = new LinkedHashSet<>();
+            direct(edges, consumer, "compile").forEach(edge -> {
+                if (compile.add(edge.to())) {
+                    includeExported(edges, edge.to(), compile);
+                }
+            });
+            putVisibility(visibility, consumer, DependencyScope.COMPILE, compile);
+            putVisibility(visibility, consumer, DependencyScope.PROVIDED, compile);
+
+            Set<String> runtime = new LinkedHashSet<>();
+            direct(edges, consumer, "compile").forEach(edge -> {
+                if (runtime.add(edge.to())) {
+                    includeCompileClosure(edges, edge.to(), runtime);
+                }
+            });
+            putVisibility(visibility, consumer, DependencyScope.RUNTIME, runtime);
+            putVisibility(visibility, consumer, DependencyScope.DEV, runtime);
+
+            Set<String> test = new LinkedHashSet<>(runtime);
+            direct(edges, consumer, "test").forEach(edge -> {
+                if (test.add(edge.to())) {
+                    includeCompileClosure(edges, edge.to(), test);
+                }
+            });
+            putVisibility(visibility, consumer, DependencyScope.TEST, test);
+
+            putVisibility(
+                    visibility,
+                    consumer,
+                    DependencyScope.PROCESSOR,
+                    processorVisibility(edges, consumer, "processor"));
+            putVisibility(
+                    visibility,
+                    consumer,
+                    DependencyScope.TEST_PROCESSOR,
+                    processorVisibility(edges, consumer, "test-processor"));
+        }
+        return Map.copyOf(visibility);
+    }
+
+    private static Set<String> processorVisibility(
+            Map<String, List<sh.zolt.workspace.service.WorkspaceProjectEdge>> edges,
+            String consumer,
+            String scope) {
+        Set<String> visible = new LinkedHashSet<>();
+        direct(edges, consumer, scope).forEach(edge -> {
+            if (visible.add(edge.to())) {
+                includeCompileClosure(edges, edge.to(), visible);
+            }
+        });
+        return visible;
+    }
+
+    private static List<sh.zolt.workspace.service.WorkspaceProjectEdge> direct(
+            Map<String, List<sh.zolt.workspace.service.WorkspaceProjectEdge>> edges,
+            String member,
+            String scope) {
+        return edges.getOrDefault(member, List.of()).stream()
+                .filter(edge -> edge.scope().equals(scope))
+                .toList();
+    }
+
+    private static void includeExported(
+            Map<String, List<sh.zolt.workspace.service.WorkspaceProjectEdge>> edges,
+            String member,
+            Set<String> visible) {
+        direct(edges, member, "compile").stream()
+                .filter(sh.zolt.workspace.service.WorkspaceProjectEdge::exported)
+                .filter(edge -> !edge.optional())
+                .forEach(edge -> {
+                    if (visible.add(edge.to())) {
+                        includeExported(edges, edge.to(), visible);
+                    }
+                });
+    }
+
+    private static void includeCompileClosure(
+            Map<String, List<sh.zolt.workspace.service.WorkspaceProjectEdge>> edges,
+            String member,
+            Set<String> visible) {
+        direct(edges, member, "compile").stream()
+                .filter(edge -> !edge.optional())
+                .forEach(edge -> {
+                    if (visible.add(edge.to())) {
+                        includeCompileClosure(edges, edge.to(), visible);
+                    }
+                });
+    }
+
+    private static void putVisibility(
+            Map<VisibilityKey, Set<String>> visibility,
+            String member,
+            DependencyScope scope,
+            Set<String> values) {
+        visibility.put(new VisibilityKey(member, scope), Set.copyOf(values));
     }
 
     List<LockPackage> policyCandidates(
@@ -161,5 +295,8 @@ final class WorkspaceProvidedArtifactMediator {
     private record ProvidedScope(
             ProvidedArtifact provided,
             DependencyScope scope) {
+    }
+
+    private record VisibilityKey(String member, DependencyScope scope) {
     }
 }

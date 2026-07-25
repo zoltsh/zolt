@@ -116,4 +116,23 @@ final class DependencyConflictFormatterTest {
         assertTrue(output.contains("variant: jar|tests"));
         assertTrue(output.contains("variant: zip"));
     }
+
+    @Test
+    void rendersWorkspaceMemberAttributionDeterministically() {
+        LockConflict conflict = new LockConflict(
+                new PackageId("com.example", "shared"),
+                "2.0.0",
+                List.of("1.0.0", "2.0.0"),
+                ConflictSelectionReason.NEWEST_VERSION,
+                Optional.empty(),
+                Optional.empty(),
+                List.of("modules/zeta", "apps/alpha"));
+
+        String output = formatter.format(new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                List.of(),
+                List.of(conflict)));
+
+        assertTrue(output.contains("  members: apps/alpha, modules/zeta\n"));
+    }
 }

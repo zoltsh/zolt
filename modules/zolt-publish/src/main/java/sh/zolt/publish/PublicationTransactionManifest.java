@@ -197,10 +197,16 @@ record PublicationTransactionManifest(
             return Optional.empty();
         } catch (IOException exception) {
             Path retained = Files.exists(completed) ? completed : transaction;
+            Path retainedManifest = retained.resolve(manifest.getFileName());
+            String evidence = Files.isRegularFile(retainedManifest)
+                    ? " The retained manifest can be used to verify the exact remote release."
+                    : " The manifest was already removed; only local cleanup remnants may remain.";
             return Optional.of(
                     "Publication completed, but local transaction cleanup failed at "
                             + retained
-                            + ". The retained manifest can be used to verify the exact remote release. Cause: "
+                            + "."
+                            + evidence
+                            + " Cause: "
                             + exception.getMessage());
         }
     }

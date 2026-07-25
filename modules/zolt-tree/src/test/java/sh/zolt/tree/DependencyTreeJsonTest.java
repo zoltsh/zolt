@@ -104,7 +104,8 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
                         ConflictSelectionReason.NEWEST_VERSION,
                         Optional.empty(),
                         Optional.of(new sh.zolt.lockfile.LockArtifactVariant(
-                                "jar", Optional.of("linux-x86_64"))))));
+                                "jar", Optional.of("linux-x86_64"))),
+                        List.of("modules/core", "apps/api"))));
 
         String output = jsonFormatter.tree(config(), lockfile);
 
@@ -117,5 +118,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
                                 -1)
                         .length
                         - 1);
+        org.junit.jupiter.api.Assertions.assertTrue(
+                output.contains("\"members\": [\"apps/api\", \"modules/core\"]"));
     }
 }

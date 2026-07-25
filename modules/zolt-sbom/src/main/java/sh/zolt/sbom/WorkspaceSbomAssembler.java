@@ -55,7 +55,7 @@ public final class WorkspaceSbomAssembler {
                         lockfile, selection, memberGraphs);
         Map<String, ExternalAccumulator> externals = new LinkedHashMap<>();
         for (LockPackage lockPackage : lockfile.packages()) {
-            if (lockPackage.workspace().isPresent() || lockPackage.jar().isEmpty()) {
+            if (lockPackage.workspace().isPresent() || !LockArtifacts.materialized(lockPackage)) {
                 continue;
             }
             SbomScopeGroup group = SbomScopeGroup.of(lockPackage.scope());

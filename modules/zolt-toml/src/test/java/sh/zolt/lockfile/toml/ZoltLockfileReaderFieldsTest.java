@@ -46,6 +46,21 @@ final class ZoltLockfileReaderFieldsTest {
     }
 
     @Test
+    void readsDiscardedGraphConflictProvenance() {
+        LockConflict conflict = reader.read("""
+                version = 5
+
+                [[conflict]]
+                id = "com.example:driver"
+                selected = "1.0.0"
+                requested = ["1.0.0", "3.0.0"]
+                reason = "selected materialized graph wins"
+                """).conflicts().getFirst();
+
+        assertEquals(ConflictSelectionReason.SELECTED_GRAPH, conflict.reason());
+    }
+
+    @Test
     void readsPolicyEffects() {
         ZoltLockfile lockfile = reader.read("""
                 version = 1

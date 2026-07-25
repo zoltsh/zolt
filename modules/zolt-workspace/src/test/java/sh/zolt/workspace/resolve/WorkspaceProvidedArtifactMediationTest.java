@@ -13,6 +13,9 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
+import sh.zolt.workspace.publish.WorkspaceMemberPomLockProjection;
+import sh.zolt.workspace.service.WorkspaceClasspathService;
+import sh.zolt.publish.PublishPomGenerator;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -108,6 +111,91 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
 
         assertTrue(exception.getMessage().contains("strict constraint"));
         assertTrue(exception.getMessage().contains("0.1.0"));
+    }
+
+    @Test
+    void substitutionIsExplicitAndCanCoexistWithAReleasedSiblingVersion() throws IOException {
+        addArtifact("com.acme", "core", "2.8.7", pom("com.acme", "core", "2.8.7"));
+        workspace("""
+                [workspace]
+                name = "explicit-substitution"
+                members = ["modules/core", "apps/app", "apps/worker"]
+
+                [repositories]
+                test = "%s"
+                """.formatted(baseUri));
+        member("modules/core", "core", "");
+        member("apps/app", "app", """
+
+                [dependencies]
+                "com.acme:core" = { workspace = "modules/core" }
+                """);
+        member("apps/worker", "worker", """
+
+                [dependencies]
+                "com.acme:core" = "2.8.7"
+                """);
+
+        var cache = tempDir.resolve("cache");
+        service.resolve(tempDir, cache, false, false);
+
+        ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
+        List<LockPackage> corePackages = lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(CORE))
+                .toList();
+        assertEquals(2, corePackages.size());
+        assertTrue(corePackages.stream().anyMatch(lockPackage ->
+                lockPackage.workspace().equals(java.util.Optional.of("modules/core"))
+                        && lockPackage.version().equals("0.1.0")
+                        && lockPackage.members().equals(List.of("apps/app"))));
+        assertTrue(corePackages.stream().anyMatch(lockPackage ->
+                lockPackage.workspace().isEmpty()
+                        && lockPackage.version().equals("2.8.7")
+                        && lockPackage.members().equals(List.of("apps/worker"))));
+
+        var workspace = new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        WorkspaceClasspathService classpaths = new WorkspaceClasspathService();
+        assertTrue(classpaths.classpathsFor(workspace, lockfile, cache, "apps/app")
+                .compile()
+                .entries()
+                .stream()
+                .anyMatch(path -> path.toString().contains("modules/core/target/classes")));
+        assertTrue(classpaths.classpathsFor(workspace, lockfile, cache, "apps/worker")
+                .compile()
+                .entries()
+                .stream()
+                .anyMatch(path -> path.toString().contains("core-2.8.7.jar")));
+
+        var app = workspace.members().stream()
+                .filter(member -> member.path().equals("apps/app"))
+                .findFirst()
+                .orElseThrow();
+        var worker = workspace.members().stream()
+                .filter(member -> member.path().equals("apps/worker"))
+                .findFirst()
+                .orElseThrow();
+        String appPom = new PublishPomGenerator().generate(
+                app.config(),
+                new WorkspaceMemberPomLockProjection()
+                        .project(app.path(), app.config(), lockfile));
+        String workerPom = new PublishPomGenerator().generate(
+                worker.config(),
+                new WorkspaceMemberPomLockProjection()
+                        .project(worker.path(), worker.config(), lockfile));
+        assertTrue(appPom.contains("<version>0.1.0</version>"), appPom);
+        assertTrue(workerPom.contains("<version>2.8.7</version>"), workerPom);
+
+        var policyResolver = new WorkspaceMemberPolicyResolver();
+        ZoltLockfile appSbom = new WorkspaceMemberSbomLockProjection().project(
+                app.path(), policyResolver.merge(workspace, app), lockfile, workspace, policyResolver);
+        ZoltLockfile workerSbom = new WorkspaceMemberSbomLockProjection().project(
+                worker.path(), policyResolver.merge(workspace, worker), lockfile, workspace, policyResolver);
+        assertFalse(appSbom.packages().stream().anyMatch(lockPackage ->
+                lockPackage.packageId().equals(CORE)
+                        && lockPackage.version().equals("2.8.7")));
+        assertTrue(workerSbom.packages().stream().anyMatch(lockPackage ->
+                lockPackage.packageId().equals(CORE)
+                        && lockPackage.version().equals("2.8.7")));
     }
 
     private void addShadowFixture(

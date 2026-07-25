@@ -11,7 +11,8 @@ public record VersionConflict(
         LockArtifactVariant variant,
         List<DependencyRequest> requests,
         String selectedVersion,
-        ConflictSelectionReason selectionReason) {
+        ConflictSelectionReason selectionReason,
+        boolean active) {
     public VersionConflict {
         variant = variant == null ? LockArtifactVariant.defaultVariant() : variant;
         requests = List.copyOf(requests);
@@ -19,9 +20,18 @@ public record VersionConflict(
 
     public VersionConflict(
             PackageId packageId,
+            LockArtifactVariant variant,
             List<DependencyRequest> requests,
             String selectedVersion,
             ConflictSelectionReason selectionReason) {
-        this(packageId, LockArtifactVariant.defaultVariant(), requests, selectedVersion, selectionReason);
+        this(packageId, variant, requests, selectedVersion, selectionReason, true);
+    }
+
+    public VersionConflict(
+            PackageId packageId,
+            List<DependencyRequest> requests,
+            String selectedVersion,
+            ConflictSelectionReason selectionReason) {
+        this(packageId, LockArtifactVariant.defaultVariant(), requests, selectedVersion, selectionReason, true);
     }
 }

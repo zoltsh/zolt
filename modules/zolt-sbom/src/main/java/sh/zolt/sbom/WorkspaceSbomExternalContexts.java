@@ -47,7 +47,7 @@ final class WorkspaceSbomExternalContexts {
             LockPackage lockPackage,
             SbomScopeSelection selection) {
         return lockPackage.workspace().isEmpty()
-                && lockPackage.jar().isPresent()
+                && LockArtifacts.materialized(lockPackage)
                 && selection.includes(
                         SbomScopeGroup.of(lockPackage.scope()));
     }

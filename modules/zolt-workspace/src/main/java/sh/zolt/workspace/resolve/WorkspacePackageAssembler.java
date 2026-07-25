@@ -78,6 +78,9 @@ final class WorkspacePackageAssembler {
         Map<WorkspaceCoordinateScope, WorkspacePackageFacts> facts =
                 new LinkedHashMap<>();
         for (WorkspaceProjectEdge edge : workspace.edges()) {
+            if (provided.provided(packageId(edge.coordinate())).isEmpty()) {
+                continue;
+            }
             WorkspaceMember target = membersByPath.get(edge.to());
             WorkspaceCoordinateScope key = new WorkspaceCoordinateScope(
                     packageId(edge.coordinate()),
@@ -93,7 +96,7 @@ final class WorkspacePackageAssembler {
         }
         for (WorkspaceMemberResolveOutput output : memberOutputs) {
             for (LockPackage lockPackage : output.lockfile().packages()) {
-                if (!provided.shadows(lockPackage)) {
+                if (!provided.shadows(output.member(), lockPackage)) {
                     continue;
                 }
                 WorkspaceProvidedArtifactMediator.ProvidedArtifact target =
@@ -126,7 +129,7 @@ final class WorkspacePackageAssembler {
         }
         return output.lockfile().packages().stream()
                 .filter(LockPackage::direct)
-                .filter(lockPackage -> !provided.shadows(lockPackage))
+                .filter(lockPackage -> !provided.shadows(targetMember, lockPackage))
                 .filter(lockPackage -> !output.optionalPackages().contains(
                         new WorkspaceOptionalPackage(
                                 lockPackage.packageId(),

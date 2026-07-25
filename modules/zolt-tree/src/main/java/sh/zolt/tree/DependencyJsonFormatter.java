@@ -141,9 +141,19 @@ public final class DependencyJsonFormatter {
                 stringField(json, 3, "id", conflict.packageId().toString(), true);
                 conflict.variant().ifPresent(variant ->
                         stringField(json, 3, "variant", variant.key(), true));
+                conflict.toolGroup().ifPresent(tool ->
+                        stringField(json, 3, "tool", tool, true));
                 stringField(json, 3, "selected", conflict.selectedVersion(), true);
                 stringArrayField(json, 3, "requested", conflict.requestedVersions().stream().sorted().toList(), true);
-                stringField(json, 3, "reason", reason(conflict.reason()), false);
+                stringField(json, 3, "reason", reason(conflict.reason()), !conflict.members().isEmpty());
+                if (!conflict.members().isEmpty()) {
+                    stringArrayField(
+                            json,
+                            3,
+                            "members",
+                            conflict.members().stream().sorted().toList(),
+                            false);
+                }
                 indent(json, 2).append("}");
                 if (index + 1 < sorted.size()) {
                     json.append(',');
@@ -284,6 +294,7 @@ public final class DependencyJsonFormatter {
         return switch (reason) {
             case DIRECT_DEPENDENCY -> "direct dependency wins";
             case NEWEST_VERSION -> "newest version wins";
+            case SELECTED_GRAPH -> "selected materialized graph wins";
         };
     }
 

@@ -163,6 +163,7 @@ public final class ZoltLockfileReader {
         return switch (value) {
             case "direct dependency wins" -> ConflictSelectionReason.DIRECT_DEPENDENCY;
             case "newest version wins" -> ConflictSelectionReason.NEWEST_VERSION;
+            case "selected materialized graph wins" -> ConflictSelectionReason.SELECTED_GRAPH;
             default -> throw new LockfileReadException(
                     "Invalid conflict reason `" + value + "` in zolt.lock.");
         };

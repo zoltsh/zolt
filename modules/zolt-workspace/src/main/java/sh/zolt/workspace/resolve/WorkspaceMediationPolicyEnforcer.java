@@ -3,6 +3,7 @@ package sh.zolt.workspace.resolve;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.project.DependencyConstraint;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
@@ -77,6 +78,9 @@ final class WorkspaceMediationPolicyEnforcer {
             String retryCommand) {
         Map<String, List<LockConflict>> conflictsByMember = new LinkedHashMap<>();
         for (LockConflict conflict : conflicts) {
+            if (conflict.reason() == ConflictSelectionReason.SELECTED_GRAPH) {
+                continue;
+            }
             LockArtifactVariant variant =
                     conflict.variant().orElseGet(LockArtifactVariant::defaultVariant);
             Set<String> affectedMembers = new LinkedHashSet<>();

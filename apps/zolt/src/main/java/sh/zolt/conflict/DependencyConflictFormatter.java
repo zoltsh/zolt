@@ -23,6 +23,11 @@ public final class DependencyConflictFormatter {
                     output.append("  variant: ").append(variant.key()).append('\n'));
             // Names the isolated exec-tool closure that mediated this conflict; absent for the main graph.
             conflict.toolGroup().ifPresent(tool -> output.append("  tool: ").append(tool).append('\n'));
+            if (!conflict.members().isEmpty()) {
+                output.append("  members: ")
+                        .append(String.join(", ", conflict.members().stream().sorted().toList()))
+                        .append('\n');
+            }
             output.append("  selected: ")
                     .append(conflict.selectedVersion())
                     .append('\n')
@@ -55,6 +60,7 @@ public final class DependencyConflictFormatter {
         return switch (reason) {
             case DIRECT_DEPENDENCY -> "direct dependency wins";
             case NEWEST_VERSION -> "newest version wins";
+            case SELECTED_GRAPH -> "selected materialized graph wins";
         };
     }
 }

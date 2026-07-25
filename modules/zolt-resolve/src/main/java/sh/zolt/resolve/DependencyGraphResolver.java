@@ -149,6 +149,10 @@ final class DependencyGraphResolver {
             VersionSelectionResult selection,
             Map<ResolutionVariant, VersionConflict> preservedConflicts,
             Map<ResolutionVariant, String> selectedVersions) {
+        Map<ResolutionVariant, VersionConflict> activeConflicts = new LinkedHashMap<>();
+        selection.conflicts().forEach(conflict -> activeConflicts.put(
+                new ResolutionVariant(conflict.packageId(), conflict.variant()),
+                conflict));
         List<sh.zolt.resolve.graph.PackageNode> nodes = selection.selectedNodes().stream()
                 .map(node -> new sh.zolt.resolve.graph.PackageNode(
                         node.packageId(),
@@ -158,15 +162,24 @@ final class DependencyGraphResolver {
                         node.variant()))
                 .toList();
         List<VersionConflict> conflicts = preservedConflicts.values().stream()
-                .map(conflict -> new VersionConflict(
-                        conflict.packageId(),
-                        conflict.variant(),
-                        conflict.requests(),
-                        selectedVersions.getOrDefault(
-                                new ResolutionVariant(
-                                        conflict.packageId(), conflict.variant()),
-                                conflict.selectedVersion()),
-                        conflict.selectionReason()))
+                .map(conflict -> {
+                    ResolutionVariant key =
+                            new ResolutionVariant(conflict.packageId(), conflict.variant());
+                    VersionConflict active = activeConflicts.get(key);
+                    String selectedVersion =
+                            selectedVersions.getOrDefault(key, conflict.selectedVersion());
+                    ConflictSelectionReason reason = active != null
+                                    && selectedVersion.equals(active.selectedVersion())
+                            ? active.selectionReason()
+                            : ConflictSelectionReason.SELECTED_GRAPH;
+                    return new VersionConflict(
+                            conflict.packageId(),
+                            conflict.variant(),
+                            conflict.requests(),
+                            selectedVersion,
+                            reason,
+                            active != null);
+                })
                 .toList();
         return new VersionSelectionResult(nodes, conflicts);
     }
@@ -226,7 +239,8 @@ final class DependencyGraphResolver {
                     node.variant(),
                     variantRequests,
                     selected,
-                    reason));
+                    reason,
+                    true));
         }
     }
 

@@ -180,6 +180,7 @@ public final class DependencyWhyFormatter {
         return switch (reason) {
             case DIRECT_DEPENDENCY -> "direct dependency wins";
             case NEWEST_VERSION -> "newest version wins";
+            case SELECTED_GRAPH -> "selected materialized graph wins";
         };
     }
 

@@ -80,7 +80,7 @@ final class WorkspaceLockfileAggregator {
         WorkspaceExternalSelection globalSelection =
                 new WorkspaceExternalPackageSelector().selectMaterialized(
                         externalCandidates,
-                        provided.selectedVersions());
+                        provided);
         for (LockPackage lockPackage : globalSelection.packages()) {
             String key = packageKey(lockPackage);
             LockPackage existingPackage = packages.get(key);

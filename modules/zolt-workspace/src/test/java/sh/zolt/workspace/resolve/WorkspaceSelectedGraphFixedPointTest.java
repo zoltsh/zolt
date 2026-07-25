@@ -2,6 +2,7 @@ package sh.zolt.workspace.resolve;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
@@ -14,6 +15,50 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class WorkspaceSelectedGraphFixedPointTest extends WorkspaceResolveServiceTestSupport {
+    @Test
+    void workspaceMediationUsesOnlyTheFinalSelectedGraph() throws IOException {
+        addArtifact("com.example", "driver", "1.0.0", pom("com.example", "driver", "1.0.0"));
+        addArtifact("com.example", "driver", "3.0.0", pom("com.example", "driver", "3.0.0"));
+        addArtifact("com.example", "engine", "1.0.0", enginePom("1.0.0", "3.0.0"));
+        addArtifact("com.example", "engine", "2.0.0", enginePom("2.0.0", "1.0.0"));
+        addArtifact("com.example", "root-a", "1.0.0", rootPom("root-a", "1.0.0", false));
+        addArtifact("com.example", "root-b", "1.0.0", rootPom("root-b", "2.0.0", false));
+        workspace("""
+                [workspace]
+                name = "selected-graph-no-resurrection"
+                members = ["apps/a", "apps/b"]
+
+                [repositories]
+                test = "%s"
+                """.formatted(baseUri));
+        member("apps/a", "a", """
+
+                [dependencies]
+                "com.example:root-a" = "1.0.0"
+                """);
+        member("apps/b", "b", """
+
+                [dependencies]
+                "com.example:root-b" = "1.0.0"
+                """);
+
+        service.resolve(tempDir, tempDir.resolve("cache"), false, false);
+
+        ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
+        assertEquals("2.0.0", packageById(lockfile, "engine").version());
+        assertEquals("1.0.0", packageById(lockfile, "driver").version());
+        var driverConflict = lockfile.conflicts().stream()
+                .filter(conflict -> conflict.packageId().equals(
+                        new PackageId("com.example", "driver")))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                sh.zolt.dependency.ConflictSelectionReason.SELECTED_GRAPH,
+                driverConflict.reason());
+        assertFalse(driverConflict.reason()
+                == sh.zolt.dependency.ConflictSelectionReason.NEWEST_VERSION);
+    }
+
     @Test
     void recomputesMediationAfterFreshSameCoordinateChildRequest() throws IOException {
         addArtifact("com.example", "driver", "1.0.0", pom("com.example", "driver", "1.0.0"));
