@@ -209,7 +209,11 @@ public final class ResolveService {
         VersionConflictPolicyEnforcer.enforce(
                 context.config().dependencyPolicy(), resolved.selection(), execResolutions, options.retryCommand());
         ZoltLockfile lockfile = lockfile(context, resolved.graph(), resolved.selection(), allRequests, execResolutions);
-        return new ResolveOutput(lockfile, context.downloadCount(), context.metrics());
+        return new ResolveOutput(
+                lockfile,
+                context.downloadCount(),
+                context.metrics(),
+                ResolvedDependencyReachability.from(resolved.graph()));
     }
 
     private List<ExecToolResolution> resolveExecTools(

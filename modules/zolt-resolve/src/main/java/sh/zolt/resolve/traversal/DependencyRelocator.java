@@ -85,7 +85,8 @@ public final class DependencyRelocator {
                 request.scope(),
                 request.origin(),
                 relocatedArtifactDescriptor(request, packageId, version),
-                request.exclusions());
+                request.exclusions(),
+                request.optional());
     }
 
     private static Optional<ArtifactDescriptor> relocatedArtifactDescriptor(
@@ -123,7 +124,8 @@ public final class DependencyRelocator {
                 request.scope(),
                 request.origin(),
                 relocatedArtifactDescriptor(request, target.packageId(), target.version()),
-                request.exclusions());
+                request.exclusions(),
+                request.optional());
     }
 
     record RelocationResult(DependencyRequest request, EffectiveRawPom pom) {

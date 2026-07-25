@@ -5,8 +5,10 @@ import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.resolve.ResolveOutput;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 final class WorkspaceMemberResolveOutputFacts {
     private WorkspaceMemberResolveOutputFacts() {
@@ -15,12 +17,19 @@ final class WorkspaceMemberResolveOutputFacts {
     static WorkspaceMemberResolveOutput of(
             String member,
             ProjectConfig config,
-            ZoltLockfile lockfile) {
+            ResolveOutput output) {
+        ZoltLockfile lockfile = output.lockfile();
         return new WorkspaceMemberResolveOutput(
                 member,
                 lockfile,
                 exportedExternalPackages(config),
-                WorkspaceOptionalPackageClosure.from(config, lockfile));
+                output.dependencyReachability().stream()
+                        .filter(sh.zolt.resolve.ResolvedDependencyReachability::optionalOnly)
+                        .map(fact -> new WorkspaceOptionalPackage(
+                                fact.packageId(),
+                                fact.variant(),
+                                fact.scope()))
+                        .collect(Collectors.toUnmodifiableSet()));
     }
 
     private static Set<WorkspaceExportedPackage> exportedExternalPackages(

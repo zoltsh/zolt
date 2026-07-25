@@ -106,7 +106,7 @@ final class WorkspaceMediationFixedPoint {
                         WorkspaceMemberResolveOutputFacts.of(
                                 member.path(),
                                 config,
-                                output.lockfile()));
+                                output));
                 downloadCount += output.downloadCount();
                 metrics = metrics.plus(output.metrics());
             }
@@ -293,10 +293,9 @@ final class WorkspaceMediationFixedPoint {
                     LockConflict current = activeByVariant.get(entry.getKey());
                     String selected = selectedVersions.getOrDefault(
                             entry.getKey(), conflict.selectedVersion());
-                    sh.zolt.dependency.ConflictSelectionReason reason = current != null
-                                    || selected.equals(conflict.selectedVersion())
-                            ? (current == null ? conflict.reason() : current.reason())
-                            : sh.zolt.dependency.ConflictSelectionReason.SELECTED_GRAPH;
+                    sh.zolt.dependency.ConflictSelectionReason reason = current == null
+                            ? sh.zolt.dependency.ConflictSelectionReason.SELECTED_GRAPH
+                            : current.reason();
                     return new LockConflict(
                             conflict.packageId(),
                             selected,

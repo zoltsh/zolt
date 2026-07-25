@@ -16,7 +16,8 @@ record DependencyTraversalItem(
         String materializedVersion,
         DependencyScope sourceScope,
         List<DependencyExclusion> activeExclusions,
-        DependencyTraversalDecision decision) {
+        DependencyTraversalDecision decision,
+        boolean optionalRoot) {
     DependencyTraversalItem {
         parent = parent == null ? Optional.empty() : parent;
         materializedVersion = materializedVersion == null || materializedVersion.isBlank()
@@ -38,7 +39,26 @@ record DependencyTraversalItem(
                 materializedVersion,
                 request.scope(),
                 request.exclusions(),
-                DependencyTraversalDecision.include("direct dependency"));
+                DependencyTraversalDecision.include("direct dependency"),
+                request.optional());
+    }
+
+    static DependencyTraversalItem transitive(
+            PackageNode parent,
+            DependencyRequest request,
+            String materializedVersion,
+            DependencyScope sourceScope,
+            List<DependencyExclusion> activeExclusions,
+            boolean optionalRoot,
+            DependencyTraversalDecision decision) {
+        return new DependencyTraversalItem(
+                Optional.of(parent),
+                request,
+                materializedVersion,
+                sourceScope,
+                activeExclusions,
+                decision,
+                optionalRoot);
     }
 
     static DependencyTraversalItem transitive(
@@ -48,12 +68,13 @@ record DependencyTraversalItem(
             DependencyScope sourceScope,
             List<DependencyExclusion> activeExclusions,
             DependencyTraversalDecision decision) {
-        return new DependencyTraversalItem(
-                Optional.of(parent),
+        return transitive(
+                parent,
                 request,
                 materializedVersion,
                 sourceScope,
                 activeExclusions,
+                false,
                 decision);
     }
 
@@ -69,6 +90,7 @@ record DependencyTraversalItem(
                 request.requestedVersion(),
                 sourceScope,
                 activeExclusions,
+                false,
                 decision);
     }
 

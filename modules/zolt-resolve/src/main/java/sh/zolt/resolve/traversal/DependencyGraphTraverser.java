@@ -15,6 +15,7 @@ import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.graph.PackageNode;
 import sh.zolt.resolve.graph.ResolutionEdge;
 import sh.zolt.resolve.graph.ResolutionGraph;
+import sh.zolt.resolve.graph.ResolutionReachability;
 import sh.zolt.resolve.metadata.DependencyMetadataSource;
 import sh.zolt.resolve.metadata.platform.ManagedVersion;
 import java.util.ArrayDeque;
@@ -153,6 +154,7 @@ public final class DependencyGraphTraverser {
     public ResolutionGraph traverse(List<DependencyRequest> directRequests) {
         SequencedMap<DependencyTraversalNodeKey, PackageNode> nodes = new LinkedHashMap<>();
         List<ResolutionEdge> edges = new ArrayList<>();
+        List<ResolutionReachability> reachability = new ArrayList<>();
         List<DependencyPolicyEffect> policyEffects = new ArrayList<>();
         Set<DependencyTraversalVisitKey> visited = new TreeSet<>();
         ArrayDeque<DependencyTraversalItem> queue = new ArrayDeque<>();
@@ -179,6 +181,10 @@ public final class DependencyGraphTraverser {
                 PackageNode node = node(resolvedRequest, version);
                 DependencyTraversalNodeKey nodeKey = DependencyTraversalNodeKey.from(node);
                 nodes.putIfAbsent(nodeKey, node);
+                reachability.add(new ResolutionReachability(
+                        node,
+                        resolvedRequest.scope(),
+                        item.optionalRoot()));
 
                 item.parent().ifPresent(parent -> edges.add(new ResolutionEdge(
                         parent,
@@ -190,7 +196,8 @@ public final class DependencyGraphTraverser {
                 if (!visited.add(DependencyTraversalVisitKey.from(
                         node,
                         resolvedRequest.scope(),
-                        item.activeExclusions()))) {
+                        item.activeExclusions(),
+                        item.optionalRoot()))) {
                     continue;
                 }
 
@@ -213,7 +220,8 @@ public final class DependencyGraphTraverser {
                 List.copyOf(nodes.values()),
                 edges.stream().distinct().toList(),
                 List.of(),
-                DependencyTraversalOrdering.sortedPolicyEffects(policyEffects));
+                DependencyTraversalOrdering.sortedPolicyEffects(policyEffects),
+                reachability.stream().distinct().toList());
     }
 
     private static List<DependencyTraversalItem> frontier(ArrayDeque<DependencyTraversalItem> queue) {
@@ -270,7 +278,8 @@ public final class DependencyGraphTraverser {
                 request.scope(),
                 request.origin(),
                 descriptor,
-                request.exclusions());
+                request.exclusions(),
+                request.optional());
     }
 
     private static String requireVersion(DependencyRequest request) {

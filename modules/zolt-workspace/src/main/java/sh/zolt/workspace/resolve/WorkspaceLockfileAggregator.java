@@ -2,9 +2,11 @@ package sh.zolt.workspace.resolve;
 
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -86,6 +88,7 @@ final class WorkspaceLockfileAggregator {
             LockPackage existingPackage = packages.get(key);
             packages.put(key, existingPackage == null ? lockPackage : merge(existingPackage, lockPackage));
         }
+        requireUnambiguousGraphTargets(packages.values());
         for (LockConflict conflict : preservedWorkspaceConflicts) {
             addConflict(conflicts, conflict);
         }
@@ -105,6 +108,47 @@ final class WorkspaceLockfileAggregator {
                 List.copyOf(policyEffects.values()),
                 WorkspaceMemberGraphFacts.complete(
                         globalSelection, memberOutputs));
+    }
+
+    private static void requireUnambiguousGraphTargets(
+            Iterable<LockPackage> packages) {
+        Map<String, LockPackage> targets = new LinkedHashMap<>();
+        for (LockPackage lockPackage : packages) {
+            String edge = LockDependencyEdge.of(lockPackage).encode();
+            LockPackage previous = targets.putIfAbsent(edge, lockPackage);
+            if (previous == null || sameTarget(previous, lockPackage)) {
+                continue;
+            }
+            throw ResolveException.actionable(
+                    "Workspace dependency graph target `"
+                            + edge
+                            + "` is ambiguous between "
+                            + targetDescription(previous)
+                            + " and "
+                            + targetDescription(lockPackage)
+                            + ". The lock format cannot distinguish local and released bytes at the same version, variant, and scope.",
+                    "Make the workspace dependency explicit for every affected consumer or use a distinct local project version, then run `zolt resolve --workspace` again.");
+        }
+    }
+
+    private static boolean sameTarget(
+            LockPackage left,
+            LockPackage right) {
+        return left.source().equals(right.source())
+                && left.workspace().equals(right.workspace())
+                && left.workspaceOutput().equals(right.workspaceOutput())
+                && left.jar().equals(right.jar())
+                && left.jarSha256().equals(right.jarSha256())
+                && left.artifact().equals(right.artifact())
+                && left.artifactSha256().equals(right.artifactSha256())
+                && left.pom().equals(right.pom())
+                && left.pomSha256().equals(right.pomSha256());
+    }
+
+    private static String targetDescription(LockPackage lockPackage) {
+        return lockPackage.workspace()
+                .map(member -> "workspace member `" + member + "`")
+                .orElseGet(() -> "repository source `" + lockPackage.source() + "`");
     }
 
     private static boolean isTransitionalRootWorkspace(

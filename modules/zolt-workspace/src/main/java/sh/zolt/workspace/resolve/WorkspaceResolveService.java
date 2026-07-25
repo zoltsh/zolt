@@ -112,7 +112,7 @@ public final class WorkspaceResolveService {
                     cacheRoot,
                     options);
             memberOutputs.add(WorkspaceMemberResolveOutputFacts.of(
-                    member.path(), effectiveConfig, output.lockfile()));
+                    member.path(), effectiveConfig, output));
             downloadCount += output.downloadCount();
             metrics = metrics.plus(output.metrics());
         }

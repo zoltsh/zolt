@@ -37,6 +37,20 @@ abstract class DependencyGraphTraverserTestSupport {
         return new DependencyRequest(new PackageId(groupId, artifactId), version, DependencyScope.COMPILE, RequestOrigin.DIRECT);
     }
 
+    final DependencyRequest optionalDirect(
+            String groupId,
+            String artifactId,
+            String version) {
+        return new DependencyRequest(
+                new PackageId(groupId, artifactId),
+                version,
+                DependencyScope.COMPILE,
+                RequestOrigin.DIRECT,
+                Optional.empty(),
+                List.of(),
+                true);
+    }
+
     final DependencyRequest directWithExclusion(
             String groupId,
             String artifactId,

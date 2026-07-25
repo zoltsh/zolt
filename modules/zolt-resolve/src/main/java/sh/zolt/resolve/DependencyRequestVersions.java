@@ -41,6 +41,7 @@ final class DependencyRequestVersions {
                 request.scope(),
                 request.origin(),
                 descriptor,
-                request.exclusions());
+                request.exclusions(),
+                request.optional());
     }
 }

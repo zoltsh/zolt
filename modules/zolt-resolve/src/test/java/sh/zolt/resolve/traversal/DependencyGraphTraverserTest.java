@@ -15,9 +15,67 @@ import sh.zolt.resolve.metadata.platform.ManagedVersion;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class DependencyGraphTraverserTest extends DependencyGraphTraverserTestSupport {
+    @Test
+    void retainsOptionalRootReachabilityBeforeExclusionContextsAreFlattened() {
+        MapBackedMetadataSource source = new MapBackedMetadataSource();
+        source.put(
+                "com.example:required-root:1.0.0",
+                pom(
+                        "com.example",
+                        "required-root",
+                        "1.0.0",
+                        List.of(dependencyWithExclusion(
+                                "com.example",
+                                "shared",
+                                "1.0.0",
+                                "com.example",
+                                "leaf"))));
+        source.put(
+                "com.example:optional-root:1.0.0",
+                pom(
+                        "com.example",
+                        "optional-root",
+                        "1.0.0",
+                        List.of(dependency(
+                                "com.example",
+                                "shared",
+                                "1.0.0"))));
+        source.put(
+                "com.example:shared:1.0.0",
+                pom(
+                        "com.example",
+                        "shared",
+                        "1.0.0",
+                        List.of(dependency(
+                                "com.example",
+                                "leaf",
+                                "1.0.0"))));
+        source.put(
+                "com.example:leaf:1.0.0",
+                pom("com.example", "leaf", "1.0.0", List.of()));
+
+        ResolutionGraph graph = traverser(source).traverse(List.of(
+                optionalDirect(
+                        "com.example", "optional-root", "1.0.0"),
+                direct(
+                        "com.example", "required-root", "1.0.0")));
+
+        Map<String, Set<Boolean>> roots = graph.reachability().stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        fact -> fact.node().packageId().artifactId(),
+                        java.util.stream.Collectors.mapping(
+                                sh.zolt.resolve.graph.ResolutionReachability::optionalRoot,
+                                java.util.stream.Collectors.toSet())));
+        assertEquals(Set.of(false), roots.get("required-root"));
+        assertEquals(Set.of(true), roots.get("optional-root"));
+        assertEquals(Set.of(false, true), roots.get("shared"));
+        assertEquals(Set.of(true), roots.get("leaf"));
+    }
+
     @Test
     void resolvesGuavaFixtureShape() {
         MapBackedMetadataSource source = new MapBackedMetadataSource();

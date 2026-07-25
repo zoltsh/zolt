@@ -13,7 +13,25 @@ public record DependencyRequest(
         DependencyScope scope,
         RequestOrigin origin,
         Optional<ArtifactDescriptor> artifactDescriptor,
-        List<DependencyExclusion> exclusions) {
+        List<DependencyExclusion> exclusions,
+        boolean optional) {
+    public DependencyRequest(
+            PackageId packageId,
+            String requestedVersion,
+            DependencyScope scope,
+            RequestOrigin origin,
+            Optional<ArtifactDescriptor> artifactDescriptor,
+            List<DependencyExclusion> exclusions) {
+        this(
+                packageId,
+                requestedVersion,
+                scope,
+                origin,
+                artifactDescriptor,
+                exclusions,
+                false);
+    }
+
     public DependencyRequest(
             PackageId packageId,
             String requestedVersion,

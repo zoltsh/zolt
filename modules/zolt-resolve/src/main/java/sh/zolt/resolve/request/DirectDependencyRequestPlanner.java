@@ -172,8 +172,16 @@ final class DirectDependencyRequestPlanner {
         DependencyMetadata metadata = config.dependencyMetadata()
                 .get(DependencyMetadata.key(section, packageId.toString()));
         Optional<ArtifactDescriptor> artifactDescriptor = directArtifactDescriptor(packageId, version, metadata);
+        boolean optional = metadata != null && metadata.optional();
         if (metadata == null || metadata.exclusions().isEmpty()) {
-            return new DependencyRequest(packageId, version, scope, RequestOrigin.DIRECT, artifactDescriptor);
+            return new DependencyRequest(
+                    packageId,
+                    version,
+                    scope,
+                    RequestOrigin.DIRECT,
+                    artifactDescriptor,
+                    List.of(),
+                    optional);
         }
         return new DependencyRequest(
                 packageId,
@@ -183,7 +191,8 @@ final class DirectDependencyRequestPlanner {
                 artifactDescriptor,
                 metadata.exclusions().stream()
                         .map(exclusion -> directExclusion(exclusion, retryCommand))
-                        .toList());
+                        .toList(),
+                optional);
     }
 
     private static Optional<ArtifactDescriptor> directArtifactDescriptor(

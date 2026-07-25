@@ -7,15 +7,20 @@ import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.publish.PublishPomGenerator;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.resolve.ResolveService;
+import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.publish.WorkspaceMemberPomLockProjection;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServiceTestSupport {
@@ -62,6 +67,90 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
         assertAbsent(app.compile(), "optional-root");
         assertContains(app.compile(), "required-root-1.0.0.jar");
         assertContains(app.compile(), "shared-1.0.0.jar");
+    }
+
+    @Test
+    void pathSpecificExclusionKeepsOptionalOnlyLeafBehindWorkspaceBoundaryInBothOrders()
+            throws IOException {
+        addArtifact("com.example", "leaf", "1.0.0", pom("com.example", "leaf", "1.0.0"));
+        addArtifact(
+                "com.example",
+                "shared",
+                "1.0.0",
+                dependencyPom("shared", "leaf"));
+        addArtifact(
+                "com.example",
+                "optional-root",
+                "1.0.0",
+                dependencyPom("optional-root", "shared"));
+        addArtifact(
+                "com.example",
+                "required-root",
+                "1.0.0",
+                dependencyPom("required-root", "shared"));
+
+        for (boolean optionalFirst : List.of(true, false)) {
+            Path root = tempDir.resolve(
+                    optionalFirst ? "optional-first" : "required-first");
+            writeOptionalExclusionWorkspace(root, optionalFirst);
+            Path cache = root.resolve("cache");
+            service.resolve(root, cache, false, false);
+
+            ZoltLockfile lockfile =
+                    lockfileReader.read(root.resolve("zolt.lock"));
+            Workspace workspace = new WorkspaceDiscoveryService()
+                    .discover(root)
+                    .orElseThrow();
+            var app = new WorkspaceClasspathService()
+                    .classpathsFor(workspace, lockfile, cache, "apps/app");
+            for (var classpath : List.of(app.compile(), app.runtime())) {
+                assertContains(classpath, "required-root-1.0.0.jar");
+                assertContains(classpath, "shared-1.0.0.jar");
+                assertAbsent(classpath, "optional-root");
+                assertAbsent(classpath, "leaf");
+            }
+
+            WorkspaceMember coreMember = workspace.members().stream()
+                    .filter(member -> member.path().equals("modules/core"))
+                    .findFirst()
+                    .orElseThrow();
+            ZoltLockfile projected = new WorkspaceMemberPomLockProjection()
+                    .project(coreMember.path(), coreMember.config(), lockfile);
+            String pomXml = new PublishPomGenerator()
+                    .generate(coreMember.config(), projected);
+            assertTrue(pomXml.contains("<artifactId>optional-root</artifactId>"));
+            assertTrue(pomXml.contains("<optional>true</optional>"));
+            assertTrue(pomXml.contains("<artifactId>required-root</artifactId>"));
+            assertTrue(pomXml.contains("<artifactId>leaf</artifactId>"));
+
+            addArtifact("com.acme", "core", "0.1.0", pomXml);
+            ProjectConfig consumer = new ZoltTomlParser().parse("""
+                    [project]
+                    name = "published-consumer"
+                    version = "1.0.0"
+                    group = "com.consumer"
+                    java = "21"
+
+                    [repositories]
+                    test = "%s"
+
+                    [dependencies]
+                    "com.acme:core" = "0.1.0"
+                    """.formatted(baseUri));
+            ZoltLockfile publishedConsumer = new ResolveService()
+                    .resolveLockfile(
+                            consumer,
+                            root.resolve("published-consumer-cache"),
+                            false)
+                    .lockfile();
+            Set<String> publishedArtifacts = publishedConsumer.packages().stream()
+                    .map(lockPackage -> lockPackage.packageId().artifactId())
+                    .collect(java.util.stream.Collectors.toSet());
+            assertTrue(publishedArtifacts.contains("required-root"));
+            assertTrue(publishedArtifacts.contains("shared"));
+            assertFalse(publishedArtifacts.contains("optional-root"));
+            assertFalse(publishedArtifacts.contains("leaf"));
+        }
     }
 
     @Test
@@ -199,4 +288,53 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
                 </project>
                 """.formatted(artifact, dependency);
     }
+
+    private void writeOptionalExclusionWorkspace(
+            Path root,
+            boolean optionalFirst) throws IOException {
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("zolt-workspace.toml"), """
+                [workspace]
+                name = "path-aware-optional-%s"
+                members = ["modules/core", "apps/app"]
+
+                [repositories]
+                test = "%s"
+                """.formatted(optionalFirst ? "first" : "last", baseUri));
+        writeMember(root, "modules/core", "core", optionalFirst
+                ? """
+
+                  [api.dependencies]
+                  "com.example:optional-root" = { version = "1.0.0", optional = true }
+                  "com.example:required-root" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "leaf" }] }
+                  """
+                : """
+
+                  [api.dependencies]
+                  "com.example:required-root" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "leaf" }] }
+                  "com.example:optional-root" = { version = "1.0.0", optional = true }
+                  """);
+        writeMember(root, "apps/app", "app", """
+
+                [dependencies]
+                "com.acme:core" = { workspace = "modules/core" }
+                """);
+    }
+
+    private static void writeMember(
+            Path root,
+            String path,
+            String name,
+            String extraToml) throws IOException {
+        Path member = root.resolve(path);
+        Files.createDirectories(member);
+        Files.writeString(member.resolve("zolt.toml"), """
+                [project]
+                name = "%s"
+                version = "0.1.0"
+                group = "com.acme"
+                java = "21"
+                %s""".formatted(name, extraToml));
+    }
+
 }

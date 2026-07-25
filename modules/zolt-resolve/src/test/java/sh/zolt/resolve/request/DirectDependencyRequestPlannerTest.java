@@ -1,6 +1,7 @@
 package sh.zolt.resolve.request;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,11 +34,31 @@ final class DirectDependencyRequestPlannerTest {
         assertEquals("1.0.0", app.requestedVersion());
         assertEquals(DependencyScope.COMPILE, app.scope());
         assertEquals(RequestOrigin.DIRECT, app.origin());
+        assertFalse(app.optional());
 
         DependencyRequest runtime = onlyRequest(requests, RUNTIME);
         assertEquals("2.0.0", runtime.requestedVersion());
         assertEquals(DependencyScope.RUNTIME, runtime.scope());
         assertEquals(RequestOrigin.DIRECT, runtime.origin());
+    }
+
+    @Test
+    void marksAnOptionalDeclarationOnTheDirectTraversalRoot() {
+        ProjectConfig config = new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [api.dependencies]
+                "com.example:app" = { version = "1.0.0", optional = true }
+                """);
+
+        DependencyRequest request =
+                onlyRequest(planner.plan(config, Map.of()), APP);
+
+        assertTrue(request.optional());
     }
 
     @Test

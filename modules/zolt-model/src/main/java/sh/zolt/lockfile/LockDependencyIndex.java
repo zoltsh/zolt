@@ -15,7 +15,8 @@ import java.util.Optional;
  * <p><strong>Resolution.</strong> A version-3 edge ({@code g:a:v:key:scope}) resolves exactly. A
  * historical edge can resolve only to one candidate after applying its available variant identity.
  * Multiple scope copies therefore make a v1/v2 edge ambiguous, which resolves to nothing rather than
- * silently choosing the first package.
+ * silently choosing the first package. Two materially different package sources may not claim the
+ * same exact version-3 edge identity.
  */
 public final class LockDependencyIndex {
     private final Map<String, LockPackage> byRef = new LinkedHashMap<>();
@@ -24,9 +25,29 @@ public final class LockDependencyIndex {
     public LockDependencyIndex(Iterable<LockPackage> packages) {
         for (LockPackage lockPackage : packages) {
             LockDependencyEdge edge = LockDependencyEdge.of(lockPackage);
-            byRef.putIfAbsent(edge.encode(), lockPackage);
+            LockPackage previous = byRef.putIfAbsent(edge.encode(), lockPackage);
+            if (previous != null && !sameTarget(previous, lockPackage)) {
+                throw new LockDependencyGraphException(
+                        "Dependency edge identity `"
+                                + edge.encode()
+                                + "` targets multiple locked package sources. Run `zolt resolve --workspace` to reject or regenerate the ambiguous local/released relationship.");
+            }
             byGav.computeIfAbsent(edge.gav(), key -> new ArrayList<>()).add(lockPackage);
         }
+    }
+
+    private static boolean sameTarget(
+            LockPackage left,
+            LockPackage right) {
+        return left.source().equals(right.source())
+                && left.workspace().equals(right.workspace())
+                && left.workspaceOutput().equals(right.workspaceOutput())
+                && left.jar().equals(right.jar())
+                && left.jarSha256().equals(right.jarSha256())
+                && left.artifact().equals(right.artifact())
+                && left.artifactSha256().equals(right.artifactSha256())
+                && left.pom().equals(right.pom())
+                && left.pomSha256().equals(right.pomSha256());
     }
 
     /** Resolves an edge string to the package it targets, honoring variant and scope identity. */

@@ -12,7 +12,8 @@ record DependencyTraversalVisitKey(
         String version,
         LockArtifactVariant variant,
         DependencyScope scope,
-        List<DependencyExclusion> activeExclusions)
+        List<DependencyExclusion> activeExclusions,
+        boolean optionalRoot)
         implements Comparable<DependencyTraversalVisitKey> {
     DependencyTraversalVisitKey {
         activeExclusions = List.copyOf(activeExclusions);
@@ -21,13 +22,15 @@ record DependencyTraversalVisitKey(
     static DependencyTraversalVisitKey from(
             PackageNode node,
             DependencyScope scope,
-            List<DependencyExclusion> activeExclusions) {
+            List<DependencyExclusion> activeExclusions,
+            boolean optionalRoot) {
         return new DependencyTraversalVisitKey(
                 node.packageId(),
                 node.selectedVersion(),
                 node.variant(),
                 scope,
-                activeExclusions);
+                activeExclusions,
+                optionalRoot);
     }
 
     @Override
@@ -48,7 +51,12 @@ record DependencyTraversalVisitKey(
         if (scopeCompared != 0) {
             return scopeCompared;
         }
-        return exclusionKey(activeExclusions).compareTo(exclusionKey(other.activeExclusions));
+        int exclusionsCompared =
+                exclusionKey(activeExclusions).compareTo(exclusionKey(other.activeExclusions));
+        if (exclusionsCompared != 0) {
+            return exclusionsCompared;
+        }
+        return Boolean.compare(optionalRoot, other.optionalRoot);
     }
 
     private static String exclusionKey(List<DependencyExclusion> exclusions) {

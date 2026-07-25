@@ -174,6 +174,7 @@ final class DependencyTraversalCandidateSelector {
                         materializedVersion,
                         candidate.item().request().scope(),
                         candidate.item().including(dependency.exclusions()),
+                        candidate.item().optionalRoot(),
                         decision),
                 policyEffects);
     }

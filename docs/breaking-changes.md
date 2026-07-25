@@ -9,10 +9,14 @@ the old behavior, the new behavior, and how to migrate.
   member classpaths, a whole-workspace SBOM flattened member-qualified graphs,
   and rematerialization could replace the original member conflict evidence.
 - **New behavior:** newly resolved locks use version 5. Member graph facts carry
-  optional closure boundaries, `[[conflict]]` entries carry member attribution,
-  and identities with any member-qualified graph facts must cover every
-  attributed member. Whole-workspace SBOMs create distinct graph `bom-ref`
-  contexts when members share a PURL but have different outgoing edges.
+  optional-only reachability captured before path-specific exclusion contexts
+  are flattened, `[[conflict]]` entries carry member attribution, and identities
+  with any member-qualified graph facts must cover every attributed member.
+  Whole-workspace SBOMs create distinct graph `bom-ref` contexts when members
+  share a PURL but have different outgoing edges. Workspace resolution also
+  rejects mixed local and repository targets whose version, variant, and scope
+  encode to the same graph identity; make every affected consumer use the
+  workspace member or give the local project a distinct version.
 - **Migration:** run `zolt resolve` for a project lock or
   `zolt resolve --workspace` for a workspace lock, then commit the regenerated
   version 5 `zolt.lock`.

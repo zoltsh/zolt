@@ -60,6 +60,54 @@ final class WorkspaceSelectedGraphFixedPointTest extends WorkspaceResolveService
     }
 
     @Test
+    void vanishedEqualSelectionConflictDoesNotFailPolicy() throws IOException {
+        addArtifact("com.example", "driver", "1.0.0", pom("com.example", "driver", "1.0.0"));
+        addArtifact("com.example", "driver", "2.0.0", pom("com.example", "driver", "2.0.0"));
+        addArtifact("com.example", "engine", "1.0.0", enginePom("1.0.0", "1.0.0"));
+        addArtifact("com.example", "engine", "2.0.0", enginePom("2.0.0", "2.0.0"));
+        addArtifact("com.example", "root-a", "1.0.0", rootPom("root-a", "1.0.0", false));
+        addArtifact("com.example", "root-b", "1.0.0", rootPom("root-b", "2.0.0", false));
+        workspace("""
+                [workspace]
+                name = "vanished-equal-selection-conflict"
+                members = ["apps/a", "apps/b"]
+
+                [repositories]
+                test = "%s"
+                """.formatted(baseUri));
+        member("apps/a", "a", """
+
+                [dependencies]
+                "com.example:root-a" = "1.0.0"
+
+                [dependencyPolicy]
+                failOnVersionConflict = true
+                """);
+        member("apps/b", "b", """
+
+                [dependencies]
+                "com.example:root-b" = "1.0.0"
+
+                [dependencyPolicy]
+                failOnVersionConflict = true
+                """);
+
+        service.resolve(tempDir, tempDir.resolve("cache"), false, false);
+
+        ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
+        assertEquals("2.0.0", packageById(lockfile, "engine").version());
+        assertEquals("2.0.0", packageById(lockfile, "driver").version());
+        var driverConflict = lockfile.conflicts().stream()
+                .filter(conflict -> conflict.packageId().equals(
+                        new PackageId("com.example", "driver")))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                sh.zolt.dependency.ConflictSelectionReason.SELECTED_GRAPH,
+                driverConflict.reason());
+    }
+
+    @Test
     void recomputesMediationAfterFreshSameCoordinateChildRequest() throws IOException {
         addArtifact("com.example", "driver", "1.0.0", pom("com.example", "driver", "1.0.0"));
         addArtifact("com.example", "driver", "2.0.0", pom("com.example", "driver", "2.0.0"));
