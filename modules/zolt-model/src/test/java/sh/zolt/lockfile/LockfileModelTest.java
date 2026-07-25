@@ -3,6 +3,7 @@ package sh.zolt.lockfile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.dependency.DependencyScope;
@@ -148,6 +149,54 @@ final class LockfileModelTest {
 
         assertFalse(nullToolGroup.toolGroup().isPresent());
         assertEquals(Optional.of("codegen"), namedToolGroup.toolGroup());
+    }
+
+    @Test
+    void memberQualifiedGraphMustCoverEveryAttributedMember() {
+        LockPackage lockPackage = new LockPackage(
+                new PackageId("com.example", "root"),
+                "1.0.0",
+                "maven-central",
+                DependencyScope.COMPILE,
+                false,
+                Optional.of("root.jar"),
+                Optional.of("root.pom"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of("modules/core", "modules/worker"),
+                List.of(),
+                List.of(),
+                List.of());
+        LockMemberGraph coreOnly = new LockMemberGraph(
+                "modules/core",
+                lockPackage.packageId(),
+                lockPackage.version(),
+                LockArtifactVariant.defaultVariant(),
+                lockPackage.scope(),
+                List.of(),
+                List.of());
+
+        LockDependencyGraphException exception = assertThrows(
+                LockDependencyGraphException.class,
+                () -> new ZoltLockfile(
+                        ZoltLockfile.CURRENT_VERSION,
+                        Optional.empty(),
+                        Optional.empty(),
+                        List.of(),
+                        List.of(lockPackage),
+                        List.of(),
+                        List.of(),
+                        List.of(coreOnly)));
+
+        assertTrue(exception.getMessage().contains("modules/worker"));
+        assertTrue(exception.getMessage().contains(
+                "zolt resolve --workspace"));
     }
 
     private static ZoltLockfile lockfileWithInputs(List<String> inputs) {

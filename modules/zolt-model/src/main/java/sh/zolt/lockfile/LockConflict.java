@@ -24,7 +24,8 @@ public record LockConflict(
         List<String> requestedVersions,
         ConflictSelectionReason reason,
         Optional<String> toolGroup,
-        Optional<LockArtifactVariant> variant) {
+        Optional<LockArtifactVariant> variant,
+        List<String> members) {
     public LockConflict {
         requestedVersions = List.copyOf(requestedVersions);
         toolGroup = toolGroup == null ? Optional.empty() : toolGroup;
@@ -32,6 +33,24 @@ public record LockConflict(
         // caller passing nothing collapse to the same empty — keeping conflict dedup, sort, and codec
         // output byte-identical for variant-free locks.
         variant = variant == null ? Optional.empty() : variant.filter(value -> !value.isDefault());
+        members = members == null ? List.of() : List.copyOf(members);
+    }
+
+    public LockConflict(
+            PackageId packageId,
+            String selectedVersion,
+            List<String> requestedVersions,
+            ConflictSelectionReason reason,
+            Optional<String> toolGroup,
+            Optional<LockArtifactVariant> variant) {
+        this(
+                packageId,
+                selectedVersion,
+                requestedVersions,
+                reason,
+                toolGroup,
+                variant,
+                List.of());
     }
 
     public LockConflict(
@@ -40,7 +59,14 @@ public record LockConflict(
             List<String> requestedVersions,
             ConflictSelectionReason reason,
             Optional<String> toolGroup) {
-        this(packageId, selectedVersion, requestedVersions, reason, toolGroup, Optional.empty());
+        this(
+                packageId,
+                selectedVersion,
+                requestedVersions,
+                reason,
+                toolGroup,
+                Optional.empty(),
+                List.of());
     }
 
     public LockConflict(
@@ -48,6 +74,13 @@ public record LockConflict(
             String selectedVersion,
             List<String> requestedVersions,
             ConflictSelectionReason reason) {
-        this(packageId, selectedVersion, requestedVersions, reason, Optional.empty(), Optional.empty());
+        this(
+                packageId,
+                selectedVersion,
+                requestedVersions,
+                reason,
+                Optional.empty(),
+                Optional.empty(),
+                List.of());
     }
 }

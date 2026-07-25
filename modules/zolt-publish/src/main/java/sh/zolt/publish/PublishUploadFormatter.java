@@ -14,6 +14,8 @@ public final class PublishUploadFormatter {
         for (PublishArtifactPlan artifact : plan.supplementalArtifacts()) {
             output.append("Supplemental artifact uploaded: ").append(artifact.uploadPath()).append('\n');
         }
+        result.cleanupWarning().ifPresent(warning ->
+                output.append("Warning: ").append(warning).append('\n'));
         return output
                 .append("POM uploaded: ").append(plan.pomUploadPath()).append('\n')
                 .append("Status: uploaded\n")

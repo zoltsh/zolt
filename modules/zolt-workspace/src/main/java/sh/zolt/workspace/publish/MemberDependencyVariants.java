@@ -43,6 +43,17 @@ final class MemberDependencyVariants {
         return new LockArtifactVariant(extension, Optional.ofNullable(metadata.classifier()));
     }
 
+    static boolean optional(
+            ProjectConfig config,
+            String coordinate,
+            DependencyScope scope) {
+        DependencyMetadata metadata =
+                config.dependencyMetadata().get(
+                        PublishDependencyMetadataKey.of(
+                                config, scope, coordinate));
+        return metadata != null && metadata.optional();
+    }
+
     /** Aggregated-lock externals indexed by GA, variant, and resolved scope. */
     static final class ExternalIndex {
         private final Map<String, LockPackage> byIdentity = new LinkedHashMap<>();

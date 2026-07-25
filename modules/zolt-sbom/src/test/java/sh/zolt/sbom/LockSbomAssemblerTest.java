@@ -163,7 +163,7 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
                         TOOL_VERSION));
 
         assertTrue(exception.getMessage().contains("Run `zolt resolve`"));
-        assertTrue(exception.getMessage().contains("version 4"));
+        assertTrue(exception.getMessage().contains("version 5"));
     }
 
     @Test
@@ -212,7 +212,7 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
                     hiddenScope::lockfileName);
 
             assertTrue(exception.getMessage().contains("ambiguous"), hiddenScope::lockfileName);
-            assertTrue(exception.getMessage().contains("version 4"), hiddenScope::lockfileName);
+            assertTrue(exception.getMessage().contains("version 5"), hiddenScope::lockfileName);
         }
     }
 

@@ -40,6 +40,11 @@ final class LockfileTomlValues {
         return value == null || value.isBlank() ? Optional.empty() : Optional.of(value);
     }
 
+    static boolean optionalBoolean(TomlTable table, String key) {
+        Boolean value = table.getBoolean(key);
+        return value != null && value;
+    }
+
     static List<String> stringArray(TomlTable table, String key) {
         TomlArray array = table.getArray(key);
         if (array == null) {

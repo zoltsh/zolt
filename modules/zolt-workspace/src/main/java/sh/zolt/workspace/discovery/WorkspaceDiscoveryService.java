@@ -1,6 +1,7 @@
 package sh.zolt.workspace.discovery;
 
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectPathException;
 import sh.zolt.project.ProjectPaths;
 import sh.zolt.toml.ZoltConfigException;
@@ -277,7 +278,17 @@ public final class WorkspaceDiscoveryService {
                                 + targetCoordinate
                                 + "`. Update the dependency key or workspace path so they match.");
             }
-            edges.add(new WorkspaceProjectEdge(from.path(), targetByPath.path(), scope, coordinate, exported));
+            DependencyMetadata metadata = from.config().dependencyMetadata()
+                    .get(DependencyMetadata.key(
+                            section.substring(1, section.length() - 1),
+                            coordinate));
+            edges.add(new WorkspaceProjectEdge(
+                    from.path(),
+                    targetByPath.path(),
+                    scope,
+                    coordinate,
+                    exported,
+                    metadata != null && metadata.optional()));
         }
     }
 

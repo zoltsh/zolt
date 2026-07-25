@@ -34,6 +34,7 @@ public final class DependencyGraphTraverser {
     private final DependencyNormalizer normalizer;
     private final DependencyTraversalCandidateSelector candidateSelector;
     private final DependencyRelocator relocator;
+    private final Map<ResolutionVariant, String> materializedVersions;
 
     public DependencyGraphTraverser(DependencyMetadataSource metadataSource) {
         this(metadataSource, DependencyPolicySettings.defaults(), Map.of());
@@ -135,6 +136,8 @@ public final class DependencyGraphTraverser {
         this.dependencyManager = dependencyManager;
         this.normalizer = normalizer;
         this.relocator = new DependencyRelocator(metadataSource);
+        this.materializedVersions =
+                versionOverrides == null ? Map.of() : Map.copyOf(versionOverrides);
         this.candidateSelector = new DependencyTraversalCandidateSelector(
                 traversalPolicy,
                 new DependencyTransitiveScopeSelector(),
@@ -156,32 +159,37 @@ public final class DependencyGraphTraverser {
 
         directRequests.stream()
                 .sorted(Comparator.comparing(DependencyTraversalOrdering::requestSortKey))
-                .forEach(request -> queue.add(DependencyTraversalItem.direct(request)));
+                .forEach(request -> queue.add(DependencyTraversalItem.direct(
+                        request,
+                        materializedVersion(request))));
 
         while (!queue.isEmpty()) {
             List<DependencyTraversalItem> frontier = frontier(queue);
             metadataSource.preload(frontier.stream()
-                    .map(item -> coordinate(item.request()))
+                    .map(this::materializedRequest)
+                    .map(DependencyGraphTraverser::coordinate)
                     .sorted(Comparator.comparing(Coordinate::toString))
                     .toList());
             for (DependencyTraversalItem item : frontier) {
-                DependencyRelocator.RelocationResult relocated = relocator.relocateWithPom(item.request());
-                DependencyRequest request = relocated.request();
-                String version = requireVersion(request);
-                PackageNode node = node(request, version);
+                DependencyRequest materializedRequest = materializedRequest(item);
+                DependencyRelocator.RelocationResult relocated =
+                        relocator.relocateWithPom(materializedRequest);
+                DependencyRequest resolvedRequest = relocated.request();
+                String version = requireVersion(resolvedRequest);
+                PackageNode node = node(resolvedRequest, version);
                 DependencyTraversalNodeKey nodeKey = DependencyTraversalNodeKey.from(node);
                 nodes.putIfAbsent(nodeKey, node);
 
                 item.parent().ifPresent(parent -> edges.add(new ResolutionEdge(
                         parent,
                         node,
-                        request,
+                        selectionRequest(item.request(), materializedRequest, resolvedRequest),
                         item.sourceScope(),
                         item.decision())));
 
                 if (!visited.add(DependencyTraversalVisitKey.from(
                         node,
-                        item.request().scope(),
+                        resolvedRequest.scope(),
                         item.activeExclusions()))) {
                     continue;
                 }
@@ -219,6 +227,50 @@ public final class DependencyGraphTraverser {
 
     private static PackageNode node(DependencyRequest request, String version) {
         return new PackageNode(request.packageId(), version, request.artifactVariant());
+    }
+
+    private String materializedVersion(DependencyRequest request) {
+        return materializedVersions.getOrDefault(
+                new ResolutionVariant(request.packageId(), request.artifactVariant()),
+                request.requestedVersion());
+    }
+
+    private DependencyRequest materializedRequest(DependencyTraversalItem item) {
+        return requestWithVersion(item.request(), item.materializedVersion());
+    }
+
+    private static DependencyRequest selectionRequest(
+            DependencyRequest requested,
+            DependencyRequest materialized,
+            DependencyRequest resolved) {
+        if (resolved.packageId().equals(materialized.packageId())
+                && resolved.requestedVersion().equals(materialized.requestedVersion())) {
+            return requested;
+        }
+        return resolved;
+    }
+
+    private static DependencyRequest requestWithVersion(
+            DependencyRequest request,
+            String version) {
+        if (version.equals(request.requestedVersion())) {
+            return request;
+        }
+        Optional<sh.zolt.maven.ArtifactDescriptor> descriptor = request.artifactDescriptor()
+                .map(value -> new sh.zolt.maven.ArtifactDescriptor(
+                        new Coordinate(
+                                request.packageId().groupId(),
+                                request.packageId().artifactId(),
+                                Optional.of(version)),
+                        value.classifier(),
+                        value.extension()));
+        return new DependencyRequest(
+                request.packageId(),
+                version,
+                request.scope(),
+                request.origin(),
+                descriptor,
+                request.exclusions());
     }
 
     private static String requireVersion(DependencyRequest request) {

@@ -3,6 +3,20 @@
 Breaking changes to Zolt's CLI and configuration, newest first. Each entry names
 the old behavior, the new behavior, and how to migrate.
 
+## Lockfile version 5 preserves optional boundaries and conflict provenance
+
+- **Old behavior:** workspace optional dependencies could cross into downstream
+  member classpaths, a whole-workspace SBOM flattened member-qualified graphs,
+  and rematerialization could replace the original member conflict evidence.
+- **New behavior:** newly resolved locks use version 5. Member graph facts carry
+  optional closure boundaries, `[[conflict]]` entries carry member attribution,
+  and identities with any member-qualified graph facts must cover every
+  attributed member. Whole-workspace SBOMs create distinct graph `bom-ref`
+  contexts when members share a PURL but have different outgoing edges.
+- **Migration:** run `zolt resolve` for a project lock or
+  `zolt resolve --workspace` for a workspace lock, then commit the regenerated
+  version 5 `zolt.lock`.
+
 ## Lockfile version 4 preserves member-qualified workspace graphs
 
 - **Old behavior:** workspace aggregation collapsed identical external package

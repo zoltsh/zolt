@@ -51,29 +51,40 @@ final class WorkspaceExternalPackageSelector {
                     .toList();
             if (requestedVersions.size() > 1) {
                 WorkspaceExternalSelection.VersionSelection selection = selectVersion(entry.getValue());
+                Set<String> members = new LinkedHashSet<>();
+                entry.getValue().forEach(candidate ->
+                        members.addAll(candidate.members()));
                 conflicts.add(new LockConflict(
                         key.packageId(),
                         selection.version(),
                         requestedVersions,
                         selection.reason(),
                         Optional.empty(),
-                        Optional.of(key.variant())));
+                        Optional.of(key.variant()),
+                        members.stream().sorted().toList()));
             }
         }
         return List.copyOf(conflicts);
     }
 
     WorkspaceExternalSelection select(List<LockPackage> candidates) {
-        return select(candidates, false);
+        return select(candidates, false, Map.of());
     }
 
     WorkspaceExternalSelection selectMaterialized(List<LockPackage> candidates) {
-        return select(candidates, true);
+        return select(candidates, true, Map.of());
+    }
+
+    WorkspaceExternalSelection selectMaterialized(
+            List<LockPackage> candidates,
+            Map<ResolutionVariant, String> fixedSelections) {
+        return select(candidates, true, fixedSelections);
     }
 
     private WorkspaceExternalSelection select(
             List<LockPackage> candidates,
-            boolean requireMaterializedMembers) {
+            boolean requireMaterializedMembers,
+            Map<ResolutionVariant, String> fixedSelections) {
         List<LockPackage> regularCandidates = candidates.stream()
                 .filter(candidate -> candidate.scope() != DependencyScope.TOOL_EXEC)
                 .toList();
@@ -95,6 +106,10 @@ final class WorkspaceExternalPackageSelector {
             selections.put(entry.getKey(), selection);
             selectedVersionByVariant.put(entry.getKey(), selection.version());
         }
+        fixedSelections.forEach((variant, version) -> selectedVersionByVariant.put(
+                new PackageVariantKey(
+                        variant.packageId(), variant.artifactVariant()),
+                version));
 
         List<LockPackage> packages = new ArrayList<>();
         List<LockMemberGraph> memberGraphs = new ArrayList<>();
@@ -312,12 +327,7 @@ final class WorkspaceExternalPackageSelector {
                 .toList();
     }
 
-    /**
-     * Rewrites one dependency edge to its target's cross-member mediated version, staying within the
-     * target's variant lane and preserving the variant qualifier. A classified target edge mediates
-     * against the classified lane, never against the plain-jar lane at the same GA. An unparseable or
-     * unmediated edge is returned untouched, matching the prior tolerant behavior.
-     */
+    /** Rewrites an edge within its variant lane while preserving its qualifier and tolerant parsing. */
     private static String rewriteDependency(
             String dependency, Map<PackageVariantKey, String> selectedVersionByVariant) {
         Optional<LockDependencyEdge> parsed = LockDependencyEdge.parse(dependency);

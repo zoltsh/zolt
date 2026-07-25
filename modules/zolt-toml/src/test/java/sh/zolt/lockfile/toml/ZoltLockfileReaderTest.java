@@ -112,7 +112,7 @@ final class ZoltLockfileReaderTest {
                 () -> reader.read("version = 99\n"));
 
         assertEquals(
-                "zolt.lock version 99 is newer than this Zolt supports (current 4). Upgrade Zolt, then run `zolt resolve --locked` to verify the lockfile.",
+                "zolt.lock version 99 is newer than this Zolt supports (current 5). Upgrade Zolt, then run `zolt resolve --locked` to verify the lockfile.",
                 exception.getMessage());
     }
 
@@ -123,7 +123,7 @@ final class ZoltLockfileReaderTest {
                 () -> reader.read("version = 0\n"));
 
         assertEquals(
-                "zolt.lock version 0 is older than this Zolt supports (current 4). Run `zolt resolve` with this Zolt version to regenerate the lockfile.",
+                "zolt.lock version 0 is older than this Zolt supports (current 5). Run `zolt resolve` with this Zolt version to regenerate the lockfile.",
                 exception.getMessage());
     }
 

@@ -33,6 +33,82 @@ final class ResolveServiceSelectedGraphMaterializationTest extends ResolveServic
         assertSelectedGraph(DependencyScope.TEST, DependencyScope.COMPILE);
     }
 
+    @Test
+    void freshSameCoordinateChildVersionReplacesTentativeSelection() {
+        addArtifact("com.example", "driver", "1.0.0", simplePom("driver", "1.0.0"));
+        addArtifact("com.example", "driver", "2.0.0", simplePom("driver", "2.0.0"));
+        addArtifact("com.example", "engine", "1.0.0", pomWithVersionedChild("1.0.0", "driver", "1.0.0"));
+        addArtifact("com.example", "engine", "2.0.0", pomWithVersionedChild("2.0.0", "driver", "2.0.0"));
+        addArtifact("com.example", "root-a", "1.0.0", rootPom("root-a", "1.0.0"));
+        addArtifact("com.example", "root-b", "1.0.0", excludingRootPom("root-b", "2.0.0", "driver"));
+        Path project = tempDir.resolve("same-child-coordinate");
+        createDirectory(project);
+
+        ResolveResult result = resolveService.resolve(
+                project,
+                new ZoltTomlParser().parse("""
+                        [project]
+                        name = "selected-graph"
+                        version = "0.1.0"
+                        group = "com.example"
+                        java = "21"
+
+                        [repositories]
+                        test = "%s"
+
+                        [dependencies]
+                        "com.example:root-a" = "1.0.0"
+                        "com.example:root-b" = "1.0.0"
+                        """.formatted(baseUri)),
+                tempDir.resolve("same-child-cache"));
+
+        ZoltLockfile lockfile = lockfileReader.read(result.lockfilePath());
+        LockPackage engine = packageById(lockfile, ENGINE);
+        LockPackage driver = packageById(lockfile, new PackageId("com.example", "driver"));
+        assertEquals("2.0.0", engine.version());
+        assertEquals(List.of("com.example:driver:2.0.0:jar:compile"), engine.dependencies());
+        assertEquals("2.0.0", driver.version());
+    }
+
+    @Test
+    void fixedOverridesMaterializeTargetsWithoutRewritingFreshEdges() {
+        addArtifact("com.example", "driver", "1.0.0", simplePom("driver", "1.0.0"));
+        addArtifact("com.example", "driver", "2.0.0", simplePom("driver", "2.0.0"));
+        addArtifact("com.example", "engine", "1.0.0", pomWithVersionedChild("1.0.0", "driver", "1.0.0"));
+        addArtifact("com.example", "engine", "2.0.0", pomWithVersionedChild("2.0.0", "driver", "2.0.0"));
+        addArtifact("com.example", "root-a", "1.0.0", rootPom("root-a", "1.0.0"));
+        ProjectConfig config = new ZoltTomlParser().parse("""
+                [project]
+                name = "selected-graph"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [repositories]
+                test = "%s"
+
+                [dependencies]
+                "com.example:root-a" = "1.0.0"
+                """.formatted(baseUri));
+        ResolveOutput output = resolveService.resolveLockfile(
+                config,
+                tempDir.resolve("fixed-override-cache"),
+                ResolveOptions.defaults().withVersionOverrides(java.util.Map.of(
+                        new ResolutionVariant(ENGINE, sh.zolt.lockfile.LockArtifactVariant.defaultVariant()),
+                        "2.0.0",
+                        new ResolutionVariant(
+                                new PackageId("com.example", "driver"),
+                                sh.zolt.lockfile.LockArtifactVariant.defaultVariant()),
+                        "2.0.0")));
+
+        LockPackage engine = packageById(output.lockfile(), ENGINE);
+        LockPackage driver = packageById(
+                output.lockfile(), new PackageId("com.example", "driver"));
+        assertEquals("2.0.0", engine.version());
+        assertEquals(List.of("com.example:driver:2.0.0:jar:compile"), engine.dependencies());
+        assertEquals("2.0.0", driver.version());
+    }
+
     private void assertSelectedGraph(DependencyScope firstScope, DependencyScope secondScope) {
         addFixture();
         if (firstScope == DependencyScope.TEST || secondScope == DependencyScope.TEST) {
@@ -101,13 +177,17 @@ final class ResolveServiceSelectedGraphMaterializationTest extends ResolveServic
     }
 
     private static String simplePom(String artifactId) {
+        return simplePom(artifactId, "1.0.0");
+    }
+
+    private static String simplePom(String artifactId, String version) {
         return """
                 <project>
                   <groupId>com.example</groupId>
                   <artifactId>%s</artifactId>
-                  <version>1.0.0</version>
+                  <version>%s</version>
                 </project>
-                """.formatted(artifactId);
+                """.formatted(artifactId, version);
     }
 
     private static String pomWithChild(String version, String child) {
@@ -142,5 +222,60 @@ final class ResolveServiceSelectedGraphMaterializationTest extends ResolveServic
                   </dependencies>
                 </project>
                 """.formatted(artifactId, engineVersion);
+    }
+
+    private static String pomWithVersionedChild(
+            String version,
+            String child,
+            String childVersion) {
+        return """
+                <project>
+                  <groupId>com.example</groupId>
+                  <artifactId>engine</artifactId>
+                  <version>%s</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.example</groupId>
+                      <artifactId>%s</artifactId>
+                      <version>%s</version>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """.formatted(version, child, childVersion);
+    }
+
+    private static String excludingRootPom(
+            String artifactId,
+            String engineVersion,
+            String excludedArtifact) {
+        return """
+                <project>
+                  <groupId>com.example</groupId>
+                  <artifactId>%s</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>com.example</groupId>
+                      <artifactId>engine</artifactId>
+                      <version>%s</version>
+                      <exclusions>
+                        <exclusion>
+                          <groupId>com.example</groupId>
+                          <artifactId>%s</artifactId>
+                        </exclusion>
+                      </exclusions>
+                    </dependency>
+                  </dependencies>
+                </project>
+                """.formatted(artifactId, engineVersion, excludedArtifact);
+    }
+
+    private static LockPackage packageById(
+            ZoltLockfile lockfile,
+            PackageId packageId) {
+        return lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(packageId))
+                .findFirst()
+                .orElseThrow();
     }
 }

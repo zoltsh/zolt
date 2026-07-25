@@ -163,13 +163,19 @@ record PublicationTransactionManifest(
         }
     }
 
-    static void deleteTransaction(Path manifest) {
+    static Optional<String> deleteTransaction(Path manifest) {
+        return deleteTransaction(manifest, Files::deleteIfExists);
+    }
+
+    static Optional<String> deleteTransaction(
+            Path manifest,
+            CleanupDelete delete) {
         Path transaction = manifest.getParent();
         Path completed = transaction.resolveSibling(
                 transaction.getFileName() + ".completed-" + UUID.randomUUID());
         try {
             if (!Files.exists(transaction)) {
-                return;
+                return Optional.empty();
             }
             try {
                 Files.move(transaction, completed, StandardCopyOption.ATOMIC_MOVE);
@@ -177,17 +183,31 @@ record PublicationTransactionManifest(
                 Files.move(transaction, completed);
             }
             try (Stream<Path> paths = Files.walk(completed)) {
-                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
-                    Files.deleteIfExists(path);
+                for (Path path : paths
+                        .filter(candidate -> !candidate.equals(completed))
+                        .filter(candidate -> !candidate.equals(
+                                completed.resolve(manifest.getFileName())))
+                        .sorted(Comparator.reverseOrder())
+                        .toList()) {
+                    delete.delete(path);
                 }
             }
+            delete.delete(completed.resolve(manifest.getFileName()));
+            delete.delete(completed);
+            return Optional.empty();
         } catch (IOException exception) {
-            throw new PublishException(
-                    "The publish completed, but its transaction staging directory could not be removed at "
-                            + transaction
-                            + ".",
-                    exception);
+            Path retained = Files.exists(completed) ? completed : transaction;
+            return Optional.of(
+                    "Publication completed, but local transaction cleanup failed at "
+                            + retained
+                            + ". The retained manifest can be used to verify the exact remote release. Cause: "
+                            + exception.getMessage());
         }
+    }
+
+    @FunctionalInterface
+    interface CleanupDelete {
+        void delete(Path path) throws IOException;
     }
 
     private static Map<String, String> hashes(List<StagedPublicationFile> staged) {

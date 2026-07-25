@@ -26,6 +26,7 @@ public final class PublishDependencyMetadataKey {
 
     private static boolean apiDependency(ProjectConfig config, String coordinate) {
         return config.apiDependencies().containsKey(coordinate)
-                || config.managedApiDependencies().contains(coordinate);
+                || config.managedApiDependencies().contains(coordinate)
+                || config.workspaceApiDependencies().containsKey(coordinate);
     }
 }

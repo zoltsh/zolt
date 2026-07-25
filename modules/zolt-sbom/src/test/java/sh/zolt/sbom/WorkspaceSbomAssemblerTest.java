@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockMemberGraph;
+import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.ZoltLockfile;
 
 final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
@@ -152,6 +154,76 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
                         "pkg:maven/com.example/code-generator@1.0.0?type=jar",
                         "pkg:maven/com.example/test-support@1.0.0?type=jar"),
                 dependsOn(withOptionalScopes, appRef));
+    }
+
+    @Test
+    void memberQualifiedGraphKeepsExcludedLeafUnreachableFromThatMember() {
+        List<SbomWorkspaceMember> members = List.of(
+                member("modules/core", "com.example", "core", "1.0.0"),
+                member("modules/worker", "com.example", "worker", "1.0.0"));
+        LockPackage leaf = externalWithMembers(
+                "org.ext",
+                "leaf",
+                "1.0.0",
+                DependencyScope.COMPILE,
+                SHA_A,
+                List.of(),
+                List.of("modules/worker"));
+        LockPackage root = externalWithMembers(
+                "org.ext",
+                "root",
+                "1.0.0",
+                DependencyScope.COMPILE,
+                SHA_B,
+                List.of("org.ext:leaf:1.0.0:jar:compile"),
+                List.of("modules/core", "modules/worker"));
+        ZoltLockfile lockfile = new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                Optional.empty(),
+                Optional.of("sha256:member-graphs"),
+                List.of(),
+                List.of(root, leaf),
+                List.of(),
+                List.of(),
+                List.of(
+                        new LockMemberGraph(
+                                "modules/core",
+                                root.packageId(),
+                                root.version(),
+                                LockArtifactVariant.defaultVariant(),
+                                root.scope(),
+                                List.of(),
+                                List.of()),
+                        new LockMemberGraph(
+                                "modules/worker",
+                                root.packageId(),
+                                root.version(),
+                                LockArtifactVariant.defaultVariant(),
+                                root.scope(),
+                                root.dependencies(),
+                                List.of())));
+
+        SbomModel model = assembler.assemble(
+                "member-graphs",
+                members,
+                lockfile,
+                SbomScopeSelection.requiredOnly(),
+                Optional.empty(),
+                TOOL_VERSION,
+                LicenseIndex.empty());
+
+        String rootPurl = "pkg:maven/org.ext/root@1.0.0?type=jar";
+        String coreContext = rootPurl + "#zolt-context=modules%2Fcore";
+        String workerContext = rootPurl + "#zolt-context=modules%2Fworker";
+        String leafRef = "pkg:maven/org.ext/leaf@1.0.0?type=jar";
+        assertEquals(
+                List.of(coreContext),
+                dependsOn(model, "pkg:maven/com.example/core@1.0.0?type=jar"));
+        assertEquals(
+                List.of(leafRef, workerContext),
+                dependsOn(model, "pkg:maven/com.example/worker@1.0.0?type=jar"));
+        assertEquals(List.of(), dependsOn(model, coreContext));
+        assertEquals(List.of(leafRef), dependsOn(model, workerContext));
     }
 
     private static LockPackage workspacePackage(

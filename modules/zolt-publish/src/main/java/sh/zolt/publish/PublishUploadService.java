@@ -22,6 +22,7 @@ public final class PublishUploadService {
     private final PublishSettingsReader publishSettingsReader;
     private final MavenRepositoryClient repositoryClient;
     private final Function<String, String> environment;
+    private final Function<Path, Optional<String>> transactionCleanup;
 
     public PublishUploadService() {
         this(new MavenRepositoryClient());
@@ -42,11 +43,28 @@ public final class PublishUploadService {
             PublishSettingsReader publishSettingsReader,
             MavenRepositoryClient repositoryClient,
             Function<String, String> environment) {
+        this(
+                dryRunService,
+                projectParser,
+                publishSettingsReader,
+                repositoryClient,
+                environment,
+                PublicationTransactionManifest::deleteTransaction);
+    }
+
+    PublishUploadService(
+            PublishDryRunService dryRunService,
+            ZoltTomlParser projectParser,
+            PublishSettingsReader publishSettingsReader,
+            MavenRepositoryClient repositoryClient,
+            Function<String, String> environment,
+            Function<Path, Optional<String>> transactionCleanup) {
         this.dryRunService = dryRunService;
         this.projectParser = projectParser;
         this.publishSettingsReader = publishSettingsReader;
         this.repositoryClient = repositoryClient;
         this.environment = environment;
+        this.transactionCleanup = transactionCleanup;
     }
 
     public PublishUploadResult upload(Path projectRoot) {
@@ -98,8 +116,9 @@ public final class PublishUploadService {
         } catch (RepositoryClientException exception) {
             throw new PublishException(exception.getMessage(), exception);
         }
-        PublicationTransactionManifest.deleteTransaction(transactionPath);
-        return new PublishUploadResult(plan);
+        Optional<String> cleanupWarning =
+                transactionCleanup.apply(transactionPath);
+        return new PublishUploadResult(plan, cleanupWarning);
     }
 
     private void uploadIfNeeded(

@@ -133,9 +133,11 @@ final class DependencyTraversalCandidateSelector {
                 new LockArtifactVariant(
                         dependency.rawDependency().type().orElse("jar"),
                         dependency.rawDependency().classifier()));
-        String requestedVersion =
-                versionOverrides.getOrDefault(variant, policySelectedVersion);
         String workspaceVersion = workspaceVersionOverrides.get(variant);
+        String requestedVersion = policySelectedVersion;
+        String materializedVersion = workspaceVersion == null
+                ? versionOverrides.getOrDefault(variant, requestedVersion)
+                : workspaceVersion;
         boolean workspaceMediated = workspaceVersion != null
                 && !workspaceVersion.equals(policySelectedVersion);
         validateSupportedTransitiveVersion(packageId, requestedVersion, candidate.source());
@@ -144,7 +146,7 @@ final class DependencyTraversalCandidateSelector {
             policyEffects.add(DependencyTraversalPolicyEffects.workspaceMediation(
                     packageId,
                     policySelectedVersion,
-                    requestedVersion,
+                    materializedVersion,
                     candidate.source()));
         } else if (constraint != null) {
             policyEffects.add(DependencyTraversalPolicyEffects.strictVersion(
@@ -169,6 +171,7 @@ final class DependencyTraversalCandidateSelector {
                 DependencyTraversalItem.transitive(
                         candidate.source(),
                         request,
+                        materializedVersion,
                         candidate.item().request().scope(),
                         candidate.item().including(dependency.exclusions()),
                         decision),

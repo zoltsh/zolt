@@ -10,6 +10,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.LockDependencyIndex;
+import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
@@ -37,7 +38,6 @@ public final class WorkspaceSbomAssembler {
         SbomComponent root = rootComponent(workspaceName);
 
         // Member components (first-party). Coordinate and path both map to the member bom-ref.
-        Map<String, String> coordinateToRef = new TreeMap<>();
         Map<String, String> memberPathToRef = new LinkedHashMap<>();
         List<SbomComponent> memberComponents = new ArrayList<>();
         for (SbomWorkspaceMember member : members) {
@@ -47,6 +47,12 @@ public final class WorkspaceSbomAssembler {
         }
 
         // External components (scope-filtered, deduped).
+        LockMemberGraphIndex memberGraphs =
+                new LockMemberGraphIndex(
+                        lockfile.memberGraphs(), lockfile.packages());
+        WorkspaceSbomExternalContexts contexts =
+                WorkspaceSbomExternalContexts.create(
+                        lockfile, selection, memberGraphs);
         Map<String, ExternalAccumulator> externals = new LinkedHashMap<>();
         for (LockPackage lockPackage : lockfile.packages()) {
             if (lockPackage.workspace().isPresent() || lockPackage.jar().isEmpty()) {
@@ -57,29 +63,30 @@ public final class WorkspaceSbomAssembler {
                 continue;
             }
             String purl = LockArtifacts.purl(lockPackage);
-            ExternalAccumulator accumulator = externals.computeIfAbsent(
-                    purl,
-                    ref -> new ExternalAccumulator(
-                            lockPackage.packageId().groupId(),
-                            lockPackage.packageId().artifactId(),
-                            lockPackage.version(),
-                            ref));
-            accumulator.raise(group.componentScope());
-            LockArtifacts.hash(lockPackage).ifPresent(accumulator.hashes::add);
-            // Key by the variant-qualified ref so two variants of one GAV map to their own purl instead of
-            // one collapsing the other. A member (default variant) keeps its bare g:a:v ref below.
-            coordinateToRef.put(refOf(lockPackage), purl);
+            for (String contextRef : contexts.refs(lockPackage)) {
+                ExternalAccumulator accumulator = externals.computeIfAbsent(
+                        contextRef,
+                        ref -> new ExternalAccumulator(
+                                lockPackage.packageId().groupId(),
+                                lockPackage.packageId().artifactId(),
+                                lockPackage.version(),
+                                ref,
+                                purl));
+                accumulator.raise(group.componentScope());
+                LockArtifacts.hash(lockPackage)
+                        .ifPresent(accumulator.hashes::add);
+            }
         }
         // Members win coordinate mapping over any same-coordinate external (first-party identity).
         // Retain the historical bare GAV key, then add every exact scope-qualified workspace-package
         // identity from the lock so both legacy and version-3 edges land on the first-party component.
-        for (SbomComponent member : memberComponents) {
-            coordinateToRef.put(member.group() + ":" + member.name() + ":" + member.version(), member.bomRef());
-        }
+        Map<String, String> workspacePackageRefs = new LinkedHashMap<>();
         for (LockPackage lockPackage : lockfile.packages()) {
             lockPackage.workspace()
                     .map(memberPathToRef::get)
-                    .ifPresent(memberRef -> coordinateToRef.put(refOf(lockPackage), memberRef));
+                    .ifPresent(memberRef ->
+                            workspacePackageRefs.put(
+                                    refOf(lockPackage), memberRef));
         }
 
         List<SbomComponent> externalComponents = externals.values().stream()
@@ -93,7 +100,7 @@ public final class WorkspaceSbomAssembler {
         components.sort(Comparator.comparing(SbomComponent::bomRef));
 
         List<SbomDependency> dependencies = dependencyGraph(root, memberComponents, components, lockfile,
-                coordinateToRef, memberPathToRef, selection);
+                contexts, workspacePackageRefs, memberPathToRef, selection, memberGraphs);
         String serialNumber = serialNumber(root.bomRef(), lockfile, components);
         return new SbomModel(
                 serialNumber,
@@ -109,9 +116,11 @@ public final class WorkspaceSbomAssembler {
             List<SbomComponent> memberComponents,
             List<SbomComponent> components,
             ZoltLockfile lockfile,
-            Map<String, String> coordinateToRef,
+            WorkspaceSbomExternalContexts contexts,
+            Map<String, String> workspacePackageRefs,
             Map<String, String> memberPathToRef,
-            SbomScopeSelection selection) {
+            SbomScopeSelection selection,
+            LockMemberGraphIndex memberGraphs) {
         Map<String, TreeSet<String>> edges = new TreeMap<>();
         edges.put(root.bomRef(), new TreeSet<>());
         for (SbomComponent component : components) {
@@ -128,27 +137,60 @@ public final class WorkspaceSbomAssembler {
                 .flatMap(lockPackage -> lockPackage.dependencies().stream())
                 .forEach(edge -> packageIndex.resolveGraphEdge(
                         edge, "zolt resolve --workspace"));
+        lockfile.memberGraphs().stream()
+                .flatMap(graph -> graph.dependencies().stream())
+                .forEach(edge -> packageIndex.resolveGraphEdge(
+                        edge, "zolt resolve --workspace"));
         for (LockPackage lockPackage : lockfile.packages()) {
             if (!selection.includes(SbomScopeGroup.of(lockPackage.scope()))) {
                 continue;
             }
-            String ref = coordinateToRef.get(refOf(lockPackage));
-            if (ref == null) {
+            if (lockPackage.workspace().isPresent()) {
+                String ref = workspacePackageRefs.get(refOf(lockPackage));
+                if (ref == null) {
+                    continue;
+                }
+                for (String memberPath : lockPackage.members()) {
+                    String usingRef = memberPathToRef.get(memberPath);
+                    if (usingRef != null) {
+                        edges.get(usingRef).add(ref);
+                    }
+                }
+                for (String edge : lockPackage.dependencies()) {
+                    packageIndex.resolveGraphEdge(edge, "zolt resolve --workspace")
+                            .map(target -> targetRef(
+                                    target,
+                                    lockPackage.workspace().orElseThrow(),
+                                    contexts,
+                                    workspacePackageRefs))
+                            .ifPresent(target -> edges.get(ref).add(target));
+                }
                 continue;
             }
-            // members attribution: each member that depends on this package.
-            for (String memberPath : lockPackage.members()) {
+            List<String> contextMembers = lockPackage.members().isEmpty()
+                    ? List.of("")
+                    : lockPackage.members();
+            for (String memberPath : contextMembers) {
+                String ref = contexts.ref(lockPackage, memberPath);
+                if (ref == null) {
+                    continue;
+                }
                 String usingRef = memberPathToRef.get(memberPath);
                 if (usingRef != null) {
                     edges.get(usingRef).add(ref);
                 }
-            }
-            // external -> external edges from the dependency graph.
-            if (lockPackage.workspace().isEmpty()) {
-                for (String edge : lockPackage.dependencies()) {
-                    packageIndex.resolveGraphEdge(edge, "zolt resolve --workspace")
-                            .map(WorkspaceSbomAssembler::refOf)
-                            .map(coordinateToRef::get)
+                List<String> dependencies = memberPath.isEmpty()
+                        ? lockPackage.dependencies()
+                        : memberGraphs.dependenciesFor(
+                                memberPath, lockPackage);
+                for (String edge : dependencies) {
+                    packageIndex.resolveGraphEdge(
+                                    edge, "zolt resolve --workspace")
+                            .map(target -> targetRef(
+                                    target,
+                                    memberPath,
+                                    contexts,
+                                    workspacePackageRefs))
                             .ifPresent(target -> edges.get(ref).add(target));
                 }
             }
@@ -164,6 +206,17 @@ public final class WorkspaceSbomAssembler {
     /** The variant-qualified edge ref that points at (and uniquely keys) this package. */
     private static String refOf(LockPackage lockPackage) {
         return LockDependencyEdge.of(lockPackage).encode();
+    }
+
+    private static String targetRef(
+            LockPackage target,
+            String member,
+            WorkspaceSbomExternalContexts contexts,
+            Map<String, String> workspacePackageRefs) {
+        if (target.workspace().isPresent()) {
+            return workspacePackageRefs.get(refOf(target));
+        }
+        return contexts.ref(target, member);
     }
 
     private SbomComponent rootComponent(String workspaceName) {
@@ -230,15 +283,22 @@ public final class WorkspaceSbomAssembler {
         private final String name;
         private final String version;
         private final String bomRef;
+        private final String purl;
         private final TreeSet<SbomHash> hashes = new TreeSet<>(
                 Comparator.comparing(SbomHash::alg).thenComparing(SbomHash::content));
         private SbomComponentScope scope = SbomComponentScope.OPTIONAL;
 
-        private ExternalAccumulator(String group, String name, String version, String bomRef) {
+        private ExternalAccumulator(
+                String group,
+                String name,
+                String version,
+                String bomRef,
+                String purl) {
             this.group = group;
             this.name = name;
             this.version = version;
             this.bomRef = bomRef;
+            this.purl = purl;
         }
 
         private void raise(SbomComponentScope candidate) {
@@ -253,8 +313,9 @@ public final class WorkspaceSbomAssembler {
 
         private SbomComponent toComponent(List<SbomLicense> licenses) {
             return new SbomComponent(
-                    SbomComponentType.LIBRARY, bomRef, group, name, version, bomRef,
+                    SbomComponentType.LIBRARY, bomRef, group, name, version, purl,
                     scope, List.copyOf(hashes), licenses);
         }
     }
+
 }

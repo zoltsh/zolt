@@ -29,7 +29,7 @@ final class WorkspaceClasspathMemberGraph {
         }
         for (WorkspaceProjectEdge edge : workspace.edges()) {
             edges.computeIfAbsent(edge.from(), ignored -> new ArrayList<>()).add(edge);
-            if (isCompile(edge)) {
+            if (isCompile(edge) && !edge.optional()) {
                 compileDependencies
                         .computeIfAbsent(edge.from(), ignored -> new ArrayList<>())
                         .add(edge.to());
@@ -51,7 +51,11 @@ final class WorkspaceClasspathMemberGraph {
 
     Set<String> mainRuntime(String memberPath) {
         Set<String> visible = new LinkedHashSet<>();
-        includeCompileDependencies(memberPath, visible);
+        for (WorkspaceProjectEdge edge : edges(memberPath)) {
+            if (isCompile(edge) && visible.add(edge.to())) {
+                includeNonOptionalCompileDependencies(edge.to(), visible);
+            }
+        }
         return Set.copyOf(visible);
     }
 
@@ -59,7 +63,7 @@ final class WorkspaceClasspathMemberGraph {
         Set<String> visible = new LinkedHashSet<>(mainRuntime(memberPath));
         for (WorkspaceProjectEdge edge : edges(memberPath)) {
             if (edge.scope().equals("test") && visible.add(edge.to())) {
-                includeCompileDependencies(edge.to(), visible);
+                includeNonOptionalCompileDependencies(edge.to(), visible);
             }
         }
         return Set.copyOf(visible);
@@ -71,16 +75,21 @@ final class WorkspaceClasspathMemberGraph {
 
     private void includeExportedCompile(String memberPath, Set<String> visible) {
         for (WorkspaceProjectEdge edge : edges(memberPath)) {
-            if (isCompile(edge) && edge.exported() && visible.add(edge.to())) {
+            if (isCompile(edge)
+                    && edge.exported()
+                    && !edge.optional()
+                    && visible.add(edge.to())) {
                 includeExportedCompile(edge.to(), visible);
             }
         }
     }
 
-    private void includeCompileDependencies(String memberPath, Set<String> visible) {
+    private void includeNonOptionalCompileDependencies(
+            String memberPath,
+            Set<String> visible) {
         for (WorkspaceProjectEdge edge : edges(memberPath)) {
-            if (isCompile(edge) && visible.add(edge.to())) {
-                includeCompileDependencies(edge.to(), visible);
+            if (isCompile(edge) && !edge.optional() && visible.add(edge.to())) {
+                includeNonOptionalCompileDependencies(edge.to(), visible);
             }
         }
     }

@@ -13,10 +13,11 @@ public record ZoltLockfile(
         List<LockPolicyEffect> policyEffects,
         List<LockMemberGraph> memberGraphs) {
     /**
-     * Version 4 introduces member-qualified workspace graph facts. Version 3 introduced scope-qualified
-     * dependency edges, and version 2 introduced variant-qualified edges and conflict identities.
+     * Version 5 adds optional-boundary and conflict-provenance facts to the member-qualified graph
+     * introduced in version 4. Version 3 introduced scope-qualified dependency edges, and version 2
+     * introduced variant-qualified edges and conflict identities.
      */
-    public static final int CURRENT_VERSION = 4;
+    public static final int CURRENT_VERSION = 5;
 
     public ZoltLockfile(
             int version,
@@ -91,5 +92,6 @@ public record ZoltLockfile(
         conflicts = List.copyOf(conflicts);
         policyEffects = policyEffects == null ? List.of() : List.copyOf(policyEffects);
         memberGraphs = memberGraphs == null ? List.of() : List.copyOf(memberGraphs);
+        new LockMemberGraphIndex(memberGraphs, packages);
     }
 }

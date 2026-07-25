@@ -1,6 +1,7 @@
 package sh.zolt.resolve;
 
 import sh.zolt.dependency.PackageId;
+import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.resolve.graph.ResolutionGraph;
 import sh.zolt.resolve.metrics.ResolverMetricsSink;
@@ -76,15 +77,12 @@ final class DependencyGraphResolver {
             SnapshotAllowance snapshotAllowance,
             Map<ResolutionVariant, String> versionOverrides) {
         Map<ResolutionVariant, String> materializedVersions = new LinkedHashMap<>(versionOverrides);
-        List<DependencyRequest> selectionRequests =
-                DependencyRequestVersions.rewrite(requests, versionOverrides);
+        List<DependencyRequest> selectionRequests = List.copyOf(requests);
         Map<ResolutionVariant, VersionConflict> preservedConflicts = new LinkedHashMap<>();
         Set<Map<ResolutionVariant, String>> seenSelections = new LinkedHashSet<>();
         seenSelections.add(Map.copyOf(materializedVersions));
 
         for (int pass = 1; pass <= MAX_MATERIALIZATION_PASSES; pass++) {
-            List<DependencyRequest> traversalRequests =
-                    DependencyRequestVersions.rewrite(selectionRequests, materializedVersions);
             DependencyGraphTraverser traverser = graphTraverserFactory.create(
                     metadataSource,
                     dependencyPolicy,
@@ -94,7 +92,7 @@ final class DependencyGraphResolver {
                     materializedVersions,
                     versionOverrides);
             long traversalStarted = System.nanoTime();
-            ResolutionGraph graph = traverser.traverse(traversalRequests);
+            ResolutionGraph graph = traverser.traverse(selectionRequests);
             metrics.addGraphTraversalNanos(elapsedSince(traversalStarted));
 
             long selectionStarted = System.nanoTime();
@@ -105,11 +103,18 @@ final class DependencyGraphResolver {
             Map<ResolutionVariant, String> selectedVersions = selectedVersions(selection);
             selectedVersions.putAll(versionOverrides);
             if (selectedVersions.equals(materializedVersions)) {
+                preserveFixedOverrideConflicts(
+                        preservedConflicts,
+                        selection,
+                        selectionRequests,
+                        graph,
+                        selectedVersions);
                 return new DependencyGraphResolution(
                         graph,
-                        new VersionSelectionResult(
-                                selection.selectedNodes(),
-                                List.copyOf(preservedConflicts.values())));
+                        materializedSelection(
+                                selection,
+                                preservedConflicts,
+                                selectedVersions));
             }
             Map<ResolutionVariant, String> nextSelection = Map.copyOf(selectedVersions);
             if (!seenSelections.add(nextSelection)) {
@@ -140,6 +145,32 @@ final class DependencyGraphResolver {
         return selectedVersions;
     }
 
+    private static VersionSelectionResult materializedSelection(
+            VersionSelectionResult selection,
+            Map<ResolutionVariant, VersionConflict> preservedConflicts,
+            Map<ResolutionVariant, String> selectedVersions) {
+        List<sh.zolt.resolve.graph.PackageNode> nodes = selection.selectedNodes().stream()
+                .map(node -> new sh.zolt.resolve.graph.PackageNode(
+                        node.packageId(),
+                        selectedVersions.getOrDefault(
+                                new ResolutionVariant(node.packageId(), node.variant()),
+                                node.selectedVersion()),
+                        node.variant()))
+                .toList();
+        List<VersionConflict> conflicts = preservedConflicts.values().stream()
+                .map(conflict -> new VersionConflict(
+                        conflict.packageId(),
+                        conflict.variant(),
+                        conflict.requests(),
+                        selectedVersions.getOrDefault(
+                                new ResolutionVariant(
+                                        conflict.packageId(), conflict.variant()),
+                                conflict.selectedVersion()),
+                        conflict.selectionReason()))
+                .toList();
+        return new VersionSelectionResult(nodes, conflicts);
+    }
+
     private static void preserveConflicts(
             Map<ResolutionVariant, VersionConflict> preserved,
             List<VersionConflict> conflicts) {
@@ -161,6 +192,41 @@ final class DependencyGraphResolver {
                     requests,
                     conflict.selectedVersion(),
                     conflict.selectionReason()));
+        }
+    }
+
+    private static void preserveFixedOverrideConflicts(
+            Map<ResolutionVariant, VersionConflict> preserved,
+            VersionSelectionResult selection,
+            List<DependencyRequest> directRequests,
+            ResolutionGraph graph,
+            Map<ResolutionVariant, String> selectedVersions) {
+        List<DependencyRequest> requests = new ArrayList<>(directRequests);
+        graph.edges().forEach(edge -> requests.add(edge.request()));
+        for (sh.zolt.resolve.graph.PackageNode node : selection.selectedNodes()) {
+            ResolutionVariant key =
+                    new ResolutionVariant(node.packageId(), node.variant());
+            String selected = selectedVersions.get(key);
+            if (selected == null
+                    || selected.equals(node.selectedVersion())
+                    || preserved.containsKey(key)) {
+                continue;
+            }
+            List<DependencyRequest> variantRequests = requests.stream()
+                    .filter(request -> request.packageId().equals(node.packageId()))
+                    .filter(request -> request.artifactVariant().equals(node.variant()))
+                    .distinct()
+                    .toList();
+            ConflictSelectionReason reason = variantRequests.stream()
+                    .anyMatch(DependencyRequest::direct)
+                    ? ConflictSelectionReason.DIRECT_DEPENDENCY
+                    : ConflictSelectionReason.NEWEST_VERSION;
+            preserved.put(key, new VersionConflict(
+                    node.packageId(),
+                    node.variant(),
+                    variantRequests,
+                    selected,
+                    reason));
         }
     }
 

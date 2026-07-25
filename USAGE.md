@@ -490,15 +490,17 @@ ambient or historically shaped:
   and JAR and verifies cached/build inputs against those lockfile hashes.
   Repository checksum sidecars are not fetched; the first download trusts the
   repository TLS channel.
-- `zolt.lock` version 4 is deterministic: no timestamps, no absolute paths,
+- `zolt.lock` version 5 is deterministic: no timestamps, no absolute paths,
   stable ordering, and LF line endings. Version 2 added variant-qualified
   dependency edges and conflict identities; version 3 added source-scope-qualified
   dependency edges; version 4 adds member-qualified workspace dependency and
   policy graph facts so identical artifacts can retain different exclusion
-  closures per member. Zolt still reads version 1 through 3 locks for compatible
+  closures per member; version 5 carries optional-boundary and member-attributed
+  conflict evidence and requires complete member graph facts for every qualified
+  identity. Zolt still reads version 1 through 4 locks for compatible
   non-graph data, but graph commands refuse ambiguous legacy edges and direct you
-  to regenerate the lock. Newly resolved locks use version 4 so older binaries
-  cannot silently misread variant-, scope-, or member-qualified graphs. Newer
+  to regenerate the lock. Newly resolved locks use version 5 so older binaries
+  cannot silently misread variant-, scope-, member-, or optional-qualified graphs. Newer
   lockfile versions require a newer Zolt before `zolt resolve --locked` can
   verify them.
 - `zolt add`, `zolt remove`, and `zolt platform` rewrite `zolt.toml`. They
@@ -1070,9 +1072,12 @@ that strict pin, resolve fails and requires the declarations to be aligned.
 Within one member, the ordinary single-project rule remains unchanged: its own
 direct declaration takes precedence over its own strict transitive constraint.
 
-Version 4 workspace locks also retain per-member graph facts when members resolve
+Version 5 workspace locks retain the version 4 per-member graph facts when members resolve
 the same artifact bytes with different exclusions or policy effects. Classpath
-and SBOM projections use those member-qualified facts. If repositories serve
+and SBOM projections use those member-qualified facts, optional dependency
+closures stay local to their declaring member, and whole-workspace SBOMs use
+member-qualified `bom-ref` contexts when a shared PURL has different outgoing
+graphs. If repositories serve
 different artifact or POM bytes for the same selected identity, workspace resolve
 fails instead of choosing whichever member happened to resolve first.
 

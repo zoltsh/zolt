@@ -108,6 +108,53 @@ final class PublicationTransactionManifestTest {
         assertTrue(Files.isRegularFile(siblingFile));
     }
 
+    @Test
+    void failedRecursiveCleanupIsNonFatalAndRetainsManifestEvidence() throws Exception {
+        Path stagingRoot = tempDir.resolve("staging");
+        Path manifest = PublicationTransactionManifest.transactionPath(
+                stagingRoot,
+                "https://repo.example/releases",
+                "com.acme:demo:1.0.0");
+        PublicationTransactionManifest.of(
+                        "https://repo.example/releases",
+                        "unsigned",
+                        staged())
+                .write(manifest);
+        Path stagedFile = manifest.getParent().resolve("files/demo.jar");
+        Files.createDirectories(stagedFile.getParent());
+        Files.writeString(stagedFile, "retained exact bytes");
+
+        java.util.Optional<String> warning =
+                PublicationTransactionManifest.deleteTransaction(
+                        manifest,
+                        path -> {
+                            if (path.getFileName().toString().equals("demo.jar")) {
+                                throw new java.io.IOException(
+                                        "injected delete failure");
+                            }
+                            Files.deleteIfExists(path);
+                        });
+
+        assertTrue(warning.isPresent());
+        assertTrue(warning.orElseThrow().contains("Publication completed"));
+        Path completed;
+        try (var candidates =
+                Files.list(manifest.getParent().getParent())) {
+            completed = candidates
+                    .filter(path -> path.getFileName()
+                            .toString()
+                            .contains(".completed-"))
+                    .findFirst()
+                    .orElseThrow();
+        }
+        Path retainedManifest = completed.resolve("manifest");
+        assertTrue(Files.isRegularFile(retainedManifest));
+        assertTrue(Files.isRegularFile(completed.resolve("files/demo.jar")));
+        PublicationTransactionManifest.read(retainedManifest)
+                .orElseThrow()
+                .requirePlan(staged());
+    }
+
     private static List<StagedPublicationFile> staged() {
         return List.of(
                 new StagedPublicationFile(

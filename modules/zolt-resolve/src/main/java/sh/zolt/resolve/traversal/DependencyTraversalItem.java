@@ -13,18 +13,29 @@ import java.util.Optional;
 record DependencyTraversalItem(
         Optional<PackageNode> parent,
         DependencyRequest request,
+        String materializedVersion,
         DependencyScope sourceScope,
         List<DependencyExclusion> activeExclusions,
         DependencyTraversalDecision decision) {
     DependencyTraversalItem {
         parent = parent == null ? Optional.empty() : parent;
+        materializedVersion = materializedVersion == null || materializedVersion.isBlank()
+                ? request.requestedVersion()
+                : materializedVersion;
         activeExclusions = normalizedExclusions(activeExclusions);
     }
 
     static DependencyTraversalItem direct(DependencyRequest request) {
+        return direct(request, request.requestedVersion());
+    }
+
+    static DependencyTraversalItem direct(
+            DependencyRequest request,
+            String materializedVersion) {
         return new DependencyTraversalItem(
                 Optional.empty(),
                 request,
+                materializedVersion,
                 request.scope(),
                 request.exclusions(),
                 DependencyTraversalDecision.include("direct dependency"));
@@ -33,10 +44,32 @@ record DependencyTraversalItem(
     static DependencyTraversalItem transitive(
             PackageNode parent,
             DependencyRequest request,
+            String materializedVersion,
             DependencyScope sourceScope,
             List<DependencyExclusion> activeExclusions,
             DependencyTraversalDecision decision) {
-        return new DependencyTraversalItem(Optional.of(parent), request, sourceScope, activeExclusions, decision);
+        return new DependencyTraversalItem(
+                Optional.of(parent),
+                request,
+                materializedVersion,
+                sourceScope,
+                activeExclusions,
+                decision);
+    }
+
+    static DependencyTraversalItem transitive(
+            PackageNode parent,
+            DependencyRequest request,
+            DependencyScope sourceScope,
+            List<DependencyExclusion> activeExclusions,
+            DependencyTraversalDecision decision) {
+        return transitive(
+                parent,
+                request,
+                request.requestedVersion(),
+                sourceScope,
+                activeExclusions,
+                decision);
     }
 
     static DependencyTraversalItem transitive(

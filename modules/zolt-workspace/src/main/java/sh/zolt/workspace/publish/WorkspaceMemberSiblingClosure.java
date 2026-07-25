@@ -87,8 +87,18 @@ final class WorkspaceMemberSiblingClosure {
             addExternalEdges(
                     edges, seen, member.path(), config, DependencyScope.RUNTIME, config.managedRuntimeDependencies());
             // Siblings-of-siblings: edge to the workspace sibling, and recurse into it the same way.
-            addWorkspaceEdges(edges, seen, queue, config.workspaceApiDependencies().keySet());
-            addWorkspaceEdges(edges, seen, queue, config.workspaceDependencies().keySet());
+            addWorkspaceEdges(
+                    edges,
+                    seen,
+                    queue,
+                    config,
+                    config.workspaceApiDependencies().keySet());
+            addWorkspaceEdges(
+                    edges,
+                    seen,
+                    queue,
+                    config,
+                    config.workspaceDependencies().keySet());
             populated.put(coordinate, withDependencies(siblingPackage, List.copyOf(edges)));
         }
         return populated;
@@ -102,6 +112,10 @@ final class WorkspaceMemberSiblingClosure {
             DependencyScope scope,
             Set<String> coordinates) {
         for (String coordinate : coordinates) {
+            if (MemberDependencyVariants.optional(
+                    config, coordinate, scope)) {
+                continue;
+            }
             LockPackage resolved = resolveExternal(
                     coordinate,
                     MemberDependencyVariants.declaredVariant(config, coordinate, scope),
@@ -114,8 +128,16 @@ final class WorkspaceMemberSiblingClosure {
     }
 
     private void addWorkspaceEdges(
-            List<String> edges, Set<String> seen, Deque<String> queue, Set<String> coordinates) {
+            List<String> edges,
+            Set<String> seen,
+            Deque<String> queue,
+            ProjectConfig config,
+            Set<String> coordinates) {
         for (String coordinate : coordinates) {
+            if (MemberDependencyVariants.optional(
+                    config, coordinate, DependencyScope.COMPILE)) {
+                continue;
+            }
             LockPackage resolved = workspaceByCoordinate.get(coordinate);
             if (resolved != null && seen.add(ref(resolved))) {
                 edges.add(ref(resolved));

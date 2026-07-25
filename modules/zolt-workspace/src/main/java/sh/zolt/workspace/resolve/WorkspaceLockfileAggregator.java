@@ -1,20 +1,11 @@
 package sh.zolt.workspace.resolve;
 
-import sh.zolt.dependency.ConflictSelectionReason;
-import sh.zolt.dependency.DependencyScope;
-import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.project.ProjectPathException;
-import sh.zolt.project.ProjectPaths;
-import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
-import sh.zolt.workspace.service.WorkspaceMember;
-import sh.zolt.workspace.service.WorkspaceProjectEdge;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -51,34 +42,22 @@ final class WorkspaceLockfileAggregator {
         Map<String, LockPackage> packages = new LinkedHashMap<>();
         Map<String, LockConflict> conflicts = new LinkedHashMap<>();
         Map<String, LockPolicyEffect> policyEffects = new LinkedHashMap<>();
-        Map<WorkspaceCoordinateScope, String> workspaceProvidedVersions = new LinkedHashMap<>();
-        for (LockPackage lockPackage : workspacePackages(workspace)) {
+        WorkspaceProvidedArtifactMediator provided =
+                new WorkspaceProvidedArtifactMediator(workspace);
+        for (LockPackage lockPackage :
+                new WorkspacePackageAssembler()
+                        .assemble(workspace, memberOutputs, provided)) {
             String key = packageKey(lockPackage);
             LockPackage existingPackage = packages.get(key);
             packages.put(key, existingPackage == null ? lockPackage : merge(existingPackage, lockPackage));
-            workspaceProvidedVersions.putIfAbsent(
-                    new WorkspaceCoordinateScope(
-                            lockPackage.packageId(), LockArtifactVariant.of(lockPackage), lockPackage.scope()),
-                    lockPackage.version());
         }
 
         List<LockPackage> externalCandidates = new ArrayList<>();
-        Map<WorkspaceCoordinateScope, Set<String>> shadowedExternalVersions = new LinkedHashMap<>();
         for (WorkspaceMemberResolveOutput memberOutput : memberOutputs) {
-            for (LockPackage lockPackage : memberOutput.lockfile().packages()) {
+            for (LockPackage lockPackage :
+                    WorkspaceShadowGraphPruner.reachableExternalPackages(
+                            memberOutput, provided)) {
                 if (!lockPackage.workspace().isPresent()) {
-                    WorkspaceCoordinateScope coordinateScope = new WorkspaceCoordinateScope(
-                            lockPackage.packageId(), LockArtifactVariant.of(lockPackage), lockPackage.scope());
-                    if (workspaceProvidedVersions.containsKey(coordinateScope)) {
-                        // A workspace member provides this coordinate at this scope; the reactor
-                        // version shadows the external same-coordinate transitive (Maven-consistent).
-                        // Drop the external so two live versions never reach a member's classpath, but
-                        // record the collision as a conflict rather than resolving it silently.
-                        shadowedExternalVersions
-                                .computeIfAbsent(coordinateScope, ignored -> new LinkedHashSet<>())
-                                .add(lockPackage.version());
-                        continue;
-                    }
                     externalCandidates.add(withMember(
                             lockPackage,
                             memberOutput.member(),
@@ -86,47 +65,36 @@ final class WorkspaceLockfileAggregator {
                 }
             }
             for (LockConflict conflict : memberOutput.lockfile().conflicts()) {
-                conflicts.putIfAbsent(conflictKey(conflict), conflict);
+                addConflict(
+                        conflicts,
+                        withMember(conflict, memberOutput.member()));
             }
             for (LockPolicyEffect policyEffect : memberOutput.lockfile().policyEffects()) {
                 policyEffects.putIfAbsent(policyEffectKey(policyEffect), policyEffect);
             }
         }
+        for (LockConflict conflict : provided.conflicts(memberOutputs)) {
+            addConflict(conflicts, conflict);
+        }
 
         WorkspaceExternalSelection globalSelection =
-                new WorkspaceExternalPackageSelector().selectMaterialized(externalCandidates);
+                new WorkspaceExternalPackageSelector().selectMaterialized(
+                        externalCandidates,
+                        provided.selectedVersions());
         for (LockPackage lockPackage : globalSelection.packages()) {
             String key = packageKey(lockPackage);
             LockPackage existingPackage = packages.get(key);
             packages.put(key, existingPackage == null ? lockPackage : merge(existingPackage, lockPackage));
         }
-        for (LockConflict conflict : globalSelection.conflicts()) {
-            conflicts.put(conflictKey(conflict), conflict);
-        }
         for (LockConflict conflict : preservedWorkspaceConflicts) {
-            conflicts.put(conflictKey(conflict), conflict);
+            addConflict(conflicts, conflict);
+        }
+        for (LockConflict conflict : globalSelection.conflicts()) {
+            addConflict(conflicts, conflict);
         }
         for (LockPolicyEffect policyEffect : preservedWorkspacePolicyEffects) {
             policyEffects.put(policyEffectKey(policyEffect), policyEffect);
         }
-        for (Map.Entry<WorkspaceCoordinateScope, Set<String>> entry : shadowedExternalVersions.entrySet()) {
-            WorkspaceCoordinateScope coordinateScope = entry.getKey();
-            String workspaceVersion = workspaceProvidedVersions.get(coordinateScope);
-            Set<String> requestedVersions = new LinkedHashSet<>();
-            requestedVersions.add(workspaceVersion);
-            requestedVersions.addAll(entry.getValue());
-            if (requestedVersions.size() > 1) {
-                LockConflict conflict = new LockConflict(
-                        coordinateScope.packageId(),
-                        workspaceVersion,
-                        List.copyOf(requestedVersions),
-                        ConflictSelectionReason.DIRECT_DEPENDENCY,
-                        Optional.empty(),
-                        Optional.of(coordinateScope.variant()));
-                conflicts.put(conflictKey(conflict), conflict);
-            }
-        }
-
         return new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
                 WorkspaceLockfileFingerprints.aliasFingerprint(memberOutputs),
@@ -135,7 +103,8 @@ final class WorkspaceLockfileAggregator {
                 List.copyOf(packages.values()),
                 List.copyOf(conflicts.values()),
                 List.copyOf(policyEffects.values()),
-                globalSelection.memberGraphs());
+                WorkspaceMemberGraphFacts.complete(
+                        globalSelection, memberOutputs));
     }
 
     private static boolean isTransitionalRootWorkspace(
@@ -146,69 +115,6 @@ final class WorkspaceLockfileAggregator {
                 && workspace.members().getFirst().path().equals(".")
                 && memberOutputs.size() == 1
                 && memberOutputs.getFirst().member().equals(".");
-    }
-
-    private static List<LockPackage> workspacePackages(Workspace workspace) {
-        Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
-        List<LockPackage> packages = new ArrayList<>();
-        for (WorkspaceProjectEdge edge : workspace.edges()) {
-            WorkspaceMember target = membersByPath.get(edge.to());
-            packages.add(new LockPackage(
-                    packageId(edge.coordinate()),
-                    target.config().project().version(),
-                    "workspace",
-                    scope(edge.scope()),
-                    true,
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.of(edge.to()),
-                    Optional.of(workspaceOutput(workspace.root(), target)),
-                    List.of(),
-                    List.of(edge.from()),
-                    edge.exported() ? List.of(edge.from()) : List.of(),
-                    List.of(),
-                    List.of()));
-        }
-        return packages;
-    }
-
-    private static String workspaceOutput(Path workspaceRoot, WorkspaceMember member) {
-        String configuredOutput = member.config().build().output();
-        try {
-            Path memberRoot = ProjectPaths.existingRoot(
-                    ProjectPaths.root(workspaceRoot),
-                    "[workspace].members",
-                    member.path());
-            ProjectPaths.output(memberRoot, "[build].output", configuredOutput);
-            return configuredOutput;
-        } catch (ProjectPathException exception) {
-            throw new ResolveException(
-                    "Workspace member `"
-                            + member.path()
-                            + "` has an invalid [build].output. "
-                            + exception.getMessage(),
-                    exception);
-        }
-    }
-
-    private static PackageId packageId(String coordinate) {
-        String[] parts = coordinate.split(":", -1);
-        return new PackageId(parts[0], parts[1]);
-    }
-
-    private static DependencyScope scope(String value) {
-        return switch (value) {
-            case "compile" -> DependencyScope.COMPILE;
-            case "test" -> DependencyScope.TEST;
-            case "processor" -> DependencyScope.PROCESSOR;
-            case "test-processor" -> DependencyScope.TEST_PROCESSOR;
-            default -> throw new ResolveException("Unsupported workspace dependency scope `" + value + "`.");
-        };
     }
 
     private static LockPackage merge(LockPackage left, LockPackage right) {
@@ -302,12 +208,51 @@ final class WorkspaceLockfileAggregator {
     }
 
     private static String conflictKey(LockConflict conflict) {
-        return conflict.packageId() + ":" + conflict.selectedVersion() + ":" + conflict.reason()
+        return conflict.packageId()
                 + ":" + conflict.toolGroup().orElse("")
                 + ":" + conflict.variant()
                         .filter(variant -> !variant.isDefault())
                         .map(LockArtifactVariant::key)
                         .orElse("");
+    }
+
+    private static void addConflict(
+            Map<String, LockConflict> conflicts,
+            LockConflict conflict) {
+        String key = conflictKey(conflict);
+        LockConflict existing = conflicts.get(key);
+        if (existing == null) {
+            conflicts.put(key, conflict);
+            return;
+        }
+        Set<String> requested = new LinkedHashSet<>(
+                existing.requestedVersions());
+        requested.addAll(conflict.requestedVersions());
+        Set<String> members = new LinkedHashSet<>(existing.members());
+        members.addAll(conflict.members());
+        conflicts.put(key, new LockConflict(
+                conflict.packageId(),
+                conflict.selectedVersion(),
+                List.copyOf(requested),
+                conflict.reason(),
+                conflict.toolGroup(),
+                conflict.variant(),
+                members.stream().sorted().toList()));
+    }
+
+    private static LockConflict withMember(
+            LockConflict conflict,
+            String member) {
+        Set<String> members = new LinkedHashSet<>(conflict.members());
+        members.add(member);
+        return new LockConflict(
+                conflict.packageId(),
+                conflict.selectedVersion(),
+                conflict.requestedVersions(),
+                conflict.reason(),
+                conflict.toolGroup(),
+                conflict.variant(),
+                members.stream().sorted().toList());
     }
 
     private static String policyEffectKey(LockPolicyEffect policyEffect) {
@@ -322,20 +267,4 @@ final class WorkspaceLockfileAggregator {
                 + policyEffect.policy();
     }
 
-    private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {
-        Map<String, WorkspaceMember> members = new LinkedHashMap<>();
-        for (WorkspaceMember member : workspace.members()) {
-            members.put(member.path(), member);
-        }
-        return members;
-    }
-
-    /**
-     * The identity a workspace member's provided artifact shadows an external at: its {@link PackageId},
-     * its artifact {@link LockArtifactVariant}, and scope. A member provides only the plain {@code jar}
-     * (default variant), so a classified external attachment of the same GA — a {@code :tests} jar the
-     * member does NOT provide — has a distinct variant, misses this key, and survives onto the classpath.
-     */
-    private record WorkspaceCoordinateScope(PackageId packageId, LockArtifactVariant variant, DependencyScope scope) {
-    }
 }

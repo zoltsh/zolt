@@ -94,7 +94,10 @@ public final class ZoltLockfileReader {
                     LockfileTomlValues.stringArray(table, "requested"),
                     reason(LockfileTomlValues.requireString(table, "reason")),
                     LockfileTomlValues.optionalString(table, "tool"),
-                    LockfileTomlValues.optionalString(table, "variant").map(LockArtifactVariant::fromKey)));
+                    LockfileTomlValues.optionalString(table, "variant")
+                            .map(LockArtifactVariant::fromKey),
+                    LockfileTomlValues.optionalStringArray(
+                            table, "members")));
         }
         return conflicts;
     }
@@ -140,7 +143,8 @@ public final class ZoltLockfileReader {
                             .orElseGet(LockArtifactVariant::defaultVariant),
                     scope(LockfileTomlValues.requireString(table, "scope")),
                     LockfileTomlValues.stringArray(table, "dependencies"),
-                    LockfileTomlValues.optionalStringArray(table, "policies")));
+                    LockfileTomlValues.optionalStringArray(table, "policies"),
+                    LockfileTomlValues.optionalBoolean(table, "optional")));
         }
         return List.copyOf(memberGraphs);
     }

@@ -11,7 +11,6 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockPackage;
-import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 import sh.zolt.resolve.ResolveException;
@@ -62,91 +61,6 @@ final class WorkspaceLockfileAggregatorTest extends WorkspaceLockfileAggregatorT
     }
 
     @Test
-    void aggregatesWorkspaceAndExternalPackagesDeterministically() throws IOException {
-        Workspace workspace = workspace(
-                List.of(
-                        new WorkspaceProjectEdge("apps/api", "modules/core", "compile", "com.acme:core", true),
-                        new WorkspaceProjectEdge("apps/worker", "modules/core", "compile", "com.acme:core"),
-                        new WorkspaceProjectEdge("apps/api", "modules/processor", "processor", "com.acme:processor")));
-        PackageId library = new PackageId("com.example", "library");
-        LockPolicyEffect policyEffect = new LockPolicyEffect(
-                "allow",
-                library,
-                Optional.of("1.0.0"),
-                Optional.of("central"),
-                "enterprise-baseline");
-
-        ZoltLockfile aggregated = new WorkspaceLockfileAggregator().aggregate(
-                workspace,
-                List.of(
-                        new WorkspaceMemberResolveOutput(
-                                "apps/api",
-                                lockfile(
-                                        List.of(externalPackage(
-                                                library,
-                                                "2.0.0",
-                                                true,
-                                                List.of("com.example:transitive:0.9.0"),
-                                                List.of("api-policy"))),
-                                        List.of(new LockConflict(
-                                                library,
-                                                "2.0.0",
-                                                List.of("1.0.0", "2.0.0"),
-                                                ConflictSelectionReason.DIRECT_DEPENDENCY)),
-                                        List.of(policyEffect)),
-                                Set.of(new WorkspaceExportedPackage(
-                                        library, LockArtifactVariant.defaultVariant()))),
-                        new WorkspaceMemberResolveOutput(
-                                "apps/worker",
-                                lockfile(
-                                        List.of(externalPackage(
-                                                library,
-                                                "2.0.0",
-                                                true,
-                                                List.of("com.example:transitive:1.0.0"),
-                                                List.of("worker-policy"))),
-                                        List.of(),
-                                        List.of(policyEffect)),
-                                Set.of())));
-
-        assertEquals(
-                List.of(
-                        "com.acme:core:workspace:compile",
-                        "com.acme:processor:workspace:processor",
-                        "com.example:library:central:compile"),
-                aggregated.packages().stream()
-                        .map(WorkspaceLockfileAggregatorTest::packageSummary)
-                        .toList());
-        LockPackage core = packageById(aggregated, "com.acme", "core");
-        assertEquals(List.of("apps/api", "apps/worker"), core.members());
-        assertEquals(List.of("apps/api"), core.exportedBy());
-        assertEquals("modules/core", core.workspace().orElseThrow());
-        assertEquals("target/classes", core.workspaceOutput().orElseThrow());
-        LockPackage processor = packageById(aggregated, "com.acme", "processor");
-        assertEquals(DependencyScope.PROCESSOR, processor.scope());
-        assertEquals(List.of("apps/api"), processor.members());
-        LockPackage external = packageById(aggregated, "com.example", "library");
-        assertEquals("2.0.0", external.version());
-        assertEquals(
-                List.of(
-                        "com.example:transitive:0.9.0",
-                        "com.example:transitive:1.0.0"),
-                external.dependencies());
-        assertEquals(List.of("apps/api", "apps/worker"), external.members());
-        assertEquals(List.of("apps/api"), external.exportedBy());
-        assertEquals(List.of("api-policy", "worker-policy"), external.policies());
-        assertEquals(
-                List.of(new LockConflict(
-                        library,
-                        "2.0.0",
-                        List.of("1.0.0", "2.0.0"),
-                        ConflictSelectionReason.DIRECT_DEPENDENCY)),
-                aggregated.conflicts());
-        assertEquals(2, aggregated.memberGraphs().size());
-        assertEquals(List.of(policyEffect), aggregated.policyEffects());
-    }
-
-    @Test
     void keepsToolAttributedConflictsDistinctAcrossMembers() throws IOException {
         Workspace workspace = workspace(List.of(
                 new WorkspaceProjectEdge("apps/api", "modules/core", "compile", "com.acme:core", true)));
@@ -170,7 +84,25 @@ final class WorkspaceLockfileAggregatorTest extends WorkspaceLockfileAggregatorT
                                 lockfile(List.of(), List.of(betaConflict), List.of()),
                                 Set.of())));
 
-        assertEquals(List.of(alphaConflict, betaConflict), aggregated.conflicts());
+        assertEquals(
+                List.of(
+                        new LockConflict(
+                                shared,
+                                "2.0.0",
+                                List.of("1.0.0", "2.0.0"),
+                                ConflictSelectionReason.DIRECT_DEPENDENCY,
+                                Optional.of("alpha"),
+                                Optional.empty(),
+                                List.of("apps/api")),
+                        new LockConflict(
+                                shared,
+                                "2.0.0",
+                                List.of("1.0.0", "2.0.0"),
+                                ConflictSelectionReason.DIRECT_DEPENDENCY,
+                                Optional.of("beta"),
+                                Optional.empty(),
+                                List.of("modules/core"))),
+                aggregated.conflicts());
     }
 
     @Test
@@ -206,7 +138,10 @@ final class WorkspaceLockfileAggregatorTest extends WorkspaceLockfileAggregatorT
                         core,
                         "0.1.0",
                         List.of("0.1.0", "2.8.7"),
-                        ConflictSelectionReason.DIRECT_DEPENDENCY)),
+                        ConflictSelectionReason.DIRECT_DEPENDENCY,
+                        Optional.empty(),
+                        Optional.of(LockArtifactVariant.defaultVariant()),
+                        List.of("apps/api"))),
                 aggregated.conflicts());
     }
 

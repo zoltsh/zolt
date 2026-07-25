@@ -156,7 +156,7 @@ public final class WorkspaceClasspathService {
         ZoltLockfile runtimeLockfile = new ZoltLockfile(
                 lockfile.version(),
                 runtimeClasspathPackagesFor(
-                        lockfile.packages(),
+                        lockfile,
                         memberPath,
                         runtimeMembers,
                         runtimeVisibleMembers),
@@ -164,7 +164,7 @@ public final class WorkspaceClasspathService {
         ZoltLockfile testLockfile = new ZoltLockfile(
                 lockfile.version(),
                 runtimeClasspathPackagesFor(
-                        lockfile.packages(),
+                        lockfile,
                         memberPath,
                         testMembers,
                         testVisibleMembers),
@@ -220,7 +220,7 @@ public final class WorkspaceClasspathService {
         ZoltLockfile runtimeLockfile = new ZoltLockfile(
                 lockfile.version(),
                 runtimeClasspathPackagesFor(
-                        lockfile.packages(),
+                        lockfile,
                         memberPath,
                         runtimeMembers,
                         visibleMembers),
@@ -257,10 +257,14 @@ public final class WorkspaceClasspathService {
     }
 
     private static List<LockPackage> runtimeClasspathPackagesFor(
-            List<LockPackage> packages,
+            ZoltLockfile lockfile,
             String memberPath,
             Set<String> dependencyClosure,
             Set<String> visibleMembers) {
+        List<LockPackage> packages = lockfile.packages();
+        sh.zolt.lockfile.LockMemberGraphIndex memberGraphs =
+                new sh.zolt.lockfile.LockMemberGraphIndex(
+                        lockfile.memberGraphs());
         List<LockPackage> filteredPackages = new ArrayList<>();
         for (LockPackage lockPackage : packages) {
             if (lockPackage.workspace().isPresent()) {
@@ -272,7 +276,10 @@ public final class WorkspaceClasspathService {
 
             if (lockPackage.members().isEmpty()
                     || lockPackage.members().contains(memberPath)
-                    || (intersects(lockPackage.members(), visibleMembers)
+                    || (hasNonOptionalContributor(
+                                    lockPackage,
+                                    visibleMembers,
+                                    memberGraphs)
                             && contributesAcrossWorkspaceBoundary(lockPackage.scope()))) {
                 filteredPackages.add(lockPackage);
             }
@@ -287,6 +294,19 @@ public final class WorkspaceClasspathService {
     private static boolean intersects(List<String> members, Set<String> visibleMembers) {
         for (String member : members) {
             if (visibleMembers.contains(member)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasNonOptionalContributor(
+            LockPackage lockPackage,
+            Set<String> visibleMembers,
+            sh.zolt.lockfile.LockMemberGraphIndex memberGraphs) {
+        for (String member : lockPackage.members()) {
+            if (visibleMembers.contains(member)
+                    && !memberGraphs.optionalFor(member, lockPackage)) {
                 return true;
             }
         }

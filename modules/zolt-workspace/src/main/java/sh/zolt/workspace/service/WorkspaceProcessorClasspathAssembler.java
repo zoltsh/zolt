@@ -57,7 +57,7 @@ final class WorkspaceProcessorClasspathAssembler {
             return externalProcessors;
         }
         List<LockPackage> processorPackages = processorClasspathPackagesFor(
-                lockfile.packages(),
+                lockfile,
                 processorMembers,
                 targetScope);
         ZoltLockfile processorLockfile = new ZoltLockfile(
@@ -105,9 +105,13 @@ final class WorkspaceProcessorClasspathAssembler {
     }
 
     private static List<LockPackage> processorClasspathPackagesFor(
-            List<LockPackage> packages,
+            ZoltLockfile lockfile,
             Set<String> processorMembers,
             DependencyScope targetScope) {
+        List<LockPackage> packages = lockfile.packages();
+        sh.zolt.lockfile.LockMemberGraphIndex memberGraphs =
+                new sh.zolt.lockfile.LockMemberGraphIndex(
+                        lockfile.memberGraphs(), packages);
         List<LockPackage> filteredPackages = new ArrayList<>();
         for (LockPackage lockPackage : packages) {
             if (lockPackage.workspace().isPresent()) {
@@ -116,7 +120,10 @@ final class WorkspaceProcessorClasspathAssembler {
                 }
                 continue;
             }
-            if (intersects(lockPackage.members(), processorMembers)
+            if (hasNonOptionalContributor(
+                            lockPackage,
+                            processorMembers,
+                            memberGraphs)
                     && contributesToProcessorRuntime(lockPackage.scope())) {
                 filteredPackages.add(rescoped(lockPackage, targetScope));
             }
@@ -160,9 +167,13 @@ final class WorkspaceProcessorClasspathAssembler {
         return new Classpath(List.copyOf(entries));
     }
 
-    private static boolean intersects(List<String> members, Set<String> visibleMembers) {
-        for (String member : members) {
-            if (visibleMembers.contains(member)) {
+    private static boolean hasNonOptionalContributor(
+            LockPackage lockPackage,
+            Set<String> visibleMembers,
+            sh.zolt.lockfile.LockMemberGraphIndex memberGraphs) {
+        for (String member : lockPackage.members()) {
+            if (visibleMembers.contains(member)
+                    && !memberGraphs.optionalFor(member, lockPackage)) {
                 return true;
             }
         }

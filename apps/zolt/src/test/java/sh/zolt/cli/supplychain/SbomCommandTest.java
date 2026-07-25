@@ -77,7 +77,7 @@ final class SbomCommandTest {
             assertNotEquals(0, result.exitCode(), hiddenScope);
             assertTrue(result.stderr().contains("ambiguous"), result.stderr());
             assertTrue(result.stderr().contains("zolt resolve"), result.stderr());
-            assertTrue(result.stderr().contains("version 4"), result.stderr());
+            assertTrue(result.stderr().contains("version 5"), result.stderr());
         }
     }
 

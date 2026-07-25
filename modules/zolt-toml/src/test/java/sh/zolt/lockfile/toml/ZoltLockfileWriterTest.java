@@ -47,7 +47,7 @@ final class ZoltLockfileWriterTest {
                 List.of());
 
         assertEquals("""
-                version = 4
+                version = 5
                 aliasFingerprint = "sha256:alias-inputs"
 
                 """, writer.write(lockfile));
@@ -65,7 +65,7 @@ final class ZoltLockfileWriterTest {
                 List.of());
 
         assertEquals("""
-                version = 4
+                version = 5
                 projectResolutionFingerprint = "sha256:project-inputs"
                 projectResolutionInputFingerprints = ["dependencies.compile=sha256:compile-inputs", "repositories=sha256:repo-inputs"]
 
@@ -150,7 +150,8 @@ final class ZoltLockfileWriterTest {
                 List.of("4.1.90.Final", "4.1.100.Final"),
                 ConflictSelectionReason.NEWEST_VERSION,
                 Optional.empty(),
-                Optional.of(new LockArtifactVariant("jar", Optional.of("linux-x86_64"))));
+                Optional.of(new LockArtifactVariant("jar", Optional.of("linux-x86_64"))),
+                List.of("apps/worker", "apps/api"));
         ZoltLockfile lockfile = new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION, List.of(), List.of(plain, classified));
 
@@ -159,10 +160,12 @@ final class ZoltLockfileWriterTest {
         // The default variant emits no qualifier; only the classified one carries `variant`.
         assertEquals(1, output.split("variant = ", -1).length - 1);
         assertTrue(output.contains("variant = \"jar|linux-x86_64\""));
+        assertTrue(output.contains("members = [\"apps/api\", \"apps/worker\"]"));
 
         ZoltLockfile parsed = new ZoltLockfileReader().read(output);
         assertTrue(parsed.conflicts().stream().anyMatch(conflict ->
-                conflict.variant().equals(Optional.of(new LockArtifactVariant("jar", Optional.of("linux-x86_64"))))));
+                conflict.variant().equals(Optional.of(new LockArtifactVariant("jar", Optional.of("linux-x86_64"))))
+                        && conflict.members().equals(List.of("apps/api", "apps/worker"))));
         assertTrue(parsed.conflicts().stream().anyMatch(conflict -> conflict.variant().isEmpty()));
     }
 
@@ -175,7 +178,8 @@ final class ZoltLockfileWriterTest {
                 new LockArtifactVariant("jar", Optional.of("tests")),
                 DependencyScope.TEST,
                 List.of("com.example:z:1.0.0:jar:test", "com.example:a:1.0.0:jar:test"),
-                List.of("managed-z", "managed-a"));
+                List.of("managed-z", "managed-a"),
+                true);
         LockMemberGraph api = new LockMemberGraph(
                 "apps/api",
                 new PackageId("com.example", "root"),
@@ -199,6 +203,7 @@ final class ZoltLockfileWriterTest {
 
         assertTrue(output.indexOf("member = \"apps/api\"") < output.indexOf("member = \"apps/worker\""));
         assertEquals(1, countOccurrences(output, "variant = \"jar|tests\""));
+        assertEquals(1, countOccurrences(output, "optional = true"));
         assertEquals(List.of(api, new LockMemberGraph(
                 worker.member(),
                 worker.packageId(),
@@ -206,7 +211,8 @@ final class ZoltLockfileWriterTest {
                 worker.variant(),
                 worker.scope(),
                 List.of("com.example:a:1.0.0:jar:test", "com.example:z:1.0.0:jar:test"),
-                List.of("managed-a", "managed-z"))), parsed.memberGraphs());
+                List.of("managed-a", "managed-z"),
+                true)), parsed.memberGraphs());
         assertEquals(output, writer.write(parsed));
     }
 

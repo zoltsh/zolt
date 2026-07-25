@@ -3,6 +3,7 @@ package sh.zolt.workspace.resolve;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
@@ -25,16 +26,74 @@ final class WorkspaceMediationCandidates {
                 scope(edge.scope()))));
         List<LockPackage> candidates = new ArrayList<>();
         for (WorkspaceMemberResolveOutput output : memberOutputs) {
+            List<LockPackage> outputCandidates = new ArrayList<>();
             for (LockPackage lockPackage : output.lockfile().packages()) {
                 if (!provided.contains(new ProvidedArtifact(
                         lockPackage.packageId(),
                         LockArtifactVariant.of(lockPackage),
                         lockPackage.scope()))) {
-                    candidates.add(withMember(lockPackage, output.member()));
+                    LockPackage candidate = withMember(lockPackage, output.member());
+                    candidates.add(candidate);
+                    outputCandidates.add(candidate);
+                }
+            }
+            addConflictRequests(candidates, outputCandidates, output.lockfile().conflicts(), output.member());
+        }
+        return List.copyOf(candidates);
+    }
+
+    private static void addConflictRequests(
+            List<LockPackage> candidates,
+            List<LockPackage> outputCandidates,
+            List<LockConflict> conflicts,
+            String member) {
+        for (LockConflict conflict : conflicts) {
+            LockArtifactVariant variant =
+                    conflict.variant().orElseGet(LockArtifactVariant::defaultVariant);
+            List<LockPackage> templates = outputCandidates.stream()
+                    .filter(candidate -> candidate.packageId().equals(conflict.packageId()))
+                    .filter(candidate -> LockArtifactVariant.of(candidate).equals(variant))
+                    .toList();
+            for (LockPackage template : templates) {
+                for (String requestedVersion : conflict.requestedVersions()) {
+                    boolean represented = outputCandidates.stream()
+                            .anyMatch(candidate -> candidate.packageId().equals(conflict.packageId())
+                                    && LockArtifactVariant.of(candidate).equals(variant)
+                                    && candidate.scope() == template.scope()
+                                    && candidate.version().equals(requestedVersion));
+                    if (!represented) {
+                        candidates.add(requestCandidate(
+                                template, requestedVersion, member));
+                    }
                 }
             }
         }
-        return List.copyOf(candidates);
+    }
+
+    private static LockPackage requestCandidate(
+            LockPackage template,
+            String version,
+            String member) {
+        return new LockPackage(
+                template.packageId(),
+                version,
+                template.source(),
+                template.scope(),
+                false,
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                List.of(),
+                List.of(member),
+                List.of(),
+                List.of(),
+                List.of());
     }
 
     private static LockPackage withMember(LockPackage lockPackage, String member) {

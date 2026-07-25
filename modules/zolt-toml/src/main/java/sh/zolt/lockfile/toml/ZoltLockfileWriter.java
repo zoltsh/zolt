@@ -114,6 +114,9 @@ public final class ZoltLockfileWriter {
             assignment(output, "variant", memberGraph.variant().key());
         }
         assignment(output, "scope", memberGraph.scope().lockfileName());
+        if (memberGraph.optional()) {
+            output.append("optional = true\n");
+        }
         if (!memberGraph.policies().isEmpty()) {
             output.append("policies = ");
             stringArray(output, sortedStrings(memberGraph.policies()));
@@ -131,6 +134,11 @@ public final class ZoltLockfileWriter {
         conflict.variant()
                 .filter(variant -> !variant.isDefault())
                 .ifPresent(variant -> assignment(output, "variant", variant.key()));
+        if (!conflict.members().isEmpty()) {
+            output.append("members = ");
+            stringArray(output, sortedStrings(conflict.members()));
+            output.append('\n');
+        }
         assignment(output, "selected", conflict.selectedVersion());
         output.append("requested = ");
         stringArray(output, sortedVersions(conflict.requestedVersions()));

@@ -168,7 +168,7 @@ public final class ResolveService {
                 options.includeCoverageTooling(),
                 options.retryCommand(),
                 snapshotAllowance);
-        directRequests = relocateDirectRequests(context, directRequests, options.versionOverrides());
+        directRequests = relocateDirectRequests(context, directRequests);
         // Exec tools resolve in isolation (Hole 1): keep TOOL_EXEC out of the shared project graph so a
         // tool's version line never mediates against another tool's or against compile/runtime, then lock
         // each tool's closure separately with a per-tool group qualifier.
@@ -244,13 +244,10 @@ public final class ResolveService {
 
     private List<DependencyRequest> relocateDirectRequests(
             RepositorySession context,
-            List<DependencyRequest> directRequests,
-            Map<ResolutionVariant, String> versionOverrides) {
+            List<DependencyRequest> directRequests) {
         DependencyRelocator relocator = new DependencyRelocator(context);
         return directRequests.stream()
-                .map(request -> DependencyRequestVersions.rewrite(request, versionOverrides))
                 .map(relocator::relocate)
-                .map(request -> DependencyRequestVersions.rewrite(request, versionOverrides))
                 .toList();
     }
 
