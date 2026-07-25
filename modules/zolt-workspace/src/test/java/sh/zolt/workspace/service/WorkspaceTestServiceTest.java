@@ -78,7 +78,7 @@ final class WorkspaceTestServiceTest {
                 }
                 """);
         Files.writeString(tempDir.resolve("zolt.lock"), """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "com.acme:core"
@@ -180,7 +180,7 @@ final class WorkspaceTestServiceTest {
                 }
                 """);
         Files.writeString(tempDir.resolve("zolt.lock"), """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "com.acme:core"
@@ -255,7 +255,7 @@ final class WorkspaceTestServiceTest {
                 }
                 """);
         Files.writeString(tempDir.resolve("zolt.lock"), """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "org.junit.platform:junit-platform-console-standalone"

@@ -73,7 +73,7 @@ final class WorkspaceIdeModelVersionAliasesTest {
 
     private void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
     }
 
     private void member(String path, String name) throws IOException {
@@ -90,6 +90,6 @@ final class WorkspaceIdeModelVersionAliasesTest {
                 group = "com.acme"
                 java = "21"
                 %s""".formatted(name, extraToml));
-        Files.writeString(member.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(member.resolve("zolt.lock"), "version = 5\n");
     }
 }

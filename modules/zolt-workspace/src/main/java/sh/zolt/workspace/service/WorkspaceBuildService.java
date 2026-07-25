@@ -7,6 +7,7 @@ import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.lockfile.WorkspaceGraphLockCapability;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveException;
@@ -155,6 +156,7 @@ public final class WorkspaceBuildService {
         }
 
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+        WorkspaceGraphLockCapability.requireMemberGraphEvidence(lockfile);
         return new WorkspaceBuildPlan(workspace, selection, resolveResult, lockfile);
     }
 

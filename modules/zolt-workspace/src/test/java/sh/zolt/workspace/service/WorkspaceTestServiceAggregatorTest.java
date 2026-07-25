@@ -126,7 +126,7 @@ final class WorkspaceTestServiceAggregatorTest {
         // Mirrors the aggregator's resolved test-scope closure: the junit-jupiter engine plus the
         // auto-injected junit-platform-console (the launch entry point), all visible to both members.
         return """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "org.junit.jupiter:junit-jupiter"

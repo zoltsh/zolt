@@ -157,6 +157,44 @@ final class LockDependencyIndexTest {
         assertTrue(exception.getMessage().contains("multiple locked package sources"));
     }
 
+    @Test
+    void refusesDifferentLocalAndReleasedTargetsAcrossScopes() {
+        LockPackage released = jarPackage(
+                NETTY,
+                "4.1.100.Final",
+                "io/netty/netty/4.1.100.Final/netty-4.1.100.Final.jar",
+                DependencyScope.RUNTIME);
+        LockPackage workspace = new LockPackage(
+                NETTY,
+                "4.1.100.Final",
+                "workspace",
+                DependencyScope.COMPILE,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of("modules/netty"),
+                Optional.of("target/classes"),
+                List.of(),
+                List.of("apps/api"),
+                List.of(),
+                List.of(),
+                List.of());
+
+        LockDependencyGraphException exception = assertThrows(
+                LockDependencyGraphException.class,
+                () -> new LockDependencyIndex(List.of(workspace, released)));
+
+        assertTrue(exception.getMessage().contains(
+                "io.netty:netty:4.1.100.Final:jar"));
+        assertTrue(exception.getMessage().contains("across dependency scopes"));
+        assertTrue(exception.getMessage().contains("multiple locked package sources"));
+    }
+
     private static LockPackage jarPackage(PackageId packageId, String version, String jarPath) {
         return jarPackage(packageId, version, jarPath, DependencyScope.RUNTIME);
     }

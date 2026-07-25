@@ -198,6 +198,7 @@ public final class SbomCommand implements Runnable {
                     "Run `zolt resolve --workspace` to generate it, then re-run `zolt sbom --workspace`."));
         }
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+        sh.zolt.lockfile.WorkspaceGraphLockCapability.requireMemberGraphEvidence(lockfile);
         LicenseIndex licenses = resolveLicenses(lockfile, selection);
         List<SbomWorkspaceMember> members = discovered.members().stream()
                 .map(member -> new SbomWorkspaceMember(member.path(), member.config()))

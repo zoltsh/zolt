@@ -77,7 +77,7 @@ final class WorkspaceIdeModelServiceTest {
                 """);
         member("modules/core", "core");
         Files.writeString(tempDir.resolve("zolt.lock"), """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "com.acme:core"
@@ -267,7 +267,7 @@ final class WorkspaceIdeModelServiceTest {
                 [dependencyPolicy]
                 exclude = [{ group = "com.acme", artifact = "blocked", reason = "fixture" }]
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
@@ -276,7 +276,7 @@ final class WorkspaceIdeModelServiceTest {
         assertTrue(diagnostic.message().contains("Dependency policy excludes direct dependency `com.acme:blocked`"));
         assertEquals(tempDir.resolve("zolt.lock").toAbsolutePath().normalize(), diagnostic.path());
         assertEquals("Run zolt resolve --workspace.", diagnostic.nextStep());
-        assertEquals("version = 1\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertEquals("version = 5\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
 
     @Test
@@ -299,7 +299,7 @@ final class WorkspaceIdeModelServiceTest {
 
     private void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
     }
 
     private void member(String path, String name) throws IOException {
@@ -316,7 +316,7 @@ final class WorkspaceIdeModelServiceTest {
                 group = "com.acme"
                 java = "21"
                 %s""".formatted(name, extraToml));
-        Files.writeString(member.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(member.resolve("zolt.lock"), "version = 5\n");
     }
 
     private static final class RecordingTimingRecorder implements IdeTimingRecorder {

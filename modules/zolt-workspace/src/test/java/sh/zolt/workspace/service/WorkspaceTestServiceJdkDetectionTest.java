@@ -67,7 +67,7 @@ final class WorkspaceTestServiceJdkDetectionTest {
                 }
                 """);
         Files.writeString(tempDir.resolve("zolt.lock"), """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "com.acme:core"

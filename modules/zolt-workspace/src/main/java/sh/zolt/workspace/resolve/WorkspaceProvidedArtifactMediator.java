@@ -6,6 +6,7 @@ import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.resolve.ResolutionVariant;
+import sh.zolt.resolve.ResolveException;
 import sh.zolt.project.PackageMode;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -23,14 +24,16 @@ import java.util.Set;
  *
  * <p>Merely listing a member does not replace a released artifact of the same GA. A consumer shadows
  * an external plain jar only when the provider is in that consumer's explicit, scope-correct workspace
- * dependency closure. Classified and typed attachments remain separate variant lanes, and member modes
- * that do not supply a plain jar (BOM and WAR) are not providers.
+ * dependency closure. Classified and typed attachments remain separate variant lanes. Only a
+ * {@link PackageMode#THIN} member supplies a reusable library JAR; executable/application, uber, WAR,
+ * and BOM modes are publication artifacts, not ordinary workspace dependency providers.
  */
 final class WorkspaceProvidedArtifactMediator {
     private final Map<PackageId, ProvidedArtifact> provided;
     private final Map<VisibilityKey, Set<String>> visibleMembers;
 
     WorkspaceProvidedArtifactMediator(Workspace workspace) {
+        requireLibraryProviders(workspace);
         Map<PackageId, ProvidedArtifact> values = new LinkedHashMap<>();
         for (WorkspaceMember member : workspace.members()) {
             if (!suppliesPlainJar(member)) {
@@ -46,6 +49,29 @@ final class WorkspaceProvidedArtifactMediator {
         }
         provided = Map.copyOf(values);
         visibleMembers = visibility(workspace);
+    }
+
+    private static void requireLibraryProviders(Workspace workspace) {
+        Map<String, WorkspaceMember> membersByPath = new LinkedHashMap<>();
+        workspace.members().forEach(member -> membersByPath.put(member.path(), member));
+        workspace.edges().forEach(edge -> {
+            WorkspaceMember target = membersByPath.get(edge.to());
+            if (target == null || suppliesPlainJar(target)) {
+                return;
+            }
+            PackageMode mode = target.config().packageSettings().mode();
+            throw ResolveException.actionable(
+                    "Workspace dependency `"
+                            + edge.coordinate()
+                            + "` in member `"
+                            + edge.from()
+                            + "` targets member `"
+                            + target.path()
+                            + "`, whose package mode is `"
+                            + mode.configValue()
+                            + "`. Executable, application, WAR, and BOM packaging is not a reusable library artifact.",
+                    "Split shared code into a separate workspace member with package mode `thin`, then depend on that member.");
+        });
     }
 
     boolean shadows(String consumer, LockPackage lockPackage) {
@@ -97,11 +123,7 @@ final class WorkspaceProvidedArtifactMediator {
     }
 
     private static boolean suppliesPlainJar(WorkspaceMember member) {
-        PackageMode mode = member.config().packageSettings().mode();
-        return mode == PackageMode.THIN
-                || mode == PackageMode.SPRING_BOOT
-                || mode == PackageMode.QUARKUS
-                || mode == PackageMode.UBER;
+        return member.config().packageSettings().mode() == PackageMode.THIN;
     }
 
     private static Map<VisibilityKey, Set<String>> visibility(Workspace workspace) {

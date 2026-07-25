@@ -91,7 +91,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
                 "com.acme:core" = { workspace = "modules/core" }
                 """);
         member("modules/core", "core");
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
@@ -100,7 +100,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
         assertTrue(diagnostic.message().contains("Workspace zolt.lock is out of date."));
         assertEquals(tempDir.resolve("zolt.lock").toAbsolutePath().normalize(), diagnostic.path());
         assertEquals("Run zolt resolve --workspace.", diagnostic.nextStep());
-        assertEquals("version = 1\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertEquals("version = 5\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
 
     @Test
@@ -115,7 +115,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
                 [dependencies]
                 "com.example:missing" = "1.0.0"
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
@@ -126,7 +126,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
         assertEquals(
                 "Run zolt resolve --workspace without --offline to seed the cache, then retry zolt ide model --workspace --offline.",
                 diagnostic.nextStep());
-        assertEquals("version = 1\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertEquals("version = 5\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
 
     @Test
@@ -157,7 +157,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
 
     private void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
     }
 
     private void member(String path, String name) throws IOException {
@@ -174,6 +174,6 @@ final class WorkspaceIdeModelDiagnosticsTest {
                 group = "com.acme"
                 java = "21"
                 %s""".formatted(name, extraToml));
-        Files.writeString(member.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(member.resolve("zolt.lock"), "version = 5\n");
     }
 }

@@ -115,7 +115,12 @@ final class WorkspaceLockfileAggregator {
         Map<String, LockPackage> targets = new LinkedHashMap<>();
         for (LockPackage lockPackage : packages) {
             String edge = LockDependencyEdge.of(lockPackage).encode();
-            LockPackage previous = targets.putIfAbsent(edge, lockPackage);
+            String artifactIdentity = lockPackage.packageId()
+                    + ":"
+                    + lockPackage.version()
+                    + ":"
+                    + LockArtifactVariant.of(lockPackage).key();
+            LockPackage previous = targets.putIfAbsent(artifactIdentity, lockPackage);
             if (previous == null || sameTarget(previous, lockPackage)) {
                 continue;
             }
@@ -126,7 +131,7 @@ final class WorkspaceLockfileAggregator {
                             + targetDescription(previous)
                             + " and "
                             + targetDescription(lockPackage)
-                            + ". The lock format cannot distinguish local and released bytes at the same version, variant, and scope.",
+                            + ". Scope cannot make distinct local and released bytes safe under the same Maven package, version, and variant identity.",
                     "Make the workspace dependency explicit for every affected consumer or use a distinct local project version, then run `zolt resolve --workspace` again.");
         }
     }

@@ -11,6 +11,9 @@ import sh.zolt.lockfile.LockDependencyIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.resolve.ResolveException;
+import sh.zolt.resolve.ResolveService;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.publish.WorkspaceMemberPomLockProjection;
@@ -24,6 +27,76 @@ import org.junit.jupiter.api.Test;
 
 final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServiceTestSupport {
     private static final PackageId CORE = new PackageId("com.acme", "core");
+
+    @Test
+    void thinProviderIsConsumableLocallyAndThroughThePublishedPom() throws IOException {
+        workspace("""
+                [workspace]
+                name = "thin-provider-parity"
+                members = ["modules/core", "apps/app"]
+
+                [repositories]
+                test = "%s"
+                """.formatted(baseUri));
+        member("modules/core", "core", """
+
+                [package]
+                mode = "thin"
+                """);
+        member("apps/app", "app", """
+
+                [dependencies]
+                "com.acme:core" = { workspace = "modules/core" }
+                """);
+
+        var cache = tempDir.resolve("cache");
+        service.resolve(tempDir, cache, false, false);
+        ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
+        var workspace = new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        assertTrue(new WorkspaceClasspathService()
+                .classpathsFor(workspace, lockfile, cache, "apps/app")
+                .compile()
+                .entries()
+                .stream()
+                .anyMatch(path -> path.toString().contains("modules/core/target/classes")));
+
+        var app = workspace.members().stream()
+                .filter(member -> member.path().equals("apps/app"))
+                .findFirst()
+                .orElseThrow();
+        String appPom = new PublishPomGenerator().generate(
+                app.config(),
+                new WorkspaceMemberPomLockProjection()
+                        .project(app.path(), app.config(), lockfile));
+        assertTrue(appPom.contains("<artifactId>core</artifactId>"), appPom);
+        assertTrue(appPom.contains("<version>0.1.0</version>"), appPom);
+
+        addArtifact("com.acme", "core", "0.1.0", pom("com.acme", "core", "0.1.0"));
+        addArtifact("com.acme", "app", "0.1.0", appPom);
+        ProjectConfig consumer = new ZoltTomlParser().parse("""
+                [project]
+                name = "published-consumer"
+                version = "1.0.0"
+                group = "com.consumer"
+                java = "21"
+
+                [repositories]
+                test = "%s"
+
+                [dependencies]
+                "com.acme:app" = "0.1.0"
+                """.formatted(baseUri));
+        ZoltLockfile publishedConsumer = new ResolveService()
+                .resolveLockfile(
+                        consumer,
+                        tempDir.resolve("published-consumer-cache"),
+                        false)
+                .lockfile();
+
+        assertTrue(publishedConsumer.packages().stream().anyMatch(lockPackage ->
+                lockPackage.packageId().equals(CORE)
+                        && lockPackage.version().equals("0.1.0")));
+    }
 
     @Test
     void workspaceArtifactReplacesExternalCompileAndRuntimeGraphs() throws IOException {

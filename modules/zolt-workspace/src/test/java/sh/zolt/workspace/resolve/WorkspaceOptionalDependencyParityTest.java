@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ResolvedClasspathPackage;
+import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.publish.PublishPomGenerator;
 import sh.zolt.project.ProjectConfig;
@@ -12,6 +13,7 @@ import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.publish.WorkspaceMemberPomLockProjection;
+import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -150,6 +152,40 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
             assertTrue(publishedArtifacts.contains("shared"));
             assertFalse(publishedArtifacts.contains("optional-root"));
             assertFalse(publishedArtifacts.contains("leaf"));
+
+            WorkspaceMember appMember = workspace.members().stream()
+                    .filter(member -> member.path().equals("apps/app"))
+                    .findFirst()
+                    .orElseThrow();
+            WorkspaceMemberPolicyResolver policyResolver =
+                    new WorkspaceMemberPolicyResolver();
+            WorkspaceMemberSbomLockProjection sbomProjection =
+                    new WorkspaceMemberSbomLockProjection();
+            ZoltLockfile coreSbom = sbomProjection.project(
+                    coreMember.path(),
+                    policyResolver.merge(workspace, coreMember),
+                    lockfile,
+                    workspace,
+                    policyResolver);
+            Set<String> coreSbomArtifacts = artifactIds(coreSbom);
+            assertTrue(coreSbomArtifacts.contains("optional-root"));
+            assertTrue(coreSbomArtifacts.contains("leaf"));
+
+            ZoltLockfile appSbom = sbomProjection.project(
+                    appMember.path(),
+                    policyResolver.merge(workspace, appMember),
+                    lockfile,
+                    workspace,
+                    policyResolver);
+            Set<String> appSbomArtifacts = artifactIds(appSbom);
+            assertTrue(appSbomArtifacts.contains("required-root"));
+            assertTrue(appSbomArtifacts.contains("shared"));
+            assertFalse(appSbomArtifacts.contains("optional-root"));
+            assertFalse(appSbomArtifacts.contains("leaf"));
+            assertFalse(appSbom.packages().stream()
+                    .flatMap(lockPackage -> lockPackage.dependencies().stream())
+                    .anyMatch(edge -> edge.contains(":optional-root:")
+                            || edge.contains(":leaf:")));
         }
     }
 
@@ -268,6 +304,13 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
             offset += needle.length();
         }
         return count;
+    }
+
+    private static Set<String> artifactIds(ZoltLockfile lockfile) {
+        return lockfile.packages().stream()
+                .map(LockPackage::packageId)
+                .map(packageId -> packageId.artifactId())
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     private static String dependencyPom(

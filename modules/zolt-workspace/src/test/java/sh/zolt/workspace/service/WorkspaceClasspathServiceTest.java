@@ -46,7 +46,7 @@ final class WorkspaceClasspathServiceTest {
         createEmptyFile(workerHelperJar);
         createEmptyFile(legacyJar);
         ZoltLockfile lockfile = lockfileReader.read("""
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "com.acme:core"
@@ -170,7 +170,7 @@ final class WorkspaceClasspathServiceTest {
         createEmptyFile(externalProcessorHelperJar);
         createEmptyFile(externalIgnoredJar);
         ZoltLockfile lockfile = lockfileReader.read("""
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "com.acme:processor"
@@ -269,7 +269,7 @@ final class WorkspaceClasspathServiceTest {
         writeFile(linuxJar, "linux-native-bytes");
         writeFile(osxJar, "osx-native-bytes");
         ZoltLockfile lockfile = lockfileReader.read(("""
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "io.netty:netty-transport-native-epoll"
@@ -317,7 +317,7 @@ final class WorkspaceClasspathServiceTest {
                 "cache/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-x86_64.jar");
         writeFile(linuxJar, "linux-api-bytes");
         ZoltLockfile lockfile = lockfileReader.read(("""
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "io.netty:netty-transport-native-epoll"

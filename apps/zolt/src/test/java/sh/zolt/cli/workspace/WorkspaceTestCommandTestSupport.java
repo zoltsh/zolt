@@ -9,7 +9,7 @@ final class WorkspaceTestCommandTestSupport {
 
     static void writeWorkspaceTestLockfile(Path workspaceDir) throws IOException {
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "com.example:core"

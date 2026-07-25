@@ -16,13 +16,18 @@ has the relationship. Optional-boundary propagation is therefore computed from
 resolver reachability facts captured while cumulative exclusion contexts are
 still present, before component edges are flattened. The resulting per-member
 optional-only bit is persisted in `[[memberGraph]]`; workspace classpath
-consumers use it to prevent an edge that exists only on an optional path from
-crossing a required boundary. Member-qualified component graph contexts remain
-available to workspace SBOM and classpath consumers that require member-sensitive projection.
-(defensive lookup, cycle-guarded). Therefore the SBOM graph is a READ of the
-lock — no re-resolution (rejected: needs warm cache/network, drags zolt-resolve
-in, re-derives persisted data) and no lock schema change (rejected: a parallel
-edge table duplicates existing data for zero new capability). Hashes
+and per-member SBOM consumers use it to prevent an edge that exists only on an
+optional path from crossing a required workspace-member boundary. The SBOM
+projection removes the filtered edge as well as the optional-only target, so it
+cannot emit a dangling relationship. Member-qualified component graph contexts
+remain available to workspace SBOM and classpath consumers that require
+member-sensitive projection (defensive lookup, cycle-guarded). Commands that
+consume this workspace graph require lock version 5; versions 1–4 remain
+readable only for operations that do not need optional-boundary evidence.
+Therefore the SBOM graph is a READ of the lock — no re-resolution (rejected:
+needs warm cache/network, drags zolt-resolve in, re-derives persisted data) and
+no parallel edge table (rejected: it duplicates existing data for zero new
+capability). Hashes
 (jarSha256/artifactSha256) and per-member attribution (`members`) are also
 already in the lock.
 
@@ -73,6 +78,9 @@ Workspace = ONE BOM (per-member rejected: procurement consumes one artifact;
 the graph expresses boundaries): root workspace component, members as library
 components, external components deduped with member→external edges from the
 lock's members field and external→external edges from dependencies.
+Distinct workspace and repository targets may not coexist at the same Maven
+package, version, and artifact variant, regardless of scope: they collapse to
+one CycloneDX PURL and would mix mutable local output with repository hashes.
 
 ## License engine (cache-only, no network — ever)
 

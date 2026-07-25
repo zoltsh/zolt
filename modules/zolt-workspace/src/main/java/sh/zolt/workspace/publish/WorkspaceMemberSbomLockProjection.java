@@ -148,20 +148,25 @@ public final class WorkspaceMemberSbomLockProjection {
             reached.putIfAbsent(ref, current.lockPackage());
             List<String> dependencies =
                     memberGraphs.dependenciesFor(current.member(), current.lockPackage());
-            reachedDependencies
-                    .computeIfAbsent(ref, ignored -> new LinkedHashSet<>())
-                    .addAll(dependencies);
+            Set<String> retainedDependencies =
+                    reachedDependencies.computeIfAbsent(ref, ignored -> new LinkedHashSet<>());
             reachedPolicies
                     .computeIfAbsent(ref, ignored -> new LinkedHashSet<>())
                     .addAll(memberGraphs.policiesFor(current.member(), current.lockPackage()));
             for (String edge : dependencies) {
-                edges.resolveGraphEdge(edge, "zolt resolve --workspace")
-                        .map(target -> new MemberPackage(
-                                target.workspace().orElse(current.member()),
-                                target))
-                        .filter(target -> !visited.contains(
-                                target.member() + "|" + ref(target.lockPackage())))
-                        .ifPresent(queue::addLast);
+                LockPackage target = edges.resolveGraphEdge(edge, "zolt resolve --workspace")
+                        .orElseThrow();
+                boolean traversingSibling = !current.member().equals(memberPath);
+                if (traversingSibling && memberGraphs.optionalFor(current.member(), target)) {
+                    continue;
+                }
+                retainedDependencies.add(edge);
+                MemberPackage next = new MemberPackage(
+                        target.workspace().orElse(current.member()),
+                        target);
+                if (!visited.contains(next.member() + "|" + ref(next.lockPackage()))) {
+                    queue.addLast(next);
+                }
             }
         }
 

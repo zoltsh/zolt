@@ -64,4 +64,51 @@ final class WorkspaceSameVersionSubstitutionRejectionTest
                 "explicit for every affected consumer"));
         assertFalse(Files.exists(tempDir.resolve("zolt.lock")));
     }
+
+    @Test
+    void rejectsLocalCompileAndReleasedRuntimeBytesAtTheSameMavenIdentity()
+            throws IOException {
+        addArtifact(
+                "com.acme",
+                "core",
+                "0.1.0",
+                pom("com.acme", "core", "0.1.0"));
+        workspace("""
+                [workspace]
+                name = "cross-scope-same-version-substitution"
+                members = ["modules/core", "apps/app", "apps/worker"]
+
+                [repositories]
+                test = "%s"
+                """.formatted(baseUri));
+        member("modules/core", "core", "");
+        member("apps/app", "app", """
+
+                [dependencies]
+                "com.acme:core" = { workspace = "modules/core" }
+                """);
+        member("apps/worker", "worker", """
+
+                [runtime.dependencies]
+                "com.acme:core" = "0.1.0"
+                """);
+
+        ResolveException exception = assertThrows(
+                ResolveException.class,
+                () -> service.resolve(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        false,
+                        false));
+
+        assertTrue(exception.getMessage().contains(
+                "com.acme:core:0.1.0:jar:runtime"));
+        assertTrue(exception.getMessage().contains(
+                "Scope cannot make distinct local and released bytes safe"));
+        assertTrue(exception.getMessage().contains(
+                "workspace member `modules/core`"));
+        assertTrue(exception.getMessage().contains(
+                "repository source"));
+        assertFalse(Files.exists(tempDir.resolve("zolt.lock")));
+    }
 }

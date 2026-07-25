@@ -14,12 +14,20 @@ the old behavior, the new behavior, and how to migrate.
   with any member-qualified graph facts must cover every attributed member.
   Whole-workspace SBOMs create distinct graph `bom-ref` contexts when members
   share a PURL but have different outgoing edges. Workspace resolution also
-  rejects mixed local and repository targets whose version, variant, and scope
-  encode to the same graph identity; make every affected consumer use the
-  workspace member or give the local project a distinct version.
+  rejects mixed local and repository targets at the same package, version, and
+  variant even when they occur in different scopes; scope cannot distinguish
+  two byte identities in Maven or CycloneDX. Workspace graph-consuming commands
+  refuse readable pre-v5 locks rather than treating missing optional facts as
+  required. Per-member published SBOMs apply those optional-only facts while
+  traversing sibling graphs and remove both the omitted component and its edge.
+  Finally, ordinary workspace dependencies may target only `thin` members:
+  executable, Quarkus, uber, WAR, and BOM members are application artifacts,
+  not reusable library JARs.
 - **Migration:** run `zolt resolve` for a project lock or
   `zolt resolve --workspace` for a workspace lock, then commit the regenerated
-  version 5 `zolt.lock`.
+  version 5 `zolt.lock`. Make every affected consumer use the workspace member
+  or give the local project a distinct version. Split shared code needed from an
+  application-packaged member into a separate `thin` workspace member.
 
 ## Lockfile version 4 preserves member-qualified workspace graphs
 

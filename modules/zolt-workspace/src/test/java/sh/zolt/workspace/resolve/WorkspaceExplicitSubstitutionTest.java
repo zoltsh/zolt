@@ -1,6 +1,7 @@
 package sh.zolt.workspace.resolve;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
+import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceProjectEdge;
@@ -61,8 +63,14 @@ final class WorkspaceExplicitSubstitutionTest extends WorkspaceLockfileAggregato
     }
 
     @Test
-    void bomAndWarMembersDoNotAutomaticallyProvideAPlainJar() throws IOException {
-        for (PackageMode mode : List.of(PackageMode.BOM, PackageMode.WAR)) {
+    void everyNonThinModeIsRejectedDefensivelyDuringAggregation() throws IOException {
+        for (PackageMode mode : List.of(
+                PackageMode.SPRING_BOOT,
+                PackageMode.QUARKUS,
+                PackageMode.UBER,
+                PackageMode.WAR,
+                PackageMode.SPRING_BOOT_WAR,
+                PackageMode.BOM)) {
             Workspace base = workspace(List.of(new WorkspaceProjectEdge(
                     "apps/api",
                     "modules/core",
@@ -84,11 +92,13 @@ final class WorkspaceExplicitSubstitutionTest extends WorkspaceLockfileAggregato
                     base.edges(),
                     base.buildOrder());
 
-            LockPackage retained =
-                    coreEntries(aggregate(workspace, "apps/api", externalCore()))
-                            .getFirst();
-            assertEquals("central", retained.source(), mode.toString());
-            assertTrue(retained.workspace().isEmpty(), mode.toString());
+            ResolveException exception = assertThrows(
+                    ResolveException.class,
+                    () -> aggregate(workspace, "apps/api", externalCore()),
+                    mode.toString());
+            assertTrue(exception.getMessage().contains("`" + mode.configValue() + "`"));
+            assertTrue(exception.getMessage().contains("not a reusable library artifact"));
+            assertTrue(exception.getMessage().contains("package mode `thin`"));
         }
     }
 

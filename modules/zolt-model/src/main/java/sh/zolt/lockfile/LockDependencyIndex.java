@@ -21,6 +21,7 @@ import java.util.Optional;
 public final class LockDependencyIndex {
     private final Map<String, LockPackage> byRef = new LinkedHashMap<>();
     private final Map<String, List<LockPackage>> byGav = new LinkedHashMap<>();
+    private final Map<String, LockPackage> byArtifactIdentity = new LinkedHashMap<>();
 
     public LockDependencyIndex(Iterable<LockPackage> packages) {
         for (LockPackage lockPackage : packages) {
@@ -31,6 +32,14 @@ public final class LockDependencyIndex {
                         "Dependency edge identity `"
                                 + edge.encode()
                                 + "` targets multiple locked package sources. Run `zolt resolve --workspace` to reject or regenerate the ambiguous local/released relationship.");
+            }
+            String artifactIdentity = edge.gav() + ":" + edge.variant().key();
+            LockPackage previousArtifact = byArtifactIdentity.putIfAbsent(artifactIdentity, lockPackage);
+            if (previousArtifact != null && !sameTarget(previousArtifact, lockPackage)) {
+                throw new LockDependencyGraphException(
+                        "Maven artifact identity `"
+                                + artifactIdentity
+                                + "` targets multiple locked package sources across dependency scopes. Run `zolt resolve --workspace` to reject or regenerate the ambiguous local/released relationship.");
             }
             byGav.computeIfAbsent(edge.gav(), key -> new ArrayList<>()).add(lockPackage);
         }

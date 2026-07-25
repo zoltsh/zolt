@@ -213,7 +213,7 @@ public final class PublishCommand implements Callable<Integer> {
             progress.result("Published artifacts");
             return 0;
         } catch (PublishException | ZoltConfigException | PackageException | LockfileReadException
-                | WorkspaceConfigException exception) {
+                | WorkspaceConfigException | sh.zolt.error.ActionableException exception) {
             CommandFailures.printUser(spec, exception);
             return 1;
         } catch (UncheckedIOException exception) {

@@ -2,6 +2,7 @@ package sh.zolt.workspace.discovery;
 
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.DependencyMetadata;
+import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectPathException;
 import sh.zolt.project.ProjectPaths;
 import sh.zolt.toml.ZoltConfigException;
@@ -277,6 +278,20 @@ public final class WorkspaceDiscoveryService {
                                 + "`, whose project coordinate is `"
                                 + targetCoordinate
                                 + "`. Update the dependency key or workspace path so they match.");
+            }
+            PackageMode targetMode = targetByPath.config().packageSettings().mode();
+            if (targetMode != PackageMode.THIN) {
+                throw new WorkspaceConfigException(
+                        "Workspace dependency `"
+                                + coordinate
+                                + "` in member `"
+                                + from.path()
+                                + "` targets member `"
+                                + targetByPath.path()
+                                + "`, whose package mode is `"
+                                + targetMode.configValue()
+                                + "`. Executable, application, WAR, and BOM packaging is not a reusable library artifact. "
+                                + "Split shared code into a separate workspace member with package mode `thin`, then depend on that member.");
             }
             DependencyMetadata metadata = from.config().dependencyMetadata()
                     .get(DependencyMetadata.key(

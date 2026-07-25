@@ -3,6 +3,7 @@ package sh.zolt.ide;
 import sh.zolt.cache.ArtifactCacheException;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.lockfile.WorkspaceGraphLockCapability;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
@@ -189,6 +190,20 @@ public final class WorkspaceIdeModelService {
 
         try {
             ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+            if (!WorkspaceGraphLockCapability.supportsMemberGraphEvidence(lockfile)) {
+                return new WorkspaceLockState(
+                        null,
+                        List.of(new IdeModel.Diagnostic(
+                                "error",
+                                "LOCKFILE_GRAPH_SCHEMA_OUTDATED",
+                                "Workspace zolt.lock version "
+                                        + lockfile.version()
+                                        + " lacks version "
+                                        + WorkspaceGraphLockCapability.MINIMUM_VERSION
+                                        + " member-qualified optional-boundary evidence.",
+                                lockfilePath,
+                                "Run zolt resolve --workspace.")));
+            }
             List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
             if (checkLock) {
                 checkWorkspaceLockFreshness(workspace, cacheRoot, offline, lockfilePath, diagnostics);
