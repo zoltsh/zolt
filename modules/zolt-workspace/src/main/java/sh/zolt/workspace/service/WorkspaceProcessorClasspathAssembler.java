@@ -116,11 +116,16 @@ final class WorkspaceProcessorClasspathAssembler {
                 }
                 continue;
             }
-            if (intersects(lockPackage.members(), processorMembers)) {
+            if (intersects(lockPackage.members(), processorMembers)
+                    && contributesToProcessorRuntime(lockPackage.scope())) {
                 filteredPackages.add(rescoped(lockPackage, targetScope));
             }
         }
         return filteredPackages;
+    }
+
+    private static boolean contributesToProcessorRuntime(DependencyScope scope) {
+        return scope == DependencyScope.COMPILE || scope == DependencyScope.RUNTIME;
     }
 
     private static LockPackage rescoped(LockPackage lockPackage, DependencyScope scope) {

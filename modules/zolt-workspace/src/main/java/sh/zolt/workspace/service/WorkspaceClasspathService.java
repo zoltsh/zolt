@@ -158,11 +158,19 @@ public final class WorkspaceClasspathService {
                 List.of());
         ZoltLockfile runtimeLockfile = new ZoltLockfile(
                 lockfile.version(),
-                runtimeClasspathPackagesFor(lockfile.packages(), runtimeMembers, runtimeVisibleMembers),
+                runtimeClasspathPackagesFor(
+                        lockfile.packages(),
+                        memberPath,
+                        runtimeMembers,
+                        runtimeVisibleMembers),
                 List.of());
         ZoltLockfile testLockfile = new ZoltLockfile(
                 lockfile.version(),
-                runtimeClasspathPackagesFor(lockfile.packages(), testMembers, testVisibleMembers),
+                runtimeClasspathPackagesFor(
+                        lockfile.packages(),
+                        memberPath,
+                        testMembers,
+                        testVisibleMembers),
                 List.of());
         ClasspathSet compileClasspaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
                 compileLockfile,
@@ -214,7 +222,11 @@ public final class WorkspaceClasspathService {
         Set<String> visibleMembers = visibleMembers(memberPath, runtimeMembers);
         ZoltLockfile runtimeLockfile = new ZoltLockfile(
                 lockfile.version(),
-                runtimeClasspathPackagesFor(lockfile.packages(), runtimeMembers, visibleMembers),
+                runtimeClasspathPackagesFor(
+                        lockfile.packages(),
+                        memberPath,
+                        runtimeMembers,
+                        visibleMembers),
                 List.of());
         return LockfileClasspathPackageConverter.classpathPackages(
                 runtimeLockfile,
@@ -268,7 +280,7 @@ public final class WorkspaceClasspathService {
                 continue;
             }
             for (String dependency : current.dependencies()) {
-                index.resolve(dependency)
+                index.resolveGraphEdge(dependency, "zolt resolve --workspace")
                         .filter(candidate -> candidate.scope().entersMainCompileClasspath())
                         .filter(candidate -> !reached.contains(ref(candidate)))
                         .ifPresent(queue::addLast);
@@ -283,6 +295,7 @@ public final class WorkspaceClasspathService {
 
     private static List<LockPackage> runtimeClasspathPackagesFor(
             List<LockPackage> packages,
+            String memberPath,
             Set<String> dependencyClosure,
             Set<String> visibleMembers) {
         List<LockPackage> filteredPackages = new ArrayList<>();
@@ -294,11 +307,18 @@ public final class WorkspaceClasspathService {
                 continue;
             }
 
-            if (lockPackage.members().isEmpty() || intersects(lockPackage.members(), visibleMembers)) {
+            if (lockPackage.members().isEmpty()
+                    || lockPackage.members().contains(memberPath)
+                    || (intersects(lockPackage.members(), visibleMembers)
+                            && contributesAcrossWorkspaceBoundary(lockPackage.scope()))) {
                 filteredPackages.add(lockPackage);
             }
         }
         return filteredPackages;
+    }
+
+    private static boolean contributesAcrossWorkspaceBoundary(DependencyScope scope) {
+        return scope == DependencyScope.COMPILE || scope == DependencyScope.RUNTIME;
     }
 
     private static boolean intersects(List<String> members, Set<String> visibleMembers) {

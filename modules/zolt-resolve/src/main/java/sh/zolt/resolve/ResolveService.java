@@ -4,6 +4,8 @@ import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
+import sh.zolt.maven.ArtifactDescriptor;
+import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.CoordinateParser;
 import sh.zolt.maven.repository.MavenRepositoryClient;
 import sh.zolt.maven.repository.RawPomParser;
@@ -30,6 +32,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public final class ResolveService {
     private final CoordinateParser coordinateParser;
@@ -168,7 +171,7 @@ public final class ResolveService {
                 options.includeCoverageTooling(),
                 options.retryCommand(),
                 snapshotAllowance);
-        directRequests = relocateDirectRequests(context, directRequests);
+        directRequests = relocateDirectRequests(context, directRequests, options.versionOverrides());
         // Exec tools resolve in isolation (Hole 1): keep TOOL_EXEC out of the shared project graph so a
         // tool's version line never mediates against another tool's or against compile/runtime, then lock
         // each tool's closure separately with a per-tool group qualifier.
@@ -184,7 +187,8 @@ public final class ResolveService {
                 mainRequests,
                 context,
                 options.retryCommand(),
-                snapshotAllowance);
+                snapshotAllowance,
+                options.versionOverrides());
         List<DependencyRequest> allRequests = new ArrayList<>(mainRequests);
         allRequests.addAll(frameworkDependencyRequestPlanner.plan(frameworkPlanRequestAssembler.assemble(
                 context.config(),
@@ -203,7 +207,8 @@ public final class ResolveService {
                         allRequests,
                         context,
                         options.retryCommand(),
-                        snapshotAllowance);
+                        snapshotAllowance,
+                        options.versionOverrides());
         VersionConflictPolicyEnforcer.enforce(
                 context.config().dependencyPolicy(), resolved.selection(), execResolutions, options.retryCommand());
         ZoltLockfile lockfile = lockfile(context, resolved.graph(), resolved.selection(), allRequests, execResolutions);
@@ -242,11 +247,39 @@ public final class ResolveService {
 
     private List<DependencyRequest> relocateDirectRequests(
             RepositorySession context,
-            List<DependencyRequest> directRequests) {
+            List<DependencyRequest> directRequests,
+            Map<ResolutionVariant, String> versionOverrides) {
         DependencyRelocator relocator = new DependencyRelocator(context);
         return directRequests.stream()
+                .map(request -> overrideVersion(request, versionOverrides))
                 .map(relocator::relocate)
+                .map(request -> overrideVersion(request, versionOverrides))
                 .toList();
+    }
+
+    private static DependencyRequest overrideVersion(
+            DependencyRequest request,
+            Map<ResolutionVariant, String> versionOverrides) {
+        String version = versionOverrides.get(new ResolutionVariant(
+                request.packageId(), request.artifactVariant()));
+        if (version == null || version.equals(request.requestedVersion())) {
+            return request;
+        }
+        Optional<ArtifactDescriptor> descriptor = request.artifactDescriptor()
+                .map(value -> new ArtifactDescriptor(
+                        new Coordinate(
+                                request.packageId().groupId(),
+                                request.packageId().artifactId(),
+                                Optional.of(version)),
+                        value.classifier(),
+                        value.extension()));
+        return new DependencyRequest(
+                request.packageId(),
+                version,
+                request.scope(),
+                request.origin(),
+                descriptor,
+                request.exclusions());
     }
 
     private ZoltLockfile lockfile(
@@ -265,7 +298,8 @@ public final class ResolveService {
                 DependencyPolicySettings dependencyPolicy,
                 Map<PackageId, ManagedVersion> managedVersions,
                 String retryCommand,
-                SnapshotAllowance snapshotAllowance);
+                SnapshotAllowance snapshotAllowance,
+                Map<ResolutionVariant, String> versionOverrides);
     }
 
 }

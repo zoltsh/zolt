@@ -112,6 +112,10 @@ final class LockfileAssemblerTest {
         PackageId child = new PackageId("com.example", "child");
         PackageNode childNode = new PackageNode(child, "3.0.0");
         DependencyRequest appRequest = new DependencyRequest(APP, "1.0.0", DependencyScope.COMPILE, RequestOrigin.DIRECT);
+        DependencyRequest compileLibRequest = new DependencyRequest(
+                LIB, "2.0.0", DependencyScope.COMPILE, RequestOrigin.DIRECT);
+        DependencyRequest testLibRequest = new DependencyRequest(
+                LIB, "2.0.0", DependencyScope.TEST, RequestOrigin.DIRECT);
         DependencyRequest compileChildRequest = new DependencyRequest(
                 child, "3.0.0", DependencyScope.COMPILE, RequestOrigin.TRANSITIVE);
         DependencyRequest testChildRequest = new DependencyRequest(
@@ -122,26 +126,37 @@ final class LockfileAssemblerTest {
                 List.of(APP_NODE, LIB_NODE, childNode),
                 List.of(
                         new ResolutionEdge(
-                                LIB_NODE, childNode, compileChildRequest, DependencyTraversalDecision.include("compile")),
+                                LIB_NODE,
+                                childNode,
+                                compileChildRequest,
+                                DependencyScope.COMPILE,
+                                DependencyTraversalDecision.include("compile")),
                         new ResolutionEdge(
-                                LIB_NODE, childNode, testChildRequest, DependencyTraversalDecision.include("test"))),
+                                LIB_NODE,
+                                childNode,
+                                testChildRequest,
+                                DependencyScope.TEST,
+                                DependencyTraversalDecision.include("test"))),
                 List.of());
 
         ZoltLockfile lockfile = assembler.assemble(
                 new FakeAssemblyContext(baseConfig()),
                 graph,
                 new VersionSelectionResult(List.of(APP_NODE, LIB_NODE, childNode), List.of()),
-                List.of(appRequest));
+                List.of(appRequest, compileLibRequest, testLibRequest));
 
-        LockPackage lib = lockfile.packages().stream()
+        LockPackage compileLib = lockfile.packages().stream()
                 .filter(pkg -> pkg.packageId().equals(LIB))
+                .filter(pkg -> pkg.scope() == DependencyScope.COMPILE)
                 .findFirst()
                 .orElseThrow();
-        assertEquals(
-                List.of(
-                        "com.example:child:3.0.0:jar:compile",
-                        "com.example:child:3.0.0:jar:test"),
-                lib.dependencies());
+        LockPackage testLib = lockfile.packages().stream()
+                .filter(pkg -> pkg.packageId().equals(LIB))
+                .filter(pkg -> pkg.scope() == DependencyScope.TEST)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(List.of("com.example:child:3.0.0:jar:compile"), compileLib.dependencies());
+        assertEquals(List.of("com.example:child:3.0.0:jar:test"), testLib.dependencies());
     }
 
     @Test

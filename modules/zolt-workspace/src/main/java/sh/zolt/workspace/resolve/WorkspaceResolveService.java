@@ -4,6 +4,8 @@ import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockfileFreshnessSummary;
 import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -16,6 +18,7 @@ import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.ResolveOutput;
 import sh.zolt.resolve.ResolveResult;
 import sh.zolt.resolve.ResolveService;
+import sh.zolt.resolve.ResolutionVariant;
 import sh.zolt.resolve.metrics.ResolveMetrics;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -115,7 +118,37 @@ public final class WorkspaceResolveService {
             metrics = metrics.plus(output.metrics());
         }
 
-        ZoltLockfile lockfile = lockfileAggregator.aggregate(workspace, memberOutputs);
+        List<LockPackage> mediationCandidates =
+                workspaceMediationCandidates(workspace, memberOutputs);
+        WorkspaceExternalPackageSelector externalSelector = new WorkspaceExternalPackageSelector();
+        Map<ResolutionVariant, String> versionOverrides =
+                externalSelector.versionOverrides(mediationCandidates);
+        List<LockConflict> mediationConflicts =
+                externalSelector.versionConflicts(mediationCandidates);
+        if (requiresVersionOverrides(memberOutputs, versionOverrides)) {
+            List<WorkspaceMemberResolveOutput> remediatedOutputs = new ArrayList<>();
+            for (WorkspaceMemberResolveOutput memberOutput : memberOutputs) {
+                if (!requiresVersionOverrides(memberOutput, versionOverrides)) {
+                    remediatedOutputs.add(memberOutput);
+                    continue;
+                }
+                WorkspaceMember member = membersByPath.get(memberOutput.member());
+                ResolveOutput output = resolveService.resolveLockfile(
+                        policyMerger.merge(workspace, member),
+                        cacheRoot,
+                        options.withVersionOverrides(versionOverrides));
+                remediatedOutputs.add(new WorkspaceMemberResolveOutput(
+                        member.path(),
+                        output.lockfile(),
+                        exportedExternalPackages(member.config())));
+                downloadCount += output.downloadCount();
+                metrics = metrics.plus(output.metrics());
+            }
+            memberOutputs = remediatedOutputs;
+        }
+
+        ZoltLockfile lockfile =
+                lockfileAggregator.aggregate(workspace, memberOutputs, mediationConflicts);
         if (locked) {
             long started = System.nanoTime();
             verifyLocked(lockfilePath, lockfile);
@@ -220,6 +253,35 @@ public final class WorkspaceResolveService {
                     member.config().project().name()));
         }
         return Set.copyOf(coordinates);
+    }
+
+    private static List<LockPackage> workspaceMediationCandidates(
+            Workspace workspace,
+            List<WorkspaceMemberResolveOutput> memberOutputs) {
+        Set<PackageId> workspaceCoordinates = workspaceMemberCoordinates(workspace);
+        return memberOutputs.stream()
+                .flatMap(output -> output.lockfile().packages().stream())
+                .filter(lockPackage -> !workspaceCoordinates.contains(lockPackage.packageId()))
+                .toList();
+    }
+
+    private static boolean requiresVersionOverrides(
+            List<WorkspaceMemberResolveOutput> memberOutputs,
+            Map<ResolutionVariant, String> versionOverrides) {
+        return memberOutputs.stream()
+                .anyMatch(output -> requiresVersionOverrides(output, versionOverrides));
+    }
+
+    private static boolean requiresVersionOverrides(
+            WorkspaceMemberResolveOutput memberOutput,
+            Map<ResolutionVariant, String> versionOverrides) {
+        return memberOutput.lockfile().packages().stream()
+                .filter(lockPackage -> lockPackage.scope() != DependencyScope.TOOL_EXEC)
+                .anyMatch(lockPackage -> {
+                    String selected = versionOverrides.get(new ResolutionVariant(
+                            lockPackage.packageId(), LockArtifactVariant.of(lockPackage)));
+                    return selected != null && !selected.equals(lockPackage.version());
+                });
     }
 
     private static Set<WorkspaceExportedPackage> exportedExternalPackages(ProjectConfig config) {

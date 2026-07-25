@@ -1,6 +1,7 @@
 package sh.zolt.lockfile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.DependencyScope;
@@ -77,6 +78,31 @@ final class LockDependencyIndexTest {
                 runtime,
                 index.resolve("io.netty:netty:4.1.100.Final:jar:runtime").orElseThrow());
         assertTrue(index.resolve("io.netty:netty:4.1.100.Final").isEmpty());
+    }
+
+    @Test
+    void graphResolutionRefusesAmbiguousLegacyScopeCopies() {
+        LockPackage compile = jarPackage(
+                NETTY,
+                "4.1.100.Final",
+                "io/netty/netty/4.1.100.Final/netty-4.1.100.Final.jar",
+                DependencyScope.COMPILE);
+        LockPackage runtime = jarPackage(
+                NETTY,
+                "4.1.100.Final",
+                "io/netty/netty/4.1.100.Final/netty-4.1.100.Final.jar",
+                DependencyScope.RUNTIME);
+        LockDependencyIndex index = new LockDependencyIndex(List.of(compile, runtime));
+
+        LockDependencyGraphException exception = assertThrows(
+                LockDependencyGraphException.class,
+                () -> index.resolveGraphEdge(
+                        "io.netty:netty:4.1.100.Final",
+                        "zolt resolve"));
+
+        assertTrue(exception.getMessage().contains("ambiguous"));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
+        assertTrue(exception.getMessage().contains("version 3"));
     }
 
     private static LockPackage jarPackage(PackageId packageId, String version, String jarPath) {

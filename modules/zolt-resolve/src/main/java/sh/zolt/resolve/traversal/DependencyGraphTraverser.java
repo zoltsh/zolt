@@ -9,6 +9,7 @@ import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.resolve.request.DependencyExclusion;
 import sh.zolt.resolve.DependencyPolicyEffect;
 import sh.zolt.resolve.ResolveException;
+import sh.zolt.resolve.ResolutionVariant;
 import sh.zolt.resolve.SnapshotAllowance;
 import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.graph.PackageNode;
@@ -73,7 +74,27 @@ public final class DependencyGraphTraverser {
                 dependencyPolicy,
                 rootManagedVersions,
                 retryCommand,
-                snapshotAllowance);
+                snapshotAllowance,
+                Map.of());
+    }
+
+    public DependencyGraphTraverser(
+            DependencyMetadataSource metadataSource,
+            DependencyPolicySettings dependencyPolicy,
+            Map<PackageId, ManagedVersion> rootManagedVersions,
+            String retryCommand,
+            SnapshotAllowance snapshotAllowance,
+            Map<ResolutionVariant, String> versionOverrides) {
+        this(
+                metadataSource,
+                new PomDependencyManager(),
+                new DependencyNormalizer(),
+                new DependencyTraversalPolicy(),
+                dependencyPolicy,
+                rootManagedVersions,
+                retryCommand,
+                snapshotAllowance,
+                versionOverrides);
     }
 
     DependencyGraphTraverser(
@@ -84,7 +105,8 @@ public final class DependencyGraphTraverser {
             DependencyPolicySettings dependencyPolicy,
             Map<PackageId, ManagedVersion> rootManagedVersions,
             String retryCommand,
-            SnapshotAllowance snapshotAllowance) {
+            SnapshotAllowance snapshotAllowance,
+            Map<ResolutionVariant, String> versionOverrides) {
         this.metadataSource = metadataSource;
         this.dependencyManager = dependencyManager;
         this.normalizer = normalizer;
@@ -96,7 +118,8 @@ public final class DependencyGraphTraverser {
                 strictConstraints(dependencyPolicy),
                 rootManagedVersions,
                 retryCommand,
-                snapshotAllowance);
+                snapshotAllowance,
+                versionOverrides);
     }
 
     public ResolutionGraph traverse(List<DependencyRequest> directRequests) {
@@ -128,6 +151,7 @@ public final class DependencyGraphTraverser {
                         parent,
                         node,
                         request,
+                        item.sourceScope(),
                         item.decision())));
 
                 if (!visited.add(DependencyTraversalVisitKey.from(node, item.request().scope()))) {

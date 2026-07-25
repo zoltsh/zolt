@@ -1,5 +1,6 @@
 package sh.zolt.resolve.lockfile.assembly;
 
+import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.resolve.graph.PackageNode;
@@ -19,9 +20,13 @@ final class LockfileEdges {
     }
 
     static List<String> dependenciesFor(
-            PackageNode node, ResolutionGraph graph, VersionSelectionResult selection) {
+            PackageNode node,
+            DependencyScope sourceScope,
+            ResolutionGraph graph,
+            VersionSelectionResult selection) {
         return graph.edges().stream()
                 .filter(edge -> edge.from().equals(node))
+                .filter(edge -> edge.sourceScope() == sourceScope)
                 .map(edge -> edgeRef(edge, selection))
                 .distinct()
                 .sorted()

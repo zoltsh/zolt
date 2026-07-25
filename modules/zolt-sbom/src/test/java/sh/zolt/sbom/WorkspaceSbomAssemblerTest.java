@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 
 final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
@@ -101,5 +103,85 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
                   ]
                 }
                 """, writer.write(model));
+    }
+
+    @Test
+    void defaultScopeOmitsTestAndProcessorMemberRelationships() {
+        List<SbomWorkspaceMember> members = List.of(
+                member("apps/app", "com.example", "app", "1.0.0"),
+                member("modules/test-support", "com.example", "test-support", "1.0.0"),
+                member("modules/code-generator", "com.example", "code-generator", "1.0.0"));
+        ZoltLockfile lockfile = lockfile(
+                Optional.empty(),
+                workspacePackage(
+                        "com.example",
+                        "test-support",
+                        "1.0.0",
+                        "modules/test-support",
+                        "apps/app",
+                        DependencyScope.TEST),
+                workspacePackage(
+                        "com.example",
+                        "code-generator",
+                        "1.0.0",
+                        "modules/code-generator",
+                        "apps/app",
+                        DependencyScope.PROCESSOR));
+
+        SbomModel required = assembler.assemble(
+                "demo-ws",
+                members,
+                lockfile,
+                SbomScopeSelection.requiredOnly(),
+                Optional.empty(),
+                TOOL_VERSION,
+                LicenseIndex.empty());
+        SbomModel withOptionalScopes = assembler.assemble(
+                "demo-ws",
+                members,
+                lockfile,
+                new SbomScopeSelection(false, false, true, true),
+                Optional.empty(),
+                TOOL_VERSION,
+                LicenseIndex.empty());
+        String appRef = "pkg:maven/com.example/app@1.0.0?type=jar";
+
+        assertEquals(List.of(), dependsOn(required, appRef));
+        assertEquals(
+                List.of(
+                        "pkg:maven/com.example/code-generator@1.0.0?type=jar",
+                        "pkg:maven/com.example/test-support@1.0.0?type=jar"),
+                dependsOn(withOptionalScopes, appRef));
+    }
+
+    private static LockPackage workspacePackage(
+            String group,
+            String name,
+            String version,
+            String workspace,
+            String member,
+            DependencyScope scope) {
+        return new LockPackage(
+                new PackageId(group, name),
+                version,
+                "workspace",
+                scope,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(workspace),
+                Optional.of("target/classes"),
+                List.of(),
+                List.of(member));
+    }
+
+    private static List<String> dependsOn(SbomModel model, String ref) {
+        return model.dependencies().stream()
+                .filter(dependency -> dependency.ref().equals(ref))
+                .map(SbomDependency::dependsOn)
+                .findFirst()
+                .orElseThrow();
     }
 }

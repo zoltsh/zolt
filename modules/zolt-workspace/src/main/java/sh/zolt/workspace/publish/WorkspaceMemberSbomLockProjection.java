@@ -139,7 +139,7 @@ public final class WorkspaceMemberSbomLockProjection {
             }
             reached.put(ref, current);
             for (String edge : current.dependencies()) {
-                edges.resolve(edge)
+                edges.resolveGraphEdge(edge, "zolt resolve --workspace")
                         .filter(target -> !reached.containsKey(ref(target)))
                         .ifPresent(queue::addLast);
             }

@@ -49,7 +49,19 @@ record PublicationTransactionManifest(
             String targetIdentity,
             String projectCoordinate) {
         String identity = targetIdentity + "\n" + projectCoordinate;
-        return stagingRoot.resolve("transactions").resolve(sha256(identity) + ".manifest");
+        return stagingRoot
+                .resolve("transactions")
+                .resolve(sha256(identity))
+                .resolve("manifest");
+    }
+
+    static Path transactionFilesPath(
+            Path stagingRoot,
+            String targetIdentity,
+            String projectCoordinate) {
+        return transactionPath(stagingRoot, targetIdentity, projectCoordinate)
+                .getParent()
+                .resolve("files");
     }
 
     static Optional<PublicationTransactionManifest> read(Path file) {

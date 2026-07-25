@@ -2,6 +2,7 @@ package sh.zolt.resolve.traversal;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.RawPomDependency;
@@ -9,6 +10,7 @@ import sh.zolt.project.DependencyConstraint;
 import sh.zolt.project.VersionPolicy;
 import sh.zolt.resolve.DependencyPolicyEffect;
 import sh.zolt.resolve.ResolveException;
+import sh.zolt.resolve.ResolutionVariant;
 import sh.zolt.resolve.SnapshotAllowance;
 import sh.zolt.resolve.metadata.platform.ManagedVersion;
 import sh.zolt.resolve.request.DependencyRequest;
@@ -27,6 +29,7 @@ final class DependencyTraversalCandidateSelector {
     private final Map<PackageId, ManagedVersion> rootManagedVersions;
     private final String retryCommand;
     private final SnapshotAllowance snapshotAllowance;
+    private final Map<ResolutionVariant, String> versionOverrides;
 
     DependencyTraversalCandidateSelector(
             DependencyTraversalPolicy traversalPolicy,
@@ -36,6 +39,26 @@ final class DependencyTraversalCandidateSelector {
             Map<PackageId, ManagedVersion> rootManagedVersions,
             String retryCommand,
             SnapshotAllowance snapshotAllowance) {
+        this(
+                traversalPolicy,
+                transitiveScopeSelector,
+                globalExclusions,
+                strictConstraints,
+                rootManagedVersions,
+                retryCommand,
+                snapshotAllowance,
+                Map.of());
+    }
+
+    DependencyTraversalCandidateSelector(
+            DependencyTraversalPolicy traversalPolicy,
+            DependencyTransitiveScopeSelector transitiveScopeSelector,
+            List<DependencyGlobalExclusion> globalExclusions,
+            Map<PackageId, DependencyConstraint> strictConstraints,
+            Map<PackageId, ManagedVersion> rootManagedVersions,
+            String retryCommand,
+            SnapshotAllowance snapshotAllowance,
+            Map<ResolutionVariant, String> versionOverrides) {
         this.traversalPolicy = traversalPolicy;
         this.transitiveScopeSelector = transitiveScopeSelector;
         this.globalExclusions = List.copyOf(globalExclusions);
@@ -43,6 +66,7 @@ final class DependencyTraversalCandidateSelector {
         this.rootManagedVersions = Map.copyOf(rootManagedVersions);
         this.retryCommand = retryCommand == null || retryCommand.isBlank() ? "zolt resolve" : retryCommand.trim();
         this.snapshotAllowance = snapshotAllowance == null ? SnapshotAllowance.none() : snapshotAllowance;
+        this.versionOverrides = versionOverrides == null ? Map.of() : Map.copyOf(versionOverrides);
     }
 
     DependencyTraversalSelection select(DependencyTraversalCandidate candidate) {
@@ -78,6 +102,13 @@ final class DependencyTraversalCandidateSelector {
                 packageId,
                 constraint,
                 managedVersion);
+        requestedVersion = versionOverrides.getOrDefault(
+                new ResolutionVariant(
+                        packageId,
+                        new LockArtifactVariant(
+                                dependency.rawDependency().type().orElse("jar"),
+                                dependency.rawDependency().classifier())),
+                requestedVersion);
         validateSupportedTransitiveVersion(packageId, requestedVersion, candidate.source());
         List<DependencyPolicyEffect> policyEffects = new ArrayList<>();
         if (constraint != null) {
@@ -103,6 +134,7 @@ final class DependencyTraversalCandidateSelector {
                 DependencyTraversalItem.transitive(
                         candidate.source(),
                         request,
+                        candidate.item().request().scope(),
                         dependency.exclusions(),
                         decision),
                 policyEffects);

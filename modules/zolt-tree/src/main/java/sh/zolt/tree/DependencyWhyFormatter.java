@@ -85,7 +85,7 @@ public final class DependencyWhyFormatter {
             }
             item.lockPackage().dependencies().stream()
                     .sorted()
-                    .map(edge -> packages.resolve(edge).orElse(null))
+                    .map(edge -> packages.resolveGraphEdge(edge, "zolt resolve").orElse(null))
                     .filter(java.util.Objects::nonNull)
                     .filter(dependency -> !contains(item.path(), dependency))
                     .forEach(dependency -> queue.add(new PathItem(

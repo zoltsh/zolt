@@ -115,7 +115,7 @@ public final class LockSbomAssembler {
             }
             TreeSet<String> dependsOn = edges.get(ref);
             for (String edge : lockPackage.dependencies()) {
-                index.resolve(edge)
+                index.resolveGraphEdge(edge, "zolt resolve")
                         .map(LockArtifacts::purl)
                         .ifPresent(dependsOn::add);
             }

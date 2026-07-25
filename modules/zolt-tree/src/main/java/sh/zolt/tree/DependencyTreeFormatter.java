@@ -76,7 +76,7 @@ public final class DependencyTreeFormatter {
 
         List<LockPackage> dependencies = lockPackage.dependencies().stream()
                 .sorted()
-                .map(edge -> packages.resolve(edge).orElse(null))
+                .map(edge -> packages.resolveGraphEdge(edge, "zolt resolve").orElse(null))
                 .filter(java.util.Objects::nonNull)
                 .toList();
         String childPrefix = prefix + (last ? "   " : "|  ");

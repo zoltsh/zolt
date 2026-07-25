@@ -11,6 +11,22 @@ import java.util.Set;
 
 public final class WorkspaceMemberSelector {
     public WorkspaceSelection select(Workspace workspace, WorkspaceSelectionRequest request) {
+        return select(workspace, request, true);
+    }
+
+    /**
+     * Selects the members needed by a main build/package lane. Test-only workspace dependencies and
+     * test processors are deliberately omitted; compile dependencies and main processors remain build
+     * prerequisites.
+     */
+    public WorkspaceSelection selectMain(Workspace workspace, WorkspaceSelectionRequest request) {
+        return select(workspace, request, false);
+    }
+
+    private WorkspaceSelection select(
+            Workspace workspace,
+            WorkspaceSelectionRequest request,
+            boolean includeTestLanes) {
         if (request.all() && !request.members().isEmpty()) {
             throw new WorkspaceConfigException("Use either --all or member selection for workspace selection, not both.");
         }
@@ -25,7 +41,8 @@ public final class WorkspaceMemberSelector {
                     ordered(workspace.buildOrder(), exact));
         }
         Set<String> included = new LinkedHashSet<>();
-        Map<String, List<String>> dependenciesByMember = dependenciesByMember(workspace);
+        Map<String, List<String>> dependenciesByMember =
+                dependenciesByMember(workspace, includeTestLanes);
         for (String member : selectedMembers) {
             includeDependencies(member, dependenciesByMember, included);
         }
@@ -81,15 +98,23 @@ public final class WorkspaceMemberSelector {
         return normalizedPath.isBlank() ? "." : normalizedPath;
     }
 
-    private static Map<String, List<String>> dependenciesByMember(Workspace workspace) {
+    private static Map<String, List<String>> dependenciesByMember(
+            Workspace workspace,
+            boolean includeTestLanes) {
         Map<String, List<String>> dependencies = new LinkedHashMap<>();
         for (WorkspaceMember member : workspace.members()) {
             dependencies.put(member.path(), new ArrayList<>());
         }
         for (WorkspaceProjectEdge edge : workspace.edges()) {
-            dependencies.get(edge.from()).add(edge.to());
+            if (includeTestLanes || mainBuildEdge(edge)) {
+                dependencies.get(edge.from()).add(edge.to());
+            }
         }
         return dependencies;
+    }
+
+    private static boolean mainBuildEdge(WorkspaceProjectEdge edge) {
+        return edge.scope().equals("compile") || edge.scope().equals("processor");
     }
 
     private static void includeDependencies(

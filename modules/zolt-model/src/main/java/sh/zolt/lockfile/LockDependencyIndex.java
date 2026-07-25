@@ -51,4 +51,34 @@ public final class LockDependencyIndex {
         }
         return Optional.empty();
     }
+
+    /**
+     * Resolves a graph edge while refusing the one unsafe legacy case: an unscoped v1/v2 edge with
+     * several possible scope or variant copies. Graph-producing commands must fail actionably here
+     * instead of silently omitting the relationship.
+     */
+    public Optional<LockPackage> resolveGraphEdge(String edge, String regenerateCommand) {
+        Optional<LockDependencyEdge> parsed = LockDependencyEdge.parse(edge);
+        if (parsed.isEmpty()) {
+            return Optional.empty();
+        }
+        LockDependencyEdge target = parsed.orElseThrow();
+        if (target.scope().isPresent()) {
+            return Optional.ofNullable(byRef.get(target.encode()));
+        }
+        List<LockPackage> candidates = byGav.getOrDefault(target.gav(), List.of());
+        List<LockPackage> matchingVariant = candidates.stream()
+                .filter(candidate -> LockArtifactVariant.of(candidate).equals(target.variant()))
+                .toList();
+        if (matchingVariant.size() > 1
+                || (matchingVariant.isEmpty() && candidates.size() > 1)) {
+            throw new LockDependencyGraphException(
+                    "Legacy dependency edge `"
+                            + edge
+                            + "` is ambiguous across locked artifact scopes or variants. Run `"
+                            + regenerateCommand
+                            + "` to regenerate zolt.lock with version 3 scope-qualified edges.");
+        }
+        return resolve(edge);
+    }
 }

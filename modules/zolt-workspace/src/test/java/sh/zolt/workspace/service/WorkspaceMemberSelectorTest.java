@@ -44,6 +44,38 @@ final class WorkspaceMemberSelectorTest {
     }
 
     @Test
+    void mainSelectionExcludesTestOnlyMembersButKeepsProcessors() {
+        Workspace workspace = workspace(
+                List.of("apps/api", "modules/core", "modules/test-support", "modules/processor"),
+                List.of(),
+                List.of("modules/core", "modules/test-support", "modules/processor", "apps/api"),
+                List.of(
+                        new WorkspaceProjectEdge("apps/api", "modules/core", "compile", "com.acme:core"),
+                        new WorkspaceProjectEdge(
+                                "apps/api",
+                                "modules/test-support",
+                                "test",
+                                "com.acme:test-support"),
+                        new WorkspaceProjectEdge(
+                                "apps/api",
+                                "modules/processor",
+                                "processor",
+                                "com.acme:processor")));
+
+        WorkspaceSelection main = selector.selectMain(
+                workspace,
+                new WorkspaceSelectionRequest(false, List.of("apps/api")));
+        WorkspaceSelection tests = selector.select(
+                workspace,
+                new WorkspaceSelectionRequest(false, List.of("apps/api")));
+
+        assertEquals(List.of("modules/core", "modules/processor", "apps/api"), main.includedMembers());
+        assertEquals(
+                List.of("modules/core", "modules/test-support", "modules/processor", "apps/api"),
+                tests.includedMembers());
+    }
+
+    @Test
     void selectsAllMembersWhenAllIsRequested() {
         Workspace workspace = workspace(List.of("apps/api", "modules/core", "apps/worker"), List.of());
 

@@ -267,7 +267,11 @@ public final class LockfileAssembler {
                 jarArtifact ? Optional.empty() : Optional.of(sha256(artifact.bytes())),
                 Optional.empty(),
                 Optional.empty(),
-                LockfileEdges.dependenciesFor(node, plan.graph(), plan.selection()),
+                LockfileEdges.dependenciesFor(
+                        node,
+                        selectedScope.scope(),
+                        plan.graph(),
+                        plan.selection()),
                 List.of(),
                 List.of(),
                 LockfilePolicyPlanner.policiesFor(

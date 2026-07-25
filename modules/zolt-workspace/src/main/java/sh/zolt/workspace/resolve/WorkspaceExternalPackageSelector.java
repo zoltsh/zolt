@@ -8,6 +8,7 @@ import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.resolve.ResolutionVariant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -19,6 +20,47 @@ import java.util.Set;
 
 final class WorkspaceExternalPackageSelector {
     private static final VersionComparator VERSION_COMPARATOR = new VersionComparator();
+
+    Map<ResolutionVariant, String> versionOverrides(List<LockPackage> candidates) {
+        Map<PackageVariantKey, List<LockPackage>> candidatesByVariant =
+                candidatesByVariant(candidates.stream()
+                        .filter(candidate -> candidate.scope() != DependencyScope.TOOL_EXEC)
+                        .toList());
+        Map<ResolutionVariant, String> overrides = new LinkedHashMap<>();
+        for (Map.Entry<PackageVariantKey, List<LockPackage>> entry : candidatesByVariant.entrySet()) {
+            overrides.put(
+                    new ResolutionVariant(entry.getKey().packageId(), entry.getKey().variant()),
+                    selectVersion(entry.getValue()).version());
+        }
+        return Map.copyOf(overrides);
+    }
+
+    List<LockConflict> versionConflicts(List<LockPackage> candidates) {
+        Map<PackageVariantKey, List<LockPackage>> candidatesByVariant =
+                candidatesByVariant(candidates.stream()
+                        .filter(candidate -> candidate.scope() != DependencyScope.TOOL_EXEC)
+                        .toList());
+        List<LockConflict> conflicts = new ArrayList<>();
+        for (Map.Entry<PackageVariantKey, List<LockPackage>> entry : candidatesByVariant.entrySet()) {
+            PackageVariantKey key = entry.getKey();
+            List<String> requestedVersions = entry.getValue().stream()
+                    .map(LockPackage::version)
+                    .distinct()
+                    .sorted(VERSION_COMPARATOR.thenComparing(Comparator.naturalOrder()))
+                    .toList();
+            if (requestedVersions.size() > 1) {
+                WorkspaceExternalSelection.VersionSelection selection = selectVersion(entry.getValue());
+                conflicts.add(new LockConflict(
+                        key.packageId(),
+                        selection.version(),
+                        requestedVersions,
+                        selection.reason(),
+                        Optional.empty(),
+                        Optional.of(key.variant())));
+            }
+        }
+        return List.copyOf(conflicts);
+    }
 
     WorkspaceExternalSelection select(List<LockPackage> candidates) {
         List<LockPackage> regularCandidates = candidates.stream()
@@ -33,20 +75,7 @@ final class WorkspaceExternalPackageSelector {
         // workspace layer mediates — the selected version, the edge-version rewrite, and the conflict
         // record — runs WITHIN a lane, so same-GA different-variant entries coexist at their own mediated
         // versions and never collapse onto (or falsely conflict with) each other.
-        Map<PackageVariantKey, List<LockPackage>> candidatesByVariant = new LinkedHashMap<>();
-        regularCandidates.stream()
-                .sorted(Comparator.comparing(lockPackage -> lockPackage.packageId()
-                        + ":"
-                        + lockPackage.version()
-                        + ":"
-                        + lockPackage.scope().lockfileName()
-                        + ":"
-                        + LockArtifactVariant.of(lockPackage).key()))
-                .forEach(lockPackage -> candidatesByVariant
-                        .computeIfAbsent(
-                                new PackageVariantKey(lockPackage.packageId(), LockArtifactVariant.of(lockPackage)),
-                                ignored -> new ArrayList<>())
-                        .add(lockPackage));
+        Map<PackageVariantKey, List<LockPackage>> candidatesByVariant = candidatesByVariant(regularCandidates);
 
         Map<PackageVariantKey, WorkspaceExternalSelection.VersionSelection> selections = new LinkedHashMap<>();
         Map<PackageVariantKey, String> selectedVersionByVariant = new LinkedHashMap<>();
@@ -70,26 +99,28 @@ final class WorkspaceExternalPackageSelector {
             }
         }
 
-        List<LockConflict> conflicts = new ArrayList<>();
-        for (Map.Entry<PackageVariantKey, List<LockPackage>> entry : candidatesByVariant.entrySet()) {
-            PackageVariantKey key = entry.getKey();
-            List<String> requestedVersions = entry.getValue().stream()
-                    .map(LockPackage::version)
-                    .distinct()
-                    .sorted(VERSION_COMPARATOR.thenComparing(Comparator.naturalOrder()))
-                    .toList();
-            if (requestedVersions.size() > 1) {
-                conflicts.add(new LockConflict(
-                        key.packageId(),
-                        selections.get(key).version(),
-                        requestedVersions,
-                        selections.get(key).reason(),
-                        Optional.empty(),
-                        Optional.of(key.variant())));
-            }
-        }
+        List<LockConflict> conflicts = new ArrayList<>(versionConflicts(regularCandidates));
         packages.addAll(selectExecPackages(execCandidates));
         return new WorkspaceExternalSelection(packages, conflicts);
+    }
+
+    private static Map<PackageVariantKey, List<LockPackage>> candidatesByVariant(
+            List<LockPackage> regularCandidates) {
+        Map<PackageVariantKey, List<LockPackage>> candidatesByVariant = new LinkedHashMap<>();
+        regularCandidates.stream()
+                .sorted(Comparator.comparing(lockPackage -> lockPackage.packageId()
+                        + ":"
+                        + lockPackage.version()
+                        + ":"
+                        + lockPackage.scope().lockfileName()
+                        + ":"
+                        + LockArtifactVariant.of(lockPackage).key()))
+                .forEach(lockPackage -> candidatesByVariant
+                        .computeIfAbsent(
+                                new PackageVariantKey(lockPackage.packageId(), LockArtifactVariant.of(lockPackage)),
+                                ignored -> new ArrayList<>())
+                        .add(lockPackage));
+        return candidatesByVariant;
     }
 
     /** Identity of one aggregation lane: a {@link PackageId} plus its artifact variant. */
@@ -124,8 +155,16 @@ final class WorkspaceExternalPackageSelector {
             Map<PackageVariantKey, String> selectedVersionByVariant) {
         LockPackage selectedTemplate = packageCandidates.stream()
                 .filter(lockPackage -> lockPackage.version().equals(selectedVersion))
+                .filter(lockPackage -> lockPackage.scope() == scope)
                 .findFirst()
-                .orElseThrow();
+                .orElseThrow(() -> new IllegalStateException(
+                        "Workspace mediation selected "
+                                + packageCandidates.getFirst().packageId()
+                                + ":"
+                                + selectedVersion
+                                + " for "
+                                + scope.lockfileName()
+                                + " without resolving that version in the scope."));
         List<LockPackage> scopeCandidates = packageCandidates.stream()
                 .filter(lockPackage -> lockPackage.scope() == scope)
                 .toList();

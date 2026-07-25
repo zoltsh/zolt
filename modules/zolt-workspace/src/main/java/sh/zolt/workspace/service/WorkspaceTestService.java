@@ -100,7 +100,7 @@ public final class WorkspaceTestService {
             Path startDirectory,
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest) {
-        return workspaceBuildService.planBuild(startDirectory, cacheRoot, false, selectionRequest);
+        return workspaceBuildService.planTestBuild(startDirectory, cacheRoot, false, selectionRequest);
     }
 
     public WorkspaceBuildResult buildTestInputs(WorkspaceBuildPlan plan, Path cacheRoot) {

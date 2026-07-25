@@ -37,7 +37,8 @@ final class DependencyGraphResolver {
                 requests,
                 metrics,
                 "zolt resolve",
-                SnapshotAllowance.none());
+                SnapshotAllowance.none(),
+                Map.of());
     }
 
     DependencyGraphResolution resolve(
@@ -48,12 +49,33 @@ final class DependencyGraphResolver {
             ResolverMetricsSink metrics,
             String retryCommand,
             SnapshotAllowance snapshotAllowance) {
+        return resolve(
+                metadataSource,
+                dependencyPolicy,
+                managedVersions,
+                requests,
+                metrics,
+                retryCommand,
+                snapshotAllowance,
+                Map.of());
+    }
+
+    DependencyGraphResolution resolve(
+            DependencyMetadataSource metadataSource,
+            DependencyPolicySettings dependencyPolicy,
+            Map<PackageId, ManagedVersion> managedVersions,
+            List<DependencyRequest> requests,
+            ResolverMetricsSink metrics,
+            String retryCommand,
+            SnapshotAllowance snapshotAllowance,
+            Map<ResolutionVariant, String> versionOverrides) {
         DependencyGraphTraverser traverser = graphTraverserFactory.create(
                 metadataSource,
                 dependencyPolicy,
                 managedVersions,
                 retryCommand,
-                snapshotAllowance);
+                snapshotAllowance,
+                versionOverrides);
         long traversalStarted = System.nanoTime();
         ResolutionGraph graph = traverser.traverse(requests);
         metrics.addGraphTraversalNanos(elapsedSince(traversalStarted));

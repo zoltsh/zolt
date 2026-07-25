@@ -71,12 +71,14 @@ public final class PublishUploadService {
         String targetIdentity = repositoryUri.normalize().toString();
         Path transactionPath =
                 PublicationTransactionManifest.transactionPath(stagingRoot, targetIdentity, plan.coordinate());
+        Path transactionFiles = PublicationTransactionManifest.transactionFilesPath(
+                stagingRoot, targetIdentity, plan.coordinate());
         String signingIdentity = staging.signingIdentity(settings.signing());
         Optional<PublicationTransactionManifest> interrupted =
                 PublicationTransactionManifest.read(transactionPath);
         interrupted.ifPresent(manifest -> manifest.requireIdentity(targetIdentity, signingIdentity));
         List<StagedPublicationFile> staged = staging.stage(
-                stagingRoot,
+                transactionFiles,
                 sources,
                 settings.signing(),
                 interrupted.map(PublicationTransactionManifest::resume).orElse(PublicationResume.none()));

@@ -93,7 +93,7 @@ public final class WorkspaceSbomAssembler {
         components.sort(Comparator.comparing(SbomComponent::bomRef));
 
         List<SbomDependency> dependencies = dependencyGraph(root, memberComponents, components, lockfile,
-                coordinateToRef, memberPathToRef);
+                coordinateToRef, memberPathToRef, selection);
         String serialNumber = serialNumber(root.bomRef(), lockfile, components);
         return new SbomModel(
                 serialNumber,
@@ -110,7 +110,8 @@ public final class WorkspaceSbomAssembler {
             List<SbomComponent> components,
             ZoltLockfile lockfile,
             Map<String, String> coordinateToRef,
-            Map<String, String> memberPathToRef) {
+            Map<String, String> memberPathToRef,
+            SbomScopeSelection selection) {
         Map<String, TreeSet<String>> edges = new TreeMap<>();
         edges.put(root.bomRef(), new TreeSet<>());
         for (SbomComponent component : components) {
@@ -124,6 +125,9 @@ public final class WorkspaceSbomAssembler {
 
         LockDependencyIndex packageIndex = new LockDependencyIndex(lockfile.packages());
         for (LockPackage lockPackage : lockfile.packages()) {
+            if (!selection.includes(SbomScopeGroup.of(lockPackage.scope()))) {
+                continue;
+            }
             String ref = coordinateToRef.get(refOf(lockPackage));
             if (ref == null) {
                 continue;
@@ -138,7 +142,7 @@ public final class WorkspaceSbomAssembler {
             // external -> external edges from the dependency graph.
             if (lockPackage.workspace().isEmpty()) {
                 for (String edge : lockPackage.dependencies()) {
-                    packageIndex.resolve(edge)
+                    packageIndex.resolveGraphEdge(edge, "zolt resolve --workspace")
                             .map(WorkspaceSbomAssembler::refOf)
                             .map(coordinateToRef::get)
                             .ifPresent(target -> edges.get(ref).add(target));

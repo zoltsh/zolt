@@ -25,6 +25,13 @@ import java.util.Set;
 
 final class WorkspaceLockfileAggregator {
     ZoltLockfile aggregate(Workspace workspace, List<WorkspaceMemberResolveOutput> memberOutputs) {
+        return aggregate(workspace, memberOutputs, List.of());
+    }
+
+    ZoltLockfile aggregate(
+            Workspace workspace,
+            List<WorkspaceMemberResolveOutput> memberOutputs,
+            List<LockConflict> preservedWorkspaceConflicts) {
         if (isTransitionalRootWorkspace(workspace, memberOutputs)) {
             return memberOutputs.getFirst().lockfile();
         }
@@ -81,6 +88,9 @@ final class WorkspaceLockfileAggregator {
             packages.put(key, existingPackage == null ? lockPackage : merge(existingPackage, lockPackage));
         }
         for (LockConflict conflict : globalSelection.conflicts()) {
+            conflicts.put(conflictKey(conflict), conflict);
+        }
+        for (LockConflict conflict : preservedWorkspaceConflicts) {
             conflicts.put(conflictKey(conflict), conflict);
         }
         for (Map.Entry<WorkspaceCoordinateScope, Set<String>> entry : shadowedExternalVersions.entrySet()) {

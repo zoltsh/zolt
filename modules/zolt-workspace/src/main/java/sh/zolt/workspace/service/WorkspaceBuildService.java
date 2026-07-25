@@ -119,11 +119,30 @@ public final class WorkspaceBuildService {
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest) {
+        return planBuild(startDirectory, cacheRoot, offline, selectionRequest, false);
+    }
+
+    WorkspaceBuildPlan planTestBuild(
+            Path startDirectory,
+            Path cacheRoot,
+            boolean offline,
+            WorkspaceSelectionRequest selectionRequest) {
+        return planBuild(startDirectory, cacheRoot, offline, selectionRequest, true);
+    }
+
+    private WorkspaceBuildPlan planBuild(
+            Path startDirectory,
+            Path cacheRoot,
+            boolean offline,
+            WorkspaceSelectionRequest selectionRequest,
+            boolean includeTestLanes) {
         Path start = startDirectory.toAbsolutePath().normalize();
         Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> ResolveException.actionable(
                 "Could not find workspace config.",
                 "Run `zolt build --workspace` from a workspace directory or add zolt.toml with [workspace]."));
-        WorkspaceSelection selection = memberSelector.select(workspace, selectionRequest);
+        WorkspaceSelection selection = includeTestLanes
+                ? memberSelector.select(workspace, selectionRequest)
+                : memberSelector.selectMain(workspace, selectionRequest);
         Path lockfilePath = workspace.root().resolve("zolt.lock");
         Optional<ResolveResult> resolveResult = Optional.empty();
         if (!Files.isRegularFile(lockfilePath)) {

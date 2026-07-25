@@ -194,6 +194,10 @@ final class DependencyGraphTraverserTest extends DependencyGraphTraverserTestSup
                 .filter(edge -> edge.to().packageId().equals(new PackageId("com.example", "shared-child")))
                 .map(edge -> edge.request().scope())
                 .toList());
+        assertEquals(List.of(DependencyScope.COMPILE, DependencyScope.TEST), graph.edges().stream()
+                .filter(edge -> edge.to().packageId().equals(new PackageId("com.example", "shared-child")))
+                .map(edge -> edge.sourceScope())
+                .toList());
         assertEquals(1, source.loadCount("com.example:shared:1.0.0"));
     }
 

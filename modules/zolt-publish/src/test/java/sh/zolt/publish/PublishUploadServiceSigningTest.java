@@ -297,12 +297,12 @@ final class PublishUploadServiceSigningTest {
         }
     }
 
-    private static final class Recorder implements AutoCloseable {
+    static final class Recorder implements AutoCloseable {
         private final HttpServer server;
         private final Map<String, byte[]> uploads = new ConcurrentHashMap<>();
         private final Map<String, AtomicInteger> putCounts = new ConcurrentHashMap<>();
         private final URI baseUri;
-        private volatile String failPutPathSuffix;
+        volatile String failPutPathSuffix;
 
         private Recorder(HttpServer server) {
             this.server = server;
