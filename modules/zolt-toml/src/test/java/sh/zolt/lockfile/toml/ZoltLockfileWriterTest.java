@@ -8,6 +8,7 @@ import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -46,7 +47,7 @@ final class ZoltLockfileWriterTest {
                 List.of());
 
         assertEquals("""
-                version = 3
+                version = 4
                 aliasFingerprint = "sha256:alias-inputs"
 
                 """, writer.write(lockfile));
@@ -64,7 +65,7 @@ final class ZoltLockfileWriterTest {
                 List.of());
 
         assertEquals("""
-                version = 3
+                version = 4
                 projectResolutionFingerprint = "sha256:project-inputs"
                 projectResolutionInputFingerprints = ["dependencies.compile=sha256:compile-inputs", "repositories=sha256:repo-inputs"]
 
@@ -163,6 +164,50 @@ final class ZoltLockfileWriterTest {
         assertTrue(parsed.conflicts().stream().anyMatch(conflict ->
                 conflict.variant().equals(Optional.of(new LockArtifactVariant("jar", Optional.of("linux-x86_64"))))));
         assertTrue(parsed.conflicts().stream().anyMatch(conflict -> conflict.variant().isEmpty()));
+    }
+
+    @Test
+    void writesAndRoundTripsMemberQualifiedGraphFactsDeterministically() {
+        LockMemberGraph worker = new LockMemberGraph(
+                "apps/worker",
+                new PackageId("com.example", "root"),
+                "1.0.0",
+                new LockArtifactVariant("jar", Optional.of("tests")),
+                DependencyScope.TEST,
+                List.of("com.example:z:1.0.0:jar:test", "com.example:a:1.0.0:jar:test"),
+                List.of("managed-z", "managed-a"));
+        LockMemberGraph api = new LockMemberGraph(
+                "apps/api",
+                new PackageId("com.example", "root"),
+                "1.0.0",
+                LockArtifactVariant.defaultVariant(),
+                DependencyScope.COMPILE,
+                List.of(),
+                List.of());
+        ZoltLockfile lockfile = new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(worker, api));
+
+        String output = writer.write(lockfile);
+        ZoltLockfile parsed = new ZoltLockfileReader().read(output);
+
+        assertTrue(output.indexOf("member = \"apps/api\"") < output.indexOf("member = \"apps/worker\""));
+        assertEquals(1, countOccurrences(output, "variant = \"jar|tests\""));
+        assertEquals(List.of(api, new LockMemberGraph(
+                worker.member(),
+                worker.packageId(),
+                worker.version(),
+                worker.variant(),
+                worker.scope(),
+                List.of("com.example:a:1.0.0:jar:test", "com.example:z:1.0.0:jar:test"),
+                List.of("managed-a", "managed-z"))), parsed.memberGraphs());
+        assertEquals(output, writer.write(parsed));
     }
 
     @Test

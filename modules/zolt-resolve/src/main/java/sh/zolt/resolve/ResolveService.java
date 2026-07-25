@@ -4,8 +4,6 @@ import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
-import sh.zolt.maven.ArtifactDescriptor;
-import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.CoordinateParser;
 import sh.zolt.maven.repository.MavenRepositoryClient;
 import sh.zolt.maven.repository.RawPomParser;
@@ -32,7 +30,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public final class ResolveService {
     private final CoordinateParser coordinateParser;
@@ -251,35 +248,10 @@ public final class ResolveService {
             Map<ResolutionVariant, String> versionOverrides) {
         DependencyRelocator relocator = new DependencyRelocator(context);
         return directRequests.stream()
-                .map(request -> overrideVersion(request, versionOverrides))
+                .map(request -> DependencyRequestVersions.rewrite(request, versionOverrides))
                 .map(relocator::relocate)
-                .map(request -> overrideVersion(request, versionOverrides))
+                .map(request -> DependencyRequestVersions.rewrite(request, versionOverrides))
                 .toList();
-    }
-
-    private static DependencyRequest overrideVersion(
-            DependencyRequest request,
-            Map<ResolutionVariant, String> versionOverrides) {
-        String version = versionOverrides.get(new ResolutionVariant(
-                request.packageId(), request.artifactVariant()));
-        if (version == null || version.equals(request.requestedVersion())) {
-            return request;
-        }
-        Optional<ArtifactDescriptor> descriptor = request.artifactDescriptor()
-                .map(value -> new ArtifactDescriptor(
-                        new Coordinate(
-                                request.packageId().groupId(),
-                                request.packageId().artifactId(),
-                                Optional.of(version)),
-                        value.classifier(),
-                        value.extension()));
-        return new DependencyRequest(
-                request.packageId(),
-                version,
-                request.scope(),
-                request.origin(),
-                descriptor,
-                request.exclusions());
     }
 
     private ZoltLockfile lockfile(
@@ -299,7 +271,8 @@ public final class ResolveService {
                 Map<PackageId, ManagedVersion> managedVersions,
                 String retryCommand,
                 SnapshotAllowance snapshotAllowance,
-                Map<ResolutionVariant, String> versionOverrides);
+                Map<ResolutionVariant, String> versionOverrides,
+                Map<ResolutionVariant, String> workspaceVersionOverrides);
     }
 
 }

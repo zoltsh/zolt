@@ -84,13 +84,13 @@ final class WorkspaceLockfileAggregatorTest extends WorkspaceLockfileAggregatorT
                                 lockfile(
                                         List.of(externalPackage(
                                                 library,
-                                                "1.0.0",
+                                                "2.0.0",
                                                 true,
                                                 List.of("com.example:transitive:0.9.0"),
                                                 List.of("api-policy"))),
                                         List.of(new LockConflict(
                                                 library,
-                                                "1.0.0",
+                                                "2.0.0",
                                                 List.of("1.0.0", "2.0.0"),
                                                 ConflictSelectionReason.DIRECT_DEPENDENCY)),
                                         List.of(policyEffect)),
@@ -127,23 +127,22 @@ final class WorkspaceLockfileAggregatorTest extends WorkspaceLockfileAggregatorT
         assertEquals(List.of("apps/api"), processor.members());
         LockPackage external = packageById(aggregated, "com.example", "library");
         assertEquals("2.0.0", external.version());
-        assertEquals(List.of("com.example:transitive:1.0.0"), external.dependencies());
-        assertEquals(List.of("apps/api", "apps/worker"), external.members());
-        assertEquals(List.of("apps/api"), external.exportedBy());
-        assertEquals(List.of("worker-policy"), external.policies());
         assertEquals(
                 List.of(
-                        new LockConflict(
-                                library,
-                                "1.0.0",
-                                List.of("1.0.0", "2.0.0"),
-                                ConflictSelectionReason.DIRECT_DEPENDENCY),
-                        new LockConflict(
-                                library,
-                                "2.0.0",
-                                List.of("1.0.0", "2.0.0"),
-                                ConflictSelectionReason.DIRECT_DEPENDENCY)),
+                        "com.example:transitive:0.9.0",
+                        "com.example:transitive:1.0.0"),
+                external.dependencies());
+        assertEquals(List.of("apps/api", "apps/worker"), external.members());
+        assertEquals(List.of("apps/api"), external.exportedBy());
+        assertEquals(List.of("api-policy", "worker-policy"), external.policies());
+        assertEquals(
+                List.of(new LockConflict(
+                        library,
+                        "2.0.0",
+                        List.of("1.0.0", "2.0.0"),
+                        ConflictSelectionReason.DIRECT_DEPENDENCY)),
                 aggregated.conflicts());
+        assertEquals(2, aggregated.memberGraphs().size());
         assertEquals(List.of(policyEffect), aggregated.policyEffects());
     }
 

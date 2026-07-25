@@ -102,7 +102,22 @@ final class LockDependencyIndexTest {
 
         assertTrue(exception.getMessage().contains("ambiguous"));
         assertTrue(exception.getMessage().contains("zolt resolve"));
-        assertTrue(exception.getMessage().contains("version 3"));
+        assertTrue(exception.getMessage().contains("version 4"));
+    }
+
+    @Test
+    void graphResolutionRefusesDanglingScopeQualifiedEdge() {
+        LockDependencyIndex index = new LockDependencyIndex(List.of());
+
+        LockDependencyGraphException exception = assertThrows(
+                LockDependencyGraphException.class,
+                () -> index.resolveGraphEdge(
+                        "io.netty:netty:4.1.100.Final:jar:compile",
+                        "zolt resolve"));
+
+        assertTrue(exception.getMessage().toLowerCase().contains("dangling"));
+        assertTrue(exception.getMessage().contains("jar:compile"));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
     }
 
     private static LockPackage jarPackage(PackageId packageId, String version, String jarPath) {

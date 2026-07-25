@@ -1,6 +1,7 @@
 package sh.zolt.resolve;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.DependencyScope;
@@ -54,10 +55,100 @@ final class DependencyGraphResolverTest {
                 new PackageNode(new PackageId("com.example", "lib"), "1.0.0")),
                 result.selection().selectedNodes());
         assertEquals(1, result.graph().edges().size());
-        assertEquals(1, metrics.graphTraversalCalls);
-        assertEquals(1, metrics.versionSelectionCalls);
+        assertEquals(2, metrics.graphTraversalCalls);
+        assertEquals(2, metrics.versionSelectionCalls);
         assertTrue(metrics.graphTraversalNanos >= 0);
         assertTrue(metrics.versionSelectionNanos >= 0);
+    }
+
+    @Test
+    void materializesRuntimeAndDevScopesAtTheSelectedVersion() {
+        assertSelectedVersionMaterialized(
+                DependencyScope.RUNTIME,
+                DependencyScope.DEV);
+    }
+
+    @Test
+    void materializesCompileAndRuntimeScopesAtTheSelectedVersion() {
+        assertSelectedVersionMaterialized(
+                DependencyScope.COMPILE,
+                DependencyScope.RUNTIME);
+    }
+
+    @Test
+    void materializesTestAndCompileScopesAtTheSelectedVersion() {
+        assertSelectedVersionMaterialized(
+                DependencyScope.TEST,
+                DependencyScope.COMPILE);
+    }
+
+    private void assertSelectedVersionMaterialized(
+            DependencyScope firstScope,
+            DependencyScope secondScope) {
+        Map<String, EffectiveRawPom> poms = new HashMap<>();
+        poms.put(
+                "com.example:engine:1.0.0",
+                pom(
+                        "com.example",
+                        "engine",
+                        "1.0.0",
+                        List.of(dependency("com.example", "legacy-driver", "1.0.0"))));
+        poms.put(
+                "com.example:engine:2.0.0",
+                pom(
+                        "com.example",
+                        "engine",
+                        "2.0.0",
+                        List.of(dependency("com.example", "selected-driver", "1.0.0"))));
+        poms.put(
+                "com.example:legacy-driver:1.0.0",
+                pom("com.example", "legacy-driver", "1.0.0", List.of()));
+        poms.put(
+                "com.example:selected-driver:1.0.0",
+                pom("com.example", "selected-driver", "1.0.0", List.of()));
+
+        DependencyGraphResolution result = resolver.resolve(
+                coordinate -> poms.get(coordinate.toString()),
+                DependencyPolicySettings.defaults(),
+                Map.of(),
+                List.of(
+                        direct("engine", "1.0.0", firstScope),
+                        direct("engine", "2.0.0", secondScope)),
+                new TrackingMetrics());
+
+        assertTrue(result.selection().selectedNodes().contains(
+                new PackageNode(new PackageId("com.example", "engine"), "2.0.0")));
+        assertTrue(result.selection().selectedNodes().contains(
+                new PackageNode(new PackageId("com.example", "selected-driver"), "1.0.0")));
+        assertFalse(result.selection().selectedNodes().stream()
+                .anyMatch(node -> node.packageId().artifactId().equals("legacy-driver")));
+        assertEquals(
+                List.of(firstScope, secondScope).stream().sorted().toList(),
+                result.graph().edges().stream()
+                        .filter(edge -> edge.from().packageId().artifactId().equals("engine"))
+                        .filter(edge -> edge.to().packageId().artifactId().equals("selected-driver"))
+                        .map(edge -> edge.sourceScope())
+                        .sorted()
+                        .toList());
+        assertEquals(1, result.selection().conflicts().size());
+        assertEquals(
+                List.of("1.0.0", "2.0.0"),
+                result.selection().conflicts().getFirst().requests().stream()
+                        .map(DependencyRequest::requestedVersion)
+                        .distinct()
+                        .sorted()
+                        .toList());
+    }
+
+    private static DependencyRequest direct(
+            String artifactId,
+            String version,
+            DependencyScope scope) {
+        return new DependencyRequest(
+                new PackageId("com.example", artifactId),
+                version,
+                scope,
+                RequestOrigin.DIRECT);
     }
 
     private static EffectiveRawPom pom(

@@ -4,6 +4,7 @@ import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.dependency.VersionComparator;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -40,6 +41,9 @@ public final class ZoltLockfileWriter {
         output.append('\n');
         for (LockPackage lockPackage : sortedPackages(lockfile.packages())) {
             writePackage(output, lockPackage);
+        }
+        for (LockMemberGraph memberGraph : sortedMemberGraphs(lockfile.memberGraphs())) {
+            writeMemberGraph(output, memberGraph);
         }
         for (LockPolicyEffect policyEffect : sortedPolicyEffects(lockfile.policyEffects())) {
             writePolicyEffect(output, policyEffect);
@@ -101,6 +105,25 @@ public final class ZoltLockfileWriter {
         output.append('\n');
     }
 
+    private void writeMemberGraph(StringBuilder output, LockMemberGraph memberGraph) {
+        output.append("[[memberGraph]]\n");
+        assignment(output, "member", memberGraph.member());
+        assignment(output, "id", memberGraph.packageId().toString());
+        assignment(output, "version", memberGraph.version());
+        if (!memberGraph.variant().isDefault()) {
+            assignment(output, "variant", memberGraph.variant().key());
+        }
+        assignment(output, "scope", memberGraph.scope().lockfileName());
+        if (!memberGraph.policies().isEmpty()) {
+            output.append("policies = ");
+            stringArray(output, sortedStrings(memberGraph.policies()));
+            output.append('\n');
+        }
+        output.append("dependencies = ");
+        stringArray(output, sortedStrings(memberGraph.dependencies()));
+        output.append("\n\n");
+    }
+
     private void writeConflict(StringBuilder output, LockConflict conflict) {
         output.append("[[conflict]]\n");
         assignment(output, "id", conflict.packageId().toString());
@@ -146,6 +169,22 @@ public final class ZoltLockfileWriter {
                         .comparing((LockConflict conflict) -> conflict.packageId().toString())
                         .thenComparing(conflict -> conflict.toolGroup().orElse(""))
                         .thenComparing(conflict -> conflict.variant().map(LockArtifactVariant::key).orElse("")))
+                .toList();
+    }
+
+    private static List<LockMemberGraph> sortedMemberGraphs(
+            List<LockMemberGraph> memberGraphs) {
+        return memberGraphs.stream()
+                .sorted(Comparator.comparing(memberGraph ->
+                        memberGraph.member()
+                                + ":"
+                                + memberGraph.packageId()
+                                + ":"
+                                + memberGraph.version()
+                                + ":"
+                                + memberGraph.variant().key()
+                                + ":"
+                                + memberGraph.scope().lockfileName()))
                 .toList();
     }
 

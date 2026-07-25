@@ -4,6 +4,7 @@ import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
@@ -89,5 +90,54 @@ final class PublishCommandSbomTest {
         Path sbomFile = projectDir.resolve(".zolt/build/publish/demo-0.1.0-cyclonedx.json");
         assertTrue(Files.isRegularFile(sbomFile), "SBOM artifact should be written for publishing");
         assertTrue(Files.readString(sbomFile).contains("\"bomFormat\": \"CycloneDX\""), "written SBOM is CycloneDX");
+    }
+
+    @Test
+    void publishSbomRefusesAmbiguousLegacyGraphBeforePlanningUploads() throws IOException {
+        Path projectDir = tempDir.resolve("ambiguous-publish-sbom");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo"));
+        Files.writeString(projectDir.resolve("zolt.lock"), """
+                version = 2
+
+                [[package]]
+                id = "org.example:parent"
+                version = "1.0.0"
+                source = "maven-central"
+                scope = "compile"
+                direct = true
+                jar = "org/example/parent/1.0.0/parent-1.0.0.jar"
+                jarSha256 = "%s"
+                dependencies = ["org.example:shared:1.0.0"]
+
+                [[package]]
+                id = "org.example:shared"
+                version = "1.0.0"
+                source = "maven-central"
+                scope = "compile"
+                direct = false
+                jar = "org/example/shared/1.0.0/shared-1.0.0.jar"
+                jarSha256 = "%s"
+                dependencies = []
+
+                [[package]]
+                id = "org.example:shared"
+                version = "1.0.0"
+                source = "maven-central"
+                scope = "provided"
+                direct = false
+                jar = "org/example/shared/1.0.0/shared-1.0.0.jar"
+                jarSha256 = "%s"
+                dependencies = []
+                """.formatted("1".repeat(64), "2".repeat(64), "2".repeat(64)));
+
+        CommandResult result =
+                execute("publish", "--dry-run", "--sbom", "--cwd", projectDir.toString());
+
+        assertNotEquals(0, result.exitCode());
+        assertTrue(result.stderr().contains("ambiguous"), result.stderr());
+        assertTrue(result.stderr().contains("zolt resolve"), result.stderr());
+        assertTrue(result.stderr().contains("version 4"), result.stderr());
+        assertFalse(Files.exists(projectDir.resolve("target/publish")));
     }
 }

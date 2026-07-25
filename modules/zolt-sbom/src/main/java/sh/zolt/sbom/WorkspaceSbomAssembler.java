@@ -124,6 +124,10 @@ public final class WorkspaceSbomAssembler {
         }
 
         LockDependencyIndex packageIndex = new LockDependencyIndex(lockfile.packages());
+        lockfile.packages().stream()
+                .flatMap(lockPackage -> lockPackage.dependencies().stream())
+                .forEach(edge -> packageIndex.resolveGraphEdge(
+                        edge, "zolt resolve --workspace"));
         for (LockPackage lockPackage : lockfile.packages()) {
             if (!selection.includes(SbomScopeGroup.of(lockPackage.scope()))) {
                 continue;

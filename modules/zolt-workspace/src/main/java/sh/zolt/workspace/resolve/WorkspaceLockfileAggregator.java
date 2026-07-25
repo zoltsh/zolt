@@ -32,6 +32,18 @@ final class WorkspaceLockfileAggregator {
             Workspace workspace,
             List<WorkspaceMemberResolveOutput> memberOutputs,
             List<LockConflict> preservedWorkspaceConflicts) {
+        return aggregate(
+                workspace,
+                memberOutputs,
+                preservedWorkspaceConflicts,
+                List.of());
+    }
+
+    ZoltLockfile aggregate(
+            Workspace workspace,
+            List<WorkspaceMemberResolveOutput> memberOutputs,
+            List<LockConflict> preservedWorkspaceConflicts,
+            List<LockPolicyEffect> preservedWorkspacePolicyEffects) {
         if (isTransitionalRootWorkspace(workspace, memberOutputs)) {
             return memberOutputs.getFirst().lockfile();
         }
@@ -81,7 +93,8 @@ final class WorkspaceLockfileAggregator {
             }
         }
 
-        WorkspaceExternalSelection globalSelection = new WorkspaceExternalPackageSelector().select(externalCandidates);
+        WorkspaceExternalSelection globalSelection =
+                new WorkspaceExternalPackageSelector().selectMaterialized(externalCandidates);
         for (LockPackage lockPackage : globalSelection.packages()) {
             String key = packageKey(lockPackage);
             LockPackage existingPackage = packages.get(key);
@@ -92,6 +105,9 @@ final class WorkspaceLockfileAggregator {
         }
         for (LockConflict conflict : preservedWorkspaceConflicts) {
             conflicts.put(conflictKey(conflict), conflict);
+        }
+        for (LockPolicyEffect policyEffect : preservedWorkspacePolicyEffects) {
+            policyEffects.put(policyEffectKey(policyEffect), policyEffect);
         }
         for (Map.Entry<WorkspaceCoordinateScope, Set<String>> entry : shadowedExternalVersions.entrySet()) {
             WorkspaceCoordinateScope coordinateScope = entry.getKey();
@@ -118,7 +134,8 @@ final class WorkspaceLockfileAggregator {
                 WorkspaceLockfileFingerprints.projectResolutionInputFingerprints(memberOutputs),
                 List.copyOf(packages.values()),
                 List.copyOf(conflicts.values()),
-                List.copyOf(policyEffects.values()));
+                List.copyOf(policyEffects.values()),
+                globalSelection.memberGraphs());
     }
 
     private static boolean isTransitionalRootWorkspace(
@@ -287,7 +304,10 @@ final class WorkspaceLockfileAggregator {
     private static String conflictKey(LockConflict conflict) {
         return conflict.packageId() + ":" + conflict.selectedVersion() + ":" + conflict.reason()
                 + ":" + conflict.toolGroup().orElse("")
-                + ":" + conflict.variant().map(LockArtifactVariant::key).orElse("");
+                + ":" + conflict.variant()
+                        .filter(variant -> !variant.isDefault())
+                        .map(LockArtifactVariant::key)
+                        .orElse("");
     }
 
     private static String policyEffectKey(LockPolicyEffect policyEffect) {

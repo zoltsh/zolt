@@ -1,4 +1,4 @@
-version = 3
+version = 4
 projectResolutionFingerprint = "sha256:project-inputs"
 projectResolutionInputFingerprints = ["dependencies.compile=sha256:compile-inputs", "repositories=sha256:repo-inputs"]
 

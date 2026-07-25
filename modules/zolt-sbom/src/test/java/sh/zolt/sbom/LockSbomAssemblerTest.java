@@ -163,7 +163,57 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
                         TOOL_VERSION));
 
         assertTrue(exception.getMessage().contains("Run `zolt resolve`"));
-        assertTrue(exception.getMessage().contains("version 3"));
+        assertTrue(exception.getMessage().contains("version 4"));
+    }
+
+    @Test
+    void validatesLegacyAmbiguityBeforeFilteringProvidedTestAndProcessorScopes() {
+        for (DependencyScope hiddenScope : List.of(
+                DependencyScope.PROVIDED,
+                DependencyScope.TEST,
+                DependencyScope.PROCESSOR)) {
+            ZoltLockfile legacy = new ZoltLockfile(
+                    2,
+                    List.of(
+                            maven(
+                                    "org.example",
+                                    "parent",
+                                    "1.0.0",
+                                    DependencyScope.COMPILE,
+                                    true,
+                                    SHA_A,
+                                    List.of("org.example:shared:1.0.0")),
+                            maven(
+                                    "org.example",
+                                    "shared",
+                                    "1.0.0",
+                                    DependencyScope.COMPILE,
+                                    false,
+                                    SHA_B,
+                                    List.of()),
+                            maven(
+                                    "org.example",
+                                    "shared",
+                                    "1.0.0",
+                                    hiddenScope,
+                                    false,
+                                    SHA_B,
+                                    List.of())),
+                    List.of());
+
+            LockDependencyGraphException exception = assertThrows(
+                    LockDependencyGraphException.class,
+                    () -> assembler.assemble(
+                            config(),
+                            legacy,
+                            SbomScopeSelection.requiredOnly(),
+                            Optional.empty(),
+                            TOOL_VERSION),
+                    hiddenScope::lockfileName);
+
+            assertTrue(exception.getMessage().contains("ambiguous"), hiddenScope::lockfileName);
+            assertTrue(exception.getMessage().contains("version 4"), hiddenScope::lockfileName);
+        }
     }
 
     private SbomModel assemble(SbomScopeSelection selection, sh.zolt.lockfile.LockPackage... packages) {

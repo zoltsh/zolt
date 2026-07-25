@@ -75,6 +75,7 @@ public final class DependencyGraphTraverser {
                 rootManagedVersions,
                 retryCommand,
                 snapshotAllowance,
+                Map.of(),
                 Map.of());
     }
 
@@ -94,7 +95,29 @@ public final class DependencyGraphTraverser {
                 rootManagedVersions,
                 retryCommand,
                 snapshotAllowance,
+                versionOverrides,
                 versionOverrides);
+    }
+
+    public DependencyGraphTraverser(
+            DependencyMetadataSource metadataSource,
+            DependencyPolicySettings dependencyPolicy,
+            Map<PackageId, ManagedVersion> rootManagedVersions,
+            String retryCommand,
+            SnapshotAllowance snapshotAllowance,
+            Map<ResolutionVariant, String> versionOverrides,
+            Map<ResolutionVariant, String> workspaceVersionOverrides) {
+        this(
+                metadataSource,
+                new PomDependencyManager(),
+                new DependencyNormalizer(),
+                new DependencyTraversalPolicy(),
+                dependencyPolicy,
+                rootManagedVersions,
+                retryCommand,
+                snapshotAllowance,
+                versionOverrides,
+                workspaceVersionOverrides);
     }
 
     DependencyGraphTraverser(
@@ -106,7 +129,8 @@ public final class DependencyGraphTraverser {
             Map<PackageId, ManagedVersion> rootManagedVersions,
             String retryCommand,
             SnapshotAllowance snapshotAllowance,
-            Map<ResolutionVariant, String> versionOverrides) {
+            Map<ResolutionVariant, String> versionOverrides,
+            Map<ResolutionVariant, String> workspaceVersionOverrides) {
         this.metadataSource = metadataSource;
         this.dependencyManager = dependencyManager;
         this.normalizer = normalizer;
@@ -119,7 +143,8 @@ public final class DependencyGraphTraverser {
                 rootManagedVersions,
                 retryCommand,
                 snapshotAllowance,
-                versionOverrides);
+                versionOverrides,
+                workspaceVersionOverrides);
     }
 
     public ResolutionGraph traverse(List<DependencyRequest> directRequests) {
@@ -154,7 +179,10 @@ public final class DependencyGraphTraverser {
                         item.sourceScope(),
                         item.decision())));
 
-                if (!visited.add(DependencyTraversalVisitKey.from(node, item.request().scope()))) {
+                if (!visited.add(DependencyTraversalVisitKey.from(
+                        node,
+                        item.request().scope(),
+                        item.activeExclusions()))) {
                     continue;
                 }
 
@@ -175,7 +203,7 @@ public final class DependencyGraphTraverser {
 
         return new ResolutionGraph(
                 List.copyOf(nodes.values()),
-                List.copyOf(edges),
+                edges.stream().distinct().toList(),
                 List.of(),
                 DependencyTraversalOrdering.sortedPolicyEffects(policyEffects));
     }

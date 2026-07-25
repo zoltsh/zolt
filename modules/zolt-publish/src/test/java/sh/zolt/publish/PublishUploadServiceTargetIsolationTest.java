@@ -101,7 +101,9 @@ final class PublishUploadServiceTargetIsolationTest {
                     sha256(originalSignature),
                     new String(repositoryA.body(failedRequestPath), StandardCharsets.UTF_8).trim());
             assertFalse(Files.exists(transactionA));
+            assertFalse(Files.exists(transactionA.getParent()));
             assertTrue(Files.exists(transactionB));
+            assertTrue(Files.isRegularFile(stagedSignatureB));
         }
     }
 

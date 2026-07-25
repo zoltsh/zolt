@@ -7,6 +7,7 @@ import sh.zolt.dependency.VersionComparator;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockDependencyEdge;
+import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.resolve.ResolutionVariant;
 import java.util.ArrayList;
@@ -63,6 +64,16 @@ final class WorkspaceExternalPackageSelector {
     }
 
     WorkspaceExternalSelection select(List<LockPackage> candidates) {
+        return select(candidates, false);
+    }
+
+    WorkspaceExternalSelection selectMaterialized(List<LockPackage> candidates) {
+        return select(candidates, true);
+    }
+
+    private WorkspaceExternalSelection select(
+            List<LockPackage> candidates,
+            boolean requireMaterializedMembers) {
         List<LockPackage> regularCandidates = candidates.stream()
                 .filter(candidate -> candidate.scope() != DependencyScope.TOOL_EXEC)
                 .toList();
@@ -86,22 +97,35 @@ final class WorkspaceExternalPackageSelector {
         }
 
         List<LockPackage> packages = new ArrayList<>();
+        List<LockMemberGraph> memberGraphs = new ArrayList<>();
         for (Map.Entry<PackageVariantKey, List<LockPackage>> entry : candidatesByVariant.entrySet()) {
             List<LockPackage> variantCandidates = entry.getValue();
             String variantSelectedVersion = selections.get(entry.getKey()).version();
+            WorkspaceArtifactIdentityVerifier.requireIdenticalBytes(
+                    variantCandidates.stream()
+                            .filter(candidate ->
+                                    candidate.version().equals(variantSelectedVersion))
+                            .toList());
             List<DependencyScope> scopes = variantCandidates.stream()
                     .map(LockPackage::scope)
                     .distinct()
                     .sorted(Comparator.comparing(DependencyScope::lockfileName))
                     .toList();
             for (DependencyScope scope : scopes) {
-                packages.add(selectedPackage(variantCandidates, variantSelectedVersion, scope, selectedVersionByVariant));
+                SelectedPackage selected = selectedPackage(
+                        variantCandidates,
+                        variantSelectedVersion,
+                        scope,
+                        selectedVersionByVariant,
+                        requireMaterializedMembers);
+                packages.add(selected.lockPackage());
+                memberGraphs.addAll(selected.memberGraphs());
             }
         }
 
         List<LockConflict> conflicts = new ArrayList<>(versionConflicts(regularCandidates));
-        packages.addAll(selectExecPackages(execCandidates));
-        return new WorkspaceExternalSelection(packages, conflicts);
+        packages.addAll(WorkspaceExecPackageSelector.select(execCandidates));
+        return new WorkspaceExternalSelection(packages, conflicts, memberGraphs);
     }
 
     private static Map<PackageVariantKey, List<LockPackage>> candidatesByVariant(
@@ -148,34 +172,63 @@ final class WorkspaceExternalPackageSelector {
                 .orElseThrow();
     }
 
-    private static LockPackage selectedPackage(
+    private static SelectedPackage selectedPackage(
             List<LockPackage> packageCandidates,
             String selectedVersion,
             DependencyScope scope,
-            Map<PackageVariantKey, String> selectedVersionByVariant) {
-        LockPackage selectedTemplate = packageCandidates.stream()
+            Map<PackageVariantKey, String> selectedVersionByVariant,
+            boolean requireMaterializedMembers) {
+        List<LockPackage> selectedCandidates = packageCandidates.stream()
                 .filter(lockPackage -> lockPackage.version().equals(selectedVersion))
                 .filter(lockPackage -> lockPackage.scope() == scope)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
+                .sorted(Comparator.comparing(WorkspaceExternalPackageSelector::templateSortKey))
+                .toList();
+        if (selectedCandidates.isEmpty()) {
+            throw new IllegalStateException(
                         "Workspace mediation selected "
                                 + packageCandidates.getFirst().packageId()
                                 + ":"
                                 + selectedVersion
                                 + " for "
                                 + scope.lockfileName()
-                                + " without resolving that version in the scope."));
+                                + " without resolving that version in the scope.");
+        }
+        WorkspaceArtifactIdentityVerifier.requireIdenticalBytes(selectedCandidates);
+        LockPackage selectedTemplate = selectedCandidates.getFirst();
         List<LockPackage> scopeCandidates = packageCandidates.stream()
                 .filter(lockPackage -> lockPackage.scope() == scope)
                 .toList();
+        if (requireMaterializedMembers) {
+            requireSelectedVersionForEveryMember(
+                    scopeCandidates, selectedCandidates, selectedVersion, scope);
+        }
         boolean direct = scopeCandidates.stream().anyMatch(LockPackage::direct);
         Set<String> members = new LinkedHashSet<>();
         Set<String> exportedBy = new LinkedHashSet<>();
+        Set<String> dependencies = new LinkedHashSet<>();
+        Set<String> policies = new LinkedHashSet<>();
+        List<LockMemberGraph> memberGraphs = new ArrayList<>();
         for (LockPackage candidate : scopeCandidates) {
             members.addAll(candidate.members());
             exportedBy.addAll(candidate.exportedBy());
         }
-        return new LockPackage(
+        for (LockPackage candidate : selectedCandidates) {
+            List<String> rewrittenDependencies =
+                    rewriteDependencies(candidate.dependencies(), selectedVersionByVariant);
+            dependencies.addAll(rewrittenDependencies);
+            policies.addAll(candidate.policies());
+            for (String member : candidate.members()) {
+                memberGraphs.add(new LockMemberGraph(
+                        member,
+                        candidate.packageId(),
+                        selectedVersion,
+                        LockArtifactVariant.of(candidate),
+                        scope,
+                        rewrittenDependencies,
+                        candidate.policies()));
+            }
+        }
+        LockPackage lockPackage = new LockPackage(
                 selectedTemplate.packageId(),
                 selectedVersion,
                 selectedTemplate.source(),
@@ -190,81 +243,64 @@ final class WorkspaceExternalPackageSelector {
                 selectedTemplate.artifactSha256(),
                 selectedTemplate.workspace(),
                 selectedTemplate.workspaceOutput(),
-                rewriteDependencies(selectedTemplate.dependencies(), selectedVersionByVariant),
-                List.copyOf(members),
-                List.copyOf(exportedBy),
-                selectedTemplate.policies(),
-                List.of());
-    }
-
-    /**
-     * Aggregates {@code tool-exec} candidates without version mediation. Each named exec tool keeps its
-     * own locked version of a shared library, so entries are keyed by {@code (groupId:artifactId,
-     * version, variant)} rather than {@code (GA, scope)}: two tools needing conflicting versions of the
-     * same GA both survive into the aggregated root lock, as do two distinct artifact variants of one
-     * GAV. A jar shared by several tools at the same version and variant collapses into one entry whose
-     * {@code toolGroups} union (sorted), mirroring {@code ExecToolLockPlanner} in zolt-resolve.
-     * Dependencies stay as locked by each tool's isolated closure and are never rewritten to a mediated
-     * main version.
-     */
-    private static List<LockPackage> selectExecPackages(List<LockPackage> execCandidates) {
-        Map<String, List<LockPackage>> execByCoordinateVersion = new LinkedHashMap<>();
-        execCandidates.stream()
-                .sorted(Comparator.comparing(WorkspaceExternalPackageSelector::execCoordinateVersionKey))
-                .forEach(lockPackage -> execByCoordinateVersion
-                        .computeIfAbsent(execCoordinateVersionKey(lockPackage), ignored -> new ArrayList<>())
-                        .add(lockPackage));
-
-        List<LockPackage> execPackages = new ArrayList<>();
-        for (List<LockPackage> coordinateVersion : execByCoordinateVersion.values()) {
-            execPackages.add(mergedExecPackage(coordinateVersion));
-        }
-        return execPackages;
-    }
-
-    private static String execCoordinateVersionKey(LockPackage lockPackage) {
-        return lockPackage.packageId()
-                + ":"
-                + lockPackage.version()
-                + ":"
-                + LockArtifactVariant.of(lockPackage).key();
-    }
-
-    private static LockPackage mergedExecPackage(List<LockPackage> candidates) {
-        LockPackage template = candidates.getFirst();
-        boolean direct = candidates.stream().anyMatch(LockPackage::direct);
-        Set<String> toolGroups = new LinkedHashSet<>();
-        Set<String> members = new LinkedHashSet<>();
-        Set<String> exportedBy = new LinkedHashSet<>();
-        Set<String> dependencies = new LinkedHashSet<>();
-        Set<String> policies = new LinkedHashSet<>();
-        for (LockPackage candidate : candidates) {
-            toolGroups.addAll(candidate.toolGroups());
-            members.addAll(candidate.members());
-            exportedBy.addAll(candidate.exportedBy());
-            dependencies.addAll(candidate.dependencies());
-            policies.addAll(candidate.policies());
-        }
-        return new LockPackage(
-                template.packageId(),
-                template.version(),
-                template.source(),
-                template.scope(),
-                direct,
-                template.jar(),
-                template.pom(),
-                template.jarSha256(),
-                template.pomSha256(),
-                template.artifact(),
-                template.artifactType(),
-                template.artifactSha256(),
-                template.workspace(),
-                template.workspaceOutput(),
                 dependencies.stream().sorted().toList(),
-                List.copyOf(members),
-                List.copyOf(exportedBy),
-                List.copyOf(policies),
-                toolGroups.stream().sorted().toList());
+                members.stream().sorted().toList(),
+                exportedBy.stream().sorted().toList(),
+                policies.stream().sorted().toList(),
+                List.of());
+        boolean memberViewsDiffer = memberGraphs.stream()
+                .map(graph -> new MemberGraphFacts(
+                        graph.dependencies(), graph.policies()))
+                .distinct()
+                .count() > 1;
+        return new SelectedPackage(
+                lockPackage,
+                memberViewsDiffer ? memberGraphs : List.of());
+    }
+
+    private static void requireSelectedVersionForEveryMember(
+            List<LockPackage> scopeCandidates,
+            List<LockPackage> selectedCandidates,
+            String selectedVersion,
+            DependencyScope scope) {
+        Set<String> participating = new LinkedHashSet<>();
+        scopeCandidates.forEach(candidate -> participating.addAll(candidate.members()));
+        Set<String> materialized = new LinkedHashSet<>();
+        selectedCandidates.forEach(candidate -> materialized.addAll(candidate.members()));
+        participating.removeAll(materialized);
+        if (!participating.isEmpty()) {
+            throw new IllegalStateException(
+                    "Workspace mediation selected version "
+                            + selectedVersion
+                            + " in scope "
+                            + scope.lockfileName()
+                            + " without materializing it for members "
+                            + participating
+                            + ".");
+        }
+    }
+
+    private static String templateSortKey(LockPackage lockPackage) {
+        return lockPackage.source()
+                + ":"
+                + lockPackage.jar().orElse("")
+                + ":"
+                + lockPackage.artifact().orElse("")
+                + ":"
+                + String.join(",", lockPackage.members());
+    }
+
+    private record SelectedPackage(
+            LockPackage lockPackage,
+            List<LockMemberGraph> memberGraphs) {
+        SelectedPackage {
+            memberGraphs = List.copyOf(memberGraphs);
+        }
+    }
+
+    private record MemberGraphFacts(
+            List<String> dependencies,
+            List<String> policies) {
     }
 
     private static List<String> rewriteDependencies(

@@ -9,12 +9,15 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Durable exact-byte transaction identity for ordinary plain-repository publishing. It is written
@@ -160,12 +163,29 @@ record PublicationTransactionManifest(
         }
     }
 
-    static void delete(Path file) {
+    static void deleteTransaction(Path manifest) {
+        Path transaction = manifest.getParent();
+        Path completed = transaction.resolveSibling(
+                transaction.getFileName() + ".completed-" + UUID.randomUUID());
         try {
-            Files.deleteIfExists(file);
+            if (!Files.exists(transaction)) {
+                return;
+            }
+            try {
+                Files.move(transaction, completed, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(transaction, completed);
+            }
+            try (Stream<Path> paths = Files.walk(completed)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            }
         } catch (IOException exception) {
             throw new PublishException(
-                    "The publish completed, but its transaction manifest could not be removed at " + file + ".",
+                    "The publish completed, but its transaction staging directory could not be removed at "
+                            + transaction
+                            + ".",
                     exception);
         }
     }

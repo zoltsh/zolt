@@ -30,6 +30,7 @@ final class DependencyTraversalCandidateSelector {
     private final String retryCommand;
     private final SnapshotAllowance snapshotAllowance;
     private final Map<ResolutionVariant, String> versionOverrides;
+    private final Map<ResolutionVariant, String> workspaceVersionOverrides;
 
     DependencyTraversalCandidateSelector(
             DependencyTraversalPolicy traversalPolicy,
@@ -47,6 +48,7 @@ final class DependencyTraversalCandidateSelector {
                 rootManagedVersions,
                 retryCommand,
                 snapshotAllowance,
+                Map.of(),
                 Map.of());
     }
 
@@ -59,6 +61,28 @@ final class DependencyTraversalCandidateSelector {
             String retryCommand,
             SnapshotAllowance snapshotAllowance,
             Map<ResolutionVariant, String> versionOverrides) {
+        this(
+                traversalPolicy,
+                transitiveScopeSelector,
+                globalExclusions,
+                strictConstraints,
+                rootManagedVersions,
+                retryCommand,
+                snapshotAllowance,
+                versionOverrides,
+                versionOverrides);
+    }
+
+    DependencyTraversalCandidateSelector(
+            DependencyTraversalPolicy traversalPolicy,
+            DependencyTransitiveScopeSelector transitiveScopeSelector,
+            List<DependencyGlobalExclusion> globalExclusions,
+            Map<PackageId, DependencyConstraint> strictConstraints,
+            Map<PackageId, ManagedVersion> rootManagedVersions,
+            String retryCommand,
+            SnapshotAllowance snapshotAllowance,
+            Map<ResolutionVariant, String> versionOverrides,
+            Map<ResolutionVariant, String> workspaceVersionOverrides) {
         this.traversalPolicy = traversalPolicy;
         this.transitiveScopeSelector = transitiveScopeSelector;
         this.globalExclusions = List.copyOf(globalExclusions);
@@ -67,6 +91,8 @@ final class DependencyTraversalCandidateSelector {
         this.retryCommand = retryCommand == null || retryCommand.isBlank() ? "zolt resolve" : retryCommand.trim();
         this.snapshotAllowance = snapshotAllowance == null ? SnapshotAllowance.none() : snapshotAllowance;
         this.versionOverrides = versionOverrides == null ? Map.of() : Map.copyOf(versionOverrides);
+        this.workspaceVersionOverrides =
+                workspaceVersionOverrides == null ? Map.of() : Map.copyOf(workspaceVersionOverrides);
     }
 
     DependencyTraversalSelection select(DependencyTraversalCandidate candidate) {
@@ -96,29 +122,38 @@ final class DependencyTraversalCandidateSelector {
                 ? rootManagedVersions.get(packageId)
                 : null;
         Optional<String> originalRequestedVersion = dependency.rawDependency().version();
-        String requestedVersion = requestedVersion(
+        String policySelectedVersion = requestedVersion(
                 candidate.source(),
                 dependency,
                 packageId,
                 constraint,
                 managedVersion);
-        requestedVersion = versionOverrides.getOrDefault(
-                new ResolutionVariant(
-                        packageId,
-                        new LockArtifactVariant(
-                                dependency.rawDependency().type().orElse("jar"),
-                                dependency.rawDependency().classifier())),
-                requestedVersion);
+        ResolutionVariant variant = new ResolutionVariant(
+                packageId,
+                new LockArtifactVariant(
+                        dependency.rawDependency().type().orElse("jar"),
+                        dependency.rawDependency().classifier()));
+        String requestedVersion =
+                versionOverrides.getOrDefault(variant, policySelectedVersion);
+        String workspaceVersion = workspaceVersionOverrides.get(variant);
+        boolean workspaceMediated = workspaceVersion != null
+                && !workspaceVersion.equals(policySelectedVersion);
         validateSupportedTransitiveVersion(packageId, requestedVersion, candidate.source());
         List<DependencyPolicyEffect> policyEffects = new ArrayList<>();
-        if (constraint != null) {
-            policyEffects.add(strictVersionEffect(
+        if (workspaceMediated) {
+            policyEffects.add(DependencyTraversalPolicyEffects.workspaceMediation(
+                    packageId,
+                    policySelectedVersion,
+                    requestedVersion,
+                    candidate.source()));
+        } else if (constraint != null) {
+            policyEffects.add(DependencyTraversalPolicyEffects.strictVersion(
                     packageId,
                     originalRequestedVersion,
                     candidate.source(),
                     constraint));
         } else if (managedVersion != null && managedVersionParticipates(originalRequestedVersion, managedVersion)) {
-            policyEffects.add(managedVersionEffect(
+            policyEffects.add(DependencyTraversalPolicyEffects.managedVersion(
                     packageId,
                     originalRequestedVersion,
                     candidate.source(),
@@ -135,7 +170,7 @@ final class DependencyTraversalCandidateSelector {
                         candidate.source(),
                         request,
                         candidate.item().request().scope(),
-                        dependency.exclusions(),
+                        candidate.item().including(dependency.exclusions()),
                         decision),
                 policyEffects);
     }
@@ -208,46 +243,6 @@ final class DependencyTraversalCandidateSelector {
         return globalExclusions.stream()
                 .filter(exclusion -> exclusion.exclusion().matches(coordinate))
                 .toList();
-    }
-
-    private static DependencyPolicyEffect strictVersionEffect(
-            PackageId packageId,
-            Optional<String> requestedVersion,
-            PackageNode source,
-            DependencyConstraint constraint) {
-        String policy = "strict-version: "
-                + packageId
-                + " requested "
-                + requestedVersion.orElse("<missing>")
-                + " -> "
-                + constraint.version();
-        return new DependencyPolicyEffect(
-                "strict-version",
-                packageId,
-                requestedVersion,
-                Optional.of(sourceCoordinate(source)),
-                constraint.reason()
-                        .map(reason -> policy + " (" + reason + ")")
-                        .orElse(policy));
-    }
-
-    private static DependencyPolicyEffect managedVersionEffect(
-            PackageId packageId,
-            Optional<String> requestedVersion,
-            PackageNode source,
-            ManagedVersion managedVersion) {
-        String policy = "managed-version: "
-                + packageId
-                + " -> "
-                + managedVersion.version()
-                + " from "
-                + managedVersion.platform();
-        return new DependencyPolicyEffect(
-                "managed-version",
-                packageId,
-                requestedVersion,
-                Optional.of(sourceCoordinate(source)),
-                policy);
     }
 
     private static Optional<ArtifactDescriptor> artifactDescriptor(

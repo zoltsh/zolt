@@ -4,6 +4,7 @@ import static sh.zolt.workspace.publish.MemberDependencyVariants.ref;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockDependencyIndex;
+import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
@@ -129,25 +130,49 @@ public final class WorkspaceMemberSbomLockProjection {
         // reached package as-is. A variant-qualified edge resolves to its exact variant; a bare edge to the
         // default/sole one. Insertion-ordered so the projected lock is deterministic.
         LockDependencyIndex edges = new LockDependencyIndex(byRef.values());
+        LockMemberGraphIndex memberGraphs = new LockMemberGraphIndex(aggregatedLock.memberGraphs());
         Map<String, LockPackage> reached = new LinkedHashMap<>();
-        Deque<LockPackage> queue = new ArrayDeque<>(roots);
+        Map<String, Set<String>> reachedDependencies = new LinkedHashMap<>();
+        Map<String, Set<String>> reachedPolicies = new LinkedHashMap<>();
+        Set<String> visited = new LinkedHashSet<>();
+        Deque<MemberPackage> queue = new ArrayDeque<>();
+        roots.forEach(root -> queue.addLast(new MemberPackage(
+                root.workspace().orElse(memberPath),
+                root)));
         while (!queue.isEmpty()) {
-            LockPackage current = queue.removeFirst();
-            String ref = ref(current);
-            if (reached.containsKey(ref)) {
+            MemberPackage current = queue.removeFirst();
+            String ref = ref(current.lockPackage());
+            if (!visited.add(current.member() + "|" + ref)) {
                 continue;
             }
-            reached.put(ref, current);
-            for (String edge : current.dependencies()) {
+            reached.putIfAbsent(ref, current.lockPackage());
+            List<String> dependencies =
+                    memberGraphs.dependenciesFor(current.member(), current.lockPackage());
+            reachedDependencies
+                    .computeIfAbsent(ref, ignored -> new LinkedHashSet<>())
+                    .addAll(dependencies);
+            reachedPolicies
+                    .computeIfAbsent(ref, ignored -> new LinkedHashSet<>())
+                    .addAll(memberGraphs.policiesFor(current.member(), current.lockPackage()));
+            for (String edge : dependencies) {
                 edges.resolveGraphEdge(edge, "zolt resolve --workspace")
-                        .filter(target -> !reached.containsKey(ref(target)))
+                        .map(target -> new MemberPackage(
+                                target.workspace().orElse(current.member()),
+                                target))
+                        .filter(target -> !visited.contains(
+                                target.member() + "|" + ref(target.lockPackage())))
                         .ifPresent(queue::addLast);
             }
         }
 
         List<LockPackage> projected = new ArrayList<>(reached.size());
         for (LockPackage lockPackage : reached.values()) {
-            projected.add(withDirect(lockPackage, directRefs.contains(ref(lockPackage))));
+            String ref = ref(lockPackage);
+            projected.add(withMemberView(
+                    lockPackage,
+                    directRefs.contains(ref),
+                    List.copyOf(reachedDependencies.getOrDefault(ref, Set.of())),
+                    List.copyOf(reachedPolicies.getOrDefault(ref, Set.of()))));
         }
         return new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.copyOf(projected), List.of());
     }
@@ -193,9 +218,15 @@ public final class WorkspaceMemberSbomLockProjection {
         }
     }
 
-    /** Carries a package through unchanged, re-stamping only the {@code direct} flag to the member view. */
-    private static LockPackage withDirect(LockPackage lockPackage, boolean direct) {
-        if (lockPackage.direct() == direct) {
+    /** Re-stamps aggregate facts to the member-qualified graph view used by this projected SBOM. */
+    private static LockPackage withMemberView(
+            LockPackage lockPackage,
+            boolean direct,
+            List<String> dependencies,
+            List<String> policies) {
+        if (lockPackage.direct() == direct
+                && lockPackage.dependencies().equals(dependencies)
+                && lockPackage.policies().equals(policies)) {
             return lockPackage;
         }
         return new LockPackage(
@@ -213,14 +244,17 @@ public final class WorkspaceMemberSbomLockProjection {
                 lockPackage.artifactSha256(),
                 lockPackage.workspace(),
                 lockPackage.workspaceOutput(),
-                lockPackage.dependencies(),
+                dependencies.stream().sorted().toList(),
                 lockPackage.members(),
                 lockPackage.exportedBy(),
-                lockPackage.policies(),
+                policies.stream().sorted().toList(),
                 lockPackage.toolGroups());
     }
 
     private static String coordinate(LockPackage lockPackage) {
         return lockPackage.packageId().groupId() + ":" + lockPackage.packageId().artifactId();
+    }
+
+    private record MemberPackage(String member, LockPackage lockPackage) {
     }
 }

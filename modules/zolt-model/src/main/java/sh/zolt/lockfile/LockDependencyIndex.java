@@ -60,11 +60,20 @@ public final class LockDependencyIndex {
     public Optional<LockPackage> resolveGraphEdge(String edge, String regenerateCommand) {
         Optional<LockDependencyEdge> parsed = LockDependencyEdge.parse(edge);
         if (parsed.isEmpty()) {
-            return Optional.empty();
+            throw new LockDependencyGraphException(
+                    "Dependency edge `"
+                            + edge
+                            + "` is malformed. Run `"
+                            + regenerateCommand
+                            + "` to regenerate zolt.lock.");
         }
         LockDependencyEdge target = parsed.orElseThrow();
         if (target.scope().isPresent()) {
-            return Optional.ofNullable(byRef.get(target.encode()));
+            LockPackage resolved = byRef.get(target.encode());
+            if (resolved == null) {
+                throw dangling(edge, regenerateCommand);
+            }
+            return Optional.of(resolved);
         }
         List<LockPackage> candidates = byGav.getOrDefault(target.gav(), List.of());
         List<LockPackage> matchingVariant = candidates.stream()
@@ -77,8 +86,25 @@ public final class LockDependencyIndex {
                             + edge
                             + "` is ambiguous across locked artifact scopes or variants. Run `"
                             + regenerateCommand
-                            + "` to regenerate zolt.lock with version 3 scope-qualified edges.");
+                            + "` to regenerate zolt.lock with version "
+                            + ZoltLockfile.CURRENT_VERSION
+                            + " member- and scope-qualified graph evidence.");
         }
-        return resolve(edge);
+        Optional<LockPackage> resolved = resolve(edge);
+        if (resolved.isEmpty()) {
+            throw dangling(edge, regenerateCommand);
+        }
+        return resolved;
+    }
+
+    private static LockDependencyGraphException dangling(
+            String edge,
+            String regenerateCommand) {
+        return new LockDependencyGraphException(
+                "Dangling dependency edge `"
+                        + edge
+                        + "` does not target any locked package. Run `"
+                        + regenerateCommand
+                        + "` to regenerate zolt.lock.");
     }
 }

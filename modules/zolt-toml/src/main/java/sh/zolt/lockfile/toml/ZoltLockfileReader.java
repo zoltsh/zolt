@@ -3,8 +3,10 @@ package sh.zolt.lockfile.toml;
 import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.dependency.DependencyScope;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -64,7 +66,8 @@ public final class ZoltLockfileReader {
                     LockfileTomlValues.optionalStringArray(result, "projectResolutionInputFingerprints"),
                     packageCodec.packages(result.getArray("package")),
                     conflicts(result.getArray("conflict")),
-                    policyEffects(result.getArray("policy")));
+                    policyEffects(result.getArray("policy")),
+                    memberGraphs(result.getArray("memberGraph")));
         } catch (TomlInvalidTypeException exception) {
             throw new LockfileReadException(
                     "Invalid value type in zolt.lock: "
@@ -115,6 +118,41 @@ public final class ZoltLockfileReader {
                     LockfileTomlValues.requireString(table, "policy")));
         }
         return policyEffects;
+    }
+
+    private static List<LockMemberGraph> memberGraphs(TomlArray graphArray) {
+        if (graphArray == null) {
+            return List.of();
+        }
+        List<LockMemberGraph> memberGraphs = new ArrayList<>();
+        for (int index = 0; index < graphArray.size(); index++) {
+            TomlTable table = graphArray.getTable(index);
+            if (table == null) {
+                throw new LockfileReadException(
+                        "Invalid memberGraph entry at index " + index + " in zolt.lock.");
+            }
+            memberGraphs.add(new LockMemberGraph(
+                    LockfileTomlValues.requireString(table, "member"),
+                    LockfileTomlValues.packageId(LockfileTomlValues.requireString(table, "id")),
+                    LockfileTomlValues.requireString(table, "version"),
+                    LockfileTomlValues.optionalString(table, "variant")
+                            .map(LockArtifactVariant::fromKey)
+                            .orElseGet(LockArtifactVariant::defaultVariant),
+                    scope(LockfileTomlValues.requireString(table, "scope")),
+                    LockfileTomlValues.stringArray(table, "dependencies"),
+                    LockfileTomlValues.optionalStringArray(table, "policies")));
+        }
+        return List.copyOf(memberGraphs);
+    }
+
+    private static DependencyScope scope(String value) {
+        for (DependencyScope scope : DependencyScope.values()) {
+            if (scope.lockfileName().equals(value)) {
+                return scope;
+            }
+        }
+        throw new LockfileReadException(
+                "Invalid memberGraph scope `" + value + "` in zolt.lock.");
     }
 
     private static ConflictSelectionReason reason(String value) {

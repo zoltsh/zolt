@@ -1,9 +1,11 @@
 package sh.zolt.publish;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +79,33 @@ final class PublicationTransactionManifestTest {
                 assertThrows(PublishException.class, () -> manifest.requirePlan(changed));
 
         assertTrue(exception.getMessage().contains("path set or exact staged bytes changed"));
+    }
+
+    @Test
+    void successfulCleanupRemovesOnlyTheCompletedTransactionDirectory() throws Exception {
+        Path stagingRoot = tempDir.resolve("staging");
+        Path completedManifest = PublicationTransactionManifest.transactionPath(
+                stagingRoot, "https://repo-a.example/releases", "com.acme:demo:1.0.0");
+        Path siblingManifest = PublicationTransactionManifest.transactionPath(
+                stagingRoot, "https://repo-b.example/releases", "com.acme:demo:1.0.0");
+        PublicationTransactionManifest.of(
+                        "https://repo-a.example/releases", "unsigned", staged())
+                .write(completedManifest);
+        PublicationTransactionManifest.of(
+                        "https://repo-b.example/releases", "unsigned", staged())
+                .write(siblingManifest);
+        Path completedFile = completedManifest.getParent().resolve("files/demo.jar");
+        Path siblingFile = siblingManifest.getParent().resolve("files/demo.jar");
+        Files.createDirectories(completedFile.getParent());
+        Files.createDirectories(siblingFile.getParent());
+        Files.writeString(completedFile, "completed");
+        Files.writeString(siblingFile, "sibling");
+
+        PublicationTransactionManifest.deleteTransaction(completedManifest);
+
+        assertFalse(Files.exists(completedManifest.getParent()));
+        assertTrue(Files.isRegularFile(siblingManifest));
+        assertTrue(Files.isRegularFile(siblingFile));
     }
 
     private static List<StagedPublicationFile> staged() {

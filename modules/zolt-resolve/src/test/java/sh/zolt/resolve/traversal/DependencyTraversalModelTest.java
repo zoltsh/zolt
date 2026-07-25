@@ -75,10 +75,10 @@ final class DependencyTraversalModelTest {
                 exclusions);
         exclusions.add(new DependencyExclusion("com.example", "late"));
 
-        assertEquals(List.of(exclusion), item.edgeExclusions());
+        assertEquals(List.of(exclusion), item.activeExclusions());
         assertEquals(List.of(exclusion), dependency.exclusions());
         assertThrows(UnsupportedOperationException.class, () ->
-                item.edgeExclusions().add(new DependencyExclusion("com.example", "extra")));
+                item.activeExclusions().add(new DependencyExclusion("com.example", "extra")));
         assertThrows(UnsupportedOperationException.class, () ->
                 dependency.exclusions().add(new DependencyExclusion("com.example", "extra")));
         assertTrue(dependency.excludes(new CoordinateParser().parse("com.example:ignored:1.0.0")));

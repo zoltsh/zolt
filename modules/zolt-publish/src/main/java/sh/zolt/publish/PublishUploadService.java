@@ -98,7 +98,7 @@ public final class PublishUploadService {
         } catch (RepositoryClientException exception) {
             throw new PublishException(exception.getMessage(), exception);
         }
-        PublicationTransactionManifest.delete(transactionPath);
+        PublicationTransactionManifest.deleteTransaction(transactionPath);
         return new PublishUploadResult(plan);
     }
 

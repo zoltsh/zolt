@@ -3,6 +3,21 @@
 Breaking changes to Zolt's CLI and configuration, newest first. Each entry names
 the old behavior, the new behavior, and how to migrate.
 
+## Lockfile version 4 preserves member-qualified workspace graphs
+
+- **Old behavior:** workspace aggregation collapsed identical external package
+  identities onto one member's dependency and policy graph. Different member
+  exclusions could therefore become order-dependent, even when the artifact and
+  POM bytes were identical.
+- **New behavior:** newly resolved locks use version 4. When member graph facts
+  differ, `[[memberGraph]]` entries preserve each member's variant- and
+  scope-qualified dependencies and policies. Workspace classpath and SBOM
+  projections consume that evidence. Aggregation also refuses different
+  artifact or POM hashes for the same selected identity.
+- **Migration:** run `zolt resolve` for a project lock or
+  `zolt resolve --workspace` for a workspace lock, then commit the regenerated
+  version 4 `zolt.lock`.
+
 ## Lockfile version 3 scope-qualifies dependency edges
 
 - **Old behavior:** lockfile versions 1 and 2 did not identify the source scope

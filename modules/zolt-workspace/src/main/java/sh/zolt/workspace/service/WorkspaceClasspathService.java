@@ -6,13 +6,10 @@ import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.dependency.DependencyScope;
-import sh.zolt.lockfile.LockDependencyEdge;
-import sh.zolt.lockfile.LockDependencyIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -117,7 +114,7 @@ public final class WorkspaceClasspathService {
         Set<String> compileMembers = memberGraph.mainCompile(memberPath);
         ZoltLockfile compileLockfile = new ZoltLockfile(
                 lockfile.version(),
-                compileClasspathPackagesFor(lockfile.packages(), memberPath, compileMembers),
+                compileClasspathPackagesFor(lockfile, memberPath, compileMembers),
                 List.of());
         ClasspathSet compileClasspaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
                 compileLockfile,
@@ -154,7 +151,7 @@ public final class WorkspaceClasspathService {
         Set<String> testVisibleMembers = visibleMembers(memberPath, testMembers);
         ZoltLockfile compileLockfile = new ZoltLockfile(
                 lockfile.version(),
-                compileClasspathPackagesFor(lockfile.packages(), memberPath, compileMembers),
+                compileClasspathPackagesFor(lockfile, memberPath, compileMembers),
                 List.of());
         ZoltLockfile runtimeLockfile = new ZoltLockfile(
                 lockfile.version(),
@@ -235,10 +232,12 @@ public final class WorkspaceClasspathService {
     }
 
     private static List<LockPackage> compileClasspathPackagesFor(
-            List<LockPackage> packages,
+            ZoltLockfile lockfile,
             String memberPath,
             Set<String> dependencyClosure) {
-        Set<String> exportedClosure = exportedCompileClosure(packages, dependencyClosure);
+        List<LockPackage> packages = lockfile.packages();
+        Set<String> exportedClosure =
+                WorkspaceExportedCompileClosure.compute(lockfile, dependencyClosure);
         List<LockPackage> filteredPackages = new ArrayList<>();
         for (LockPackage lockPackage : packages) {
             if (lockPackage.workspace().isPresent()) {
@@ -250,47 +249,11 @@ public final class WorkspaceClasspathService {
 
             if (lockPackage.members().isEmpty()
                     || lockPackage.members().contains(memberPath)
-                    || exportedClosure.contains(ref(lockPackage))) {
+                    || exportedClosure.contains(WorkspaceExportedCompileClosure.ref(lockPackage))) {
                 filteredPackages.add(lockPackage);
             }
         }
         return filteredPackages;
-    }
-
-    /**
-     * Walks the resolved, variant-qualified graph from every API package exported by a visible workspace
-     * dependency. The classpath builder still applies each reached package's resolved scope, so runtime
-     * and processor lanes cannot be promoted onto compile merely because they are reachable.
-     */
-    private static Set<String> exportedCompileClosure(
-            List<LockPackage> packages, Set<String> dependencyClosure) {
-        LockDependencyIndex index = new LockDependencyIndex(packages);
-        Set<String> reached = new LinkedHashSet<>();
-        ArrayDeque<LockPackage> queue = new ArrayDeque<>();
-        for (LockPackage lockPackage : packages) {
-            if (!lockPackage.workspace().isPresent()
-                    && lockPackage.scope().entersMainCompileClasspath()
-                    && intersects(lockPackage.exportedBy(), dependencyClosure)) {
-                queue.addLast(lockPackage);
-            }
-        }
-        while (!queue.isEmpty()) {
-            LockPackage current = queue.removeFirst();
-            if (!reached.add(ref(current))) {
-                continue;
-            }
-            for (String dependency : current.dependencies()) {
-                index.resolveGraphEdge(dependency, "zolt resolve --workspace")
-                        .filter(candidate -> candidate.scope().entersMainCompileClasspath())
-                        .filter(candidate -> !reached.contains(ref(candidate)))
-                        .ifPresent(queue::addLast);
-            }
-        }
-        return reached;
-    }
-
-    private static String ref(LockPackage lockPackage) {
-        return LockDependencyEdge.of(lockPackage).encode();
     }
 
     private static List<LockPackage> runtimeClasspathPackagesFor(

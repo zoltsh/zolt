@@ -490,15 +490,17 @@ ambient or historically shaped:
   and JAR and verifies cached/build inputs against those lockfile hashes.
   Repository checksum sidecars are not fetched; the first download trusts the
   repository TLS channel.
-- `zolt.lock` version 3 is deterministic: no timestamps, no absolute paths,
+- `zolt.lock` version 4 is deterministic: no timestamps, no absolute paths,
   stable ordering, and LF line endings. Version 2 added variant-qualified
-  dependency edges and conflict identities; version 3 adds source-scope-qualified
-  dependency edges so multi-scope graph copies cannot be confused. Zolt still
-  reads version 1 and 2 locks for non-graph data, but graph commands refuse
-  ambiguous legacy edges and direct you to regenerate the lock. Newly resolved
-  locks use version 3 so older binaries cannot silently misread variant- or
-  scope-qualified graphs. Newer lockfile versions require a newer Zolt before
-  `zolt resolve --locked` can verify them.
+  dependency edges and conflict identities; version 3 added source-scope-qualified
+  dependency edges; version 4 adds member-qualified workspace dependency and
+  policy graph facts so identical artifacts can retain different exclusion
+  closures per member. Zolt still reads version 1 through 3 locks for compatible
+  non-graph data, but graph commands refuse ambiguous legacy edges and direct you
+  to regenerate the lock. Newly resolved locks use version 4 so older binaries
+  cannot silently misread variant-, scope-, or member-qualified graphs. Newer
+  lockfile versions require a newer Zolt before `zolt resolve --locked` can
+  verify them.
 - `zolt add`, `zolt remove`, and `zolt platform` rewrite `zolt.toml`. They
   warn before rewriting a file that contains comments because comments and
   custom formatting may be removed.
@@ -1056,6 +1058,23 @@ cmd = ["zolt", "run", "--workspace", "--member", "tools", "--", "release-notes"]
 
 Workspace commands resolve one root lockfile and run selected members in
 dependency order.
+
+Workspace mediation is artifact-variant-aware: a plain JAR, classified JAR, and
+typed artifact of one GA mediate independently. Direct-preference and
+newest-wins are applied workspace-wide within each variant lane, and
+`[dependencyPolicy].failOnVersionConflict` is enforced for every member affected
+by a resulting conflict. Cross-member mediation never silently chooses between
+another member's direct dependency and a member's strict
+`[dependencyConstraints]` pin: if the workspace-selected version would override
+that strict pin, resolve fails and requires the declarations to be aligned.
+Within one member, the ordinary single-project rule remains unchanged: its own
+direct declaration takes precedence over its own strict transitive constraint.
+
+Version 4 workspace locks also retain per-member graph facts when members resolve
+the same artifact bytes with different exclusions or policy effects. Classpath
+and SBOM projections use those member-qualified facts. If repositories serve
+different artifact or POM bytes for the same selected identity, workspace resolve
+fails instead of choosing whichever member happened to resolve first.
 
 ## Tests and Coverage
 

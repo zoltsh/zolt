@@ -60,7 +60,8 @@ public final class LockSbomAssembler {
                 .sorted(Comparator.comparing(SbomComponent::bomRef))
                 .toList();
 
-        List<SbomDependency> dependencies = dependencyGraph(root, included);
+        List<SbomDependency> dependencies =
+                dependencyGraph(root, included, lockfile.packages());
         String serialNumber = serialNumber(config, lockfile, components);
         return new SbomModel(
                 serialNumber,
@@ -97,11 +98,15 @@ public final class LockSbomAssembler {
         LockArtifacts.hash(lockPackage).ifPresent(accumulator.hashes::add);
     }
 
-    private List<SbomDependency> dependencyGraph(SbomComponent root, List<LockPackage> included) {
+    private List<SbomDependency> dependencyGraph(
+            SbomComponent root,
+            List<LockPackage> included,
+            List<LockPackage> completeLock) {
         // Resolve each variant-qualified edge to the exact included package (bare edges to the default/sole
         // one), then to its purl bom-ref. Two variants of one GAV are distinct components with distinct
         // purls, so an edge lands on the specific variant a dependent used instead of collapsing to one.
-        LockDependencyIndex index = new LockDependencyIndex(included);
+        LockDependencyIndex index = new LockDependencyIndex(completeLock);
+        validateGraph(completeLock, index, "zolt resolve");
         Map<String, TreeSet<String>> edges = new TreeMap<>();
         edges.put(root.bomRef(), new TreeSet<>());
         for (LockPackage lockPackage : included) {
@@ -117,6 +122,7 @@ public final class LockSbomAssembler {
             for (String edge : lockPackage.dependencies()) {
                 index.resolveGraphEdge(edge, "zolt resolve")
                         .map(LockArtifacts::purl)
+                        .filter(edges::containsKey)
                         .ifPresent(dependsOn::add);
             }
         }
@@ -126,6 +132,15 @@ public final class LockSbomAssembler {
             dependencies.add(new SbomDependency(edge.getKey(), List.copyOf(edge.getValue())));
         }
         return dependencies;
+    }
+
+    private static void validateGraph(
+            List<LockPackage> packages,
+            LockDependencyIndex index,
+            String regenerateCommand) {
+        packages.stream()
+                .flatMap(lockPackage -> lockPackage.dependencies().stream())
+                .forEach(edge -> index.resolveGraphEdge(edge, regenerateCommand));
     }
 
     private String serialNumber(ProjectConfig config, ZoltLockfile lockfile, List<SbomComponent> components) {
