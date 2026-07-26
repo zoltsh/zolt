@@ -222,13 +222,11 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
         Path jar = projectDir.resolve("target/stale-evidence-0.1.0.jar");
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "jar bytes\n");
-        Files.writeString(projectDir.resolve("target/stale-evidence-0.1.0.jar.zolt-package.json"), """
-                {
-                  "schema": "zolt.package-evidence.v1",
-                  "archive": "target/stale-evidence-0.1.0.jar",
-                  "archiveSha256": "sha256:not-the-current-archive"
-                }
-                """);
+        writeCurrentPackageEvidence(
+                projectDir,
+                config,
+                java.util.List.of());
+        Files.writeString(jar, "changed jar bytes\n");
 
         QualityCheckResult result = check.checkContents(
                 Optional.empty(),
@@ -242,7 +240,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
                 QualityCheckService.PACKAGE_CONTENTS,
                 QualityCheckStatus.FAILED,
                 "target/stale-evidence-0.1.0.jar.zolt-package.json",
-                "Package evidence manifest is stale for `target/stale-evidence-0.1.0.jar`.",
+                "Package evidence is stale for `target/stale-evidence-0.1.0.jar`: package output `main` changed after packaging at target/stale-evidence-0.1.0.jar.",
                 "Run `zolt package` to regenerate the artifact and evidence manifest.");
     }
 
@@ -254,13 +252,10 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
         Path jar = projectDir.resolve("target/current-evidence-0.1.0.jar");
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "jar bytes\n");
-        Files.writeString(projectDir.resolve("target/current-evidence-0.1.0.jar.zolt-package.json"), """
-                {
-                  "schema": "zolt.package-evidence.v1",
-                  "archive": "target/current-evidence-0.1.0.jar",
-                  "archiveSha256": "%s"
-                }
-                """.formatted(sha256(jar)));
+        writeCurrentPackageEvidence(
+                projectDir,
+                config,
+                java.util.List.of());
 
         QualityCheckResult result = check.checkContents(
                 Optional.empty(),
@@ -303,7 +298,9 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
         assertEquals(QualityCheckStatus.FAILED, result.status());
         assertEquals("target/bad-evidence-0.1.0.jar.zolt-package.json", result.subject());
         assertTrue(result.message().contains("is missing string field `archive`"));
-        assertEquals("Run `zolt package` to regenerate package evidence.", result.nextStep());
+        assertEquals(
+                "Run `zolt package` to regenerate the artifact and evidence manifest.",
+                result.nextStep());
     }
 
     private static String sha256(Path path) throws IOException {

@@ -6,6 +6,7 @@ import static sh.zolt.cli.CliTestSupport.sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cli.CliTestPackageEvidence;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -68,6 +69,10 @@ final class PublishCommandCentralUploadTest {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig(name) + """
 
+                [package]
+                sources = true
+                javadoc = true
+
                 [package.metadata]
                 name = "Central Library"
                 description = "A Central-bound library."
@@ -85,6 +90,7 @@ final class PublishCommandCentralUploadTest {
                 tokenEnv = "ZOLT_CENTRAL_TOKEN"
                 publishingType = "automatic"
                 """);
+        CliTestPackageEvidence.write(projectDir);
         return projectDir;
     }
 }

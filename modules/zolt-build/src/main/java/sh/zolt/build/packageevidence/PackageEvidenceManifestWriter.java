@@ -11,7 +11,6 @@ import static sh.zolt.build.packageevidence.PackageEvidenceJsonFields.stringFiel
 import sh.zolt.build.packaging.PackageArtifact;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packageplan.PackagePlan;
-import sh.zolt.build.packageplan.PackagePlanDependency;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.ProjectConfig;
@@ -29,7 +28,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public final class PackageEvidenceManifestWriter {
-    private static final String SCHEMA = "zolt.package-evidence.v1";
+    public static final String SCHEMA = "zolt.package-evidence.v2";
     private static final String SOURCE_DATE_EPOCH = "SOURCE_DATE_EPOCH";
 
     private final PackageEvidenceGeneratedSourceWriter generatedSourceWriter;
@@ -126,7 +125,21 @@ public final class PackageEvidenceManifestWriter {
         json.append(",\n");
         PackageEvidenceArtifactWriter.write(json, projectRoot, result, artifacts);
         json.append(",\n");
-        dependencies(json, plan.dependencies());
+        PackageEvidenceOutputWriter.write(
+                json,
+                projectRoot,
+                plan,
+                result,
+                artifacts);
+        json.append(",\n");
+        PackageEvidenceInputWriter.writeMaterializedInputs(
+                json,
+                projectRoot,
+                result.materializedInputs());
+        json.append(",\n");
+        PackageEvidenceInputWriter.writeDependencies(
+                json,
+                plan.dependencies());
         json.append(",\n");
         PackageMergeDecisionEvidenceWriter.write(json, result.mergeDecisions());
         json.append(",\n");
@@ -172,6 +185,30 @@ public final class PackageEvidenceManifestWriter {
         nullablePathField(json, 2, "runtimeClasspath", projectRoot, result.runtimeClasspathPath(), true);
         nullableStringField(json, 2, "startClass", config.project().main(), true);
         stringField(json, 2, "archiveSha256", PackageEvidenceChecksums.sha256(result.jarPath()), true);
+        stringField(
+                json,
+                2,
+                "inputFingerprint",
+                plan.evidence().inputFingerprint(),
+                true);
+        stringField(
+                json,
+                2,
+                "packageLockFingerprint",
+                plan.evidence().packageLockFingerprint(),
+                true);
+        stringField(
+                json,
+                2,
+                "resolutionFingerprint",
+                plan.evidence().resolutionFingerprint(),
+                true);
+        stringField(
+                json,
+                2,
+                "frameworkRulesIdentity",
+                plan.evidence().frameworkRulesIdentity(),
+                true);
         booleanField(json, 2, "hermetic", hermetic(config), false);
         indent(json, 1).append("}");
     }
@@ -185,35 +222,6 @@ public final class PackageEvidenceManifestWriter {
         return config.build().generatedMainSources().stream()
                 .filter(step -> step.kind() == GeneratedSourceKind.EXEC)
                 .noneMatch(step -> "none".equals(step.exec().cache()));
-    }
-
-    private static void dependencies(StringBuilder json, List<PackagePlanDependency> dependencies) {
-        indent(json, 1).append("\"dependencies\": [");
-        if (!dependencies.isEmpty()) {
-            json.append('\n');
-            for (int index = 0; index < dependencies.size(); index++) {
-                PackagePlanDependency dependency = dependencies.get(index);
-                indent(json, 2).append("{\n");
-                stringField(json, 3, "coordinate", dependency.coordinate(), true);
-                stringField(json, 3, "version", dependency.version(), true);
-                stringField(json, 3, "scope", dependency.scope().lockfileName(), true);
-                stringArrayField(json, 3, "lanes", dependency.lanes(), true);
-                booleanField(json, 3, "packageDefault", dependency.packageDefault(), true);
-                stringField(json, 3, "laneDisposition", dependency.laneDisposition(), true);
-                stringField(json, 3, "disposition", dependency.disposition(), true);
-                stringField(json, 3, "rule", dependency.ruleName(), true);
-                stringField(json, 3, "location", dependency.location(), true);
-                stringField(json, 3, "reason", dependency.reason(), true);
-                stringArrayField(json, 3, "policies", dependency.policies(), false);
-                indent(json, 2).append("}");
-                if (index + 1 < dependencies.size()) {
-                    json.append(',');
-                }
-                json.append('\n');
-            }
-            indent(json, 1);
-        }
-        json.append("]");
     }
 
     private static void resourceFiltering(

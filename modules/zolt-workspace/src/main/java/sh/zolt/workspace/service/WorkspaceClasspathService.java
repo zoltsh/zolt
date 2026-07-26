@@ -7,6 +7,7 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -241,14 +242,24 @@ public final class WorkspaceClasspathService {
             WorkspaceClasspathMemberGraph memberGraph) {
         Set<String> runtimeMembers = memberGraph.mainRuntime(memberPath);
         Set<String> visibleMembers = visibleMembers(memberPath, runtimeMembers);
+        List<LockPackage> packages = runtimeClasspathPackagesFor(
+                lockfile,
+                memberPath,
+                runtimeMembers,
+                visibleMembers);
+        List<LockMemberGraph> graphs = lockfile.memberGraphs().stream()
+                .filter(graph -> visibleMembers.contains(graph.member()))
+                .filter(graph -> packages.stream().anyMatch(graph::describes))
+                .toList();
         return new ZoltLockfile(
                 lockfile.version(),
-                runtimeClasspathPackagesFor(
-                        lockfile,
-                        memberPath,
-                        runtimeMembers,
-                        visibleMembers),
-                List.of());
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                List.of(),
+                packages,
+                List.of(),
+                List.of(),
+                graphs);
     }
 
     private static List<LockPackage> compileClasspathPackagesFor(
@@ -311,15 +322,6 @@ public final class WorkspaceClasspathService {
 
     private static boolean contributesAcrossWorkspaceBoundary(DependencyScope scope) {
         return scope == DependencyScope.COMPILE || scope == DependencyScope.RUNTIME;
-    }
-
-    private static boolean intersects(List<String> members, Set<String> visibleMembers) {
-        for (String member : members) {
-            if (visibleMembers.contains(member)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean hasNonOptionalContributor(

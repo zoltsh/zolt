@@ -129,6 +129,62 @@ final class QualityExecutionContextRunnerTest {
         assertFalse(summaries.stream().anyMatch(summary -> summary.startsWith("modules/core|target/coverage")));
     }
 
+    @Test
+    void workspacePolicyConflictBecomesStructuredExecutionContextFailure()
+            throws IOException {
+        Path workspaceDir = tempDir.resolve("conflicting-workspace");
+        WorkspaceMember api = member(workspaceDir, "apps/api", """
+                [project]
+                name = "api"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [repositories]
+                private = "https://member.example.test/maven"
+                """);
+        Workspace workspace = new Workspace(
+                workspaceDir,
+                workspaceDir.resolve("zolt.toml"),
+                new WorkspaceConfig(
+                        "workspace",
+                        List.of("apps/api"),
+                        List.of(),
+                        Map.of(
+                                "private",
+                                "https://root.example.test/maven"),
+                        Map.of()),
+                List.of(api));
+
+        List<QualityCheckResult> results = runner.checkWorkspace(
+                request(
+                        workspaceDir,
+                        QualityCheckContext.CI,
+                        false,
+                        Path.of("reports"),
+                        Path.of("coverage")),
+                workspace,
+                new WorkspaceSelection(
+                        List.of("apps/api"),
+                        List.of("apps/api")),
+                Map.of("apps/api", api));
+
+        QualityCheckResult conflict = results.stream()
+                .filter(result -> result.subject().equals(
+                        "workspace-policy"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                QualityCheckService.EXECUTION_CONTEXT,
+                conflict.id());
+        assertEquals(QualityCheckStatus.FAILED, conflict.status());
+        assertEquals(Optional.of("apps/api"), conflict.member());
+        assertTrue(conflict.message().contains(
+                "Workspace repository `private`"));
+        assertTrue(conflict.nextStep().contains(
+                "Make the workspace-root and member policy values match"));
+    }
+
     private QualityCheckRequest request(
             Path projectRoot,
             QualityCheckContext context,

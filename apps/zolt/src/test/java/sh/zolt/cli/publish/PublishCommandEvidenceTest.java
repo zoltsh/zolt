@@ -6,6 +6,7 @@ import static sh.zolt.cli.CliTestSupport.sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cli.CliTestPackageEvidence;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,12 +53,16 @@ final class PublishCommandEvidenceTest {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-supplemental-artifacts") + """
 
+                [package]
+                sources = true
+
                 [publish]
                 releaseRepository = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
+        CliTestPackageEvidence.write(projectDir);
 
         CommandResult result = execute(
                 "publish",
@@ -104,7 +109,12 @@ final class PublishCommandEvidenceTest {
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("Evidence: target/publish-dry-run-stale-package-evidence-0.1.0.jar.zolt-package.json"));
         assertTrue(result.stdout().contains("Status: blocked"));
-        assertTrue(result.stdout().contains("stale package evidence: run `zolt package` to refresh target/publish-dry-run-stale-package-evidence-0.1.0.jar.zolt-package.json"));
+        assertTrue(result.stdout().contains(
+                "stale package evidence: package evidence schema `zolt.package-evidence.v1` is stale;"
+                        + " expected `zolt.package-evidence.v2`"));
+        assertTrue(result.stdout().contains(
+                "Run `zolt package` to refresh"
+                        + " target/publish-dry-run-stale-package-evidence-0.1.0.jar.zolt-package.json"));
         assertEquals("", result.stderr());
     }
 
@@ -138,9 +148,13 @@ final class PublishCommandEvidenceTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("Status: blocked"));
-        assertTrue(result.stdout().contains("package evidence archive mismatch: target/publish-dry-run-evidence-archive-mismatch-0.1.0.jar.zolt-package.json describes target/other-0.1.0.jar"));
-        assertTrue(result.stdout().contains("but publish selected target/publish-dry-run-evidence-archive-mismatch-0.1.0.jar"));
-        assertTrue(result.stdout().contains("Run `zolt package` to refresh package evidence."));
+        assertTrue(result.stdout().contains(
+                "stale package evidence: package evidence describes target/other-0.1.0.jar"
+                        + " but the current package plan selects"
+                        + " target/publish-dry-run-evidence-archive-mismatch-0.1.0.jar"));
+        assertTrue(result.stdout().contains(
+                "Run `zolt package` to refresh"
+                        + " target/publish-dry-run-evidence-archive-mismatch-0.1.0.jar.zolt-package.json"));
         assertEquals("", result.stderr());
     }
 }

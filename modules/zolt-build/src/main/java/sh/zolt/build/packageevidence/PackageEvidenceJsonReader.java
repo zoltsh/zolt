@@ -71,6 +71,24 @@ final class PackageEvidenceJsonReader {
         return Integer.parseInt(json.substring(valueStart, valueEnd));
     }
 
+    boolean requiredBoolean(String field) {
+        int fieldStart = requiredFieldStart(field);
+        int colon = json.indexOf(':', fieldStart);
+        if (colon < 0) {
+            throw malformed(field);
+        }
+        int valueStart = nextNonWhitespace(colon + 1);
+        if (valueStart >= 0
+                && json.startsWith("true", valueStart)) {
+            return true;
+        }
+        if (valueStart >= 0
+                && json.startsWith("false", valueStart)) {
+            return false;
+        }
+        throw malformed(field);
+    }
+
     String requiredString(String field) {
         int fieldStart = requiredFieldStart(field);
         int colon = json.indexOf(':', fieldStart);
@@ -82,6 +100,13 @@ final class PackageEvidenceJsonReader {
             throw malformed(field);
         }
         return stringValue(quoteStart).value();
+    }
+
+    Optional<String> optionalString(String field) {
+        if (json.indexOf("\"" + field + "\"") < 0) {
+            return Optional.empty();
+        }
+        return Optional.of(requiredString(field));
     }
 
     Optional<String> nullableString(String field) {

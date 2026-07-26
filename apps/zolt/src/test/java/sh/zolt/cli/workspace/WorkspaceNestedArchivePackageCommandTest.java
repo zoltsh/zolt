@@ -83,6 +83,15 @@ final class WorkspaceNestedArchivePackageCommandTest {
                     "\"location\": \"" + providerEntry + "\""), evidence);
             assertTrue(evidence.contains(
                     "\"coordinate\": \"com.example:provider:0.1.0\""), evidence);
+            assertTrue(evidence.contains(
+                    "\"schema\": \"zolt.package-evidence.v2\""), evidence);
+            assertTrue(evidence.contains(
+                    "\"materializedInputs\": ["), evidence);
+            assertTrue(evidence.contains(
+                    "\"sourceFingerprint\": \"sha256:"), evidence);
+            assertTrue(evidence.contains(
+                    "\"jar\": \"target/zolt-package/runtime-inputs/com.example-provider-0.1.0.jar\""),
+                    evidence);
 
             CommandResult secondPackage = packageMember(workspace, cache);
             assertEquals(

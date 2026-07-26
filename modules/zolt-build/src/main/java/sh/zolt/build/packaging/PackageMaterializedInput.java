@@ -10,6 +10,7 @@ public record PackageMaterializedInput(
         String coordinate,
         Path sourceDirectory,
         Path jarPath,
+        String sourceFingerprint,
         String sha256) {
     public PackageMaterializedInput {
         if (coordinate == null || coordinate.isBlank()) {
@@ -17,6 +18,9 @@ public record PackageMaterializedInput(
         }
         if (sourceDirectory == null || jarPath == null) {
             throw new PackageException("Materialized package input paths are required.");
+        }
+        if (sourceFingerprint == null || sourceFingerprint.isBlank()) {
+            throw new PackageException("Materialized package input source fingerprint is required.");
         }
         if (sha256 == null || sha256.isBlank()) {
             throw new PackageException("Materialized package input checksum is required.");

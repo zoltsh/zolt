@@ -12,6 +12,7 @@ import sh.zolt.workspace.publish.WorkspacePublishService;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelection;
+import sh.zolt.resolve.ResolveException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -123,9 +124,22 @@ public final class QualityExecutionContextRunner {
         }
         for (String memberPath : selection.includedMembers()) {
             WorkspaceMember member = members.get(memberPath);
-            ProjectConfig effectiveConfig =
-                    workspacePolicyResolver.merge(workspace, member);
             Optional<String> memberName = Optional.of(member.path());
+            ProjectConfig effectiveConfig;
+            try {
+                effectiveConfig =
+                        workspacePolicyResolver.merge(
+                                workspace,
+                                member);
+            } catch (ResolveException exception) {
+                results.add(QualityCheckResult.failed(
+                        sh.zolt.quality.QualityCheckService.EXECUTION_CONTEXT,
+                        memberName,
+                        "workspace-policy",
+                        exception.getMessage(),
+                        "Make the workspace-root and member policy values match, then rerun `zolt check --workspace --context ci`."));
+                continue;
+            }
             results.addAll(credentialQualityCheck.checkRepositoryCredentials(
                     memberName,
                     effectiveConfig,

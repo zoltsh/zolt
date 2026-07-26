@@ -3,6 +3,15 @@ package sh.zolt.quality.execution;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import sh.zolt.publish.PublishDryRunService;
+import sh.zolt.build.BuildResult;
+import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
+import sh.zolt.build.packageplan.PackagePlan;
+import sh.zolt.build.packageplan.PackagePlanService;
+import sh.zolt.build.packaging.PackageArtifact;
+import sh.zolt.build.packaging.PackageResult;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.quality.QualityCheckService;
@@ -88,6 +97,10 @@ final class PublishDryRunQualityCheckTest {
         Path projectDir = tempDir.resolve("publish-ready");
         writePublishProject(projectDir, "publish-ready", "https://repo.example.test/releases");
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(
+                projectDir.resolve("zolt.toml"),
+                Files.readString(projectDir.resolve("zolt.toml"))
+                        + "\n[package]\nsources = true\n");
         writePackageEvidence(projectDir, "publish-ready");
 
         QualityCheckResult result = check.check(
@@ -130,45 +143,40 @@ final class PublishDryRunQualityCheckTest {
         Path sources = target.resolve(name + "-1.0.0-sources.jar");
         Files.writeString(archive, "archive\n", StandardCharsets.UTF_8);
         Files.writeString(sources, "sources\n", StandardCharsets.UTF_8);
-        Files.writeString(target.resolve(name + "-1.0.0.jar.zolt-package.json"), """
-                {
-                  "schema": "zolt.package-evidence.v1",
-                  "archive": "target/%s-1.0.0.jar",
-                  "archiveSha256": "%s",
-                  "artifacts": [
-                    {
-                      "classifier": "main",
-                      "type": "thin",
-                      "path": "target/%s-1.0.0.jar",
-                      "entries": 1,
-                      "sha256": "%s"
-                    },
-                    {
-                      "classifier": "sources",
-                      "type": "sources",
-                      "path": "target/%s-1.0.0-sources.jar",
-                      "entries": 1,
-                      "sha256": "%s"
-                    }
-                  ],
-                  "uberMergeDecisions": []
-                }
-                """.formatted(
-                name,
-                sha256(archive),
-                name,
-                sha256(archive),
-                name,
-                sha256(sources)));
-    }
-
-    private static String sha256(Path path) throws IOException {
-        try {
-            return "sha256:" + HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new AssertionError("SHA-256 is required for publish dry-run tests.", exception);
-        }
+        ProjectConfig config = new ZoltTomlParser().parse(
+                projectDir.resolve("zolt.toml"));
+        PackagePlan plan = new PackagePlanService().plan(
+                projectDir,
+                config,
+                new ZoltLockfileReader().read(
+                        projectDir.resolve("zolt.lock")));
+        Files.writeString(
+                plan.runtimeClasspathPath().orElseThrow(),
+                "");
+        PackageArtifact sourcesArtifact =
+                new PackageArtifact("sources", sources, 1);
+        PackageResult result = new PackageResult(
+                new BuildResult(
+                        Optional.empty(),
+                        0,
+                        0,
+                        target.resolve("classes"),
+                        ""),
+                plan.mode(),
+                archive,
+                plan.runtimeClasspathPath(),
+                Optional.empty(),
+                1,
+                false,
+                plan.applicationLayout(),
+                List.of(sourcesArtifact),
+                List.of());
+        new PackageEvidenceManifestWriter().write(
+                projectDir,
+                config,
+                plan,
+                result,
+                List.of(sourcesArtifact));
     }
 
     private static void assertResult(

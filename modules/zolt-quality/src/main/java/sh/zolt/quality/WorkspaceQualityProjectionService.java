@@ -18,6 +18,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.publish.PublishException;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
+import sh.zolt.workspace.publish.WorkspaceBomFamily;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyLockProjection;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
@@ -35,6 +36,7 @@ final class WorkspaceQualityProjectionService {
     private final WorkspaceMemberSbomLockProjection sbomProjection;
     private final WorkspaceClasspathService classpathService;
     private final PackagePlanService packagePlanService;
+    private final WorkspaceBomFamily bomFamily;
 
     WorkspaceQualityProjectionService(ZoltLockfileReader lockfileReader) {
         this(lockfileReader, new PackagePlanService());
@@ -49,7 +51,8 @@ final class WorkspaceQualityProjectionService {
                 new WorkspaceMemberPolicyLockProjection(),
                 new WorkspaceMemberSbomLockProjection(),
                 new WorkspaceClasspathService(),
-                packagePlanService);
+                packagePlanService,
+                new WorkspaceBomFamily());
     }
 
     WorkspaceQualityProjectionService(
@@ -58,13 +61,15 @@ final class WorkspaceQualityProjectionService {
             WorkspaceMemberPolicyLockProjection policyProjection,
             WorkspaceMemberSbomLockProjection sbomProjection,
             WorkspaceClasspathService classpathService,
-            PackagePlanService packagePlanService) {
+            PackagePlanService packagePlanService,
+            WorkspaceBomFamily bomFamily) {
         this.lockfileReader = lockfileReader;
         this.policyResolver = policyResolver;
         this.policyProjection = policyProjection;
         this.sbomProjection = sbomProjection;
         this.classpathService = classpathService;
         this.packagePlanService = packagePlanService;
+        this.bomFamily = bomFamily;
     }
 
     WorkspaceQualityProjection project(
@@ -121,7 +126,13 @@ final class WorkspaceQualityProjectionService {
                         ? Optional.of(packagePlanService.plan(
                                 member.directory(),
                                 effectiveConfig,
-                                packageLocks.get(memberPath)))
+                                effectiveConfig.packageSettings().mode()
+                                                == sh.zolt.project.PackageMode.BOM
+                                        ? bomFamily.familyLock(
+                                                workspace,
+                                                aggregate,
+                                                member)
+                                        : packageLocks.get(memberPath)))
                         : Optional.empty();
                 projected.put(
                         memberPath,

@@ -8,6 +8,7 @@ import sh.zolt.build.RunPackageException;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,6 +18,7 @@ import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import sh.zolt.project.PackageMode;
 
 final class WorkspaceRunPackageServiceTest {
     private final WorkspaceRunPackageService service = new WorkspaceRunPackageService();
@@ -159,6 +161,76 @@ final class WorkspaceRunPackageServiceTest {
         assertEquals(1, jdkChecker.toolchainReads());
     }
 
+    @Test
+    void uberWorkspaceLaunchRunsFromTheArchiveAfterOriginalDependencyOutputIsRemoved()
+            throws IOException {
+        workspace("""
+                [workspace]
+                name = "uber-self-contained"
+                members = ["apps/api", "modules/core"]
+                """);
+        member("modules/core", "core", "");
+        source("modules/core/src/main/java/com/acme/core/Core.java", """
+                package com.acme.core;
+
+                public final class Core {
+                    public static String message() {
+                        return "core";
+                    }
+                }
+                """);
+        member("apps/api", "api", """
+                main = "com.acme.api.Api"
+
+                [dependencies]
+                "com.acme:core" = { workspace = "modules/core" }
+                """);
+        source("apps/api/src/main/java/com/acme/api/Api.java", """
+                package com.acme.api;
+
+                import com.acme.core.Core;
+
+                public final class Api {
+                    public static void main(String[] args) {
+                        System.out.println(Core.message() + ":" + args[0]);
+                    }
+                }
+                """);
+        Path cache = tempDir.resolve("uber-self-contained-cache");
+        WorkspaceBuildPlan plan = service.planRunPackages(
+                tempDir,
+                cache,
+                new WorkspaceSelectionRequest(
+                        false,
+                        List.of("apps/api")));
+        WorkspaceBuildResult build =
+                service.buildRunPackageInputs(plan, cache);
+        WorkspacePackageResult packaged =
+                service.packageRunPackageInputs(
+                        plan,
+                        build,
+                        cache,
+                        Optional.of(PackageMode.UBER));
+        deleteTree(tempDir.resolve(
+                "modules/core/target/classes"));
+
+        WorkspaceRunPackageResult result =
+                service.runPackagedMembers(
+                        plan,
+                        packaged,
+                        List.of("uber"));
+
+        assertEquals(
+                "core:uber\n",
+                result.members()
+                        .getFirst()
+                        .result()
+                        .javaRunResult()
+                        .output());
+        assertTrue(Files.notExists(tempDir.resolve(
+                "modules/core/target/classes")));
+    }
+
     private void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
     }
@@ -179,6 +251,18 @@ final class WorkspaceRunPackageServiceTest {
         Path source = tempDir.resolve(path);
         Files.createDirectories(source.getParent());
         Files.writeString(source, content);
+    }
+
+    private static void deleteTree(Path root) throws IOException {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (var paths = Files.walk(root)) {
+            for (Path path : paths.sorted(
+                    java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        }
     }
 
     private static String currentJavaMajorVersion() {

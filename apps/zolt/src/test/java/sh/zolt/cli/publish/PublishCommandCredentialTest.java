@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cli.CliTestPackageEvidence;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -138,6 +139,10 @@ final class PublishCommandCredentialTest {
         // A configured internal Nexus whose credential env vars are UNSET, plus a Central deployment.
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("nexus-central") + """
 
+                [package]
+                sources = true
+                javadoc = true
+
                 [package.metadata]
                 name = "Nexus Central"
                 description = "A library published to both an internal Nexus and Central."
@@ -169,6 +174,7 @@ final class PublishCommandCredentialTest {
                 [publish.central]
                 tokenEnv = "ZOLT_TEST_UNSET_CENTRAL_TOKEN"
                 """);
+        CliTestPackageEvidence.write(projectDir);
 
         // --central routes to the Portal: the unrelated internal Nexus credentials never enter its
         // validation, so Central readiness alone governs and the deployment is ready.

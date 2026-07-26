@@ -129,7 +129,7 @@ final class CheckWorkspacePackageContentsCommandTest {
             CommandResult staleBom = packageContentsCheck(workspace, cache);
             assertEquals(1, staleBom.exitCode());
             assertTrue(staleBom.stdout().contains(
-                    "Package evidence manifest is stale for "
+                    "Package evidence is stale for "
                             + "`target/publish/platform-0.1.0.pom`"));
 
             CommandResult restoredPackage = execute(
@@ -154,6 +154,79 @@ final class CheckWorkspacePackageContentsCommandTest {
         }
     }
 
+    @Test
+    void memberEvidenceIgnoresUnrelatedChangesAndRejectsProviderAndBomFamilyChanges()
+            throws IOException {
+        try (CliTestRepository repository =
+                CliTestRepository.start()) {
+            addArtifact(repository, "org.example", "web-runtime");
+            addArtifact(
+                    repository,
+                    "org.apache.tomcat.embed",
+                    "tomcat-embed-core");
+            addArtifact(repository, "org.example", "optional-lib");
+            Path workspace = writeWorkspace(repository);
+            Path cache = tempDir.resolve("package-input-cache");
+
+            assertEquals(
+                    0,
+                    resolveWorkspace(workspace, cache).exitCode());
+            CommandResult packaged = execute(
+                    "package",
+                    "--workspace",
+                    "--all",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", cache.toString());
+            assertEquals(
+                    0,
+                    packaged.exitCode(),
+                    () -> packaged.stdout() + packaged.stderr());
+
+            replaceProjectVersion(
+                    workspace.resolve("tools/admin/zolt.toml"),
+                    "0.1.0",
+                    "0.2.0");
+            assertEquals(
+                    0,
+                    resolveWorkspace(workspace, cache).exitCode());
+            CommandResult unrelated = packageContentsCheck(
+                    workspace,
+                    cache,
+                    "apps/consumer");
+            assertEquals(
+                    0,
+                    unrelated.exitCode(),
+                    () -> unrelated.stdout() + unrelated.stderr());
+
+            replaceProjectVersion(
+                    workspace.resolve("modules/provider/zolt.toml"),
+                    "0.1.0",
+                    "0.2.0");
+            assertEquals(
+                    0,
+                    resolveWorkspace(workspace, cache).exitCode());
+            CommandResult consumer = packageContentsCheck(
+                    workspace,
+                    cache,
+                    "apps/consumer");
+            assertEquals(1, consumer.exitCode());
+            assertTrue(consumer.stdout().contains(
+                    "package-contents apps/consumer"));
+            assertTrue(consumer.stdout().contains(
+                    "package inputs changed after the artifact was packaged"));
+
+            CommandResult bom = packageContentsCheck(
+                    workspace,
+                    cache,
+                    "platform");
+            assertEquals(1, bom.exitCode());
+            assertTrue(bom.stdout().contains(
+                    "package-contents platform"));
+            assertTrue(bom.stdout().contains(
+                    "package inputs changed after the artifact was packaged"));
+        }
+    }
+
     private static CommandResult packageContentsCheck(
             Path workspace,
             Path cache) {
@@ -166,6 +239,42 @@ final class CheckWorkspacePackageContentsCommandTest {
                 "--all",
                 "--cwd", workspace.toString(),
                 "--cache-root", cache.toString());
+    }
+
+    private static CommandResult packageContentsCheck(
+            Path workspace,
+            Path cache,
+            String member) {
+        return execute(
+                "check",
+                "--workspace",
+                "--context", "ci",
+                "--check", "package-contents",
+                "--require-package",
+                "--member", member,
+                "--cwd", workspace.toString(),
+                "--cache-root", cache.toString());
+    }
+
+    private static CommandResult resolveWorkspace(
+            Path workspace,
+            Path cache) {
+        return execute(
+                "resolve",
+                "--workspace",
+                "--cwd", workspace.toString(),
+                "--cache-root", cache.toString());
+    }
+
+    private static void replaceProjectVersion(
+            Path config,
+            String current,
+            String replacement) throws IOException {
+        Files.writeString(
+                config,
+                Files.readString(config).replace(
+                        "version = \"" + current + "\"",
+                        "version = \"" + replacement + "\""));
     }
 
     private static String evidence(
@@ -208,6 +317,7 @@ final class CheckWorkspacePackageContentsCommandTest {
                         + """
 
                         [bom]
+                        members = true
                         """);
         writeMember(
                 workspace,

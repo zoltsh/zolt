@@ -6,6 +6,7 @@ import static sh.zolt.cli.CliTestSupport.sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cli.CliTestPackageEvidence;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,6 +49,7 @@ final class PublishCommandReleaseContextTest {
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
+        CliTestPackageEvidence.write(projectDir);
 
         CommandResult result = execute(
                 "publish",
@@ -128,6 +130,7 @@ final class PublishCommandReleaseContextTest {
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
+        CliTestPackageEvidence.write(projectDir);
 
         CommandResult result = execute(
                 "publish",

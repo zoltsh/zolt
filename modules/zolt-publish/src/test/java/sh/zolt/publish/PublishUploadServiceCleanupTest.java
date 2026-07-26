@@ -54,6 +54,7 @@ final class PublishUploadServiceCleanupTest {
                     """.formatted(
                     Runtime.version().feature(),
                     recorder.baseUri()));
+            PublishTestPackageEvidence.write(projectDir);
             Function<String, String> environment = key -> null;
             PublishUploadService service = new PublishUploadService(
                     new PublishDryRunService(environment),

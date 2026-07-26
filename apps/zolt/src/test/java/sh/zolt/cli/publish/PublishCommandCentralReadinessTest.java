@@ -6,6 +6,7 @@ import static sh.zolt.cli.CliTestSupport.sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cli.CliTestPackageEvidence;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,6 +43,10 @@ final class PublishCommandCentralReadinessTest {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("central-ready") + """
 
+                [package]
+                sources = true
+                javadoc = true
+
                 [package.metadata]
                 name = "Central Ready"
                 description = "A Central-ready library."
@@ -61,6 +66,7 @@ final class PublishCommandCentralReadinessTest {
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
+        CliTestPackageEvidence.write(projectDir);
 
         CommandResult result = execute("publish", "--dry-run", "--central", "--cwd", projectDir.toString());
 
@@ -105,6 +111,10 @@ final class PublishCommandCentralReadinessTest {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("central-signed") + """
 
+                [package]
+                sources = true
+                javadoc = true
+
                 [package.metadata]
                 name = "Central Signed"
                 description = "A fully Central-ready library."
@@ -128,6 +138,7 @@ final class PublishCommandCentralReadinessTest {
                 enabled = true
                 keyId = "ABCDEF0123456789"
                 """);
+        CliTestPackageEvidence.write(projectDir);
 
         CommandResult result = execute("publish", "--dry-run", "--central", "--cwd", projectDir.toString());
 

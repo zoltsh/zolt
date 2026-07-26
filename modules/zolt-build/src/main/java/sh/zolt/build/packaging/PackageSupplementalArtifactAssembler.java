@@ -4,6 +4,7 @@ import sh.zolt.build.BuildResult;
 import sh.zolt.build.packaging.PackageArtifact;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.classpath.ClasspathBuilder;
+import sh.zolt.build.packageplan.PackagePlanOutputs;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.project.ProjectConfig;
@@ -46,7 +47,10 @@ public final class PackageSupplementalArtifactAssembler {
 
     private static PackageArtifact packageSourcesJar(Path projectDirectory, ProjectConfig config) {
         List<MainSourceRoot> sourceRoots = mainSourceRoots(projectDirectory, config);
-        Path jarPath = classifierJarPath(projectDirectory, config, "sources");
+        Path jarPath = PackagePlanOutputs.classifierJarPath(
+                projectDirectory,
+                config,
+                "sources");
         try {
             Files.createDirectories(jarPath.getParent());
             List<SourceJarEntry> entries = sourceJarEntries(sourceRoots);
@@ -76,7 +80,10 @@ public final class PackageSupplementalArtifactAssembler {
                 projectDirectory,
                 "package javadoc output",
                 config.build().outputRoot() + "/javadoc");
-        Path jarPath = classifierJarPath(projectDirectory, config, "javadoc");
+        Path jarPath = PackagePlanOutputs.classifierJarPath(
+                projectDirectory,
+                config,
+                "javadoc");
         try {
             Files.createDirectories(jarPath.getParent());
             PackageSupplementalArtifactFiles.deleteDirectory(javadocDirectory);
@@ -104,7 +111,10 @@ public final class PackageSupplementalArtifactAssembler {
 
     private static PackageArtifact packageTestJar(Path projectDirectory, ProjectConfig config) {
         Path testOutput = ProjectPaths.output(projectDirectory, "[build].testOutput", config.build().testOutput());
-        Path jarPath = classifierJarPath(projectDirectory, config, "tests");
+        Path jarPath = PackagePlanOutputs.classifierJarPath(
+                projectDirectory,
+                config,
+                "tests");
         if (!Files.isDirectory(testOutput)) {
             throw new PackageException(
                     "Cannot package test jar because compiled test output is missing at "
@@ -193,19 +203,6 @@ public final class PackageSupplementalArtifactAssembler {
 
     private static String executable(String name) {
         return System.getProperty("os.name", "").toLowerCase().contains("win") ? name + ".exe" : name;
-    }
-
-    private static Path classifierJarPath(Path projectDirectory, ProjectConfig config, String classifier) {
-        return ProjectPaths.output(
-                projectDirectory,
-                "package artifact",
-                config.build().outputRoot() + "/" + artifactBaseName(config) + "-" + classifier + ".jar");
-    }
-
-    private static String artifactBaseName(ProjectConfig config) {
-        return ProjectPaths.filenameComponent("[project].name", config.project().name())
-                + "-"
-                + ProjectPaths.filenameComponent("[project].version", config.project().version());
     }
 
     private static List<MainSourceRoot> mainSourceRoots(Path projectDirectory, ProjectConfig config) {

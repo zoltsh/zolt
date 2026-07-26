@@ -11,9 +11,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.classpath.ClasspathBuilder;
+import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.manifest.ManifestGenerator;
+import sh.zolt.framework.FrameworkPackagePlanDependency;
+import sh.zolt.framework.FrameworkPackagePlanRules;
 import sh.zolt.framework.FrameworkPackageResult;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
+import sh.zolt.lockfile.LockPackage;
 import sh.zolt.project.FrameworkSettings;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
@@ -25,6 +29,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -62,7 +67,9 @@ final class PackageServiceQuarkusModeTest {
                             packageDirectory,
                             runnerJar,
                             "target/quarkus-app/app"));
-                });
+                },
+                new PackagePlanService(List.of(
+                        new TestQuarkusPackagePlanRules(runnerJar))));
         ProjectConfig config = config(Optional.empty())
                 .withPackageSettings(new PackageSettings(PackageMode.QUARKUS))
                 .withFrameworkSettings(new FrameworkSettings(new QuarkusSettings(true, QuarkusPackageMode.FAST_JAR)));
@@ -75,6 +82,34 @@ final class PackageServiceQuarkusModeTest {
         assertEquals(2, result.entryCount());
         assertTrue(result.hasMainClass());
         assertTrue(augmented[0]);
+    }
+
+    private record TestQuarkusPackagePlanRules(Path runnerJar)
+            implements FrameworkPackagePlanRules {
+        @Override
+        public boolean supports(PackageMode mode) {
+            return mode == PackageMode.QUARKUS;
+        }
+
+        @Override
+        public FrameworkPackagePlanDependency dependency(
+                LockPackage lockPackage,
+                ProjectConfig config) {
+            throw new UnsupportedOperationException(
+                    "fixture has no dependencies");
+        }
+
+        @Override
+        public Path archivePath(
+                Path projectRoot,
+                ProjectConfig config) {
+            return runnerJar;
+        }
+
+        @Override
+        public String applicationLayout(ProjectConfig config) {
+            return "target/quarkus-app/app";
+        }
     }
 
     @Test

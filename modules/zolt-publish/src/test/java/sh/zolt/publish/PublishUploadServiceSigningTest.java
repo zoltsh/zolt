@@ -72,6 +72,7 @@ final class PublishUploadServiceSigningTest {
                     enabled = true
                     passphraseEnv = "ZOLT_SIGNING_PASS"
                     """.formatted(Runtime.version().feature(), recorder.baseUri()));
+            PublishTestPackageEvidence.write(projectDir);
 
             Function<String, String> environment = Map.of(
                     "ZOLT_SIGNING_PASS", PASSPHRASE,
@@ -134,6 +135,7 @@ final class PublishUploadServiceSigningTest {
                     enabled = true
                     keyId = "0000000000000000"
                     """.formatted(Runtime.version().feature(), recorder.baseUri()));
+            PublishTestPackageEvidence.write(projectDir);
             Function<String, String> environment =
                     Map.of("GNUPGHOME", emptyGnupgHome.toString())::get;
             PublishUploadService service = new PublishUploadService(
@@ -188,6 +190,7 @@ final class PublishUploadServiceSigningTest {
                     enabled = true
                     passphraseEnv = "ZOLT_SIGNING_PASS"
                     """.formatted(Runtime.version().feature(), recorder.baseUri()));
+            PublishTestPackageEvidence.write(projectDir);
             Function<String, String> environment = Map.of(
                     "ZOLT_SIGNING_PASS", PASSPHRASE,
                     "GNUPGHOME", gnupgHome.toString())::get;

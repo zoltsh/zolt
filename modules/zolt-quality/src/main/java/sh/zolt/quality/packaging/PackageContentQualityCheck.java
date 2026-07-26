@@ -3,9 +3,10 @@ package sh.zolt.quality.packaging;
 import static sh.zolt.quality.QualityCheckService.PACKAGE_CONTENTS;
 
 import sh.zolt.build.PackageException;
-import sh.zolt.build.packageevidence.PackageEvidenceManifest;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestReader;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
+import sh.zolt.build.packageevidence.PackageEvidenceVerification;
+import sh.zolt.build.packageevidence.PackageEvidenceVerifier;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanDependency;
 import sh.zolt.build.packageplan.PackagePlanService;
@@ -16,10 +17,7 @@ import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.quality.QualityCheckText;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,13 +25,14 @@ import java.util.TreeMap;
 
 final class PackageContentQualityCheck {
     private final PackagePlanService packagePlanService;
-    private final PackageEvidenceManifestReader packageEvidenceManifestReader;
+    private final PackageEvidenceVerifier packageEvidenceVerifier;
 
     PackageContentQualityCheck(
             PackagePlanService packagePlanService,
             PackageEvidenceManifestReader packageEvidenceManifestReader) {
         this.packagePlanService = packagePlanService;
-        this.packageEvidenceManifestReader = packageEvidenceManifestReader;
+        this.packageEvidenceVerifier =
+                new PackageEvidenceVerifier(packageEvidenceManifestReader);
     }
 
     List<QualityCheckResult> check(
@@ -223,14 +222,18 @@ final class PackageContentQualityCheck {
                     "Run `zolt package` to regenerate " + QualityCheckText.displayPath(root, manifestPath) + "."));
         }
         try {
-            PackageEvidenceManifest manifest = packageEvidenceManifestReader.read(manifestPath);
-            String actualSha256 = sha256(archive);
-            if (!actualSha256.equals(manifest.archiveSha256())) {
+            PackageEvidenceVerification verification =
+                    packageEvidenceVerifier.verify(root, plan, manifestPath);
+            if (!verification.valid()) {
                 return Optional.of(QualityCheckResult.failed(
                         PACKAGE_CONTENTS,
                         member,
                         QualityCheckText.displayPath(root, manifestPath),
-                        "Package evidence manifest is stale for `" + QualityCheckText.displayPath(root, archive) + "`.",
+                        "Package evidence is stale for `"
+                                + QualityCheckText.displayPath(root, archive)
+                                + "`: "
+                                + String.join("; ", verification.problems())
+                                + ".",
                         "Run `zolt package` to regenerate the artifact and evidence manifest."));
             }
         } catch (PackageException exception) {
@@ -242,21 +245,6 @@ final class PackageContentQualityCheck {
                     "Run `zolt package` to regenerate package evidence."));
         }
         return Optional.empty();
-    }
-
-    private static String sha256(Path path) {
-        try {
-            return "sha256:" + HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
-        } catch (java.io.IOException exception) {
-            throw new PackageException(
-                    "Could not read package artifact at "
-                            + path
-                            + ". Check that the file is readable and retry.",
-                    exception);
-        } catch (NoSuchAlgorithmException exception) {
-            throw new PackageException("Could not compute package artifact checksum because SHA-256 is unavailable.", exception);
-        }
     }
 
     private record PackageContentRuleKey(

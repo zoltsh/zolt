@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cli.CliTestPackageEvidence;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -86,6 +87,7 @@ final class PublishCommandPomTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(sha256(artifact)));
+        CliTestPackageEvidence.write(projectDir);
 
         CommandResult result = execute(
                 "publish",
@@ -157,6 +159,7 @@ final class PublishCommandPomTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(sha256(artifact)));
+        CliTestPackageEvidence.write(projectDir);
 
         CommandResult first = execute(
                 "publish",

@@ -69,15 +69,38 @@ public final class PackagePlanService {
                                 modeRules,
                                 config))
                         .toList();
+        Path archivePath = archivePath(projectRoot, config, mode, modeRules);
+        Path applicationOutput = applicationOutput(projectRoot, config, mode);
+        String applicationLayout = applicationLayout(mode, modeRules, config);
+        Optional<Path> runtimeClasspathPath =
+                runtimeClasspathPath(projectRoot, config, mode);
+        List<PackagePlanOutput> outputs = PackagePlanOutputs.forConfig(
+                projectRoot,
+                config,
+                archivePath,
+                runtimeClasspathPath);
+        String frameworkRulesIdentity = modeRules
+                .map(FrameworkPackagePlanRules::evidenceIdentity)
+                .orElse("zolt-core-package-plan-v2:" + mode.configValue());
         return new PackagePlan(
                 projectRoot,
                 mode,
-                archivePath(projectRoot, config, mode, modeRules),
-                applicationOutput(projectRoot, config, mode),
-                applicationLayout(mode, modeRules, config),
-                runtimeClasspathPath(projectRoot, config, mode),
+                archivePath,
+                applicationOutput,
+                applicationLayout,
+                runtimeClasspathPath,
                 dependencies,
-                warnings(mode, modeRules, dependencies));
+                warnings(mode, modeRules, dependencies),
+                PackageInputFingerprint.evidence(
+                        projectRoot,
+                        config,
+                        lockfile,
+                        frameworkRulesIdentity,
+                        archivePath,
+                        applicationOutput,
+                        applicationLayout,
+                        dependencies,
+                        outputs));
     }
 
     private static Path applicationOutput(

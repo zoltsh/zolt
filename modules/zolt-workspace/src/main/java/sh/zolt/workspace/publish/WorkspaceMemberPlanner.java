@@ -1,6 +1,7 @@
 package sh.zolt.workspace.publish;
 
 import sh.zolt.build.packageplan.PackagePlanService;
+import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
@@ -13,6 +14,7 @@ import sh.zolt.publish.PublishSettings;
 import sh.zolt.publish.PublishSettingsReader;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -40,6 +42,7 @@ final class WorkspaceMemberPlanner {
     private final PublishDryRunService dryRunService;
     private final PackagePlanService packagePlanService;
     private final WorkspaceMemberSbomLockProjection sbomProjection;
+    private final WorkspaceClasspathService classpathService;
 
     WorkspaceMemberPlanner(
             WorkspaceMemberPolicyResolver policyResolver,
@@ -49,7 +52,8 @@ final class WorkspaceMemberPlanner {
             PublishCentralReadinessService centralReadinessService,
             PublishDryRunService dryRunService,
             PackagePlanService packagePlanService,
-            WorkspaceMemberSbomLockProjection sbomProjection) {
+            WorkspaceMemberSbomLockProjection sbomProjection,
+            WorkspaceClasspathService classpathService) {
         this.policyResolver = policyResolver;
         this.projection = projection;
         this.bomFamily = bomFamily;
@@ -58,6 +62,7 @@ final class WorkspaceMemberPlanner {
         this.dryRunService = dryRunService;
         this.packagePlanService = packagePlanService;
         this.sbomProjection = sbomProjection;
+        this.classpathService = classpathService;
     }
 
     Result plan(
@@ -73,16 +78,25 @@ final class WorkspaceMemberPlanner {
         ZoltLockfile memberLock = bom
                 ? bomFamily.familyLock(workspace, aggregatedLock, member)
                 : projection.project(member.path(), config, aggregatedLock);
+        ZoltLockfile packageLock = bom
+                ? memberLock
+                : classpathService
+                        .packageLocksForMembers(
+                                workspace,
+                                aggregatedLock,
+                                List.of(member.path()))
+                        .get(member.path());
         PublishSettings publish =
                 publishSettingsReader.read(member.directory().resolve("zolt.toml"), config.repositoryCredentials());
         // Resolve the member's REAL primary artifact through the framework-aware package planner (the
         // same path single-project publishing plans) — a Quarkus fast-jar's quarkus-run.jar or any
         // future mode's real archive, not a synthesized <name>-<version>.jar. The lock only feeds the
         // planner's discarded dependency listing; the archive path derives from the member dir + config.
-        Path artifactPath = bom
-                ? null
-                : packagePlanService.plan(member.directory(), config, workspace.root().resolve("zolt.lock"))
-                        .archivePath().toAbsolutePath().normalize();
+        PackagePlan packagePlan =
+                packagePlanService.plan(
+                        member.directory(),
+                        config,
+                        packageLock);
         // The POM plan below consumes the POM-shaped memberLock; the SBOM consumes the full closure.
         Optional<Path> sbomFile = bom
                 ? Optional.empty()
@@ -96,7 +110,7 @@ final class WorkspaceMemberPlanner {
                 config,
                 publish,
                 () -> memberLock,
-                () -> artifactPath,
+                () -> packagePlan,
                 !options.central(),
                 sbomFile);
 

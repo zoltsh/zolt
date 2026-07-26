@@ -17,6 +17,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
+import sh.zolt.lockfile.ZoltLockfile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -322,15 +323,13 @@ public final class PackageService {
         if (Files.isRegularFile(projectRoot.resolve("zolt.lock"))) {
             return packagePlanService.plan(projectRoot, config);
         }
-        return new PackagePlan(
+        return packagePlanService.plan(
                 projectRoot,
-                result.mode(),
-                result.jarPath(),
-                result.buildResult().outputDirectory(),
-                result.applicationLayout(),
-                result.runtimeClasspathPath(),
-                List.of(),
-                List.of());
+                config,
+                new ZoltLockfile(
+                        ZoltLockfile.CURRENT_VERSION,
+                        List.of(),
+                        List.of()));
     }
 
 }

@@ -3,7 +3,12 @@ package sh.zolt.quality.packaging;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import sh.zolt.build.packageevidence.PackageEvidenceManifestReader;
+import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
+import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
+import sh.zolt.build.packaging.PackageArtifact;
+import sh.zolt.build.packaging.PackageResult;
+import sh.zolt.build.BuildResult;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.quality.QualityCheckStatus;
@@ -11,6 +16,8 @@ import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
 
 abstract class PackageQualityCheckTestSupport {
     protected final PackageQualityCheck check = new PackageQualityCheck(
@@ -41,6 +48,43 @@ abstract class PackageQualityCheckTestSupport {
 
     protected static void writeLockfile(Path projectDir, String packages) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n" + packages);
+    }
+
+    protected static void writeCurrentPackageEvidence(
+            Path projectDir,
+            ProjectConfig config,
+            List<PackageArtifact> artifacts) throws IOException {
+        PackagePlan plan = new PackagePlanService().plan(
+                projectDir,
+                config,
+                projectDir.resolve("zolt.lock"));
+        if (plan.runtimeClasspathPath().isPresent()) {
+            Files.writeString(
+                    plan.runtimeClasspathPath().orElseThrow(),
+                    "");
+        }
+        PackageResult result = new PackageResult(
+                new BuildResult(
+                        Optional.empty(),
+                        0,
+                        0,
+                        projectDir.resolve("target/classes"),
+                        ""),
+                plan.mode(),
+                plan.archivePath(),
+                plan.runtimeClasspathPath(),
+                Optional.empty(),
+                1,
+                config.project().main().isPresent(),
+                plan.applicationLayout(),
+                artifacts,
+                List.of());
+        new PackageEvidenceManifestWriter().write(
+                projectDir,
+                config,
+                plan,
+                result,
+                artifacts);
     }
 
     protected static void writePackagePlanLockfile(

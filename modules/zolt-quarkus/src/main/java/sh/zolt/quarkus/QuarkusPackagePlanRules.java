@@ -11,6 +11,11 @@ import java.nio.file.Path;
 
 public final class QuarkusPackagePlanRules implements FrameworkPackagePlanRules {
     @Override
+    public String evidenceIdentity() {
+        return "quarkus-fast-jar-v1";
+    }
+
+    @Override
     public boolean supports(PackageMode mode) {
         return mode == PackageMode.QUARKUS;
     }

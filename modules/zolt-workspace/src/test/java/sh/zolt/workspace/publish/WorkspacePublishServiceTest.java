@@ -6,12 +6,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import sh.zolt.build.packageplan.PackagePlanService;
+import sh.zolt.build.packageplan.PackagePlan;
+import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
+import sh.zolt.build.packaging.PackageResult;
+import sh.zolt.build.BuildResult;
 import sh.zolt.framework.FrameworkPackagePlanDependency;
 import sh.zolt.framework.FrameworkPackagePlanRules;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.maven.repository.MavenRepositoryClient;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.publish.CentralPortalClient;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.io.IOException;
@@ -67,15 +73,7 @@ final class WorkspacePublishServiceTest {
             Path artifact = member.resolve("target/lib-1.0.0.jar");
             Files.createDirectories(artifact.getParent());
             Files.writeString(artifact, "authenticated workspace publish\n");
-            Files.writeString(
-                    member.resolve("target/lib-1.0.0.jar.zolt-package.json"),
-                    """
-                    {
-                      "schema": "zolt.package-evidence.v1",
-                      "archive": "target/lib-1.0.0.jar",
-                      "archiveSha256": "sha256:%s"
-                    }
-                    """.formatted(Sha256.hex(artifact)));
+            writeEvidence(member, new PackagePlanService());
 
             WorkspacePublishService service = new WorkspacePublishService();
             WorkspacePublishReport dryRun = service.publish(
@@ -128,13 +126,7 @@ final class WorkspacePublishServiceTest {
         Path war = member.resolve("target/web-app-1.0.0.war");
         Files.createDirectories(war.getParent());
         Files.writeString(war, "fake war archive\n");
-        Files.writeString(member.resolve("target/web-app-1.0.0.war.zolt-package.json"), """
-                {
-                  "schema": "zolt.package-evidence.v1",
-                  "archive": "target/web-app-1.0.0.war",
-                  "archiveSha256": "sha256:%s"
-                }
-                """.formatted(Sha256.hex(war)));
+        writeEvidence(member, new PackagePlanService());
 
         WorkspacePublishReport report = new WorkspacePublishService().publish(
                 tempDir,
@@ -180,13 +172,9 @@ final class WorkspacePublishServiceTest {
         Path runnerJar = member.resolve("target/quarkus-app/quarkus-run.jar");
         Files.createDirectories(runnerJar.getParent());
         Files.writeString(runnerJar, "fake quarkus runner jar\n");
-        Files.writeString(member.resolve("target/quarkus-app/quarkus-run.jar.zolt-package.json"), """
-                {
-                  "schema": "zolt.package-evidence.v1",
-                  "archive": "target/quarkus-app/quarkus-run.jar",
-                  "archiveSha256": "sha256:%s"
-                }
-                """.formatted(Sha256.hex(runnerJar)));
+        PackagePlanService fastJarPlanService =
+                new PackagePlanService(List.of(new FastJarRules()));
+        writeEvidence(member, fastJarPlanService);
 
         // The composition root injects the framework package-plan rules; here a fast-jar stub stands in
         // for QuarkusPackagePlanRules (which zolt-workspace does not depend on), proving the injection
@@ -194,7 +182,7 @@ final class WorkspacePublishServiceTest {
         WorkspacePublishService service = new WorkspacePublishService(
                 new MavenRepositoryClient(),
                 new CentralPortalClient(),
-                new PackagePlanService(List.of(new FastJarRules())));
+                fastJarPlanService);
         WorkspacePublishReport report = service.publish(
                 tempDir,
                 tempDir.resolve("cache"),
@@ -294,5 +282,46 @@ final class WorkspacePublishServiceTest {
     private static void writeMember(Path member, String toml) throws IOException {
         Files.createDirectories(member);
         Files.writeString(member.resolve("zolt.toml"), toml);
+    }
+
+    private static void writeEvidence(
+            Path member,
+            PackagePlanService packagePlanService) throws IOException {
+        ProjectConfig config =
+                new ZoltTomlParser().parse(member.resolve("zolt.toml"));
+        PackagePlan plan = packagePlanService.plan(
+                member,
+                config,
+                new ZoltLockfile(
+                        ZoltLockfile.CURRENT_VERSION,
+                        List.of(),
+                        List.of()));
+        if (plan.runtimeClasspathPath().isPresent()) {
+            Files.writeString(
+                    plan.runtimeClasspathPath().orElseThrow(),
+                    "");
+        }
+        PackageResult result = new PackageResult(
+                new BuildResult(
+                        Optional.empty(),
+                        0,
+                        0,
+                        member.resolve("target/classes"),
+                        ""),
+                plan.mode(),
+                plan.archivePath(),
+                plan.runtimeClasspathPath(),
+                Optional.empty(),
+                1,
+                config.project().main().isPresent(),
+                plan.applicationLayout(),
+                List.of(),
+                List.of());
+        new PackageEvidenceManifestWriter().write(
+                member,
+                config,
+                plan,
+                result,
+                List.of());
     }
 }

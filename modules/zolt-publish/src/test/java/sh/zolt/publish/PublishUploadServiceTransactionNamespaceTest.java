@@ -85,6 +85,7 @@ final class PublishUploadServiceTransactionNamespaceTest {
                 [publish.repositories.local]
                 url = "%s"
                 """.formatted(version, Runtime.version().feature(), repository));
+        PublishTestPackageEvidence.write(project);
     }
 
     private static String sha256(Path path) throws IOException {

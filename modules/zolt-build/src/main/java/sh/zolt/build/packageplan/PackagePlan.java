@@ -14,7 +14,8 @@ public record PackagePlan(
         String applicationLayout,
         Optional<Path> runtimeClasspathPath,
         List<PackagePlanDependency> dependencies,
-        List<PackagePlanWarning> warnings) {
+        List<PackagePlanWarning> warnings,
+        PackagePlanEvidence evidence) {
     public PackagePlan {
         if (projectRoot == null) {
             throw new PackageException("Package plan requires a project root.");
@@ -32,5 +33,31 @@ public record PackagePlan(
         runtimeClasspathPath = runtimeClasspathPath == null ? Optional.empty() : runtimeClasspathPath;
         dependencies = dependencies == null ? List.of() : List.copyOf(dependencies);
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
+        evidence = evidence == null
+                ? PackagePlanEvidence.unavailable(
+                        archivePath,
+                        runtimeClasspathPath)
+                : evidence;
+    }
+
+    public PackagePlan(
+            Path projectRoot,
+            PackageMode mode,
+            Path archivePath,
+            Path applicationOutput,
+            String applicationLayout,
+            Optional<Path> runtimeClasspathPath,
+            List<PackagePlanDependency> dependencies,
+            List<PackagePlanWarning> warnings) {
+        this(
+                projectRoot,
+                mode,
+                archivePath,
+                applicationOutput,
+                applicationLayout,
+                runtimeClasspathPath,
+                dependencies,
+                warnings,
+                null);
     }
 }

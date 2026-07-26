@@ -44,6 +44,11 @@ final class PackageCommandModes {
         if (result.mode() == PackageMode.QUARKUS) {
             return "Packaged Quarkus fast-jar layout with " + result.entryCount() + " files";
         }
+        if (result.mode() == PackageMode.BOM) {
+            return "Packaged dependencyManagement BOM POM with "
+                    + result.entryCount()
+                    + " managed entries";
+        }
         String extension = (result.mode() == PackageMode.WAR || result.mode() == PackageMode.SPRING_BOOT_WAR)
                 ? "war"
                 : "jar";
@@ -69,6 +74,8 @@ final class PackageCommandModes {
     static Optional<String> noMainClassDetail(PackageResult result) {
         return switch (result.mode()) {
             case WAR -> Optional.of("WAR is a servlet container deployment artifact; use `spring-boot-war` for java -jar.");
+            case BOM -> Optional.of(
+                    "BOM is dependency-management metadata and is not runnable.");
             default -> Optional.empty();
         };
     }
@@ -90,7 +97,10 @@ final class PackageCommandModes {
             case UBER -> new PackageModeDetail(
                     "Uber jar: runtime dependency classes and resources are merged into the archive root.",
                     Optional.empty());
-            default -> new PackageModeDetail(
+            case BOM -> new PackageModeDetail(
+                    "BOM POM: publishes curated dependencyManagement versions and produces no application archive.",
+                    Optional.empty());
+            case THIN -> new PackageModeDetail(
                     "Thin jar: dependencies are not bundled.",
                     result.runtimeClasspathPath().map(path -> "Wrote runtime classpath to " + path));
         };

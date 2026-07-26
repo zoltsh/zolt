@@ -58,6 +58,13 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
             assertEquals(0, locked.exitCode(), locked.stderr());
             assertAuthenticated(repository.authorizations(), token);
 
+            CommandResult packaged = execute(
+                    "package",
+                    "--workspace",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", tempDir.resolve("resolve-cache").toString());
+            assertEquals(0, packaged.exitCode(), () -> packaged.stdout() + packaged.stderr());
+
             repository.clearAuthorizations();
             CommandResult dryRun = execute(
                     "publish",

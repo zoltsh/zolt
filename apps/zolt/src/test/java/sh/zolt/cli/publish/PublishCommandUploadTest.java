@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import sh.zolt.cli.CliTestPackageEvidence;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -87,12 +88,18 @@ final class PublishCommandUploadTest {
         try (UploadRepository repository = UploadRepository.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-upload-release") + """
 
+                    [package]
+                    sources = true
+                    javadoc = true
+                    tests = true
+
                     [publish]
                     releaseRepository = "company-releases"
 
                     [publish.repositories.company-releases]
                     url = "%s"
                     """.formatted(repository.baseUri()));
+            CliTestPackageEvidence.write(projectDir);
 
             CommandResult result = execute(
                     "publish",

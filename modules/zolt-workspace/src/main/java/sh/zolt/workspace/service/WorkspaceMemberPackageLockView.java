@@ -20,6 +20,12 @@ final class WorkspaceMemberPackageLockView {
             return lockPackage;
         }
         Set<String> policies = new LinkedHashSet<>();
+        java.util.List<String> members = lockPackage.members().stream()
+                .filter(visibleMembers::contains)
+                .toList();
+        java.util.List<String> exportedBy = lockPackage.exportedBy().stream()
+                .filter(visibleMembers::contains)
+                .toList();
         lockPackage.members().stream()
                 .filter(visibleMembers::contains)
                 .map(member ->
@@ -41,8 +47,8 @@ final class WorkspaceMemberPackageLockView {
                 lockPackage.workspace(),
                 lockPackage.workspaceOutput(),
                 lockPackage.dependencies(),
-                lockPackage.members(),
-                lockPackage.exportedBy(),
+                members,
+                exportedBy,
                 policies.stream().sorted().toList(),
                 lockPackage.toolGroups());
     }

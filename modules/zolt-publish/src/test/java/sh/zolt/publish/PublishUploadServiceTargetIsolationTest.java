@@ -69,6 +69,7 @@ final class PublishUploadServiceTargetIsolationTest {
             Path stagingRoot = projectDir.resolve("target/publish/publish-staging");
 
             writeConfig(projectDir, repositoryA.baseUri());
+            PublishTestPackageEvidence.write(projectDir);
             repositoryA.failPutPathSuffix = failedRequestPath;
             assertThrows(PublishException.class, () -> service.upload(projectDir));
             byte[] originalSignature = repositoryA.body(requestPath);

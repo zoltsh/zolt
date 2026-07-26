@@ -72,7 +72,9 @@ public final class WorkspaceBomPackager {
                 pomPath,
                 Optional.empty(),
                 Optional.empty(),
-                0,
+                familyLock.packages().size()
+                        + config.packageSettings().bom().versions().size()
+                        + config.packageSettings().bom().imports().size(),
                 false,
                 "pom",
                 List.of(),

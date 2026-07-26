@@ -76,6 +76,7 @@ public final class PackageRuntimeJarMaterializer {
                     runtimeJar.packageId() + ":" + runtimeJar.version(),
                     sourceDirectory,
                     jarPath,
+                    sourceFingerprint,
                     fileSha256(jarPath));
         } catch (IOException exception) {
             throw new PackageException(
@@ -95,6 +96,22 @@ public final class PackageRuntimeJarMaterializer {
                     .filter(path -> !LOCAL_BUILD_FINGERPRINTS.contains(path.getFileName().toString()))
                     .sorted(Comparator.comparing(path -> entryName(directory, path)))
                     .toList();
+        }
+    }
+
+    public static String directoryFingerprint(Path directory) {
+        Path normalized = directory.toAbsolutePath().normalize();
+        if (!Files.isDirectory(normalized)) {
+            return "missing";
+        }
+        try {
+            return sourceFingerprint(normalized, files(normalized));
+        } catch (IOException exception) {
+            throw new PackageException(
+                    "Could not fingerprint materialized package input source at "
+                            + normalized
+                            + ". Check that the directory is readable and retry.",
+                    exception);
         }
     }
 

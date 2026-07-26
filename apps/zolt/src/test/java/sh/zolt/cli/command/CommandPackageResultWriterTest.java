@@ -85,6 +85,33 @@ final class CommandPackageResultWriterTest {
     }
 
     @Test
+    void printsBomSpecificSummaryAndDetailsWithoutMainClassAdvice() {
+        PackageResult result = new PackageResult(
+                buildResult(),
+                PackageMode.BOM,
+                Path.of("target/publish/platform-1.0.0.pom"),
+                Optional.empty(),
+                Optional.of(Path.of(
+                        "target/publish/platform-1.0.0.pom.zolt-package.json")),
+                4,
+                false,
+                "dependencyManagement POM",
+                List.of(),
+                List.of());
+
+        assertEquals(
+                """
+                SUMMARY Packaged dependencyManagement BOM POM with 4 managed entries
+                DETAIL BOM is dependency-management metadata and is not runnable.
+                DETAIL BOM POM: publishes curated dependencyManagement versions and produces no application archive.
+                POINTER wrote target/publish/platform-1.0.0.pom
+                POINTER wrote target/publish/platform-1.0.0.pom.zolt-package.json
+                """,
+                print(result, ""));
+        assertFalse(print(result, "").contains("Main-Class"));
+    }
+
+    @Test
     void printsUberDuplicateOverrideSummaryGroupedPerJar() {
         PackageResult result = new PackageResult(
                 buildResult(),

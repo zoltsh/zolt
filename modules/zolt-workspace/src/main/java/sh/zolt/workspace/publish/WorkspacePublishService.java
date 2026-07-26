@@ -76,7 +76,7 @@ public final class WorkspacePublishService {
                 new WorkspaceBomFamily(),
                 new PublishSettingsReader(),
                 new PublishCentralReadinessService(),
-                new PublishDryRunService(),
+                new PublishDryRunService(packagePlanService),
                 new WorkspaceRepositoryUploader(repositoryClient),
                 new WorkspaceCentralPublisher(portalClient),
                 packagePlanService);
@@ -106,7 +106,8 @@ public final class WorkspacePublishService {
                 centralReadinessService,
                 dryRunService,
                 packagePlanService,
-                new WorkspaceMemberSbomLockProjection());
+                new WorkspaceMemberSbomLockProjection(),
+                new sh.zolt.workspace.service.WorkspaceClasspathService());
     }
 
     public WorkspacePublishReport publish(

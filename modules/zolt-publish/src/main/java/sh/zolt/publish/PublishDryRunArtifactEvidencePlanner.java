@@ -3,7 +3,10 @@ package sh.zolt.publish;
 import sh.zolt.build.packageevidence.PackageEvidenceArtifact;
 import sh.zolt.build.packageevidence.PackageEvidenceManifest;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestReader;
+import sh.zolt.build.packageevidence.PackageEvidenceVerification;
+import sh.zolt.build.packageevidence.PackageEvidenceVerifier;
 import sh.zolt.build.PackageException;
+import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
@@ -14,19 +17,21 @@ import java.util.List;
 import java.util.Optional;
 
 final class PublishDryRunArtifactEvidencePlanner {
-    private final PackageEvidenceManifestReader evidenceManifestReader;
+    private final PackageEvidenceVerifier evidenceVerifier;
     private final MavenRepositoryPathBuilder repositoryPathBuilder;
 
     PublishDryRunArtifactEvidencePlanner(
             PackageEvidenceManifestReader evidenceManifestReader,
             MavenRepositoryPathBuilder repositoryPathBuilder) {
-        this.evidenceManifestReader = evidenceManifestReader;
+        this.evidenceVerifier =
+                new PackageEvidenceVerifier(evidenceManifestReader);
         this.repositoryPathBuilder = repositoryPathBuilder;
     }
 
     PublishDryRunArtifactEvidence plan(
             Path root,
             Coordinate coordinate,
+            PackagePlan currentPlan,
             Path artifactPath,
             Path evidencePath,
             List<String> blockers) {
@@ -39,21 +44,22 @@ final class PublishDryRunArtifactEvidencePlanner {
             return empty();
         }
         try {
-            PackageEvidenceManifest evidence = evidenceManifestReader.read(evidencePath);
-            Path evidenceArchive = root.resolve(evidence.archive()).normalize();
-            if (!evidenceArchive.equals(artifactPath)) {
-                blockers.add("package evidence archive mismatch: "
-                        + displayPath(root, evidencePath)
-                        + " describes "
-                        + displayPath(root, evidenceArchive)
-                        + " but publish selected "
-                        + displayPath(root, artifactPath)
-                        + ". Run `zolt package` to refresh package evidence.");
+            PackageEvidenceVerification verification =
+                    evidenceVerifier.verify(
+                            root,
+                            currentPlan,
+                            evidencePath);
+            for (String problem : verification.problems()) {
+                blockers.add(
+                        "stale package evidence: "
+                                + problem
+                                + ". Run `zolt package` to refresh "
+                                + displayPath(root, evidencePath));
             }
-            String actualSha256 = PublishChecksum.sha256(artifactPath);
-            if (!actualSha256.equals(evidence.archiveSha256())) {
-                blockers.add("stale package evidence: run `zolt package` to refresh "
-                        + displayPath(root, evidencePath));
+            PackageEvidenceManifest evidence =
+                    verification.manifest().orElse(null);
+            if (evidence == null) {
+                return empty();
             }
             return new PublishDryRunArtifactEvidence(
                     evidence.archiveSha256(),

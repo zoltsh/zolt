@@ -139,7 +139,7 @@ public final class PublishDryRunService {
                 config,
                 publish,
                 () -> lockfile(root),
-                () -> packagePlan(root, config).archivePath(),
+                () -> packagePlan(root, config),
                 requireRepository,
                 sbomFile);
     }
@@ -150,17 +150,15 @@ public final class PublishDryRunService {
      * This is the reuse seam for {@code zolt publish --workspace}: each member plans against its
      * projected member lock (directness from the member config, versions from the aggregated lock)
      * while sharing the single-project supplemental/SBOM/checksum planning, repository-credential and
-     * URL-safety policy verbatim. The lockfile and archive are supplied lazily so a repository or
-     * artifact-selector rejection is raised before any lock read or package planning. The archive
-     * supplier is never invoked for a BOM, whose only artifact is the generated dependencyManagement
-     * POM.
+     * URL-safety policy verbatim. The lockfile and package plan are supplied lazily so a repository or
+     * artifact-selector rejection is raised before any lock read or package planning.
      */
     public PublishDryRunPlan planResolved(
             Path projectRoot,
             ProjectConfig config,
             PublishSettings publish,
             Supplier<ZoltLockfile> lockfileSupplier,
-            Supplier<Path> artifactPathSupplier,
+            Supplier<PackagePlan> packagePlanSupplier,
             boolean requireRepository,
             Optional<Path> sbomFile) {
         Path root = projectRoot.toAbsolutePath().normalize();
@@ -201,15 +199,25 @@ public final class PublishDryRunService {
         Coordinate coordinate = coordinate(config);
 
         if (config.packageSettings().mode() == PackageMode.BOM) {
-            return bomPlan(
-                    root, config, lockfileSupplier.get(), versionKind, displayRepositoryId, displayRepositoryUrl,
-                    coordinate, blockers);
+            return new PublishDryRunBomPlanner(
+                            artifactEvidencePlanner,
+                            repositoryPathBuilder)
+                    .plan(
+                    root,
+                    config,
+                    packagePlanSupplier.get(),
+                    versionKind,
+                    displayRepositoryId,
+                    displayRepositoryUrl,
+                    coordinate,
+                    blockers);
         }
 
         // Selector validation must raise before any lock read or package planning (order preserved).
         String artifactId = PublishArtifactSelector.select(publish.artifacts(), config.packageSettings().mode());
         ZoltLockfile lockfile = lockfileSupplier.get();
-        Path artifactPath = artifactPathSupplier.get();
+        PackagePlan currentPlan = packagePlanSupplier.get();
+        Path artifactPath = currentPlan.archivePath();
         Path evidencePath = PackageEvidenceManifestWriter.evidenceManifestPath(artifactPath);
         Path pomPath = root.resolve(config.build().outputRoot()).resolve("publish")
                 .resolve(config.project().name() + "-" + config.project().version() + ".pom")
@@ -224,6 +232,7 @@ public final class PublishDryRunService {
         PublishDryRunArtifactEvidence artifactEvidence = artifactEvidencePlanner.plan(
                 root,
                 coordinate,
+                currentPlan,
                 artifactPath,
                 evidencePath,
                 blockers);
@@ -256,48 +265,6 @@ public final class PublishDryRunService {
                 "",
                 blockers,
                 false);
-    }
-
-    private PublishDryRunPlan bomPlan(
-            Path root,
-            ProjectConfig config,
-            ZoltLockfile lockfile,
-            String versionKind,
-            String displayRepositoryId,
-            String displayRepositoryUrl,
-            Coordinate coordinate,
-            List<String> blockers) {
-        // A BOM has no archive: the artifact IS the generated dependencyManagement POM. --sbom is
-        // deliberately not attached (a BOM has no resolved graph, so an SBOM would be misleading).
-        Path pomPath = root.resolve(config.build().outputRoot()).resolve("publish")
-                .resolve(config.project().name() + "-" + config.project().version() + ".pom")
-                .normalize();
-        String pomSha256 = writePom(root, pomPath, config, lockfile);
-        String pomUploadPath = repositoryPathBuilder.pomPath(coordinate);
-        List<PublishChecksumSidecar> checksumSidecars = new ArrayList<>();
-        for (PublishChecksum.Sidecar sidecar : PublishChecksum.sidecars(pomPath)) {
-            checksumSidecars.add(new PublishChecksumSidecar(
-                    "pom", sidecar.extension(), pomUploadPath + "." + sidecar.extension(), sidecar.value()));
-        }
-        Path pomDisplay = PublishDryRunArtifactEvidencePlanner.display(root, pomPath);
-        return new PublishDryRunPlan(
-                config.project().group() + ":" + config.project().name() + ":" + config.project().version(),
-                versionKind,
-                displayRepositoryId,
-                displayRepositoryUrl,
-                "bom",
-                pomDisplay,
-                pomSha256,
-                "",
-                List.of(),
-                pomDisplay,
-                pomDisplay,
-                pomSha256,
-                pomUploadPath,
-                List.copyOf(checksumSidecars),
-                "",
-                blockers,
-                true);
     }
 
     private static Coordinate coordinate(ProjectConfig config) {
