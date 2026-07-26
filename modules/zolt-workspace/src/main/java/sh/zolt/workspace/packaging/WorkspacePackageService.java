@@ -1,6 +1,7 @@
 package sh.zolt.workspace.packaging;
 
 import sh.zolt.build.packageplan.PackagePlanService;
+import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packaging.PackageService;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
@@ -10,10 +11,12 @@ import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
+import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildService;
+import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.publish.WorkspaceBomPackager;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -29,6 +32,8 @@ import java.util.Optional;
 public final class WorkspacePackageService {
     private final WorkspaceBuildService workspaceBuildService;
     private final PackageService packageService;
+    private final PackagePlanService packagePlanService;
+    private final WorkspaceClasspathService workspaceClasspathService;
     private final WorkspaceBomPackager bomPackager = new WorkspaceBomPackager();
 
     public WorkspacePackageService() {
@@ -81,20 +86,38 @@ public final class WorkspacePackageService {
             BuildProvenanceSource provenanceSource) {
         this(
                 new WorkspaceBuildService(jdkDetector, resolveService, provenanceSource),
-                new PackageService(resolveService, frameworkPackageAugmenter, packagePlanService, provenanceSource));
+                new PackageService(resolveService, frameworkPackageAugmenter, packagePlanService, provenanceSource),
+                packagePlanService,
+                new WorkspaceClasspathService());
     }
 
     WorkspacePackageService(
             WorkspaceBuildService workspaceBuildService,
             PackageService packageService) {
+        this(
+                workspaceBuildService,
+                packageService,
+                new PackagePlanService(),
+                new WorkspaceClasspathService());
+    }
+
+    WorkspacePackageService(
+            WorkspaceBuildService workspaceBuildService,
+            PackageService packageService,
+            PackagePlanService packagePlanService,
+            WorkspaceClasspathService workspaceClasspathService) {
         this.workspaceBuildService = workspaceBuildService;
         this.packageService = packageService;
+        this.packagePlanService = packagePlanService;
+        this.workspaceClasspathService = workspaceClasspathService;
     }
 
     public WorkspacePackageService withJdkCheckers(WorkspaceJdkCheckerResolver jdkCheckers) {
         return new WorkspacePackageService(
                 workspaceBuildService.withJdkCheckers(jdkCheckers),
-                packageService);
+                packageService,
+                packagePlanService,
+                workspaceClasspathService);
     }
 
     public WorkspacePackageResult packageJars(
@@ -133,6 +156,11 @@ public final class WorkspacePackageService {
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
+        Map<String, ZoltLockfile> packageLocks =
+                workspaceClasspathService.packageLocksForMembers(
+                        workspace,
+                        plan.lockfile(),
+                        selection.selectedMembers());
         List<WorkspacePackageResult.MemberPackageResult> results = new ArrayList<>();
         for (String memberPath : selection.selectedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
@@ -147,6 +175,10 @@ public final class WorkspacePackageService {
                         bomPackager.packageBom(member, workspace, plan.lockfile(), memberBuild.result())));
                 continue;
             }
+            PackagePlan packagePlan = packagePlanService.plan(
+                    member.directory(),
+                    memberConfig,
+                    packageLocks.get(member.path()));
             results.add(new WorkspacePackageResult.MemberPackageResult(
                     member.path(),
                     packageService.packageJar(
@@ -154,7 +186,8 @@ public final class WorkspacePackageService {
                             memberConfig,
                             memberBuild.result(),
                             memberBuild.classpaths(),
-                            memberBuild.classpathPackages())));
+                            memberBuild.classpathPackages(),
+                            packagePlan)));
         }
         return new WorkspacePackageResult(buildResult.resolveResult(), buildResult.members(), results);
     }

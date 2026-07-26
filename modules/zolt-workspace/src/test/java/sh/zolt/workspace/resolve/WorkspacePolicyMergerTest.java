@@ -8,6 +8,8 @@ import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.project.RepositoryCredentialSettings;
+import sh.zolt.project.RepositorySettings;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
@@ -96,6 +98,53 @@ final class WorkspacePolicyMergerTest {
         assertEquals(
                 "COMPANY_REPOSITORY_TOKEN",
                 merged.repositoryCredentials().get("company").tokenEnv().orElseThrow());
+    }
+
+    @Test
+    void inheritsAuthenticatedWorkspaceRepositoryWithoutMemberRepetition() {
+        ProjectConfig config = new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+                """);
+        WorkspaceMember member = member("app", config);
+        Workspace workspace = new Workspace(
+                Path.of("/workspace/demo"),
+                Path.of("/workspace/demo/zolt.toml"),
+                new WorkspaceConfig(
+                        "demo",
+                        List.of(member.path()),
+                        List.of(),
+                        Map.of("internal", "https://repo.example/internal"),
+                        Map.of(),
+                        Map.of(
+                                "internal",
+                                new RepositorySettings(
+                                        "internal",
+                                        "https://repo.example/internal",
+                                        Optional.of("company"))),
+                        Map.of(
+                                "company",
+                                RepositoryCredentialSettings.token(
+                                        "company",
+                                        "COMPANY_REPOSITORY_TOKEN"))),
+                List.of(member));
+
+        ProjectConfig merged = merger.merge(workspace, member);
+
+        assertEquals(
+                Optional.of("company"),
+                merged.repositorySettings()
+                        .get("internal")
+                        .credentials());
+        assertEquals(
+                "COMPANY_REPOSITORY_TOKEN",
+                merged.repositoryCredentials()
+                        .get("company")
+                        .tokenEnv()
+                        .orElseThrow());
     }
 
     private static Workspace workspace(

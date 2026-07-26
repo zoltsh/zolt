@@ -7,7 +7,8 @@ import java.nio.file.Path;
 final class WorkspaceTestCommandTestSupport {
     private WorkspaceTestCommandTestSupport() {}
 
-    static void writeWorkspaceTestLockfile(Path workspaceDir) throws IOException {
+    static void writeWorkspaceTestLockfile(Path workspaceDir, String... members) throws IOException {
+        String memberList = String.join("\", \"", members);
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
                 version = 5
 
@@ -29,6 +30,7 @@ final class WorkspaceTestCommandTestSupport {
                 direct = true
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 dependencies = []
-                """);
+                members = ["%s"]
+                """.formatted(memberList));
     }
 }

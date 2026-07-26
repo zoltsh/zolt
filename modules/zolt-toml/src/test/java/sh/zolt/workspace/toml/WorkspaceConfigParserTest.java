@@ -67,6 +67,37 @@ final class WorkspaceConfigParserTest {
     }
 
     @Test
+    void retainsStructuredRootRepositoriesAndCredentialReferences() {
+        WorkspaceConfig config = parser.parseRootConfig("""
+                [workspace]
+                name = "acme-platform"
+                members = ["modules/core"]
+
+                [repositories]
+                internal = { url = "https://repo.acme.example/maven", credentials = "company" }
+
+                [repositoryCredentials.company]
+                tokenEnv = "COMPANY_REPOSITORY_TOKEN"
+                """);
+
+        assertEquals(
+                "https://repo.acme.example/maven",
+                config.repositories().get("internal"));
+        assertEquals(
+                "company",
+                config.repositorySettings()
+                        .get("internal")
+                        .credentials()
+                        .orElseThrow());
+        assertEquals(
+                "COMPANY_REPOSITORY_TOKEN",
+                config.repositoryCredentials()
+                        .get("company")
+                        .tokenEnv()
+                        .orElseThrow());
+    }
+
+    @Test
     void rejectsUnknownTopLevelSectionsInRootZoltToml() {
         WorkspaceConfigException exception = assertThrows(
                 WorkspaceConfigException.class,
@@ -145,7 +176,7 @@ final class WorkspaceConfigParserTest {
                         """));
 
         assertEquals(
-                "Invalid value for [repositories].central in zolt-workspace.toml. Use a non-empty string value.",
+                "Invalid value for [repositories].central in zolt-workspace.toml. Use a non-empty URL string or { url = \"...\", credentials = \"...\" }.",
                 exception.getMessage());
     }
 }

@@ -13,14 +13,14 @@ import java.util.Set;
 import java.util.TreeMap;
 import org.tomlj.TomlTable;
 
-final class RepositorySectionCodec {
+public final class RepositorySectionCodec {
     private static final Set<String> REPOSITORY_KEYS = Set.of("url", "credentials");
     private static final Set<String> REPOSITORY_CREDENTIAL_KEYS = Set.of("usernameEnv", "passwordEnv", "tokenEnv");
 
     private RepositorySectionCodec() {
     }
 
-    static Map<String, RepositorySettings> repositorySettings(TomlTable table) {
+    public static Map<String, RepositorySettings> repositorySettings(TomlTable table) {
         if (table == null) {
             return Map.of();
         }
@@ -48,7 +48,8 @@ final class RepositorySectionCodec {
         return values;
     }
 
-    static Map<String, String> repositoryUrls(Map<String, RepositorySettings> repositorySettings) {
+    public static Map<String, String> repositoryUrls(
+            Map<String, RepositorySettings> repositorySettings) {
         Map<String, String> urls = new LinkedHashMap<>();
         for (Map.Entry<String, RepositorySettings> entry : repositorySettings.entrySet()) {
             urls.put(entry.getKey(), entry.getValue().url());
@@ -56,7 +57,8 @@ final class RepositorySectionCodec {
         return urls;
     }
 
-    static Map<String, RepositoryCredentialSettings> repositoryCredentials(TomlTable table) {
+    public static Map<String, RepositoryCredentialSettings> repositoryCredentials(
+            TomlTable table) {
         if (table == null) {
             return Map.of();
         }
@@ -95,7 +97,7 @@ final class RepositorySectionCodec {
         return RepositoryCredentialSettings.basic(key, usernameEnv.orElseThrow(), passwordEnv.orElseThrow());
     }
 
-    static void validateRepositoryCredentialReferences(
+    public static void validateRepositoryCredentialReferences(
             Map<String, RepositorySettings> repositories,
             Map<String, RepositoryCredentialSettings> credentials) {
         for (RepositorySettings repository : repositories.values()) {

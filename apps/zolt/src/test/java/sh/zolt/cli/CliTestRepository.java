@@ -67,7 +67,7 @@ public final class CliTestRepository implements AutoCloseable {
                 + "-"
                 + version;
         responses.put(base + ".pom", pom.getBytes(StandardCharsets.UTF_8));
-        responses.put(base + ".jar", new byte[] {0x50, 0x4b, 0x03, 0x04});
+        responses.put(base + ".jar", emptyZip());
     }
 
     public void addClassifiedArtifact(
@@ -88,7 +88,7 @@ public final class CliTestRepository implements AutoCloseable {
                 + version;
         responses.put(
                 base + "-" + classifier + "." + extension,
-                new byte[] {0x50, 0x4b, 0x03, 0x04});
+                emptyZip());
     }
 
     public void addTypedArtifact(
@@ -106,7 +106,16 @@ public final class CliTestRepository implements AutoCloseable {
                 + artifactId
                 + "-"
                 + version;
-        responses.put(base + "." + extension, new byte[] {0x50, 0x4b, 0x03, 0x04});
+        responses.put(base + "." + extension, emptyZip());
+    }
+
+    private static byte[] emptyZip() {
+        return new byte[] {
+                0x50, 0x4b, 0x05, 0x06,
+                0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0
+        };
     }
 
     public byte[] uploaded(String path) {

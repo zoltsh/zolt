@@ -86,6 +86,7 @@ final class WorkspaceTestServiceJdkDetectionTest {
                 scope = "test"
                 direct = true
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
+                members = ["apps/api", "modules/core"]
                 dependencies = []
                 """);
         CachingJdkChecker jdkChecker = new CachingJdkChecker();

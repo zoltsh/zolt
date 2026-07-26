@@ -1,5 +1,6 @@
 package sh.zolt.quality;
 
+import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -11,5 +12,6 @@ record WorkspaceMemberQualityView(
         WorkspaceMember member,
         ProjectConfig effectiveConfig,
         ZoltLockfile policyLock,
-        ZoltLockfile sbomLock) {
+        ZoltLockfile sbomLock,
+        PackagePlan packagePlan) {
 }

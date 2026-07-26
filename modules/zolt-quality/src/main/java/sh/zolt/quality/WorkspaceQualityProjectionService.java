@@ -4,6 +4,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import sh.zolt.build.PackageException;
+import sh.zolt.build.packageplan.PackagePlan;
+import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.LockDependencyGraphException;
 import sh.zolt.lockfile.WorkspaceGraphLockCapability;
@@ -17,6 +20,7 @@ import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyLockProjection;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelection;
 
@@ -28,24 +32,32 @@ final class WorkspaceQualityProjectionService {
     private final WorkspaceMemberPolicyResolver policyResolver;
     private final WorkspaceMemberPolicyLockProjection policyProjection;
     private final WorkspaceMemberSbomLockProjection sbomProjection;
+    private final WorkspaceClasspathService classpathService;
+    private final PackagePlanService packagePlanService;
 
     WorkspaceQualityProjectionService(ZoltLockfileReader lockfileReader) {
         this(
                 lockfileReader,
                 new WorkspaceMemberPolicyResolver(),
                 new WorkspaceMemberPolicyLockProjection(),
-                new WorkspaceMemberSbomLockProjection());
+                new WorkspaceMemberSbomLockProjection(),
+                new WorkspaceClasspathService(),
+                new PackagePlanService());
     }
 
     WorkspaceQualityProjectionService(
             ZoltLockfileReader lockfileReader,
             WorkspaceMemberPolicyResolver policyResolver,
             WorkspaceMemberPolicyLockProjection policyProjection,
-            WorkspaceMemberSbomLockProjection sbomProjection) {
+            WorkspaceMemberSbomLockProjection sbomProjection,
+            WorkspaceClasspathService classpathService,
+            PackagePlanService packagePlanService) {
         this.lockfileReader = lockfileReader;
         this.policyResolver = policyResolver;
         this.policyProjection = policyProjection;
         this.sbomProjection = sbomProjection;
+        this.classpathService = classpathService;
+        this.packagePlanService = packagePlanService;
     }
 
     WorkspaceQualityProjection project(
@@ -77,6 +89,11 @@ final class WorkspaceQualityProjectionService {
 
         Map<String, WorkspaceMemberQualityView> projected = new LinkedHashMap<>();
         try {
+            Map<String, ZoltLockfile> packageLocks =
+                    classpathService.packageLocksForMembers(
+                            workspace,
+                            aggregate,
+                            selection.includedMembers());
             for (String memberPath : selection.includedMembers()) {
                 WorkspaceMember member = members.get(memberPath);
                 ProjectConfig effectiveConfig = policyResolver.merge(workspace, member);
@@ -84,11 +101,23 @@ final class WorkspaceQualityProjectionService {
                         policyProjection.project(memberPath, effectiveConfig, aggregate, workspace);
                 ZoltLockfile sbomLock =
                         sbomProjection.project(memberPath, effectiveConfig, aggregate, workspace, policyResolver);
+                PackagePlan packagePlan = packagePlanService.plan(
+                        member.directory(),
+                        effectiveConfig,
+                        packageLocks.get(memberPath));
                 projected.put(
                         memberPath,
-                        new WorkspaceMemberQualityView(member, effectiveConfig, policyLock, sbomLock));
+                        new WorkspaceMemberQualityView(
+                                member,
+                                effectiveConfig,
+                                policyLock,
+                                sbomLock,
+                                packagePlan));
             }
-        } catch (LockDependencyGraphException | PublishException | ResolveException exception) {
+        } catch (LockDependencyGraphException
+                | PackageException
+                | PublishException
+                | ResolveException exception) {
             throw new WorkspaceQualityProjectionException(
                     exception.getMessage(),
                     "Run `zolt resolve --workspace` to regenerate member-qualified graph evidence.");

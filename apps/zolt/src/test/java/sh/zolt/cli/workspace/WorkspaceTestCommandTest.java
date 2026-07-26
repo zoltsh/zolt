@@ -81,7 +81,7 @@ final class WorkspaceTestCommandTest {
                     }
                 }
                 """);
-        WorkspaceTestCommandTestSupport.writeWorkspaceTestLockfile(workspaceDir);
+        WorkspaceTestCommandTestSupport.writeWorkspaceTestLockfile(workspaceDir, "apps/api", "modules/core");
 
         CommandResult result = execute(
                 "test",

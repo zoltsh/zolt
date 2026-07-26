@@ -97,8 +97,9 @@ final class PackageModePackagerRegistry {
                 request.config(),
                 request.buildResult(),
                 artifactPathPlanner.archivePath(request.projectDirectory(), request.config(), "war"),
-                requiredCacheRoot(
+                optionalCacheRoot(
                         request.cacheRoot(),
+                        request.classpathPackages(),
                         "WAR package mode requires dependency jar access from zolt.lock. Use single-project `zolt package --mode war` for now; workspace WAR packaging is not wired yet."),
                 request.classpathPackages()));
         packagers.put(PackageMode.SPRING_BOOT_WAR, request -> archiveModePackager.packageSpringBootWar(

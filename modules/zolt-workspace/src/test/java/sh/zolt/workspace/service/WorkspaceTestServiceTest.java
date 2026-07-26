@@ -97,6 +97,7 @@ final class WorkspaceTestServiceTest {
                 scope = "test"
                 direct = true
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
+                members = ["apps/api", "modules/core"]
                 dependencies = []
                 """);
 
@@ -199,6 +200,7 @@ final class WorkspaceTestServiceTest {
                 scope = "test"
                 direct = true
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
+                members = ["apps/api", "apps/worker", "modules/core"]
                 dependencies = []
                 """);
 
@@ -264,6 +266,7 @@ final class WorkspaceTestServiceTest {
                 scope = "test"
                 direct = true
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
+                members = ["apps/api"]
                 dependencies = []
                 """);
         WorkspaceBuildPlan plan = service.planTests(tempDir, cacheRoot, WorkspaceSelectionRequest.defaults());

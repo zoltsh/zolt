@@ -282,14 +282,17 @@ public final class QualityCheckService {
                     }
                 }
                 case PACKAGE_CONTENTS -> {
-                    for (String memberPath : selection.includedMembers()) {
-                        WorkspaceMember member = members.get(memberPath);
-                        results.addAll(packageQualityCheck.checkContents(
-                                Optional.of(member.path()),
-                                member.directory(),
-                                member.config(),
-                                workspace.root().resolve("zolt.lock"),
-                                request.requirePackage()));
+                    if (projectionFailure != null) {
+                        results.add(graphProjectionFailure(requestedCheck, projectionFailure));
+                    } else {
+                        for (String memberPath : selection.includedMembers()) {
+                            WorkspaceMemberQualityView view = qualityProjection.member(memberPath);
+                            results.addAll(packageQualityCheck.checkContents(
+                                    Optional.of(memberPath),
+                                    view.effectiveConfig(),
+                                    view.packagePlan(),
+                                    request.requirePackage()));
+                        }
                     }
                 }
                 case MANIFEST_METADATA -> {
@@ -327,7 +330,8 @@ public final class QualityCheckService {
     private static boolean graphDependentCheck(String check) {
         return DEPENDENCY_METADATA.equals(check)
                 || DEPENDENCY_POLICY.equals(check)
-                || LICENSE_POLICY.equals(check);
+                || LICENSE_POLICY.equals(check)
+                || PACKAGE_CONTENTS.equals(check);
     }
 
     private static QualityCheckResult graphProjectionFailure(

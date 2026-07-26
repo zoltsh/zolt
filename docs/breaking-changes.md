@@ -7,7 +7,9 @@ the old behavior, the new behavior, and how to migrate.
 
 - **Old behavior:** workspace optional dependencies could cross into downstream
   member classpaths, a whole-workspace SBOM flattened member-qualified graphs,
-  and rematerialization could replace the original member conflict evidence.
+  rematerialization could replace the original member conflict evidence, a
+  root-only `members = ["."]` workspace preserved an unqualified project lock,
+  and `package-contents` planned every member from the aggregate lock.
 - **New behavior:** newly resolved locks use version 5. Member graph facts carry
   direct `declaredOptional` separately from effective `optionalOnly`
   reachability captured before path-specific exclusion contexts are flattened,
@@ -24,7 +26,14 @@ the old behavior, the new behavior, and how to migrate.
   member's effective root-merged policy and exact variant/scope graph; license
   checks exclude first-party workspace packages. Per-member published SBOMs
   apply optional-only facts while traversing sibling graphs and remove both the
-  omitted component and its edge.
+  omitted component and its edge. Root-only workspaces are aggregated normally,
+  retaining the project fingerprints while adding `members = ["."]`, exact
+  `exportedBy`, and `[[memberGraph]]` evidence. Version-5 workspace locks with
+  unqualified external packages are rejected and must be re-resolved.
+  `package-contents` is also graph-dependent and consumes the same exact
+  per-member package/runtime closure as workspace packaging; sibling
+  dependencies and policy effects stay isolated, optional provider closures do
+  not leak, and BOM members use a POM package plan instead of a JAR layout.
   Finally, ordinary workspace dependencies may target only `thin` members:
   executable, Quarkus, uber, WAR, and BOM members are application artifacts,
   not reusable library JARs.
@@ -32,7 +41,8 @@ the old behavior, the new behavior, and how to migrate.
   `zolt resolve --workspace` for a workspace lock, then commit the regenerated
   version 5 `zolt.lock`. Make every affected consumer use the workspace member
   or give the local project a distinct version. Split shared code needed from an
-  application-packaged member into a separate `thin` workspace member.
+  application-packaged member into a separate `thin` workspace member. Existing
+  root-only version-5 locks must also be regenerated to add member attribution.
 
 ## Lockfile version 4 preserves member-qualified workspace graphs
 

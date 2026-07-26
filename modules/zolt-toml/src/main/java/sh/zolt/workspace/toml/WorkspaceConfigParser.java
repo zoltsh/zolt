@@ -1,6 +1,10 @@
 package sh.zolt.workspace.toml;
 
 import sh.zolt.toml.ToolchainSectionCodec;
+import sh.zolt.toml.RepositorySectionCodec;
+import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.project.RepositoryCredentialSettings;
+import sh.zolt.project.RepositorySettings;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.WorkspaceConfigException;
 import java.io.IOException;
@@ -21,7 +25,8 @@ public final class WorkspaceConfigParser {
     public static final String WORKSPACE_FILE = "zolt-workspace.toml";
     public static final String ROOT_CONFIG_FILE = "zolt.toml";
 
-    private static final Set<String> TOP_LEVEL_SECTIONS = Set.of("workspace", "repositories", "platforms", "toolchain");
+    private static final Set<String> TOP_LEVEL_SECTIONS =
+            Set.of("workspace", "repositories", "repositoryCredentials", "platforms", "toolchain");
     private static final Set<String> ROOT_TOP_LEVEL_SECTIONS = Set.of(
             "project",
             "repositories",
@@ -104,12 +109,33 @@ public final class WorkspaceConfigParser {
         TomlTable workspaceTable = requiredTable(result, "workspace", sourceName);
         validateKeys("workspace", workspaceTable, WORKSPACE_KEYS, sourceName);
 
-        return new WorkspaceConfig(
-                requiredString(workspaceTable, "workspace", "name", sourceName),
-                requiredStringList(workspaceTable, "workspace", "members", sourceName),
-                stringListOrDefault(workspaceTable, "workspace", "defaultMembers", List.of(), sourceName),
-                stringMap(optionalTable(result, "repositories"), "repositories", sourceName),
-                stringMap(optionalTable(result, "platforms"), "platforms", sourceName));
+        try {
+            Map<String, RepositorySettings> repositorySettings =
+                    RepositorySectionCodec.repositorySettings(
+                            optionalTable(result, "repositories"));
+            Map<String, RepositoryCredentialSettings> repositoryCredentials =
+                    RepositorySectionCodec.repositoryCredentials(
+                            optionalTable(result, "repositoryCredentials"));
+            RepositorySectionCodec.validateRepositoryCredentialReferences(
+                    repositorySettings,
+                    repositoryCredentials);
+            return new WorkspaceConfig(
+                    requiredString(workspaceTable, "workspace", "name", sourceName),
+                    requiredStringList(workspaceTable, "workspace", "members", sourceName),
+                    stringListOrDefault(
+                            workspaceTable,
+                            "workspace",
+                            "defaultMembers",
+                            List.of(),
+                            sourceName),
+                    RepositorySectionCodec.repositoryUrls(repositorySettings),
+                    stringMap(optionalTable(result, "platforms"), "platforms", sourceName),
+                    repositorySettings,
+                    repositoryCredentials);
+        } catch (ZoltConfigException exception) {
+            throw new WorkspaceConfigException(
+                    exception.getMessage().replace("in zolt.toml", "in " + sourceName));
+        }
     }
 
     private static String parseErrorMessage(TomlParseResult result, String sourceName) {

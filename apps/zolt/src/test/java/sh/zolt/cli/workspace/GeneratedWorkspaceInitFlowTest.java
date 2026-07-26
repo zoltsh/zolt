@@ -99,6 +99,7 @@ final class GeneratedWorkspaceInitFlowTest {
                 direct = true
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 dependencies = []
+                members = ["apps/platform"]
                 """);
     }
 }

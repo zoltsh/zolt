@@ -156,6 +156,7 @@ public final class PackageService {
                 buildResult,
                 Optional.of(cacheRoot),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -172,6 +173,7 @@ public final class PackageService {
                 buildResult.buildResult(),
                 Optional.of(cacheRoot),
                 Optional.of(buildResult.classpathPackages()),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -185,6 +187,7 @@ public final class PackageService {
                 projectRoot(projectDirectory),
                 config,
                 buildResult,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -203,7 +206,8 @@ public final class PackageService {
                 buildResult,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(classpaths));
+                Optional.of(classpaths),
+                Optional.empty());
     }
 
     public PackageResult packageJar(
@@ -220,7 +224,27 @@ public final class PackageService {
                 buildResult,
                 Optional.empty(),
                 Optional.of(classpathPackages),
-                Optional.of(classpaths));
+                Optional.of(classpaths),
+                Optional.empty());
+    }
+
+    public PackageResult packageJar(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResult buildResult,
+            ClasspathSet classpaths,
+            List<ResolvedClasspathPackage> classpathPackages,
+            PackagePlan packagePlan) {
+        PackageMode mode = config.packageSettings().mode();
+        PackageModeValidator.ensureSupported(mode);
+        return packageJar(
+                projectRoot(projectDirectory),
+                config,
+                buildResult,
+                Optional.empty(),
+                Optional.of(classpathPackages),
+                Optional.of(classpaths),
+                Optional.of(packagePlan));
     }
 
     private static Path projectRoot(Path projectDirectory) {
@@ -233,7 +257,8 @@ public final class PackageService {
             BuildResult buildResult,
             Optional<Path> cacheRoot,
             Optional<List<ResolvedClasspathPackage>> classpathPackages,
-            Optional<ClasspathSet> classpaths) {
+            Optional<ClasspathSet> classpaths,
+            Optional<PackagePlan> suppliedPlan) {
         PackageResult result = primaryArtifactAssembler.assemble(
                 projectDirectory,
                 config,
@@ -247,7 +272,8 @@ public final class PackageService {
                 buildResult,
                 classpathPackages,
                 classpaths);
-        PackagePlan plan = packagePlan(projectDirectory, config, result);
+        PackagePlan plan = suppliedPlan.orElseGet(() ->
+                packagePlan(projectDirectory, config, result));
         Path evidenceManifest = evidenceManifestWriter.write(projectDirectory, config, plan, result, artifacts);
         return result.withArtifactsAndEvidence(artifacts, Optional.of(evidenceManifest));
     }

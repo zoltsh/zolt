@@ -46,28 +46,60 @@ public final class PackagePlanService {
     public PackagePlan plan(Path projectDirectory, ProjectConfig config, Path lockfilePath) {
         Path projectRoot = projectRoot(projectDirectory);
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath.toAbsolutePath().normalize());
+        return plan(projectRoot, config, lockfile);
+    }
+
+    public PackagePlan plan(
+            Path projectDirectory,
+            ProjectConfig config,
+            ZoltLockfile lockfile) {
+        Path projectRoot = projectRoot(projectDirectory);
         PackageMode mode = config.packageSettings().mode();
         Set<PackageId> providedPackageIds = providedPackageIds(lockfile);
         Optional<FrameworkPackagePlanRules> modeRules = packagePlanRules(mode);
-        List<PackagePlanDependency> dependencies = lockfile.packages().stream()
-                .filter(lockPackage -> lockPackage.jar().isPresent())
-                .sorted(Comparator.comparing(PackagePlanService::sortKey))
-                .map(lockPackage -> PackagePlanDependencyClassifier.dependency(
-                        mode,
-                        lockPackage,
-                        providedPackageIds,
-                        modeRules,
-                        config))
-                .toList();
+        List<PackagePlanDependency> dependencies = mode == PackageMode.BOM
+                ? List.of()
+                : lockfile.packages().stream()
+                        .filter(PackagePlanService::packageInput)
+                        .sorted(Comparator.comparing(PackagePlanService::sortKey))
+                        .map(lockPackage -> PackagePlanDependencyClassifier.dependency(
+                                mode,
+                                lockPackage,
+                                providedPackageIds,
+                                modeRules,
+                                config))
+                        .toList();
         return new PackagePlan(
                 projectRoot,
                 mode,
                 archivePath(projectRoot, config, mode, modeRules),
-                projectRoot.resolve(config.build().output()).normalize(),
+                applicationOutput(projectRoot, config, mode),
                 applicationLayout(mode, modeRules, config),
                 runtimeClasspathPath(projectRoot, config, mode),
                 dependencies,
                 warnings(mode, dependencies));
+    }
+
+    private static Path applicationOutput(
+            Path projectRoot,
+            ProjectConfig config,
+            PackageMode mode) {
+        if (mode == PackageMode.BOM) {
+            return ProjectPaths.output(
+                    projectRoot,
+                    "BOM package output",
+                    config.build().outputRoot() + "/publish");
+        }
+        return ProjectPaths.output(
+                projectRoot,
+                "[build].output",
+                config.build().output());
+    }
+
+    private static boolean packageInput(LockPackage lockPackage) {
+        return lockPackage.jar().isPresent()
+                || (lockPackage.workspace().isPresent()
+                        && lockPackage.workspaceOutput().isPresent());
     }
 
     private Optional<FrameworkPackagePlanRules> packagePlanRules(PackageMode mode) {
@@ -138,6 +170,10 @@ public final class PackagePlanService {
                     projectRoot,
                     "package archive",
                     config.build().outputRoot() + "/" + artifactBaseName(config) + ".jar");
+            case BOM -> ProjectPaths.output(
+                    projectRoot,
+                    "BOM package artifact",
+                    config.build().outputRoot() + "/publish/" + artifactBaseName(config) + ".pom");
             default -> ProjectPaths.output(
                     projectRoot,
                     "package archive",
@@ -173,7 +209,7 @@ public final class PackagePlanService {
             case SPRING_BOOT -> "BOOT-INF/classes";
             case WAR, SPRING_BOOT_WAR -> "WEB-INF/classes";
             case QUARKUS -> "framework package output";
-            case BOM -> throw new IllegalStateException("BOM projects publish a POM and produce no package archive.");
+            case BOM -> "dependencyManagement POM";
         };
     }
 

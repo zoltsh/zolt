@@ -21,15 +21,29 @@ public final class WorkspaceGraphLockCapability {
     }
 
     public static void requireMemberGraphEvidence(ZoltLockfile lockfile) {
-        if (supportsMemberGraphEvidence(lockfile)) {
-            return;
+        if (!supportsMemberGraphEvidence(lockfile)) {
+            throw new ActionableException(ActionableError.of(
+                    "Workspace zolt.lock version "
+                            + lockfile.version()
+                            + " lacks the version "
+                            + MINIMUM_VERSION
+                            + " member-qualified optional-boundary evidence required by workspace graph consumers.",
+                    "Run `zolt resolve --workspace` with this Zolt version to regenerate zolt.lock before building, testing, packaging, running, publishing, checking dependency or license policy, generating IDE models, or generating workspace SBOMs."));
         }
-        throw new ActionableException(ActionableError.of(
-                "Workspace zolt.lock version "
-                        + lockfile.version()
-                        + " lacks the version "
-                        + MINIMUM_VERSION
-                        + " member-qualified optional-boundary evidence required by workspace graph consumers.",
-                "Run `zolt resolve --workspace` with this Zolt version to regenerate zolt.lock before building, testing, packaging, running, publishing, checking dependency or license policy, generating IDE models, or generating workspace SBOMs."));
+        lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.workspace().isEmpty())
+                .filter(lockPackage -> lockPackage.members().isEmpty())
+                .findFirst()
+                .ifPresent(lockPackage -> {
+                    throw new ActionableException(ActionableError.of(
+                            "Workspace zolt.lock version "
+                                    + lockfile.version()
+                                    + " contains external package `"
+                                    + lockPackage.packageId()
+                                    + ":"
+                                    + lockPackage.version()
+                                    + "` without member attribution.",
+                            "Run `zolt resolve --workspace` with this Zolt version to enrich the lock with member-qualified package, export, and optional-boundary evidence."));
+                });
     }
 }

@@ -1,6 +1,5 @@
 package sh.zolt.workspace.resolve;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,11 +14,8 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
-import sh.zolt.workspace.WorkspaceConfig;
-import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceProjectEdge;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,39 +23,6 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class WorkspaceLockfileAggregatorTest extends WorkspaceLockfileAggregatorTestSupport {
-    @Test
-    void preservesSingleProjectLockfileForTransitionalRootWorkspace() {
-        ZoltLockfile memberLockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
-                Optional.empty(),
-                Optional.of("sha256:project"),
-                List.of("repositories=sha256:repo"),
-                List.of(new LockPackage(
-                        new PackageId("com.example", "app"),
-                        "1.0.0",
-                        "central",
-                        DependencyScope.COMPILE,
-                        true,
-                        Optional.of("com/example/app/1.0.0/app-1.0.0.jar"),
-                        Optional.of("com/example/app/1.0.0/app-1.0.0.pom"),
-                        Optional.of("jar-sha"),
-                        Optional.of("pom-sha"),
-                        List.of())),
-                List.of(),
-                List.of());
-        Workspace workspace = new Workspace(
-                Path.of("/repo"),
-                Path.of("/repo/zolt-workspace.toml"),
-                new WorkspaceConfig("zolt", List.of("."), List.of("."), Map.of(), Map.of()),
-                List.of(new WorkspaceMember(".", Path.of("/repo"), null)));
-
-        ZoltLockfile aggregated = new WorkspaceLockfileAggregator().aggregate(
-                workspace,
-                List.of(new WorkspaceMemberResolveOutput(".", memberLockfile, Set.of())));
-
-        assertSame(memberLockfile, aggregated);
-    }
-
     @Test
     void keepsToolAttributedConflictsDistinctAcrossMembers() throws IOException {
         Workspace workspace = workspace(List.of(

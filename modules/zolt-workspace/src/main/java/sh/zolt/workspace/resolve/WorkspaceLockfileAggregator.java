@@ -38,10 +38,8 @@ final class WorkspaceLockfileAggregator {
             List<WorkspaceMemberResolveOutput> memberOutputs,
             List<LockConflict> preservedWorkspaceConflicts,
             List<LockPolicyEffect> preservedWorkspacePolicyEffects) {
-        if (isTransitionalRootWorkspace(workspace, memberOutputs)) {
-            return memberOutputs.getFirst().lockfile();
-        }
-
+        boolean transitionalRoot =
+                isTransitionalRootWorkspace(workspace, memberOutputs);
         Map<String, LockPackage> packages = new LinkedHashMap<>();
         Map<String, LockConflict> conflicts = new LinkedHashMap<>();
         Map<String, LockPolicyEffect> policyEffects = new LinkedHashMap<>();
@@ -102,14 +100,30 @@ final class WorkspaceLockfileAggregator {
         }
         return new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
-                WorkspaceLockfileFingerprints.aliasFingerprint(memberOutputs),
-                WorkspaceLockfileFingerprints.projectResolutionFingerprint(memberOutputs),
-                WorkspaceLockfileFingerprints.projectResolutionInputFingerprints(memberOutputs),
+                transitionalRoot
+                        ? memberOutputs.getFirst().lockfile().aliasFingerprint()
+                        : WorkspaceLockfileFingerprints.aliasFingerprint(memberOutputs),
+                transitionalRoot
+                        ? memberOutputs.getFirst().lockfile().projectResolutionFingerprint()
+                        : WorkspaceLockfileFingerprints.projectResolutionFingerprint(memberOutputs),
+                transitionalRoot
+                        ? memberOutputs.getFirst().lockfile().projectResolutionInputFingerprints()
+                        : WorkspaceLockfileFingerprints.projectResolutionInputFingerprints(memberOutputs),
                 List.copyOf(packages.values()),
                 List.copyOf(conflicts.values()),
                 List.copyOf(policyEffects.values()),
                 WorkspaceMemberGraphFacts.complete(
                         globalSelection, memberOutputs));
+    }
+
+    private static boolean isTransitionalRootWorkspace(
+            Workspace workspace,
+            List<WorkspaceMemberResolveOutput> memberOutputs) {
+        return workspace.members().size() == 1
+                && workspace.edges().isEmpty()
+                && workspace.members().getFirst().path().equals(".")
+                && memberOutputs.size() == 1
+                && memberOutputs.getFirst().member().equals(".");
     }
 
     private static void requireUnambiguousGraphTargets(
@@ -148,16 +162,6 @@ final class WorkspaceLockfileAggregator {
         return lockPackage.workspace()
                 .map(member -> "workspace member `" + member + "`")
                 .orElseGet(() -> "repository source `" + lockPackage.source() + "`");
-    }
-
-    private static boolean isTransitionalRootWorkspace(
-            Workspace workspace,
-            List<WorkspaceMemberResolveOutput> memberOutputs) {
-        return workspace.members().size() == 1
-                && workspace.edges().isEmpty()
-                && workspace.members().getFirst().path().equals(".")
-                && memberOutputs.size() == 1
-                && memberOutputs.getFirst().member().equals(".");
     }
 
     private static LockPackage merge(LockPackage left, LockPackage right) {

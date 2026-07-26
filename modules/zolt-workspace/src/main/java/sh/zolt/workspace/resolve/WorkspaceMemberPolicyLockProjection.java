@@ -39,12 +39,11 @@ public final class WorkspaceMemberPolicyLockProjection {
         LockMemberGraphIndex graphIndex = new LockMemberGraphIndex(
                 aggregate.memberGraphs(), aggregate.packages());
         Set<PackageIdentity> directs = directIdentities(memberPath, effectiveConfig, workspace);
-        boolean transitionalRoot = transitionalRoot(workspace, memberPath);
 
         List<LockPackage> packages = new ArrayList<>();
         List<LockMemberGraph> memberGraphs = new ArrayList<>();
         for (LockPackage lockPackage : aggregate.packages()) {
-            if (!belongsToMember(lockPackage, memberPath, transitionalRoot)) {
+            if (!lockPackage.members().contains(memberPath)) {
                 continue;
             }
             List<String> dependencies = graphIndex.dependenciesFor(memberPath, lockPackage);
@@ -192,20 +191,6 @@ public final class WorkspaceMemberPolicyLockProjection {
                 packageId(edge.coordinate()),
                 LockArtifactVariant.defaultVariant(),
                 workspaceScope(edge.scope()));
-    }
-
-    private static boolean belongsToMember(
-            LockPackage lockPackage,
-            String memberPath,
-            boolean transitionalRoot) {
-        return lockPackage.members().contains(memberPath)
-                || (transitionalRoot && lockPackage.members().isEmpty());
-    }
-
-    private static boolean transitionalRoot(Workspace workspace, String memberPath) {
-        return ".".equals(memberPath)
-                && workspace.members().size() == 1
-                && workspace.members().getFirst().path().equals(".");
     }
 
     private static boolean workspaceOptional(

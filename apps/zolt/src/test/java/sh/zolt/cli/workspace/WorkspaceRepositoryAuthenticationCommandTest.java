@@ -79,6 +79,40 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
         }
     }
 
+    @Test
+    void rootRepositoryAuthenticationIsInheritedWithoutMemberRepetition()
+            throws IOException {
+        String token = System.getenv("PATH");
+        assumeTrue(
+                token != null && !token.isBlank(),
+                "PATH is required as a non-secret test token");
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            repository.requireBearerToken(token);
+            repository.addArtifact(
+                    "org.example",
+                    "dependency",
+                    "1.0.0",
+                    """
+                    <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>org.example</groupId>
+                      <artifactId>dependency</artifactId>
+                      <version>1.0.0</version>
+                    </project>
+                    """);
+            Path workspace = writeRootAuthenticatedWorkspace(repository);
+
+            CommandResult resolve = execute(
+                    "resolve",
+                    "--workspace",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", tempDir.resolve("root-auth-cache").toString());
+
+            assertEquals(0, resolve.exitCode(), resolve.stderr());
+            assertAuthenticated(repository.authorizations(), token);
+        }
+    }
+
     private Path writeWorkspace(CliTestRepository repository) throws IOException {
         Path workspace = tempDir.resolve("authenticated-workspace");
         Path member = workspace.resolve("lib");
@@ -125,6 +159,35 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(sha256(artifact)));
+        return workspace;
+    }
+
+    private Path writeRootAuthenticatedWorkspace(
+            CliTestRepository repository) throws IOException {
+        Path workspace = tempDir.resolve("root-authenticated-workspace");
+        Path member = workspace.resolve("lib");
+        Files.createDirectories(member);
+        Files.writeString(workspace.resolve("zolt.toml"), """
+                [workspace]
+                name = "root-authenticated-workspace"
+                members = ["lib"]
+
+                [repositories]
+                internal = { url = "%s", credentials = "company" }
+
+                [repositoryCredentials.company]
+                tokenEnv = "PATH"
+                """.formatted(repository.baseUri()));
+        Files.writeString(member.resolve("zolt.toml"), """
+                [project]
+                name = "lib"
+                version = "1.0.0"
+                group = "com.acme"
+                java = "21"
+
+                [dependencies]
+                "org.example:dependency" = "1.0.0"
+                """);
         return workspace;
     }
 

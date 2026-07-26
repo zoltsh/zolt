@@ -54,7 +54,8 @@ final class WorkspaceIntegrationTestCommandTest {
         Path apiIntegrationTest = apiDir.resolve("src/integration-test/java/com/example/api/ApiIT.java");
         Files.createDirectories(apiIntegrationTest.getParent());
         Files.writeString(apiIntegrationTest, "package com.example.api; public final class ApiIT { String ok() { return Api.message(); } }\n");
-        WorkspaceTestCommandTestSupport.writeWorkspaceTestLockfile(workspaceDir);
+        WorkspaceTestCommandTestSupport.writeWorkspaceTestLockfile(
+                workspaceDir, "apps/api", "modules/core", "apps/worker");
 
         CommandResult result = execute(
                 "integration-test",

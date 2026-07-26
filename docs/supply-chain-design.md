@@ -137,13 +137,19 @@ Workspace quality checks consume one shared member projection rather than the
 aggregate lock. The projection merges workspace-root repositories/platforms
 through `WorkspaceMemberPolicyResolver`, retains each member's all-scope
 package/variant/conflict/policy graph, and separately supplies the existing
-per-member SBOM closure. License policy evaluates external components only;
+per-member SBOM closure. It also plans `package-contents` from the exact
+per-member package/runtime closure used by workspace packaging, including
+workspace outputs and BOM POM plans; it never reconstructs a member package
+from every JAR in the aggregate lock. License policy evaluates external components only;
 first-party workspace packages never become unknown third-party findings.
 Dependency metadata matches member + package + variant + scope, validates
 optional workspace declarations against both the project edge and version-5
 member graph, and parses qualified dependency edges for exclusions. Explicit
-dependency-metadata, dependency-policy, and license-policy checks all require
-version-5 graph capability even when `lockfile` was not requested.
+dependency-metadata, dependency-policy, license-policy, and package-contents
+checks all require version-5 graph capability even when `lockfile` was not
+requested. A root-only `members = ["."]` workspace follows the same aggregation
+contract: its project fingerprints remain unchanged while external packages,
+exports, and optional facts gain `"."` member attribution.
 
 ## Publish attachment (flag-gated, off by default)
 

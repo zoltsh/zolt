@@ -81,7 +81,8 @@ final class CheckWorkspaceMemberQualityCommandTest {
         for (String qualityCheck : new String[] {
                 "dependency-metadata",
                 "dependency-policy",
-                "license-policy"
+                "license-policy",
+                "package-contents"
         }) {
             CommandResult result = execute(
                     "check",

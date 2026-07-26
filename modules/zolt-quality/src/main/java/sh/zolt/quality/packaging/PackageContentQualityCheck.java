@@ -61,6 +61,14 @@ final class PackageContentQualityCheck {
                     exception.getMessage(),
                     member.isPresent() ? "Run `zolt resolve --workspace`." : "Run `zolt resolve`."));
         }
+        return check(member, config, plan, requirePackage);
+    }
+
+    List<QualityCheckResult> check(
+            Optional<String> member,
+            ProjectConfig config,
+            PackagePlan plan,
+            boolean requirePackage) {
         if (plan.warnings().isEmpty()) {
             return successfulPlanResults(member, config, plan, requirePackage);
         }
@@ -87,9 +95,13 @@ final class PackageContentQualityCheck {
                     member,
                     QualityCheckText.displayPath(plan.projectRoot(), plan.archivePath()),
                     "CI context requires the configured package artifact, but it is missing.",
-                    "Run `zolt package` before `zolt check --context ci --require-package`."));
+                    member.isPresent()
+                            ? "Run `zolt package --workspace` before `zolt check --workspace --context ci --require-package`."
+                            : "Run `zolt package` before `zolt check --context ci --require-package`."));
         }
-        Optional<QualityCheckResult> staleEvidence = stalePackageEvidence(member, plan);
+        Optional<QualityCheckResult> staleEvidence = plan.mode() == sh.zolt.project.PackageMode.BOM
+                ? Optional.empty()
+                : stalePackageEvidence(member, plan);
         if (staleEvidence.isPresent()) {
             return List.of(staleEvidence.orElseThrow());
         }

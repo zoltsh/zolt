@@ -4,6 +4,7 @@ import static sh.zolt.quality.QualityCheckService.MANIFEST_METADATA;
 import static sh.zolt.quality.QualityCheckService.PACKAGE_METADATA;
 
 import sh.zolt.build.packageevidence.PackageEvidenceManifestReader;
+import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.PackageSettings;
@@ -89,6 +90,14 @@ public final class PackageQualityCheck {
             Path lockfilePath,
             boolean requirePackage) {
         return contentQualityCheck.check(member, projectRoot, config, lockfilePath, requirePackage);
+    }
+
+    public List<QualityCheckResult> checkContents(
+            Optional<String> member,
+            ProjectConfig config,
+            PackagePlan plan,
+            boolean requirePackage) {
+        return contentQualityCheck.check(member, config, plan, requirePackage);
     }
 
     public QualityCheckResult checkManifestMetadata(

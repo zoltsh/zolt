@@ -1061,6 +1061,22 @@ cmd = ["zolt", "run", "--workspace", "--member", "tools", "--", "release-notes"]
 Workspace commands resolve one root lockfile and run selected members in
 dependency order.
 
+Workspace repositories may use the same structured credential references as a
+project repository. The root policy is inherited by every member, so private
+company repositories do not need to be repeated in each member:
+
+```toml
+[repositories]
+company = { url = "https://repo.example.com/maven", credentials = "company" }
+
+[repositoryCredentials.company]
+tokenEnv = "COMPANY_ARTIFACT_TOKEN"
+```
+
+Members may add repositories. A matching member string repository cannot remove
+authentication inherited from the workspace root, and conflicting credential
+references fail with an actionable configuration error.
+
 Workspace mediation is artifact-variant-aware: a plain JAR, classified JAR, and
 typed artifact of one GA mediate independently. Direct-preference and
 newest-wins are applied workspace-wide within each variant lane, and
@@ -1080,6 +1096,11 @@ member-qualified `bom-ref` contexts when a shared PURL has different outgoing
 graphs. If repositories serve
 different artifact or POM bytes for the same selected identity, workspace resolve
 fails instead of choosing whichever member happened to resolve first.
+Root-only workspaces (`members = ["."]`) use the same qualified lock contract:
+project fingerprints are retained while packages, exports, and optional facts
+are attributed to `"."`. Workspace `package-contents` quality also uses each
+member's actual package/runtime closure and supports BOM POM plans; it does not
+inspect unrelated sibling JARs from the aggregate lock.
 
 ## Tests and Coverage
 
