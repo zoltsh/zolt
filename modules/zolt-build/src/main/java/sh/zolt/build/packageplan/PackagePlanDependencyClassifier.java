@@ -1,6 +1,7 @@
 package sh.zolt.build.packageplan;
 
 import sh.zolt.classpath.NestedArtifactIdentity;
+import sh.zolt.build.packageauthority.ProvidedPackagingOverrides;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import sh.zolt.framework.FrameworkPackagePlanDependency;
@@ -9,7 +10,6 @@ import sh.zolt.lockfile.LockPackage;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import java.util.Optional;
-import java.util.Set;
 
 final class PackagePlanDependencyClassifier {
     private PackagePlanDependencyClassifier() {}
@@ -17,7 +17,7 @@ final class PackagePlanDependencyClassifier {
     static PackagePlanDependency dependency(
             PackageMode mode,
             LockPackage lockPackage,
-            Set<String> providedArtifactVariants,
+            ProvidedPackagingOverrides providedOverrides,
             Optional<FrameworkPackagePlanRules> packagePlanRules,
             ProjectConfig config) {
         NestedArtifactIdentity identity = NestedArtifactIdentity.of(lockPackage);
@@ -29,12 +29,12 @@ final class PackagePlanDependencyClassifier {
                     lockPackage,
                     identity,
                     nestedJar,
-                    providedArtifactVariants);
+                    providedOverrides);
             case SPRING_BOOT_WAR -> springBootWarDependency(
                     lockPackage,
                     identity,
                     nestedJar,
-                    providedArtifactVariants);
+                    providedOverrides);
             case QUARKUS -> packagePlanRules
                     .map(rules -> dependency(rules.dependency(lockPackage, config)))
                     .orElseGet(() -> unsupportedFrameworkDependency(mode, lockPackage));
@@ -130,11 +130,12 @@ final class PackagePlanDependencyClassifier {
             LockPackage lockPackage,
             NestedArtifactIdentity identity,
             String nestedJar,
-            Set<String> providedArtifactVariants) {
+            ProvidedPackagingOverrides providedOverrides) {
         if (isProvidedCoordinateOverride(
+                PackageMode.WAR,
                 lockPackage,
                 identity,
-                providedArtifactVariants)) {
+                providedOverrides)) {
             return providedCoordinateOverride(lockPackage, false);
         }
         boolean included = lockPackage.scope().packagedByDefault();
@@ -155,7 +156,7 @@ final class PackagePlanDependencyClassifier {
             LockPackage lockPackage,
             NestedArtifactIdentity identity,
             String nestedJar,
-            Set<String> providedArtifactVariants) {
+            ProvidedPackagingOverrides providedOverrides) {
         if (isExpandedSpringBootLoader(lockPackage)) {
             return new PackagePlanDependency(
                     coordinate(lockPackage),
@@ -179,9 +180,10 @@ final class PackagePlanDependencyClassifier {
                     lockPackage.policies());
         }
         if (isProvidedCoordinateOverride(
+                PackageMode.SPRING_BOOT_WAR,
                 lockPackage,
                 identity,
-                providedArtifactVariants)) {
+                providedOverrides)) {
             return providedCoordinateOverride(lockPackage, true);
         }
         boolean included = lockPackage.scope().packagedByDefault();
@@ -199,11 +201,12 @@ final class PackagePlanDependencyClassifier {
     }
 
     private static boolean isProvidedCoordinateOverride(
+            PackageMode mode,
             LockPackage lockPackage,
             NestedArtifactIdentity identity,
-            Set<String> providedArtifactVariants) {
+            ProvidedPackagingOverrides providedOverrides) {
         return lockPackage.scope() != DependencyScope.PROVIDED
-                && providedArtifactVariants.contains(identity.artifactVariantKey());
+                && providedOverrides.suppresses(identity, mode);
     }
 
     private static boolean isExpandedSpringBootLoader(
@@ -222,7 +225,7 @@ final class PackagePlanDependencyClassifier {
                 "omitted",
                 springBootWar ? "spring-boot-war-provided-coordinate-override" : "war-provided-coordinate-override",
                 "",
-                "same coordinate is declared in [provided.dependencies], so this runtime path is omitted from the deployable runtime lib directory",
+                "the exact artifact variant is directly declared in [provided.dependencies], so this runtime path is omitted from the deployable runtime lib directory",
                 lockPackage.policies());
     }
 

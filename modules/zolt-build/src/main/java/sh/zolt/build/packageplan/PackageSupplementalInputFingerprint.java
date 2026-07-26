@@ -1,6 +1,7 @@
 package sh.zolt.build.packageplan;
 
 import sh.zolt.build.PackageException;
+import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
@@ -136,6 +137,10 @@ final class PackageSupplementalInputFingerprint {
                 projectRoot,
                 "[build].testOutput",
                 build.testOutput());
+        hash.value(
+                "testCompileInputs",
+                new BuildFingerprintService()
+                        .storedTestInputsFingerprintSha256(testOutput));
         hash.value(
                 "testOutput",
                 PackageInputFingerprinting.applicationOutputFingerprint(testOutput));

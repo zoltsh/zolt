@@ -176,6 +176,9 @@ public final class PackageCommand implements Runnable {
                         "Use `zolt package --plan --format json`.");
             }
             if (workspace) {
+                PackageCommandModes.rejectWorkspaceModeOverride(
+                        "package",
+                        packageModeOverride);
                 runWorkspacePackage(projectRoot, timings, packageModeOverride, planOnly);
                 return;
             }

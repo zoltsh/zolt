@@ -1,6 +1,7 @@
 package sh.zolt.build.packaging;
 
 import static sh.zolt.build.packaging.PackageServiceTestSupport.config;
+import static sh.zolt.build.packaging.PackageServiceTestSupport.recordCurrentTestCompile;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.source;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.writeLockfile;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -129,6 +130,10 @@ final class PackageEvidenceFreshnessTest {
                         false,
                         true,
                         PublicationMetadata.empty()));
+        recordCurrentTestCompile(
+                projectDir,
+                config,
+                projectDir.resolve("cache"));
         PackageResult result = packageService.packageJar(
                 projectDir,
                 config,

@@ -20,6 +20,50 @@ final class ResolveServiceSpringBootLoaderVariantTest
         extends ResolveServiceTestSupport {
     @Test
     void classifiedLoaderDoesNotSuppressDefaultLoaderForEitherArchiveMode() {
+        addLoaderRepository();
+        for (PackageMode mode : List.of(
+                PackageMode.SPRING_BOOT,
+                PackageMode.SPRING_BOOT_WAR)) {
+            verifyClassifiedMode(mode);
+        }
+    }
+
+    @Test
+    void providedDefaultLoaderStillGetsAutoAddedRuntimeLoader() {
+        addLoaderRepository();
+        for (PackageMode mode : List.of(
+                PackageMode.SPRING_BOOT,
+                PackageMode.SPRING_BOOT_WAR)) {
+            Path projectDir = tempDir.resolve(
+                    mode.configValue() + "-provided");
+            createDirectory(projectDir);
+            ResolveResult result = resolveService.resolve(
+                    projectDir,
+                    providedConfig(mode),
+                    tempDir.resolve(
+                            mode.configValue() + "-provided-cache"));
+
+            ZoltLockfile lockfile =
+                    lockfileReader.read(result.lockfilePath());
+            assertEquals(2, result.resolvedCount());
+            assertTrue(lockfile.packages().stream()
+                    .anyMatch(lockPackage ->
+                            lockPackage.scope()
+                                    == DependencyScope.PROVIDED
+                                    && lockPackage.direct()
+                                    && LockArtifactVariant.of(lockPackage)
+                                            .isDefault()));
+            assertTrue(lockfile.packages().stream()
+                    .anyMatch(lockPackage ->
+                            lockPackage.scope()
+                                    == DependencyScope.RUNTIME
+                                    && !lockPackage.direct()
+                                    && LockArtifactVariant.of(lockPackage)
+                                            .isDefault()));
+        }
+    }
+
+    private void addLoaderRepository() {
         addPom("com.example", "platform", "1.0.0", """
                 <project>
                   <groupId>com.example</groupId>
@@ -53,15 +97,9 @@ final class ResolveServiceSpringBootLoaderVariantTest
                 "4.0.6",
                 "tests",
                 Map.of("fixtures/LoaderTests.class", "tests"));
-
-        for (PackageMode mode : List.of(
-                PackageMode.SPRING_BOOT,
-                PackageMode.SPRING_BOOT_WAR)) {
-            verifyMode(mode);
-        }
     }
 
-    private void verifyMode(PackageMode mode) {
+    private void verifyClassifiedMode(PackageMode mode) {
         Path projectDir = tempDir.resolve(mode.configValue());
         createDirectory(projectDir);
         ResolveResult result = resolveService.resolve(
@@ -117,6 +155,28 @@ final class ResolveServiceSpringBootLoaderVariantTest
 
                 [runtime.dependencies]
                 "org.springframework.boot:spring-boot-loader" = { version = "4.0.6", classifier = "tests" }
+
+                [package]
+                mode = "%s"
+                """.formatted(baseUri, mode.configValue()));
+    }
+
+    private ProjectConfig providedConfig(PackageMode mode) {
+        return new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [repositories]
+                test = "%s"
+
+                [platforms]
+                "com.example:platform" = "1.0.0"
+
+                [provided.dependencies]
+                "org.springframework.boot:spring-boot-loader" = "4.0.6"
 
                 [package]
                 mode = "%s"

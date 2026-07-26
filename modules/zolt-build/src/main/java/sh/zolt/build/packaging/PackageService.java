@@ -31,6 +31,7 @@ public final class PackageService {
     private final PackageEvidenceManifestWriter evidenceManifestWriter;
     private final PackagePrimaryArtifactAssembler primaryArtifactAssembler;
     private final PackageSupplementalArtifactAssembler supplementalArtifactAssembler;
+    private final PackageTestCompileGate testCompileGate;
 
     public PackageService() {
         this(FrameworkPackageAugmenter.none());
@@ -126,6 +127,7 @@ public final class PackageService {
                 classpathBuilder,
                 frameworkPackageAugmenter);
         this.supplementalArtifactAssembler = new PackageSupplementalArtifactAssembler(classpathBuilder);
+        this.testCompileGate = new PackageTestCompileGate(lockfileReader, classpathBuilder);
     }
 
     public PackageResult packageJar(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
@@ -297,6 +299,8 @@ public final class PackageService {
             Optional<List<ResolvedClasspathPackage>> classpathPackages,
             Optional<ClasspathSet> classpaths,
             Optional<PackagePlan> suppliedPlan) {
+        testCompileGate.requireCurrent(
+                projectDirectory, config, buildResult, cacheRoot, classpathPackages, classpaths);
         PackageResult result = primaryArtifactAssembler.assemble(
                 projectDirectory,
                 config,

@@ -79,7 +79,10 @@ final class PackageArchiveModePackager {
                 .orElseGet(() -> runtimeJarSelector.packagedClasspathPackages(
                         lockfileReader.read(projectDirectory.resolve("zolt.lock")),
                         cacheRoot));
-        List<PackageRuntimeJar> runtimeJars = runtimeJarSelector.runtimeJarsWithoutProvidedDuplicates(resolvedPackages);
+        List<PackageRuntimeJar> runtimeJars =
+                runtimeJarSelector.runtimeJarsWithoutProvidedDuplicates(
+                        resolvedPackages,
+                        PackageMode.WAR);
         PackageRuntimeJarMaterializer.Result inputs =
                 runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
         return warLayoutAssembler
@@ -118,7 +121,10 @@ final class PackageArchiveModePackager {
                         lockfileReader.read(projectDirectory.resolve("zolt.lock")),
                         cacheRoot));
         List<PackageRuntimeJar> providedJars = runtimeJarSelector.providedJars(resolvedPackages);
-        List<PackageRuntimeJar> runtimeJars = runtimeJarSelector.runtimeJarsWithoutProvidedDuplicates(resolvedPackages);
+        List<PackageRuntimeJar> runtimeJars =
+                runtimeJarSelector.runtimeJarsWithoutProvidedDuplicates(
+                        resolvedPackages,
+                        PackageMode.SPRING_BOOT_WAR);
         PackageRuntimeJarMaterializer.Result runtimeInputs =
                 runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
         PackageRuntimeJarMaterializer.Result providedInputs =

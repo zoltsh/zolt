@@ -3,6 +3,7 @@ package sh.zolt.build.packaging;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.buildSettingsWithMetadata;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.config;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.readEntry;
+import static sh.zolt.build.packaging.PackageServiceTestSupport.recordCurrentTestCompile;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.source;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.writeLockfile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -79,6 +80,10 @@ final class PackageServiceAuxiliaryArtifactsTest {
         ProjectConfig config = config(Optional.empty())
                 .withBuildSettings(build)
                 .withPackageSettings(new PackageSettings(PackageMode.THIN, true, true, true, null));
+        recordCurrentTestCompile(
+                projectDir,
+                config,
+                projectDir.resolve("cache"));
 
         PackageResult result = packageService.packageJar(projectDir, config, projectDir.resolve("cache"));
 
@@ -160,6 +165,10 @@ final class PackageServiceAuxiliaryArtifactsTest {
         ProjectConfig config = config(Optional.empty())
                 .withBuildSettings(build)
                 .withPackageSettings(new PackageSettings(PackageMode.THIN, true, true, true, null));
+        recordCurrentTestCompile(
+                projectDir,
+                config,
+                projectDir.resolve("cache"));
 
         PackageResult result = packageService.packageJar(projectDir, config, projectDir.resolve("cache"));
 

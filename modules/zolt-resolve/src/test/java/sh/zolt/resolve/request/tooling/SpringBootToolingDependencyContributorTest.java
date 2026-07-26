@@ -81,6 +81,35 @@ final class SpringBootToolingDependencyContributorTest {
     }
 
     @Test
+    void providedDefaultLoaderDoesNotSuppressRuntimePackageTooling() {
+        List<DependencyRequest> requests = new ArrayList<>();
+        requests.add(new DependencyRequest(
+                SPRING_BOOT_LOADER,
+                "4.0.6",
+                DependencyScope.PROVIDED,
+                RequestOrigin.DIRECT));
+
+        contributor.contribute(
+                baseConfig().withPackageSettings(
+                        new PackageSettings(
+                                PackageMode.SPRING_BOOT_WAR)),
+                Map.of(SPRING_BOOT_LOADER, "4.0.6"),
+                requests);
+
+        assertTrue(requests.stream().anyMatch(request ->
+                request.packageId().equals(SPRING_BOOT_LOADER)
+                        && request.scope()
+                                == DependencyScope.PROVIDED
+                        && request.origin() == RequestOrigin.DIRECT));
+        assertTrue(requests.stream().anyMatch(request ->
+                request.packageId().equals(SPRING_BOOT_LOADER)
+                        && request.scope()
+                                == DependencyScope.RUNTIME
+                        && request.origin()
+                                == RequestOrigin.TRANSITIVE));
+    }
+
+    @Test
     void reportsMissingSpringBootLoaderManagedVersionClearly() {
         ResolveException exception = assertThrows(
                 ResolveException.class,

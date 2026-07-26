@@ -127,6 +127,9 @@ final class BuildFingerprintServiceTest {
                 output,
                 projectDir.resolve("target/generated/test-sources/annotations"));
 
+        assertTrue(
+                service.storedTestInputsFingerprintSha256(output)
+                        .startsWith("sha256:"));
         assertTrue(service.isTestCompileCurrent(
                 projectDir,
                 config,

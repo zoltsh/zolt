@@ -1,15 +1,16 @@
 package sh.zolt.build.packaging;
 
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
+import sh.zolt.build.packageauthority.ProvidedPackagingOverrides;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.project.PackageMode;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public final class PackageRuntimeJarSelector {
     public List<PackageRuntimeJar> runtimeJars(ZoltLockfile lockfile, Path cacheRoot) {
@@ -26,11 +27,16 @@ public final class PackageRuntimeJarSelector {
         return List.copyOf(runtimeJars.values());
     }
 
-    public List<PackageRuntimeJar> runtimeJarsWithoutProvidedDuplicates(List<ResolvedClasspathPackage> classpathPackages) {
-        Set<String> providedArtifactVariants = providedArtifactVariants(classpathPackages);
+    public List<PackageRuntimeJar> runtimeJarsWithoutProvidedDuplicates(
+            List<ResolvedClasspathPackage> classpathPackages,
+            PackageMode mode) {
+        ProvidedPackagingOverrides providedOverrides =
+                ProvidedPackagingOverrides.fromClasspathPackages(
+                        classpathPackages);
         return runtimeJars(classpathPackages).stream()
-                .filter(runtimeJar -> !providedArtifactVariants.contains(
-                        runtimeJar.artifactIdentity().artifactVariantKey()))
+                .filter(runtimeJar -> !providedOverrides.suppresses(
+                        runtimeJar.artifactIdentity(),
+                        mode))
                 .toList();
     }
 
@@ -56,16 +62,6 @@ public final class PackageRuntimeJarSelector {
         return classpathPackages.stream()
                 .filter(dependency -> dependency.scope().packagedByDefault())
                 .toList();
-    }
-
-    private static Set<String> providedArtifactVariants(
-            List<ResolvedClasspathPackage> classpathPackages) {
-        return classpathPackages.stream()
-                .filter(dependency -> dependency.scope() == DependencyScope.PROVIDED)
-                .map(dependency -> dependency.resolvedPackage()
-                        .artifactIdentity()
-                        .artifactVariantKey())
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     private static PackageRuntimeJar runtimeJar(ResolvedClasspathPackage dependency) {

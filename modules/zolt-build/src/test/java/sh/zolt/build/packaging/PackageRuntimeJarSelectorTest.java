@@ -10,6 +10,7 @@ import sh.zolt.classpath.NestedArtifactIdentity.SourceKind;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.project.PackageMode;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -41,10 +42,13 @@ final class PackageRuntimeJarSelectorTest {
         Path runtimeJar = Path.of("cache/com/example/shared/1.0.0/shared-1.0.0.jar");
         Path providedJar = Path.of("cache/com/example/shared/1.0.0/shared-provided-1.0.0.jar");
 
-        List<PackageRuntimeJar> result = selector.runtimeJarsWithoutProvidedDuplicates(List.of(
-                dependency("com.example", "shared", "1.0.0", DependencyScope.RUNTIME, runtimeJar),
-                dependency("com.example", "shared", "1.0.0", DependencyScope.PROVIDED, providedJar),
-                dependency("com.example", "runtime-only", "1.0.0", DependencyScope.RUNTIME, Path.of("runtime.jar"))));
+        List<PackageRuntimeJar> result =
+                selector.runtimeJarsWithoutProvidedDuplicates(
+                        List.of(
+                                dependency("com.example", "shared", "1.0.0", DependencyScope.RUNTIME, runtimeJar),
+                                dependency("com.example", "shared", "1.0.0", DependencyScope.PROVIDED, providedJar),
+                                dependency("com.example", "runtime-only", "1.0.0", DependencyScope.RUNTIME, Path.of("runtime.jar"))),
+                        PackageMode.WAR);
 
         assertEquals(List.of(
                         new PackageRuntimeJar(new PackageId("com.example", "runtime-only"), "1.0.0", Path.of("runtime.jar"))),
@@ -86,24 +90,27 @@ final class PackageRuntimeJarSelectorTest {
         assertEquals(
                 List.of(runtimeJar(linuxRuntime)),
                 selector.runtimeJarsWithoutProvidedDuplicates(
-                        List.of(plainProvided, linuxRuntime)));
+                        List.of(plainProvided, linuxRuntime),
+                        PackageMode.WAR));
         assertEquals(
                 List.of(runtimeJar(plainProvided)),
-                selector.runtimeJarsWithoutProvidedDuplicates(List.of(
-                        dependency(
-                                "com.example",
-                                "native",
-                                "1.0.0",
-                                DependencyScope.RUNTIME,
-                                Path.of("native-1.0.0.jar"),
-                                Optional.empty()),
-                        dependency(
-                                "com.example",
-                                "native",
-                                "1.0.0",
-                                DependencyScope.PROVIDED,
-                                Path.of("native-1.0.0-linux.jar"),
-                                Optional.of("linux")))));
+                selector.runtimeJarsWithoutProvidedDuplicates(
+                        List.of(
+                                dependency(
+                                        "com.example",
+                                        "native",
+                                        "1.0.0",
+                                        DependencyScope.RUNTIME,
+                                        Path.of("native-1.0.0.jar"),
+                                        Optional.empty()),
+                                dependency(
+                                        "com.example",
+                                        "native",
+                                        "1.0.0",
+                                        DependencyScope.PROVIDED,
+                                        Path.of("native-1.0.0-linux.jar"),
+                                        Optional.of("linux"))),
+                        PackageMode.WAR));
     }
 
     @Test
@@ -136,10 +143,72 @@ final class PackageRuntimeJarSelectorTest {
         assertEquals(
                 List.of(runtimeJar(macRuntime)),
                 selector.runtimeJarsWithoutProvidedDuplicates(
-                        List.of(linuxProvided, linuxRuntime, macRuntime)));
+                        List.of(linuxProvided, linuxRuntime, macRuntime),
+                        PackageMode.WAR));
         assertNotEquals(
                 runtimeJar(linuxRuntime).artifactIdentity().nestedJarName(),
                 runtimeJar(macRuntime).artifactIdentity().nestedJarName());
+    }
+
+    @Test
+    void transitiveProvidedReachabilityNeverSuppressesRequiredRuntimeRegardlessOfOrder() {
+        ResolvedClasspathPackage provided = dependency(
+                "com.example",
+                "shared",
+                "1.0.0",
+                DependencyScope.PROVIDED,
+                Path.of("provided/shared.jar"),
+                Optional.empty(),
+                false);
+        ResolvedClasspathPackage runtime = dependency(
+                "com.example",
+                "shared",
+                "1.0.0",
+                DependencyScope.RUNTIME,
+                Path.of("runtime/shared.jar"),
+                Optional.empty(),
+                false);
+
+        for (List<ResolvedClasspathPackage> packages : List.of(
+                List.of(provided, runtime),
+                List.of(runtime, provided))) {
+            assertEquals(
+                    List.of(runtimeJar(runtime)),
+                    selector.runtimeJarsWithoutProvidedDuplicates(
+                            packages,
+                            PackageMode.WAR));
+        }
+    }
+
+    @Test
+    void directProvidedDefaultLoaderCannotSuppressSpringBootWarTooling() {
+        ResolvedClasspathPackage provided = dependency(
+                "org.springframework.boot",
+                "spring-boot-loader",
+                "4.0.6",
+                DependencyScope.PROVIDED,
+                Path.of("provided/spring-boot-loader.jar"),
+                Optional.empty(),
+                true);
+        ResolvedClasspathPackage runtime = dependency(
+                "org.springframework.boot",
+                "spring-boot-loader",
+                "4.0.6",
+                DependencyScope.RUNTIME,
+                Path.of("runtime/spring-boot-loader.jar"),
+                Optional.empty(),
+                false);
+
+        assertEquals(
+                List.of(runtimeJar(runtime)),
+                selector.runtimeJarsWithoutProvidedDuplicates(
+                        List.of(provided, runtime),
+                        PackageMode.SPRING_BOOT_WAR));
+        assertEquals(
+                List.of(),
+                selector.runtimeJarsWithoutProvidedDuplicates(
+                        List.of(provided, runtime),
+                        PackageMode.WAR));
     }
 
     private static ResolvedClasspathPackage dependency(
@@ -152,7 +221,7 @@ final class PackageRuntimeJarSelectorTest {
                 new ResolvedPackage(
                         new PackageId(group, artifact),
                         version,
-                        false,
+                        scope == DependencyScope.PROVIDED,
                         Path.of("pom.xml"),
                         jar),
                 scope);
@@ -165,12 +234,30 @@ final class PackageRuntimeJarSelectorTest {
             DependencyScope scope,
             Path jar,
             Optional<String> classifier) {
+        return dependency(
+                group,
+                artifact,
+                version,
+                scope,
+                jar,
+                classifier,
+                scope == DependencyScope.PROVIDED);
+    }
+
+    private static ResolvedClasspathPackage dependency(
+            String group,
+            String artifact,
+            String version,
+            DependencyScope scope,
+            Path jar,
+            Optional<String> classifier,
+            boolean direct) {
         PackageId packageId = new PackageId(group, artifact);
         return new ResolvedClasspathPackage(
                 new ResolvedPackage(
                         packageId,
                         version,
-                        false,
+                        direct,
                         Path.of("pom.xml"),
                         jar,
                         NestedArtifactIdentity.of(

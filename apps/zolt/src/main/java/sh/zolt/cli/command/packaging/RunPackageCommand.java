@@ -119,6 +119,9 @@ public final class RunPackageCommand implements Runnable {
         try {
             Optional<PackageMode> packageModeOverride = PackageCommandModes.packageModeOverride(mode);
             if (workspace) {
+                PackageCommandModes.rejectWorkspaceModeOverride(
+                        "run-package",
+                        packageModeOverride);
                 runWorkspacePackages(projectRoot, timings, packageModeOverride);
                 return;
             }

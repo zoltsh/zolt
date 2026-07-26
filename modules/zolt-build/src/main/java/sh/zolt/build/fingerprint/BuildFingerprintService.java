@@ -196,10 +196,36 @@ public final class BuildFingerprintService {
      * compile.
      */
     public String storedMainInputsFingerprintSha256(Path outputDirectory) {
+        return storedInputsFingerprintSha256(
+                outputDirectory,
+                MAIN_FILE_NAME,
+                "main",
+                "zolt build");
+    }
+
+    /**
+     * Reads the canonical inputs-only fingerprint that produced the current test output.
+     *
+     * <p>Tests-JAR packaging uses this compiler-owned identity together with the live canonical test
+     * check so stale test bytecode can never be blessed by fresh package evidence.
+     */
+    public String storedTestInputsFingerprintSha256(Path outputDirectory) {
+        return storedInputsFingerprintSha256(
+                outputDirectory,
+                TEST_FILE_NAME,
+                "test",
+                "zolt test");
+    }
+
+    private static String storedInputsFingerprintSha256(
+            Path outputDirectory,
+            String fileName,
+            String scope,
+            String refreshCommand) {
         Path fingerprintPath = outputDirectory
                 .toAbsolutePath()
                 .normalize()
-                .resolve(MAIN_FILE_NAME);
+                .resolve(fileName);
         if (!Files.isRegularFile(fingerprintPath)) {
             return "missing";
         }
@@ -209,9 +235,13 @@ public final class BuildFingerprintService {
                             Files.readString(fingerprintPath));
         } catch (IOException exception) {
             throw new BuildException(
-                    "Could not read the canonical main build input fingerprint at "
+                    "Could not read the canonical "
+                            + scope
+                            + " build input fingerprint at "
                             + fingerprintPath
-                            + ". Run `zolt build` to refresh it.",
+                            + ". Run `"
+                            + refreshCommand
+                            + "` to refresh it.",
                     exception);
         }
     }

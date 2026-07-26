@@ -3,6 +3,7 @@ package sh.zolt.build.packageplan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import sh.zolt.build.packageauthority.ProvidedPackagingOverrides;
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
@@ -14,7 +15,6 @@ import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class PackagePlanDependencyClassifierTest {
@@ -30,7 +30,7 @@ final class PackagePlanDependencyClassifierTest {
         PackagePlanDependency dependency = PackagePlanDependencyClassifier.dependency(
                 PackageMode.SPRING_BOOT_WAR,
                 provided,
-                Set.of(),
+                overrides(),
                 Optional.empty(),
                 null);
 
@@ -68,14 +68,14 @@ final class PackagePlanDependencyClassifierTest {
                     PackagePlanDependencyClassifier.dependency(
                             mode,
                             defaultLoader,
-                            Set.of(),
+                            overrides(),
                             Optional.empty(),
                             null);
             PackagePlanDependency nested =
                     PackagePlanDependencyClassifier.dependency(
                             mode,
                             testsLoader,
-                            Set.of(),
+                            overrides(),
                             Optional.empty(),
                             null);
 
@@ -95,6 +95,13 @@ final class PackagePlanDependencyClassifierTest {
     @Test
     void warOmitsRuntimeCoordinateWhenSameCoordinateIsDirectProvidedDependency() {
         PackageId shared = new PackageId("org.apache.tomcat.embed", "tomcat-embed-core");
+        LockPackage provided = lockPackage(
+                shared.groupId(),
+                shared.artifactId(),
+                "10.1.40",
+                DependencyScope.PROVIDED,
+                true,
+                "org/apache/tomcat/embed/tomcat-embed-core/10.1.40/tomcat-embed-core-10.1.40.jar");
 
         PackagePlanDependency dependency = PackagePlanDependencyClassifier.dependency(
                 PackageMode.WAR,
@@ -105,10 +112,7 @@ final class PackagePlanDependencyClassifierTest {
                         DependencyScope.RUNTIME,
                         false,
                         "org/apache/tomcat/embed/tomcat-embed-core/10.1.40/tomcat-embed-core-10.1.40.jar"),
-                Set.of(NestedArtifactIdentity.external(
-                                shared,
-                                "10.1.40")
-                        .artifactVariantKey()),
+                overrides(provided),
                 Optional.empty(),
                 null);
 
@@ -116,6 +120,68 @@ final class PackagePlanDependencyClassifierTest {
         assertEquals("omitted", dependency.disposition());
         assertEquals("war-provided-coordinate-override", dependency.ruleName());
         assertEquals("", dependency.location());
+    }
+
+    @Test
+    void transitiveProvidedReachabilityDoesNotOverrideRuntimePackaging() {
+        LockPackage provided = lockPackage(
+                "com.example",
+                "shared-util",
+                "1.0.0",
+                DependencyScope.PROVIDED,
+                false,
+                "com/example/shared-util/1.0.0/shared-util-1.0.0.jar");
+        LockPackage runtime = lockPackage(
+                "com.example",
+                "shared-util",
+                "1.0.0",
+                DependencyScope.RUNTIME,
+                false,
+                "com/example/shared-util/1.0.0/shared-util-1.0.0.jar");
+
+        for (PackageMode mode : List.of(
+                PackageMode.WAR,
+                PackageMode.SPRING_BOOT_WAR)) {
+            PackagePlanDependency dependency =
+                    PackagePlanDependencyClassifier.dependency(
+                            mode,
+                            runtime,
+                            overrides(provided),
+                            Optional.empty(),
+                            null);
+
+            assertEquals("included", dependency.disposition());
+            assertEquals(nestedLocation(runtime), dependency.location());
+        }
+    }
+
+    @Test
+    void directProvidedDefaultLoaderDoesNotOverrideSpringBootWarTooling() {
+        LockPackage provided = lockPackage(
+                "org.springframework.boot",
+                "spring-boot-loader",
+                "4.0.6",
+                DependencyScope.PROVIDED,
+                true,
+                "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6.jar");
+        LockPackage runtime = lockPackage(
+                "org.springframework.boot",
+                "spring-boot-loader",
+                "4.0.6",
+                DependencyScope.RUNTIME,
+                false,
+                "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6.jar");
+
+        PackagePlanDependency dependency =
+                PackagePlanDependencyClassifier.dependency(
+                        PackageMode.SPRING_BOOT_WAR,
+                        runtime,
+                        overrides(provided),
+                        Optional.empty(),
+                        null);
+
+        assertEquals("loader", dependency.disposition());
+        assertEquals("archive root", dependency.location());
     }
 
     @Test
@@ -140,8 +206,7 @@ final class PackagePlanDependencyClassifierTest {
                     PackagePlanDependencyClassifier.dependency(
                             mode,
                             classifiedRuntime,
-                            Set.of(NestedArtifactIdentity.of(plainProvided)
-                                    .artifactVariantKey()),
+                            overrides(plainProvided),
                             Optional.empty(),
                             null);
 
@@ -174,8 +239,7 @@ final class PackagePlanDependencyClassifierTest {
                     PackagePlanDependencyClassifier.dependency(
                             mode,
                             plainRuntime,
-                            Set.of(NestedArtifactIdentity.of(classifiedProvided)
-                                    .artifactVariantKey()),
+                            overrides(classifiedProvided),
                             Optional.empty(),
                             null);
 
@@ -202,6 +266,13 @@ final class PackagePlanDependencyClassifierTest {
                 DependencyScope.RUNTIME,
                 false,
                 "com/example/native/1.0.0/native-1.0.0-macos.jar");
+        LockPackage linuxProvided = lockPackage(
+                "com.example",
+                "native",
+                "1.0.0",
+                DependencyScope.PROVIDED,
+                true,
+                "com/example/native/1.0.0/native-1.0.0-linux.jar");
         assertNotEquals(
                 NestedArtifactIdentity.of(linux).nestedJarName(),
                 NestedArtifactIdentity.of(macos).nestedJarName());
@@ -211,16 +282,14 @@ final class PackagePlanDependencyClassifierTest {
                     PackagePlanDependencyClassifier.dependency(
                             mode,
                             linux,
-                            Set.of(NestedArtifactIdentity.of(linux)
-                                    .artifactVariantKey()),
+                            overrides(linuxProvided),
                             Optional.empty(),
                             null);
             PackagePlanDependency other =
                     PackagePlanDependencyClassifier.dependency(
                             mode,
                             macos,
-                            Set.of(NestedArtifactIdentity.of(linux)
-                                    .artifactVariantKey()),
+                            overrides(linuxProvided),
                             Optional.empty(),
                             null);
 
@@ -271,7 +340,7 @@ final class PackagePlanDependencyClassifierTest {
                         DependencyScope.RUNTIME,
                         true,
                         "io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar"),
-                Set.of(),
+                overrides(),
                 Optional.of(rules),
                 null);
 
@@ -304,5 +373,11 @@ final class PackagePlanDependencyClassifierTest {
     private static String nestedLocation(LockPackage lockPackage) {
         return "WEB-INF/lib/"
                 + NestedArtifactIdentity.of(lockPackage).nestedJarName();
+    }
+
+    private static ProvidedPackagingOverrides overrides(
+            LockPackage... packages) {
+        return ProvidedPackagingOverrides.fromLockPackages(
+                List.of(packages));
     }
 }

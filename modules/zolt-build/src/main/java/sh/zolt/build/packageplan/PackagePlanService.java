@@ -5,6 +5,7 @@ import sh.zolt.build.BuildException;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
+import sh.zolt.build.packageauthority.ProvidedPackagingOverrides;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.framework.FrameworkPackagePlanRules;
 import sh.zolt.lockfile.LockPackage;
@@ -13,14 +14,11 @@ import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPaths;
-import sh.zolt.dependency.DependencyScope;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 public final class PackagePlanService {
     private final ZoltLockfileReader lockfileReader;
@@ -106,8 +104,8 @@ public final class PackagePlanService {
             Path cacheRoot) {
         Path projectRoot = projectRoot(projectDirectory);
         PackageMode mode = config.packageSettings().mode();
-        Set<String> providedArtifactVariants =
-                providedArtifactVariants(lockfile);
+        ProvidedPackagingOverrides providedOverrides =
+                ProvidedPackagingOverrides.fromLockfile(lockfile);
         Optional<FrameworkPackagePlanRules> modeRules = packagePlanRules(mode);
         List<PackagePlanDependency> dependencies = PackagePlanNestedDependencies
                 .canonicalize(mode == PackageMode.BOM
@@ -118,7 +116,7 @@ public final class PackagePlanService {
                         .map(lockPackage -> PackagePlanDependencyClassifier.dependency(
                                 mode,
                                 lockPackage,
-                                providedArtifactVariants,
+                                providedOverrides,
                                 modeRules,
                                 config))
                         .toList());
@@ -256,17 +254,6 @@ public final class PackagePlanService {
         return packagePlanRules.stream()
                 .filter(rules -> rules.supports(mode))
                 .findFirst();
-    }
-
-    private static Set<String> providedArtifactVariants(ZoltLockfile lockfile) {
-        Set<String> variants = new LinkedHashSet<>();
-        for (LockPackage lockPackage : lockfile.packages()) {
-            if (lockPackage.scope() == DependencyScope.PROVIDED) {
-                variants.add(
-                        NestedArtifactIdentity.of(lockPackage).artifactVariantKey());
-            }
-        }
-        return Set.copyOf(variants);
     }
 
     private static Path archivePath(

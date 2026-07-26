@@ -31,6 +31,19 @@ final class PackageCommandModes {
                 .orElse(config);
     }
 
+    static void rejectWorkspaceModeOverride(
+            String command,
+            Optional<PackageMode> packageModeOverride) {
+        if (packageModeOverride.isEmpty()) {
+            return;
+        }
+        throw PackageException.actionable(
+                "`zolt "
+                        + command
+                        + " --workspace --mode` is not supported because the override would be applied after workspace dependency resolution and build planning.",
+                "Set [package].mode on the selected workspace members, run `zolt resolve --workspace`, then retry without `--mode`.");
+    }
+
     static PlanOutputFormat planOutputFormat(String value) {
         String normalized = value == null || value.isBlank() ? "text" : value.trim().toLowerCase();
         return switch (normalized) {

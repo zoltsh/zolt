@@ -1,5 +1,11 @@
 package sh.zolt.build.packaging;
 
+import sh.zolt.build.BuildResultWithClasspaths;
+import sh.zolt.build.BuildService;
+import sh.zolt.build.discovery.SourceDiscoverer;
+import sh.zolt.build.discovery.SourceDiscoveryResult;
+import sh.zolt.build.fingerprint.BuildFingerprintService;
+import sh.zolt.classpath.Classpath;
 import sh.zolt.project.BuildMetadataSettings;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
@@ -70,6 +76,36 @@ public final class PackageServiceTestSupport {
 
     public static void writeLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+    }
+
+    public static void recordCurrentTestCompile(
+            Path projectDir,
+            ProjectConfig config,
+            Path cacheRoot) {
+        BuildResultWithClasspaths build =
+                new BuildService().buildWithClasspaths(
+                        projectDir,
+                        config,
+                        cacheRoot,
+                        false);
+        SourceDiscoveryResult sources = new SourceDiscoverer()
+                .discover(projectDir, config.build());
+        List<Path> testCompileEntries = new java.util.ArrayList<>();
+        testCompileEntries.add(
+                build.buildResult().outputDirectory());
+        testCompileEntries.addAll(
+                build.classpaths().testCompile().entries());
+        new BuildFingerprintService().writeTestCompileFingerprint(
+                projectDir,
+                config,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                new Classpath(testCompileEntries),
+                build.classpaths().testProcessor(),
+                projectDir.resolve(config.build().testOutput()),
+                projectDir.resolve(
+                        config.compilerSettings()
+                                .generatedTestSources()));
     }
 
     public static void createJarWithEntry(Path jarPath, String entryName) throws IOException {

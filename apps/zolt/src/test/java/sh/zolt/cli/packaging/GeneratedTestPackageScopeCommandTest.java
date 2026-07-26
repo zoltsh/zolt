@@ -4,7 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
+import sh.zolt.build.BuildResultWithClasspaths;
+import sh.zolt.build.BuildService;
+import sh.zolt.build.testruntime.compile.TestCompileService;
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,11 +100,8 @@ final class GeneratedTestPackageScopeCommandTest {
         Path project = project(
                 "tests-test-change",
                 declaredTestGenerator(true, "fixtures-v1.sql"));
-        Path testClass = project.resolve(
-                "target/test-classes/com/example/DemoTest.class");
-        Files.createDirectories(testClass.getParent());
-        Files.write(testClass, new byte[] {1, 2, 3});
         Path cache = tempDir.resolve("tests-test-change-cache");
+        compileTests(project, cache);
         assertSuccess(run(project, cache, "package"));
 
         writeConfig(
@@ -178,6 +180,15 @@ final class GeneratedTestPackageScopeCommandTest {
                 public final class Main {
                     private Main() {
                     }
+                }
+                """);
+        Path testSource = project.resolve(
+                "src/test/java/com/example/DemoTest.java");
+        Files.createDirectories(testSource.getParent());
+        Files.writeString(testSource, """
+                package com.example;
+
+                final class DemoTest {
                 }
                 """);
         Files.writeString(project.resolve("fixtures.sql"), "seed\n");
@@ -279,6 +290,24 @@ final class GeneratedTestPackageScopeCommandTest {
                 workspace.toString(),
                 "--cache-root",
                 cache.toString());
+    }
+
+    private static void compileTests(
+            Path project,
+            Path cache) {
+        ProjectConfig config = new ZoltTomlParser().parse(
+                project.resolve("zolt.toml"));
+        BuildResultWithClasspaths build =
+                new BuildService().buildWithClasspaths(
+                        project,
+                        config,
+                        cache,
+                        false);
+        new TestCompileService().compileTests(
+                project,
+                config,
+                build.classpaths(),
+                build.buildResult());
     }
 
     private static void assertSuccess(CommandResult result) {
