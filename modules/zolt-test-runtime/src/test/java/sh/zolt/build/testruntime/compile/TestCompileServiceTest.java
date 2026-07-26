@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.AnnotationProcessorFixture;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -106,5 +108,61 @@ final class TestCompileServiceTest {
                 "target/generated/test-sources/annotations/com/example/GeneratedMessage.java")));
         assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/MainTest.class")));
         assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/GeneratedMessage.class")));
+    }
+
+    @Test
+    void persistsGeneratedProducerIdentityInCanonicalTestFingerprint()
+            throws IOException {
+        TestCompileServiceTestSupport.writeLockfile(
+                projectDir,
+                "version = 1\n");
+        TestCompileServiceTestSupport.source(
+                projectDir,
+                "src/test/java/com/example/MainTest.java",
+                "package com.example; public final class MainTest {}\n");
+        TestCompileServiceTestSupport.source(
+                projectDir,
+                "fixtures.sql",
+                "seed\n");
+        String toml = """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "%s"
+
+                [generated.test.fixtures]
+                kind = "declared-root"
+                language = "java"
+                inputs = ["fixtures.sql"]
+                output = "target/generated/test-fixtures"
+                required = false
+                """.formatted(
+                System.getProperty(
+                        "java.specification.version"));
+        Files.writeString(
+                projectDir.resolve("zolt.toml"),
+                toml);
+        ProjectConfig config =
+                new ZoltTomlParser().parse(toml);
+
+        testCompileService.compileTests(
+                projectDir,
+                config,
+                projectDir.resolve("cache"));
+        TestCompileResult second =
+                testCompileService.compileTests(
+                        projectDir,
+                        config,
+                        projectDir.resolve("cache"));
+        String fingerprint = Files.readString(
+                projectDir.resolve(
+                        "target/test-classes/.zolt-build-test.fingerprint"));
+
+        assertTrue(fingerprint.contains(
+                "[generatedProducerFingerprints]\n"));
+        assertTrue(fingerprint.contains(
+                "test|fixtures|declared-root|"));
+        assertTrue(second.testCompilationSkipped());
     }
 }

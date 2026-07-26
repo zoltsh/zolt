@@ -125,6 +125,7 @@ final class BuildFingerprintContentTest {
                 "[resources].main",
                 sources,
                 config.build().generatedMainSources(),
+                List.of(),
                 new Classpath(List.of()),
                 new Classpath(List.of()),
                 projectDir.resolve("target/classes"),

@@ -15,6 +15,7 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,14 @@ final class PackageSpringBootWarCommandTest {
         Path projectDir = tempDir.resolve("spring-boot-war-provided-tomcat");
         Path cacheRoot = tempDir.resolve("cache");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
+        Files.writeString(
+                projectDir.resolve("zolt.toml"),
+                """
+
+                [provided.dependencies]
+                "org.apache.tomcat.embed:tomcat-embed-core" = "10.1.40"
+                """,
+                StandardOpenOption.APPEND);
         writeMainSource(projectDir, """
                 package com.example;
 

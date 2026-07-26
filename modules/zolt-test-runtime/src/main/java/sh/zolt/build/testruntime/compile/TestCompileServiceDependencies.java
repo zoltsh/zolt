@@ -8,6 +8,7 @@ import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.build.resources.ResourceCopier;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.generatedsource.ExecGeneratedSourceService;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.build.generatedsource.OpenApiGeneratedSourceService;
 import sh.zolt.build.incremental.IncrementalCompilePlanner;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
@@ -24,6 +25,8 @@ final class TestCompileServiceDependencies {
     private final OpenApiGeneratedSourceService openApiGeneratedSourceService;
     private final ProtobufGeneratedSourceService protobufGeneratedSourceService;
     private final ExecGeneratedSourceService execGeneratedSourceService;
+    private final GeneratedSourceProducerFingerprintService
+            producerFingerprintService;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final TestCompileSourceExecutor sourceExecutor;
     private final BuildCacheService buildCacheService;
@@ -41,6 +44,8 @@ final class TestCompileServiceDependencies {
         this.openApiGeneratedSourceService = generatedSourceDependencies.openApiGeneratedSourceService();
         this.protobufGeneratedSourceService = generatedSourceDependencies.protobufGeneratedSourceService();
         this.execGeneratedSourceService = generatedSourceDependencies.execGeneratedSourceService();
+        this.producerFingerprintService =
+                generatedSourceDependencies.producerFingerprintService();
         this.incrementalCompileStateRecorder = executorDependencies.incrementalCompileStateRecorder();
         this.sourceExecutor = executorDependencies.sourceExecutor();
         this.buildCacheService = buildCacheService;
@@ -78,7 +83,8 @@ final class TestCompileServiceDependencies {
                         jdkDetector,
                         openApiGeneratedSourceService,
                         new ProtobufGeneratedSourceService(),
-                        new ExecGeneratedSourceService(jdkDetector)),
+                        new ExecGeneratedSourceService(jdkDetector),
+                        new GeneratedSourceProducerFingerprintService()),
                 new TestSourceExecutorDependencies(
                         incrementalCompileStateRecorder,
                         new TestCompileSourceExecutor(
@@ -104,7 +110,8 @@ final class TestCompileServiceDependencies {
                         jdkDetector,
                         openApiGeneratedSourceService,
                         protobufGeneratedSourceService,
-                        execGeneratedSourceService),
+                        execGeneratedSourceService,
+                        producerFingerprintService),
                 new TestSourceExecutorDependencies(
                         incrementalCompileStateRecorder,
                         sourceExecutor),
@@ -143,6 +150,11 @@ final class TestCompileServiceDependencies {
         return execGeneratedSourceService;
     }
 
+    GeneratedSourceProducerFingerprintService
+            producerFingerprintService() {
+        return producerFingerprintService;
+    }
+
     IncrementalCompileStateRecorder incrementalCompileStateRecorder() {
         return incrementalCompileStateRecorder;
     }
@@ -166,7 +178,9 @@ final class TestCompileServiceDependencies {
             JdkChecker jdkDetector,
             OpenApiGeneratedSourceService openApiGeneratedSourceService,
             ProtobufGeneratedSourceService protobufGeneratedSourceService,
-            ExecGeneratedSourceService execGeneratedSourceService) {
+            ExecGeneratedSourceService execGeneratedSourceService,
+            GeneratedSourceProducerFingerprintService
+                    producerFingerprintService) {
     }
 
     private record TestSourceExecutorDependencies(

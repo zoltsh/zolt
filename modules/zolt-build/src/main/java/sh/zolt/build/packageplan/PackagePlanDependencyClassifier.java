@@ -169,6 +169,14 @@ final class PackagePlanDependencyClassifier {
                     lockPackage.policies());
         }
         if (lockPackage.scope() == DependencyScope.PROVIDED) {
+            if (!providedOverrides.packagesProvided(
+                    identity,
+                    PackageMode.SPRING_BOOT_WAR)) {
+                return omittedProvidedDependency(
+                        lockPackage,
+                        SpringBootLoaderArtifact.isDefaultLoader(
+                                lockPackage));
+            }
             return new PackagePlanDependency(
                     coordinate(lockPackage),
                     lockPackage.version(),
@@ -226,6 +234,24 @@ final class PackagePlanDependencyClassifier {
                 springBootWar ? "spring-boot-war-provided-coordinate-override" : "war-provided-coordinate-override",
                 "",
                 "the exact artifact variant is directly declared in [provided.dependencies], so this runtime path is omitted from the deployable runtime lib directory",
+                lockPackage.policies());
+    }
+
+    private static PackagePlanDependency omittedProvidedDependency(
+            LockPackage lockPackage,
+            boolean loader) {
+        return new PackagePlanDependency(
+                coordinate(lockPackage),
+                lockPackage.version(),
+                lockPackage.scope(),
+                "omitted",
+                loader
+                        ? "spring-boot-war-loader-expanded"
+                        : "spring-boot-war-runtime-coordinate-selected",
+                "",
+                loader
+                        ? "the default Spring Boot loader is expanded at the archive root"
+                        : "runtime reachability selects the exact artifact variant for WEB-INF/lib",
                 lockPackage.policies());
     }
 

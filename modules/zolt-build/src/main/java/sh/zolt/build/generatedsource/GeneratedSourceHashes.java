@@ -1,6 +1,7 @@
 package sh.zolt.build.generatedsource;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.packageplan.PackageInputFingerprinting;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -34,6 +35,14 @@ final class GeneratedSourceHashes {
                     "Could not fingerprint generated-source input " + normalized + ". Check that it is readable.",
                     exception);
         }
+    }
+
+    static String classpathHash(Path path) {
+        Path normalized = path.toAbsolutePath().normalize();
+        return Files.isDirectory(normalized)
+                ? PackageInputFingerprinting
+                        .applicationOutputFingerprint(normalized)
+                : fileHash(normalized);
     }
 
     static String directoryHash(Path directory) {

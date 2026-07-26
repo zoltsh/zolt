@@ -10,6 +10,7 @@ import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -155,6 +156,11 @@ final class PackageTestCompileGateTest {
                 config,
                 project.resolve("zolt.lock"),
                 sources,
+                new GeneratedSourceProducerFingerprintService()
+                        .fingerprintsTest(
+                                project,
+                                config,
+                                List.of()),
                 new Classpath(testCompileEntries),
                 classpaths.testProcessor(),
                 project.resolve("target/test-classes"),

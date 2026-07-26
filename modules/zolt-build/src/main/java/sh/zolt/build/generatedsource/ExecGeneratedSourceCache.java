@@ -1,6 +1,7 @@
 package sh.zolt.build.generatedsource;
 
 import static sh.zolt.build.generatedsource.GeneratedSourceHashes.fileHash;
+import static sh.zolt.build.generatedsource.GeneratedSourceHashes.classpathHash;
 import static sh.zolt.build.generatedsource.GeneratedSourceHashes.relative;
 import static sh.zolt.build.generatedsource.GeneratedSourceHashes.sha256;
 
@@ -136,7 +137,7 @@ final class ExecGeneratedSourceCache {
         classpath.stream()
                 .map(path -> path.toAbsolutePath().normalize())
                 .sorted()
-                .forEach(path -> content.append(relative(projectRoot, path)).append('|').append(fileHash(path)).append('\n'));
+                .forEach(path -> content.append(relative(projectRoot, path)).append('|').append(classpathHash(path)).append('\n'));
         content.append("[inputs]\n");
         step.inputs().stream()
                 .flatMap(input -> ExecInputExpander.expand(projectRoot, input).stream())

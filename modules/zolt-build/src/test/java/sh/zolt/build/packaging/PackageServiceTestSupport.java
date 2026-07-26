@@ -5,6 +5,7 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.project.BuildMetadataSettings;
 import sh.zolt.project.BuildSettings;
@@ -100,6 +101,11 @@ public final class PackageServiceTestSupport {
                 config,
                 projectDir.resolve("zolt.lock"),
                 sources,
+                new GeneratedSourceProducerFingerprintService()
+                        .fingerprintsTest(
+                                projectDir,
+                                config,
+                                build.classpathPackages()),
                 new Classpath(testCompileEntries),
                 build.classpaths().testProcessor(),
                 projectDir.resolve(config.build().testOutput()),

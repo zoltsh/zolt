@@ -1,8 +1,11 @@
 package sh.zolt.build.packaging;
 
-import static sh.zolt.build.packaging.PackageServiceTestSupport.config;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.createJarWithEntry;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.source;
+import static sh.zolt.build.packaging.PackageNestedArtifactAuthorityTestFixtures.config;
+import static sh.zolt.build.packaging.PackageNestedArtifactAuthorityTestFixtures.lockPackage;
+import static sh.zolt.build.packaging.PackageNestedArtifactAuthorityTestFixtures.lockfile;
+import static sh.zolt.build.packaging.PackageNestedArtifactAuthorityTestFixtures.packages;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -16,11 +19,9 @@ import sh.zolt.build.packageplan.PackagePlanDependency;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.dependency.DependencyScope;
-import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import sh.zolt.project.PackageMode;
-import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -87,8 +88,7 @@ final class PackageNestedArtifactAuthorityTest {
                     }
                 }
                 """);
-        ProjectConfig projectConfig = config(Optional.of("com.example.Main"))
-                .withPackageSettings(new PackageSettings(mode));
+        ProjectConfig projectConfig = config(mode);
         PackagePlan plan = new PackagePlanService().plan(
                 projectRoot,
                 projectConfig,
@@ -177,6 +177,51 @@ final class PackageNestedArtifactAuthorityTest {
                                         false,
                                         "com/direct/shared/1.0.0/shared-1.0.0.jar"))
                                         .nestedJarName()));
+                if (mode == PackageMode.SPRING_BOOT_WAR) {
+                    PackagePlanDependency transitiveProvided =
+                            dependency(
+                                    plan,
+                                    "com.transitive:shared:1.0.0",
+                                    DependencyScope.PROVIDED);
+                    assertEquals(
+                            "omitted",
+                            transitiveProvided.disposition());
+                    assertEquals(
+                            "spring-boot-war-runtime-coordinate-selected",
+                            transitiveProvided.ruleName());
+                    String nestedName = NestedArtifactIdentity.of(
+                                    lockPackage(
+                                            "com.transitive",
+                                            "shared",
+                                            "1.0.0",
+                                            DependencyScope.RUNTIME,
+                                            false,
+                                            "com/transitive/shared/1.0.0/shared-1.0.0.jar"))
+                            .nestedJarName();
+                    assertNotNull(archive.getEntry(
+                            "WEB-INF/lib/" + nestedName));
+                    assertNull(archive.getEntry(
+                            "WEB-INF/lib-provided/" + nestedName));
+                    assertEquals(
+                            1,
+                            archive.stream()
+                                    .filter(entry -> entry
+                                            .getName()
+                                            .endsWith(nestedName))
+                                    .count());
+                    PackagePlanDependency providedOnly =
+                            dependency(
+                                    plan,
+                                    "com.transitive:container-api:1.0.0",
+                                    DependencyScope.PROVIDED);
+                    assertEquals(
+                            "provided",
+                            providedOnly.disposition());
+                    assertTrue(providedOnly.location().startsWith(
+                            "WEB-INF/lib-provided/"));
+                    assertNotNull(archive.getEntry(
+                            providedOnly.location()));
+                }
             }
         }
         if (mode == PackageMode.SPRING_BOOT
@@ -199,6 +244,19 @@ final class PackageNestedArtifactAuthorityTest {
             assertNotEquals(
                     testsLoader.location(),
                     fixturesLoader.location());
+            if (mode == PackageMode.SPRING_BOOT_WAR) {
+                PackagePlanDependency providedLoader =
+                        dependency(
+                                plan,
+                                "org.springframework.boot:spring-boot-loader:4.0.6",
+                                DependencyScope.PROVIDED);
+                assertEquals(
+                        "omitted",
+                        providedLoader.disposition());
+                assertEquals(
+                        "spring-boot-war-loader-expanded",
+                        providedLoader.ruleName());
+            }
         }
     }
 
@@ -223,168 +281,4 @@ final class PackageNestedArtifactAuthorityTest {
                 .orElseThrow();
     }
 
-    private static List<LockPackage> packages(PackageMode mode) {
-        List<LockPackage> packages = new ArrayList<>();
-        packages.add(lockPackage(
-                "com.example",
-                "native",
-                "1.0.0",
-                DependencyScope.PROVIDED,
-                "com/example/native/1.0.0/native-1.0.0.jar"));
-        packages.add(lockPackage(
-                "com.example",
-                "native",
-                "1.0.0",
-                DependencyScope.RUNTIME,
-                "com/example/native/1.0.0/native-1.0.0-linux.jar"));
-        packages.add(lockPackage(
-                "com.example",
-                "native",
-                "1.0.0",
-                DependencyScope.RUNTIME,
-                "com/example/native/1.0.0/native-1.0.0-macos.jar"));
-        packages.add(lockPackage(
-                "com.bridge",
-                "native",
-                "1.0.0",
-                DependencyScope.PROVIDED,
-                "com/bridge/native/1.0.0/native-1.0.0-linux.jar"));
-        packages.add(lockPackage(
-                "com.bridge",
-                "native",
-                "1.0.0",
-                DependencyScope.RUNTIME,
-                "com/bridge/native/1.0.0/native-1.0.0.jar"));
-        packages.add(lockPackage(
-                "com.alpha",
-                "shared",
-                "1.0.0",
-                DependencyScope.RUNTIME,
-                "com/alpha/shared/1.0.0/shared-1.0.0.jar"));
-        packages.add(lockPackage(
-                "com.beta",
-                "shared",
-                "1.0.0",
-                DependencyScope.RUNTIME,
-                "com/beta/shared/1.0.0/shared-1.0.0.jar"));
-        packages.add(lockPackage(
-                "com.transitive",
-                "shared",
-                "1.0.0",
-                DependencyScope.PROVIDED,
-                false,
-                "com/transitive/shared/1.0.0/shared-1.0.0.jar"));
-        packages.add(lockPackage(
-                "com.transitive",
-                "shared",
-                "1.0.0",
-                DependencyScope.RUNTIME,
-                false,
-                "com/transitive/shared/1.0.0/shared-1.0.0.jar"));
-        packages.add(lockPackage(
-                "com.direct",
-                "shared",
-                "1.0.0",
-                DependencyScope.PROVIDED,
-                true,
-                "com/direct/shared/1.0.0/shared-1.0.0.jar"));
-        packages.add(lockPackage(
-                "com.direct",
-                "shared",
-                "1.0.0",
-                DependencyScope.RUNTIME,
-                false,
-                "com/direct/shared/1.0.0/shared-1.0.0.jar"));
-        if (mode == PackageMode.SPRING_BOOT
-                || mode == PackageMode.SPRING_BOOT_WAR) {
-            packages.add(lockPackage(
-                    "org.springframework.boot",
-                    "spring-boot",
-                    "4.0.6",
-                    DependencyScope.COMPILE,
-                    "org/springframework/boot/spring-boot/4.0.6/spring-boot-4.0.6.jar"));
-            packages.add(lockPackage(
-                    "org.springframework.boot",
-                    "spring-boot-loader",
-                    "4.0.6",
-                    DependencyScope.RUNTIME,
-                    "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6.jar"));
-            packages.add(lockPackage(
-                    "org.springframework.boot",
-                    "spring-boot-loader",
-                    "4.0.6",
-                    DependencyScope.RUNTIME,
-                    "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"));
-            packages.add(lockPackage(
-                    "org.springframework.boot",
-                    "spring-boot-loader",
-                    "4.0.6",
-                    DependencyScope.RUNTIME,
-                    "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-fixtures.jar"));
-            if (mode == PackageMode.SPRING_BOOT_WAR) {
-                packages.add(lockPackage(
-                        "org.springframework.boot",
-                        "spring-boot-loader",
-                        "4.0.6",
-                        DependencyScope.PROVIDED,
-                        true,
-                        "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6.jar"));
-            }
-        }
-        return List.copyOf(packages);
-    }
-
-    private static LockPackage lockPackage(
-            String group,
-            String artifact,
-            String version,
-            DependencyScope scope,
-            String jar) {
-        return lockPackage(
-                group,
-                artifact,
-                version,
-                scope,
-                scope == DependencyScope.PROVIDED,
-                jar);
-    }
-
-    private static LockPackage lockPackage(
-            String group,
-            String artifact,
-            String version,
-            DependencyScope scope,
-            boolean direct,
-            String jar) {
-        return new LockPackage(
-                new PackageId(group, artifact),
-                version,
-                "maven-central",
-                scope,
-                direct,
-                Optional.of(jar),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                List.of());
-    }
-
-    private static String lockfile(List<LockPackage> packages) {
-        StringBuilder lockfile = new StringBuilder("version = 1\n");
-        for (LockPackage lockPackage : packages) {
-            lockfile.append("\n[[package]]\n")
-                    .append("id = \"")
-                    .append(lockPackage.packageId())
-                    .append("\"\nversion = \"")
-                    .append(lockPackage.version())
-                    .append("\"\nsource = \"maven-central\"\nscope = \"")
-                    .append(lockPackage.scope().lockfileName())
-                    .append("\"\ndirect = ")
-                    .append(lockPackage.direct())
-                    .append("\njar = \"")
-                    .append(lockPackage.jar().orElseThrow())
-                    .append("\"\ndependencies = []\n");
-        }
-        return lockfile.toString();
-    }
 }

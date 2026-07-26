@@ -105,7 +105,9 @@ public final class PackagePlanService {
         Path projectRoot = projectRoot(projectDirectory);
         PackageMode mode = config.packageSettings().mode();
         ProvidedPackagingOverrides providedOverrides =
-                ProvidedPackagingOverrides.fromLockfile(lockfile);
+                ProvidedPackagingOverrides.fromConfigAndLockPackages(
+                        config,
+                        lockfile.packages());
         Optional<FrameworkPackagePlanRules> modeRules = packagePlanRules(mode);
         List<PackagePlanDependency> dependencies = PackagePlanNestedDependencies
                 .canonicalize(mode == PackageMode.BOM

@@ -7,10 +7,13 @@ import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.classpath.NestedArtifactIdentity.SourceKind;
+import sh.zolt.build.packageauthority.ProvidedPackagingOverrides;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.project.PackageMode;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.ZoltTomlParser;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +46,7 @@ final class PackageRuntimeJarSelectorTest {
         Path providedJar = Path.of("cache/com/example/shared/1.0.0/shared-provided-1.0.0.jar");
 
         List<PackageRuntimeJar> result =
-                selector.runtimeJarsWithoutProvidedDuplicates(
+                runtimeJarsWithoutProvidedDuplicates(
                         List.of(
                                 dependency("com.example", "shared", "1.0.0", DependencyScope.RUNTIME, runtimeJar),
                                 dependency("com.example", "shared", "1.0.0", DependencyScope.PROVIDED, providedJar),
@@ -59,7 +62,7 @@ final class PackageRuntimeJarSelectorTest {
     void providedJarsSelectOnlyProvidedScope() {
         Path providedJar = Path.of("cache/com/example/provided/1.0.0/provided-1.0.0.jar");
 
-        List<PackageRuntimeJar> result = selector.providedJars(List.of(
+        List<PackageRuntimeJar> result = providedJars(List.of(
                 dependency("com.example", "runtime", "1.0.0", DependencyScope.RUNTIME, Path.of("runtime.jar")),
                 dependency("com.example", "provided", "1.0.0", DependencyScope.PROVIDED, providedJar)));
 
@@ -89,12 +92,12 @@ final class PackageRuntimeJarSelectorTest {
 
         assertEquals(
                 List.of(runtimeJar(linuxRuntime)),
-                selector.runtimeJarsWithoutProvidedDuplicates(
+                runtimeJarsWithoutProvidedDuplicates(
                         List.of(plainProvided, linuxRuntime),
                         PackageMode.WAR));
         assertEquals(
                 List.of(runtimeJar(plainProvided)),
-                selector.runtimeJarsWithoutProvidedDuplicates(
+                runtimeJarsWithoutProvidedDuplicates(
                         List.of(
                                 dependency(
                                         "com.example",
@@ -142,7 +145,7 @@ final class PackageRuntimeJarSelectorTest {
 
         assertEquals(
                 List.of(runtimeJar(macRuntime)),
-                selector.runtimeJarsWithoutProvidedDuplicates(
+                runtimeJarsWithoutProvidedDuplicates(
                         List.of(linuxProvided, linuxRuntime, macRuntime),
                         PackageMode.WAR));
         assertNotEquals(
@@ -174,10 +177,50 @@ final class PackageRuntimeJarSelectorTest {
                 List.of(runtime, provided))) {
             assertEquals(
                     List.of(runtimeJar(runtime)),
-                    selector.runtimeJarsWithoutProvidedDuplicates(
+                    runtimeJarsWithoutProvidedDuplicates(
                             packages,
                             PackageMode.WAR));
         }
+    }
+
+    @Test
+    void aggregateDirectBitCannotGrantAnotherMemberProvidedAuthority() {
+        ResolvedClasspathPackage aggregateDirectProvided = dependency(
+                "com.example",
+                "shared",
+                "1.0.0",
+                DependencyScope.PROVIDED,
+                Path.of("provided/shared.jar"),
+                Optional.empty(),
+                true);
+        ResolvedClasspathPackage runtime = dependency(
+                "com.example",
+                "shared",
+                "1.0.0",
+                DependencyScope.RUNTIME,
+                Path.of("runtime/shared.jar"),
+                Optional.empty(),
+                false);
+        List<ResolvedClasspathPackage> packages =
+                List.of(aggregateDirectProvided, runtime);
+        ProvidedPackagingOverrides memberAuthority =
+                ProvidedPackagingOverrides
+                        .fromConfigAndClasspathPackages(
+                                config(List.of()),
+                                packages);
+
+        assertEquals(
+                List.of(runtimeJar(runtime)),
+                selector.runtimeJarsWithoutProvidedDuplicates(
+                        packages,
+                        PackageMode.SPRING_BOOT_WAR,
+                        memberAuthority));
+        assertEquals(
+                List.of(),
+                selector.providedJars(
+                        packages,
+                        PackageMode.SPRING_BOOT_WAR,
+                        memberAuthority));
     }
 
     @Test
@@ -201,12 +244,12 @@ final class PackageRuntimeJarSelectorTest {
 
         assertEquals(
                 List.of(runtimeJar(runtime)),
-                selector.runtimeJarsWithoutProvidedDuplicates(
+                runtimeJarsWithoutProvidedDuplicates(
                         List.of(provided, runtime),
                         PackageMode.SPRING_BOOT_WAR));
         assertEquals(
                 List.of(),
-                selector.runtimeJarsWithoutProvidedDuplicates(
+                runtimeJarsWithoutProvidedDuplicates(
                         List.of(provided, runtime),
                         PackageMode.WAR));
     }
@@ -275,5 +318,70 @@ final class PackageRuntimeJarSelectorTest {
                 resolvedPackage.resolvedPackage().selectedVersion(),
                 resolvedPackage.resolvedPackage().jarPath(),
                 resolvedPackage.resolvedPackage().artifactIdentity());
+    }
+
+    private List<PackageRuntimeJar>
+            runtimeJarsWithoutProvidedDuplicates(
+                    List<ResolvedClasspathPackage> packages,
+                    PackageMode mode) {
+        return selector.runtimeJarsWithoutProvidedDuplicates(
+                packages,
+                mode,
+                overrides(packages));
+    }
+
+    private List<PackageRuntimeJar> providedJars(
+            List<ResolvedClasspathPackage> packages) {
+        return selector.providedJars(
+                packages,
+                PackageMode.SPRING_BOOT_WAR,
+                overrides(packages));
+    }
+
+    private static ProvidedPackagingOverrides overrides(
+            List<ResolvedClasspathPackage> packages) {
+        return ProvidedPackagingOverrides
+                .fromConfigAndClasspathPackages(
+                        config(packages),
+                        packages);
+    }
+
+    private static ProjectConfig config(
+            List<ResolvedClasspathPackage> packages) {
+        StringBuilder toml = new StringBuilder("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+                """);
+        List<ResolvedClasspathPackage> declarations = packages.stream()
+                .filter(value -> value.scope()
+                        == DependencyScope.PROVIDED)
+                .filter(value -> value.resolvedPackage().direct())
+                .toList();
+        if (!declarations.isEmpty()) {
+            toml.append("\n[provided.dependencies]\n");
+            for (ResolvedClasspathPackage declaration : declarations) {
+                var resolved = declaration.resolvedPackage();
+                var identity = resolved.artifactIdentity();
+                toml.append('"')
+                        .append(resolved.packageId())
+                        .append("\" = { version = \"")
+                        .append(resolved.selectedVersion())
+                        .append('"');
+                identity.classifier().ifPresent(classifier -> toml
+                        .append(", classifier = \"")
+                        .append(classifier)
+                        .append('"'));
+                if (!"jar".equals(identity.extension())) {
+                    toml.append(", type = \"")
+                            .append(identity.extension())
+                            .append('"');
+                }
+                toml.append(" }\n");
+            }
+        }
+        return new ZoltTomlParser().parse(toml.toString());
     }
 }

@@ -7,6 +7,7 @@ import sh.zolt.build.manifest.ManifestGenerator;
 import sh.zolt.build.packaging.layout.QuarkusFastJarLayoutAssembler;
 import sh.zolt.build.packaging.layout.UberJarLayoutAssembler;
 import sh.zolt.build.packaging.layout.WarLayoutAssembler;
+import sh.zolt.build.packageauthority.ProvidedPackagingOverrides;
 import sh.zolt.build.springboot.SpringBootJarLayoutAssembler;
 import sh.zolt.build.springboot.SpringBootWarLayoutAssembler;
 import sh.zolt.framework.FrameworkPackageAugmenter;
@@ -76,13 +77,18 @@ final class PackageArchiveModePackager {
             Optional<List<ResolvedClasspathPackage>> classpathPackages) {
         Path outputDirectory = requireOutputDirectory(buildResult);
         List<ResolvedClasspathPackage> resolvedPackages = classpathPackages
-                .orElseGet(() -> runtimeJarSelector.packagedClasspathPackages(
+                .orElseGet(() -> runtimeJarSelector.allClasspathPackages(
                         lockfileReader.read(projectDirectory.resolve("zolt.lock")),
                         cacheRoot));
+        ProvidedPackagingOverrides providedOverrides =
+                ProvidedPackagingOverrides.fromConfigAndClasspathPackages(
+                        config,
+                        resolvedPackages);
         List<PackageRuntimeJar> runtimeJars =
                 runtimeJarSelector.runtimeJarsWithoutProvidedDuplicates(
                         resolvedPackages,
-                        PackageMode.WAR);
+                        PackageMode.WAR,
+                        providedOverrides);
         PackageRuntimeJarMaterializer.Result inputs =
                 runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
         return warLayoutAssembler
@@ -120,11 +126,20 @@ final class PackageArchiveModePackager {
                 .orElseGet(() -> runtimeJarSelector.allClasspathPackages(
                         lockfileReader.read(projectDirectory.resolve("zolt.lock")),
                         cacheRoot));
-        List<PackageRuntimeJar> providedJars = runtimeJarSelector.providedJars(resolvedPackages);
+        ProvidedPackagingOverrides providedOverrides =
+                ProvidedPackagingOverrides.fromConfigAndClasspathPackages(
+                        config,
+                        resolvedPackages);
+        List<PackageRuntimeJar> providedJars =
+                runtimeJarSelector.providedJars(
+                        resolvedPackages,
+                        PackageMode.SPRING_BOOT_WAR,
+                        providedOverrides);
         List<PackageRuntimeJar> runtimeJars =
                 runtimeJarSelector.runtimeJarsWithoutProvidedDuplicates(
                         resolvedPackages,
-                        PackageMode.SPRING_BOOT_WAR);
+                        PackageMode.SPRING_BOOT_WAR,
+                        providedOverrides);
         PackageRuntimeJarMaterializer.Result runtimeInputs =
                 runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
         PackageRuntimeJarMaterializer.Result providedInputs =

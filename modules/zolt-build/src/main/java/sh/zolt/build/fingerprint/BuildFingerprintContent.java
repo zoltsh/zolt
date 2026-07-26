@@ -2,6 +2,7 @@ package sh.zolt.build.fingerprint;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.build.generatedsource.ExecStepClassification;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
@@ -34,6 +35,7 @@ final class BuildFingerprintContent {
             String resourceRootKey,
             List<Path> sources,
             List<GeneratedSourceStep> generatedSteps,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
             Classpath compileClasspath,
             Classpath processorClasspath,
             Path outputDirectory,
@@ -50,6 +52,7 @@ final class BuildFingerprintContent {
                 resourceRootKey,
                 sources,
                 generatedSteps,
+                generatedProducerFingerprints,
                 compileClasspath,
                 processorClasspath,
                 outputDirectory,
@@ -69,6 +72,7 @@ final class BuildFingerprintContent {
             String resourceRootKey,
             List<Path> sources,
             List<GeneratedSourceStep> generatedSteps,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
             Classpath compileClasspath,
             Classpath processorClasspath,
             Path outputDirectory,
@@ -90,12 +94,26 @@ final class BuildFingerprintContent {
         section(content, "compileClasspath", classpathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode));
         section(content, "processorClasspath", classpathEntries(processorClasspath, cachedState, collectedState, cacheKeyMode));
         section(content, "sources", fileEntries(projectRoot, sources, cachedState, collectedState));
+        section(content, "generatedProducerFingerprints", generatedProducerEntries(generatedProducerFingerprints));
         section(content, "generatedSourceInputs", generatedSourceInputEntries(projectRoot, generatedSteps, cachedState, collectedState));
         section(content, "resources", resourceEntries(projectRoot, resourceRoots, resourceRootKey, config.build(), cachedState, collectedState));
         section(content, "generatedSources", generatedSourceEntries(projectRoot, generatedSourcesDirectory, cachedState, collectedState));
         section(content, "execOutputs", execOutputEntries(projectRoot, config.build().outputRoot(), generatedSteps, cachedState, collectedState));
         section(content, "expectedClasses", expectedClasses.entries(projectRoot, sourceRoots, sources, outputDirectory));
         return content.toString();
+    }
+
+    private static List<String> generatedProducerEntries(
+            List<GeneratedSourceProducerFingerprint> fingerprints) {
+        return fingerprints.stream()
+                .map(fingerprint -> fingerprint.scope()
+                        + "|"
+                        + fingerprint.stepId()
+                        + "|"
+                        + fingerprint.kind().configValue()
+                        + "|"
+                        + fingerprint.fingerprint())
+                .toList();
     }
 
     private List<String> classpathEntries(

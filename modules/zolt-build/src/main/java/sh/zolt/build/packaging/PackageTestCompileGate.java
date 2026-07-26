@@ -1,5 +1,6 @@
 package sh.zolt.build.packaging;
 
+import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.classpath.ClasspathBuilder;
@@ -7,11 +8,14 @@ import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.fingerprint.BuildFingerprintCheck;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
+import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPaths;
 import java.nio.file.Files;
@@ -26,6 +30,8 @@ final class PackageTestCompileGate {
     private final ZoltLockfileReader lockfileReader;
     private final ClasspathBuilder classpathBuilder;
     private final PackageRuntimeJarSelector runtimeJarSelector;
+    private final GeneratedSourceProducerFingerprintService
+            generatedProducerFingerprintService;
 
     PackageTestCompileGate(
             ZoltLockfileReader lockfileReader,
@@ -35,7 +41,8 @@ final class PackageTestCompileGate {
                 new BuildFingerprintService(),
                 lockfileReader,
                 classpathBuilder,
-                new PackageRuntimeJarSelector());
+                new PackageRuntimeJarSelector(),
+                new GeneratedSourceProducerFingerprintService());
     }
 
     PackageTestCompileGate(
@@ -43,12 +50,16 @@ final class PackageTestCompileGate {
             BuildFingerprintService fingerprintService,
             ZoltLockfileReader lockfileReader,
             ClasspathBuilder classpathBuilder,
-            PackageRuntimeJarSelector runtimeJarSelector) {
+            PackageRuntimeJarSelector runtimeJarSelector,
+            GeneratedSourceProducerFingerprintService
+                    generatedProducerFingerprintService) {
         this.sourceDiscoverer = sourceDiscoverer;
         this.fingerprintService = fingerprintService;
         this.lockfileReader = lockfileReader;
         this.classpathBuilder = classpathBuilder;
         this.runtimeJarSelector = runtimeJarSelector;
+        this.generatedProducerFingerprintService =
+                generatedProducerFingerprintService;
     }
 
     void requireCurrent(
@@ -71,24 +82,36 @@ final class PackageTestCompileGate {
                     testOutput,
                     "missing-output-directory");
         }
+        List<ResolvedClasspathPackage> resolvedPackages =
+                classpathPackages.orElseGet(() ->
+                        classpaths.isEmpty()
+                                        || generatedProducerClasspathRequired(
+                                                config)
+                                ? packagesFromLock(
+                                        projectRoot,
+                                        cacheRoot)
+                                : List.of());
         ClasspathSet resolvedClasspaths = classpaths.orElseGet(() ->
-                classpathPackages
-                        .map(classpathBuilder::build)
-                        .orElseGet(() -> classpathsFromLock(
-                                projectRoot,
-                                cacheRoot)));
+                classpathBuilder.build(resolvedPackages));
         List<Path> testCompileEntries = new ArrayList<>();
         testCompileEntries.add(buildResult.outputDirectory());
         testCompileEntries.addAll(
                 resolvedClasspaths.testCompile().entries());
         SourceDiscoveryResult sources =
                 sourceDiscoverer.discover(projectRoot, config.build());
+        List<GeneratedSourceProducerFingerprint>
+                generatedProducerFingerprints =
+                        generatedProducerFingerprints(
+                                projectRoot,
+                                config,
+                                resolvedPackages);
         BuildFingerprintCheck check =
                 fingerprintService.checkTestCompileCurrent(
                         projectRoot,
                         config,
                         projectRoot.resolve("zolt.lock"),
                         sources,
+                        generatedProducerFingerprints,
                         new Classpath(testCompileEntries),
                         resolvedClasspaths.testProcessor(),
                         testOutput,
@@ -102,25 +125,60 @@ final class PackageTestCompileGate {
         }
     }
 
-    private ClasspathSet classpathsFromLock(
+    private List<ResolvedClasspathPackage> packagesFromLock(
             Path projectRoot,
             Optional<Path> cacheRoot) {
         Path lockfilePath = projectRoot.resolve("zolt.lock");
         if (!Files.isRegularFile(lockfilePath)) {
-            return classpathBuilder.build(List.of());
+            return List.of();
         }
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         if (lockfile.packages().isEmpty()) {
-            return classpathBuilder.build(List.of());
+            return List.of();
         }
         Path artifacts = cacheRoot.orElseThrow(() ->
                 PackageException.actionable(
                         "Cannot verify the tests JAR compile classpath without artifact cache access.",
                         "Run `zolt test`, then package with the normal `zolt package` command."));
-        return classpathBuilder.build(
-                runtimeJarSelector.allClasspathPackages(
-                        lockfile,
-                        artifacts));
+        return runtimeJarSelector.allClasspathPackages(
+                lockfile,
+                artifacts);
+    }
+
+    private List<GeneratedSourceProducerFingerprint>
+            generatedProducerFingerprints(
+                    Path projectRoot,
+                    ProjectConfig config,
+                    List<ResolvedClasspathPackage> packages) {
+        try {
+            return generatedProducerFingerprintService
+                    .fingerprintsTest(
+                            projectRoot,
+                            config,
+                            packages);
+        } catch (BuildException exception) {
+            if (exception.actionableError() != null) {
+                throw new PackageException(
+                        exception.actionableError());
+            }
+            throw new PackageException(
+                    "Could not fingerprint generated test producer: "
+                            + exception.getMessage(),
+                    exception);
+        }
+    }
+
+    private static boolean generatedProducerClasspathRequired(
+            ProjectConfig config) {
+        return config.build().generatedTestSources().stream()
+                .anyMatch(step ->
+                        step.kind() == GeneratedSourceKind.OPENAPI
+                                || step.kind()
+                                                == GeneratedSourceKind.EXEC
+                                        && !"process".equals(
+                                                step.exec()
+                                                        .tool()
+                                                        .runner()));
     }
 
     private static PackageException staleTestOutput(

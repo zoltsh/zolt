@@ -21,6 +21,8 @@ import sh.zolt.build.resources.ResourceCopyResult;
 import sh.zolt.build.discovery.SourceDiscoverer;
 import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.generatedsource.ExecGeneratedSourceService;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.build.generatedsource.OpenApiGeneratedSourceService;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
@@ -46,6 +48,8 @@ public final class TestCompileService {
     private final OpenApiGeneratedSourceService openApiGeneratedSourceService;
     private final ProtobufGeneratedSourceService protobufGeneratedSourceService;
     private final ExecGeneratedSourceService execGeneratedSourceService;
+    private final GeneratedSourceProducerFingerprintService
+            generatedProducerFingerprintService;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final TestCompileSourceExecutor sourceExecutor;
     private final BuildCacheService buildCacheService;
@@ -92,6 +96,8 @@ public final class TestCompileService {
         this.openApiGeneratedSourceService = dependencies.openApiGeneratedSourceService();
         this.protobufGeneratedSourceService = dependencies.protobufGeneratedSourceService();
         this.execGeneratedSourceService = dependencies.execGeneratedSourceService();
+        this.generatedProducerFingerprintService =
+                dependencies.producerFingerprintService();
         this.incrementalCompileStateRecorder = dependencies.incrementalCompileStateRecorder();
         this.sourceExecutor = dependencies.sourceExecutor();
         this.buildCacheService = dependencies.buildCacheService();
@@ -173,6 +179,13 @@ public final class TestCompileService {
         }
         execGeneratedSourceService.generateTest(projectDirectory, config, classpathPackages);
         SourceDiscoveryResult sources = sourceDiscoverer.discover(projectDirectory, config.build());
+        List<GeneratedSourceProducerFingerprint>
+                generatedProducerFingerprints =
+                        generatedProducerFingerprintService
+                                .fingerprintsTest(
+                                        projectDirectory,
+                                        config,
+                                        classpathPackages);
         JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
         if (!jdkStatus.ok()) {
             throw new BuildException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
@@ -195,6 +208,7 @@ public final class TestCompileService {
                 config,
                 lockfilePath,
                 sources,
+                generatedProducerFingerprints,
                 testCompileClasspath,
                 classpaths.testProcessor(),
                 outputDirectory,
@@ -206,7 +220,8 @@ public final class TestCompileService {
         // left behind (the next edit does one full recompile that re-stores).
         BuildCacheKey cacheKey = testCacheKey(
                 compileSkipped, projectDirectory, config, lockfilePath, sources,
-                testCompileClasspath, classpaths.testProcessor(), outputDirectory, generatedSourcesDirectory, jdkStatus);
+                generatedProducerFingerprints, testCompileClasspath, classpaths.testProcessor(),
+                outputDirectory, generatedSourcesDirectory, jdkStatus);
         boolean restored = false;
         if (cacheKey != null) {
             BuildCacheRestoreResult restore = buildCacheService.restore(cacheKey, outputDirectory);
@@ -236,6 +251,11 @@ public final class TestCompileService {
                     config,
                     lockfilePath,
                     sources,
+                    generatedProducerFingerprintService
+                            .fingerprintsTest(
+                                    projectDirectory,
+                                    config,
+                                    classpathPackages),
                     testCompileClasspath,
                     classpaths.testProcessor(),
                     outputDirectory,
@@ -279,6 +299,8 @@ public final class TestCompileService {
             ProjectConfig config,
             Path lockfilePath,
             SourceDiscoveryResult sources,
+            List<GeneratedSourceProducerFingerprint>
+                    generatedProducerFingerprints,
             Classpath testCompileClasspath,
             Classpath testProcessorClasspath,
             Path outputDirectory,
@@ -298,6 +320,7 @@ public final class TestCompileService {
                 config,
                 lockfilePath,
                 sources,
+                generatedProducerFingerprints,
                 testCompileClasspath,
                 testProcessorClasspath,
                 outputDirectory,

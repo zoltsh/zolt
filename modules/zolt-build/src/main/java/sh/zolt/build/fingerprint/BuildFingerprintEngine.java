@@ -1,6 +1,7 @@
 package sh.zolt.build.fingerprint;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
@@ -34,6 +35,7 @@ final class BuildFingerprintEngine {
             String resourceRootKey,
             List<Path> sources,
             List<GeneratedSourceStep> generatedSteps,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
             Classpath compileClasspath,
             Classpath processorClasspath,
             Path outputDirectory,
@@ -48,6 +50,7 @@ final class BuildFingerprintEngine {
                 resourceRootKey,
                 sources,
                 generatedSteps,
+                generatedProducerFingerprints,
                 compileClasspath,
                 processorClasspath,
                 outputDirectory,
@@ -68,6 +71,7 @@ final class BuildFingerprintEngine {
             String resourceRootKey,
             List<Path> sources,
             List<GeneratedSourceStep> generatedSteps,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
             Classpath compileClasspath,
             Classpath processorClasspath,
             Path outputDirectory,
@@ -106,6 +110,7 @@ final class BuildFingerprintEngine {
                             resourceRootKey,
                             sources,
                             generatedSteps,
+                            generatedProducerFingerprints,
                             compileClasspath,
                             processorClasspath,
                             outputDirectory,
@@ -127,6 +132,7 @@ final class BuildFingerprintEngine {
                     resourceRootKey,
                     sources,
                     generatedSteps,
+                    generatedProducerFingerprints,
                     compileClasspath,
                     processorClasspath,
                     outputDirectory,
@@ -153,6 +159,7 @@ final class BuildFingerprintEngine {
             String resourceRootKey,
             List<Path> sources,
             List<GeneratedSourceStep> generatedSteps,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
             Classpath compileClasspath,
             Classpath processorClasspath,
             Path outputDirectory,
@@ -172,6 +179,7 @@ final class BuildFingerprintEngine {
                     resourceRootKey,
                     sources,
                     generatedSteps,
+                    generatedProducerFingerprints,
                     compileClasspath,
                     processorClasspath,
                     outputDirectory,

@@ -29,10 +29,8 @@ public final class PackageRuntimeJarSelector {
 
     public List<PackageRuntimeJar> runtimeJarsWithoutProvidedDuplicates(
             List<ResolvedClasspathPackage> classpathPackages,
-            PackageMode mode) {
-        ProvidedPackagingOverrides providedOverrides =
-                ProvidedPackagingOverrides.fromClasspathPackages(
-                        classpathPackages);
+            PackageMode mode,
+            ProvidedPackagingOverrides providedOverrides) {
         return runtimeJars(classpathPackages).stream()
                 .filter(runtimeJar -> !providedOverrides.suppresses(
                         runtimeJar.artifactIdentity(),
@@ -40,10 +38,16 @@ public final class PackageRuntimeJarSelector {
                 .toList();
     }
 
-    public List<PackageRuntimeJar> providedJars(List<ResolvedClasspathPackage> classpathPackages) {
+    public List<PackageRuntimeJar> providedJars(
+            List<ResolvedClasspathPackage> classpathPackages,
+            PackageMode mode,
+            ProvidedPackagingOverrides providedOverrides) {
         Map<String, PackageRuntimeJar> providedJars = new LinkedHashMap<>();
         classpathPackages.stream()
                 .filter(dependency -> dependency.scope() == DependencyScope.PROVIDED)
+                .filter(dependency -> providedOverrides.packagesProvided(
+                        dependency.resolvedPackage().artifactIdentity(),
+                        mode))
                 .sorted(Comparator.comparing(PackageRuntimeJarSelector::classpathSortKey))
                 .map(PackageRuntimeJarSelector::runtimeJar)
                 .forEach(runtimeJar -> providedJars.putIfAbsent(runtimeJarKey(runtimeJar), runtimeJar));

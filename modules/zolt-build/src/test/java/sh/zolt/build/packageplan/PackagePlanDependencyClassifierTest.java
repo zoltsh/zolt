@@ -10,8 +10,10 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.framework.FrameworkPackagePlanDependency;
 import sh.zolt.framework.FrameworkPackagePlanRules;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.ZoltTomlParser;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -377,7 +379,44 @@ final class PackagePlanDependencyClassifierTest {
 
     private static ProvidedPackagingOverrides overrides(
             LockPackage... packages) {
-        return ProvidedPackagingOverrides.fromLockPackages(
-                List.of(packages));
+        StringBuilder config = new StringBuilder("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+                """);
+        List<LockPackage> declarations = List.of(packages).stream()
+                .filter(LockPackage::direct)
+                .filter(lockPackage -> lockPackage.scope()
+                        == DependencyScope.PROVIDED)
+                .toList();
+        if (!declarations.isEmpty()) {
+            config.append("\n[provided.dependencies]\n");
+            for (LockPackage declaration : declarations) {
+                LockArtifactVariant variant =
+                        LockArtifactVariant.of(declaration);
+                config.append('"')
+                        .append(declaration.packageId())
+                        .append("\" = { version = \"")
+                        .append(declaration.version())
+                        .append('"');
+                variant.classifier().ifPresent(classifier -> config
+                        .append(", classifier = \"")
+                        .append(classifier)
+                        .append('"'));
+                if (!"jar".equals(variant.extension())) {
+                    config.append(", type = \"")
+                            .append(variant.extension())
+                            .append('"');
+                }
+                config.append(" }\n");
+            }
+        }
+        return ProvidedPackagingOverrides
+                .fromConfigAndLockPackages(
+                        new ZoltTomlParser().parse(
+                                config.toString()),
+                        List.of(packages));
     }
 }
