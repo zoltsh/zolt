@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
@@ -36,13 +37,19 @@ final class WorkspaceQualityProjectionService {
     private final PackagePlanService packagePlanService;
 
     WorkspaceQualityProjectionService(ZoltLockfileReader lockfileReader) {
+        this(lockfileReader, new PackagePlanService());
+    }
+
+    WorkspaceQualityProjectionService(
+            ZoltLockfileReader lockfileReader,
+            PackagePlanService packagePlanService) {
         this(
                 lockfileReader,
                 new WorkspaceMemberPolicyResolver(),
                 new WorkspaceMemberPolicyLockProjection(),
                 new WorkspaceMemberSbomLockProjection(),
                 new WorkspaceClasspathService(),
-                new PackagePlanService());
+                packagePlanService);
     }
 
     WorkspaceQualityProjectionService(
@@ -64,6 +71,14 @@ final class WorkspaceQualityProjectionService {
             Workspace workspace,
             WorkspaceSelection selection,
             Map<String, WorkspaceMember> members) {
+        return project(workspace, selection, members, false);
+    }
+
+    WorkspaceQualityProjection project(
+            Workspace workspace,
+            WorkspaceSelection selection,
+            Map<String, WorkspaceMember> members,
+            boolean includePackagePlans) {
         Path lockfilePath = workspace.root().resolve("zolt.lock");
         if (!Files.isRegularFile(lockfilePath)) {
             throw new WorkspaceQualityProjectionException(
@@ -89,11 +104,12 @@ final class WorkspaceQualityProjectionService {
 
         Map<String, WorkspaceMemberQualityView> projected = new LinkedHashMap<>();
         try {
-            Map<String, ZoltLockfile> packageLocks =
-                    classpathService.packageLocksForMembers(
+            Map<String, ZoltLockfile> packageLocks = includePackagePlans
+                    ? classpathService.packageLocksForMembers(
                             workspace,
                             aggregate,
-                            selection.includedMembers());
+                            selection.includedMembers())
+                    : Map.of();
             for (String memberPath : selection.includedMembers()) {
                 WorkspaceMember member = members.get(memberPath);
                 ProjectConfig effectiveConfig = policyResolver.merge(workspace, member);
@@ -101,10 +117,12 @@ final class WorkspaceQualityProjectionService {
                         policyProjection.project(memberPath, effectiveConfig, aggregate, workspace);
                 ZoltLockfile sbomLock =
                         sbomProjection.project(memberPath, effectiveConfig, aggregate, workspace, policyResolver);
-                PackagePlan packagePlan = packagePlanService.plan(
-                        member.directory(),
-                        effectiveConfig,
-                        packageLocks.get(memberPath));
+                Optional<PackagePlan> packagePlan = includePackagePlans
+                        ? Optional.of(packagePlanService.plan(
+                                member.directory(),
+                                effectiveConfig,
+                                packageLocks.get(memberPath)))
+                        : Optional.empty();
                 projected.put(
                         memberPath,
                         new WorkspaceMemberQualityView(

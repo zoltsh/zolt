@@ -111,18 +111,18 @@ public final class PublishCommand implements Callable<Integer> {
     private CommandSpec spec;
 
     public PublishCommand() {
+        this(sh.zolt.cli.command.CommandFrameworkServices.publishCommandServices());
+    }
+
+    private PublishCommand(
+            sh.zolt.cli.command.CommandServiceBundles.CommandPublishServices services) {
         this(
-                new PublishDryRunService(),
+                services.publishDryRunService(),
                 new PublishReleasePolicyService(),
                 new PublishUploadService(CommandNetwork.repositoryClient()),
                 new PublishCentralReadinessService(),
                 new PublishCentralPublishService(new CentralPortalClient(CommandNetwork.defaultTransport())),
-                new WorkspacePublishService(
-                        CommandNetwork.repositoryClient(),
-                        new CentralPortalClient(CommandNetwork.defaultTransport()),
-                        // Fully qualified (not imported) to keep this command within its import budget while
-                        // still injecting the framework-aware package planner for real archive resolution.
-                        sh.zolt.cli.command.CommandFrameworkServices.packagePlanService()),
+                services.workspacePublishService(),
                 new CommandLockfiles());
     }
 

@@ -129,6 +129,14 @@ public final class CommandFrameworkServices {
                 new WorkspacePackageService(resolveService, packageAugmenter, packagePlanService, provenanceSource));
     }
 
+    public static CommandQualityServices qualityCommandServices() {
+        return CommandQualityPublishServices.qualityCommandServices();
+    }
+
+    public static CommandPublishServices publishCommandServices() {
+        return CommandQualityPublishServices.publishCommandServices();
+    }
+
     static RunService runService() {
         return runService(runFrameworkServices());
     }

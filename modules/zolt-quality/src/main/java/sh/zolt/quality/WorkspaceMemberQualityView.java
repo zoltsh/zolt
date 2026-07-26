@@ -1,5 +1,6 @@
 package sh.zolt.quality;
 
+import java.util.Optional;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
@@ -13,5 +14,5 @@ record WorkspaceMemberQualityView(
         ProjectConfig effectiveConfig,
         ZoltLockfile policyLock,
         ZoltLockfile sbomLock,
-        PackagePlan packagePlan) {
+        Optional<PackagePlan> packagePlan) {
 }

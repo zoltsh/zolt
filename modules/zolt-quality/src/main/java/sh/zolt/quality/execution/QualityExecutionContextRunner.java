@@ -7,6 +7,8 @@ import sh.zolt.publish.PublishSettingsReader;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckRequest;
 import sh.zolt.quality.QualityCheckResult;
+import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
+import sh.zolt.workspace.publish.WorkspacePublishService;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelection;
@@ -21,16 +23,19 @@ public final class QualityExecutionContextRunner {
     private final CredentialQualityCheck credentialQualityCheck;
     private final ExecutionEvidenceQualityCheck executionEvidenceQualityCheck;
     private final PublishDryRunQualityCheck publishDryRunQualityCheck;
+    private final WorkspaceMemberPolicyResolver workspacePolicyResolver;
 
     private QualityExecutionContextRunner(
             ExecutionContextQualityCheck executionContextQualityCheck,
             CredentialQualityCheck credentialQualityCheck,
             ExecutionEvidenceQualityCheck executionEvidenceQualityCheck,
-            PublishDryRunQualityCheck publishDryRunQualityCheck) {
+            PublishDryRunQualityCheck publishDryRunQualityCheck,
+            WorkspaceMemberPolicyResolver workspacePolicyResolver) {
         this.executionContextQualityCheck = executionContextQualityCheck;
         this.credentialQualityCheck = credentialQualityCheck;
         this.executionEvidenceQualityCheck = executionEvidenceQualityCheck;
         this.publishDryRunQualityCheck = publishDryRunQualityCheck;
+        this.workspacePolicyResolver = workspacePolicyResolver;
     }
 
     public static QualityExecutionContextRunner create(
@@ -38,11 +43,28 @@ public final class QualityExecutionContextRunner {
             PublishSettingsReader publishSettingsReader,
             Function<String, String> environment,
             PublishDryRunService publishDryRunService) {
+        return create(
+                lockfileReader,
+                publishSettingsReader,
+                environment,
+                publishDryRunService,
+                new WorkspacePublishService());
+    }
+
+    public static QualityExecutionContextRunner create(
+            ZoltLockfileReader lockfileReader,
+            PublishSettingsReader publishSettingsReader,
+            Function<String, String> environment,
+            PublishDryRunService publishDryRunService,
+            WorkspacePublishService workspacePublishService) {
         return new QualityExecutionContextRunner(
                 new ExecutionContextQualityCheck(lockfileReader),
                 new CredentialQualityCheck(publishSettingsReader, environment),
                 new ExecutionEvidenceQualityCheck(),
-                new PublishDryRunQualityCheck(publishDryRunService));
+                new PublishDryRunQualityCheck(
+                        publishDryRunService,
+                        workspacePublishService),
+                new WorkspaceMemberPolicyResolver());
     }
 
     public List<QualityCheckResult> checkProject(QualityCheckRequest request, ProjectConfig config) {
@@ -101,19 +123,21 @@ public final class QualityExecutionContextRunner {
         }
         for (String memberPath : selection.includedMembers()) {
             WorkspaceMember member = members.get(memberPath);
+            ProjectConfig effectiveConfig =
+                    workspacePolicyResolver.merge(workspace, member);
             Optional<String> memberName = Optional.of(member.path());
             results.addAll(credentialQualityCheck.checkRepositoryCredentials(
                     memberName,
-                    member.config(),
+                    effectiveConfig,
                     request.context()));
             results.addAll(credentialQualityCheck.checkPublishCredentials(
                     memberName,
                     member.directory(),
-                    member.config(),
+                    effectiveConfig,
                     request.context()));
             results.addAll(credentialQualityCheck.checkResourceTokens(
                     memberName,
-                    member.config(),
+                    effectiveConfig,
                     request.context()));
         }
         // The publish dry-run runs once as a family preflight, not per member.

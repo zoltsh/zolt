@@ -69,9 +69,17 @@ final class PackageContentQualityCheck {
             ProjectConfig config,
             PackagePlan plan,
             boolean requirePackage) {
-        if (plan.warnings().isEmpty()) {
+        List<QualityCheckResult> failures =
+                planFailures(member, plan);
+        if (failures.isEmpty()) {
             return successfulPlanResults(member, config, plan, requirePackage);
         }
+        return failures;
+    }
+
+    private static List<QualityCheckResult> planFailures(
+            Optional<String> member,
+            PackagePlan plan) {
         List<QualityCheckResult> results = new ArrayList<>();
         for (PackagePlanWarning warning : plan.warnings()) {
             results.add(QualityCheckResult.failed(
@@ -80,6 +88,23 @@ final class PackageContentQualityCheck {
                     warning.subject(),
                     warning.message(),
                     warning.nextStep()));
+        }
+        for (PackagePlanDependency dependency : plan.dependencies()) {
+            if (!"unsupported".equals(dependency.disposition())) {
+                continue;
+            }
+            results.add(QualityCheckResult.failed(
+                    PACKAGE_CONTENTS,
+                    member,
+                    dependency.coordinate(),
+                    "Package rule `"
+                            + dependency.ruleName()
+                            + "` cannot describe this dependency: "
+                            + dependency.reason()
+                            + ".",
+                    "Install the framework package plan rules for mode `"
+                            + plan.mode().configValue()
+                            + "` before treating package contents as verified."));
         }
         return List.copyOf(results);
     }
@@ -99,9 +124,8 @@ final class PackageContentQualityCheck {
                             ? "Run `zolt package --workspace` before `zolt check --workspace --context ci --require-package`."
                             : "Run `zolt package` before `zolt check --context ci --require-package`."));
         }
-        Optional<QualityCheckResult> staleEvidence = plan.mode() == sh.zolt.project.PackageMode.BOM
-                ? Optional.empty()
-                : stalePackageEvidence(member, plan);
+        Optional<QualityCheckResult> staleEvidence =
+                stalePackageEvidence(member, plan);
         if (staleEvidence.isPresent()) {
             return List.of(staleEvidence.orElseThrow());
         }

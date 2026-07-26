@@ -34,7 +34,7 @@ public final class WorkspacePackageService {
     private final PackageService packageService;
     private final PackagePlanService packagePlanService;
     private final WorkspaceClasspathService workspaceClasspathService;
-    private final WorkspaceBomPackager bomPackager = new WorkspaceBomPackager();
+    private final WorkspaceBomPackager bomPackager;
 
     public WorkspacePackageService() {
         this(new JdkDetector());
@@ -88,7 +88,8 @@ public final class WorkspacePackageService {
                 new WorkspaceBuildService(jdkDetector, resolveService, provenanceSource),
                 new PackageService(resolveService, frameworkPackageAugmenter, packagePlanService, provenanceSource),
                 packagePlanService,
-                new WorkspaceClasspathService());
+                new WorkspaceClasspathService(),
+                new WorkspaceBomPackager(packagePlanService));
     }
 
     WorkspacePackageService(
@@ -106,10 +107,25 @@ public final class WorkspacePackageService {
             PackageService packageService,
             PackagePlanService packagePlanService,
             WorkspaceClasspathService workspaceClasspathService) {
+        this(
+                workspaceBuildService,
+                packageService,
+                packagePlanService,
+                workspaceClasspathService,
+                new WorkspaceBomPackager(packagePlanService));
+    }
+
+    WorkspacePackageService(
+            WorkspaceBuildService workspaceBuildService,
+            PackageService packageService,
+            PackagePlanService packagePlanService,
+            WorkspaceClasspathService workspaceClasspathService,
+            WorkspaceBomPackager bomPackager) {
         this.workspaceBuildService = workspaceBuildService;
         this.packageService = packageService;
         this.packagePlanService = packagePlanService;
         this.workspaceClasspathService = workspaceClasspathService;
+        this.bomPackager = bomPackager;
     }
 
     public WorkspacePackageService withJdkCheckers(WorkspaceJdkCheckerResolver jdkCheckers) {
@@ -117,7 +133,8 @@ public final class WorkspacePackageService {
                 workspaceBuildService.withJdkCheckers(jdkCheckers),
                 packageService,
                 packagePlanService,
-                workspaceClasspathService);
+                workspaceClasspathService,
+                bomPackager);
     }
 
     public WorkspacePackageResult packageJars(
@@ -134,7 +151,7 @@ public final class WorkspacePackageService {
             Optional<PackageMode> packageModeOverride) {
         WorkspaceBuildPlan plan = planPackages(startDirectory, cacheRoot, selectionRequest);
         WorkspaceBuildResult buildResult = buildPackageInputs(plan, cacheRoot);
-        return packageBuiltJars(plan, buildResult, packageModeOverride);
+        return packageBuiltJars(plan, buildResult, cacheRoot, packageModeOverride);
     }
 
     public WorkspaceBuildPlan planPackages(
@@ -151,6 +168,22 @@ public final class WorkspacePackageService {
     public WorkspacePackageResult packageBuiltJars(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
+            Optional<PackageMode> packageModeOverride) {
+        return packageBuiltJars(plan, buildResult, Optional.empty(), packageModeOverride);
+    }
+
+    public WorkspacePackageResult packageBuiltJars(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Path cacheRoot,
+            Optional<PackageMode> packageModeOverride) {
+        return packageBuiltJars(plan, buildResult, Optional.of(cacheRoot), packageModeOverride);
+    }
+
+    private WorkspacePackageResult packageBuiltJars(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Optional<Path> cacheRoot,
             Optional<PackageMode> packageModeOverride) {
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
@@ -181,13 +214,22 @@ public final class WorkspacePackageService {
                     packageLocks.get(member.path()));
             results.add(new WorkspacePackageResult.MemberPackageResult(
                     member.path(),
-                    packageService.packageJar(
-                            member.directory(),
-                            memberConfig,
-                            memberBuild.result(),
-                            memberBuild.classpaths(),
-                            memberBuild.classpathPackages(),
-                            packagePlan)));
+                    cacheRoot
+                            .map(root -> packageService.packageJar(
+                                    member.directory(),
+                                    memberConfig,
+                                    memberBuild.result(),
+                                    root,
+                                    memberBuild.classpaths(),
+                                    memberBuild.classpathPackages(),
+                                    packagePlan))
+                            .orElseGet(() -> packageService.packageJar(
+                                    member.directory(),
+                                    memberConfig,
+                                    memberBuild.result(),
+                                    memberBuild.classpaths(),
+                                    memberBuild.classpathPackages(),
+                                    packagePlan))));
         }
         return new WorkspacePackageResult(buildResult.resolveResult(), buildResult.members(), results);
     }

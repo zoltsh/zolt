@@ -10,6 +10,7 @@ import sh.zolt.publish.PublishSettingsReader;
 import sh.zolt.quality.execution.QualityExecutionContextRunner;
 import sh.zolt.quality.packaging.PackageQualityCheck;
 import sh.zolt.resolve.ResolveService;
+import sh.zolt.workspace.publish.WorkspacePublishService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.util.function.Function;
 
@@ -40,19 +41,45 @@ final class QualityCheckDependencies {
     }
 
     static QualityCheckDependencies create(Function<String, String> environment) {
+        PackagePlanService packagePlanService = new PackagePlanService();
+        ResolveService resolveService = new ResolveService();
+        return create(
+                environment,
+                packagePlanService,
+                resolveService,
+                new WorkspaceResolveService(resolveService),
+                new PublishDryRunService(packagePlanService),
+                new WorkspacePublishService());
+    }
+
+    static QualityCheckDependencies create(
+            Function<String, String> environment,
+            PackagePlanService packagePlanService,
+            ResolveService resolveService,
+            WorkspaceResolveService workspaceResolveService,
+            PublishDryRunService publishDryRunService,
+            WorkspacePublishService workspacePublishService) {
         ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
         return new QualityCheckDependencies(
                 new GeneratedSourceQualityCheck(new GeneratedSourceEvidenceService()),
-                new LockfileQualityCheck(new ResolveService(), new WorkspaceResolveService(), lockfileReader),
+                new LockfileQualityCheck(
+                        resolveService,
+                        workspaceResolveService,
+                        lockfileReader),
                 QualityExecutionContextRunner.create(
                         lockfileReader,
                         new PublishSettingsReader(),
                         environment,
-                        new PublishDryRunService()),
-                new PackageQualityCheck(new PackagePlanService(), new PackageEvidenceManifestReader()),
+                        publishDryRunService,
+                        workspacePublishService),
+                new PackageQualityCheck(
+                        packagePlanService,
+                        new PackageEvidenceManifestReader()),
                 new DependencyQualityCheck(lockfileReader, new DependencyPolicyReportService()),
                 new LicensePolicyQualityCheck(lockfileReader),
-                new WorkspaceQualityProjectionService(lockfileReader));
+                new WorkspaceQualityProjectionService(
+                        lockfileReader,
+                        packagePlanService));
     }
 
     GeneratedSourceQualityCheck generatedSourceQualityCheck() {

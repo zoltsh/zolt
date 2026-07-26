@@ -53,7 +53,7 @@ public final class PackageCommand implements Runnable {
     private final PackageService packageService;
     private final BuildService buildService;
     private final WorkspacePackageService workspacePackageService;
-    private final WorkspaceBomPackager bomPackager = new WorkspaceBomPackager();
+    private final WorkspaceBomPackager bomPackager;
     private final CommandLockfiles lockfiles;
     private final CommandPackageResultWriter packageResultWriter;
 
@@ -158,6 +158,7 @@ public final class PackageCommand implements Runnable {
         this.packageService = packageService;
         this.buildService = buildService;
         this.workspacePackageService = workspacePackageService;
+        this.bomPackager = new WorkspaceBomPackager(packagePlanService);
         this.packageResultWriter = packageResultWriter;
         this.lockfiles = lockfiles;
     }
@@ -231,6 +232,7 @@ public final class PackageCommand implements Runnable {
                             () -> projectWorkspacePackageService.packageBuiltJars(
                                     plan,
                                     buildResult,
+                                    cacheRoot,
                                     packageModeOverride),
                             CommandPackageAttributes::workspacePackage);
                 },

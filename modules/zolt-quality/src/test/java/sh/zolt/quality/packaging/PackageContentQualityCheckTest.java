@@ -96,6 +96,47 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
     }
 
     @Test
+    void packageContentsFailsWhenFrameworkPackageRulesAreMissing()
+            throws IOException {
+        Path projectDir = tempDir.resolve("quarkus-missing-rules");
+        ProjectConfig config = parseProject(projectDir, """
+
+                [package]
+                mode = "quarkus"
+                """);
+        writeLockfile(projectDir, """
+
+                [[package]]
+                id = "io.quarkus:quarkus-rest"
+                version = "3.33.0"
+                source = "maven-central"
+                scope = "runtime"
+                direct = true
+                jar = "io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar"
+                dependencies = []
+                """);
+
+        List<QualityCheckResult> results = check.checkContents(
+                Optional.empty(),
+                projectDir,
+                config,
+                projectDir.resolve("zolt.lock"),
+                false);
+
+        assertTrue(results.stream().allMatch(
+                result -> result.status() == QualityCheckStatus.FAILED));
+        assertTrue(results.stream().anyMatch(result ->
+                result.subject().equals("[package].mode")
+                        && result.message().contains(
+                                "requires framework-aware package plan rules")));
+        assertTrue(results.stream().anyMatch(result ->
+                result.subject().equals(
+                        "io.quarkus:quarkus-rest:3.33.0")
+                        && result.message().contains(
+                                "framework-package-plan-rules-missing")));
+    }
+
+    @Test
     void packageContentsReportsDeterministicRuleDiagnosticsAndPolicyEffects() throws IOException {
         Path projectDir = tempDir.resolve("rule-diagnostics");
         ProjectConfig config = parseProject(projectDir, """

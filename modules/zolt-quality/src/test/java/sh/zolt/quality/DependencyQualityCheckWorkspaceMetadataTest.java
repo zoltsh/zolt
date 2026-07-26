@@ -94,6 +94,17 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     }
 
     @Test
+    void dependencyProjectionDoesNotConstructPackagePlans() throws IOException {
+        WorkspaceFixture fixture = workspaceFixture("");
+        writeWorkspaceLockfile("");
+        Workspace workspace = workspace(fixture.members(), List.of());
+
+        WorkspaceQualityProjection projection = project(workspace, fixture);
+
+        assertTrue(projection.member("apps/api").packagePlan().isEmpty());
+    }
+
+    @Test
     void workspaceMetadataMatchesExactMemberVariantAndScope() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("""
 

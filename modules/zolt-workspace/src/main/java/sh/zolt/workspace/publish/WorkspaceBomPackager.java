@@ -1,6 +1,9 @@
 package sh.zolt.workspace.publish;
 
 import sh.zolt.build.BuildResult;
+import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
+import sh.zolt.build.packageplan.PackagePlan;
+import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.PackageMode;
@@ -20,10 +23,25 @@ import java.util.Optional;
  * publish (and users) have a durable, checksummed artifact.
  */
 public final class WorkspaceBomPackager {
-    private static final String EVIDENCE_SCHEMA = "zolt.bom-package-evidence.v1";
-
     private final WorkspaceBomFamily family = new WorkspaceBomFamily();
     private final PublishPomGenerator pomGenerator = new PublishPomGenerator();
+    private final PackagePlanService packagePlanService;
+    private final PackageEvidenceManifestWriter evidenceManifestWriter;
+
+    public WorkspaceBomPackager() {
+        this(new PackagePlanService());
+    }
+
+    public WorkspaceBomPackager(PackagePlanService packagePlanService) {
+        this(packagePlanService, new PackageEvidenceManifestWriter());
+    }
+
+    WorkspaceBomPackager(
+            PackagePlanService packagePlanService,
+            PackageEvidenceManifestWriter evidenceManifestWriter) {
+        this.packagePlanService = packagePlanService;
+        this.evidenceManifestWriter = evidenceManifestWriter;
+    }
 
     public PackageResult packageBom(
             WorkspaceMember bomMember, Workspace workspace, ZoltLockfile aggregatedLock, BuildResult buildResult) {
@@ -41,36 +59,34 @@ public final class WorkspaceBomPackager {
         String artifactBase = config.project().name() + "-" + config.project().version();
         Path publishDirectory = projectDirectory.resolve(config.build().outputRoot()).resolve("publish");
         Path pomPath = publishDirectory.resolve(artifactBase + ".pom");
-        Path evidencePath = publishDirectory.resolve(artifactBase + ".pom.zolt-package.json");
         try {
             Files.createDirectories(publishDirectory);
             Files.writeString(pomPath, pomGenerator.generate(config, familyLock));
-            String pomSha256 = "sha256:" + Sha256.hex(pomPath);
-            Files.writeString(evidencePath, evidenceJson(config, artifactBase + ".pom", pomSha256));
         } catch (IOException exception) {
             throw new sh.zolt.workspace.WorkspaceConfigException(
                     "Could not write BOM package artifact at " + pomPath + ": " + exception.getMessage());
         }
-        return new PackageResult(
+        PackageResult result = new PackageResult(
                 buildResult,
                 PackageMode.BOM,
                 pomPath,
                 Optional.empty(),
-                Optional.of(evidencePath),
+                Optional.empty(),
                 0,
                 false,
                 "pom",
                 List.of(),
                 List.of());
-    }
-
-    private static String evidenceJson(ProjectConfig config, String pomFile, String pomSha256) {
-        String coordinate = config.project().group() + ":" + config.project().name() + ":" + config.project().version();
-        return "{\n"
-                + "  \"schema\": \"" + EVIDENCE_SCHEMA + "\",\n"
-                + "  \"coordinate\": \"" + coordinate + "\",\n"
-                + "  \"pom\": \"" + pomFile + "\",\n"
-                + "  \"pomSha256\": \"" + pomSha256 + "\"\n"
-                + "}\n";
+        PackagePlan plan =
+                packagePlanService.plan(projectDirectory, config, familyLock);
+        Path evidencePath = evidenceManifestWriter.write(
+                projectDirectory,
+                config,
+                plan,
+                result,
+                List.of());
+        return result.withArtifactsAndEvidence(
+                List.of(),
+                Optional.of(evidencePath));
     }
 }

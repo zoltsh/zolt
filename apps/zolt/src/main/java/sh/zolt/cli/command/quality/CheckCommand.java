@@ -3,10 +3,12 @@ package sh.zolt.cli.command.quality;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cli.ZoltCli;
 import sh.zolt.cli.command.CommandAttributeKeys;
+import sh.zolt.cli.command.CommandFrameworkServices;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.command.CommandTimings;
 import sh.zolt.cli.command.CommandWorkspaceSelections;
+import sh.zolt.cli.command.CommandServiceBundles.CommandQualityServices;
 import sh.zolt.perf.TimingRecorder;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckFormatter;
@@ -85,7 +87,11 @@ public final class CheckCommand implements Callable<Integer> {
     private CommandSpec spec;
 
     public CheckCommand() {
-        this(new QualityCheckService());
+        this(CommandFrameworkServices.qualityCommandServices());
+    }
+
+    private CheckCommand(CommandQualityServices services) {
+        this(services.qualityCheckService());
     }
 
     CheckCommand(QualityCheckService qualityCheckService) {

@@ -24,7 +24,7 @@ final class PublishDryRunQualityCheck {
         this(publishDryRunService, new WorkspacePublishService());
     }
 
-    PublishDryRunQualityCheck(
+    public PublishDryRunQualityCheck(
             PublishDryRunService publishDryRunService, WorkspacePublishService workspacePublishService) {
         this.publishDryRunService = publishDryRunService;
         this.workspacePublishService = workspacePublishService;

@@ -11,6 +11,8 @@ import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.framework.FrameworkBuildAugmenter;
 import sh.zolt.maven.CoordinateParser;
+import sh.zolt.publish.PublishDryRunService;
+import sh.zolt.quality.QualityCheckService;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.toml.ZoltTomlWriter;
@@ -18,6 +20,7 @@ import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService;
 import sh.zolt.workspace.packaging.WorkspaceNativeBuildService;
 import sh.zolt.workspace.packaging.WorkspacePackageService;
+import sh.zolt.workspace.publish.WorkspacePublishService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.packaging.WorkspaceRunPackageService;
 import sh.zolt.workspace.run.WorkspaceRunService;
@@ -128,6 +131,22 @@ public final class CommandServiceBundles {
             Objects.requireNonNull(packageService, "packageService");
             Objects.requireNonNull(buildService, "buildService");
             Objects.requireNonNull(workspacePackageService, "workspacePackageService");
+        }
+    }
+
+    public record CommandQualityServices(
+            QualityCheckService qualityCheckService) {
+        public CommandQualityServices {
+            Objects.requireNonNull(qualityCheckService, "qualityCheckService");
+        }
+    }
+
+    public record CommandPublishServices(
+            PublishDryRunService publishDryRunService,
+            WorkspacePublishService workspacePublishService) {
+        public CommandPublishServices {
+            Objects.requireNonNull(publishDryRunService, "publishDryRunService");
+            Objects.requireNonNull(workspacePublishService, "workspacePublishService");
         }
     }
 

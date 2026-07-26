@@ -210,7 +210,10 @@ public final class QualityCheckService {
         if (requestedChecks.stream().anyMatch(QualityCheckService::graphDependentCheck)) {
             try {
                 qualityProjection = workspaceQualityProjectionService.project(
-                        workspace, selection, members);
+                        workspace,
+                        selection,
+                        members,
+                        requestedChecks.contains(PACKAGE_CONTENTS));
             } catch (WorkspaceQualityProjectionException exception) {
                 projectionFailure = exception;
             }
@@ -290,7 +293,7 @@ public final class QualityCheckService {
                             results.addAll(packageQualityCheck.checkContents(
                                     Optional.of(memberPath),
                                     view.effectiveConfig(),
-                                    view.packagePlan(),
+                                    view.packagePlan().orElseThrow(),
                                     request.requirePackage()));
                         }
                     }

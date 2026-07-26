@@ -7,6 +7,8 @@ import sh.zolt.cli.command.CommandServiceBundles.CommandCoverageServices;
 import sh.zolt.cli.command.CommandServiceBundles.CommandDependencyEditServices;
 import sh.zolt.cli.command.CommandServiceBundles.CommandNativeServices;
 import sh.zolt.cli.command.CommandServiceBundles.CommandPackageServices;
+import sh.zolt.cli.command.CommandServiceBundles.CommandPublishServices;
+import sh.zolt.cli.command.CommandServiceBundles.CommandQualityServices;
 import sh.zolt.cli.command.CommandServiceBundles.CommandResolveServices;
 import sh.zolt.cli.command.CommandServiceBundles.CommandRunPackageServices;
 import sh.zolt.cli.command.CommandServiceBundles.CommandRunServices;
@@ -139,6 +141,25 @@ final class CommandServiceBundlesTest {
                         services.packagePlanService(),
                         services.packageService(),
                         services.buildService(),
+                        null));
+    }
+
+    @Test
+    void qualityCommandServicesRequiresEveryCollaborator() {
+        assertRejectsNullCollaborators(
+                () -> new CommandQualityServices(null));
+    }
+
+    @Test
+    void publishCommandServicesRequiresEveryCollaborator() {
+        CommandPublishServices services = CommandFrameworkServices.publishCommandServices();
+
+        assertRejectsNullCollaborators(
+                () -> new CommandPublishServices(
+                        null,
+                        services.workspacePublishService()),
+                () -> new CommandPublishServices(
+                        services.publishDryRunService(),
                         null));
     }
 

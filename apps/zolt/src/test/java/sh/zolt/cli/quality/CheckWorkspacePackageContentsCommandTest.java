@@ -9,6 +9,7 @@ import static sh.zolt.cli.CliTestSupport.memberConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.cli.CliTestRepository;
@@ -106,9 +107,65 @@ final class CheckWorkspacePackageContentsCommandTest {
             assertFalse(consumerEvidence.contains("org.example:optional-lib"));
             assertTrue(requiredConsumerEvidence.contains("com.example:provider"));
             assertTrue(requiredConsumerEvidence.contains("org.example:optional-lib"));
-            assertTrue(Files.isRegularFile(workspace.resolve(
-                    "platform/target/publish/platform-0.1.0.pom")));
+            Path bomPom = workspace.resolve(
+                    "platform/target/publish/platform-0.1.0.pom");
+            Path bomEvidence = workspace.resolve(
+                    "platform/target/publish/platform-0.1.0.pom.zolt-package.json");
+            assertTrue(Files.isRegularFile(bomPom));
+            assertTrue(Files.isRegularFile(bomEvidence));
+
+            CommandResult requiredPackage = packageContentsCheck(
+                    workspace,
+                    cache);
+            assertEquals(
+                    0,
+                    requiredPackage.exitCode(),
+                    () -> requiredPackage.stdout() + requiredPackage.stderr());
+
+            Files.writeString(
+                    bomPom,
+                    "\n<!-- stale -->\n",
+                    StandardOpenOption.APPEND);
+            CommandResult staleBom = packageContentsCheck(workspace, cache);
+            assertEquals(1, staleBom.exitCode());
+            assertTrue(staleBom.stdout().contains(
+                    "Package evidence manifest is stale for "
+                            + "`target/publish/platform-0.1.0.pom`"));
+
+            CommandResult restoredPackage = execute(
+                    "package",
+                    "--workspace",
+                    "--member", "platform",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", cache.toString());
+            assertEquals(
+                    0,
+                    restoredPackage.exitCode(),
+                    () -> restoredPackage.stdout()
+                            + restoredPackage.stderr());
+            Files.delete(bomEvidence);
+
+            CommandResult missingBomEvidence = packageContentsCheck(
+                    workspace,
+                    cache);
+            assertEquals(1, missingBomEvidence.exitCode());
+            assertTrue(missingBomEvidence.stdout().contains(
+                    "Package artifact exists, but package evidence manifest is missing."));
         }
+    }
+
+    private static CommandResult packageContentsCheck(
+            Path workspace,
+            Path cache) {
+        return execute(
+                "check",
+                "--workspace",
+                "--context", "ci",
+                "--check", "package-contents",
+                "--require-package",
+                "--all",
+                "--cwd", workspace.toString(),
+                "--cache-root", cache.toString());
     }
 
     private static String evidence(

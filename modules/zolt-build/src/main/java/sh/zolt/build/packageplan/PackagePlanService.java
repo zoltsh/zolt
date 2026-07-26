@@ -77,7 +77,7 @@ public final class PackagePlanService {
                 applicationLayout(mode, modeRules, config),
                 runtimeClasspathPath(projectRoot, config, mode),
                 dependencies,
-                warnings(mode, dependencies));
+                warnings(mode, modeRules, dependencies));
     }
 
     private static Path applicationOutput(
@@ -120,11 +120,20 @@ public final class PackagePlanService {
 
     private static List<PackagePlanWarning> warnings(
             PackageMode mode,
+            Optional<FrameworkPackagePlanRules> modeRules,
             List<PackagePlanDependency> dependencies) {
-        if (mode != PackageMode.WAR && mode != PackageMode.SPRING_BOOT_WAR) {
-            return List.of();
-        }
         List<PackagePlanWarning> warnings = new ArrayList<>();
+        if (mode == PackageMode.QUARKUS && modeRules.isEmpty()) {
+            warnings.add(new PackagePlanWarning(
+                    "FRAMEWORK_PACKAGE_PLAN_RULES_MISSING",
+                    "[package].mode",
+                    "framework-package-plan-rules-missing",
+                    "Package mode `quarkus` requires framework-aware package plan rules, but none are installed.",
+                    "Run package quality through the Zolt application composition that installs Quarkus package plan rules."));
+        }
+        if (mode != PackageMode.WAR && mode != PackageMode.SPRING_BOOT_WAR) {
+            return List.copyOf(warnings);
+        }
         for (PackagePlanDependency dependency : dependencies) {
             if (!("included".equals(dependency.disposition()))
                     || !isContainerDependency(dependency.coordinate())) {

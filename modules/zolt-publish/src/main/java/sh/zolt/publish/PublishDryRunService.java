@@ -45,6 +45,18 @@ public final class PublishDryRunService {
                 System::getenv);
     }
 
+    public PublishDryRunService(PackagePlanService packagePlanService) {
+        this(
+                new ZoltTomlParser(),
+                new PublishSettingsReader(),
+                packagePlanService,
+                new PackageEvidenceManifestReader(),
+                new ZoltLockfileReader(),
+                new PublishPomGenerator(),
+                new MavenRepositoryPathBuilder(),
+                System::getenv);
+    }
+
     PublishDryRunService(Function<String, String> environment) {
         this(
                 new ZoltTomlParser(),

@@ -235,13 +235,49 @@ public final class PackageService {
             ClasspathSet classpaths,
             List<ResolvedClasspathPackage> classpathPackages,
             PackagePlan packagePlan) {
+        return packageJar(
+                projectDirectory,
+                config,
+                buildResult,
+                Optional.empty(),
+                classpaths,
+                classpathPackages,
+                packagePlan);
+    }
+
+    public PackageResult packageJar(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResult buildResult,
+            Path cacheRoot,
+            ClasspathSet classpaths,
+            List<ResolvedClasspathPackage> classpathPackages,
+            PackagePlan packagePlan) {
+        return packageJar(
+                projectDirectory,
+                config,
+                buildResult,
+                Optional.of(cacheRoot),
+                classpaths,
+                classpathPackages,
+                packagePlan);
+    }
+
+    private PackageResult packageJar(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResult buildResult,
+            Optional<Path> cacheRoot,
+            ClasspathSet classpaths,
+            List<ResolvedClasspathPackage> classpathPackages,
+            PackagePlan packagePlan) {
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
         return packageJar(
                 projectRoot(projectDirectory),
                 config,
                 buildResult,
-                Optional.empty(),
+                cacheRoot,
                 Optional.of(classpathPackages),
                 Optional.of(classpaths),
                 Optional.of(packagePlan));
