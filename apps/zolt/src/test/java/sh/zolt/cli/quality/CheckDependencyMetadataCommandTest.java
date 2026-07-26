@@ -116,7 +116,7 @@ final class CheckDependencyMetadataCommandTest {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
-                dependencies = ["org.example:excluded"]
+                dependencies = ["org.example:excluded:1.0.0:jar:runtime"]
                 """);
 
         CommandResult result = execute("check", "--cwd", projectDir.toString(), "--check", "dependency-metadata");

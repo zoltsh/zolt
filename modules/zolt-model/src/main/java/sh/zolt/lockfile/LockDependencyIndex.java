@@ -48,15 +48,7 @@ public final class LockDependencyIndex {
     private static boolean sameTarget(
             LockPackage left,
             LockPackage right) {
-        return left.source().equals(right.source())
-                && left.workspace().equals(right.workspace())
-                && left.workspaceOutput().equals(right.workspaceOutput())
-                && left.jar().equals(right.jar())
-                && left.jarSha256().equals(right.jarSha256())
-                && left.artifact().equals(right.artifact())
-                && left.artifactSha256().equals(right.artifactSha256())
-                && left.pom().equals(right.pom())
-                && left.pomSha256().equals(right.pomSha256());
+        return LockPackageTargetEquivalence.sameTarget(left, right);
     }
 
     /** Resolves an edge string to the package it targets, honoring variant and scope identity. */

@@ -176,7 +176,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
                 "1.0.0",
                 "compile",
                 true,
-                "dependencies = [\"com.example:legacy\"]")
+                "dependencies = [\"com.example:legacy:1.0.0:jar:runtime\"]")
                 + packageEntry("com.example:optional-lib", "1.0.0", "compile", false, ""));
 
         List<QualityCheckResult> results = check.checkProjectMetadata(Optional.empty(), projectDir, config, false);
@@ -190,7 +190,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
     }
 
     @Test
-    void dependencyMetadataRejectsOptionalWorkspaceDependencyMetadata() throws IOException {
+    void dependencyMetadataRequiresWorkspaceModeForWorkspaceDependencyMetadata() throws IOException {
         Path projectDir = tempDir.resolve("optional-workspace-dependency");
         ProjectConfig config = parseProject(projectDir, """
 
@@ -206,8 +206,8 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
                 QualityCheckService.DEPENDENCY_METADATA,
                 QualityCheckStatus.FAILED,
                 "com.example:core",
-                "Workspace dependency `com.example:core` declares optional metadata, which is not supported.",
-                "Remove optional = true or use an external dependency coordinate.");
+                "Workspace dependency `com.example:core` requires member-qualified workspace graph evidence.",
+                "Run `zolt check --workspace --check dependency-metadata` from the workspace root.");
     }
 
     @Test

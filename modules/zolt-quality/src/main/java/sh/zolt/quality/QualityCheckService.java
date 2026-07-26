@@ -45,6 +45,7 @@ public final class QualityCheckService {
     private final PackageQualityCheck packageQualityCheck;
     private final DependencyQualityCheck dependencyQualityCheck;
     private final LicensePolicyQualityCheck licensePolicyQualityCheck;
+    private final WorkspaceQualityProjectionService workspaceQualityProjectionService;
 
     public QualityCheckService() {
         this(QualityCheckDependencies.create(System::getenv));
@@ -77,6 +78,7 @@ public final class QualityCheckService {
         this.packageQualityCheck = dependencies.packageQualityCheck();
         this.dependencyQualityCheck = dependencies.dependencyQualityCheck();
         this.licensePolicyQualityCheck = dependencies.licensePolicyQualityCheck();
+        this.workspaceQualityProjectionService = dependencies.workspaceQualityProjectionService();
     }
 
     public QualityCheckReport check(QualityCheckRequest request) {
@@ -203,6 +205,16 @@ public final class QualityCheckService {
             WorkspaceSelection selection) {
         List<QualityCheckResult> results = new ArrayList<>();
         Map<String, WorkspaceMember> members = membersByPath(workspace);
+        WorkspaceQualityProjection qualityProjection = null;
+        WorkspaceQualityProjectionException projectionFailure = null;
+        if (requestedChecks.stream().anyMatch(QualityCheckService::graphDependentCheck)) {
+            try {
+                qualityProjection = workspaceQualityProjectionService.project(
+                        workspace, selection, members);
+            } catch (WorkspaceQualityProjectionException exception) {
+                projectionFailure = exception;
+            }
+        }
         for (String requestedCheck : requestedChecks) {
             switch (requestedCheck) {
                 case COMMAND_SURFACE -> results.add(commandSurfaceWorkspaceResult(workspace, selection));
@@ -222,28 +234,42 @@ public final class QualityCheckService {
                                 member.config()));
                     }
                 }
-                case DEPENDENCY_METADATA -> results.addAll(dependencyQualityCheck.checkWorkspaceMetadata(workspace, selection, members));
+                case DEPENDENCY_METADATA -> {
+                    if (projectionFailure != null) {
+                        results.add(graphProjectionFailure(requestedCheck, projectionFailure));
+                    } else {
+                        results.addAll(dependencyQualityCheck.checkWorkspaceMetadata(
+                                workspace,
+                                selection,
+                                qualityProjection));
+                    }
+                }
                 case DEPENDENCY_POLICY -> {
-                    for (String memberPath : selection.includedMembers()) {
-                        WorkspaceMember member = members.get(memberPath);
-                        results.addAll(dependencyQualityCheck.checkPolicy(
-                                Optional.of(member.path()),
-                                member.directory(),
-                                member.config(),
-                                workspace.root().resolve("zolt.lock"),
-                                true));
+                    if (projectionFailure != null) {
+                        results.add(graphProjectionFailure(requestedCheck, projectionFailure));
+                    } else {
+                        for (String memberPath : selection.includedMembers()) {
+                            WorkspaceMemberQualityView view = qualityProjection.member(memberPath);
+                            results.addAll(dependencyQualityCheck.checkProjectedPolicy(
+                                    Optional.of(memberPath),
+                                    view.member().directory(),
+                                    view.effectiveConfig(),
+                                    view.policyLock()));
+                        }
                     }
                 }
                 case LICENSE_POLICY -> {
-                    for (String memberPath : selection.includedMembers()) {
-                        WorkspaceMember member = members.get(memberPath);
-                        results.addAll(licensePolicyQualityCheck.check(
-                                Optional.of(member.path()),
-                                member.directory(),
-                                member.config(),
-                                workspace.root().resolve("zolt.lock"),
-                                true,
-                                request.cacheRoot()));
+                    if (projectionFailure != null) {
+                        results.add(graphProjectionFailure(requestedCheck, projectionFailure));
+                    } else {
+                        for (String memberPath : selection.includedMembers()) {
+                            WorkspaceMemberQualityView view = qualityProjection.member(memberPath);
+                            results.addAll(licensePolicyQualityCheck.checkProjected(
+                                    Optional.of(memberPath),
+                                    view.effectiveConfig(),
+                                    view.sbomLock(),
+                                    request.cacheRoot()));
+                        }
                     }
                 }
                 case PACKAGE_METADATA -> {
@@ -296,5 +322,22 @@ public final class QualityCheckService {
             members.put(member.path(), member);
         }
         return Collections.unmodifiableMap(members);
+    }
+
+    private static boolean graphDependentCheck(String check) {
+        return DEPENDENCY_METADATA.equals(check)
+                || DEPENDENCY_POLICY.equals(check)
+                || LICENSE_POLICY.equals(check);
+    }
+
+    private static QualityCheckResult graphProjectionFailure(
+            String check,
+            WorkspaceQualityProjectionException failure) {
+        return QualityCheckResult.failed(
+                check,
+                Optional.empty(),
+                "zolt.lock",
+                failure.getMessage(),
+                failure.nextStep());
     }
 }

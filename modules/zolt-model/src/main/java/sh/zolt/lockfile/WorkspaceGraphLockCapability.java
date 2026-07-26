@@ -30,6 +30,6 @@ public final class WorkspaceGraphLockCapability {
                         + " lacks the version "
                         + MINIMUM_VERSION
                         + " member-qualified optional-boundary evidence required by workspace graph consumers.",
-                "Run `zolt resolve --workspace` with this Zolt version to regenerate zolt.lock before building, testing, packaging, running, publishing, generating IDE models, or generating workspace SBOMs."));
+                "Run `zolt resolve --workspace` with this Zolt version to regenerate zolt.lock before building, testing, packaging, running, publishing, checking dependency or license policy, generating IDE models, or generating workspace SBOMs."));
     }
 }

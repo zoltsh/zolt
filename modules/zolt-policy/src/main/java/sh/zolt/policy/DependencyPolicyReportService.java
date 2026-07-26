@@ -27,7 +27,7 @@ public final class DependencyPolicyReportService {
                 platforms(config, lockfile),
                 constraints(config, lockfile),
                 exclusions(config, lockfile),
-                directVersions(config, lockfile));
+                DirectDependencyPolicyDiagnostics.directVersions(config, lockfile));
     }
 
     private static List<DependencyPolicyReport.PlatformPolicyDiagnostic> platforms(
@@ -143,7 +143,8 @@ public final class DependencyPolicyReportService {
                 .anyMatch(lockPackage -> lockPackage.version().equals(constraint.version()));
         boolean directOverride = selectedPackages.stream()
                 .anyMatch(lockPackage -> lockPackage.direct()
-                        && hasExplicitDirectVersion(config, constraint.coordinate())
+                        && DirectDependencyPolicyDiagnostics.hasExplicitDirectVersion(
+                                config, constraint.coordinate())
                         && !lockPackage.version().equals(constraint.version()));
         if (directOverride) {
             return "direct-override";
@@ -194,81 +195,6 @@ public final class DependencyPolicyReportService {
                         .toList());
     }
 
-    private static List<DependencyPolicyReport.DirectVersionDiagnostic> directVersions(
-            ProjectConfig config,
-            ZoltLockfile lockfile) {
-        Map<String, DirectDependency> directDependencies = explicitDirectVersions(config);
-        return directDependencies.values().stream()
-                .sorted(Comparator.comparing(direct -> direct.section() + ":" + direct.coordinate()))
-                .map(direct -> new DependencyPolicyReport.DirectVersionDiagnostic(
-                        direct.section(),
-                        direct.coordinate(),
-                        direct.version(),
-                        direct.versionRef(),
-                        directVersionStatus(direct, lockfile)))
-                .toList();
-    }
-
-    private static String directVersionStatus(DirectDependency direct, ZoltLockfile lockfile) {
-        PackageId packageId = packageId(direct.coordinate());
-        return selectedPackages(lockfile, packageId).stream()
-                .filter(LockPackage::direct)
-                .anyMatch(lockPackage -> lockPackage.version().equals(direct.version()))
-                ? "selected"
-                : "not-selected";
-    }
-
-    private static Map<String, DirectDependency> explicitDirectVersions(ProjectConfig config) {
-        Map<String, DirectDependency> directDependencies = new LinkedHashMap<>();
-        addDirectVersions(
-                directDependencies, "api.dependencies", config.apiDependencies(), config.dependencyMetadata());
-        addDirectVersions(
-                directDependencies, "dependencies", config.dependencies(), config.dependencyMetadata());
-        addDirectVersions(
-                directDependencies, "runtime.dependencies", config.runtimeDependencies(), config.dependencyMetadata());
-        addDirectVersions(
-                directDependencies, "provided.dependencies", config.providedDependencies(), config.dependencyMetadata());
-        addDirectVersions(
-                directDependencies, "dev.dependencies", config.devDependencies(), config.dependencyMetadata());
-        addDirectVersions(
-                directDependencies, "test.dependencies", config.testDependencies(), config.dependencyMetadata());
-        addDirectVersions(
-                directDependencies, "annotationProcessors", config.annotationProcessors(), config.dependencyMetadata());
-        addDirectVersions(
-                directDependencies,
-                "test.annotationProcessors",
-                config.testAnnotationProcessors(),
-                config.dependencyMetadata());
-        return directDependencies;
-    }
-
-    private static boolean hasExplicitDirectVersion(ProjectConfig config, String coordinate) {
-        return explicitDirectVersions(config).values().stream()
-                .anyMatch(direct -> direct.coordinate().equals(coordinate));
-    }
-
-    private static void addDirectVersions(
-            Map<String, DirectDependency> directDependencies,
-            String section,
-            Map<String, String> dependencies,
-            Map<String, DependencyMetadata> dependencyMetadata) {
-        dependencies.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> {
-                    DependencyMetadata metadata =
-                            dependencyMetadata.get(DependencyMetadata.key(section, entry.getKey()));
-                    directDependencies.put(
-                            section + ":" + entry.getKey(),
-                            new DirectDependency(
-                                    section,
-                                    entry.getKey(),
-                                    entry.getValue(),
-                                    metadata == null
-                                            ? Optional.empty()
-                                            : Optional.ofNullable(metadata.versionRef())));
-                });
-    }
-
     private static List<LockPackage> selectedPackages(ZoltLockfile lockfile, PackageId packageId) {
         return lockfile.packages().stream()
                 .filter(lockPackage -> lockPackage.packageId().equals(packageId))
@@ -311,9 +237,4 @@ public final class DependencyPolicyReportService {
                 + effect.policy();
     }
 
-    private record DirectDependency(
-            String section,
-            String coordinate,
-            String version,
-            Optional<String> versionRef) {}
 }

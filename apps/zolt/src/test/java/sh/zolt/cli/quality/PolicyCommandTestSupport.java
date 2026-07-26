@@ -50,7 +50,7 @@ final class PolicyCommandTestSupport {
     static void writePolicyLockfile(Path projectDir) throws IOException {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = "com.example:direct-lib"
@@ -58,6 +58,7 @@ final class PolicyCommandTestSupport {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
+                members = ["apps/api"]
                 policies = ["version-ref: com.example:direct-lib -> 1.2.3 from [versions].direct-lib"]
                 dependencies = []
 
@@ -67,6 +68,7 @@ final class PolicyCommandTestSupport {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
+                members = ["apps/api"]
                 dependencies = ["org.apache.tomcat.embed:tomcat-embed-core:10.1.40"]
                 policies = ["managed-version: org.springframework.boot:spring-boot-starter-web -> 4.0.6 from org.springframework.boot:spring-boot-dependencies:4.0.6"]
 
@@ -76,6 +78,7 @@ final class PolicyCommandTestSupport {
                 source = "maven-central"
                 scope = "runtime"
                 direct = false
+                members = ["apps/api"]
                 dependencies = []
                 policies = ["strict-version: org.apache.tomcat.embed:tomcat-embed-core requested 10.1.39 -> 10.1.40 (Container baseline)"]
 

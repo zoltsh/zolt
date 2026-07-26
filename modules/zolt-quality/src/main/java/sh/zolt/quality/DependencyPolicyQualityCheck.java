@@ -55,6 +55,22 @@ final class DependencyPolicyQualityCheck {
                             : "Run `zolt resolve` to refresh dependency policy evidence."));
         }
 
+        return evaluate(member, root, config, lockfile);
+    }
+
+    List<QualityCheckResult> checkProjected(
+            Optional<String> member,
+            Path root,
+            ProjectConfig effectiveConfig,
+            ZoltLockfile memberLock) {
+        return evaluate(member, root, effectiveConfig, memberLock);
+    }
+
+    private List<QualityCheckResult> evaluate(
+            Optional<String> member,
+            Path root,
+            ProjectConfig config,
+            ZoltLockfile lockfile) {
         try {
             DependencyPolicyReport report = dependencyPolicyReportService.report(root, config, lockfile);
             List<QualityCheckResult> results = new ArrayList<>();

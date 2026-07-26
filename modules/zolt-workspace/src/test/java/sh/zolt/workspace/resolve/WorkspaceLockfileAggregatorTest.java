@@ -308,6 +308,48 @@ final class WorkspaceLockfileAggregatorTest extends WorkspaceLockfileAggregatorT
     }
 
     @Test
+    void canonicalizesByteIdenticalMirrorsAcrossScopes() throws IOException {
+        Workspace workspace = workspace(List.of());
+        PackageId library = new PackageId("com.example", "mirrored");
+
+        ZoltLockfile aggregated = new WorkspaceLockfileAggregator().aggregate(
+                workspace,
+                List.of(
+                        new WorkspaceMemberResolveOutput(
+                                "apps/api",
+                                lockfile(
+                                        List.of(mirrorPackage(
+                                                library,
+                                                "corp-mirror",
+                                                DependencyScope.COMPILE,
+                                                "jar-sha",
+                                                "pom-sha")),
+                                        List.of(),
+                                        List.of()),
+                                Set.of()),
+                        new WorkspaceMemberResolveOutput(
+                                "apps/worker",
+                                lockfile(
+                                        List.of(mirrorPackage(
+                                                library,
+                                                "central",
+                                                DependencyScope.RUNTIME,
+                                                "jar-sha",
+                                                "pom-sha")),
+                                        List.of(),
+                                        List.of()),
+                                Set.of())));
+
+        List<LockPackage> mirrored = aggregated.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(library))
+                .toList();
+        assertEquals(2, mirrored.size());
+        assertEquals(List.of("central", "central"), mirrored.stream()
+                .map(LockPackage::source)
+                .toList());
+    }
+
+    @Test
     void classifiedExternalAttachmentSurvivesWorkspaceShadowingOfThePlainJar() throws IOException {
         // A member provides the plain com.acme:core jar; a transitive brings the com.acme:core:tests
         // classified attachment. Shadowing must drop only the plain external the member actually replaces —
@@ -360,5 +402,25 @@ final class WorkspaceLockfileAggregatorTest extends WorkspaceLockfileAggregatorT
                                 Set.of()))));
 
         assertEquals("Unsupported workspace dependency scope `custom`.", exception.getMessage());
+    }
+
+    private static LockPackage mirrorPackage(
+            PackageId packageId,
+            String source,
+            DependencyScope scope,
+            String jarSha,
+            String pomSha) {
+        String base = "com/example/mirrored/1.0.0/mirrored-1.0.0";
+        return new LockPackage(
+                packageId,
+                "1.0.0",
+                source,
+                scope,
+                true,
+                Optional.of(base + ".jar"),
+                Optional.of(base + ".pom"),
+                Optional.of(jarSha),
+                Optional.of(pomSha),
+                List.of());
     }
 }

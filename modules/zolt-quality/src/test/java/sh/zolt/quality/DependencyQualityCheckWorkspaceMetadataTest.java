@@ -1,8 +1,17 @@
 package sh.zolt.quality;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.policy.DependencyPolicyReportService;
 import sh.zolt.project.ProjectConfig;
@@ -11,176 +20,147 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceProjectEdge;
 import sh.zolt.workspace.service.WorkspaceSelection;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServiceTestSupport {
     private final DependencyQualityCheck check = new DependencyQualityCheck(
             new ZoltLockfileReader(),
             new DependencyPolicyReportService());
+    private final WorkspaceQualityProjectionService projectionService =
+            new WorkspaceQualityProjectionService(new ZoltLockfileReader());
 
     @TempDir
     private Path tempDir;
 
     @Test
-    void workspaceMetadataRequiresWorkspaceLockfileBeforeMemberChecks() throws IOException {
+    void workspaceProjectionRequiresVersionFiveLockBeforeMemberChecks() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 4\n");
 
-        QualityCheckResult result = check.checkWorkspaceMetadata(
-                workspace(fixture.members(), List.of()),
-                new WorkspaceSelection(List.of("apps/api"), List.of("apps/api")),
-                fixture.membersByPath()).getFirst();
+        WorkspaceQualityProjectionException failure = assertThrows(
+                WorkspaceQualityProjectionException.class,
+                () -> project(workspace(fixture.members(), List.of()), fixture));
 
-        assertResult(
-                result,
-                QualityCheckService.DEPENDENCY_METADATA,
-                QualityCheckStatus.FAILED,
-                "zolt.lock",
-                "Workspace zolt.lock is missing.",
-                "Run `zolt resolve --workspace`.");
-        assertEquals(Optional.empty(), result.member());
+        assertTrue(failure.getMessage().contains("version 4"));
+        assertTrue(failure.getMessage().contains("optional-boundary evidence"));
+        assertTrue(failure.nextStep().contains("zolt resolve --workspace"));
     }
 
     @Test
-    void workspaceMetadataReportsMalformedLockfileWithWorkspaceResolveAction() throws IOException {
+    void workspaceProjectionReportsMalformedLockfileWithWorkspaceResolveAction() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("");
-        writeLockfile(tempDir, """
+        Files.writeString(tempDir.resolve("zolt.lock"), """
+                version = 5
 
                 [[package]]
                 id = 42
                 """);
 
-        QualityCheckResult result = check.checkWorkspaceMetadata(
-                workspace(fixture.members(), List.of()),
-                new WorkspaceSelection(List.of("apps/api"), List.of("apps/api")),
-                fixture.membersByPath()).getFirst();
+        WorkspaceQualityProjectionException failure = assertThrows(
+                WorkspaceQualityProjectionException.class,
+                () -> project(workspace(fixture.members(), List.of()), fixture));
 
-        assertEquals(QualityCheckService.DEPENDENCY_METADATA, result.id());
-        assertEquals(QualityCheckStatus.FAILED, result.status());
-        assertEquals("zolt.lock", result.subject());
-        assertTrue(result.message().contains("Invalid value type in zolt.lock"));
-        assertEquals("Run `zolt resolve --workspace`.", result.nextStep());
-        assertEquals(Optional.empty(), result.member());
+        assertTrue(failure.getMessage().contains("Invalid value type in zolt.lock"));
+        assertEquals("Run `zolt resolve --workspace`.", failure.nextStep());
     }
 
     @Test
-    void workspaceMetadataFiltersLockPackagesByMemberOwnership() throws IOException {
+    void workspaceMetadataMatchesExactMemberVariantAndScope() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("""
 
                 [dependencies]
-                "com.example:helper" = { version = "1.0.0", optional = true }
+                "com.example:helper" = { version = "1.0.0", classifier = "linux" }
                 """);
-        writeLockfile(tempDir, packageEntry(
-                "com.example:helper",
-                "1.0.0",
-                "compile",
-                true,
-                "members = [\"modules/core\"]"));
+        writeWorkspaceLockfile(
+                packageEntry(
+                        "com.example:helper",
+                        "1.0.0",
+                        "compile",
+                        true,
+                        "com/example/helper/1.0.0/helper-1.0.0.jar",
+                        "members = [\"apps/api\"]")
+                        + packageEntry(
+                                "com.example:helper",
+                                "1.0.0",
+                                "compile",
+                                true,
+                                "com/example/helper/1.0.0/helper-1.0.0-linux.jar",
+                                "members = [\"apps/api\"]"));
 
-        QualityCheckResult result = check.checkWorkspaceMetadata(
-                workspace(fixture.members(), List.of()),
-                new WorkspaceSelection(List.of("apps/api"), List.of("apps/api")),
-                fixture.membersByPath()).getFirst();
+        Workspace workspace = workspace(fixture.members(), List.of());
+        QualityCheckResult result =
+                check.checkWorkspaceMetadata(workspace, selection(), project(workspace, fixture))
+                        .getFirst();
 
-        assertResult(
-                result,
-                QualityCheckService.DEPENDENCY_METADATA,
-                QualityCheckStatus.FAILED,
-                "com.example:helper",
-                "Dependency metadata for `com.example:helper` is not represented in zolt.lock.",
-                "Run `zolt resolve --workspace`.");
+        assertEquals(QualityCheckStatus.PASSED, result.status());
         assertEquals(Optional.of("apps/api"), result.member());
+        assertTrue(result.message().contains("variant `jar|linux`"));
+        assertTrue(result.message().contains("scope `compile`"));
     }
 
     @Test
-    void workspaceMetadataPassesForExportedApiEdgesAndLockOwnership() throws IOException {
+    void workspaceMetadataAcceptsOptionalApiEdgeAndOptionalLockEvidence() throws IOException {
+        WorkspaceFixture fixture = workspaceFixture("""
+
+                [api.dependencies]
+                "com.example:core" = { workspace = "modules/core", optional = true }
+                """);
+        writeWorkspaceLockfile(workspacePackageEntry(""));
+        Workspace workspace = workspace(
+                fixture.members(),
+                List.of(new WorkspaceProjectEdge(
+                        "apps/api",
+                        "modules/core",
+                        "compile",
+                        "com.example:core",
+                        true,
+                        true)));
+
+        List<QualityCheckResult> results =
+                check.checkWorkspaceMetadata(workspace, selection(), project(workspace, fixture));
+
+        assertEquals(1, results.size());
+        assertEquals(QualityCheckStatus.PASSED, results.getFirst().status());
+        assertEquals(Optional.of("apps/api"), results.getFirst().member());
+        assertTrue(results.getFirst().message().contains("Optional workspace API dependency"));
+        assertTrue(results.getFirst().message().contains("without propagating across workspace classpaths"));
+    }
+
+    @Test
+    void workspaceMetadataRejectsMissingExportedByForRequiredApiEdge() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("""
 
                 [api.dependencies]
                 "com.example:core" = { workspace = "modules/core" }
                 """);
-        writeLockfile(tempDir, workspacePackageEntry("com.example:core", true, "exportedBy = [\"apps/api\"]"));
+        writeWorkspaceLockfile(workspacePackageEntry(""));
+        Workspace workspace = workspace(
+                fixture.members(),
+                List.of(new WorkspaceProjectEdge(
+                        "apps/api",
+                        "modules/core",
+                        "compile",
+                        "com.example:core",
+                        true,
+                        false)));
 
-        List<QualityCheckResult> results = check.checkWorkspaceMetadata(
-                workspace(
-                        fixture.members(),
-                        List.of(new WorkspaceProjectEdge("apps/api", "modules/core", "api", "com.example:core", true))),
-                new WorkspaceSelection(List.of("apps/api"), List.of("apps/api")),
-                fixture.membersByPath());
+        QualityCheckResult result =
+                check.checkWorkspaceMetadata(workspace, selection(), project(workspace, fixture))
+                        .getFirst();
 
-        assertEquals(List.of(
-                        "api|No dependency metadata declarations require validation.",
-                        "com.example:core|Workspace API dependency `com.example:core` is exported through zolt.lock."),
-                results.stream()
-                        .map(result -> result.subject() + "|" + result.message())
-                        .toList());
-        assertEquals(QualityCheckStatus.PASSED, results.get(1).status());
-        assertEquals(Optional.of("apps/api"), results.get(1).member());
-    }
-
-    @Test
-    void workspaceMetadataRejectsApiDependencyWhenWorkspaceEdgeIsNotExported() throws IOException {
-        WorkspaceFixture fixture = workspaceFixture("""
-
-                [api.dependencies]
-                "com.example:core" = { workspace = "modules/core" }
-                """);
-        writeLockfile(tempDir, workspacePackageEntry("com.example:core", true, "exportedBy = [\"apps/api\"]"));
-
-        List<QualityCheckResult> results = check.checkWorkspaceMetadata(
-                workspace(
-                        fixture.members(),
-                        List.of(new WorkspaceProjectEdge("apps/api", "modules/core", "api", "com.example:core", false))),
-                new WorkspaceSelection(List.of("apps/api"), List.of("apps/api")),
-                fixture.membersByPath());
-        QualityCheckResult result = results.stream()
-                .filter(candidate -> candidate.status() == QualityCheckStatus.FAILED)
-                .findFirst()
-                .orElseThrow();
-
-        assertResult(
-                result,
-                QualityCheckService.DEPENDENCY_METADATA,
-                QualityCheckStatus.FAILED,
-                "com.example:core",
-                "Workspace API dependency `com.example:core` is not represented as an exported workspace edge.",
-                "Keep public workspace dependencies in [api.dependencies] and run `zolt resolve --workspace`.");
-        assertEquals(Optional.of("apps/api"), result.member());
-    }
-
-    @Test
-    void workspaceMetadataRejectsApiDependencyWhenLockfileExportedByIsMissing() throws IOException {
-        WorkspaceFixture fixture = workspaceFixture("""
-
-                [api.dependencies]
-                "com.example:core" = { workspace = "modules/core" }
-                """);
-        writeLockfile(tempDir, workspacePackageEntry("com.example:core", true, ""));
-
-        List<QualityCheckResult> results = check.checkWorkspaceMetadata(
-                workspace(
-                        fixture.members(),
-                        List.of(new WorkspaceProjectEdge("apps/api", "modules/core", "api", "com.example:core", true))),
-                new WorkspaceSelection(List.of("apps/api"), List.of("apps/api")),
-                fixture.membersByPath());
-        QualityCheckResult result = results.stream()
-                .filter(candidate -> candidate.status() == QualityCheckStatus.FAILED)
-                .findFirst()
-                .orElseThrow();
-
-        assertResult(
-                result,
-                QualityCheckService.DEPENDENCY_METADATA,
-                QualityCheckStatus.FAILED,
-                "com.example:core",
+        assertEquals(QualityCheckStatus.FAILED, result.status(), result.toString());
+        assertEquals(
                 "Workspace API dependency `com.example:core` is missing exportedBy ownership in zolt.lock.",
-                "Run `zolt resolve --workspace`.");
-        assertEquals(Optional.of("apps/api"), result.member());
+                result.message());
+    }
+
+    private WorkspaceQualityProjection project(
+            Workspace workspace,
+            WorkspaceFixture fixture) {
+        return projectionService.project(workspace, selection(), fixture.membersByPath());
+    }
+
+    private static WorkspaceSelection selection() {
+        return new WorkspaceSelection(List.of("apps/api"), List.of("apps/api"));
     }
 
     private static String packageEntry(
@@ -188,9 +168,8 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
             String version,
             String scope,
             boolean direct,
+            String jar,
             String extra) {
-        String jarName = coordinate.replace(':', '-') + "-" + version + ".jar";
-        String dependencies = extra.contains("dependencies") ? "" : "dependencies = []";
         return """
 
                 [[package]]
@@ -199,41 +178,27 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 source = "maven-central"
                 scope = "%s"
                 direct = %s
-                jar = "com/example/%s/%s/%s"
+                jar = "%s"
                 %s
-                %s
-                """.formatted(
-                coordinate,
-                version,
-                scope,
-                direct,
-                coordinate.substring(coordinate.indexOf(':') + 1),
-                version,
-                jarName,
-                extra,
-                dependencies);
+                dependencies = []
+                """.formatted(coordinate, version, scope, direct, jar, extra);
     }
 
-    private static String workspacePackageEntry(
-            String coordinate,
-            boolean direct,
-            String extra) {
-        String jarName = coordinate.replace(':', '-') + "-0.1.0.jar";
+    private static String workspacePackageEntry(String extra) {
         return """
 
                 [[package]]
-                id = "%s"
+                id = "com.example:core"
                 version = "0.1.0"
                 source = "workspace"
                 scope = "compile"
-                direct = %s
-                jar = "modules/core/target/%s"
+                direct = true
                 workspace = "modules/core"
                 workspaceOutput = "target/classes"
                 members = ["apps/api"]
                 dependencies = []
                 %s
-                """.formatted(coordinate, direct, jarName, extra);
+                """.formatted(extra);
     }
 
     private WorkspaceFixture workspaceFixture(String apiBody) throws IOException {
@@ -253,23 +218,18 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
         return new Workspace(
                 tempDir,
                 tempDir.resolve("zolt-workspace.toml"),
-                new WorkspaceConfig("demo", List.of("apps/api", "modules/core"), List.of(), Map.of(), Map.of()),
+                new WorkspaceConfig(
+                        "demo",
+                        List.of("apps/api", "modules/core"),
+                        List.of(),
+                        Map.of(),
+                        Map.of()),
                 members,
                 edges);
     }
 
-    private static void assertResult(
-            QualityCheckResult result,
-            String id,
-            QualityCheckStatus status,
-            String subject,
-            String message,
-            String nextStep) {
-        assertEquals(id, result.id());
-        assertEquals(status, result.status());
-        assertEquals(subject, result.subject());
-        assertEquals(message, result.message());
-        assertEquals(nextStep, result.nextStep());
+    private void writeWorkspaceLockfile(String packages) throws IOException {
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n" + packages);
     }
 
     private record WorkspaceFixture(

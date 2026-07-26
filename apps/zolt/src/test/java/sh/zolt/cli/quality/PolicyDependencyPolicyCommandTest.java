@@ -68,7 +68,7 @@ final class PolicyDependencyPolicyCommandTest {
                 members = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 5\n");
 
         CommandResult result = execute(
                 "check",
@@ -124,7 +124,7 @@ final class PolicyDependencyPolicyCommandTest {
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api"));
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
-                version = 1
+                version = 5
 
                 [[package]]
                 id = 42
@@ -138,8 +138,8 @@ final class PolicyDependencyPolicyCommandTest {
                 "--cwd", workspaceDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error dependency-policy apps/api zolt.lock"));
-        assertTrue(result.stdout().contains("next: Run `zolt resolve --workspace` to refresh dependency policy evidence."));
+        assertTrue(result.stdout().contains("error dependency-policy zolt.lock"));
+        assertTrue(result.stdout().contains("next: Run `zolt resolve --workspace`."));
         assertEquals("", result.stderr());
     }
 }

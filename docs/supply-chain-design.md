@@ -81,6 +81,12 @@ lock's members field and external→external edges from dependencies.
 Distinct workspace and repository targets may not coexist at the same Maven
 package, version, and artifact variant, regardless of scope: they collapse to
 one CycloneDX PURL and would mix mutable local output with repository hashes.
+Repository IDs are provenance rather than byte identity: external mirrors are
+equivalent only when both the primary artifact SHA-256 and POM SHA-256 are
+present and equal. Workspace aggregation then records the lexicographically
+smallest repository source on every scope copy, so member order cannot change
+the aggregate lock. Missing or different hashes remain a hard resolution
+failure; this equivalence never applies to mutable workspace outputs.
 
 ## License engine (cache-only, no network — ever)
 
@@ -123,6 +129,18 @@ new `zolt check` id `license-policy` (in IMPLEMENTED_CHECKS +
 CI_CONTEXT_CHECKS), LicensePolicyQualityCheck in zolt-quality delegating to
 zolt-sbom's evaluator; offline; failures name dependency, license, and the
 policy line with a Next: (remove dep / policy exclude / amend policy).
+
+Workspace quality checks consume one shared member projection rather than the
+aggregate lock. The projection merges workspace-root repositories/platforms
+through `WorkspaceMemberPolicyResolver`, retains each member's all-scope
+package/variant/conflict/policy graph, and separately supplies the existing
+per-member SBOM closure. License policy evaluates external components only;
+first-party workspace packages never become unknown third-party findings.
+Dependency metadata matches member + package + variant + scope, validates
+optional workspace declarations against both the project edge and version-5
+member graph, and parses qualified dependency edges for exclusions. Explicit
+dependency-metadata, dependency-policy, and license-policy checks all require
+version-5 graph capability even when `lockfile` was not requested.
 
 ## Publish attachment (flag-gated, off by default)
 

@@ -86,14 +86,53 @@ final class LicensePolicyQualityCheck {
                             : "Run `zolt resolve` to refresh license evidence."));
         }
 
+        return evaluate(member, config, lockfile, cacheRoot, false);
+    }
+
+    List<QualityCheckResult> checkProjected(
+            Optional<String> member,
+            ProjectConfig effectiveConfig,
+            ZoltLockfile memberSbomLock,
+            Path cacheRoot) {
+        LicensePolicySettings policy = effectiveConfig.dependencyPolicy().licenses();
+        if (policy.isDefault()) {
+            return List.of(QualityCheckResult.skipped(
+                    LICENSE_POLICY,
+                    member,
+                    "[dependencyPolicy.licenses]",
+                    "No license policy configured; nothing to enforce.",
+                    "Add [dependencyPolicy.licenses] allow/deny/unknown to enforce license compliance."));
+        }
+        return evaluate(member, effectiveConfig, memberSbomLock, cacheRoot, true);
+    }
+
+    private List<QualityCheckResult> evaluate(
+            Optional<String> member,
+            ProjectConfig config,
+            ZoltLockfile lockfile,
+            Path cacheRoot,
+            boolean externalOnly) {
+        LicensePolicySettings policy = config.dependencyPolicy().licenses();
         SbomScopeSelection selection = SbomScopeSelection.requiredOnly();
         List<LockPackage> external = lockfile.packages().stream()
                 .filter(lockPackage -> selection.includes(SbomScopeGroup.of(lockPackage.scope())))
+                .filter(lockPackage -> lockPackage.workspace().isEmpty())
                 .filter(lockPackage -> lockPackage.pom().isPresent())
                 .toList();
         LicenseIndex index = new PomLicenseResolver(cacheRoot).index(external);
-        List<SbomComponent> components =
+        List<SbomComponent> assembled =
                 assembler.assemble(config, lockfile, selection, Optional.empty(), "zolt", index).components();
+        List<String> externalCoordinates = lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.workspace().isEmpty())
+                .map(lockPackage -> lockPackage.packageId() + ":" + lockPackage.version())
+                .distinct()
+                .toList();
+        List<SbomComponent> components = externalOnly
+                ? assembled.stream()
+                        .filter(component -> externalCoordinates.contains(
+                                component.group() + ":" + component.name() + ":" + component.version()))
+                        .toList()
+                : assembled;
         List<LicensePolicyFinding> findings = evaluator.evaluate(components, index, policy);
 
         List<QualityCheckResult> results = new ArrayList<>();

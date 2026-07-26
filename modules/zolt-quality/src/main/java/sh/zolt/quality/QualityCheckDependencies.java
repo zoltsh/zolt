@@ -20,6 +20,7 @@ final class QualityCheckDependencies {
     private final PackageQualityCheck packageQualityCheck;
     private final DependencyQualityCheck dependencyQualityCheck;
     private final LicensePolicyQualityCheck licensePolicyQualityCheck;
+    private final WorkspaceQualityProjectionService workspaceQualityProjectionService;
 
     private QualityCheckDependencies(
             GeneratedSourceQualityCheck generatedSourceQualityCheck,
@@ -27,13 +28,15 @@ final class QualityCheckDependencies {
             QualityExecutionContextRunner executionContextRunner,
             PackageQualityCheck packageQualityCheck,
             DependencyQualityCheck dependencyQualityCheck,
-            LicensePolicyQualityCheck licensePolicyQualityCheck) {
+            LicensePolicyQualityCheck licensePolicyQualityCheck,
+            WorkspaceQualityProjectionService workspaceQualityProjectionService) {
         this.generatedSourceQualityCheck = generatedSourceQualityCheck;
         this.lockfileQualityCheck = lockfileQualityCheck;
         this.executionContextRunner = executionContextRunner;
         this.packageQualityCheck = packageQualityCheck;
         this.dependencyQualityCheck = dependencyQualityCheck;
         this.licensePolicyQualityCheck = licensePolicyQualityCheck;
+        this.workspaceQualityProjectionService = workspaceQualityProjectionService;
     }
 
     static QualityCheckDependencies create(Function<String, String> environment) {
@@ -48,7 +51,8 @@ final class QualityCheckDependencies {
                         new PublishDryRunService()),
                 new PackageQualityCheck(new PackagePlanService(), new PackageEvidenceManifestReader()),
                 new DependencyQualityCheck(lockfileReader, new DependencyPolicyReportService()),
-                new LicensePolicyQualityCheck(lockfileReader));
+                new LicensePolicyQualityCheck(lockfileReader),
+                new WorkspaceQualityProjectionService(lockfileReader));
     }
 
     GeneratedSourceQualityCheck generatedSourceQualityCheck() {
@@ -73,5 +77,9 @@ final class QualityCheckDependencies {
 
     LicensePolicyQualityCheck licensePolicyQualityCheck() {
         return licensePolicyQualityCheck;
+    }
+
+    WorkspaceQualityProjectionService workspaceQualityProjectionService() {
+        return workspaceQualityProjectionService;
     }
 }

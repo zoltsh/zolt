@@ -195,6 +195,49 @@ final class LockDependencyIndexTest {
         assertTrue(exception.getMessage().contains("multiple locked package sources"));
     }
 
+    @Test
+    void acceptsByteIdenticalRepositoryMirrorsAcrossScopes() {
+        LockPackage compile = mirrorPackage(
+                "corp-mirror",
+                DependencyScope.COMPILE,
+                "same-jar-sha",
+                "same-pom-sha");
+        LockPackage runtime = mirrorPackage(
+                "central",
+                DependencyScope.RUNTIME,
+                "same-jar-sha",
+                "same-pom-sha");
+
+        LockDependencyIndex index = new LockDependencyIndex(List.of(compile, runtime));
+
+        assertEquals(
+                compile,
+                index.resolve("io.netty:netty:4.1.100.Final:jar:compile").orElseThrow());
+        assertEquals(
+                runtime,
+                index.resolve("io.netty:netty:4.1.100.Final:jar:runtime").orElseThrow());
+    }
+
+    @Test
+    void refusesRepositoryMirrorsWhenVerifiedBytesDiffer() {
+        LockPackage compile = mirrorPackage(
+                "corp-mirror",
+                DependencyScope.COMPILE,
+                "corp-jar-sha",
+                "same-pom-sha");
+        LockPackage runtime = mirrorPackage(
+                "central",
+                DependencyScope.RUNTIME,
+                "central-jar-sha",
+                "same-pom-sha");
+
+        LockDependencyGraphException exception = assertThrows(
+                LockDependencyGraphException.class,
+                () -> new LockDependencyIndex(List.of(compile, runtime)));
+
+        assertTrue(exception.getMessage().contains("across dependency scopes"));
+    }
+
     private static LockPackage jarPackage(PackageId packageId, String version, String jarPath) {
         return jarPackage(packageId, version, jarPath, DependencyScope.RUNTIME);
     }
@@ -221,6 +264,34 @@ final class LockDependencyIndexTest {
                 Optional.empty(),
                 List.of(),
                 List.of(),
+                List.of(),
+                List.of(),
+                List.of());
+    }
+
+    private static LockPackage mirrorPackage(
+            String source,
+            DependencyScope scope,
+            String jarSha,
+            String pomSha) {
+        String base = "io/netty/netty/4.1.100.Final/netty-4.1.100.Final";
+        return new LockPackage(
+                NETTY,
+                "4.1.100.Final",
+                source,
+                scope,
+                true,
+                Optional.of(base + ".jar"),
+                Optional.of(base + ".pom"),
+                Optional.of(jarSha),
+                Optional.of(pomSha),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of("apps/api"),
                 List.of(),
                 List.of(),
                 List.of());

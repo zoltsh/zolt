@@ -4,6 +4,7 @@ import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackageTargetEquivalence;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.resolve.ResolveException;
@@ -83,7 +84,8 @@ final class WorkspaceLockfileAggregator {
                 new WorkspaceExternalPackageSelector().selectMaterialized(
                         externalCandidates,
                         provided);
-        for (LockPackage lockPackage : globalSelection.packages()) {
+        for (LockPackage lockPackage :
+                WorkspaceMirrorSourceCanonicalizer.canonicalize(globalSelection.packages())) {
             String key = packageKey(lockPackage);
             LockPackage existingPackage = packages.get(key);
             packages.put(key, existingPackage == null ? lockPackage : merge(existingPackage, lockPackage));
@@ -139,15 +141,7 @@ final class WorkspaceLockfileAggregator {
     private static boolean sameTarget(
             LockPackage left,
             LockPackage right) {
-        return left.source().equals(right.source())
-                && left.workspace().equals(right.workspace())
-                && left.workspaceOutput().equals(right.workspaceOutput())
-                && left.jar().equals(right.jar())
-                && left.jarSha256().equals(right.jarSha256())
-                && left.artifact().equals(right.artifact())
-                && left.artifactSha256().equals(right.artifactSha256())
-                && left.pom().equals(right.pom())
-                && left.pomSha256().equals(right.pomSha256());
+        return LockPackageTargetEquivalence.sameTarget(left, right);
     }
 
     private static String targetDescription(LockPackage lockPackage) {

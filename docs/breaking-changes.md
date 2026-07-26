@@ -18,8 +18,12 @@ the old behavior, the new behavior, and how to migrate.
   variant even when they occur in different scopes; scope cannot distinguish
   two byte identities in Maven or CycloneDX. Workspace graph-consuming commands
   refuse readable pre-v5 locks rather than treating missing optional facts as
-  required. Per-member published SBOMs apply those optional-only facts while
-  traversing sibling graphs and remove both the omitted component and its edge.
+  required, including explicitly requested dependency metadata, dependency
+  policy, and license policy checks. `zolt check --workspace` evaluates each
+  member's effective root-merged policy and exact variant/scope graph; license
+  checks exclude first-party workspace packages. Per-member published SBOMs
+  apply optional-only facts while traversing sibling graphs and remove both the
+  omitted component and its edge.
   Finally, ordinary workspace dependencies may target only `thin` members:
   executable, Quarkus, uber, WAR, and BOM members are application artifacts,
   not reusable library JARs.

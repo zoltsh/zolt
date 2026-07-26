@@ -55,6 +55,27 @@ public final class CliTestRepository implements AutoCloseable {
         responses.put(base + ".jar", new byte[] {0x50, 0x4b, 0x03, 0x04});
     }
 
+    public void addClassifiedArtifact(
+            String groupId,
+            String artifactId,
+            String version,
+            String classifier,
+            String extension) {
+        String base = "/maven2/"
+                + groupId.replace('.', '/')
+                + "/"
+                + artifactId
+                + "/"
+                + version
+                + "/"
+                + artifactId
+                + "-"
+                + version;
+        responses.put(
+                base + "-" + classifier + "." + extension,
+                new byte[] {0x50, 0x4b, 0x03, 0x04});
+    }
+
     public byte[] uploaded(String path) {
         byte[] bytes = uploads.get(path);
         if (bytes == null) {
