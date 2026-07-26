@@ -71,7 +71,11 @@ final class PackageSupplementalInputFingerprint {
         BuildSettings build = config.build();
         PackageCanonicalHash hash = new PackageCanonicalHash();
         hash.value("schema", "zolt.package-tests-input.v1");
-        hash.value("compiler", config.compilerSettings().toString());
+        hash.value("build", PackageBuildSettingsIdentity.test(build));
+        hash.value(
+                "compiler",
+                PackageCompilerSettingsIdentity.test(
+                        config.compilerSettings()));
         generatedSourceFingerprints.stream()
                 .filter(fingerprint -> "test".equals(fingerprint.scope()))
                 .sorted(Comparator.comparing(

@@ -2,7 +2,10 @@ package sh.zolt.build.generatedsource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.BuildException;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
@@ -132,18 +135,45 @@ final class GeneratedSourceProducerFingerprintServiceTest {
         GeneratedSourceProducerFingerprintService service = service(Map.of());
 
         Map<String, String> first = fingerprintsByStep(
-                service.fingerprints(
+                service.fingerprintsMain(
                         projectDir,
                         twoStepConfig("alpha", "beta"),
                         packages()));
         Map<String, String> reversed = fingerprintsByStep(
-                service.fingerprints(
+                service.fingerprintsMain(
                         projectDir,
                         twoStepConfig("beta", "alpha"),
                         packages()));
 
         assertEquals(first, reversed);
         assertEquals(List.of("alpha", "beta"), first.keySet().stream().toList());
+    }
+
+    @Test
+    void scopeSelectionDoesNotProbeAnUnselectedTestProducer()
+            throws IOException {
+        Files.writeString(projectDir.resolve("fixtures.sql"), "seed\n");
+        GeneratedSourceProducerFingerprintService service = service(Map.of());
+        ProjectConfig config = unavailableTestProcessConfig();
+
+        assertEquals(
+                List.of(),
+                service.fingerprintsMain(
+                        projectDir,
+                        config,
+                        List.of()));
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> service.fingerprintsTest(
+                        projectDir,
+                        config,
+                        List.of()));
+
+        assertTrue(exception.actionableError()
+                .summary()
+                .contains(
+                        "[generated.test.fixtures] could not find process binary "
+                                + "`zolt-missing-test-generator`"));
     }
 
     private GeneratedSourceProducerFingerprintService service(
@@ -170,7 +200,7 @@ final class GeneratedSourceProducerFingerprintServiceTest {
             ProjectConfig config,
             String stepId,
             List<ResolvedClasspathPackage> packages) {
-        return service.fingerprints(projectDir, config, packages).stream()
+        return service.fingerprintsMain(projectDir, config, packages).stream()
                 .filter(value -> value.stepId().equals(stepId))
                 .findFirst()
                 .orElseThrow()
@@ -274,6 +304,29 @@ final class GeneratedSourceProducerFingerprintServiceTest {
                 produces = "resources"
                 %s
                 """.formatted(stepFields));
+    }
+
+    private static ProjectConfig unavailableTestProcessConfig() {
+        return new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [generated.execTools.test-generator]
+                runner = "process"
+                binary = "zolt-missing-test-generator"
+                versionCommand = ["zolt-missing-test-generator", "--version"]
+                allowUnpinnedTool = true
+
+                [generated.test.fixtures]
+                kind = "exec"
+                tool = "test-generator"
+                inputs = ["fixtures.sql"]
+                output = "target/generated/test-fixtures"
+                produces = "test-resources"
+                """);
     }
 
     private static void executable(Path path) throws IOException {

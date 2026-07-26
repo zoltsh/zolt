@@ -2,6 +2,7 @@ package sh.zolt.resolve.request.tooling;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
@@ -11,9 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 public final class SpringBootToolingDependencyContributor {
-    private static final PackageId SPRING_BOOT_LOADER_PACKAGE = new PackageId(
-            "org.springframework.boot",
-            "spring-boot-loader");
+    private static final PackageId SPRING_BOOT_LOADER_PACKAGE =
+            SpringBootLoaderArtifact.PACKAGE_ID;
     private static final PackageId SPRING_BOOT_AOT_TOOL_PACKAGE = new PackageId(
             "org.springframework.boot",
             "spring-boot");
@@ -34,7 +34,9 @@ public final class SpringBootToolingDependencyContributor {
             return;
         }
         boolean loaderAlreadyOnMainRuntimeClasspath = requests.stream()
-                .anyMatch(request -> request.packageId().equals(SPRING_BOOT_LOADER_PACKAGE)
+                .anyMatch(request -> SpringBootLoaderArtifact.isDefaultLoader(
+                                request.packageId(),
+                                request.artifactVariant())
                         && request.scope().entersMainRuntimeClasspath());
         if (loaderAlreadyOnMainRuntimeClasspath) {
             return;

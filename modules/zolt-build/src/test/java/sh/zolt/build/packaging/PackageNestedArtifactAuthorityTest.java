@@ -17,6 +17,7 @@ import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
@@ -35,9 +36,10 @@ final class PackageNestedArtifactAuthorityTest {
     private Path tempDir;
 
     @Test
-    void warAndSpringBootWarKeepVariantsCollisionsPlanArchiveAndEvidenceAligned()
+    void nestedModesKeepVariantsCollisionsPlanArchiveAndEvidenceAligned()
             throws IOException {
         verifyMode(PackageMode.WAR);
+        verifyMode(PackageMode.SPRING_BOOT);
         verifyMode(PackageMode.SPRING_BOOT_WAR);
     }
 
@@ -50,10 +52,10 @@ final class PackageNestedArtifactAuthorityTest {
             if (lockPackage.jar().isPresent()) {
                 createJarWithEntry(
                         cacheRoot.resolve(lockPackage.jar().orElseThrow()),
-                        lockPackage.packageId().equals(new PackageId(
-                                        "org.springframework.boot",
-                                        "spring-boot-loader"))
-                                ? "org/springframework/boot/loader/launch/WarLauncher.class"
+                        SpringBootLoaderArtifact.isDefaultLoader(lockPackage)
+                                ? mode == PackageMode.SPRING_BOOT
+                                        ? "org/springframework/boot/loader/launch/JarLauncher.class"
+                                        : "org/springframework/boot/loader/launch/WarLauncher.class"
                                 : "fixtures/"
                                         + NestedArtifactIdentity.of(lockPackage)
                                                 .nestedJarName());
@@ -103,6 +105,14 @@ final class PackageNestedArtifactAuthorityTest {
                         archive.getEntry(dependency.location()),
                         dependency.coordinate());
             }
+            if (mode == PackageMode.SPRING_BOOT) {
+                assertNotNull(archive.getEntry(
+                        "org/springframework/boot/loader/launch/JarLauncher.class"));
+            }
+            if (mode == PackageMode.SPRING_BOOT_WAR) {
+                assertNotNull(archive.getEntry(
+                        "org/springframework/boot/loader/launch/WarLauncher.class"));
+            }
         }
 
         PackagePlanDependency linux =
@@ -117,6 +127,26 @@ final class PackageNestedArtifactAuthorityTest {
                 .anyMatch(dependency ->
                         dependency.scope() == DependencyScope.RUNTIME
                                 && "included".equals(dependency.disposition())));
+        if (mode == PackageMode.SPRING_BOOT
+                || mode == PackageMode.SPRING_BOOT_WAR) {
+            PackagePlanDependency defaultLoader = dependency(
+                    plan,
+                    "org.springframework.boot:spring-boot-loader:4.0.6");
+            PackagePlanDependency testsLoader = dependency(
+                    plan,
+                    "org.springframework.boot:spring-boot-loader:tests:jar:4.0.6");
+            PackagePlanDependency fixturesLoader = dependency(
+                    plan,
+                    "org.springframework.boot:spring-boot-loader:fixtures:jar:4.0.6");
+
+            assertEquals("loader", defaultLoader.disposition());
+            assertEquals("archive root", defaultLoader.location());
+            assertEquals("included", testsLoader.disposition());
+            assertEquals("included", fixturesLoader.disposition());
+            assertNotEquals(
+                    testsLoader.location(),
+                    fixturesLoader.location());
+        }
     }
 
     private static PackagePlanDependency dependency(
@@ -172,7 +202,8 @@ final class PackageNestedArtifactAuthorityTest {
                 "1.0.0",
                 DependencyScope.RUNTIME,
                 "com/beta/shared/1.0.0/shared-1.0.0.jar"));
-        if (mode == PackageMode.SPRING_BOOT_WAR) {
+        if (mode == PackageMode.SPRING_BOOT
+                || mode == PackageMode.SPRING_BOOT_WAR) {
             packages.add(lockPackage(
                     "org.springframework.boot",
                     "spring-boot",
@@ -185,6 +216,18 @@ final class PackageNestedArtifactAuthorityTest {
                     "4.0.6",
                     DependencyScope.RUNTIME,
                     "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6.jar"));
+            packages.add(lockPackage(
+                    "org.springframework.boot",
+                    "spring-boot-loader",
+                    "4.0.6",
+                    DependencyScope.RUNTIME,
+                    "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"));
+            packages.add(lockPackage(
+                    "org.springframework.boot",
+                    "spring-boot-loader",
+                    "4.0.6",
+                    DependencyScope.RUNTIME,
+                    "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-fixtures.jar"));
         }
         return List.copyOf(packages);
     }

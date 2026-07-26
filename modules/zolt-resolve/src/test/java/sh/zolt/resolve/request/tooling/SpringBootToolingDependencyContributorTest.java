@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.maven.ArtifactDescriptor;
+import sh.zolt.maven.Coordinate;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
@@ -16,6 +18,7 @@ import sh.zolt.toml.ZoltTomlParser;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class SpringBootToolingDependencyContributorTest {
@@ -40,6 +43,41 @@ final class SpringBootToolingDependencyContributorTest {
         assertEquals("4.0.6", request.requestedVersion());
         assertEquals(DependencyScope.RUNTIME, request.scope());
         assertEquals(RequestOrigin.TRANSITIVE, request.origin());
+    }
+
+    @Test
+    void classifiedLoaderRequestDoesNotSuppressDefaultPackageTooling() {
+        List<DependencyRequest> requests = new ArrayList<>();
+        requests.add(new DependencyRequest(
+                SPRING_BOOT_LOADER,
+                "4.0.6",
+                DependencyScope.RUNTIME,
+                RequestOrigin.DIRECT,
+                Optional.of(ArtifactDescriptor.jar(
+                        new Coordinate(
+                                SPRING_BOOT_LOADER.groupId(),
+                                SPRING_BOOT_LOADER.artifactId(),
+                                Optional.of("4.0.6")),
+                        Optional.of("tests")))));
+
+        contributor.contribute(
+                baseConfig().withPackageSettings(
+                        new PackageSettings(PackageMode.SPRING_BOOT)),
+                Map.of(SPRING_BOOT_LOADER, "4.0.6"),
+                requests);
+
+        assertEquals(2, requests.stream()
+                .filter(request -> request.packageId().equals(
+                        SPRING_BOOT_LOADER))
+                .count());
+        DependencyRequest defaultLoader = requests.stream()
+                .filter(request -> request.packageId().equals(
+                        SPRING_BOOT_LOADER))
+                .filter(request -> request.artifactVariant().isDefault())
+                .findFirst()
+                .orElseThrow();
+        assertEquals(DependencyScope.RUNTIME, defaultLoader.scope());
+        assertEquals(RequestOrigin.TRANSITIVE, defaultLoader.origin());
     }
 
     @Test

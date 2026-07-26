@@ -46,6 +46,13 @@ final class PackageBuildInputFingerprintTest {
                 fingerprint(config("beta", "alpha"), producers));
     }
 
+    @Test
+    void testOnlyBuildSettingsDoNotChangeMainPackageFingerprint() {
+        assertEquals(
+                fingerprint(testConfig("fixtures-v1.sql"), List.of()),
+                fingerprint(testConfig("fixtures-v2.sql"), List.of()));
+    }
+
     private String fingerprint(
             List<GeneratedSourceProducerFingerprint> producers) {
         return fingerprint(config(), producers);
@@ -110,5 +117,21 @@ final class PackageBuildInputFingerprintTest {
                 group = "com.example"
                 java = "21"
                 """);
+    }
+
+    private static ProjectConfig testConfig(String input) {
+        return new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [generated.test.fixtures]
+                kind = "declared-root"
+                language = "java"
+                inputs = ["%s"]
+                output = "target/generated/test-fixtures"
+                """.formatted(input));
     }
 }

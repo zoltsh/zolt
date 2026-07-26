@@ -70,6 +70,66 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
     }
 
     @Test
+    void classifiedLoaderDoesNotSatisfyResolvedDefaultTooling()
+            throws IOException {
+        Path cacheRoot = projectDir.resolve("cache");
+        createJarWithEntry(
+                cacheRoot.resolve(
+                        "org/springframework/boot/spring-boot/4.0.6/spring-boot-4.0.6.jar"),
+                "org/springframework/boot/SpringApplication.class");
+        createJarWithEntry(
+                cacheRoot.resolve(
+                        "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"),
+                "fixtures/LoaderTests.class");
+        Files.writeString(projectDir.resolve("zolt.lock"), """
+                version = 1
+
+                [[package]]
+                id = "org.springframework.boot:spring-boot"
+                version = "4.0.6"
+                source = "maven-central"
+                scope = "compile"
+                direct = false
+                jar = "org/springframework/boot/spring-boot/4.0.6/spring-boot-4.0.6.jar"
+                dependencies = []
+
+                [[package]]
+                id = "org.springframework.boot:spring-boot-loader"
+                version = "4.0.6"
+                source = "maven-central"
+                scope = "runtime"
+                direct = true
+                jar = "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"
+                dependencies = []
+                """);
+        source(projectDir, "src/main/java/com/example/Main.java", """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        ProjectConfig config = config(Optional.of("com.example.Main"))
+                .withPackageSettings(
+                        new PackageSettings(PackageMode.SPRING_BOOT));
+
+        PackageException exception = assertThrows(
+                PackageException.class,
+                () -> packageService.packageJar(
+                        projectDir,
+                        config,
+                        cacheRoot));
+
+        assertTrue(exception.getMessage().contains(
+                "requires `org.springframework.boot:spring-boot-loader`"));
+        assertTrue(exception.getMessage().contains(
+                "Add the Spring Boot platform to [platforms]"));
+        assertFalse(Files.exists(
+                projectDir.resolve("target/demo-0.1.0.jar")));
+    }
+
+    @Test
     void usesPrecomputedBuildClasspathPackages() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
         Path springBootJar = cacheRoot.resolve("org/springframework/boot/spring-boot/4.0.6/spring-boot-4.0.6.jar");

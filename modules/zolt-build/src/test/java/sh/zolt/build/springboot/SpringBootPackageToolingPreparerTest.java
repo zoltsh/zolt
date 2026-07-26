@@ -104,6 +104,24 @@ final class SpringBootPackageToolingPreparerTest {
     }
 
     @Test
+    void classifiedRuntimeLoaderDoesNotSatisfyDefaultTooling() {
+        SpringBootPackageToolingPreparer preparer =
+                new SpringBootPackageToolingPreparer(
+                        new RecordingResolver(),
+                        new ZoltLockfileReader());
+
+        assertTrue(preparer.shouldResolveTooling(
+                lockfile(classifiedRuntimeLoaderPackage()),
+                config(
+                        PackageMode.SPRING_BOOT,
+                        Map.of(
+                                "spring-boot",
+                                "org.springframework.boot:spring-boot-dependencies:3.3.6"),
+                        Map.of(),
+                        Map.of())));
+    }
+
+    @Test
     void skipsWhenConfigCannotResolveLoaderVersion() {
         SpringBootPackageToolingPreparer preparer = new SpringBootPackageToolingPreparer(
                 new RecordingResolver(),
@@ -199,6 +217,19 @@ final class SpringBootPackageToolingPreparerTest {
                 source = "maven-central"
                 scope = "provided"
                 direct = false
+                dependencies = []
+                """;
+    }
+
+    private static String classifiedRuntimeLoaderPackage() {
+        return """
+                [[package]]
+                id = "org.springframework.boot:spring-boot-loader"
+                version = "3.3.6"
+                source = "maven-central"
+                scope = "runtime"
+                direct = true
+                jar = "org/springframework/boot/spring-boot-loader/3.3.6/spring-boot-loader-3.3.6-tests.jar"
                 dependencies = []
                 """;
     }

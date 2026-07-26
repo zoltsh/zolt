@@ -15,6 +15,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPaths;
 import sh.zolt.dependency.DependencyScope;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -148,15 +149,26 @@ public final class PackagePlanService {
                         workspaceInputs);
         List<GeneratedSourceProducerFingerprint> generatedSourceFingerprints;
         try {
-            generatedSourceFingerprints = mode == PackageMode.BOM
-                    ? List.of()
-                    : generatedSourceFingerprintService.fingerprints(
+            if (mode == PackageMode.BOM) {
+                generatedSourceFingerprints = List.of();
+            } else {
+                var generatedClasspath = PackageGeneratedSourceClasspath.packages(
+                        projectRoot,
+                        cacheRoot,
+                        lockfile);
+                List<GeneratedSourceProducerFingerprint> selected =
+                        new ArrayList<>(generatedSourceFingerprintService.fingerprintsMain(
+                                projectRoot,
+                                config,
+                                generatedClasspath));
+                if (outputs.stream().anyMatch(output -> "tests".equals(output.kind()))) {
+                    selected.addAll(generatedSourceFingerprintService.fingerprintsTest(
                             projectRoot,
                             config,
-                            PackageGeneratedSourceClasspath.packages(
-                                    projectRoot,
-                                    cacheRoot,
-                                    lockfile));
+                            generatedClasspath));
+                }
+                generatedSourceFingerprints = List.copyOf(selected);
+            }
         } catch (BuildException exception) {
             if (exception.actionableError() != null) {
                 throw new PackageException(exception.actionableError());

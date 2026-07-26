@@ -7,8 +7,10 @@ import static sh.zolt.build.packaging.PackageServiceTestSupport.source;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.PackageException;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
@@ -157,5 +159,67 @@ final class PackageServiceSpringBootWarModeTest {
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
                     "WEB-INF/lib/" + devNestedName)));
         }
+    }
+
+    @Test
+    void classifiedLoaderDoesNotSatisfyWarDefaultTooling()
+            throws IOException {
+        Path root = projectDir.resolve("classified-only");
+        Files.createDirectories(root);
+        Path cacheRoot = root.resolve("cache");
+        createJarWithEntry(
+                cacheRoot.resolve(
+                        "org/springframework/boot/spring-boot/4.0.6/spring-boot-4.0.6.jar"),
+                "org/springframework/boot/SpringApplication.class");
+        createJarWithEntry(
+                cacheRoot.resolve(
+                        "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"),
+                "fixtures/LoaderTests.class");
+        Files.writeString(root.resolve("zolt.lock"), """
+                version = 1
+
+                [[package]]
+                id = "org.springframework.boot:spring-boot"
+                version = "4.0.6"
+                source = "maven-central"
+                scope = "compile"
+                direct = false
+                jar = "org/springframework/boot/spring-boot/4.0.6/spring-boot-4.0.6.jar"
+                dependencies = []
+
+                [[package]]
+                id = "org.springframework.boot:spring-boot-loader"
+                version = "4.0.6"
+                source = "maven-central"
+                scope = "runtime"
+                direct = true
+                jar = "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"
+                dependencies = []
+                """);
+        source(root, "src/main/java/com/example/Main.java", """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        ProjectConfig config = config(Optional.of("com.example.Main"))
+                .withPackageSettings(new PackageSettings(
+                        PackageMode.SPRING_BOOT_WAR));
+
+        PackageException exception = assertThrows(
+                PackageException.class,
+                () -> packageService.packageJar(
+                        root,
+                        config,
+                        cacheRoot));
+
+        assertTrue(exception.getMessage().contains(
+                "requires `org.springframework.boot:spring-boot-loader`"));
+        assertTrue(exception.getMessage().contains(
+                "Add the Spring Boot platform to [platforms]"));
+        assertFalse(Files.exists(
+                root.resolve("target/demo-0.1.0.war")));
     }
 }

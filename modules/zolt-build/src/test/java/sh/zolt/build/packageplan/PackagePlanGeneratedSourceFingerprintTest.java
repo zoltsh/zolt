@@ -1,7 +1,11 @@
 package sh.zolt.build.packageplan;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.PackageException;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
@@ -51,6 +55,79 @@ final class PackagePlanGeneratedSourceFingerprintTest {
         assertNotEquals(globAdded, toolChanged);
     }
 
+    @Test
+    void mainOnlyPlanDoesNotProbeUnavailableTestProcessGenerator()
+            throws IOException {
+        Files.writeString(projectRoot.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectRoot.resolve("fixtures.sql"), "seed\n");
+        PackagePlanService service = new PackagePlanService();
+        Path cacheRoot = projectRoot.resolve("cache");
+
+        PackagePlan mainOnly = service.plan(
+                projectRoot,
+                unavailableTestProcessConfig(false),
+                projectRoot.resolve("zolt.lock"),
+                cacheRoot);
+        PackageException exception = assertThrows(
+                PackageException.class,
+                () -> service.plan(
+                        projectRoot,
+                        unavailableTestProcessConfig(true),
+                        projectRoot.resolve("zolt.lock"),
+                        cacheRoot));
+
+        assertEquals(
+                "sha256:",
+                mainOnly.evidence()
+                        .buildInputFingerprint()
+                        .substring(0, 7));
+        assertTrue(exception.getMessage().contains(
+                "[generated.test.fixtures] could not find process binary "
+                        + "`zolt-missing-test-generator`"));
+    }
+
+    @Test
+    void testGeneratorChangesAffectOnlyPlansThatIncludeTests()
+            throws IOException {
+        Files.writeString(projectRoot.resolve("zolt.lock"), "version = 1\n");
+        PackagePlanService service = new PackagePlanService();
+        Path cacheRoot = projectRoot.resolve("cache");
+
+        PackagePlan mainV1 = service.plan(
+                projectRoot,
+                declaredTestConfig(false, "fixtures-v1.sql"),
+                projectRoot.resolve("zolt.lock"),
+                cacheRoot);
+        PackagePlan mainV2 = service.plan(
+                projectRoot,
+                declaredTestConfig(false, "fixtures-v2.sql"),
+                projectRoot.resolve("zolt.lock"),
+                cacheRoot);
+        PackagePlan testsV1 = service.plan(
+                projectRoot,
+                declaredTestConfig(true, "fixtures-v1.sql"),
+                projectRoot.resolve("zolt.lock"),
+                cacheRoot);
+        PackagePlan testsV2 = service.plan(
+                projectRoot,
+                declaredTestConfig(true, "fixtures-v2.sql"),
+                projectRoot.resolve("zolt.lock"),
+                cacheRoot);
+
+        assertEquals(
+                mainV1.evidence().buildInputFingerprint(),
+                mainV2.evidence().buildInputFingerprint());
+        assertEquals(
+                mainV1.evidence().inputFingerprint(),
+                mainV2.evidence().inputFingerprint());
+        assertEquals(
+                testsV1.evidence().buildInputFingerprint(),
+                testsV2.evidence().buildInputFingerprint());
+        assertNotEquals(
+                testsV1.evidence().inputFingerprint(),
+                testsV2.evidence().inputFingerprint());
+    }
+
     private String buildFingerprint(
             PackagePlanService service,
             ProjectConfig config,
@@ -84,5 +161,53 @@ final class PackagePlanGeneratedSourceFingerprintTest {
                 output = "target/generated/sources/model"
                 produces = "java-sources"
                 """);
+    }
+
+    private static ProjectConfig unavailableTestProcessConfig(
+            boolean packageTests) {
+        return new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [generated.execTools.test-generator]
+                runner = "process"
+                binary = "zolt-missing-test-generator"
+                versionCommand = ["zolt-missing-test-generator", "--version"]
+                allowUnpinnedTool = true
+
+                [generated.test.fixtures]
+                kind = "exec"
+                tool = "test-generator"
+                inputs = ["fixtures.sql"]
+                output = "target/generated/test-fixtures"
+                produces = "test-resources"
+
+                [package]
+                tests = %s
+                """.formatted(packageTests));
+    }
+
+    private static ProjectConfig declaredTestConfig(
+            boolean packageTests,
+            String input) {
+        return new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [generated.test.fixtures]
+                kind = "declared-root"
+                language = "java"
+                inputs = ["%s"]
+                output = "target/generated/test-fixtures"
+
+                [package]
+                tests = %s
+                """.formatted(input, packageTests));
     }
 }

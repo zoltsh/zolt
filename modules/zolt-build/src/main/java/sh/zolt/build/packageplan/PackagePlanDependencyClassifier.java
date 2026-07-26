@@ -2,7 +2,7 @@ package sh.zolt.build.packageplan;
 
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.dependency.DependencyScope;
-import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import sh.zolt.framework.FrameworkPackagePlanDependency;
 import sh.zolt.framework.FrameworkPackagePlanRules;
 import sh.zolt.lockfile.LockPackage;
@@ -12,10 +12,6 @@ import java.util.Optional;
 import java.util.Set;
 
 final class PackagePlanDependencyClassifier {
-    private static final PackageId SPRING_BOOT_LOADER_PACKAGE = new PackageId(
-            "org.springframework.boot",
-            "spring-boot-loader");
-
     private PackagePlanDependencyClassifier() {}
 
     static PackagePlanDependency dependency(
@@ -105,7 +101,7 @@ final class PackagePlanDependencyClassifier {
     }
 
     private static PackagePlanDependency springBootDependency(LockPackage lockPackage, String nestedJar) {
-        if (lockPackage.packageId().equals(SPRING_BOOT_LOADER_PACKAGE)) {
+        if (isExpandedSpringBootLoader(lockPackage)) {
             return new PackagePlanDependency(
                     coordinate(lockPackage),
                     lockPackage.version(),
@@ -160,7 +156,7 @@ final class PackagePlanDependencyClassifier {
             NestedArtifactIdentity identity,
             String nestedJar,
             Set<String> providedArtifactVariants) {
-        if (lockPackage.packageId().equals(SPRING_BOOT_LOADER_PACKAGE)) {
+        if (isExpandedSpringBootLoader(lockPackage)) {
             return new PackagePlanDependency(
                     coordinate(lockPackage),
                     lockPackage.version(),
@@ -208,6 +204,12 @@ final class PackagePlanDependencyClassifier {
             Set<String> providedArtifactVariants) {
         return lockPackage.scope() != DependencyScope.PROVIDED
                 && providedArtifactVariants.contains(identity.artifactVariantKey());
+    }
+
+    private static boolean isExpandedSpringBootLoader(
+            LockPackage lockPackage) {
+        return SpringBootLoaderArtifact.isDefaultLoader(lockPackage)
+                && lockPackage.scope().entersMainRuntimeClasspath();
     }
 
     private static PackagePlanDependency providedCoordinateOverride(

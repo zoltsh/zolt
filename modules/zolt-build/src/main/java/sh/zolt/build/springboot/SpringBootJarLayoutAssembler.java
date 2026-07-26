@@ -8,6 +8,7 @@ import sh.zolt.build.packaging.PackageArchiveWriter;
 import sh.zolt.build.packaging.PackageRuntimeJar;
 import sh.zolt.build.packaging.PackageRuntimeJars;
 import sh.zolt.build.packageplan.PackageInputFingerprinting;
+import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import sh.zolt.project.PackageMode;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,7 +50,11 @@ public final class SpringBootJarLayoutAssembler {
                     archive.writeFile(bootEntryName, file);
                 }
                 for (PackageRuntimeJar runtimeJar : runtimeJars) {
-                    if (runtimeJar.packageId().equals(SpringBootLoaderSupport.SPRING_BOOT_LOADER_PACKAGE)) {
+                    if (runtimeJar.equals(loader.jar())
+                            && SpringBootLoaderArtifact.isDefaultLoader(
+                                    runtimeJar.artifactIdentity().packageId(),
+                                    runtimeJar.artifactIdentity().extension(),
+                                    runtimeJar.artifactIdentity().classifier())) {
                         continue;
                     }
                     archive.writeStoredEntry(

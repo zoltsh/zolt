@@ -49,31 +49,42 @@ public final class GeneratedSourceProducerFingerprintService {
         this.ambientEnv = ambientEnv;
     }
 
-    public List<GeneratedSourceProducerFingerprint> fingerprints(
+    public List<GeneratedSourceProducerFingerprint> fingerprintsMain(
             Path projectDirectory,
             ProjectConfig config,
             List<ResolvedClasspathPackage> packages) {
-        Path root = ProjectPaths.root(projectDirectory);
-        List<GeneratedSourceProducerFingerprint> fingerprints =
-                new ArrayList<>();
-        add(
-                fingerprints,
-                root,
+        return fingerprints(
+                projectDirectory,
                 config,
                 packages,
                 "main",
                 config.build().generatedMainSources());
-        add(
-                fingerprints,
-                root,
+    }
+
+    public List<GeneratedSourceProducerFingerprint> fingerprintsTest(
+            Path projectDirectory,
+            ProjectConfig config,
+            List<ResolvedClasspathPackage> packages) {
+        return fingerprints(
+                projectDirectory,
                 config,
                 packages,
                 "test",
                 config.build().generatedTestSources());
+    }
+
+    private List<GeneratedSourceProducerFingerprint> fingerprints(
+            Path projectDirectory,
+            ProjectConfig config,
+            List<ResolvedClasspathPackage> packages,
+            String scope,
+            List<GeneratedSourceStep> steps) {
+        Path root = ProjectPaths.root(projectDirectory);
+        List<GeneratedSourceProducerFingerprint> fingerprints =
+                new ArrayList<>();
+        add(fingerprints, root, config, packages, scope, steps);
         fingerprints.sort(Comparator.comparing(
-                fingerprint -> fingerprint.scope()
-                        + "\u0000"
-                        + fingerprint.stepId()
+                fingerprint -> fingerprint.stepId()
                         + "\u0000"
                         + fingerprint.kind().configValue()));
         return List.copyOf(fingerprints);

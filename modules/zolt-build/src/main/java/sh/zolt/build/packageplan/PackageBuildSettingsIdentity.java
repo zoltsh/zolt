@@ -9,13 +9,31 @@ final class PackageBuildSettingsIdentity {
     private PackageBuildSettingsIdentity() {
     }
 
-    static String canonical(BuildSettings build) {
+    static String main(BuildSettings build) {
         PackageCanonicalHash hash = new PackageCanonicalHash();
-        hash.value("schema", "zolt.package-build-settings.v1");
+        hash.value("schema", "zolt.package-main-build-settings.v1");
         hash.value("sourceRoots", build.sourceRoots().toString());
-        hash.value("test", build.test());
         hash.value("outputRoot", build.outputRoot());
         hash.value("output", build.output());
+        hash.value("resourceRoots", build.resourceRoots().toString());
+        hash.value(
+                "resourceFilteringEnabled",
+                Boolean.toString(build.resourceFiltering().enabled()));
+        hash.value("resourceFilteringIncludes", build.resourceFiltering().includes().toString());
+        hash.value(
+                "resourceFilteringMissing",
+                build.resourceFiltering().missing().toString());
+        hash.value("resourceFilteringTokens", build.resourceFiltering().tokens().toString());
+        hash.value("metadata", build.metadata().toString());
+        generatedSteps(hash, "main", build.generatedMainSources());
+        return hash.finish();
+    }
+
+    static String test(BuildSettings build) {
+        PackageCanonicalHash hash = new PackageCanonicalHash();
+        hash.value("schema", "zolt.package-test-build-settings.v1");
+        hash.value("test", build.test());
+        hash.value("outputRoot", build.outputRoot());
         hash.value("testOutput", build.testOutput());
         hash.value("testSources", build.testSources().toString());
         hash.value("groovyTestSources", build.groovyTestSources().toString());
@@ -24,13 +42,17 @@ final class PackageBuildSettingsIdentity {
         hash.value(
                 "integrationTestResourceRoots",
                 build.integrationTestResourceRoots().toString());
-        hash.value("resourceRoots", build.resourceRoots().toString());
         hash.value("testResourceRoots", build.testResourceRoots().toString());
-        hash.value("resourceFiltering", build.resourceFiltering().toString());
+        hash.value(
+                "testResourceFilteringEnabled",
+                Boolean.toString(build.resourceFiltering().testEnabled()));
+        hash.value("resourceFilteringIncludes", build.resourceFiltering().includes().toString());
+        hash.value(
+                "resourceFilteringMissing",
+                build.resourceFiltering().missing().toString());
+        hash.value("resourceFilteringTokens", build.resourceFiltering().tokens().toString());
         hash.value("testRuntime", build.testRuntime().toString());
         hash.value("testSuites", build.testSuites().toString());
-        hash.value("metadata", build.metadata().toString());
-        generatedSteps(hash, "main", build.generatedMainSources());
         generatedSteps(hash, "test", build.generatedTestSources());
         return hash.finish();
     }

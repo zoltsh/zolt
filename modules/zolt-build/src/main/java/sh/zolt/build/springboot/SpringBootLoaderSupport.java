@@ -3,6 +3,7 @@ package sh.zolt.build.springboot;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packaging.PackageRuntimeJar;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -14,9 +15,8 @@ import java.util.jar.JarFile;
 
 final class SpringBootLoaderSupport {
     static final PackageId SPRING_BOOT_PACKAGE = new PackageId("org.springframework.boot", "spring-boot");
-    static final PackageId SPRING_BOOT_LOADER_PACKAGE = new PackageId(
-            "org.springframework.boot",
-            "spring-boot-loader");
+    static final PackageId SPRING_BOOT_LOADER_PACKAGE =
+            SpringBootLoaderArtifact.PACKAGE_ID;
 
     private static final String BOOT_LOADER_PREFIX = "org/springframework/boot/loader/";
     private static final String BOOT_LAUNCHER = "org.springframework.boot.loader.launch.JarLauncher";
@@ -37,7 +37,10 @@ final class SpringBootLoaderSupport {
 
     private static SpringBootLoader loader(List<PackageRuntimeJar> runtimeJars, boolean war) {
         PackageRuntimeJar loaderJar = runtimeJars.stream()
-                .filter(runtimeJar -> runtimeJar.packageId().equals(SPRING_BOOT_LOADER_PACKAGE))
+                .filter(runtimeJar -> SpringBootLoaderArtifact.isDefaultLoader(
+                        runtimeJar.artifactIdentity().packageId(),
+                        runtimeJar.artifactIdentity().extension(),
+                        runtimeJar.artifactIdentity().classifier()))
                 .findFirst()
                 .orElseThrow(() -> new PackageException(missingSpringBootLoaderMessage(runtimeJars)));
         Map<String, byte[]> entries;

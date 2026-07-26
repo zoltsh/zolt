@@ -42,8 +42,11 @@ final class PackageBuildInputFingerprint {
         hash.value("schema", "zolt.package-build-input.v1");
         hash.value(
                 "build",
-                PackageBuildSettingsIdentity.canonical(config.build()));
-        hash.value("compiler", config.compilerSettings().toString());
+                PackageBuildSettingsIdentity.main(config.build()));
+        hash.value(
+                "compiler",
+                PackageCompilerSettingsIdentity.main(
+                        config.compilerSettings()));
         hash.value("project", config.project().toString());
         hash.value("lock", lockfile.toString());
         Path applicationOutput = ProjectPaths.output(

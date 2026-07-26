@@ -251,4 +251,5 @@ final class ResolveServicePackageModeTest extends ResolveServiceTestSupport {
         assertTrue(exception.getMessage().contains("Add the Spring Boot platform to [platforms]"));
         assertTrue(exception.getMessage().contains("run `zolt resolve`"));
     }
+
 }

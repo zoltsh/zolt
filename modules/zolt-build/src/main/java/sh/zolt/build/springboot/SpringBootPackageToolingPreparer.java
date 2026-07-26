@@ -2,6 +2,7 @@ package sh.zolt.build.springboot;
 
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
+import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveService;
@@ -42,7 +43,7 @@ public final class SpringBootPackageToolingPreparer {
 
     private static boolean containsRuntimeSpringBootLoader(ZoltLockfile lockfile) {
         return lockfile.packages().stream()
-                .anyMatch(lockPackage -> lockPackage.packageId().equals(SpringBootLoaderSupport.SPRING_BOOT_LOADER_PACKAGE)
+                .anyMatch(lockPackage -> SpringBootLoaderArtifact.isDefaultLoader(lockPackage)
                         && lockPackage.scope().entersMainRuntimeClasspath());
     }
 

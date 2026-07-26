@@ -35,10 +35,24 @@ final class PackageInputFingerprint {
         hash.value("schema", SCHEMA);
         hash.value("mode", config.packageSettings().mode().configValue());
         hash.value("project", config.project().toString());
-        hash.value("build", config.build().toString());
+        hash.value(
+                "buildMain",
+                PackageBuildSettingsIdentity.main(config.build()));
         hash.value("package", config.packageSettings().toString());
         hash.value("framework", config.frameworkSettings().toString());
-        hash.value("compiler", config.compilerSettings().toString());
+        hash.value(
+                "compilerMain",
+                PackageCompilerSettingsIdentity.main(
+                        config.compilerSettings()));
+        if (outputs.stream().anyMatch(output -> "tests".equals(output.kind()))) {
+            hash.value(
+                    "buildTest",
+                    PackageBuildSettingsIdentity.test(config.build()));
+            hash.value(
+                    "compilerTest",
+                    PackageCompilerSettingsIdentity.test(
+                            config.compilerSettings()));
+        }
         hash.value("apiDependencies", config.apiDependencies().toString());
         hash.value("dependencies", config.dependencies().toString());
         hash.value("runtimeDependencies", config.runtimeDependencies().toString());

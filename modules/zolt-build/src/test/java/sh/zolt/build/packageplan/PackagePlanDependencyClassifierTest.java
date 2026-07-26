@@ -45,6 +45,54 @@ final class PackagePlanDependencyClassifierTest {
     }
 
     @Test
+    void springBootModesExpandOnlyTheDefaultLoaderVariant() {
+        LockPackage defaultLoader = lockPackage(
+                "org.springframework.boot",
+                "spring-boot-loader",
+                "4.0.6",
+                DependencyScope.RUNTIME,
+                false,
+                "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6.jar");
+        LockPackage testsLoader = lockPackage(
+                "org.springframework.boot",
+                "spring-boot-loader",
+                "4.0.6",
+                DependencyScope.RUNTIME,
+                true,
+                "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar");
+
+        for (PackageMode mode : List.of(
+                PackageMode.SPRING_BOOT,
+                PackageMode.SPRING_BOOT_WAR)) {
+            PackagePlanDependency expanded =
+                    PackagePlanDependencyClassifier.dependency(
+                            mode,
+                            defaultLoader,
+                            Set.of(),
+                            Optional.empty(),
+                            null);
+            PackagePlanDependency nested =
+                    PackagePlanDependencyClassifier.dependency(
+                            mode,
+                            testsLoader,
+                            Set.of(),
+                            Optional.empty(),
+                            null);
+
+            assertEquals("loader", expanded.disposition());
+            assertEquals("archive root", expanded.location());
+            assertEquals("included", nested.disposition());
+            assertEquals(
+                    (mode == PackageMode.SPRING_BOOT
+                                    ? "BOOT-INF/lib/"
+                                    : "WEB-INF/lib/")
+                            + NestedArtifactIdentity.of(testsLoader)
+                                    .nestedJarName(),
+                    nested.location());
+        }
+    }
+
+    @Test
     void warOmitsRuntimeCoordinateWhenSameCoordinateIsDirectProvidedDependency() {
         PackageId shared = new PackageId("org.apache.tomcat.embed", "tomcat-embed-core");
 
