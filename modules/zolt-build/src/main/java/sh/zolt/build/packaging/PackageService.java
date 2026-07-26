@@ -6,6 +6,7 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
+import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
@@ -310,7 +311,7 @@ public final class PackageService {
                 classpathPackages,
                 classpaths);
         PackagePlan plan = suppliedPlan.orElseGet(() ->
-                packagePlan(projectDirectory, config, result));
+                packagePlan(projectDirectory, config, cacheRoot));
         Path evidenceManifest = evidenceManifestWriter.write(projectDirectory, config, plan, result, artifacts);
         return result.withArtifactsAndEvidence(artifacts, Optional.of(evidenceManifest));
     }
@@ -318,10 +319,15 @@ public final class PackageService {
     private PackagePlan packagePlan(
             Path projectDirectory,
             ProjectConfig config,
-            PackageResult result) {
+            Optional<Path> cacheRoot) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
+        Path artifacts = cacheRoot.orElseGet(LocalArtifactCache::defaultRoot);
         if (Files.isRegularFile(projectRoot.resolve("zolt.lock"))) {
-            return packagePlanService.plan(projectRoot, config);
+            return packagePlanService.plan(
+                    projectRoot,
+                    config,
+                    projectRoot.resolve("zolt.lock"),
+                    artifacts);
         }
         return packagePlanService.plan(
                 projectRoot,
@@ -329,7 +335,8 @@ public final class PackageService {
                 new ZoltLockfile(
                         ZoltLockfile.CURRENT_VERSION,
                         List.of(),
-                        List.of()));
+                        List.of()),
+                artifacts);
     }
 
 }

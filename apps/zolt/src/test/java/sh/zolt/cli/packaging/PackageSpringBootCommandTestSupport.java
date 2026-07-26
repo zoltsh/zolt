@@ -1,5 +1,7 @@
 package sh.zolt.cli.packaging;
 
+import sh.zolt.classpath.NestedArtifactIdentity;
+import sh.zolt.dependency.PackageId;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -48,6 +50,16 @@ final class PackageSpringBootCommandTestSupport {
             output.write("\0".getBytes(StandardCharsets.UTF_8));
             output.closeEntry();
         }
+    }
+
+    static String nestedJarName(
+            String groupId,
+            String artifactId,
+            String version) {
+        return NestedArtifactIdentity.external(
+                        new PackageId(groupId, artifactId),
+                        version)
+                .nestedJarName();
     }
 
     static void writeSpringBootWarProvidedTomcatLockfile(Path projectDir) throws IOException {

@@ -2,6 +2,7 @@ package sh.zolt.cli.packaging;
 
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.createJarWithEntry;
+import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.nestedJarName;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeMainSource;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeProjectConfig;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeSpringBootLockfile;
@@ -58,7 +59,12 @@ final class PackageSpringBootJarCommandTest {
         assertFalse(result.stdout().contains("Thin jar: dependencies are not bundled."));
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             assertNotNull(jar.getEntry("BOOT-INF/classes/com/example/Main.class"));
-            assertNotNull(jar.getEntry("BOOT-INF/lib/runtime-lib-1.0.0.jar"));
+            assertNotNull(jar.getEntry(
+                    "BOOT-INF/lib/"
+                            + nestedJarName(
+                                    "com.example",
+                                    "runtime-lib",
+                                    "1.0.0")));
             assertNotNull(jar.getEntry("org/springframework/boot/loader/launch/JarLauncher.class"));
             assertEquals(
                     "com.example.Main",

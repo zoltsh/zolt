@@ -31,6 +31,10 @@ public final class SpringBootWarLayoutAssembler {
             List<PackageRuntimeJar> runtimeJars,
             List<PackageRuntimeJar> providedJars) {
         SpringBootLoaderSupport.SpringBootLoader loader = SpringBootLoaderSupport.warLoader(runtimeJars);
+        PackageRuntimeJars.requireUniqueNestedPaths(WEB_INF_LIB_PREFIX, runtimeJars);
+        PackageRuntimeJars.requireUniqueNestedPaths(
+                WEB_INF_LIB_PROVIDED_PREFIX,
+                providedJars);
 
         try {
             Files.createDirectories(warPath.getParent());

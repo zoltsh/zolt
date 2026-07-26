@@ -1,5 +1,11 @@
 package sh.zolt.build.packageplan;
 
+import sh.zolt.classpath.NestedArtifactIdentity;
+import sh.zolt.build.BuildException;
+import sh.zolt.build.PackageException;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
+import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.framework.FrameworkPackagePlanRules;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -8,9 +14,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPaths;
 import sh.zolt.dependency.DependencyScope;
-import sh.zolt.dependency.PackageId;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -20,13 +24,18 @@ import java.util.Set;
 public final class PackagePlanService {
     private final ZoltLockfileReader lockfileReader;
     private final List<FrameworkPackagePlanRules> packagePlanRules;
+    private final GeneratedSourceProducerFingerprintService
+            generatedSourceFingerprintService;
 
     public PackagePlanService() {
         this(List.of());
     }
 
     public PackagePlanService(List<FrameworkPackagePlanRules> packagePlanRules) {
-        this(new ZoltLockfileReader(), packagePlanRules);
+        this(
+                new ZoltLockfileReader(),
+                packagePlanRules,
+                new GeneratedSourceProducerFingerprintService());
     }
 
     PackagePlanService(ZoltLockfileReader lockfileReader) {
@@ -34,41 +43,84 @@ public final class PackagePlanService {
     }
 
     PackagePlanService(ZoltLockfileReader lockfileReader, List<FrameworkPackagePlanRules> packagePlanRules) {
+        this(
+                lockfileReader,
+                packagePlanRules,
+                new GeneratedSourceProducerFingerprintService());
+    }
+
+    PackagePlanService(
+            ZoltLockfileReader lockfileReader,
+            List<FrameworkPackagePlanRules> packagePlanRules,
+            GeneratedSourceProducerFingerprintService
+                    generatedSourceFingerprintService) {
         this.lockfileReader = lockfileReader;
         this.packagePlanRules = packagePlanRules == null ? List.of() : List.copyOf(packagePlanRules);
+        this.generatedSourceFingerprintService =
+                generatedSourceFingerprintService;
     }
 
     public PackagePlan plan(Path projectDirectory, ProjectConfig config) {
         Path projectRoot = projectRoot(projectDirectory);
-        return plan(projectRoot, config, projectRoot.resolve("zolt.lock"));
+        return plan(
+                projectRoot,
+                config,
+                projectRoot.resolve("zolt.lock"),
+                LocalArtifactCache.defaultRoot());
     }
 
     public PackagePlan plan(Path projectDirectory, ProjectConfig config, Path lockfilePath) {
+        return plan(
+                projectDirectory,
+                config,
+                lockfilePath,
+                LocalArtifactCache.defaultRoot());
+    }
+
+    public PackagePlan plan(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path lockfilePath,
+            Path cacheRoot) {
         Path projectRoot = projectRoot(projectDirectory);
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath.toAbsolutePath().normalize());
-        return plan(projectRoot, config, lockfile);
+        return plan(projectRoot, config, lockfile, cacheRoot);
     }
 
     public PackagePlan plan(
             Path projectDirectory,
             ProjectConfig config,
             ZoltLockfile lockfile) {
+        return plan(
+                projectDirectory,
+                config,
+                lockfile,
+                LocalArtifactCache.defaultRoot());
+    }
+
+    public PackagePlan plan(
+            Path projectDirectory,
+            ProjectConfig config,
+            ZoltLockfile lockfile,
+            Path cacheRoot) {
         Path projectRoot = projectRoot(projectDirectory);
         PackageMode mode = config.packageSettings().mode();
-        Set<PackageId> providedPackageIds = providedPackageIds(lockfile);
+        Set<String> providedArtifactVariants =
+                providedArtifactVariants(lockfile);
         Optional<FrameworkPackagePlanRules> modeRules = packagePlanRules(mode);
-        List<PackagePlanDependency> dependencies = mode == PackageMode.BOM
-                ? List.of()
-                : lockfile.packages().stream()
+        List<PackagePlanDependency> dependencies = PackagePlanNestedDependencies
+                .canonicalize(mode == PackageMode.BOM
+                        ? List.of()
+                        : lockfile.packages().stream()
                         .filter(PackagePlanService::packageInput)
                         .sorted(Comparator.comparing(PackagePlanService::sortKey))
                         .map(lockPackage -> PackagePlanDependencyClassifier.dependency(
                                 mode,
                                 lockPackage,
-                                providedPackageIds,
+                                providedArtifactVariants,
                                 modeRules,
                                 config))
-                        .toList();
+                        .toList());
         Path archivePath = archivePath(projectRoot, config, mode, modeRules);
         Path applicationOutput = applicationOutput(projectRoot, config, mode);
         String applicationLayout = applicationLayout(mode, modeRules, config);
@@ -94,6 +146,26 @@ public final class PackagePlanService {
                         config,
                         dependencies,
                         workspaceInputs);
+        List<GeneratedSourceProducerFingerprint> generatedSourceFingerprints;
+        try {
+            generatedSourceFingerprints = mode == PackageMode.BOM
+                    ? List.of()
+                    : generatedSourceFingerprintService.fingerprints(
+                            projectRoot,
+                            config,
+                            PackageGeneratedSourceClasspath.packages(
+                                    projectRoot,
+                                    cacheRoot,
+                                    lockfile));
+        } catch (BuildException exception) {
+            if (exception.actionableError() != null) {
+                throw new PackageException(exception.actionableError());
+            }
+            throw new PackageException(
+                    "Could not fingerprint generated-source producer: "
+                            + exception.getMessage(),
+                    exception);
+        }
         String buildInputFingerprint =
                 mode == PackageMode.BOM
                         ? "not-applicable"
@@ -101,7 +173,8 @@ public final class PackagePlanService {
                                 projectRoot,
                                 config,
                                 lockfile,
-                                workspaceInputs);
+                                workspaceInputs,
+                                generatedSourceFingerprints);
         String applicationOutputFingerprint =
                 mode == PackageMode.BOM
                         ? "not-applicable"
@@ -117,7 +190,8 @@ public final class PackagePlanService {
                                 config,
                                 buildInputFingerprint,
                                 applicationOutputFingerprint,
-                                packageLockFingerprint);
+                                packageLockFingerprint,
+                                generatedSourceFingerprints);
         return new PackagePlan(
                 projectRoot,
                 mode,
@@ -126,7 +200,7 @@ public final class PackagePlanService {
                 applicationLayout,
                 runtimeClasspathPath,
                 dependencies,
-                warnings(mode, modeRules, dependencies),
+                PackagePlanWarnings.forPlan(mode, modeRules, dependencies),
                 PackageInputFingerprint.evidence(
                         projectRoot,
                         config,
@@ -172,58 +246,15 @@ public final class PackagePlanService {
                 .findFirst();
     }
 
-    private static Set<PackageId> providedPackageIds(ZoltLockfile lockfile) {
-        Set<PackageId> packageIds = new LinkedHashSet<>();
+    private static Set<String> providedArtifactVariants(ZoltLockfile lockfile) {
+        Set<String> variants = new LinkedHashSet<>();
         for (LockPackage lockPackage : lockfile.packages()) {
-            if (lockPackage.scope() == DependencyScope.PROVIDED && lockPackage.direct()) {
-                packageIds.add(lockPackage.packageId());
+            if (lockPackage.scope() == DependencyScope.PROVIDED) {
+                variants.add(
+                        NestedArtifactIdentity.of(lockPackage).artifactVariantKey());
             }
         }
-        return Set.copyOf(packageIds);
-    }
-
-    private static List<PackagePlanWarning> warnings(
-            PackageMode mode,
-            Optional<FrameworkPackagePlanRules> modeRules,
-            List<PackagePlanDependency> dependencies) {
-        List<PackagePlanWarning> warnings = new ArrayList<>();
-        if (mode == PackageMode.QUARKUS && modeRules.isEmpty()) {
-            warnings.add(new PackagePlanWarning(
-                    "FRAMEWORK_PACKAGE_PLAN_RULES_MISSING",
-                    "[package].mode",
-                    "framework-package-plan-rules-missing",
-                    "Package mode `quarkus` requires framework-aware package plan rules, but none are installed.",
-                    "Run package quality through the Zolt application composition that installs Quarkus package plan rules."));
-        }
-        if (mode != PackageMode.WAR && mode != PackageMode.SPRING_BOOT_WAR) {
-            return List.copyOf(warnings);
-        }
-        for (PackagePlanDependency dependency : dependencies) {
-            if (!("included".equals(dependency.disposition()))
-                    || !isContainerDependency(dependency.coordinate())) {
-                continue;
-            }
-            warnings.add(new PackagePlanWarning(
-                    "CONTAINER_DEPENDENCY_PACKAGED",
-                    dependency.coordinate(),
-                    dependency.ruleName(),
-                    "Container-style dependency `" + dependency.coordinate() + "` is packaged in "
-                            + dependency.location()
-                            + " by package rule `"
-                            + dependency.ruleName()
-                            + "`"
-                            + ".",
-                    "Move it to [provided.dependencies] when the servlet container supplies it, then run `zolt resolve`."));
-        }
-        return List.copyOf(warnings);
-    }
-
-    private static boolean isContainerDependency(String coordinate) {
-        return coordinate.startsWith("jakarta.servlet:")
-                || coordinate.startsWith("javax.servlet:")
-                || coordinate.startsWith("org.apache.tomcat:")
-                || coordinate.startsWith("org.apache.tomcat.embed:")
-                || coordinate.contains(":tomcat-embed-");
+        return Set.copyOf(variants);
     }
 
     private static Path archivePath(
@@ -290,6 +321,8 @@ public final class PackagePlanService {
         return lockPackage.packageId()
                 + ":"
                 + lockPackage.version()
+                + ":"
+                + NestedArtifactIdentity.of(lockPackage).canonicalKey()
                 + ":"
                 + lockPackage.scope().lockfileName();
     }

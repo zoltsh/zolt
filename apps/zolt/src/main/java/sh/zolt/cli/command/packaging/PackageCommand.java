@@ -273,7 +273,11 @@ public final class PackageCommand implements Runnable {
         if (planOnly) {
             PackagePlan packagePlan = timings.measure(
                     "plan package contents",
-                    () -> packagePlanService.plan(projectRoot, config),
+                    () -> packagePlanService.plan(
+                            projectRoot,
+                            config,
+                            projectRoot.resolve("zolt.lock"),
+                            cacheRoot),
                     CommandPackageAttributes::packagePlan);
             if (planOutputFormat == PackageCommandModes.PlanOutputFormat.JSON) {
                 CommandOutput.printAndFlush(spec, packagePlanFormatter.json(packagePlan));

@@ -3,12 +3,10 @@ package sh.zolt.build.packaging;
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.dependency.DependencyScope;
-import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,9 +27,10 @@ public final class PackageRuntimeJarSelector {
     }
 
     public List<PackageRuntimeJar> runtimeJarsWithoutProvidedDuplicates(List<ResolvedClasspathPackage> classpathPackages) {
-        Set<PackageId> providedPackageIds = providedPackageIds(classpathPackages);
+        Set<String> providedArtifactVariants = providedArtifactVariants(classpathPackages);
         return runtimeJars(classpathPackages).stream()
-                .filter(runtimeJar -> !providedPackageIds.contains(runtimeJar.packageId()))
+                .filter(runtimeJar -> !providedArtifactVariants.contains(
+                        runtimeJar.artifactIdentity().artifactVariantKey()))
                 .toList();
     }
 
@@ -59,20 +58,22 @@ public final class PackageRuntimeJarSelector {
                 .toList();
     }
 
-    private static Set<PackageId> providedPackageIds(List<ResolvedClasspathPackage> classpathPackages) {
-        Set<PackageId> packageIds = new LinkedHashSet<>();
-        classpathPackages.stream()
+    private static Set<String> providedArtifactVariants(
+            List<ResolvedClasspathPackage> classpathPackages) {
+        return classpathPackages.stream()
                 .filter(dependency -> dependency.scope() == DependencyScope.PROVIDED)
-                .map(dependency -> dependency.resolvedPackage().packageId())
-                .forEach(packageIds::add);
-        return Set.copyOf(packageIds);
+                .map(dependency -> dependency.resolvedPackage()
+                        .artifactIdentity()
+                        .artifactVariantKey())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     private static PackageRuntimeJar runtimeJar(ResolvedClasspathPackage dependency) {
         return new PackageRuntimeJar(
                 dependency.resolvedPackage().packageId(),
                 dependency.resolvedPackage().selectedVersion(),
-                dependency.resolvedPackage().jarPath());
+                dependency.resolvedPackage().jarPath(),
+                dependency.resolvedPackage().artifactIdentity());
     }
 
     private static String classpathSortKey(ResolvedClasspathPackage dependency) {
@@ -80,10 +81,12 @@ public final class PackageRuntimeJarSelector {
                 + ":"
                 + dependency.resolvedPackage().selectedVersion()
                 + ":"
+                + dependency.resolvedPackage().artifactIdentity().canonicalKey()
+                + ":"
                 + dependency.scope();
     }
 
     private static String runtimeJarKey(PackageRuntimeJar runtimeJar) {
-        return runtimeJar.packageId() + ":" + runtimeJar.version() + ":" + runtimeJar.jarPath();
+        return runtimeJar.artifactIdentity().canonicalKey() + ":" + runtimeJar.jarPath();
     }
 }

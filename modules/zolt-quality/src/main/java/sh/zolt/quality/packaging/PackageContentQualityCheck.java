@@ -3,6 +3,7 @@ package sh.zolt.quality.packaging;
 import static sh.zolt.quality.QualityCheckService.PACKAGE_CONTENTS;
 
 import sh.zolt.build.PackageException;
+import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestReader;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
 import sh.zolt.build.packageevidence.PackageEvidenceVerification;
@@ -41,6 +42,22 @@ final class PackageContentQualityCheck {
             ProjectConfig config,
             Path lockfilePath,
             boolean requirePackage) {
+        return check(
+                member,
+                projectRoot,
+                config,
+                lockfilePath,
+                LocalArtifactCache.defaultRoot(),
+                requirePackage);
+    }
+
+    List<QualityCheckResult> check(
+            Optional<String> member,
+            Path projectRoot,
+            ProjectConfig config,
+            Path lockfilePath,
+            Path cacheRoot,
+            boolean requirePackage) {
         if (!Files.isRegularFile(lockfilePath)) {
             return List.of(QualityCheckResult.failed(
                     PACKAGE_CONTENTS,
@@ -51,7 +68,11 @@ final class PackageContentQualityCheck {
         }
         PackagePlan plan;
         try {
-            plan = packagePlanService.plan(projectRoot, config, lockfilePath);
+            plan = packagePlanService.plan(
+                    projectRoot,
+                    config,
+                    lockfilePath,
+                    cacheRoot);
         } catch (LockfileReadException exception) {
             return List.of(QualityCheckResult.failed(
                     PACKAGE_CONTENTS,

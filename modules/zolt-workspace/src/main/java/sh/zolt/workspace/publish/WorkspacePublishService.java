@@ -172,7 +172,15 @@ public final class WorkspacePublishService {
         List<String> notes = new ArrayList<>();
         for (WorkspaceMember member : publishable) {
             WorkspaceMemberPlanner.Result result =
-                    memberPlanner.plan(member, workspace, aggregatedLock, publishSet, options, resumeState, sbomGenerator);
+                    memberPlanner.plan(
+                            member,
+                            workspace,
+                            aggregatedLock,
+                            cacheRoot,
+                            publishSet,
+                            options,
+                            resumeState,
+                            sbomGenerator);
             publications.add(result.publication());
             blockers.addAll(result.blockers());
             notes.addAll(result.notes());

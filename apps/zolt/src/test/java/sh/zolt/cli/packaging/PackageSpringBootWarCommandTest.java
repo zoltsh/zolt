@@ -2,6 +2,7 @@ package sh.zolt.cli.packaging;
 
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.createJarWithEntry;
+import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.nestedJarName;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeMainSource;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeProjectConfig;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeSpringBootWarProvidedTomcatLockfile;
@@ -76,6 +77,17 @@ final class PackageSpringBootWarCommandTest {
         String evidence = Files.readString(projectDir.resolve("target/demo-0.1.0.war.zolt-package.json"));
         assertTrue(evidence.contains("\"rule\": \"spring-boot-war-provided-coordinate-override\""));
         assertTrue(evidence.contains("\"rule\": \"spring-boot-war-provided-lib\""));
+        String runtimeNestedName =
+                nestedJarName("com.example", "runtime-lib", "1.0.0");
+        String providedNestedName =
+                nestedJarName(
+                        "org.apache.tomcat.embed",
+                        "tomcat-embed-core",
+                        "10.1.40");
+        String devNestedName =
+                nestedJarName("com.example", "devtools", "1.0.0");
+        String processorNestedName =
+                nestedJarName("com.example", "processor", "1.0.0");
         try (JarFile jar = new JarFile(warPath.toFile())) {
             Attributes attributes = jar.getManifest().getMainAttributes();
             assertEquals(
@@ -83,14 +95,14 @@ final class PackageSpringBootWarCommandTest {
                     attributes.getValue(Attributes.Name.MAIN_CLASS));
             assertEquals("com.example.Main", attributes.getValue("Start-Class"));
             assertEquals("WEB-INF/lib-provided/", attributes.getValue("Spring-Boot-Lib-Provided"));
-            assertNotNull(jar.getEntry("WEB-INF/lib/runtime-lib-1.0.0.jar"));
-            assertNotNull(jar.getEntry("WEB-INF/lib-provided/tomcat-embed-core-10.1.40.jar"));
+            assertNotNull(jar.getEntry("WEB-INF/lib/" + runtimeNestedName));
+            assertNotNull(jar.getEntry("WEB-INF/lib-provided/" + providedNestedName));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "WEB-INF/lib/tomcat-embed-core-10.1.40.jar")));
+                    "WEB-INF/lib/" + providedNestedName)));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "WEB-INF/lib/devtools-1.0.0.jar")));
+                    "WEB-INF/lib/" + devNestedName)));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "WEB-INF/lib/processor-1.0.0.jar")));
+                    "WEB-INF/lib/" + processorNestedName)));
         }
     }
 }

@@ -69,6 +69,7 @@ final class WorkspaceMemberPlanner {
             WorkspaceMember member,
             Workspace workspace,
             ZoltLockfile aggregatedLock,
+            Path cacheRoot,
             Set<String> publishSet,
             WorkspacePublishService.Options options,
             Optional<ResumeState> resumeState,
@@ -96,7 +97,8 @@ final class WorkspaceMemberPlanner {
                 packagePlanService.plan(
                         member.directory(),
                         config,
-                        packageLock);
+                        packageLock,
+                        cacheRoot);
         // The POM plan below consumes the POM-shaped memberLock; the SBOM consumes the full closure.
         Optional<Path> sbomFile = bom
                 ? Optional.empty()

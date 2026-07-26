@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
 
+import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.dependency.PackageId;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,10 +60,18 @@ final class WorkspaceNestedArchivePackageCommandTest {
                     firstPackage.stdout() + firstPackage.stderr());
             byte[] firstBytes = Files.readAllBytes(archive);
 
+            String providerNestedName = NestedArtifactIdentity.workspace(
+                            new PackageId("com.example", "provider"),
+                            "0.1.0")
+                    .nestedJarName();
+            String runtimeNestedName = NestedArtifactIdentity.external(
+                            new PackageId("org.example", "runtime-lib"),
+                            "1.0.0")
+                    .nestedJarName();
             String providerEntry =
-                    mode.libraryPrefix() + "com.example-provider-0.1.0.jar";
+                    mode.libraryPrefix() + providerNestedName;
             String runtimeEntry =
-                    mode.libraryPrefix() + "runtime-lib-1.0.0.jar";
+                    mode.libraryPrefix() + runtimeNestedName;
             try (JarFile consumer = new JarFile(archive.toFile())) {
                 JarEntry provider = consumer.getJarEntry(providerEntry);
                 assertNotNull(provider);
@@ -90,7 +100,9 @@ final class WorkspaceNestedArchivePackageCommandTest {
             assertTrue(evidence.contains(
                     "\"sourceFingerprint\": \"sha256:"), evidence);
             assertTrue(evidence.contains(
-                    "\"jar\": \"target/zolt-package/runtime-inputs/com.example-provider-0.1.0.jar\""),
+                    "\"jar\": \"target/zolt-package/runtime-inputs/"
+                            + providerNestedName
+                            + "\""),
                     evidence);
 
             CommandResult secondPackage = packageMember(workspace, cache);
@@ -118,7 +130,10 @@ final class WorkspaceNestedArchivePackageCommandTest {
                         directory);
 
         assertEquals(
-                "com.example-provider-1.2.3.jar",
+                NestedArtifactIdentity.external(
+                                new PackageId("com.example", "provider"),
+                                "1.2.3")
+                        .nestedJarName(),
                 sh.zolt.build.packaging.PackageRuntimeJars
                         .nestedJarName(runtimeJar));
     }

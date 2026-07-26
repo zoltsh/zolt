@@ -3,6 +3,7 @@ package sh.zolt.publish;
 import sh.zolt.maven.repository.MavenRepositoryClient;
 import sh.zolt.maven.repository.RepositoryAuthentication;
 import sh.zolt.maven.repository.RepositoryClientException;
+import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.RepositoryUrlPolicy;
 import sh.zolt.toml.ZoltTomlParser;
@@ -68,12 +69,29 @@ public final class PublishUploadService {
     }
 
     public PublishUploadResult upload(Path projectRoot) {
-        return upload(projectRoot, Optional.empty());
+        return upload(
+                projectRoot,
+                Optional.empty(),
+                LocalArtifactCache.defaultRoot());
     }
 
     public PublishUploadResult upload(Path projectRoot, Optional<Path> sbomFile) {
+        return upload(
+                projectRoot,
+                sbomFile,
+                LocalArtifactCache.defaultRoot());
+    }
+
+    public PublishUploadResult upload(
+            Path projectRoot,
+            Optional<Path> sbomFile,
+            Path cacheRoot) {
         Path root = projectRoot.toAbsolutePath().normalize();
-        PublishDryRunPlan plan = dryRunService.plan(root, true, sbomFile);
+        PublishDryRunPlan plan = dryRunService.plan(
+                root,
+                true,
+                sbomFile,
+                cacheRoot);
         if (!plan.ok()) {
             throw new PublishException("Publish is blocked. Run `zolt publish --dry-run` and resolve the reported blockers before uploading.");
         }

@@ -8,6 +8,8 @@ import sh.zolt.project.ProjectMetadata;
 import sh.zolt.project.ResourceFilteringSettings;
 import sh.zolt.project.ResourceMissingTokenPolicy;
 import sh.zolt.project.ResourceTokenSettings;
+import sh.zolt.classpath.NestedArtifactIdentity;
+import sh.zolt.dependency.PackageId;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -99,6 +101,13 @@ public final class PackageServiceTestSupport {
         try (InputStream input = jar.getInputStream(jar.getEntry(name))) {
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    public static String nestedJarName(String groupId, String artifactId, String version) {
+        return NestedArtifactIdentity.external(
+                        new PackageId(groupId, artifactId),
+                        version)
+                .nestedJarName();
     }
 
     public static String currentJavaMajorVersion() {

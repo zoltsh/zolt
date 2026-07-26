@@ -22,7 +22,7 @@ import java.util.jar.JarFile;
  * Turns workspace output directories into reusable deterministic thin JARs before nested-archive assembly.
  */
 public final class PackageRuntimeJarMaterializer {
-    private static final String CACHE_SCHEMA = "zolt.package-runtime-input-cache.v1";
+    private static final String CACHE_SCHEMA = "zolt.package-runtime-input-cache.v2";
 
     public Result materialize(
             Path projectDirectory,
@@ -32,6 +32,7 @@ public final class PackageRuntimeJarMaterializer {
                 projectDirectory,
                 "package runtime input staging",
                 config.build().outputRoot() + "/zolt-package/runtime-inputs");
+        PackageRuntimeJars.requireUniqueNestedPaths("", runtimeJars);
         List<PackageRuntimeJar> resolved = new ArrayList<>();
         List<PackageMaterializedInput> materialized = new ArrayList<>();
         for (PackageRuntimeJar runtimeJar : runtimeJars) {
@@ -43,7 +44,8 @@ public final class PackageRuntimeJarMaterializer {
             resolved.add(new PackageRuntimeJar(
                     runtimeJar.packageId(),
                     runtimeJar.version(),
-                    input.jarPath()));
+                    input.jarPath(),
+                    runtimeJar.artifactIdentity()));
             materialized.add(input);
         }
         return new Result(resolved, materialized);
@@ -65,7 +67,11 @@ public final class PackageRuntimeJarMaterializer {
                             sourceDirectory);
             Files.createDirectories(stagingDirectory);
             Optional<CacheManifest> cached = readCacheManifest(cacheManifestPath);
+            String identity = runtimeJar.artifactIdentity().canonicalKey();
+            String nestedName = runtimeJar.artifactIdentity().nestedJarName();
             String jarSha256 = cached
+                    .filter(manifest -> manifest.identity().equals(identity))
+                    .filter(manifest -> manifest.nestedName().equals(nestedName))
                     .filter(manifest -> manifest.sourceFingerprint()
                             .equals(sourceFingerprint))
                     .filter(manifest -> Files.isRegularFile(jarPath))
@@ -77,17 +83,21 @@ public final class PackageRuntimeJarMaterializer {
                             files,
                             jarPath,
                             cacheManifestPath,
-                            sourceFingerprint));
+                            sourceFingerprint,
+                            identity,
+                            nestedName));
             if (!validJar(jarPath)) {
                 jarSha256 = rebuild(
                         sourceDirectory,
                         files,
                         jarPath,
                         cacheManifestPath,
-                        sourceFingerprint);
+                        sourceFingerprint,
+                        identity,
+                        nestedName);
             }
             return new PackageMaterializedInput(
-                    runtimeJar.packageId() + ":" + runtimeJar.version(),
+                    runtimeJar.artifactIdentity().coordinate(),
                     sourceDirectory,
                     jarPath,
                     sourceFingerprint,
@@ -108,7 +118,9 @@ public final class PackageRuntimeJarMaterializer {
             List<Path> files,
             Path jarPath,
             Path cacheManifestPath,
-            String sourceFingerprint) {
+            String sourceFingerprint,
+            String identity,
+            String nestedName) {
         Path temporaryJar = null;
         Path temporaryManifest = null;
         try {
@@ -132,7 +144,12 @@ public final class PackageRuntimeJarMaterializer {
                     ".tmp");
             Files.writeString(
                     temporaryManifest,
-                    new CacheManifest(sourceFingerprint, jarSha256).encode(),
+                    new CacheManifest(
+                                    identity,
+                                    nestedName,
+                                    sourceFingerprint,
+                                    jarSha256)
+                            .encode(),
                     StandardCharsets.UTF_8);
             atomicReplace(temporaryManifest, cacheManifestPath);
             temporaryManifest = null;
@@ -159,19 +176,30 @@ public final class PackageRuntimeJarMaterializer {
             return Optional.empty();
         }
         List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-        if (lines.size() != 3
+        if (lines.size() != 5
                 || !("schema=" + CACHE_SCHEMA).equals(lines.get(0))
-                || !lines.get(1).startsWith("sourceFingerprint=")
-                || !lines.get(2).startsWith("jarSha256=")) {
+                || !lines.get(1).startsWith("identity=")
+                || !lines.get(2).startsWith("nestedName=")
+                || !lines.get(3).startsWith("sourceFingerprint=")
+                || !lines.get(4).startsWith("jarSha256=")) {
             return Optional.empty();
         }
+        String identity = lines.get(1).substring("identity=".length());
+        String nestedName = lines.get(2).substring("nestedName=".length());
         String sourceFingerprint =
-                lines.get(1).substring("sourceFingerprint=".length());
-        String jarSha256 = lines.get(2).substring("jarSha256=".length());
-        if (sourceFingerprint.isBlank() || jarSha256.isBlank()) {
+                lines.get(3).substring("sourceFingerprint=".length());
+        String jarSha256 = lines.get(4).substring("jarSha256=".length());
+        if (identity.isBlank()
+                || nestedName.isBlank()
+                || sourceFingerprint.isBlank()
+                || jarSha256.isBlank()) {
             return Optional.empty();
         }
-        return Optional.of(new CacheManifest(sourceFingerprint, jarSha256));
+        return Optional.of(new CacheManifest(
+                identity,
+                nestedName,
+                sourceFingerprint,
+                jarSha256));
     }
 
     private static String readableJarSha256(Path jarPath) {
@@ -248,11 +276,17 @@ public final class PackageRuntimeJarMaterializer {
     }
 
     private record CacheManifest(
+            String identity,
+            String nestedName,
             String sourceFingerprint,
             String jarSha256) {
         String encode() {
             return "schema="
                     + CACHE_SCHEMA
+                    + "\nidentity="
+                    + identity
+                    + "\nnestedName="
+                    + nestedName
                     + "\nsourceFingerprint="
                     + sourceFingerprint
                     + "\njarSha256="

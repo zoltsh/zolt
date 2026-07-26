@@ -1,6 +1,7 @@
 package sh.zolt.build.packageplan;
 
 import sh.zolt.build.PackageException;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 final class PackageSupplementalInputFingerprint {
@@ -20,7 +22,9 @@ final class PackageSupplementalInputFingerprint {
             ProjectConfig config,
             String buildInputFingerprint,
             String applicationOutputFingerprint,
-            String packageLockFingerprint) {
+            String packageLockFingerprint,
+            List<GeneratedSourceProducerFingerprint>
+                    generatedSourceFingerprints) {
         List<PackagePlanLiveInput> inputs = new ArrayList<>();
         if (config.packageSettings().sources()) {
             inputs.add(new PackagePlanLiveInput(
@@ -39,7 +43,10 @@ final class PackageSupplementalInputFingerprint {
         if (config.packageSettings().tests()) {
             inputs.add(new PackagePlanLiveInput(
                     "tests",
-                    testFingerprint(projectRoot, config)));
+                    testFingerprint(
+                            projectRoot,
+                            config,
+                            generatedSourceFingerprints)));
         }
         return List.copyOf(inputs);
     }
@@ -56,11 +63,31 @@ final class PackageSupplementalInputFingerprint {
         return hash.finish();
     }
 
-    private static String testFingerprint(Path projectRoot, ProjectConfig config) {
+    private static String testFingerprint(
+            Path projectRoot,
+            ProjectConfig config,
+            List<GeneratedSourceProducerFingerprint>
+                    generatedSourceFingerprints) {
         BuildSettings build = config.build();
         PackageCanonicalHash hash = new PackageCanonicalHash();
         hash.value("schema", "zolt.package-tests-input.v1");
         hash.value("compiler", config.compilerSettings().toString());
+        generatedSourceFingerprints.stream()
+                .filter(fingerprint -> "test".equals(fingerprint.scope()))
+                .sorted(Comparator.comparing(
+                                GeneratedSourceProducerFingerprint::stepId)
+                        .thenComparing(fingerprint ->
+                                fingerprint.kind().configValue()))
+                .forEach(fingerprint -> {
+                    hash.value(
+                            "generatedProducer",
+                            fingerprint.stepId()
+                                    + "\t"
+                                    + fingerprint.kind().configValue());
+                    hash.value(
+                            "generatedProducerFingerprint",
+                            fingerprint.fingerprint());
+                });
         for (String configuredRoot : build.testSources()) {
             Path root = ProjectPaths.existingRoot(
                     projectRoot,
@@ -79,26 +106,17 @@ final class PackageSupplementalInputFingerprint {
                 file(hash, projectRoot, "groovyTestSource", file);
             }
         }
-        for (GeneratedSourceStep step : build.generatedTestSources()) {
+        for (GeneratedSourceStep step : build.generatedTestSources().stream()
+                .sorted(Comparator.comparing(GeneratedSourceStep::id)
+                        .thenComparing(value ->
+                                value.kind().configValue()))
+                .toList()) {
             Path output = ProjectPaths.output(
                     projectRoot,
                     "[generated.test." + step.id() + "].output",
                     step.output());
             for (Path file : regularFiles(output)) {
                 file(hash, projectRoot, "generatedTest", file);
-            }
-            for (String configuredInput : step.inputs()) {
-                Path input = ProjectPaths.input(
-                        projectRoot,
-                        "[generated.test." + step.id() + "].inputs",
-                        configuredInput);
-                if (Files.isRegularFile(input)) {
-                    file(hash, projectRoot, "generatedTestInput", input);
-                } else {
-                    for (Path file : regularFiles(input)) {
-                        file(hash, projectRoot, "generatedTestInput", file);
-                    }
-                }
             }
         }
         for (String configuredRoot : build.testResourceRoots()) {

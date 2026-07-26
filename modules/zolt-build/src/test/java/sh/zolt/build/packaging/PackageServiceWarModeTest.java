@@ -2,6 +2,7 @@ package sh.zolt.build.packaging;
 
 import static sh.zolt.build.packaging.PackageServiceTestSupport.config;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.createJarWithEntry;
+import static sh.zolt.build.packaging.PackageServiceTestSupport.nestedJarName;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.readEntry;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.resourceFilteringSettings;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.source;
@@ -86,6 +87,9 @@ final class PackageServiceWarModeTest {
         assertEquals(projectDir.resolve("target/demo-0.1.0.war"), result.jarPath());
         assertEquals(Optional.empty(), result.runtimeClasspathPath());
         assertFalse(result.hasMainClass());
+        String runtimeNestedName = nestedJarName("com.example", "runtime-lib", "1.0.0");
+        String providedNestedName = nestedJarName("jakarta.servlet", "jakarta.servlet-api", "6.1.0");
+        String devNestedName = nestedJarName("com.example", "devtools", "1.0.0");
         try (JarFile jar = new JarFile(result.jarPath().toFile())) {
             assertNotNull(jar.getEntry("META-INF/MANIFEST.MF"));
             assertFalse(jar.getManifest().getMainAttributes().containsKey(Attributes.Name.MAIN_CLASS));
@@ -94,12 +98,12 @@ final class PackageServiceWarModeTest {
             assertNotNull(jar.getEntry("WEB-INF/lib/"));
             assertNotNull(jar.getEntry("WEB-INF/classes/com/example/Main.class"));
             assertEquals("name=demo\n", readEntry(jar, "WEB-INF/classes/application.properties"));
-            assertNotNull(jar.getEntry("WEB-INF/lib/runtime-lib-1.0.0.jar"));
-            assertEquals(JarEntry.STORED, jar.getEntry("WEB-INF/lib/runtime-lib-1.0.0.jar").getMethod());
+            assertNotNull(jar.getEntry("WEB-INF/lib/" + runtimeNestedName));
+            assertEquals(JarEntry.STORED, jar.getEntry("WEB-INF/lib/" + runtimeNestedName).getMethod());
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "WEB-INF/lib/jakarta.servlet-api-6.1.0.jar")));
+                    "WEB-INF/lib/" + providedNestedName)));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "WEB-INF/lib/devtools-1.0.0.jar")));
+                    "WEB-INF/lib/" + devNestedName)));
         }
     }
 }

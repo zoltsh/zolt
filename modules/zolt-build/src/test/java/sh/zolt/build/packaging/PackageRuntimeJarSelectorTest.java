@@ -1,13 +1,18 @@
 package sh.zolt.build.packaging;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.classpath.ResolvedPackage;
+import sh.zolt.classpath.NestedArtifactIdentity;
+import sh.zolt.classpath.NestedArtifactIdentity.SourceKind;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class PackageRuntimeJarSelectorTest {
@@ -59,6 +64,84 @@ final class PackageRuntimeJarSelectorTest {
                 result);
     }
 
+    @Test
+    void providedOverlapUsesTheCompleteArtifactVariant() {
+        ResolvedClasspathPackage plainProvided =
+                dependency(
+                        "com.example",
+                        "native",
+                        "1.0.0",
+                        DependencyScope.PROVIDED,
+                        Path.of("native-1.0.0.jar"),
+                        Optional.empty());
+        ResolvedClasspathPackage linuxRuntime =
+                dependency(
+                        "com.example",
+                        "native",
+                        "1.0.0",
+                        DependencyScope.RUNTIME,
+                        Path.of("native-1.0.0-linux.jar"),
+                        Optional.of("linux"));
+
+        assertEquals(
+                List.of(runtimeJar(linuxRuntime)),
+                selector.runtimeJarsWithoutProvidedDuplicates(
+                        List.of(plainProvided, linuxRuntime)));
+        assertEquals(
+                List.of(runtimeJar(plainProvided)),
+                selector.runtimeJarsWithoutProvidedDuplicates(List.of(
+                        dependency(
+                                "com.example",
+                                "native",
+                                "1.0.0",
+                                DependencyScope.RUNTIME,
+                                Path.of("native-1.0.0.jar"),
+                                Optional.empty()),
+                        dependency(
+                                "com.example",
+                                "native",
+                                "1.0.0",
+                                DependencyScope.PROVIDED,
+                                Path.of("native-1.0.0-linux.jar"),
+                                Optional.of("linux")))));
+    }
+
+    @Test
+    void matchingProvidedVariantIsOmittedWhileTwoRuntimeClassifiersCoexist() {
+        ResolvedClasspathPackage linuxProvided =
+                dependency(
+                        "com.example",
+                        "native",
+                        "1.0.0",
+                        DependencyScope.PROVIDED,
+                        Path.of("native-1.0.0-linux.jar"),
+                        Optional.of("linux"));
+        ResolvedClasspathPackage linuxRuntime =
+                dependency(
+                        "com.example",
+                        "native",
+                        "1.0.0",
+                        DependencyScope.RUNTIME,
+                        Path.of("runtime/native-1.0.0-linux.jar"),
+                        Optional.of("linux"));
+        ResolvedClasspathPackage macRuntime =
+                dependency(
+                        "com.example",
+                        "native",
+                        "1.0.0",
+                        DependencyScope.RUNTIME,
+                        Path.of("native-1.0.0-macos.jar"),
+                        Optional.of("macos"));
+
+        assertEquals(
+                List.of(runtimeJar(macRuntime)),
+                selector.runtimeJarsWithoutProvidedDuplicates(
+                        List.of(linuxProvided, linuxRuntime, macRuntime)));
+        assertNotEquals(
+                runtimeJar(linuxRuntime).artifactIdentity().nestedJarName(),
+                runtimeJar(macRuntime).artifactIdentity().nestedJarName());
+    }
+
     private static ResolvedClasspathPackage dependency(
             String group,
             String artifact,
@@ -73,5 +156,37 @@ final class PackageRuntimeJarSelectorTest {
                         Path.of("pom.xml"),
                         jar),
                 scope);
+    }
+
+    private static ResolvedClasspathPackage dependency(
+            String group,
+            String artifact,
+            String version,
+            DependencyScope scope,
+            Path jar,
+            Optional<String> classifier) {
+        PackageId packageId = new PackageId(group, artifact);
+        return new ResolvedClasspathPackage(
+                new ResolvedPackage(
+                        packageId,
+                        version,
+                        false,
+                        Path.of("pom.xml"),
+                        jar,
+                        NestedArtifactIdentity.of(
+                                packageId,
+                                version,
+                                new LockArtifactVariant("jar", classifier),
+                                SourceKind.EXTERNAL)),
+                scope);
+    }
+
+    private static PackageRuntimeJar runtimeJar(
+            ResolvedClasspathPackage resolvedPackage) {
+        return new PackageRuntimeJar(
+                resolvedPackage.resolvedPackage().packageId(),
+                resolvedPackage.resolvedPackage().selectedVersion(),
+                resolvedPackage.resolvedPackage().jarPath(),
+                resolvedPackage.resolvedPackage().artifactIdentity());
     }
 }

@@ -208,10 +208,16 @@ public final class WorkspacePackageService {
                         bomPackager.packageBom(member, workspace, plan.lockfile(), memberBuild.result())));
                 continue;
             }
-            PackagePlan packagePlan = packagePlanService.plan(
-                    member.directory(),
-                    memberConfig,
-                    packageLocks.get(member.path()));
+            PackagePlan packagePlan = cacheRoot
+                    .map(root -> packagePlanService.plan(
+                            member.directory(),
+                            memberConfig,
+                            packageLocks.get(member.path()),
+                            root))
+                    .orElseGet(() -> packagePlanService.plan(
+                            member.directory(),
+                            memberConfig,
+                            packageLocks.get(member.path())));
             results.add(new WorkspacePackageResult.MemberPackageResult(
                     member.path(),
                     cacheRoot

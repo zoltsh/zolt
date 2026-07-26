@@ -4,6 +4,7 @@ import sh.zolt.build.packageevidence.PackageEvidenceManifestReader;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
+import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -111,11 +112,19 @@ public final class PublishDryRunService {
     }
 
     public PublishDryRunPlan plan(Path projectRoot) {
-        return plan(projectRoot, true);
+        return plan(
+                projectRoot,
+                true,
+                Optional.empty(),
+                LocalArtifactCache.defaultRoot());
     }
 
     public PublishDryRunPlan plan(Path projectRoot, boolean requireRepository) {
-        return plan(projectRoot, requireRepository, Optional.empty());
+        return plan(
+                projectRoot,
+                requireRepository,
+                Optional.empty(),
+                LocalArtifactCache.defaultRoot());
     }
 
     /**
@@ -128,6 +137,18 @@ public final class PublishDryRunService {
      * planner, so checksums and signing apply to it uniformly.
      */
     public PublishDryRunPlan plan(Path projectRoot, boolean requireRepository, Optional<Path> sbomFile) {
+        return plan(
+                projectRoot,
+                requireRepository,
+                sbomFile,
+                LocalArtifactCache.defaultRoot());
+    }
+
+    public PublishDryRunPlan plan(
+            Path projectRoot,
+            boolean requireRepository,
+            Optional<Path> sbomFile,
+            Path cacheRoot) {
         Path root = projectRoot.toAbsolutePath().normalize();
         ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
         PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
@@ -139,7 +160,7 @@ public final class PublishDryRunService {
                 config,
                 publish,
                 () -> lockfile(root),
-                () -> packagePlan(root, config),
+                () -> packagePlan(root, config, cacheRoot),
                 requireRepository,
                 sbomFile);
     }
@@ -282,9 +303,16 @@ public final class PublishDryRunService {
         }
     }
 
-    private PackagePlan packagePlan(Path root, ProjectConfig config) {
+    private PackagePlan packagePlan(
+            Path root,
+            ProjectConfig config,
+            Path cacheRoot) {
         try {
-            return packagePlanService.plan(root, config, root.resolve("zolt.lock"));
+            return packagePlanService.plan(
+                    root,
+                    config,
+                    root.resolve("zolt.lock"),
+                    cacheRoot);
         } catch (LockfileReadException exception) {
             throw new PublishException("Could not plan publish artifact: " + exception.getMessage());
         }

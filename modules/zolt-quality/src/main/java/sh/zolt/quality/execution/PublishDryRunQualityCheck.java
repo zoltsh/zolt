@@ -5,6 +5,7 @@ import static sh.zolt.quality.QualityCheckService.EXECUTION_CONTEXT;
 import sh.zolt.publish.PublishDryRunPlan;
 import sh.zolt.publish.PublishDryRunService;
 import sh.zolt.publish.PublishException;
+import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.workspace.WorkspaceConfigException;
@@ -83,6 +84,20 @@ final class PublishDryRunQualityCheck {
             Path projectRoot,
             QualityCheckContext context,
             boolean requirePublishDryRun) {
+        return check(
+                member,
+                projectRoot,
+                LocalArtifactCache.defaultRoot(),
+                context,
+                requirePublishDryRun);
+    }
+
+    List<QualityCheckResult> check(
+            Optional<String> member,
+            Path projectRoot,
+            Path cacheRoot,
+            QualityCheckContext context,
+            boolean requirePublishDryRun) {
         if (context != QualityCheckContext.CI || !requirePublishDryRun) {
             return List.of();
         }
@@ -91,7 +106,11 @@ final class PublishDryRunQualityCheck {
             return List.of();
         }
         try {
-            PublishDryRunPlan plan = publishDryRunService.plan(projectRoot);
+            PublishDryRunPlan plan = publishDryRunService.plan(
+                    projectRoot,
+                    true,
+                    Optional.empty(),
+                    cacheRoot);
             if (!plan.ok()) {
                 List<QualityCheckResult> results = new ArrayList<>();
                 for (String blocker : plan.blockers()) {

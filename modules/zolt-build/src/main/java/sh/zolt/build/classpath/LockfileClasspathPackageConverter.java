@@ -1,6 +1,7 @@
 package sh.zolt.build.classpath;
 
 import sh.zolt.classpath.ResolvedClasspathPackage;
+import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
 import sh.zolt.lockfile.LockPackage;
@@ -42,7 +43,8 @@ public final class LockfileClasspathPackageConverter {
                                     lockPackage.version(),
                                     lockPackage.direct(),
                                     lockPackage.pom().map(value -> cacheRoot.resolve(value)).orElse(Path.of("")),
-                                    classpathPath),
+                                    classpathPath,
+                                    NestedArtifactIdentity.of(lockPackage)),
                             lockPackage.scope(),
                             lockPackage.toolGroups());
                 })
@@ -58,7 +60,8 @@ public final class LockfileClasspathPackageConverter {
                                 lockPackage.version(),
                                 lockPackage.direct(),
                                 lockPackage.pom().map(value -> cacheRoot.resolve(value)).orElse(Path.of("")),
-                                cacheRoot.resolve(lockPackage.jar().orElseThrow())),
+                                cacheRoot.resolve(lockPackage.jar().orElseThrow()),
+                                NestedArtifactIdentity.of(lockPackage)),
                         lockPackage.scope(),
                         lockPackage.toolGroups()))
                 .toList();

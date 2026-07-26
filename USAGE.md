@@ -134,6 +134,15 @@ zolt release-index --channel-manifest channels/zap.json --output index.json
 zolt release-verify dist/zolt-0.1.0-linux-x64.tar.gz
 ```
 
+Thin packaging writes a `.runtime-classpath` sidecar beside the application
+jar. That file is a checkout-local launch convenience: its entries are the
+workspace and artifact-cache paths whose bytes were verified when the package
+was created. It is not a portable deployment manifest, and those paths can
+become unavailable after moving the jar, deleting build outputs, or pruning the
+cache. Use `zolt run-package` in the producing checkout, or repackage to refresh
+the sidecar; deploy an archive package mode when the runtime must be
+self-contained.
+
 Uber-jar packaging merges runtime dependency classes into one archive. Duplicate
 class entries fail the build by default; set `[package] uberDuplicates =
 "first-wins"` to keep the first occurrence in the deterministic classpath order

@@ -2,6 +2,7 @@ package sh.zolt.build.packaging;
 
 import static sh.zolt.build.packaging.PackageServiceTestSupport.config;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.createJarWithEntry;
+import static sh.zolt.build.packaging.PackageServiceTestSupport.nestedJarName;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.source;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -114,13 +115,22 @@ final class PackageServiceSpringBootWarModeTest {
         assertEquals(PackageMode.SPRING_BOOT_WAR, result.mode());
         assertEquals(projectDir.resolve("target/demo-0.1.0.war"), result.jarPath());
         assertTrue(result.hasMainClass());
+        String runtimeNestedName = nestedJarName("com.example", "runtime-lib", "1.0.0");
+        String springBootNestedName =
+                nestedJarName("org.springframework.boot", "spring-boot", "4.0.6");
+        String loaderNestedName =
+                nestedJarName("org.springframework.boot", "spring-boot-loader", "4.0.6");
+        String providedNestedName =
+                nestedJarName("org.apache.tomcat.embed", "tomcat-embed-core", "10.1.40");
+        String devNestedName = nestedJarName("com.example", "devtools", "1.0.0");
         String evidence = Files.readString(result.evidenceManifestPath().orElseThrow());
         assertTrue(evidence.contains("\"archive\": \"target/demo-0.1.0.war\""));
         assertTrue(evidence.contains("\"coordinate\": \"org.apache.tomcat.embed:tomcat-embed-core:10.1.40\""));
         assertTrue(evidence.contains("\"scope\": \"provided\""));
         assertTrue(evidence.contains("\"disposition\": \"provided\""));
         assertTrue(evidence.contains("\"rule\": \"spring-boot-war-provided-lib\""));
-        assertTrue(evidence.contains("\"location\": \"WEB-INF/lib-provided/tomcat-embed-core-10.1.40.jar\""));
+        assertTrue(evidence.contains(
+                "\"location\": \"WEB-INF/lib-provided/" + providedNestedName + "\""));
         assertTrue(evidence.contains("\"laneDisposition\": \"provided-container\""));
         assertTrue(evidence.contains("\"coordinate\": \"com.example:devtools:1.0.0\""));
         assertTrue(evidence.contains("\"rule\": \"dev-only-omitted\""));
@@ -136,16 +146,16 @@ final class PackageServiceSpringBootWarModeTest {
             assertEquals("WEB-INF/lib-provided/", attributes.getValue("Spring-Boot-Lib-Provided"));
             assertNotNull(jar.getEntry("org/springframework/boot/loader/launch/WarLauncher.class"));
             assertNotNull(jar.getEntry("WEB-INF/classes/com/example/Main.class"));
-            assertNotNull(jar.getEntry("WEB-INF/lib/runtime-lib-1.0.0.jar"));
-            assertNotNull(jar.getEntry("WEB-INF/lib/spring-boot-4.0.6.jar"));
-            assertNotNull(jar.getEntry("WEB-INF/lib-provided/tomcat-embed-core-10.1.40.jar"));
+            assertNotNull(jar.getEntry("WEB-INF/lib/" + runtimeNestedName));
+            assertNotNull(jar.getEntry("WEB-INF/lib/" + springBootNestedName));
+            assertNotNull(jar.getEntry("WEB-INF/lib-provided/" + providedNestedName));
             assertEquals(1, jar.stream()
-                    .filter(entry -> entry.getName().equals("WEB-INF/lib/runtime-lib-1.0.0.jar"))
+                    .filter(entry -> entry.getName().equals("WEB-INF/lib/" + runtimeNestedName))
                     .count());
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "WEB-INF/lib/spring-boot-loader-4.0.6.jar")));
+                    "WEB-INF/lib/" + loaderNestedName)));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "WEB-INF/lib/devtools-1.0.0.jar")));
+                    "WEB-INF/lib/" + devNestedName)));
         }
     }
 }

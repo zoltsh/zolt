@@ -35,6 +35,7 @@ public final class WarLayoutAssembler {
             Path warPath,
             List<PackageRuntimeJar> runtimeJars) {
         GeneratedManifest manifest = manifestGenerator.generateWithoutMain(projectDirectory, config);
+        PackageRuntimeJars.requireUniqueNestedPaths(WEB_INF_LIB_PREFIX, runtimeJars);
 
         try {
             Files.createDirectories(warPath.getParent());

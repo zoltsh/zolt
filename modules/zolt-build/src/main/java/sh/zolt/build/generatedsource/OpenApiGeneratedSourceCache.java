@@ -25,7 +25,7 @@ final class OpenApiGeneratedSourceCache {
         return new GenerationCacheState(
                 output.resolve(".zolt-openapi-" + scope + "-" + step.id() + ".fingerprint"),
                 output.resolve(".zolt-openapi-" + scope + "-" + step.id() + ".log"),
-                fingerprint(projectRoot, toolClasspath, scope, step));
+                producerFingerprint(projectRoot, toolClasspath, scope, step));
     }
 
     boolean isCurrent(Path output, GenerationCacheState state) {
@@ -58,7 +58,7 @@ final class OpenApiGeneratedSourceCache {
         }
     }
 
-    private static String fingerprint(
+    static String producerFingerprint(
             Path projectRoot,
             List<Path> toolClasspath,
             String scope,

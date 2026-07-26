@@ -2,6 +2,7 @@ package sh.zolt.build.packageplan;
 
 import sh.zolt.build.PackageException;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
+import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
@@ -34,10 +35,14 @@ final class PackageBuildInputFingerprint {
             Path projectRoot,
             ProjectConfig config,
             ZoltLockfile lockfile,
-            List<PackagePlanWorkspaceInput> workspaceInputs) {
+            List<PackagePlanWorkspaceInput> workspaceInputs,
+            List<GeneratedSourceProducerFingerprint>
+                    generatedSourceFingerprints) {
         PackageCanonicalHash hash = new PackageCanonicalHash();
         hash.value("schema", "zolt.package-build-input.v1");
-        hash.value("build", config.build().toString());
+        hash.value(
+                "build",
+                PackageBuildSettingsIdentity.canonical(config.build()));
         hash.value("compiler", config.compilerSettings().toString());
         hash.value("project", config.project().toString());
         hash.value("lock", lockfile.toString());
@@ -54,8 +59,22 @@ final class PackageBuildInputFingerprint {
                 path -> file(hash, projectRoot, "source", path));
         resources(projectRoot, config.build()).forEach(
                 path -> file(hash, projectRoot, "resource", path));
-        generatedInputs(projectRoot, config.build().generatedMainSources()).forEach(
-                path -> file(hash, projectRoot, "generatedInput", path));
+        generatedSourceFingerprints.stream()
+                .filter(fingerprint -> "main".equals(fingerprint.scope()))
+                .sorted(Comparator.comparing(
+                                GeneratedSourceProducerFingerprint::stepId)
+                        .thenComparing(fingerprint ->
+                                fingerprint.kind().configValue()))
+                .forEach(fingerprint -> {
+                    hash.value(
+                            "generatedProducer",
+                            fingerprint.stepId()
+                                    + "\t"
+                                    + fingerprint.kind().configValue());
+                    hash.value(
+                            "generatedProducerFingerprint",
+                            fingerprint.fingerprint());
+                });
         generatedOutputs(projectRoot, config.build().generatedMainSources()).forEach(
                 path -> file(hash, projectRoot, "generatedOutput", path));
         effectiveResourceTokens(config).forEach(
@@ -99,22 +118,6 @@ final class PackageBuildInputFingerprint {
                     .toList());
         }
         return resources.stream().distinct().sorted().toList();
-    }
-
-    private static List<Path> generatedInputs(
-            Path projectRoot,
-            List<GeneratedSourceStep> steps) {
-        Set<Path> inputs = new LinkedHashSet<>();
-        for (GeneratedSourceStep step : steps) {
-            for (String configured : step.inputs()) {
-                Path input = ProjectPaths.input(
-                        projectRoot,
-                        "[generated.main." + step.id() + "].inputs",
-                        configured);
-                inputs.addAll(expand(input));
-            }
-        }
-        return inputs.stream().sorted().toList();
     }
 
     private static List<Path> generatedOutputs(

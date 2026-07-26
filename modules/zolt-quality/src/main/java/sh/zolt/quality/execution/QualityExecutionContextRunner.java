@@ -104,6 +104,7 @@ public final class QualityExecutionContextRunner {
         results.addAll(publishDryRunQualityCheck.check(
                 Optional.empty(),
                 request.projectRoot(),
+                request.cacheRoot(),
                 request.context(),
                 request.requirePublishDryRun()));
         return List.copyOf(results);

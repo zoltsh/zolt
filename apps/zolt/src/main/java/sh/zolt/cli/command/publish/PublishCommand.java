@@ -167,7 +167,12 @@ public final class PublishCommand implements Callable<Integer> {
             Optional<Path> sbomFile = generateSbom(projectRoot);
             if (central && !dryRun) {
                 progress.start("Publishing to Maven Central");
-                PublishDryRunPlan plan = dryRunService.plan(projectRoot, false, sbomFile);
+                PublishDryRunPlan plan =
+                        dryRunService.plan(
+                                projectRoot,
+                                false,
+                                sbomFile,
+                                cacheRoot);
                 if (!plan.ok()) {
                     CommandOutput.printAndFlush(spec, PublishDryRunFormatter.text(plan));
                     return 1;
@@ -187,7 +192,12 @@ public final class PublishCommand implements Callable<Integer> {
             }
             if (dryRun) {
                 progress.start("Preparing publish dry run");
-                PublishDryRunPlan plan = dryRunService.plan(projectRoot, !central, sbomFile);
+                PublishDryRunPlan plan =
+                        dryRunService.plan(
+                                projectRoot,
+                                !central,
+                                sbomFile,
+                                cacheRoot);
                 if (context == PublishContext.RELEASE) {
                     plan = releasePolicyService.apply(projectRoot, plan);
                 }
@@ -208,7 +218,11 @@ public final class PublishCommand implements Callable<Integer> {
                 return plan.ok() && centralReady ? 0 : 1;
             }
             progress.start("Publishing artifacts");
-            PublishUploadResult result = uploadService.upload(projectRoot, sbomFile);
+            PublishUploadResult result =
+                    uploadService.upload(
+                            projectRoot,
+                            sbomFile,
+                            cacheRoot);
             CommandOutput.printAndFlush(spec, PublishUploadFormatter.text(result));
             progress.result("Published artifacts");
             return 0;

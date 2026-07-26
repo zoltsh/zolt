@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageRuntimeJar;
+import sh.zolt.build.packaging.PackageRuntimeJars;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.project.PackageMode;
 import java.io.IOException;
@@ -48,19 +49,23 @@ final class SpringBootWarLayoutAssemblerTest {
         createJarWithEntry(providedJar, "org/apache/catalina/startup/Tomcat.class");
         Path warPath = projectDir.resolve("target/demo-0.1.0.war");
 
+        PackageRuntimeJar springBootInput =
+                new PackageRuntimeJar(SpringBootLoaderSupport.SPRING_BOOT_PACKAGE, "4.0.6", springBootJar);
+        PackageRuntimeJar loaderInput =
+                new PackageRuntimeJar(SpringBootLoaderSupport.SPRING_BOOT_LOADER_PACKAGE, "4.0.6", loaderJar);
+        PackageRuntimeJar runtimeInput =
+                new PackageRuntimeJar(new PackageId("com.example", "runtime-lib"), "1.0.0", runtimeJar);
+        PackageRuntimeJar providedInput = new PackageRuntimeJar(
+                new PackageId("org.apache.tomcat.embed", "tomcat-embed-core"),
+                "10.1.40",
+                providedJar);
         PackageResult result = assembler.assemble(
                 "com.example.Main",
                 new BuildResult(Optional.empty(), 1, 1, outputDirectory, ""),
                 outputDirectory,
                 warPath,
-                List.of(
-                        new PackageRuntimeJar(SpringBootLoaderSupport.SPRING_BOOT_PACKAGE, "4.0.6", springBootJar),
-                        new PackageRuntimeJar(SpringBootLoaderSupport.SPRING_BOOT_LOADER_PACKAGE, "4.0.6", loaderJar),
-                        new PackageRuntimeJar(new PackageId("com.example", "runtime-lib"), "1.0.0", runtimeJar)),
-                List.of(new PackageRuntimeJar(
-                        new PackageId("org.apache.tomcat.embed", "tomcat-embed-core"),
-                        "10.1.40",
-                        providedJar)));
+                List.of(springBootInput, loaderInput, runtimeInput),
+                List.of(providedInput));
 
         assertEquals(PackageMode.SPRING_BOOT_WAR, result.mode());
         assertEquals(warPath, result.jarPath());
@@ -86,15 +91,18 @@ final class SpringBootWarLayoutAssemblerTest {
             assertNotNull(jar.getEntry("WEB-INF/classes/application.properties"));
             assertNotNull(jar.getEntry("org/springframework/boot/loader/launch/WarLauncher.class"));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(".zolt-incremental-main.state")));
-            assertNotNull(jar.getEntry("WEB-INF/lib/spring-boot-4.0.6.jar"));
-            JarEntry runtimeEntry = jar.getJarEntry("WEB-INF/lib/runtime-lib-1.0.0.jar");
+            assertNotNull(jar.getEntry(
+                    "WEB-INF/lib/" + PackageRuntimeJars.nestedJarName(springBootInput)));
+            JarEntry runtimeEntry =
+                    jar.getJarEntry("WEB-INF/lib/" + PackageRuntimeJars.nestedJarName(runtimeInput));
             assertNotNull(runtimeEntry);
             assertEquals(JarEntry.STORED, runtimeEntry.getMethod());
-            JarEntry providedEntry = jar.getJarEntry("WEB-INF/lib-provided/tomcat-embed-core-10.1.40.jar");
+            JarEntry providedEntry = jar.getJarEntry(
+                    "WEB-INF/lib-provided/" + PackageRuntimeJars.nestedJarName(providedInput));
             assertNotNull(providedEntry);
             assertEquals(JarEntry.STORED, providedEntry.getMethod());
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "WEB-INF/lib/spring-boot-loader-4.0.6.jar")));
+                    "WEB-INF/lib/" + PackageRuntimeJars.nestedJarName(loaderInput))));
         }
     }
 

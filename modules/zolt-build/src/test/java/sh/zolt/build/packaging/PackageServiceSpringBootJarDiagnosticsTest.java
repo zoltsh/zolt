@@ -2,6 +2,7 @@ package sh.zolt.build.packaging;
 
 import static sh.zolt.build.packaging.PackageServiceTestSupport.config;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.createJarWithEntry;
+import static sh.zolt.build.packaging.PackageServiceTestSupport.nestedJarName;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.source;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -127,7 +128,8 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
         assertEquals(PackageMode.SPRING_BOOT, result.mode());
         try (JarFile jar = new JarFile(result.jarPath().toFile())) {
             assertNotNull(jar.getEntry("BOOT-INF/classes/com/example/Main.class"));
-            assertNotNull(jar.getEntry("BOOT-INF/lib/runtime-lib-1.0.0.jar"));
+            assertNotNull(jar.getEntry(
+                    "BOOT-INF/lib/" + nestedJarName("com.example", "runtime-lib", "1.0.0")));
             assertNotNull(jar.getEntry("org/springframework/boot/loader/launch/JarLauncher.class"));
         }
     }

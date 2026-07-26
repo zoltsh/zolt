@@ -2,6 +2,7 @@ package sh.zolt.cli.packaging;
 
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
+import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.nestedJarName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,11 +38,18 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         assertTrue(result.stdout().contains("Package plan"));
         assertTrue(result.stdout().contains("Mode: spring-boot-war"));
         assertTrue(result.stdout().contains("Application layout: WEB-INF/classes"));
+        String runtimeNestedName =
+                nestedJarName("com.example", "runtime-lib", "1.0.0");
+        String providedNestedName =
+                nestedJarName(
+                        "jakarta.servlet",
+                        "jakarta.servlet-api",
+                        "6.1.0");
         assertTrue(result.stdout().contains("org.springframework.boot:spring-boot-loader:4.0.6 [runtime] loader -> archive root rule=spring-boot-war-loader-expanded"));
-        assertTrue(result.stdout().contains("com.example:runtime-lib:1.0.0 [runtime] included -> WEB-INF/lib/runtime-lib-1.0.0.jar rule=spring-boot-war-runtime-lib"));
-        assertTrue(result.stdout().contains("jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] provided -> WEB-INF/lib-provided/jakarta.servlet-api-6.1.0.jar rule=spring-boot-war-provided-lib"));
+        assertTrue(result.stdout().contains("com.example:runtime-lib:1.0.0 [runtime] included -> WEB-INF/lib/" + runtimeNestedName + " rule=spring-boot-war-runtime-lib"));
+        assertTrue(result.stdout().contains("jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] provided -> WEB-INF/lib-provided/" + providedNestedName + " rule=spring-boot-war-provided-lib"));
         assertTrue(result.stdout().contains("com.example:devtools:1.0.0 [dev] omitted rule=dev-only-omitted"));
-        assertTrue(result.stdout().contains("jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] provided -> WEB-INF/lib-provided/jakarta.servlet-api-6.1.0.jar rule=spring-boot-war-provided-lib lanes=compile packageDefault=false lane=provided-container"));
+        assertTrue(result.stdout().contains("jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] provided -> WEB-INF/lib-provided/" + providedNestedName + " rule=spring-boot-war-provided-lib lanes=compile packageDefault=false lane=provided-container"));
         assertTrue(result.stdout().contains("com.example:devtools:1.0.0 [dev] omitted rule=dev-only-omitted lanes=runtime,test packageDefault=false lane=development-only"));
         assertTrue(result.stdout().contains("warning CONTAINER_DEPENDENCY_PACKAGED org.apache.tomcat.embed:tomcat-embed-core:10.1.40 rule=spring-boot-war-runtime-lib"));
         assertFalse(Files.exists(projectDir.resolve("target/package-plan-boot-war-0.1.0.war")));

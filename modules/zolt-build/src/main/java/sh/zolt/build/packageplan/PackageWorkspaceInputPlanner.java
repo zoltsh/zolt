@@ -1,6 +1,6 @@
 package sh.zolt.build.packageplan;
 
-import sh.zolt.build.PackageException;
+import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.project.PackageMode;
@@ -26,15 +26,19 @@ final class PackageWorkspaceInputPlanner {
                 .filter(lockPackage -> lockPackage.workspace().isPresent()
                         && lockPackage.workspaceOutput().isPresent())
                 .filter(PackageWorkspaceInputPlanner::entersPackageBuild)
-                .sorted(Comparator.comparing(PackageWorkspaceInputPlanner::coordinate))
+                .sorted(Comparator.comparing(lockPackage ->
+                        NestedArtifactIdentity.of(lockPackage).coordinate()))
                 .forEach(lockPackage -> {
                     String workspace = lockPackage.workspace().orElseThrow();
                     String output = lockPackage.workspaceOutput().orElseThrow();
                     Path source = sourceDirectory(projectRoot, workspace, output);
-                    String coordinate = coordinate(lockPackage);
+                    NestedArtifactIdentity artifactIdentity =
+                            NestedArtifactIdentity.of(lockPackage);
+                    String coordinate = artifactIdentity.coordinate();
                     inputs.putIfAbsent(coordinate, new PackagePlanWorkspaceInput(
                             coordinate,
                             "workspace:" + normalize(workspace) + "/" + normalize(output),
+                            artifactIdentity,
                             source,
                             PackageInputFingerprinting.applicationOutputFingerprint(source)));
                 });
@@ -66,25 +70,12 @@ final class PackageWorkspaceInputPlanner {
             if (dependency == null || !materializedDisposition(dependency.disposition())) {
                 continue;
             }
-            String[] coordinate = input.coordinate().split(":", -1);
-            if (coordinate.length != 3) {
-                throw new PackageException(
-                        "Workspace package coordinate `"
-                                + input.coordinate()
-                                + "` cannot be materialized deterministically.");
-            }
-            String jarName = coordinate[0]
-                    + "-"
-                    + coordinate[1]
-                    + "-"
-                    + coordinate[2]
-                    + ".jar";
             materialized.add(new PackagePlanMaterializedInput(
                     input.coordinate(),
                     input.identity(),
                     input.sourceDirectory(),
                     input.fingerprint(),
-                    staging.resolve(jarName)));
+                    staging.resolve(input.artifactIdentity().nestedJarName())));
         }
         return List.copyOf(materialized);
     }
@@ -103,7 +94,7 @@ final class PackageWorkspaceInputPlanner {
                 || scope == DependencyScope.QUARKUS_DEPLOYMENT;
     }
 
-    private static Path sourceDirectory(
+    static Path sourceDirectory(
             Path projectRoot,
             String workspace,
             String output) {
@@ -130,8 +121,11 @@ final class PackageWorkspaceInputPlanner {
         return fallbackRoot.resolve(workspace).resolve(output).toAbsolutePath().normalize();
     }
 
-    private static String coordinate(LockPackage lockPackage) {
-        return lockPackage.packageId() + ":" + lockPackage.version();
+    static Path sourceDirectory(Path projectRoot, LockPackage lockPackage) {
+        return sourceDirectory(
+                projectRoot,
+                lockPackage.workspace().orElseThrow(),
+                lockPackage.workspaceOutput().orElseThrow());
     }
 
     private static String normalize(String value) {

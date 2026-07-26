@@ -14,12 +14,10 @@ import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProducesLane;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPaths;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.function.UnaryOperator;
 
 /**
@@ -188,7 +186,15 @@ public final class ExecGeneratedSourceService {
         Path output = outputPath(context.root(), step.output(), scope, step.id(), "output");
         ResolvedCommand resolved = resolveCommand(context, step, subject, cwd);
         GenerationCacheState cacheState = context.cache().state(
-                context.root(), cwd, resolved.classpath(), resolved.identity(), scope, step, inheritEnvDigests(step));
+                context.root(),
+                cwd,
+                resolved.classpath(),
+                resolved.identity(),
+                scope,
+                step,
+                GeneratedSourceProducerFingerprintService.inheritEnvDigests(
+                        step,
+                        ambientEnv));
         boolean contentCache = "content".equals(cache);
         if (contentCache && context.cache().isCurrent(output, cacheState)) {
             return;
@@ -219,22 +225,6 @@ public final class ExecGeneratedSourceService {
             ExecUndeclaredOutputScan.verify(subject, cwd, output, context.metadataDirectory(), before);
         }
         context.cache().writeFingerprint(cacheState);
-    }
-
-    /**
-     * A digest of each inheritEnv variable's ACTUAL runtime value (never the raw value), folded into the
-     * step fingerprint so a changed inherited value / DB endpoint / token invalidates the content cache.
-     * An unset variable maps to a distinct {@code absent} marker so "unset" and "empty" never collide.
-     */
-    private Map<String, String> inheritEnvDigests(GeneratedSourceStep step) {
-        Map<String, String> digests = new TreeMap<>();
-        for (String name : step.exec().inheritEnv()) {
-            String value = ambientEnv.apply(name);
-            digests.put(name, value == null
-                    ? "absent"
-                    : "sha256:" + GeneratedSourceHashes.sha256(value.getBytes(StandardCharsets.UTF_8)));
-        }
-        return digests;
     }
 
     private ResolvedCommand resolveCommand(StepContext context, GeneratedSourceStep step, String subject, Path cwd) {

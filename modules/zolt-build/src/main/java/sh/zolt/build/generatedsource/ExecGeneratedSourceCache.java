@@ -46,7 +46,14 @@ final class ExecGeneratedSourceCache {
         return new GenerationCacheState(
                 metadataDirectory.resolve(base + ".fingerprint"),
                 metadataDirectory.resolve(base + ".log"),
-                fingerprint(projectRoot, cwd, classpath, toolIdentity, scope, step, inheritEnvDigests));
+                producerFingerprint(
+                        projectRoot,
+                        cwd,
+                        classpath,
+                        toolIdentity,
+                        scope,
+                        step,
+                        inheritEnvDigests));
     }
 
     boolean isCurrent(Path output, GenerationCacheState state) {
@@ -78,7 +85,7 @@ final class ExecGeneratedSourceCache {
         }
     }
 
-    private static String fingerprint(
+    static String producerFingerprint(
             Path projectRoot,
             Path cwd,
             List<Path> classpath,
@@ -118,7 +125,12 @@ final class ExecGeneratedSourceCache {
         new TreeMap<>(inheritEnvDigests).forEach((name, digest) ->
                 content.append(name).append('=').append(digest).append('\n'));
         content.append("[coordinates]\n");
-        exec.tool().coordinates().forEach(coordinate -> content
+        exec.tool().coordinates().stream()
+                .sorted(java.util.Comparator.comparing(coordinate ->
+                        coordinate.coordinate()
+                                + ":"
+                                + coordinate.version().orElse("")))
+                .forEach(coordinate -> content
                 .append(coordinate.coordinate()).append(':').append(coordinate.version().orElse("")).append('\n'));
         content.append("[classpath]\n");
         classpath.stream()

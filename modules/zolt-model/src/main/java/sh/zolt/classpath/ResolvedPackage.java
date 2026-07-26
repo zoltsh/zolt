@@ -8,5 +8,26 @@ public record ResolvedPackage(
         String selectedVersion,
         boolean direct,
         Path pomPath,
-        Path jarPath) {
+        Path jarPath,
+        NestedArtifactIdentity artifactIdentity) {
+    public ResolvedPackage {
+        artifactIdentity = artifactIdentity == null
+                ? NestedArtifactIdentity.external(packageId, selectedVersion)
+                : artifactIdentity;
+    }
+
+    public ResolvedPackage(
+            PackageId packageId,
+            String selectedVersion,
+            boolean direct,
+            Path pomPath,
+            Path jarPath) {
+        this(
+                packageId,
+                selectedVersion,
+                direct,
+                pomPath,
+                jarPath,
+                NestedArtifactIdentity.external(packageId, selectedVersion));
+    }
 }

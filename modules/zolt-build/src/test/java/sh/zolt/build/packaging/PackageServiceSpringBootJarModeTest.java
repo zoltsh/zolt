@@ -3,6 +3,7 @@ package sh.zolt.build.packaging;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.buildSettingsWithMetadata;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.config;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.createJarWithEntry;
+import static sh.zolt.build.packaging.PackageServiceTestSupport.nestedJarName;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.readEntry;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.resourceFilteringSettings;
 import static sh.zolt.build.packaging.PackageServiceTestSupport.source;
@@ -121,6 +122,13 @@ final class PackageServiceSpringBootJarModeTest {
         assertEquals(PackageMode.SPRING_BOOT, result.mode());
         assertEquals(Optional.empty(), result.runtimeClasspathPath());
         assertTrue(result.hasMainClass());
+        String runtimeNestedName = nestedJarName("com.example", "runtime-lib", "1.0.0");
+        String springBootNestedName =
+                nestedJarName("org.springframework.boot", "spring-boot", "4.0.6");
+        String loaderNestedName =
+                nestedJarName("org.springframework.boot", "spring-boot-loader", "4.0.6");
+        String devNestedName = nestedJarName("com.example", "devtools", "1.0.0");
+        String processorNestedName = nestedJarName("com.example", "processor", "1.0.0");
         try (JarFile jar = new JarFile(result.jarPath().toFile())) {
             Attributes attributes = jar.getManifest().getMainAttributes();
             assertEquals("1.0", attributes.getValue(Attributes.Name.MANIFEST_VERSION));
@@ -149,18 +157,20 @@ final class PackageServiceSpringBootJarModeTest {
                     build.time=1970-01-01T00:00:00Z
                     build.version=0.1.0
                     """, readEntry(jar, "BOOT-INF/classes/META-INF/build-info.properties"));
-            assertNotNull(jar.getEntry("BOOT-INF/lib/runtime-lib-1.0.0.jar"));
-            assertNotNull(jar.getEntry("BOOT-INF/lib/spring-boot-4.0.6.jar"));
+            assertNotNull(jar.getEntry("BOOT-INF/lib/" + runtimeNestedName));
+            assertNotNull(jar.getEntry("BOOT-INF/lib/" + springBootNestedName));
             assertEquals(1, jar.stream()
-                    .filter(entry -> entry.getName().equals("BOOT-INF/lib/runtime-lib-1.0.0.jar"))
+                    .filter(entry -> entry.getName().equals("BOOT-INF/lib/" + runtimeNestedName))
                     .count());
-            assertEquals(JarEntry.STORED, jar.getEntry("BOOT-INF/lib/runtime-lib-1.0.0.jar").getMethod());
+            assertEquals(
+                    JarEntry.STORED,
+                    jar.getEntry("BOOT-INF/lib/" + runtimeNestedName).getMethod());
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "BOOT-INF/lib/spring-boot-loader-4.0.6.jar")));
+                    "BOOT-INF/lib/" + loaderNestedName)));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "BOOT-INF/lib/devtools-1.0.0.jar")));
+                    "BOOT-INF/lib/" + devNestedName)));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(
-                    "BOOT-INF/lib/processor-1.0.0.jar")));
+                    "BOOT-INF/lib/" + processorNestedName)));
         }
     }
 

@@ -40,12 +40,20 @@ final class PackageRuntimeJarMaterializerTest {
                 .materialize(projectDir, config, List.of(input))
                 .materializedInputs()
                 .getFirst();
+        assertEquals(
+                PackageRuntimeJars.nestedJarName(input),
+                original.jarPath().getFileName().toString());
         byte[] expected = Files.readAllBytes(original.jarPath());
         Path cacheManifest = original.jarPath().resolveSibling(
                 original.jarPath().getFileName() + ".zolt-cache");
         String metadata = Files.readString(cacheManifest);
+        assertEquals(5L, metadata.lines().count());
         assertTrue(metadata.contains(
-                "schema=zolt.package-runtime-input-cache.v1"));
+                "schema=zolt.package-runtime-input-cache.v2"));
+        assertTrue(metadata.contains(
+                "identity=" + input.artifactIdentity().canonicalKey()));
+        assertTrue(metadata.contains(
+                "nestedName=" + PackageRuntimeJars.nestedJarName(input)));
         assertTrue(metadata.contains(
                 "sourceFingerprint=" + original.sourceFingerprint()));
         assertTrue(metadata.contains("jarSha256=" + original.sha256()));
@@ -77,6 +85,9 @@ final class PackageRuntimeJarMaterializerTest {
                 .materialize(projectDir, config, List.of(input))
                 .materializedInputs()
                 .getFirst();
+        assertEquals(
+                PackageRuntimeJars.nestedJarName(input),
+                regenerated.jarPath().getFileName().toString());
         assertEquals(
                 java.util.HexFormat.of().formatHex(expected),
                 java.util.HexFormat.of().formatHex(

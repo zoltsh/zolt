@@ -183,6 +183,7 @@ public final class QualityCheckService {
                         request.projectRoot(),
                         config,
                         request.projectRoot().resolve("zolt.lock"),
+                        request.cacheRoot(),
                         request.requirePackage()));
                 case MANIFEST_METADATA -> results.add(packageQualityCheck.checkManifestMetadata(
                         Optional.empty(),
@@ -213,7 +214,8 @@ public final class QualityCheckService {
                         workspace,
                         selection,
                         members,
-                        requestedChecks.contains(PACKAGE_CONTENTS));
+                        requestedChecks.contains(PACKAGE_CONTENTS),
+                        request.cacheRoot());
             } catch (WorkspaceQualityProjectionException exception) {
                 projectionFailure = exception;
             }
@@ -331,10 +333,7 @@ public final class QualityCheckService {
     }
 
     private static boolean graphDependentCheck(String check) {
-        return DEPENDENCY_METADATA.equals(check)
-                || DEPENDENCY_POLICY.equals(check)
-                || LICENSE_POLICY.equals(check)
-                || PACKAGE_CONTENTS.equals(check);
+        return Set.of(DEPENDENCY_METADATA, DEPENDENCY_POLICY, LICENSE_POLICY, PACKAGE_CONTENTS).contains(check);
     }
 
     private static QualityCheckResult graphProjectionFailure(

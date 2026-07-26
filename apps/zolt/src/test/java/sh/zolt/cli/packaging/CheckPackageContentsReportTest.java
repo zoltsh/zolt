@@ -3,6 +3,7 @@ package sh.zolt.cli.packaging;
 import static sh.zolt.cli.packaging.CheckPackageContentsCommandTestSupport.writePackagePlanLockfile;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
+import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.nestedJarName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,7 +36,13 @@ final class CheckPackageContentsReportTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("error package-contents org.apache.tomcat.embed:tomcat-embed-core:10.1.40"));
-        assertTrue(result.stdout().contains("Container-style dependency `org.apache.tomcat.embed:tomcat-embed-core:10.1.40` is packaged in WEB-INF/lib/tomcat-embed-core-10.1.40.jar by package rule `war-runtime-lib`."));
+        assertTrue(result.stdout().contains(
+                "Container-style dependency `org.apache.tomcat.embed:tomcat-embed-core:10.1.40` is packaged in WEB-INF/lib/"
+                        + nestedJarName(
+                                "org.apache.tomcat.embed",
+                                "tomcat-embed-core",
+                                "10.1.40")
+                        + " by package rule `war-runtime-lib`."));
         assertTrue(result.stdout().contains("next: Move it to [provided.dependencies]"));
     }
 

@@ -29,6 +29,7 @@ public final class SpringBootJarLayoutAssembler {
             Path jarPath,
             List<PackageRuntimeJar> runtimeJars) {
         SpringBootLoaderSupport.SpringBootLoader loader = SpringBootLoaderSupport.jarLoader(runtimeJars);
+        PackageRuntimeJars.requireUniqueNestedPaths(BOOT_LIB_PREFIX, runtimeJars);
 
         try {
             Files.createDirectories(jarPath.getParent());

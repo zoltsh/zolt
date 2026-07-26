@@ -10,6 +10,7 @@ import sh.zolt.build.manifest.ManifestGenerator;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageRuntimeJar;
+import sh.zolt.build.packaging.PackageRuntimeJars;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.dependency.PackageId;
@@ -44,13 +45,15 @@ final class WarLayoutAssemblerTest {
         createJarWithEntry(runtimeJar, "com/example/runtime/RuntimeLib.class");
         Path warPath = projectDir.resolve("target/demo-0.1.0.war");
 
+        PackageRuntimeJar runtimeInput =
+                new PackageRuntimeJar(new PackageId("com.example", "runtime-lib"), "1.0.0", runtimeJar);
         PackageResult result = assembler.assemble(
                 projectDir,
                 config(),
                 new BuildResult(Optional.empty(), 1, 1, outputDirectory, ""),
                 outputDirectory,
                 warPath,
-                List.of(new PackageRuntimeJar(new PackageId("com.example", "runtime-lib"), "1.0.0", runtimeJar)));
+                List.of(runtimeInput));
 
         assertEquals(PackageMode.WAR, result.mode());
         assertEquals(warPath, result.jarPath());
@@ -66,7 +69,8 @@ final class WarLayoutAssemblerTest {
             assertNotNull(jar.getEntry("WEB-INF/classes/com/example/Main.class"));
             assertNotNull(jar.getEntry("WEB-INF/classes/application.properties"));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().equals(".zolt-incremental-main.state")));
-            JarEntry runtimeEntry = jar.getJarEntry("WEB-INF/lib/runtime-lib-1.0.0.jar");
+            JarEntry runtimeEntry =
+                    jar.getJarEntry("WEB-INF/lib/" + PackageRuntimeJars.nestedJarName(runtimeInput));
             assertNotNull(runtimeEntry);
             assertEquals(JarEntry.STORED, runtimeEntry.getMethod());
         }

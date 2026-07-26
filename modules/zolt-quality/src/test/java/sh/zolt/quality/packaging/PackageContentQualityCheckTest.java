@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.classpath.NestedArtifactIdentity;
+import sh.zolt.dependency.PackageId;
 import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.quality.QualityCheckService;
 import sh.zolt.quality.QualityCheckStatus;
@@ -89,7 +91,14 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
         assertEquals(QualityCheckService.PACKAGE_CONTENTS, result.id());
         assertEquals(QualityCheckStatus.FAILED, result.status());
         assertEquals("org.apache.tomcat.embed:tomcat-embed-core:10.1.40", result.subject());
-        assertTrue(result.message().contains("Container-style dependency `org.apache.tomcat.embed:tomcat-embed-core:10.1.40` is packaged in WEB-INF/lib/tomcat-embed-core-10.1.40.jar"));
+        assertTrue(result.message().contains(
+                "Container-style dependency `org.apache.tomcat.embed:tomcat-embed-core:10.1.40` is packaged in WEB-INF/lib/"
+                        + NestedArtifactIdentity.external(
+                                        new PackageId(
+                                                "org.apache.tomcat.embed",
+                                                "tomcat-embed-core"),
+                                        "10.1.40")
+                                .nestedJarName()));
         assertEquals(
                 "Move it to [provided.dependencies] when the servlet container supplies it, then run `zolt resolve`.",
                 result.nextStep());

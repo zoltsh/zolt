@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import sh.zolt.build.PackageException;
+import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.error.ActionableException;
@@ -84,6 +85,20 @@ final class WorkspaceQualityProjectionService {
             WorkspaceSelection selection,
             Map<String, WorkspaceMember> members,
             boolean includePackagePlans) {
+        return project(
+                workspace,
+                selection,
+                members,
+                includePackagePlans,
+                LocalArtifactCache.defaultRoot());
+    }
+
+    WorkspaceQualityProjection project(
+            Workspace workspace,
+            WorkspaceSelection selection,
+            Map<String, WorkspaceMember> members,
+            boolean includePackagePlans,
+            Path cacheRoot) {
         Path lockfilePath = workspace.root().resolve("zolt.lock");
         if (!Files.isRegularFile(lockfilePath)) {
             throw new WorkspaceQualityProjectionException(
@@ -132,7 +147,8 @@ final class WorkspaceQualityProjectionService {
                                                 workspace,
                                                 aggregate,
                                                 member)
-                                        : packageLocks.get(memberPath)))
+                                        : packageLocks.get(memberPath),
+                                cacheRoot))
                         : Optional.empty();
                 projected.put(
                         memberPath,

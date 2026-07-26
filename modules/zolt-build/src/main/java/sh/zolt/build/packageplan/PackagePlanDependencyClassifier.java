@@ -1,5 +1,6 @@
 package sh.zolt.build.packageplan;
 
+import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.framework.FrameworkPackagePlanDependency;
@@ -7,7 +8,6 @@ import sh.zolt.framework.FrameworkPackagePlanRules;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
 
@@ -21,15 +21,24 @@ final class PackagePlanDependencyClassifier {
     static PackagePlanDependency dependency(
             PackageMode mode,
             LockPackage lockPackage,
-            Set<PackageId> providedPackageIds,
+            Set<String> providedArtifactVariants,
             Optional<FrameworkPackagePlanRules> packagePlanRules,
             ProjectConfig config) {
-        String nestedJar = nestedJarName(lockPackage);
+        NestedArtifactIdentity identity = NestedArtifactIdentity.of(lockPackage);
+        String nestedJar = identity.nestedJarName();
         return switch (mode) {
             case THIN -> thinDependency(lockPackage);
             case SPRING_BOOT -> springBootDependency(lockPackage, nestedJar);
-            case WAR -> warDependency(lockPackage, nestedJar, providedPackageIds);
-            case SPRING_BOOT_WAR -> springBootWarDependency(lockPackage, nestedJar, providedPackageIds);
+            case WAR -> warDependency(
+                    lockPackage,
+                    identity,
+                    nestedJar,
+                    providedArtifactVariants);
+            case SPRING_BOOT_WAR -> springBootWarDependency(
+                    lockPackage,
+                    identity,
+                    nestedJar,
+                    providedArtifactVariants);
             case QUARKUS -> packagePlanRules
                     .map(rules -> dependency(rules.dependency(lockPackage, config)))
                     .orElseGet(() -> unsupportedFrameworkDependency(mode, lockPackage));
@@ -123,9 +132,13 @@ final class PackagePlanDependencyClassifier {
 
     private static PackagePlanDependency warDependency(
             LockPackage lockPackage,
+            NestedArtifactIdentity identity,
             String nestedJar,
-            Set<PackageId> providedPackageIds) {
-        if (isProvidedCoordinateOverride(lockPackage, providedPackageIds)) {
+            Set<String> providedArtifactVariants) {
+        if (isProvidedCoordinateOverride(
+                lockPackage,
+                identity,
+                providedArtifactVariants)) {
             return providedCoordinateOverride(lockPackage, false);
         }
         boolean included = lockPackage.scope().packagedByDefault();
@@ -144,8 +157,9 @@ final class PackagePlanDependencyClassifier {
 
     private static PackagePlanDependency springBootWarDependency(
             LockPackage lockPackage,
+            NestedArtifactIdentity identity,
             String nestedJar,
-            Set<PackageId> providedPackageIds) {
+            Set<String> providedArtifactVariants) {
         if (lockPackage.packageId().equals(SPRING_BOOT_LOADER_PACKAGE)) {
             return new PackagePlanDependency(
                     coordinate(lockPackage),
@@ -168,7 +182,10 @@ final class PackagePlanDependencyClassifier {
                     "provided dependency is available to java -jar without entering servlet container WEB-INF/lib",
                     lockPackage.policies());
         }
-        if (isProvidedCoordinateOverride(lockPackage, providedPackageIds)) {
+        if (isProvidedCoordinateOverride(
+                lockPackage,
+                identity,
+                providedArtifactVariants)) {
             return providedCoordinateOverride(lockPackage, true);
         }
         boolean included = lockPackage.scope().packagedByDefault();
@@ -187,9 +204,10 @@ final class PackagePlanDependencyClassifier {
 
     private static boolean isProvidedCoordinateOverride(
             LockPackage lockPackage,
-            Set<PackageId> providedPackageIds) {
+            NestedArtifactIdentity identity,
+            Set<String> providedArtifactVariants) {
         return lockPackage.scope() != DependencyScope.PROVIDED
-                && providedPackageIds.contains(lockPackage.packageId());
+                && providedArtifactVariants.contains(identity.artifactVariantKey());
     }
 
     private static PackagePlanDependency providedCoordinateOverride(
@@ -206,45 +224,7 @@ final class PackagePlanDependencyClassifier {
                 lockPackage.policies());
     }
 
-    private static String nestedJarName(LockPackage lockPackage) {
-        return lockPackage.jar()
-                .map(Path::of)
-                .map(Path::getFileName)
-                .map(Path::toString)
-                .filter(value -> !value.isBlank())
-                .orElseGet(() -> lockPackage.packageId().toString().replace(':', '-') + "-" + lockPackage.version() + ".jar");
-    }
-
     private static String coordinate(LockPackage lockPackage) {
-        return classifier(lockPackage)
-                .map(classifier -> lockPackage.packageId().groupId()
-                        + ":"
-                        + lockPackage.packageId().artifactId()
-                        + ":"
-                        + classifier
-                        + ":jar:"
-                        + lockPackage.version())
-                .orElseGet(() -> lockPackage.packageId() + ":" + lockPackage.version());
-    }
-
-    private static Optional<String> classifier(LockPackage lockPackage) {
-        return lockPackage.jar()
-                .map(Path::of)
-                .map(Path::getFileName)
-                .map(Path::toString)
-                .flatMap(fileName -> classifierFromJarName(
-                        lockPackage.packageId().artifactId(),
-                        lockPackage.version(),
-                        fileName));
-    }
-
-    private static Optional<String> classifierFromJarName(String artifactId, String version, String fileName) {
-        String prefix = artifactId + "-" + version + "-";
-        String suffix = ".jar";
-        if (!fileName.startsWith(prefix) || !fileName.endsWith(suffix)) {
-            return Optional.empty();
-        }
-        String classifier = fileName.substring(prefix.length(), fileName.length() - suffix.length());
-        return classifier.isBlank() ? Optional.empty() : Optional.of(classifier);
+        return NestedArtifactIdentity.of(lockPackage).coordinate();
     }
 }
