@@ -4,13 +4,13 @@ import sh.zolt.build.PackageException;
 
 public record PackageEvidenceMaterializedInput(
         String coordinate,
-        String sourceDirectory,
+        String sourceIdentity,
         String sourceFingerprint,
         String jar,
         String sha256) {
     public PackageEvidenceMaterializedInput {
         require(coordinate, "coordinate");
-        require(sourceDirectory, "source directory");
+        require(sourceIdentity, "source identity");
         require(sourceFingerprint, "source fingerprint");
         require(jar, "jar path");
         require(sha256, "jar checksum");

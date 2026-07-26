@@ -97,7 +97,7 @@ final class PackageServiceEvidenceManifestTest {
         assertEquals(
                 projectDir.resolve("target/demo-0.1.0.jar.zolt-package.json"),
                 first.evidenceManifestPath().orElseThrow());
-        assertTrue(firstEvidence.contains("\"schema\": \"zolt.package-evidence.v2\""));
+        assertTrue(firstEvidence.contains("\"schema\": \"zolt.package-evidence.v3\""));
         assertTrue(firstEvidence.contains("\"inputFingerprint\": \"sha256:"));
         assertTrue(firstEvidence.contains("\"outputs\": ["));
         assertTrue(firstEvidence.contains("\"archive\": \"target/demo-0.1.0.jar\""));

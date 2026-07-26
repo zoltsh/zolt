@@ -7,15 +7,14 @@ import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageArchiveWriter;
 import sh.zolt.build.packaging.PackageRuntimeJar;
 import sh.zolt.build.packaging.PackageRuntimeJars;
+import sh.zolt.build.packageplan.PackageInputFingerprinting;
 import sh.zolt.project.PackageMode;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
@@ -23,14 +22,6 @@ public final class SpringBootJarLayoutAssembler {
     private static final String BOOT_INF_PREFIX = "BOOT-INF/";
     private static final String BOOT_CLASSES_PREFIX = "BOOT-INF/classes/";
     private static final String BOOT_LIB_PREFIX = "BOOT-INF/lib/";
-    private static final Set<String> LOCAL_BUILD_FINGERPRINTS = Set.of(
-            ".zolt-build-main.fingerprint",
-            ".zolt-build-main.fingerprint.state",
-            ".zolt-build-test.fingerprint",
-            ".zolt-build-test.fingerprint.state",
-            ".zolt-incremental-main.state",
-            ".zolt-incremental-test.state");
-
     public PackageResult assemble(
             String startClass,
             BuildResult buildResult,
@@ -99,13 +90,7 @@ public final class SpringBootJarLayoutAssembler {
     }
 
     private static List<Path> compiledFiles(Path outputDirectory) throws IOException {
-        try (var stream = Files.walk(outputDirectory)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !LOCAL_BUILD_FINGERPRINTS.contains(path.getFileName().toString()))
-                    .sorted(Comparator.comparing(path -> entryName(outputDirectory, path)))
-                    .toList();
-        }
+        return PackageInputFingerprinting.applicationFiles(outputDirectory);
     }
 
     private static String entryName(Path outputDirectory, Path file) {

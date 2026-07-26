@@ -8,6 +8,7 @@ import sh.zolt.build.packaging.PackageArchiveWriter;
 import sh.zolt.build.packaging.PackageMergeDecision;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageRuntimeJar;
+import sh.zolt.build.packageplan.PackageInputFingerprinting;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
@@ -18,18 +19,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 
 public final class UberJarLayoutAssembler {
-    private static final Set<String> LOCAL_BUILD_FINGERPRINTS = Set.of(
-            ".zolt-build-main.fingerprint",
-            ".zolt-build-main.fingerprint.state",
-            ".zolt-build-test.fingerprint",
-            ".zolt-build-test.fingerprint.state",
-            ".zolt-incremental-main.state",
-            ".zolt-incremental-test.state");
     private static final Pattern VERSIONED_ENTRY = Pattern.compile("META-INF/versions/[0-9]+/.+");
 
     private final ManifestGenerator manifestGenerator;
@@ -241,13 +234,7 @@ public final class UberJarLayoutAssembler {
     }
 
     private static List<Path> compiledFiles(Path outputDirectory) throws IOException {
-        try (var stream = Files.walk(outputDirectory)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !LOCAL_BUILD_FINGERPRINTS.contains(path.getFileName().toString()))
-                    .sorted(Comparator.comparing(path -> entryName(outputDirectory, path)))
-                    .toList();
-        }
+        return PackageInputFingerprinting.applicationFiles(outputDirectory);
     }
 
     private static String entryName(Path outputDirectory, Path file) {

@@ -29,6 +29,9 @@ final class PackageEvidenceOutputWriter {
         actual.put("main", result.jarPath());
         result.runtimeClasspathPath().ifPresent(
                 path -> actual.put("runtime-classpath", path));
+        if (result.mode() == sh.zolt.project.PackageMode.QUARKUS) {
+            actual.put("quarkus-layout", result.jarPath().getParent());
+        }
         artifacts.stream()
                 .sorted(java.util.Comparator.comparing(PackageArtifact::classifier))
                 .forEach(artifact -> actual.put(
@@ -76,8 +79,16 @@ final class PackageEvidenceOutputWriter {
             stringField(
                     json,
                     3,
+                    "checksumKind",
+                    output.checksumKind(),
+                    true);
+            stringField(
+                    json,
+                    3,
                     "sha256",
-                    PackageEvidenceChecksums.sha256(output.path()),
+                    PackageEvidenceChecksums.outputSha256(
+                            output.path(),
+                            output.checksumKind()),
                     false);
             indent(json, 2).append("}");
             if (index + 1 < expected.size()) {

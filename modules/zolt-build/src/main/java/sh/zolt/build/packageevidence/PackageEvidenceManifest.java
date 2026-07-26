@@ -11,14 +11,28 @@ public record PackageEvidenceManifest(
         List<PackageEvidenceArtifact> artifacts,
         List<PackageMergeDecision> uberMergeDecisions,
         String inputFingerprint,
+        String buildInputFingerprint,
+        String applicationOutputFingerprint,
         List<PackageEvidenceOutput> outputs,
+        List<PackageEvidenceLiveInput> supplementalInputs,
+        List<PackageEvidenceWorkspaceInput> workspaceInputs,
         List<PackageEvidenceMaterializedInput> materializedInputs,
         List<PackagePlanDependency> dependencies) {
     public PackageEvidenceManifest {
         artifacts = artifacts == null ? List.of() : List.copyOf(artifacts);
         uberMergeDecisions = uberMergeDecisions == null ? List.of() : List.copyOf(uberMergeDecisions);
         inputFingerprint = inputFingerprint == null ? "" : inputFingerprint;
+        buildInputFingerprint =
+                buildInputFingerprint == null ? "" : buildInputFingerprint;
+        applicationOutputFingerprint =
+                applicationOutputFingerprint == null
+                        ? ""
+                        : applicationOutputFingerprint;
         outputs = outputs == null ? List.of() : List.copyOf(outputs);
+        supplementalInputs =
+                supplementalInputs == null ? List.of() : List.copyOf(supplementalInputs);
+        workspaceInputs =
+                workspaceInputs == null ? List.of() : List.copyOf(workspaceInputs);
         materializedInputs =
                 materializedInputs == null ? List.of() : List.copyOf(materializedInputs);
         dependencies =
@@ -37,6 +51,10 @@ public record PackageEvidenceManifest(
                 artifacts,
                 List.of(),
                 "",
+                "",
+                "",
+                List.of(),
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of());

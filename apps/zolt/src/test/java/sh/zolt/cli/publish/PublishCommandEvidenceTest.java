@@ -111,7 +111,7 @@ final class PublishCommandEvidenceTest {
         assertTrue(result.stdout().contains("Status: blocked"));
         assertTrue(result.stdout().contains(
                 "stale package evidence: package evidence schema `zolt.package-evidence.v1` is stale;"
-                        + " expected `zolt.package-evidence.v2`"));
+                        + " expected `zolt.package-evidence.v3`"));
         assertTrue(result.stdout().contains(
                 "Run `zolt package` to refresh"
                         + " target/publish-dry-run-stale-package-evidence-0.1.0.jar.zolt-package.json"));

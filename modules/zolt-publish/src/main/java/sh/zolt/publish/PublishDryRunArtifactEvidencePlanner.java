@@ -7,13 +7,16 @@ import sh.zolt.build.packageevidence.PackageEvidenceVerification;
 import sh.zolt.build.packageevidence.PackageEvidenceVerifier;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packageplan.PackagePlan;
+import sh.zolt.build.packageplan.PackagePlanOutput;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 final class PublishDryRunArtifactEvidencePlanner {
@@ -63,7 +66,13 @@ final class PublishDryRunArtifactEvidencePlanner {
             }
             return new PublishDryRunArtifactEvidence(
                     evidence.archiveSha256(),
-                    supplementalArtifacts(root, coordinate, evidence, evidencePath, blockers));
+                    supplementalArtifacts(
+                            root,
+                            coordinate,
+                            currentPlan,
+                            evidence,
+                            evidencePath,
+                            blockers));
         } catch (PackageException exception) {
             blockers.add("invalid package evidence: " + exception.getMessage());
             return empty();
@@ -73,18 +82,29 @@ final class PublishDryRunArtifactEvidencePlanner {
     private List<PublishArtifactPlan> supplementalArtifacts(
             Path root,
             Coordinate coordinate,
+            PackagePlan currentPlan,
             PackageEvidenceManifest evidence,
             Path evidencePath,
             List<String> blockers) {
         List<PublishArtifactPlan> artifacts = new ArrayList<>();
+        Map<String, PackageEvidenceArtifact> evidenceByClassifier =
+                new LinkedHashMap<>();
         for (PackageEvidenceArtifact artifact : evidence.artifacts()) {
-            if ("main".equals(artifact.classifier())) {
+            evidenceByClassifier.put(artifact.classifier(), artifact);
+        }
+        for (PackagePlanOutput output : currentPlan.evidence().outputs()) {
+            if (!output.publishArtifact() || "main".equals(output.kind())) {
                 continue;
             }
-            Path artifactPath = root.resolve(artifact.path()).normalize();
+            PackageEvidenceArtifact artifact =
+                    evidenceByClassifier.get(output.kind());
+            if (artifact == null) {
+                continue;
+            }
+            Path artifactPath = output.path();
             String uploadPath = repositoryPathBuilder.artifactPath(new ArtifactDescriptor(
                     coordinate,
-                    Optional.of(artifact.classifier()),
+                    Optional.of(output.kind()),
                     extension(artifactPath)));
             if (!Files.isRegularFile(artifactPath)) {
                 blockers.add("missing supplemental artifact: run `zolt package` to create "
@@ -97,8 +117,8 @@ final class PublishDryRunArtifactEvidencePlanner {
                         + displayPath(root, evidencePath));
             }
             artifacts.add(new PublishArtifactPlan(
-                    artifact.classifier(),
-                    Optional.of(artifact.classifier()),
+                    output.kind(),
+                    Optional.of(output.kind()),
                     display(root, artifactPath),
                     artifact.sha256(),
                     uploadPath));

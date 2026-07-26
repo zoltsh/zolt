@@ -35,6 +35,7 @@ public record PackagePlan(
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
         evidence = evidence == null
                 ? PackagePlanEvidence.unavailable(
+                        mode,
                         archivePath,
                         runtimeClasspathPath)
                 : evidence;

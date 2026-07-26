@@ -20,6 +20,10 @@ final class PublishArtifactSelector {
     }
 
     static String select(List<String> artifacts, PackageMode packageMode) {
+        if (packageMode == PackageMode.QUARKUS) {
+            throw new PublishException(
+                    "Quarkus fast-JAR mode produces a multi-file runtime layout and cannot be published as a single Maven main artifact. Publish an explicitly configured uber-JAR instead.");
+        }
         if (artifacts.size() != 1) {
             throw new PublishException("zolt publish --dry-run currently supports one package artifact selector. Use [publish].artifacts = [\"main\"] for the configured package output, or [\""
                     + packageMode.configValue()

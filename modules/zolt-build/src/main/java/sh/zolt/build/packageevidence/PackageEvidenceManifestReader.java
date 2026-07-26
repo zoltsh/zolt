@@ -23,7 +23,11 @@ public final class PackageEvidenceManifestReader {
                     artifacts(reader),
                     uberMergeDecisions(reader),
                     reader.optionalString("inputFingerprint").orElse(""),
+                    reader.optionalString("buildInputFingerprint").orElse(""),
+                    reader.optionalString("applicationOutputFingerprint").orElse(""),
                     outputs(reader),
+                    supplementalInputs(reader),
+                    workspaceInputs(reader),
                     materializedInputs(reader),
                     dependencies(reader));
         } catch (IOException exception) {
@@ -75,6 +79,7 @@ public final class PackageEvidenceManifestReader {
             outputs.add(new PackageEvidenceOutput(
                     object.requiredString("kind"),
                     object.requiredString("path"),
+                    object.requiredString("checksumKind"),
                     object.requiredString("sha256")));
         }
         return List.copyOf(outputs);
@@ -87,10 +92,35 @@ public final class PackageEvidenceManifestReader {
                 reader.objectArray("materializedInputs")) {
             inputs.add(new PackageEvidenceMaterializedInput(
                     object.requiredString("coordinate"),
-                    object.requiredString("sourceDirectory"),
+                    object.requiredString("sourceIdentity"),
                     object.requiredString("sourceFingerprint"),
                     object.requiredString("jar"),
                     object.requiredString("sha256")));
+        }
+        return List.copyOf(inputs);
+    }
+
+    private static List<PackageEvidenceLiveInput> supplementalInputs(
+            PackageEvidenceJsonReader reader) {
+        List<PackageEvidenceLiveInput> inputs = new ArrayList<>();
+        for (PackageEvidenceJsonReader object :
+                reader.objectArray("supplementalInputs")) {
+            inputs.add(new PackageEvidenceLiveInput(
+                    object.requiredString("kind"),
+                    object.requiredString("fingerprint")));
+        }
+        return List.copyOf(inputs);
+    }
+
+    private static List<PackageEvidenceWorkspaceInput> workspaceInputs(
+            PackageEvidenceJsonReader reader) {
+        List<PackageEvidenceWorkspaceInput> inputs = new ArrayList<>();
+        for (PackageEvidenceJsonReader object :
+                reader.objectArray("workspaceInputs")) {
+            inputs.add(new PackageEvidenceWorkspaceInput(
+                    object.requiredString("coordinate"),
+                    object.requiredString("identity"),
+                    object.requiredString("fingerprint")));
         }
         return List.copyOf(inputs);
     }

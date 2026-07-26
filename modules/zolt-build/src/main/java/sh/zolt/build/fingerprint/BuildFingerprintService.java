@@ -6,6 +6,9 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.build.BuildException;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -183,6 +186,34 @@ public final class BuildFingerprintService {
                 outputDirectory,
                 config.build().output(),
                 generatedSourcesDirectory);
+    }
+
+    /**
+     * Reads the canonical inputs-only fingerprint that produced the current main output.
+     *
+     * <p>Package evidence combines this compiler-owned identity with a live source/resource check,
+     * so it reuses the exact build fingerprint model while still detecting edits made after the last
+     * compile.
+     */
+    public String storedMainInputsFingerprintSha256(Path outputDirectory) {
+        Path fingerprintPath = outputDirectory
+                .toAbsolutePath()
+                .normalize()
+                .resolve(MAIN_FILE_NAME);
+        if (!Files.isRegularFile(fingerprintPath)) {
+            return "missing";
+        }
+        try {
+            return "sha256:"
+                    + BuildFingerprintInputs.inputsSha256(
+                            Files.readString(fingerprintPath));
+        } catch (IOException exception) {
+            throw new BuildException(
+                    "Could not read the canonical main build input fingerprint at "
+                            + fingerprintPath
+                            + ". Run `zolt build` to refresh it.",
+                    exception);
+        }
     }
 
     /** The inputs-only fingerprint SHA-256 for the test compile scope. See {@link #mainInputsFingerprintSha256}. */

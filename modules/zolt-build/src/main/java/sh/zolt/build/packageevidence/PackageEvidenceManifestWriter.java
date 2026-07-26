@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public final class PackageEvidenceManifestWriter {
-    public static final String SCHEMA = "zolt.package-evidence.v2";
+    public static final String SCHEMA = "zolt.package-evidence.v3";
     private static final String SOURCE_DATE_EPOCH = "SOURCE_DATE_EPOCH";
 
     private final PackageEvidenceGeneratedSourceWriter generatedSourceWriter;
@@ -123,7 +123,12 @@ public final class PackageEvidenceManifestWriter {
         json.append(",\n");
         packageInfo(json, projectRoot, config, plan, result);
         json.append(",\n");
-        PackageEvidenceArtifactWriter.write(json, projectRoot, result, artifacts);
+        PackageEvidenceArtifactWriter.write(
+                json,
+                projectRoot,
+                plan,
+                result,
+                artifacts);
         json.append(",\n");
         PackageEvidenceOutputWriter.write(
                 json,
@@ -135,7 +140,16 @@ public final class PackageEvidenceManifestWriter {
         PackageEvidenceInputWriter.writeMaterializedInputs(
                 json,
                 projectRoot,
+                plan.evidence().materializedInputs(),
                 result.materializedInputs());
+        json.append(",\n");
+        PackageEvidenceInputWriter.writeSupplementalInputs(
+                json,
+                plan.evidence().supplementalInputs());
+        json.append(",\n");
+        PackageEvidenceInputWriter.writeWorkspaceInputs(
+                json,
+                plan.evidence().workspaceInputs());
         json.append(",\n");
         PackageEvidenceInputWriter.writeDependencies(
                 json,
@@ -190,6 +204,18 @@ public final class PackageEvidenceManifestWriter {
                 2,
                 "inputFingerprint",
                 plan.evidence().inputFingerprint(),
+                true);
+        stringField(
+                json,
+                2,
+                "buildInputFingerprint",
+                plan.evidence().buildInputFingerprint(),
+                true);
+        stringField(
+                json,
+                2,
+                "applicationOutputFingerprint",
+                plan.evidence().applicationOutputFingerprint(),
                 true);
         stringField(
                 json,

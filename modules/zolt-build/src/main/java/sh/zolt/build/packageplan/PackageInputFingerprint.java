@@ -1,13 +1,8 @@
 package sh.zolt.build.packageplan;
 
-import sh.zolt.build.PackageException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 
 /**
@@ -28,16 +23,22 @@ final class PackageInputFingerprint {
             Path applicationOutput,
             String applicationLayout,
             List<PackagePlanDependency> dependencies,
-            List<PackagePlanOutput> outputs) {
+            List<PackagePlanOutput> outputs,
+            String buildInputFingerprint,
+            String applicationOutputFingerprint,
+            List<PackagePlanLiveInput> supplementalInputs,
+            List<PackagePlanWorkspaceInput> workspaceInputs,
+            List<PackagePlanMaterializedInput> materializedInputs) {
         String packageLockFingerprint = packageLockFingerprint(lockfile);
         String resolutionFingerprint = resolutionFingerprint(lockfile);
-        CanonicalHash hash = new CanonicalHash();
+        PackageCanonicalHash hash = new PackageCanonicalHash();
         hash.value("schema", SCHEMA);
         hash.value("mode", config.packageSettings().mode().configValue());
         hash.value("project", config.project().toString());
         hash.value("build", config.build().toString());
         hash.value("package", config.packageSettings().toString());
         hash.value("framework", config.frameworkSettings().toString());
+        hash.value("compiler", config.compilerSettings().toString());
         hash.value("apiDependencies", config.apiDependencies().toString());
         hash.value("dependencies", config.dependencies().toString());
         hash.value("runtimeDependencies", config.runtimeDependencies().toString());
@@ -52,24 +53,60 @@ final class PackageInputFingerprint {
         hash.value("archive", display(projectRoot, archivePath));
         hash.value("applicationOutput", display(projectRoot, applicationOutput));
         hash.value("applicationLayout", applicationLayout);
+        hash.value("buildInput", buildInputFingerprint);
+        hash.value("applicationOutputBytes", applicationOutputFingerprint);
         for (PackagePlanDependency dependency : dependencies) {
             hash.value("dependency", dependency.toString());
         }
         for (PackagePlanOutput output : outputs) {
             hash.value(
                     "output",
-                    output.kind() + "\t" + display(projectRoot, output.path()));
+                    output.kind()
+                            + "\t"
+                            + display(projectRoot, output.path())
+                            + "\t"
+                            + output.checksumKind()
+                            + "\t"
+                            + output.artifactType());
+        }
+        for (PackagePlanLiveInput input : supplementalInputs) {
+            hash.value("supplementalInput", input.toString());
+        }
+        for (PackagePlanWorkspaceInput input : workspaceInputs) {
+            hash.value(
+                    "workspaceInput",
+                    input.coordinate()
+                            + "\t"
+                            + input.identity()
+                            + "\t"
+                            + input.fingerprint());
+        }
+        for (PackagePlanMaterializedInput input : materializedInputs) {
+            hash.value(
+                    "materializedInput",
+                    input.coordinate()
+                            + "\t"
+                            + input.sourceIdentity()
+                            + "\t"
+                            + input.sourceFingerprint()
+                            + "\t"
+                            + display(projectRoot, input.jarPath()));
         }
         return new PackagePlanEvidence(
                 hash.finish(),
+                buildInputFingerprint,
+                applicationOutputFingerprint,
                 packageLockFingerprint,
                 resolutionFingerprint,
                 frameworkRulesIdentity,
-                outputs);
+                outputs,
+                supplementalInputs,
+                workspaceInputs,
+                materializedInputs);
     }
 
-    private static String packageLockFingerprint(ZoltLockfile lockfile) {
-        CanonicalHash hash = new CanonicalHash();
+    static String packageLockFingerprint(ZoltLockfile lockfile) {
+        PackageCanonicalHash hash = new PackageCanonicalHash();
         hash.value("schema", "zolt.package-lock-input.v2");
         hash.value("version", Integer.toString(lockfile.version()));
         hash.value("aliasFingerprint", lockfile.aliasFingerprint().orElse(""));
@@ -102,7 +139,7 @@ final class PackageInputFingerprint {
         if (lockfile.projectResolutionFingerprint().isPresent()) {
             return lockfile.projectResolutionFingerprint().orElseThrow();
         }
-        CanonicalHash hash = new CanonicalHash();
+        PackageCanonicalHash hash = new PackageCanonicalHash();
         hash.value("schema", "zolt.project-resolution-input.v1");
         lockfile.projectResolutionInputFingerprints().stream()
                 .sorted()
@@ -126,34 +163,4 @@ final class PackageInputFingerprint {
                 : normalized.toString().replace('\\', '/');
     }
 
-    private static final class CanonicalHash {
-        private final MessageDigest digest = sha256();
-
-        void value(String key, String value) {
-            update(key);
-            update(value == null ? "" : value);
-        }
-
-        String finish() {
-            return "sha256:" + HexFormat.of().formatHex(digest.digest());
-        }
-
-        private void update(String value) {
-            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-            digest.update(Integer.toString(bytes.length).getBytes(StandardCharsets.US_ASCII));
-            digest.update((byte) ':');
-            digest.update(bytes);
-            digest.update((byte) '\n');
-        }
-
-        private static MessageDigest sha256() {
-            try {
-                return MessageDigest.getInstance("SHA-256");
-            } catch (NoSuchAlgorithmException exception) {
-                throw new PackageException(
-                        "Could not fingerprint package inputs because SHA-256 is unavailable.",
-                        exception);
-            }
-        }
-    }
 }

@@ -82,6 +82,42 @@ public final class PackagePlanService {
         String frameworkRulesIdentity = modeRules
                 .map(FrameworkPackagePlanRules::evidenceIdentity)
                 .orElse("zolt-core-package-plan-v2:" + mode.configValue());
+        List<PackagePlanWorkspaceInput> workspaceInputs =
+                mode == PackageMode.BOM
+                        ? List.of()
+                        : PackageWorkspaceInputPlanner.workspaceInputs(
+                                projectRoot,
+                                lockfile.packages());
+        List<PackagePlanMaterializedInput> materializedInputs =
+                PackageWorkspaceInputPlanner.materializedInputs(
+                        projectRoot,
+                        config,
+                        dependencies,
+                        workspaceInputs);
+        String buildInputFingerprint =
+                mode == PackageMode.BOM
+                        ? "not-applicable"
+                        : PackageBuildInputFingerprint.fingerprint(
+                                projectRoot,
+                                config,
+                                lockfile,
+                                workspaceInputs);
+        String applicationOutputFingerprint =
+                mode == PackageMode.BOM
+                        ? "not-applicable"
+                        : PackageInputFingerprinting.applicationOutputFingerprint(
+                                applicationOutput);
+        String packageLockFingerprint =
+                PackageInputFingerprint.packageLockFingerprint(lockfile);
+        List<PackagePlanLiveInput> supplementalInputs =
+                mode == PackageMode.BOM
+                        ? List.of()
+                        : PackageSupplementalInputFingerprint.inputs(
+                                projectRoot,
+                                config,
+                                buildInputFingerprint,
+                                applicationOutputFingerprint,
+                                packageLockFingerprint);
         return new PackagePlan(
                 projectRoot,
                 mode,
@@ -100,7 +136,12 @@ public final class PackagePlanService {
                         applicationOutput,
                         applicationLayout,
                         dependencies,
-                        outputs));
+                        outputs,
+                        buildInputFingerprint,
+                        applicationOutputFingerprint,
+                        supplementalInputs,
+                        workspaceInputs,
+                        materializedInputs));
     }
 
     private static Path applicationOutput(

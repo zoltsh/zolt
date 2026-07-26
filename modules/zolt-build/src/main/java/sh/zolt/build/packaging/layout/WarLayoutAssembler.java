@@ -8,28 +8,19 @@ import sh.zolt.build.packaging.PackageArchiveWriter;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageRuntimeJar;
 import sh.zolt.build.packaging.PackageRuntimeJars;
+import sh.zolt.build.packageplan.PackageInputFingerprinting;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 public final class WarLayoutAssembler {
     private static final String WEB_INF_PREFIX = "WEB-INF/";
     private static final String WEB_INF_CLASSES_PREFIX = "WEB-INF/classes/";
     private static final String WEB_INF_LIB_PREFIX = "WEB-INF/lib/";
-    private static final Set<String> LOCAL_BUILD_FINGERPRINTS = Set.of(
-            ".zolt-build-main.fingerprint",
-            ".zolt-build-main.fingerprint.state",
-            ".zolt-build-test.fingerprint",
-            ".zolt-build-test.fingerprint.state",
-            ".zolt-incremental-main.state",
-            ".zolt-incremental-test.state");
-
     private final ManifestGenerator manifestGenerator;
 
     public WarLayoutAssembler(ManifestGenerator manifestGenerator) {
@@ -81,13 +72,7 @@ public final class WarLayoutAssembler {
     }
 
     private static List<Path> compiledFiles(Path outputDirectory) throws IOException {
-        try (var stream = Files.walk(outputDirectory)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !LOCAL_BUILD_FINGERPRINTS.contains(path.getFileName().toString()))
-                    .sorted(Comparator.comparing(path -> entryName(outputDirectory, path)))
-                    .toList();
-        }
+        return PackageInputFingerprinting.applicationFiles(outputDirectory);
     }
 
     private static String entryName(Path outputDirectory, Path file) {

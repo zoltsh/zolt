@@ -1,6 +1,7 @@
 package sh.zolt.build.packageevidence;
 
 import sh.zolt.build.PackageException;
+import sh.zolt.build.packageplan.PackageInputFingerprinting;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,5 +33,12 @@ public final class PackageEvidenceChecksums {
         } catch (NoSuchAlgorithmException exception) {
             throw new PackageException("Could not compute package evidence checksum because SHA-256 is unavailable.", exception);
         }
+    }
+
+    static String outputSha256(Path path, String checksumKind) {
+        if ("tree".equals(checksumKind)) {
+            return PackageInputFingerprinting.packageLayoutFingerprint(path);
+        }
+        return fileSha256(path);
     }
 }

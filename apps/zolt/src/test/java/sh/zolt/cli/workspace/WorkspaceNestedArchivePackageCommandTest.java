@@ -84,7 +84,7 @@ final class WorkspaceNestedArchivePackageCommandTest {
             assertTrue(evidence.contains(
                     "\"coordinate\": \"com.example:provider:0.1.0\""), evidence);
             assertTrue(evidence.contains(
-                    "\"schema\": \"zolt.package-evidence.v2\""), evidence);
+                    "\"schema\": \"zolt.package-evidence.v3\""), evidence);
             assertTrue(evidence.contains(
                     "\"materializedInputs\": ["), evidence);
             assertTrue(evidence.contains(

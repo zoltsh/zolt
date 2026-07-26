@@ -2,6 +2,7 @@ package sh.zolt.workspace.publish;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -19,6 +20,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.publish.CentralPortalClient;
+import sh.zolt.publish.PublishException;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -144,7 +146,7 @@ final class WorkspacePublishServiceTest {
     }
 
     @Test
-    void frameworkFastJarMemberPublishesItsRealRunnerArtifactNotASynthesizedJar(@TempDir Path tempDir)
+    void frameworkFastJarMemberRejectsSingleArtifactPublication(@TempDir Path tempDir)
             throws IOException {
         Path repository = tempDir.resolve("repo");
         Files.createDirectories(repository);
@@ -183,20 +185,23 @@ final class WorkspacePublishServiceTest {
                 new MavenRepositoryClient(),
                 new CentralPortalClient(),
                 fastJarPlanService);
-        WorkspacePublishReport report = service.publish(
-                tempDir,
-                tempDir.resolve("cache"),
-                new WorkspaceSelectionRequest(true, List.of()),
-                new WorkspacePublishService.Options(false, false, false, false, Optional.empty()));
+        PublishException exception = assertThrows(
+                PublishException.class,
+                () -> service.publish(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        new WorkspaceSelectionRequest(true, List.of()),
+                        new WorkspacePublishService.Options(
+                                false,
+                                false,
+                                false,
+                                false,
+                                Optional.empty())));
 
-        assertTrue(report.ok(), () -> "blockers: " + report.blockers());
-        assertTrue(report.uploaded());
-        Path uploaded = repository.resolve("com/acme/svc/1.0.0/svc-1.0.0.jar");
-        assertTrue(Files.exists(uploaded), "the real runner jar was uploaded at the member's canonical coordinate");
-        assertEquals("fake quarkus runner jar\n", Files.readString(uploaded), "uploaded bytes are the runner jar's");
+        assertTrue(exception.getMessage().contains("multi-file runtime layout"));
         assertFalse(
-                Files.exists(repository.resolve("com/acme/svc/1.0.0/svc-1.0.0-runner.jar")),
-                "no phantom runner-classifier artifact is published");
+                Files.exists(repository.resolve("com/acme/svc/1.0.0/svc-1.0.0.jar")),
+                "the runner alone is never uploaded as the member artifact");
     }
 
     /** A stand-in for a framework's fast-jar package rules: its real archive is a runner jar. */

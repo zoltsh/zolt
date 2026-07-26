@@ -59,6 +59,13 @@ final class PackageContentQualityCheck {
                     "zolt.lock",
                     exception.getMessage(),
                     member.isPresent() ? "Run `zolt resolve --workspace`." : "Run `zolt resolve`."));
+        } catch (PackageException exception) {
+            return List.of(QualityCheckResult.failed(
+                    PACKAGE_CONTENTS,
+                    member,
+                    "package inputs",
+                    exception.getMessage(),
+                    "Restore the required build inputs, then run `zolt build` and `zolt package`."));
         }
         return check(member, config, plan, requirePackage);
     }

@@ -1,31 +1,28 @@
 package sh.zolt.build.packaging;
 
 import sh.zolt.build.PackageException;
+import sh.zolt.build.packageplan.PackageInputFingerprinting;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPaths;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
+import java.util.jar.JarFile;
 
 /**
  * Turns workspace output directories into reusable deterministic thin JARs before nested-archive assembly.
  */
 public final class PackageRuntimeJarMaterializer {
-    private static final Set<String> LOCAL_BUILD_FINGERPRINTS = Set.of(
-            ".zolt-build-main.fingerprint",
-            ".zolt-build-main.fingerprint.state",
-            ".zolt-build-test.fingerprint",
-            ".zolt-build-test.fingerprint.state",
-            ".zolt-incremental-main.state",
-            ".zolt-incremental-test.state");
+    private static final String CACHE_SCHEMA = "zolt.package-runtime-input-cache.v1";
 
     public Result materialize(
             Path projectDirectory,
@@ -58,26 +55,43 @@ public final class PackageRuntimeJarMaterializer {
         Path sourceDirectory = runtimeJar.jarPath().toAbsolutePath().normalize();
         Path jarPath = stagingDirectory.resolve(
                 PackageRuntimeJars.canonicalNestedJarName(runtimeJar));
-        Path fingerprintPath = jarPath.resolveSibling(jarPath.getFileName() + ".sha256");
+        Path cacheManifestPath =
+                jarPath.resolveSibling(jarPath.getFileName() + ".zolt-cache");
         try {
-            List<Path> files = files(sourceDirectory);
-            String sourceFingerprint = sourceFingerprint(sourceDirectory, files);
+            List<Path> files =
+                    PackageInputFingerprinting.applicationFiles(sourceDirectory);
+            String sourceFingerprint =
+                    PackageInputFingerprinting.applicationOutputFingerprint(
+                            sourceDirectory);
             Files.createDirectories(stagingDirectory);
-            if (!Files.isRegularFile(jarPath)
-                    || !Files.isRegularFile(fingerprintPath)
-                    || !Files.readString(fingerprintPath, StandardCharsets.UTF_8).trim().equals(sourceFingerprint)) {
-                PackageArchiveWriter.writeJarFromFiles(jarPath, sourceDirectory, files);
-                Files.writeString(
-                        fingerprintPath,
-                        sourceFingerprint + "\n",
-                        StandardCharsets.UTF_8);
+            Optional<CacheManifest> cached = readCacheManifest(cacheManifestPath);
+            String jarSha256 = cached
+                    .filter(manifest -> manifest.sourceFingerprint()
+                            .equals(sourceFingerprint))
+                    .filter(manifest -> Files.isRegularFile(jarPath))
+                    .filter(manifest -> manifest.jarSha256()
+                            .equals(readableJarSha256(jarPath)))
+                    .map(CacheManifest::jarSha256)
+                    .orElseGet(() -> rebuild(
+                            sourceDirectory,
+                            files,
+                            jarPath,
+                            cacheManifestPath,
+                            sourceFingerprint));
+            if (!validJar(jarPath)) {
+                jarSha256 = rebuild(
+                        sourceDirectory,
+                        files,
+                        jarPath,
+                        cacheManifestPath,
+                        sourceFingerprint);
             }
             return new PackageMaterializedInput(
                     runtimeJar.packageId() + ":" + runtimeJar.version(),
                     sourceDirectory,
                     jarPath,
                     sourceFingerprint,
-                    fileSha256(jarPath));
+                    jarSha256);
         } catch (IOException exception) {
             throw new PackageException(
                     "Could not materialize workspace runtime input `"
@@ -89,46 +103,138 @@ public final class PackageRuntimeJarMaterializer {
         }
     }
 
-    private static List<Path> files(Path directory) throws IOException {
-        try (var stream = Files.walk(directory)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !LOCAL_BUILD_FINGERPRINTS.contains(path.getFileName().toString()))
-                    .sorted(Comparator.comparing(path -> entryName(directory, path)))
-                    .toList();
+    private static String rebuild(
+            Path sourceDirectory,
+            List<Path> files,
+            Path jarPath,
+            Path cacheManifestPath,
+            String sourceFingerprint) {
+        Path temporaryJar = null;
+        Path temporaryManifest = null;
+        try {
+            Path parent = jarPath.getParent();
+            temporaryJar = Files.createTempFile(
+                    parent,
+                    jarPath.getFileName() + ".",
+                    ".tmp");
+            PackageArchiveWriter.writeJarFromFiles(
+                    temporaryJar,
+                    sourceDirectory,
+                    files);
+            validateJar(temporaryJar);
+            String jarSha256 = fileSha256(temporaryJar);
+            atomicReplace(temporaryJar, jarPath);
+            temporaryJar = null;
+
+            temporaryManifest = Files.createTempFile(
+                    parent,
+                    cacheManifestPath.getFileName() + ".",
+                    ".tmp");
+            Files.writeString(
+                    temporaryManifest,
+                    new CacheManifest(sourceFingerprint, jarSha256).encode(),
+                    StandardCharsets.UTF_8);
+            atomicReplace(temporaryManifest, cacheManifestPath);
+            temporaryManifest = null;
+            return jarSha256;
+        } catch (IOException exception) {
+            throw new PackageException(
+                    "Could not transactionally materialize workspace runtime input at "
+                            + jarPath
+                            + ". Check that the staging directory supports atomic file replacement.",
+                    exception);
+        } finally {
+            deleteTemporary(temporaryJar);
+            deleteTemporary(temporaryManifest);
         }
     }
 
     public static String directoryFingerprint(Path directory) {
-        Path normalized = directory.toAbsolutePath().normalize();
-        if (!Files.isDirectory(normalized)) {
-            return "missing";
-        }
-        try {
-            return sourceFingerprint(normalized, files(normalized));
-        } catch (IOException exception) {
-            throw new PackageException(
-                    "Could not fingerprint materialized package input source at "
-                            + normalized
-                            + ". Check that the directory is readable and retry.",
-                    exception);
-        }
+        return PackageInputFingerprinting.applicationOutputFingerprint(directory);
     }
 
-    private static String sourceFingerprint(Path directory, List<Path> files) throws IOException {
-        MessageDigest digest = sha256();
-        for (Path file : files) {
-            digest.update(entryName(directory, file).getBytes(StandardCharsets.UTF_8));
-            digest.update((byte) 0);
-            digest.update(Files.readAllBytes(file));
-            digest.update((byte) 0);
+    private static Optional<CacheManifest> readCacheManifest(Path path)
+            throws IOException {
+        if (!Files.isRegularFile(path)) {
+            return Optional.empty();
         }
-        return "sha256:" + HexFormat.of().formatHex(digest.digest());
+        List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+        if (lines.size() != 3
+                || !("schema=" + CACHE_SCHEMA).equals(lines.get(0))
+                || !lines.get(1).startsWith("sourceFingerprint=")
+                || !lines.get(2).startsWith("jarSha256=")) {
+            return Optional.empty();
+        }
+        String sourceFingerprint =
+                lines.get(1).substring("sourceFingerprint=".length());
+        String jarSha256 = lines.get(2).substring("jarSha256=".length());
+        if (sourceFingerprint.isBlank() || jarSha256.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(new CacheManifest(sourceFingerprint, jarSha256));
+    }
+
+    private static String readableJarSha256(Path jarPath) {
+        try {
+            if (!validJar(jarPath)) {
+                return "invalid";
+            }
+            return fileSha256(jarPath);
+        } catch (IOException exception) {
+            return "invalid";
+        }
     }
 
     private static String fileSha256(Path path) throws IOException {
         return "sha256:" + HexFormat.of().formatHex(
                 sha256().digest(Files.readAllBytes(path)));
+    }
+
+    private static boolean validJar(Path path) {
+        try {
+            validateJar(path);
+            return true;
+        } catch (IOException exception) {
+            return false;
+        }
+    }
+
+    private static void validateJar(Path path) throws IOException {
+        try (JarFile jar = new JarFile(path.toFile())) {
+            for (var entry : jar.stream()
+                    .filter(candidate -> !candidate.isDirectory())
+                    .toList()) {
+                try (var input = jar.getInputStream(entry)) {
+                    input.transferTo(java.io.OutputStream.nullOutputStream());
+                }
+            }
+        }
+    }
+
+    private static void atomicReplace(Path source, Path target)
+            throws IOException {
+        try {
+            Files.move(
+                    source,
+                    target,
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException exception) {
+            throw new IOException(
+                    "Atomic replacement is not supported for " + target,
+                    exception);
+        }
+    }
+
+    private static void deleteTemporary(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+            // The primary materialization failure is more actionable than temporary cleanup.
+        }
     }
 
     private static MessageDigest sha256() {
@@ -141,8 +247,18 @@ public final class PackageRuntimeJarMaterializer {
         }
     }
 
-    private static String entryName(Path root, Path file) {
-        return root.relativize(file).normalize().toString().replace('\\', '/');
+    private record CacheManifest(
+            String sourceFingerprint,
+            String jarSha256) {
+        String encode() {
+            return "schema="
+                    + CACHE_SCHEMA
+                    + "\nsourceFingerprint="
+                    + sourceFingerprint
+                    + "\njarSha256="
+                    + jarSha256
+                    + "\n";
+        }
     }
 
     public record Result(
