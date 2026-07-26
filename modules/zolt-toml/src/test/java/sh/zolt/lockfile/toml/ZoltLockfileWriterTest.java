@@ -179,6 +179,7 @@ final class ZoltLockfileWriterTest {
                 DependencyScope.TEST,
                 List.of("com.example:z:1.0.0:jar:test", "com.example:a:1.0.0:jar:test"),
                 List.of("managed-z", "managed-a"),
+                true,
                 true);
         LockMemberGraph api = new LockMemberGraph(
                 "apps/api",
@@ -203,7 +204,8 @@ final class ZoltLockfileWriterTest {
 
         assertTrue(output.indexOf("member = \"apps/api\"") < output.indexOf("member = \"apps/worker\""));
         assertEquals(1, countOccurrences(output, "variant = \"jar|tests\""));
-        assertEquals(1, countOccurrences(output, "optional = true"));
+        assertEquals(1, countOccurrences(output, "declaredOptional = true"));
+        assertEquals(1, countOccurrences(output, "optionalOnly = true"));
         assertEquals(List.of(api, new LockMemberGraph(
                 worker.member(),
                 worker.packageId(),
@@ -212,6 +214,7 @@ final class ZoltLockfileWriterTest {
                 worker.scope(),
                 List.of("com.example:a:1.0.0:jar:test", "com.example:z:1.0.0:jar:test"),
                 List.of("managed-a", "managed-z"),
+                true,
                 true)), parsed.memberGraphs());
         assertEquals(output, writer.write(parsed));
     }

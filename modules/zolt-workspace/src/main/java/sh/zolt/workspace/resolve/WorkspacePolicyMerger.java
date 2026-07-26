@@ -17,11 +17,13 @@ final class WorkspacePolicyMerger {
                 member,
                 workspace.config().repositories(),
                 config.repositories());
+        Map<String, RepositorySettings> repositorySettings =
+                mergedRepositorySettings(workspace, member, repositories, config.repositorySettings());
         return new ProjectConfig(
                 config.project(),
                 repositories,
-                repositorySettings(repositories),
-                Map.of(),
+                repositorySettings,
+                config.repositoryCredentials(),
                 config.versionAliases(),
                 mergedPolicy(
                         "platform",
@@ -88,11 +90,48 @@ final class WorkspacePolicyMerger {
         return merged;
     }
 
-    private static Map<String, RepositorySettings> repositorySettings(Map<String, String> repositories) {
+    private static Map<String, RepositorySettings> mergedRepositorySettings(
+            Workspace workspace,
+            WorkspaceMember member,
+            Map<String, String> repositories,
+            Map<String, RepositorySettings> memberSettings) {
         Map<String, RepositorySettings> settings = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : repositories.entrySet()) {
             settings.put(entry.getKey(), RepositorySettings.unauthenticated(entry.getKey(), entry.getValue()));
         }
+        for (Map.Entry<String, RepositorySettings> entry : memberSettings.entrySet()) {
+            String repositoryId = entry.getKey();
+            RepositorySettings repository = entry.getValue();
+            String effectiveUrl = repositories.get(repositoryId);
+            if (!repositoryId.equals(repository.id())
+                    || effectiveUrl == null
+                    || !effectiveUrl.equals(repository.url())) {
+                throw incompatibleRepositorySettings(workspace, member, repositoryId, repository, effectiveUrl);
+            }
+            settings.put(repositoryId, repository);
+        }
         return settings;
+    }
+
+    private static ResolveException incompatibleRepositorySettings(
+            Workspace workspace,
+            WorkspaceMember member,
+            String repositoryId,
+            RepositorySettings repository,
+            String effectiveUrl) {
+        return new ResolveException(
+                "Workspace repository `"
+                        + repositoryId
+                        + "` has incompatible structured settings for member `"
+                        + member.path()
+                        + "`: repository id `"
+                        + repository.id()
+                        + "`, URL `"
+                        + repository.url()
+                        + "`, effective URL `"
+                        + (effectiveUrl == null ? "<missing>" : effectiveUrl)
+                        + "`. Make the repository id and URL match "
+                        + workspace.configPath()
+                        + " without removing its credential reference.");
     }
 }

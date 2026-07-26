@@ -55,9 +55,15 @@ public final class LockMemberGraphIndex {
                 .orElseGet(lockPackage::policies);
     }
 
-    public boolean optionalFor(String member, LockPackage lockPackage) {
+    public boolean declaredOptionalFor(String member, LockPackage lockPackage) {
         return find(member, lockPackage)
-                .map(LockMemberGraph::optional)
+                .map(LockMemberGraph::declaredOptional)
+                .orElse(false);
+    }
+
+    public boolean optionalOnlyFor(String member, LockPackage lockPackage) {
+        return find(member, lockPackage)
+                .map(LockMemberGraph::optionalOnly)
                 .orElse(false);
     }
 

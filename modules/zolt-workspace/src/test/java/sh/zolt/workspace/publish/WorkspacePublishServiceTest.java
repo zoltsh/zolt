@@ -3,6 +3,7 @@ package sh.zolt.workspace.publish;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.framework.FrameworkPackagePlanDependency;
@@ -23,6 +24,82 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** Family-publish behaviours that live in {@link WorkspacePublishService}'s Phase-1 planning. */
 final class WorkspacePublishServiceTest {
+
+    @Test
+    void workspacePublishDryRunAndUploadPreserveMemberRepositoryCredentials(@TempDir Path tempDir)
+            throws IOException {
+        String token = System.getenv("PATH");
+        assumeTrue(token != null && !token.isBlank(), "PATH is required as a non-secret test token");
+        PublishFixtureRepository repository = PublishFixtureRepository.start();
+        try {
+            writeWorkspace(tempDir, "lib");
+            Files.writeString(
+                    tempDir.resolve("zolt-workspace.toml"),
+                    """
+                    [workspace]
+                    name = "authenticated-publish"
+                    members = ["lib"]
+
+                    [repositories]
+                    internal = "%s"
+                    """.formatted(repository.baseUri()));
+            Path member = tempDir.resolve("lib");
+            writeMember(member, """
+                    [project]
+                    name = "lib"
+                    version = "1.0.0"
+                    group = "com.acme"
+                    java = "21"
+
+                    [repositories]
+                    internal = { url = "%s", credentials = "company" }
+
+                    [repositoryCredentials.company]
+                    tokenEnv = "PATH"
+
+                    [publish]
+                    releaseRepository = "internal"
+
+                    [publish.repositories.internal]
+                    url = "%s"
+                    credentials = "company"
+                    """.formatted(repository.baseUri(), repository.baseUri()));
+            Path artifact = member.resolve("target/lib-1.0.0.jar");
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(artifact, "authenticated workspace publish\n");
+            Files.writeString(
+                    member.resolve("target/lib-1.0.0.jar.zolt-package.json"),
+                    """
+                    {
+                      "schema": "zolt.package-evidence.v1",
+                      "archive": "target/lib-1.0.0.jar",
+                      "archiveSha256": "sha256:%s"
+                    }
+                    """.formatted(Sha256.hex(artifact)));
+
+            WorkspacePublishService service = new WorkspacePublishService();
+            WorkspacePublishReport dryRun = service.publish(
+                    tempDir,
+                    tempDir.resolve("cache"),
+                    new WorkspaceSelectionRequest(true, List.of()),
+                    new WorkspacePublishService.Options(true, false, false, false, Optional.empty()));
+            assertTrue(dryRun.ok(), () -> "blockers: " + dryRun.blockers());
+            assertFalse(dryRun.uploaded());
+
+            WorkspacePublishReport published = service.publish(
+                    tempDir,
+                    tempDir.resolve("cache"),
+                    new WorkspaceSelectionRequest(true, List.of()),
+                    new WorkspacePublishService.Options(false, false, false, false, Optional.empty()));
+            assertTrue(published.ok(), () -> "blockers: " + published.blockers());
+            assertTrue(published.uploaded());
+            assertFalse(repository.authByPath.isEmpty());
+            assertTrue(repository.authByPath.values().stream()
+                    .allMatch(("Bearer " + token)::equals));
+        } finally {
+            repository.close();
+        }
+    }
 
     @Test
     void warMemberPlansAndUploadsItsWarArchiveRatherThanAJar(@TempDir Path tempDir) throws IOException {

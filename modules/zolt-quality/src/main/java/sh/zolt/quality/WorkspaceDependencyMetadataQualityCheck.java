@@ -86,10 +86,10 @@ final class WorkspaceDependencyMetadataQualityCheck {
                     "Run `zolt resolve --workspace`.");
         }
         LockPackage lockPackage = maybePackage.orElseThrow();
-        boolean lockedOptional = new LockMemberGraphIndex(
-                        memberLock.memberGraphs(), memberLock.packages())
-                .optionalFor(memberPath, lockPackage);
-        if (lockedOptional != metadata.optional()) {
+        LockMemberGraphIndex graphIndex =
+                new LockMemberGraphIndex(memberLock.memberGraphs(), memberLock.packages());
+        boolean declaredOptional = graphIndex.declaredOptionalFor(memberPath, lockPackage);
+        if (declaredOptional != metadata.optional()) {
             return failed(
                     memberPath,
                     metadata.coordinate(),
@@ -97,9 +97,19 @@ final class WorkspaceDependencyMetadataQualityCheck {
                             + metadata.coordinate()
                             + "` declares optional = "
                             + metadata.optional()
-                            + ", but member-qualified zolt.lock evidence records optional = "
-                            + lockedOptional
+                            + ", but member-qualified zolt.lock declaration evidence records declaredOptional = "
+                            + declaredOptional
                             + ".",
+                    "Run `zolt resolve --workspace`.");
+        }
+        boolean optionalOnly = graphIndex.optionalOnlyFor(memberPath, lockPackage);
+        if (!metadata.optional() && optionalOnly) {
+            return failed(
+                    memberPath,
+                    metadata.coordinate(),
+                    "Workspace dependency `"
+                            + metadata.coordinate()
+                            + "` is declared required, but member-qualified zolt.lock evidence records optional-only reachability.",
                     "Run `zolt resolve --workspace`.");
         }
 

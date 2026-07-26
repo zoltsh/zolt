@@ -7,7 +7,7 @@ import sh.zolt.lockfile.LockPackage;
  * Derives SBOM artifact facts (purl, hash, coordinate) from a {@link LockPackage}. Shared by the
  * single-project and workspace assemblers so purl/classifier derivation stays in one place.
  */
-final class LockArtifacts {
+public final class LockArtifacts {
     private LockArtifacts() {
     }
 
@@ -15,7 +15,7 @@ final class LockArtifacts {
         return lockPackage.packageId() + ":" + lockPackage.version();
     }
 
-    static String purl(LockPackage lockPackage) {
+    public static String purl(LockPackage lockPackage) {
         return PurlWriter.purl(
                 lockPackage.packageId().groupId(),
                 lockPackage.packageId().artifactId(),

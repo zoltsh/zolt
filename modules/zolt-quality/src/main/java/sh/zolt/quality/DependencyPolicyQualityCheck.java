@@ -55,7 +55,7 @@ final class DependencyPolicyQualityCheck {
                             : "Run `zolt resolve` to refresh dependency policy evidence."));
         }
 
-        return evaluate(member, root, config, lockfile);
+        return evaluate(member, root, config, lockfile, workspaceLockfile);
     }
 
     List<QualityCheckResult> checkProjected(
@@ -63,21 +63,22 @@ final class DependencyPolicyQualityCheck {
             Path root,
             ProjectConfig effectiveConfig,
             ZoltLockfile memberLock) {
-        return evaluate(member, root, effectiveConfig, memberLock);
+        return evaluate(member, root, effectiveConfig, memberLock, true);
     }
 
     private List<QualityCheckResult> evaluate(
             Optional<String> member,
             Path root,
             ProjectConfig config,
-            ZoltLockfile lockfile) {
+            ZoltLockfile lockfile,
+            boolean workspace) {
         try {
             DependencyPolicyReport report = dependencyPolicyReportService.report(root, config, lockfile);
             List<QualityCheckResult> results = new ArrayList<>();
             results.add(summary(member, config, report));
-            addConstraintDiagnostics(results, member, report);
+            addConstraintDiagnostics(results, member, report, workspace);
             addExclusionDiagnostics(results, member, report);
-            addDirectVersionDiagnostics(results, member, report);
+            addDirectVersionDiagnostics(results, member, report, workspace);
             return List.copyOf(results);
         } catch (DependencyPolicyReportException exception) {
             return List.of(QualityCheckResult.failed(
@@ -119,7 +120,8 @@ final class DependencyPolicyQualityCheck {
     private static void addConstraintDiagnostics(
             List<QualityCheckResult> results,
             Optional<String> member,
-            DependencyPolicyReport report) {
+            DependencyPolicyReport report,
+            boolean workspace) {
         for (DependencyPolicyReport.ConstraintPolicyDiagnostic constraint : report.constraints()) {
             if ("conflict".equals(constraint.status())) {
                 results.add(QualityCheckResult.failed(
@@ -133,7 +135,9 @@ final class DependencyPolicyQualityCheck {
                                 + "`, but zolt.lock selected `"
                                 + constraint.selectedVersion().orElse("none")
                                 + "`.",
-                        "Run `zolt resolve` after updating [dependencyConstraints], or change the strict constraint to the selected baseline."));
+                        "Run `"
+                                + resolveCommand(workspace)
+                                + "` after updating [dependencyConstraints], or change the strict constraint to the selected baseline."));
             } else if ("direct-override".equals(constraint.status())) {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
@@ -168,7 +172,8 @@ final class DependencyPolicyQualityCheck {
     private static void addDirectVersionDiagnostics(
             List<QualityCheckResult> results,
             Optional<String> member,
-            DependencyPolicyReport report) {
+            DependencyPolicyReport report,
+            boolean workspace) {
         for (DependencyPolicyReport.DirectVersionDiagnostic direct : report.directVersions()) {
             if ("not-selected".equals(direct.status())) {
                 results.add(QualityCheckResult.failed(
@@ -180,8 +185,14 @@ final class DependencyPolicyQualityCheck {
                                 + ":"
                                 + direct.version()
                                 + "` is declared, but zolt.lock did not select that version.",
-                        "Run `zolt resolve`, then review the selected version or update the direct dependency declaration."));
+                        "Run `"
+                                + resolveCommand(workspace)
+                                + "`, then review the selected version or update the direct dependency declaration."));
             }
         }
+    }
+
+    private static String resolveCommand(boolean workspace) {
+        return workspace ? "zolt resolve --workspace" : "zolt resolve";
     }
 }

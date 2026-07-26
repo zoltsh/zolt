@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.publish.PublishPomGenerator;
 import sh.zolt.project.ProjectConfig;
@@ -27,13 +28,8 @@ import org.junit.jupiter.api.Test;
 
 final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServiceTestSupport {
     @Test
-    void requiredPathWinsWhenATransitiveIsAlsoReachableThroughAnOptionalRoot() throws IOException {
+    void directlyOptionalPackageRemainsRequiredWhenAlsoReachedThroughRequiredRoot() throws IOException {
         addArtifact("com.example", "shared", "1.0.0", pom("com.example", "shared", "1.0.0"));
-        addArtifact(
-                "com.example",
-                "optional-root",
-                "1.0.0",
-                dependencyPom("optional-root", "shared"));
         addArtifact(
                 "com.example",
                 "required-root",
@@ -50,7 +46,7 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
         member("modules/core", "core", """
 
                 [api.dependencies]
-                "com.example:optional-root" = { version = "1.0.0", optional = true }
+                "com.example:shared" = { version = "1.0.0", optional = true }
                 "com.example:required-root" = "1.0.0"
                 """);
         member("apps/app", "app", """
@@ -66,9 +62,49 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
         var app = new WorkspaceClasspathService()
                 .classpathsFor(workspace, lockfile, cache, "apps/app");
 
-        assertAbsent(app.compile(), "optional-root");
         assertContains(app.compile(), "required-root-1.0.0.jar");
         assertContains(app.compile(), "shared-1.0.0.jar");
+
+        LockPackage shared = lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().artifactId().equals("shared"))
+                .findFirst()
+                .orElseThrow();
+        LockMemberGraphIndex memberGraphs =
+                new LockMemberGraphIndex(lockfile.memberGraphs(), lockfile.packages());
+        assertTrue(memberGraphs.declaredOptionalFor("modules/core", shared));
+        assertFalse(memberGraphs.optionalOnlyFor("modules/core", shared));
+
+        WorkspaceMember coreMember = workspace.members().stream()
+                .filter(member -> member.path().equals("modules/core"))
+                .findFirst()
+                .orElseThrow();
+        ZoltLockfile projected = new WorkspaceMemberPomLockProjection()
+                .project(coreMember.path(), coreMember.config(), lockfile);
+        String pomXml = new PublishPomGenerator()
+                .generate(coreMember.config(), projected);
+        assertTrue(pomXml.contains("<artifactId>shared</artifactId>"));
+        assertTrue(pomXml.contains("<optional>true</optional>"));
+
+        addArtifact("com.acme", "core", "0.1.0", pomXml);
+        ProjectConfig consumer = new ZoltTomlParser().parse("""
+                [project]
+                name = "published-consumer"
+                version = "1.0.0"
+                group = "com.consumer"
+                java = "21"
+
+                [repositories]
+                test = "%s"
+
+                [dependencies]
+                "com.acme:core" = "0.1.0"
+                """.formatted(baseUri));
+        ZoltLockfile consumerLock = new ResolveService()
+                .resolveLockfile(consumer, tempDir.resolve("consumer-cache"), false)
+                .lockfile();
+        Set<String> consumerArtifacts = artifactIds(consumerLock);
+        assertTrue(consumerArtifacts.contains("required-root"));
+        assertTrue(consumerArtifacts.contains("shared"));
     }
 
     @Test

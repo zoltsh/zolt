@@ -1,14 +1,17 @@
 package sh.zolt.workspace.resolve;
 
+import java.util.LinkedHashSet;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.resolve.ResolvedDependencyReachability;
 import sh.zolt.resolve.ResolveOutput;
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 final class WorkspaceMemberResolveOutputFacts {
     private WorkspaceMemberResolveOutputFacts() {
@@ -23,13 +26,47 @@ final class WorkspaceMemberResolveOutputFacts {
                 member,
                 lockfile,
                 exportedExternalPackages(config),
+                declaredOptionalPackages(config),
                 output.dependencyReachability().stream()
-                        .filter(sh.zolt.resolve.ResolvedDependencyReachability::optionalOnly)
+                        .filter(ResolvedDependencyReachability::optionalOnly)
                         .map(fact -> new WorkspaceOptionalPackage(
                                 fact.packageId(),
                                 fact.variant(),
                                 fact.scope()))
                         .collect(Collectors.toUnmodifiableSet()));
+    }
+
+    private static Set<WorkspaceOptionalPackage> declaredOptionalPackages(ProjectConfig config) {
+        return config.dependencyMetadata().values().stream()
+                .filter(DependencyMetadata::optional)
+                .filter(metadata -> !metadata.publishOnly())
+                .filter(metadata -> metadata.workspace() == null)
+                .map(WorkspaceMemberResolveOutputFacts::declaredOptionalPackage)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static Optional<WorkspaceOptionalPackage> declaredOptionalPackage(
+            DependencyMetadata metadata) {
+        DependencyScope scope = switch (metadata.section()) {
+            case "api.dependencies", "dependencies" -> DependencyScope.COMPILE;
+            case "runtime.dependencies" -> DependencyScope.RUNTIME;
+            case "provided.dependencies" -> DependencyScope.PROVIDED;
+            case "dev.dependencies" -> DependencyScope.DEV;
+            case "test.dependencies" -> DependencyScope.TEST;
+            case "annotationProcessors" -> DependencyScope.PROCESSOR;
+            case "test.annotationProcessors" -> DependencyScope.TEST_PROCESSOR;
+            default -> null;
+        };
+        if (scope == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new WorkspaceOptionalPackage(
+                packageId(metadata.coordinate()),
+                new LockArtifactVariant(
+                        metadata.type() == null ? "jar" : metadata.type(),
+                        Optional.ofNullable(metadata.classifier())),
+                scope));
     }
 
     private static Set<WorkspaceExportedPackage> exportedExternalPackages(
@@ -71,7 +108,7 @@ final class WorkspaceMemberResolveOutputFacts {
                 packageId(coordinate),
                 new LockArtifactVariant(
                         extension,
-                        java.util.Optional.ofNullable(classifier)));
+                        Optional.ofNullable(classifier)));
     }
 
     private static PackageId packageId(String coordinate) {

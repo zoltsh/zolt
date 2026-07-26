@@ -5,8 +5,10 @@ import static sh.zolt.quality.QualityCheckService.LICENSE_POLICY;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -17,6 +19,7 @@ import sh.zolt.sbom.LicenseIndex;
 import sh.zolt.sbom.LicensePolicyEvaluator;
 import sh.zolt.sbom.LicensePolicyFinding;
 import sh.zolt.sbom.LicenseVerdict;
+import sh.zolt.sbom.LockArtifacts;
 import sh.zolt.sbom.LockSbomAssembler;
 import sh.zolt.sbom.PomLicenseResolver;
 import sh.zolt.sbom.SbomComponent;
@@ -117,20 +120,17 @@ final class LicensePolicyQualityCheck {
         List<LockPackage> external = lockfile.packages().stream()
                 .filter(lockPackage -> selection.includes(SbomScopeGroup.of(lockPackage.scope())))
                 .filter(lockPackage -> lockPackage.workspace().isEmpty())
-                .filter(lockPackage -> lockPackage.pom().isPresent())
                 .toList();
-        LicenseIndex index = new PomLicenseResolver(cacheRoot).index(external);
+        LicenseIndex index = new PomLicenseResolver(cacheRoot).index(
+                external.stream().filter(lockPackage -> lockPackage.pom().isPresent()).toList());
         List<SbomComponent> assembled =
                 assembler.assemble(config, lockfile, selection, Optional.empty(), "zolt", index).components();
-        List<String> externalCoordinates = lockfile.packages().stream()
-                .filter(lockPackage -> lockPackage.workspace().isEmpty())
-                .map(lockPackage -> lockPackage.packageId() + ":" + lockPackage.version())
-                .distinct()
-                .toList();
+        Set<String> externalPurls = external.stream()
+                .map(LockArtifacts::purl)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         List<SbomComponent> components = externalOnly
                 ? assembled.stream()
-                        .filter(component -> externalCoordinates.contains(
-                                component.group() + ":" + component.name() + ":" + component.version()))
+                        .filter(component -> externalPurls.contains(component.purl()))
                         .toList()
                 : assembled;
         List<LicensePolicyFinding> findings = evaluator.evaluate(components, index, policy);

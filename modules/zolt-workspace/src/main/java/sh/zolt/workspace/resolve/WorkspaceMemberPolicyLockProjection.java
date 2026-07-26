@@ -49,8 +49,12 @@ public final class WorkspaceMemberPolicyLockProjection {
             }
             List<String> dependencies = graphIndex.dependenciesFor(memberPath, lockPackage);
             List<String> policies = graphIndex.policiesFor(memberPath, lockPackage);
-            boolean optional = graphIndex.optionalFor(memberPath, lockPackage)
-                    || workspaceOptional(workspace, memberPath, lockPackage);
+            boolean workspaceDeclaredOptional =
+                    workspaceOptional(workspace, memberPath, lockPackage);
+            boolean declaredOptional = graphIndex.declaredOptionalFor(memberPath, lockPackage)
+                    || workspaceDeclaredOptional;
+            boolean optionalOnly = graphIndex.optionalOnlyFor(memberPath, lockPackage)
+                    || workspaceDeclaredOptional;
             boolean direct = directs.contains(PackageIdentity.of(lockPackage));
             LockPackage projected = memberView(
                     lockPackage,
@@ -67,7 +71,8 @@ public final class WorkspaceMemberPolicyLockProjection {
                     projected.scope(),
                     projected.dependencies(),
                     projected.policies(),
-                    optional));
+                    declaredOptional,
+                    optionalOnly));
         }
 
         List<LockConflict> conflicts = aggregate.conflicts().stream()

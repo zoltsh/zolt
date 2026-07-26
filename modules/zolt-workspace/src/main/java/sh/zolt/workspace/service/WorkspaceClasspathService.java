@@ -306,7 +306,7 @@ public final class WorkspaceClasspathService {
             sh.zolt.lockfile.LockMemberGraphIndex memberGraphs) {
         for (String member : lockPackage.members()) {
             if (visibleMembers.contains(member)
-                    && !memberGraphs.optionalFor(member, lockPackage)) {
+                    && !memberGraphs.optionalOnlyFor(member, lockPackage)) {
                 return true;
             }
         }

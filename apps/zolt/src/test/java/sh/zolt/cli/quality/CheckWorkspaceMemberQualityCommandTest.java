@@ -98,6 +98,173 @@ final class CheckWorkspaceMemberQualityCommandTest {
         }
     }
 
+    @Test
+    void directlyOptionalPackageWithRequiredReachabilityPassesWorkspaceMetadataCheck() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            repository.addArtifact(
+                    "org.example",
+                    "feature",
+                    "1.0.0",
+                    pom("feature", "MIT License", ""));
+            repository.addArtifact(
+                    "org.example",
+                    "required-root",
+                    "1.0.0",
+                    pom(
+                            "required-root",
+                            "MIT License",
+                            """
+                              <dependencies>
+                                <dependency>
+                                  <groupId>org.example</groupId>
+                                  <artifactId>feature</artifactId>
+                                  <version>1.0.0</version>
+                                </dependency>
+                              </dependencies>
+                            """));
+            Path workspace = tempDir.resolve("mixed-optionality-workspace");
+            Path core = workspace.resolve("modules/core");
+            Files.createDirectories(core);
+            Files.writeString(workspace.resolve("zolt.toml"), """
+                    [workspace]
+                    name = "mixed-optionality"
+                    members = ["modules/core"]
+
+                    [repositories]
+                    test = "%s"
+                    """.formatted(repository.baseUri()));
+            Files.writeString(core.resolve("zolt.toml"), memberConfig("core") + """
+
+                    [api.dependencies]
+                    "org.example:feature" = { version = "1.0.0", optional = true }
+                    "org.example:required-root" = "1.0.0"
+                    """);
+            Path cache = tempDir.resolve("mixed-optionality-cache");
+
+            CommandResult resolve = execute(
+                    "resolve",
+                    "--workspace",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", cache.toString());
+            assertEquals(0, resolve.exitCode(), resolve.stderr());
+            CommandResult check = execute(
+                    "check",
+                    "--workspace",
+                    "--check", "dependency-metadata",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", cache.toString());
+
+            assertEquals(0, check.exitCode(), () -> check.stdout() + check.stderr());
+            assertTrue(check.stdout().contains(
+                    "ok dependency-metadata modules/core org.example:feature"), check.stdout());
+            assertFalse(check.stdout().contains("error dependency-metadata"), check.stdout());
+        }
+    }
+
+    @Test
+    void memberLicensePolicyFiltersExactExternalVariantsFromCollidingWorkspaceCoordinate()
+            throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            repository.addArtifact(
+                    "com.acme",
+                    "core",
+                    "1.0.0",
+                    """
+                    <project>
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>com.acme</groupId>
+                      <artifactId>core</artifactId>
+                      <version>1.0.0</version>
+                      <licenses><license><name>MIT License</name></license></licenses>
+                    </project>
+                    """);
+            repository.addClassifiedArtifact("com.acme", "core", "1.0.0", "tests", "jar");
+            repository.addTypedArtifact("com.acme", "core", "1.0.0", "zip");
+            Path workspace = tempDir.resolve("license-identity-workspace");
+            Path core = workspace.resolve("modules/core");
+            Path bridge = workspace.resolve("modules/bridge");
+            Path app = workspace.resolve("apps/app");
+            Path zipApp = workspace.resolve("apps/zip-app");
+            Files.createDirectories(core);
+            Files.createDirectories(bridge);
+            Files.createDirectories(app);
+            Files.createDirectories(zipApp);
+            Files.writeString(workspace.resolve("zolt.toml"), """
+                    [workspace]
+                    name = "license-identity"
+                    members = ["modules/core", "modules/bridge", "apps/app", "apps/zip-app"]
+
+                    [repositories]
+                    test = "%s"
+                    """.formatted(repository.baseUri()));
+            Files.writeString(core.resolve("zolt.toml"), """
+                    [project]
+                    name = "core"
+                    version = "1.0.0"
+                    group = "com.acme"
+                    java = "21"
+                    """);
+            Files.writeString(bridge.resolve("zolt.toml"), """
+                    [project]
+                    name = "bridge"
+                    version = "1.0.0"
+                    group = "com.acme"
+                    java = "21"
+
+                    [api.dependencies]
+                    "com.acme:core" = { workspace = "modules/core" }
+                    """);
+            Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
+
+                    [api.dependencies]
+                    "com.acme:bridge" = { workspace = "modules/bridge" }
+
+                    [dependencies]
+                    "com.acme:core" = { version = "1.0.0", classifier = "tests" }
+
+                    [dependencyPolicy.licenses]
+                    allow = ["MIT"]
+                    unknown = "fail"
+                    """);
+            Files.writeString(zipApp.resolve("zolt.toml"), memberConfig("zip-app") + """
+
+                    [api.dependencies]
+                    "com.acme:bridge" = { workspace = "modules/bridge" }
+
+                    [runtime.dependencies]
+                    "com.acme:core" = { version = "1.0.0", type = "zip" }
+
+                    [dependencyPolicy.licenses]
+                    allow = ["MIT"]
+                    unknown = "fail"
+                    """);
+            Path cache = tempDir.resolve("license-identity-cache");
+
+            CommandResult resolve = execute(
+                    "resolve",
+                    "--workspace",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", cache.toString());
+            assertEquals(0, resolve.exitCode(), resolve.stderr());
+            CommandResult check = execute(
+                    "check",
+                    "--workspace",
+                    "--check", "license-policy",
+                    "--cwd", workspace.toString(),
+                    "--cache-root", cache.toString());
+
+            assertEquals(0, check.exitCode(), () -> check.stdout() + check.stderr());
+            assertTrue(check.stdout().contains(
+                    "ok license-policy apps/app [dependencyPolicy.licenses] Evaluated 1 compile/runtime dependency"),
+                    check.stdout());
+            assertTrue(check.stdout().contains(
+                    "ok license-policy apps/zip-app [dependencyPolicy.licenses] Evaluated 1 compile/runtime dependency"),
+                    check.stdout());
+            assertFalse(check.stdout().contains(
+                    "Evaluated 2 compile/runtime dependencies"), check.stdout());
+        }
+    }
+
     private Path writeWorkspace(CliTestRepository repository) throws IOException {
         Path workspace = tempDir.resolve("member-quality-workspace");
         Path feature = workspace.resolve("modules/feature-api");

@@ -157,7 +157,7 @@ public final class WorkspaceMemberSbomLockProjection {
                 LockPackage target = edges.resolveGraphEdge(edge, "zolt resolve --workspace")
                         .orElseThrow();
                 boolean traversingSibling = !current.member().equals(memberPath);
-                if (traversingSibling && memberGraphs.optionalFor(current.member(), target)) {
+                if (traversingSibling && memberGraphs.optionalOnlyFor(current.member(), target)) {
                     continue;
                 }
                 retainedDependencies.add(edge);

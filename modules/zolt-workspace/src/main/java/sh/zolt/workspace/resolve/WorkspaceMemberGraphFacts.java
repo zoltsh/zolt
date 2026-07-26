@@ -35,14 +35,22 @@ final class WorkspaceMemberGraphFacts {
                     .filter(java.util.Objects::nonNull)
                     .anyMatch(output -> output.optionalPackages().contains(
                             optionalIdentity(lockPackage)));
-            if (!hasQualifiedFacts && !hasOptionalMember) {
+            boolean hasDeclaredOptionalMember = lockPackage.members().stream()
+                    .map(outputsByMember::get)
+                    .filter(java.util.Objects::nonNull)
+                    .anyMatch(output -> output.declaredOptionalPackages().contains(
+                            optionalIdentity(lockPackage)));
+            if (!hasQualifiedFacts && !hasOptionalMember && !hasDeclaredOptionalMember) {
                 continue;
             }
             for (String member : lockPackage.members()) {
                 LockMemberGraph graph = existing.get(
                         new Key(member, packageKey));
                 WorkspaceMemberResolveOutput output = outputsByMember.get(member);
-                boolean optional = output != null
+                boolean declaredOptional = output != null
+                        && output.declaredOptionalPackages().contains(
+                                optionalIdentity(lockPackage));
+                boolean optionalOnly = output != null
                         && output.optionalPackages().contains(
                                 optionalIdentity(lockPackage));
                 completed.add(new LockMemberGraph(
@@ -57,7 +65,8 @@ final class WorkspaceMemberGraphFacts {
                         graph == null
                                 ? lockPackage.policies()
                                 : graph.policies(),
-                        optional));
+                        declaredOptional,
+                        optionalOnly));
             }
         }
         return List.copyOf(completed);

@@ -9,8 +9,9 @@ the old behavior, the new behavior, and how to migrate.
   member classpaths, a whole-workspace SBOM flattened member-qualified graphs,
   and rematerialization could replace the original member conflict evidence.
 - **New behavior:** newly resolved locks use version 5. Member graph facts carry
-  optional-only reachability captured before path-specific exclusion contexts
-  are flattened, `[[conflict]]` entries carry member attribution, and identities
+  direct `declaredOptional` separately from effective `optionalOnly`
+  reachability captured before path-specific exclusion contexts are flattened,
+  `[[conflict]]` entries carry member attribution, and identities
   with any member-qualified graph facts must cover every attributed member.
   Whole-workspace SBOMs create distinct graph `bom-ref` contexts when members
   share a PURL but have different outgoing edges. Workspace resolution also

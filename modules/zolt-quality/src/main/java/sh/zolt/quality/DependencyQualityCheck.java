@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.TreeMap;
 import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -25,6 +24,8 @@ final class DependencyQualityCheck {
     private final DependencyPolicyQualityCheck dependencyPolicyQualityCheck;
     private final WorkspaceDependencyMetadataQualityCheck workspaceMetadataCheck =
             new WorkspaceDependencyMetadataQualityCheck();
+    private final WorkspaceExternalExportOwnershipCheck exportOwnershipCheck =
+            new WorkspaceExternalExportOwnershipCheck();
 
     DependencyQualityCheck(
             ZoltLockfileReader lockfileReader,
@@ -117,28 +118,8 @@ final class DependencyQualityCheck {
             ZoltLockfile lockfile,
             boolean workspaceLockfile,
             Optional<WorkspaceMetadataContext> workspaceContext) {
-        TreeMap<String, DependencyMetadata> declarations =
-                new TreeMap<>(config.dependencyMetadata());
-        addWorkspaceDeclarations(
-                declarations,
-                "api.dependencies",
-                config.workspaceApiDependencies());
-        addWorkspaceDeclarations(
-                declarations,
-                "dependencies",
-                config.workspaceDependencies());
-        addWorkspaceDeclarations(
-                declarations,
-                "test.dependencies",
-                config.workspaceTestDependencies());
-        addWorkspaceDeclarations(
-                declarations,
-                "annotationProcessors",
-                config.workspaceAnnotationProcessors());
-        addWorkspaceDeclarations(
-                declarations,
-                "test.annotationProcessors",
-                config.workspaceTestAnnotationProcessors());
+        java.util.SortedMap<String, DependencyMetadata> declarations =
+                WorkspaceDependencyMetadataDeclarations.all(config);
         if (declarations.isEmpty()) {
             return List.of(QualityCheckResult.passed(
                     DEPENDENCY_METADATA,
@@ -191,27 +172,6 @@ final class DependencyQualityCheck {
                     "No dependency metadata declarations require validation."));
         }
         return List.copyOf(results);
-    }
-
-    private static void addWorkspaceDeclarations(
-            java.util.Map<String, DependencyMetadata> declarations,
-            String section,
-            java.util.Map<String, String> workspaceDependencies) {
-        workspaceDependencies.forEach((coordinate, workspace) ->
-                declarations.putIfAbsent(
-                        DependencyMetadata.key(section, coordinate),
-                        new DependencyMetadata(
-                                section,
-                                coordinate,
-                                null,
-                                null,
-                                false,
-                                workspace,
-                                false,
-                                false,
-                                List.of(),
-                                null,
-                                null)));
     }
 
     private QualityCheckResult checkPublishOnlyMetadata(
@@ -283,10 +243,12 @@ final class DependencyQualityCheck {
                     workspaceLockfile ? "Run `zolt resolve --workspace`." : "Run `zolt resolve`.");
         }
         if (requireOptionalEvidence) {
-            boolean lockedOptional = new LockMemberGraphIndex(
-                            lockfile.memberGraphs(), lockfile.packages())
-                    .optionalFor(member.orElseThrow(), lockPackage);
-            if (lockedOptional != metadata.optional()) {
+            String memberPath = member.orElseThrow();
+            LockMemberGraphIndex graphIndex =
+                    new LockMemberGraphIndex(lockfile.memberGraphs(), lockfile.packages());
+            boolean declaredOptional =
+                    graphIndex.declaredOptionalFor(memberPath, lockPackage);
+            if (declaredOptional != metadata.optional()) {
                 return QualityCheckResult.failed(
                         DEPENDENCY_METADATA,
                         member,
@@ -295,14 +257,37 @@ final class DependencyQualityCheck {
                                 + metadata.coordinate()
                                 + "` declares optional = "
                                 + metadata.optional()
-                                + ", but member-qualified zolt.lock evidence records optional = "
-                                + lockedOptional
+                                + ", but member-qualified zolt.lock declaration evidence records declaredOptional = "
+                                + declaredOptional
                                 + " for variant `"
                                 + DependencyMetadataIdentity.declaredVariant(metadata).key()
                                 + "` and scope `"
                                 + DependencyMetadataIdentity.scope(metadata.section()).lockfileName()
                                 + "`.",
                         "Run `zolt resolve --workspace`.");
+            }
+            boolean optionalOnly =
+                    graphIndex.optionalOnlyFor(memberPath, lockPackage);
+            if (!metadata.optional() && optionalOnly) {
+                return QualityCheckResult.failed(
+                        DEPENDENCY_METADATA,
+                        member,
+                        metadata.coordinate(),
+                        "Dependency metadata for `"
+                                + metadata.coordinate()
+                                + "` is declared required, but member-qualified zolt.lock evidence records optional-only reachability for variant `"
+                                + DependencyMetadataIdentity.declaredVariant(metadata).key()
+                                + "` and scope `"
+                                + DependencyMetadataIdentity.scope(metadata.section()).lockfileName()
+                                + "`.",
+                        "Run `zolt resolve --workspace`.");
+            }
+        }
+        if (workspaceLockfile && requireOptionalEvidence) {
+            Optional<QualityCheckResult> exportOwnership =
+                    exportOwnershipCheck.check(member.orElseThrow(), metadata, lockPackage);
+            if (exportOwnership.isPresent()) {
+                return exportOwnership.orElseThrow();
             }
         }
 

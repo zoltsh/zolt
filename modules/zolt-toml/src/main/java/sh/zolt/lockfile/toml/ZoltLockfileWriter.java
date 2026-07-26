@@ -114,8 +114,11 @@ public final class ZoltLockfileWriter {
             assignment(output, "variant", memberGraph.variant().key());
         }
         assignment(output, "scope", memberGraph.scope().lockfileName());
-        if (memberGraph.optional()) {
-            output.append("optional = true\n");
+        if (memberGraph.declaredOptional()) {
+            output.append("declaredOptional = true\n");
+        }
+        if (memberGraph.optionalOnly()) {
+            output.append("optionalOnly = true\n");
         }
         if (!memberGraph.policies().isEmpty()) {
             output.append("policies = ");

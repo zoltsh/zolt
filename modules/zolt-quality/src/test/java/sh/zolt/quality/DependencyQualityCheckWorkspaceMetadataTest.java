@@ -64,6 +64,36 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     }
 
     @Test
+    void workspaceProjectionConvertsRepositoryMergeConflictsToStructuredFailure() throws IOException {
+        WorkspaceFixture fixture = workspaceFixture("""
+
+                [repositories]
+                internal = "https://member.example/maven"
+                """);
+        writeWorkspaceLockfile("");
+        Workspace workspace = new Workspace(
+                tempDir,
+                tempDir.resolve("zolt-workspace.toml"),
+                new WorkspaceConfig(
+                        "demo",
+                        List.of("apps/api", "modules/core"),
+                        List.of(),
+                        Map.of("internal", "https://workspace.example/maven"),
+                        Map.of()),
+                fixture.members(),
+                List.of());
+
+        WorkspaceQualityProjectionException failure = assertThrows(
+                WorkspaceQualityProjectionException.class,
+                () -> project(workspace, fixture));
+
+        assertTrue(failure.getMessage().contains("Workspace repository `internal`"));
+        assertEquals(
+                "Run `zolt resolve --workspace` to regenerate member-qualified graph evidence.",
+                failure.nextStep());
+    }
+
+    @Test
     void workspaceMetadataMatchesExactMemberVariantAndScope() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("""
 
@@ -153,6 +183,82 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 result.message());
     }
 
+    @Test
+    void externalRequiredApiDependencyRequiresExportOwnership() throws IOException {
+        WorkspaceFixture fixture = workspaceFixture("""
+
+                [api.dependencies]
+                "com.example:helper" = { version = "1.0.0", classifier = "tests" }
+                """);
+        writeWorkspaceLockfile(packageEntry(
+                "com.example:helper",
+                "1.0.0",
+                "compile",
+                true,
+                "com/example/helper/1.0.0/helper-1.0.0-tests.jar",
+                "members = [\"apps/api\"]"));
+        Workspace workspace = workspace(fixture.members(), List.of());
+
+        QualityCheckResult result =
+                check.checkWorkspaceMetadata(workspace, selection(), project(workspace, fixture))
+                        .getFirst();
+
+        assertEquals(QualityCheckStatus.FAILED, result.status(), result.toString());
+        assertTrue(result.message().contains("missing exportedBy ownership"), result.message());
+    }
+
+    @Test
+    void externalOptionalApiDependencyMustNotOwnExports() throws IOException {
+        WorkspaceFixture fixture = workspaceFixture("""
+
+                [api.dependencies]
+                "com.example:helper" = { version = "1.0.0", optional = true }
+                """);
+        writeWorkspaceLockfile(
+                packageEntry(
+                        "com.example:helper",
+                        "1.0.0",
+                        "compile",
+                        true,
+                        "com/example/helper/1.0.0/helper-1.0.0.jar",
+                        "members = [\"apps/api\"]\nexportedBy = [\"apps/api\"]")
+                        + memberGraphEntry("com.example:helper", true, false));
+        Workspace workspace = workspace(fixture.members(), List.of());
+
+        QualityCheckResult result =
+                check.checkWorkspaceMetadata(workspace, selection(), project(workspace, fixture))
+                        .getFirst();
+
+        assertEquals(QualityCheckStatus.FAILED, result.status(), result.toString());
+        assertTrue(result.message().contains("Optional API dependency"), result.message());
+        assertTrue(result.message().contains("incorrectly propagates through exportedBy"), result.message());
+    }
+
+    @Test
+    void externalImplementationDependencyMustNotOwnExports() throws IOException {
+        WorkspaceFixture fixture = workspaceFixture("""
+
+                [dependencies]
+                "com.example:helper" = { version = "1.0.0", classifier = "tests" }
+                """);
+        writeWorkspaceLockfile(packageEntry(
+                "com.example:helper",
+                "1.0.0",
+                "compile",
+                true,
+                "com/example/helper/1.0.0/helper-1.0.0-tests.jar",
+                "members = [\"apps/api\"]\nexportedBy = [\"apps/api\"]"));
+        Workspace workspace = workspace(fixture.members(), List.of());
+
+        QualityCheckResult result =
+                check.checkWorkspaceMetadata(workspace, selection(), project(workspace, fixture))
+                        .getFirst();
+
+        assertEquals(QualityCheckStatus.FAILED, result.status(), result.toString());
+        assertTrue(result.message().contains("Dependency in [dependencies]"), result.message());
+        assertTrue(result.message().contains("incorrectly propagates through exportedBy"), result.message());
+    }
+
     private WorkspaceQualityProjection project(
             Workspace workspace,
             WorkspaceFixture fixture) {
@@ -199,6 +305,23 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 dependencies = []
                 %s
                 """.formatted(extra);
+    }
+
+    private static String memberGraphEntry(
+            String coordinate,
+            boolean declaredOptional,
+            boolean optionalOnly) {
+        return """
+
+                [[memberGraph]]
+                member = "apps/api"
+                id = "%s"
+                version = "1.0.0"
+                scope = "compile"
+                declaredOptional = %s
+                optionalOnly = %s
+                dependencies = []
+                """.formatted(coordinate, declaredOptional, optionalOnly);
     }
 
     private WorkspaceFixture workspaceFixture(String apiBody) throws IOException {

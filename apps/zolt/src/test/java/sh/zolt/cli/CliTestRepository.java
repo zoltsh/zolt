@@ -10,12 +10,15 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class CliTestRepository implements AutoCloseable {
     private final HttpServer server;
     private final Map<String, byte[]> responses = new HashMap<>();
     private final Map<String, byte[]> uploads = new HashMap<>();
+    private final Map<String, String> authorizations = new ConcurrentHashMap<>();
     private final URI baseUri;
+    private volatile String requiredAuthorization;
 
     private CliTestRepository(HttpServer server) {
         this.server = server;
@@ -38,6 +41,18 @@ public final class CliTestRepository implements AutoCloseable {
 
     public URI baseUri() {
         return baseUri;
+    }
+
+    public void requireBearerToken(String token) {
+        requiredAuthorization = "Bearer " + token;
+    }
+
+    public void clearAuthorizations() {
+        authorizations.clear();
+    }
+
+    public Map<String, String> authorizations() {
+        return Map.copyOf(authorizations);
     }
 
     public void addArtifact(String groupId, String artifactId, String version, String pom) {
@@ -76,6 +91,24 @@ public final class CliTestRepository implements AutoCloseable {
                 new byte[] {0x50, 0x4b, 0x03, 0x04});
     }
 
+    public void addTypedArtifact(
+            String groupId,
+            String artifactId,
+            String version,
+            String extension) {
+        String base = "/maven2/"
+                + groupId.replace('.', '/')
+                + "/"
+                + artifactId
+                + "/"
+                + version
+                + "/"
+                + artifactId
+                + "-"
+                + version;
+        responses.put(base + "." + extension, new byte[] {0x50, 0x4b, 0x03, 0x04});
+    }
+
     public byte[] uploaded(String path) {
         byte[] bytes = uploads.get(path);
         if (bytes == null) {
@@ -85,6 +118,14 @@ public final class CliTestRepository implements AutoCloseable {
     }
 
     private void handle(HttpExchange exchange) throws IOException {
+        String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+        authorizations.put(
+                exchange.getRequestURI().getPath(),
+                authorization == null ? "<none>" : authorization);
+        if (requiredAuthorization != null && !requiredAuthorization.equals(authorization)) {
+            respond(exchange, 401, "authentication required".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
         if ("PUT".equals(exchange.getRequestMethod())) {
             uploads.put(exchange.getRequestURI().getPath(), exchange.getRequestBody().readAllBytes());
             respond(exchange, 201, "created".getBytes(StandardCharsets.UTF_8));

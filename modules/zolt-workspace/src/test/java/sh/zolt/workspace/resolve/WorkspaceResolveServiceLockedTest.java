@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,12 +25,14 @@ import org.junit.jupiter.api.io.TempDir;
 final class WorkspaceResolveServiceLockedTest {
     private final WorkspaceResolveService service = new WorkspaceResolveService();
     private final Map<String, byte[]> responses = new HashMap<>();
+    private final Map<String, String> authorizationByPath = new ConcurrentHashMap<>();
 
     @TempDir
     private Path tempDir;
 
     private HttpServer server;
     private URI baseUri;
+    private String requiredAuthorization;
 
     @BeforeEach
     void startServer() {
@@ -88,6 +91,40 @@ final class WorkspaceResolveServiceLockedTest {
 
         assertEquals(first.resolvedCount(), locked.resolvedCount());
         assertEquals(existing, Files.readString(first.lockfilePath()));
+    }
+
+    @Test
+    void workspaceResolveAndLockedResolveAuthenticateMemberRepositoryRequests() throws IOException {
+        String token = System.getenv("PATH");
+        assumeTrue(token != null && !token.isBlank(), "PATH is required as a non-secret test token");
+        requiredAuthorization = "Bearer " + token;
+        workspace("""
+                [workspace]
+                name = "authenticated-platform"
+                members = ["apps/api"]
+
+                [repositories]
+                internal = "%s"
+                """.formatted(baseUri));
+        member("apps/api", "api", """
+
+                [repositories]
+                internal = { url = "%s", credentials = "company" }
+
+                [repositoryCredentials.company]
+                tokenEnv = "PATH"
+
+                [dependencies]
+                "com.example:app" = "1.0.0"
+                """.formatted(baseUri));
+
+        service.resolve(tempDir, tempDir.resolve("first-cache"), false, false);
+        assertTrue(authorizationByPath.values().stream().allMatch(requiredAuthorization::equals));
+
+        authorizationByPath.clear();
+        service.resolve(tempDir, tempDir.resolve("locked-cache"), true, false);
+        assertTrue(!authorizationByPath.isEmpty());
+        assertTrue(authorizationByPath.values().stream().allMatch(requiredAuthorization::equals));
     }
 
     @Test
@@ -219,6 +256,14 @@ final class WorkspaceResolveServiceLockedTest {
     }
 
     private void handle(HttpExchange exchange) throws IOException {
+        String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+        authorizationByPath.put(
+                exchange.getRequestURI().getPath(),
+                authorization == null ? "<none>" : authorization);
+        if (requiredAuthorization != null && !requiredAuthorization.equals(authorization)) {
+            respond(exchange, 401, "authentication required".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
         byte[] body = responses.get(exchange.getRequestURI().getPath());
         if (body == null) {
             respond(exchange, 404, "missing".getBytes(StandardCharsets.UTF_8));

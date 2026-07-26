@@ -5,6 +5,7 @@ import sh.zolt.cli.CliTestSupport;
 
 import static sh.zolt.cli.CliTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
@@ -140,6 +141,49 @@ final class PolicyDependencyPolicyCommandTest {
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("error dependency-policy zolt.lock"));
         assertTrue(result.stdout().contains("next: Run `zolt resolve --workspace`."));
+        assertEquals("", result.stderr());
+    }
+
+    @Test
+    void projectedDirectVersionFailureUsesWorkspaceResolveRemediation() throws IOException {
+        Path workspaceDir = tempDir.resolve("check-workspace-dependency-policy-remediation");
+        Path apiDir = workspaceDir.resolve("apps/api");
+        Files.createDirectories(apiDir);
+        Files.writeString(workspaceDir.resolve("zolt.toml"), """
+                [workspace]
+                name = "check-workspace-dependency-policy-remediation"
+                members = ["apps/api"]
+                """);
+        Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api") + """
+
+                [dependencies]
+                "com.example:lib" = "1.0.0"
+                """);
+        Files.writeString(workspaceDir.resolve("zolt.lock"), """
+                version = 5
+
+                [[package]]
+                id = "com.example:lib"
+                version = "2.0.0"
+                source = "maven-central"
+                scope = "compile"
+                direct = true
+                members = ["apps/api"]
+                dependencies = []
+                """);
+
+        CommandResult result = execute(
+                "check",
+                "--workspace",
+                "--member", "apps/api",
+                "--check", "dependency-policy",
+                "--cwd", workspaceDir.toString());
+
+        assertEquals(1, result.exitCode(), result.stdout());
+        assertTrue(result.stdout().contains(
+                "next: Run `zolt resolve --workspace`, then review the selected version"), result.stdout());
+        assertFalse(result.stdout().contains(
+                "next: Run `zolt resolve`, then review the selected version"), result.stdout());
         assertEquals("", result.stderr());
     }
 }

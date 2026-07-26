@@ -1,12 +1,14 @@
 package sh.zolt.lockfile.toml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -58,6 +60,35 @@ final class ZoltLockfileReaderFieldsTest {
                 """).conflicts().getFirst();
 
         assertEquals(ConflictSelectionReason.SELECTED_GRAPH, conflict.reason());
+    }
+
+    @Test
+    void readsSeparateDeclaredAndEffectiveOptionalFactsWithLegacyFallback() {
+        List<LockMemberGraph> graphs = reader.read("""
+                version = 5
+
+                [[memberGraph]]
+                member = "apps/new"
+                id = "com.example:feature"
+                version = "1.0.0"
+                scope = "compile"
+                declaredOptional = true
+                optionalOnly = false
+                dependencies = []
+
+                [[memberGraph]]
+                member = "apps/legacy"
+                id = "com.example:feature"
+                version = "1.0.0"
+                scope = "compile"
+                optional = true
+                dependencies = []
+                """).memberGraphs();
+
+        assertTrue(graphs.getFirst().declaredOptional());
+        assertFalse(graphs.getFirst().optionalOnly());
+        assertFalse(graphs.get(1).declaredOptional());
+        assertTrue(graphs.get(1).optionalOnly());
     }
 
     @Test

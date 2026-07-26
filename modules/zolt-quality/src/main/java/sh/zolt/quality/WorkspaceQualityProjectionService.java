@@ -12,6 +12,7 @@ import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.publish.PublishException;
+import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyLockProjection;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
@@ -87,7 +88,7 @@ final class WorkspaceQualityProjectionService {
                         memberPath,
                         new WorkspaceMemberQualityView(member, effectiveConfig, policyLock, sbomLock));
             }
-        } catch (LockDependencyGraphException | PublishException exception) {
+        } catch (LockDependencyGraphException | PublishException | ResolveException exception) {
             throw new WorkspaceQualityProjectionException(
                     exception.getMessage(),
                     "Run `zolt resolve --workspace` to regenerate member-qualified graph evidence.");

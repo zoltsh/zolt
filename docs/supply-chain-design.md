@@ -14,10 +14,13 @@ contexts: an edge shown for a component says that the component has that
 relationship in at least one locked path, not that every path to the component
 has the relationship. Optional-boundary propagation is therefore computed from
 resolver reachability facts captured while cumulative exclusion contexts are
-still present, before component edges are flattened. The resulting per-member
-optional-only bit is persisted in `[[memberGraph]]`; workspace classpath
-and per-member SBOM consumers use it to prevent an edge that exists only on an
-optional path from crossing a required workspace-member boundary. The SBOM
+still present, before component edges are flattened. Each `[[memberGraph]]`
+persists `declaredOptional` separately from effective `optionalOnly`
+reachability. A directly optional package can therefore remain required through
+another root without corrupting its published optional metadata. Workspace
+classpath and per-member SBOM consumers use `optionalOnly` to prevent an edge
+that exists only on an optional path from crossing a required workspace-member
+boundary. The SBOM
 projection removes the filtered edge as well as the optional-only target, so it
 cannot emit a dangling relationship. Member-qualified component graph contexts
 remain available to workspace SBOM and classpath consumers that require

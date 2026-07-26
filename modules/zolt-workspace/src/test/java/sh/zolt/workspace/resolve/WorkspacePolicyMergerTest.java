@@ -8,6 +8,7 @@ import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.WorkspaceConfig;
@@ -64,6 +65,37 @@ final class WorkspacePolicyMergerTest {
         assertTrue(exception.getMessage().contains("zolt-workspace.toml"));
         assertTrue(exception.getMessage().contains("member `lib` declares `2.0.0`"));
         assertTrue(exception.getMessage().contains("Make the values match"));
+    }
+
+    @Test
+    void preservesMemberRepositoryAuthenticationWhenWorkspaceUrlMatches() {
+        ProjectConfig config = new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [repositories]
+                internal = { url = "https://repo.example/internal", credentials = "company" }
+
+                [repositoryCredentials.company]
+                tokenEnv = "COMPANY_REPOSITORY_TOKEN"
+                """);
+        WorkspaceMember member = member("app", config);
+        Workspace workspace = workspace(
+                orderedMap("internal", "https://repo.example/internal"),
+                Map.of(),
+                member);
+
+        ProjectConfig merged = merger.merge(workspace, member);
+
+        assertEquals(Optional.of("company"), merged.repositorySettings()
+                .get("internal")
+                .credentials());
+        assertEquals(
+                "COMPANY_REPOSITORY_TOKEN",
+                merged.repositoryCredentials().get("company").tokenEnv().orElseThrow());
     }
 
     private static Workspace workspace(

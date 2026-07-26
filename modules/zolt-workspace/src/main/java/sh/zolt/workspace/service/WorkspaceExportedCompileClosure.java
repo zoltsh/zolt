@@ -43,7 +43,7 @@ final class WorkspaceExportedCompileClosure {
                     memberGraphs.dependenciesFor(current.member(), current.lockPackage())) {
                 index.resolveGraphEdge(dependency, "zolt resolve --workspace")
                         .filter(candidate -> candidate.scope().entersMainCompileClasspath())
-                        .filter(candidate -> !memberGraphs.optionalFor(
+                        .filter(candidate -> !memberGraphs.optionalOnlyFor(
                                 current.member(), candidate))
                         .map(candidate -> new MemberPackage(current.member(), candidate))
                         .filter(candidate -> !visited.contains(

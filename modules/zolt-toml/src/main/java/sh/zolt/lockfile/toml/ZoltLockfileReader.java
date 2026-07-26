@@ -144,7 +144,10 @@ public final class ZoltLockfileReader {
                     scope(LockfileTomlValues.requireString(table, "scope")),
                     LockfileTomlValues.stringArray(table, "dependencies"),
                     LockfileTomlValues.optionalStringArray(table, "policies"),
-                    LockfileTomlValues.optionalBoolean(table, "optional")));
+                    LockfileTomlValues.optionalBoolean(table, "declaredOptional"),
+                    table.contains("optionalOnly")
+                            ? LockfileTomlValues.optionalBoolean(table, "optionalOnly")
+                            : LockfileTomlValues.optionalBoolean(table, "optional")));
         }
         return List.copyOf(memberGraphs);
     }
