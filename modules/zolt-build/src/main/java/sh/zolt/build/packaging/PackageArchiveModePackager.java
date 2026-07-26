@@ -28,6 +28,7 @@ final class PackageArchiveModePackager {
     private final QuarkusFastJarLayoutAssembler quarkusFastJarLayoutAssembler;
     private final UberJarLayoutAssembler uberJarLayoutAssembler;
     private final PackageRuntimeJarSelector runtimeJarSelector;
+    private final PackageRuntimeJarMaterializer runtimeJarMaterializer;
 
     PackageArchiveModePackager(
             ManifestGenerator manifestGenerator,
@@ -41,6 +42,7 @@ final class PackageArchiveModePackager {
         this.quarkusFastJarLayoutAssembler = new QuarkusFastJarLayoutAssembler();
         this.uberJarLayoutAssembler = new UberJarLayoutAssembler(manifestGenerator);
         this.runtimeJarSelector = new PackageRuntimeJarSelector();
+        this.runtimeJarMaterializer = new PackageRuntimeJarMaterializer();
     }
 
     PackageResult packageSpringBootJar(
@@ -58,7 +60,11 @@ final class PackageArchiveModePackager {
                 .orElseGet(() -> runtimeJarSelector.runtimeJars(
                         lockfileReader.read(projectDirectory.resolve("zolt.lock")),
                         cacheRoot));
-        return springBootJarLayoutAssembler.assemble(startClass, buildResult, outputDirectory, jarPath, runtimeJars);
+        PackageRuntimeJarMaterializer.Result inputs =
+                runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
+        return springBootJarLayoutAssembler
+                .assemble(startClass, buildResult, outputDirectory, jarPath, inputs.runtimeJars())
+                .withMaterializedInputs(inputs.materializedInputs());
     }
 
     PackageResult packageWar(
@@ -74,7 +80,11 @@ final class PackageArchiveModePackager {
                         lockfileReader.read(projectDirectory.resolve("zolt.lock")),
                         cacheRoot));
         List<PackageRuntimeJar> runtimeJars = runtimeJarSelector.runtimeJarsWithoutProvidedDuplicates(resolvedPackages);
-        return warLayoutAssembler.assemble(projectDirectory, config, buildResult, outputDirectory, warPath, runtimeJars);
+        PackageRuntimeJarMaterializer.Result inputs =
+                runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
+        return warLayoutAssembler
+                .assemble(projectDirectory, config, buildResult, outputDirectory, warPath, inputs.runtimeJars())
+                .withMaterializedInputs(inputs.materializedInputs());
     }
 
     PackageResult packageUberJar(
@@ -109,13 +119,21 @@ final class PackageArchiveModePackager {
                         cacheRoot));
         List<PackageRuntimeJar> providedJars = runtimeJarSelector.providedJars(resolvedPackages);
         List<PackageRuntimeJar> runtimeJars = runtimeJarSelector.runtimeJarsWithoutProvidedDuplicates(resolvedPackages);
+        PackageRuntimeJarMaterializer.Result runtimeInputs =
+                runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
+        PackageRuntimeJarMaterializer.Result providedInputs =
+                runtimeJarMaterializer.materialize(projectDirectory, config, providedJars);
+        List<PackageMaterializedInput> materializedInputs = new java.util.ArrayList<>();
+        materializedInputs.addAll(runtimeInputs.materializedInputs());
+        materializedInputs.addAll(providedInputs.materializedInputs());
         return springBootWarLayoutAssembler.assemble(
                 startClass,
                 buildResult,
                 outputDirectory,
                 warPath,
-                runtimeJars,
-                providedJars);
+                runtimeInputs.runtimeJars(),
+                providedInputs.runtimeJars())
+                .withMaterializedInputs(materializedInputs);
     }
 
     PackageResult packageFrameworkJar(

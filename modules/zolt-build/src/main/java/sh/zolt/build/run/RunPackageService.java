@@ -6,7 +6,6 @@ import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageService;
 import sh.zolt.build.RunPackageException;
-import sh.zolt.classpath.Classpath;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkChecker;
@@ -18,7 +17,6 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 public final class RunPackageService {
@@ -26,7 +24,7 @@ public final class RunPackageService {
     private final BuildService buildService;
     private final ClasspathBuilder classpathBuilder;
     private final JdkChecker jdkDetector;
-    private final JavaRunner javaRunner;
+    private final PackageApplicationLauncher applicationLauncher;
 
     public RunPackageService() {
         this(new JdkDetector());
@@ -102,7 +100,7 @@ public final class RunPackageService {
         this.buildService = buildService;
         this.classpathBuilder = classpathBuilder;
         this.jdkDetector = jdkDetector;
-        this.javaRunner = javaRunner;
+        this.applicationLauncher = new PackageApplicationLauncher(javaRunner);
     }
 
     public RunPackageResult runPackage(
@@ -110,15 +108,10 @@ public final class RunPackageService {
             ProjectConfig config,
             Path cacheRoot,
             List<String> arguments) {
-        if (config.packageSettings().mode() == PackageMode.BOM) {
-            throw new RunPackageException(
-                    "Package mode `bom` publishes a dependencyManagement POM and produces no runnable artifact. "
-                            + "Import the BOM from an application module via [platforms] instead of running it.");
-        }
-        if (config.packageSettings().mode() == PackageMode.WAR) {
-            throw new RunPackageException(
-                    "Package mode `war` creates a servlet container deployment artifact and cannot be run directly. "
-                            + "Deploy it to a servlet container, or use package mode `spring-boot-war` for java -jar.");
+        PackageLaunchPolicy.Decision launchPolicy =
+                PackageLaunchPolicy.forMode(config.packageSettings().mode());
+        if (launchPolicy.strategy() == PackageLaunchPolicy.Strategy.REJECT) {
+            throw new RunPackageException(launchPolicy.rejection());
         }
         String mainClass = config.project().main().orElseThrow(() -> new RunPackageException(
                 "No main class is configured. Add [project].main to zolt.toml to run a packaged application."));
@@ -134,27 +127,13 @@ public final class RunPackageService {
             throw new RunPackageException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
         }
 
-        if (packageResult.mode() == PackageMode.SPRING_BOOT
-                || packageResult.mode() == PackageMode.SPRING_BOOT_WAR
-                || packageResult.mode() == PackageMode.UBER) {
-            JavaRunResult javaRunResult = javaRunner.runJar(
-                    jdkStatus.java().orElseThrow(),
-                    packageResult.jarPath(),
-                    mainClass,
-                    arguments);
-            return new RunPackageResult(packageResult, javaRunResult);
-        }
-
         ClasspathSet classpaths = classpathBuilder.build(buildResult.classpathPackages().stream()
                 .filter(dependency -> dependency.scope().packagedByDefault())
                 .toList());
-        List<Path> runtimeEntries = new ArrayList<>();
-        runtimeEntries.add(packageResult.jarPath());
-        runtimeEntries.addAll(classpaths.runtime().entries());
-
-        JavaRunResult javaRunResult = javaRunner.run(
+        JavaRunResult javaRunResult = applicationLauncher.launch(
                 jdkStatus.java().orElseThrow(),
-                new Classpath(runtimeEntries),
+                packageResult,
+                classpaths.runtime().entries(),
                 mainClass,
                 arguments);
         return new RunPackageResult(packageResult, javaRunResult);

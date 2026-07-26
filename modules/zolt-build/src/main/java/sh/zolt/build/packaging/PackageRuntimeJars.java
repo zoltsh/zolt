@@ -10,10 +10,17 @@ public final class PackageRuntimeJars {
     }
 
     public static String nestedJarName(PackageRuntimeJar runtimeJar) {
+        if (Files.isDirectory(runtimeJar.jarPath())) {
+            return canonicalNestedJarName(runtimeJar);
+        }
         Path fileName = runtimeJar.jarPath().getFileName();
         if (fileName != null && !fileName.toString().isBlank()) {
             return fileName.toString();
         }
+        return canonicalNestedJarName(runtimeJar);
+    }
+
+    public static String canonicalNestedJarName(PackageRuntimeJar runtimeJar) {
         return runtimeJar.packageId().toString().replace(':', '-') + "-" + runtimeJar.version() + ".jar";
     }
 

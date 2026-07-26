@@ -166,6 +166,7 @@ public final class RunPackageCommand implements Runnable {
                             () -> workspaceRunPackageService.packageRunPackageInputs(
                                     plan,
                                     buildResult,
+                                    cacheRoot,
                                     packageModeOverride),
                             CommandPackageAttributes::workspacePackage);
                     return timings.measure(

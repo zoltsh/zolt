@@ -2,10 +2,11 @@ package sh.zolt.workspace.packaging;
 
 import sh.zolt.build.RunPackageException;
 import sh.zolt.build.packageplan.PackagePlanService;
+import sh.zolt.build.run.PackageApplicationLauncher;
+import sh.zolt.build.run.PackageLaunchPolicy;
 import sh.zolt.build.run.JavaRunResult;
 import sh.zolt.build.run.JavaRunner;
 import sh.zolt.build.run.RunPackageResult;
-import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
@@ -28,7 +29,7 @@ import java.util.Optional;
 public final class WorkspaceRunPackageService {
     private final WorkspacePackageService workspacePackageService;
     private final JdkChecker jdkDetector;
-    private final JavaRunner javaRunner;
+    private final PackageApplicationLauncher applicationLauncher;
 
     public WorkspaceRunPackageService() {
         this(new JdkDetector());
@@ -95,7 +96,7 @@ public final class WorkspaceRunPackageService {
             JavaRunner javaRunner) {
         this.workspacePackageService = workspacePackageService;
         this.jdkDetector = jdkDetector;
-        this.javaRunner = javaRunner;
+        this.applicationLauncher = new PackageApplicationLauncher(javaRunner);
     }
 
     public WorkspaceRunPackageResult runPackages(
@@ -114,7 +115,12 @@ public final class WorkspaceRunPackageService {
             Optional<PackageMode> packageModeOverride) {
         WorkspaceBuildPlan plan = planRunPackages(startDirectory, cacheRoot, selectionRequest);
         WorkspaceBuildResult buildResult = buildRunPackageInputs(plan, cacheRoot);
-        WorkspacePackageResult packageResult = packageRunPackageInputs(plan, buildResult, packageModeOverride);
+        WorkspacePackageResult packageResult =
+                packageRunPackageInputs(
+                        plan,
+                        buildResult,
+                        cacheRoot,
+                        packageModeOverride);
         return runPackagedMembers(plan, packageResult, arguments);
     }
 
@@ -132,8 +138,14 @@ public final class WorkspaceRunPackageService {
     public WorkspacePackageResult packageRunPackageInputs(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
+            Path cacheRoot,
             Optional<PackageMode> packageModeOverride) {
-        return workspacePackageService.packageBuiltJars(plan, buildResult, packageModeOverride);
+        requireRunnableModes(plan, packageModeOverride);
+        return workspacePackageService.packageBuiltJars(
+                plan,
+                buildResult,
+                cacheRoot,
+                packageModeOverride);
     }
 
     public WorkspaceRunPackageResult runPackagedMembers(
@@ -148,12 +160,16 @@ public final class WorkspaceRunPackageService {
         for (WorkspacePackageResult.MemberPackageResult memberPackage : packageResult.members()) {
             WorkspaceMember member = membersByPath.get(memberPackage.member());
             WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPackage.member());
-            if (memberPackage.result().mode() == PackageMode.WAR) {
+            PackageLaunchPolicy.Decision launchPolicy =
+                    PackageLaunchPolicy.forMode(
+                            memberPackage.result().mode());
+            if (launchPolicy.strategy()
+                    == PackageLaunchPolicy.Strategy.REJECT) {
                 throw new RunPackageException(
                         "Workspace member `"
                                 + member.path()
-                                + "` packaged as `war`, which cannot be run directly. "
-                                + "Deploy it to a servlet container, or use package mode `spring-boot-war` for java -jar.");
+                                + "` cannot be run: "
+                                + launchPolicy.rejection());
             }
             String mainClass = member.config().project().main().orElseThrow(() -> new RunPackageException(
                     "Workspace member `"
@@ -163,25 +179,10 @@ public final class WorkspaceRunPackageService {
             if (!jdkStatus.ok()) {
                 throw new RunPackageException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
             }
-            if (memberPackage.result().mode() == PackageMode.SPRING_BOOT
-                    || memberPackage.result().mode() == PackageMode.SPRING_BOOT_WAR) {
-                JavaRunResult javaRunResult = javaRunner.runJar(
-                        jdkStatus.java().orElseThrow(),
-                        memberPackage.result().jarPath(),
-                        mainClass,
-                        arguments);
-                results.add(new WorkspaceRunPackageResult.MemberRunPackageResult(
-                        memberPackage.member(),
-                        new RunPackageResult(memberPackage.result(), javaRunResult)));
-                continue;
-            }
-
-            List<Path> runtimeEntries = new ArrayList<>();
-            runtimeEntries.add(memberPackage.result().jarPath());
-            runtimeEntries.addAll(memberBuild.classpaths().runtime().entries());
-            JavaRunResult javaRunResult = javaRunner.run(
+            JavaRunResult javaRunResult = applicationLauncher.launch(
                     jdkStatus.java().orElseThrow(),
-                    new Classpath(runtimeEntries),
+                    memberPackage.result(),
+                    memberBuild.classpaths().runtime().entries(),
                     mainClass,
                     arguments);
             results.add(new WorkspaceRunPackageResult.MemberRunPackageResult(
@@ -189,6 +190,28 @@ public final class WorkspaceRunPackageService {
                     new RunPackageResult(memberPackage.result(), javaRunResult)));
         }
         return new WorkspaceRunPackageResult(packageResult.resolveResult(), packageResult.builtMembers(), results);
+    }
+
+    private static void requireRunnableModes(
+            WorkspaceBuildPlan plan,
+            Optional<PackageMode> packageModeOverride) {
+        Map<String, WorkspaceMember> members =
+                membersByPath(plan.workspace());
+        for (String memberPath : plan.selection().selectedMembers()) {
+            WorkspaceMember member = members.get(memberPath);
+            PackageMode mode = packageModeOverride.orElse(
+                    member.config().packageSettings().mode());
+            PackageLaunchPolicy.Decision decision =
+                    PackageLaunchPolicy.forMode(mode);
+            if (decision.strategy()
+                    == PackageLaunchPolicy.Strategy.REJECT) {
+                throw new RunPackageException(
+                        "Workspace member `"
+                                + member.path()
+                                + "` cannot be run: "
+                                + decision.rejection());
+            }
+        }
     }
 
     private static Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath(WorkspacePackageResult result) {

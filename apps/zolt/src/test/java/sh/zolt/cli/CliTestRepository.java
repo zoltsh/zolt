@@ -56,6 +56,15 @@ public final class CliTestRepository implements AutoCloseable {
     }
 
     public void addArtifact(String groupId, String artifactId, String version, String pom) {
+        addArtifact(groupId, artifactId, version, pom, emptyZip());
+    }
+
+    public void addArtifact(
+            String groupId,
+            String artifactId,
+            String version,
+            String pom,
+            byte[] jar) {
         String base = "/maven2/"
                 + groupId.replace('.', '/')
                 + "/"
@@ -67,7 +76,7 @@ public final class CliTestRepository implements AutoCloseable {
                 + "-"
                 + version;
         responses.put(base + ".pom", pom.getBytes(StandardCharsets.UTF_8));
-        responses.put(base + ".jar", emptyZip());
+        responses.put(base + ".jar", jar.clone());
     }
 
     public void addClassifiedArtifact(

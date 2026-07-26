@@ -16,7 +16,8 @@ public record PackageResult(
         boolean hasMainClass,
         String applicationLayout,
         List<PackageArtifact> artifacts,
-        List<PackageMergeDecision> mergeDecisions) {
+        List<PackageMergeDecision> mergeDecisions,
+        List<PackageMaterializedInput> materializedInputs) {
     public PackageResult {
         mode = mode == null ? PackageMode.THIN : mode;
         runtimeClasspathPath = runtimeClasspathPath == null ? Optional.empty() : runtimeClasspathPath;
@@ -26,6 +27,7 @@ public record PackageResult(
                 : applicationLayout;
         artifacts = artifacts == null ? List.of() : List.copyOf(artifacts);
         mergeDecisions = mergeDecisions == null ? List.of() : List.copyOf(mergeDecisions);
+        materializedInputs = materializedInputs == null ? List.of() : List.copyOf(materializedInputs);
     }
 
     public PackageResult withArtifactsAndEvidence(
@@ -41,7 +43,8 @@ public record PackageResult(
                 hasMainClass,
                 applicationLayout,
                 artifacts,
-                mergeDecisions);
+                mergeDecisions,
+                materializedInputs);
     }
 
     public PackageResult withApplicationLayout(String applicationLayout) {
@@ -55,7 +58,8 @@ public record PackageResult(
                 hasMainClass,
                 applicationLayout,
                 artifacts,
-                mergeDecisions);
+                mergeDecisions,
+                materializedInputs);
     }
 
     public PackageResult withMergeDecisions(List<PackageMergeDecision> mergeDecisions) {
@@ -69,7 +73,49 @@ public record PackageResult(
                 hasMainClass,
                 applicationLayout,
                 artifacts,
-                mergeDecisions);
+                mergeDecisions,
+                materializedInputs);
+    }
+
+    public PackageResult withMaterializedInputs(
+            List<PackageMaterializedInput> materializedInputs) {
+        return new PackageResult(
+                buildResult,
+                mode,
+                jarPath,
+                runtimeClasspathPath,
+                evidenceManifestPath,
+                entryCount,
+                hasMainClass,
+                applicationLayout,
+                artifacts,
+                mergeDecisions,
+                materializedInputs);
+    }
+
+    public PackageResult(
+            BuildResult buildResult,
+            PackageMode mode,
+            Path jarPath,
+            Optional<Path> runtimeClasspathPath,
+            Optional<Path> evidenceManifestPath,
+            int entryCount,
+            boolean hasMainClass,
+            String applicationLayout,
+            List<PackageArtifact> artifacts,
+            List<PackageMergeDecision> mergeDecisions) {
+        this(
+                buildResult,
+                mode,
+                jarPath,
+                runtimeClasspathPath,
+                evidenceManifestPath,
+                entryCount,
+                hasMainClass,
+                applicationLayout,
+                artifacts,
+                mergeDecisions,
+                List.of());
     }
 
     public PackageResult(
@@ -91,6 +137,7 @@ public record PackageResult(
                 hasMainClass,
                 defaultApplicationLayout(mode),
                 artifacts,
+                List.of(),
                 List.of());
     }
 
