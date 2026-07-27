@@ -127,7 +127,10 @@ final class TestCompileServiceProcessorIncrementalTest {
         assertTrue(readTestState().processorAttributionComplete());
 
         Path statePath = projectDir.resolve("target/test-classes/.zolt-incremental-test.state");
-        Files.writeString(statePath, Files.readString(statePath).replaceFirst("version=3", "version=2"));
+        String currentState = Files.readString(statePath);
+        String staleState = currentState.replaceFirst("(?m)^version=.*$", "version=0");
+        assertFalse(staleState.equals(currentState), "state version must be replaced");
+        Files.writeString(statePath, staleState);
 
         source("src/test/java/com/example/Widget.java", trackedClass("Widget", "\"changed\""));
         TestCompileResult migrated = compile();
