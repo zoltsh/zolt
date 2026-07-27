@@ -155,10 +155,24 @@ jobs:
         run: scripts/run-zolt-built coverage --workspace --all --no-progress --cache-root .zolt/cache
 
   smoke:
-    name: smoke packaged workflows
+    # Each suite runs as its own matrix lane so a slow suite cannot eat the budget
+    # of the others: the timeout below applies per lane, not to all four together.
+    name: smoke packaged workflows ${{ matrix.name }}
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: core
+            suite: ""
+          - name: container
+            suite: container
+          - name: native
+            suite: native
+          - name: native-container
+            suite: native-container
 
     steps:
       - name: Check out repository
@@ -223,25 +237,11 @@ jobs:
       - name: Package javac worker with managed Java
         run: scripts/run-zolt-built package --workspace --member apps/zolt-javac-worker --no-progress --cache-root .zolt/cache
 
-      - name: Smoke packaged workflows with managed Java
+      # An empty matrix.suite expands to no argument, which runs the default smoke/ suite.
+      - name: Smoke ${{ matrix.name }} workflows with managed Java
         env:
           ZOLT_SMOKE_PREBUILT: "1"
-        run: scripts/smoke-smoque
-
-      - name: Smoke PostgreSQL container workflows
-        env:
-          ZOLT_SMOKE_PREBUILT: "1"
-        run: scripts/smoke-smoque container
-
-      - name: Smoke Native Image workflows
-        env:
-          ZOLT_SMOKE_PREBUILT: "1"
-        run: scripts/smoke-smoque native
-
-      - name: Smoke Native Image PostgreSQL workflow
-        env:
-          ZOLT_SMOKE_PREBUILT: "1"
-        run: scripts/smoke-smoque native-container
+        run: scripts/smoke-smoque ${{ matrix.suite }}
 
   managed-toolchain:
     name: managed Java toolchain dogfood ${{ matrix.name }}
