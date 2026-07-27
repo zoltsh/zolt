@@ -1,6 +1,5 @@
 package sh.zolt.build.incremental;
 
-import static sh.zolt.build.incremental.IncrementalCompileInputHasher.hash;
 import static sh.zolt.build.incremental.IncrementalCompileInputHasher.hashText;
 import static sh.zolt.build.incremental.IncrementalCompileInputHasher.relative;
 
@@ -42,7 +41,7 @@ final class IncrementalCompileStateValidator {
         if (!state.generatedSourceRoots().equals(generatedSteps.stream().map(GeneratedSourceStep::output).sorted().toList())) {
             return "generated-source-roots-changed";
         }
-        if (!state.compileClasspath().equals(classpathEntries(compileClasspath))) {
+        if (!classpathCurrent(state.compileClasspath(), compileClasspath)) {
             return "compile-classpath-changed";
         }
         return validateOutputClasses(state, projectRoot, outputDirectory);
@@ -98,11 +97,16 @@ final class IncrementalCompileStateValidator {
                 .toList();
     }
 
-    private static List<IncrementalCompileState.ClasspathEntry> classpathEntries(Classpath classpath) {
-        return classpath.entries().stream()
+    private static boolean classpathCurrent(
+            List<IncrementalCompileState.ClasspathEntry> recorded,
+            Classpath classpath) {
+        List<Path> currentPaths = classpath.entries().stream()
                 .map(path -> path.toAbsolutePath().normalize())
                 .sorted()
-                .map(path -> new IncrementalCompileState.ClasspathEntry(path, hash(path)))
                 .toList();
+        if (!recorded.stream().map(IncrementalCompileState.ClasspathEntry::path).toList().equals(currentPaths)) {
+            return false;
+        }
+        return recorded.stream().allMatch(IncrementalCompileInputHasher::classpathEntryCurrent);
     }
 }

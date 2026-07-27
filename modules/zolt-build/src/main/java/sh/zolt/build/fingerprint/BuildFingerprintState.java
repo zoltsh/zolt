@@ -76,11 +76,12 @@ record BuildFingerprintState(
     }
 
     Optional<String> hashIfCurrent(Path path) {
+        return fileIfCurrent(path).map(BuildFingerprintCachedFileHash::hash);
+    }
+
+    Optional<BuildFingerprintCachedFileHash> fileIfCurrent(Path path) {
         BuildFingerprintCachedFileHash file = files.get(path.toAbsolutePath().normalize());
-        if (file == null || !file.isCurrent()) {
-            return Optional.empty();
-        }
-        return Optional.of(file.hash());
+        return file != null && file.isCurrent() ? Optional.of(file) : Optional.empty();
     }
 
     private static String value(String line, String prefix) {

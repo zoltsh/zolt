@@ -163,6 +163,7 @@ public final class IncrementalCompileStateRecorder {
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
+        Optional<IncrementalCompileState> previousState = codec.read(statePath);
         List<String> stateFallbackReasons = new ArrayList<>(fallbackReasons);
         List<Path> sourceRoots = sourceRoots(projectRoot, configuredSourceRoots, generatedSteps);
         Map<Path, String> generatedStepIds = generatedStepIds(projectRoot, generatedSteps);
@@ -176,7 +177,7 @@ public final class IncrementalCompileStateRecorder {
                 classFiles,
                 IncrementalCompileInputHasher::hash);
         AttributionOutcome outcome = attributionOutcome(
-                processorClasspath, baseRecords, classRecords, attribution, compiledSources, statePath);
+                processorClasspath, baseRecords, classRecords, attribution, compiledSources, previousState);
         stateFallbackReasons.addAll(outcome.fallbackReasons());
         codec.write(
                 statePath,
@@ -190,8 +191,12 @@ public final class IncrementalCompileStateRecorder {
                         stateFallbackReasons,
                         sourceRoots.stream().map(path -> relative(projectRoot, path)).toList(),
                         generatedSteps.stream().map(GeneratedSourceStep::output).sorted().toList(),
-                        classpathEntries(compileClasspath),
-                        classpathEntries(processorClasspath),
+                        classpathEntries(
+                                compileClasspath,
+                                previousState.map(IncrementalCompileState::compileClasspath).orElse(List.of())),
+                        classpathEntries(
+                                processorClasspath,
+                                previousState.map(IncrementalCompileState::processorClasspath).orElse(List.of())),
                         outcome.sources(),
                         classRecords,
                         reverseDependencies(outcome.sources()),
@@ -204,12 +209,12 @@ public final class IncrementalCompileStateRecorder {
             List<IncrementalCompileState.ClassRecord> classRecords,
             GeneratedOutputAttribution attribution,
             List<Path> compiledSources,
-            Path statePath) {
+            Optional<IncrementalCompileState> previousState) {
         if (!processorClassifier.isolating(processorClasspath)) {
             return new AttributionOutcome(baseRecords, false, List.of());
         }
         IncrementalGeneratedOutputAttributor.Result result = attributor.apply(
-                baseRecords, classRecords, attribution, compiledSources, previousSources(statePath));
+                baseRecords, classRecords, attribution, compiledSources, previousSources(previousState));
         if (!attribution.present()) {
             return new AttributionOutcome(result.sources(), false, List.of("processor-generated-outputs-untracked"));
         }
@@ -219,8 +224,9 @@ public final class IncrementalCompileStateRecorder {
         return new AttributionOutcome(result.sources(), true, List.of());
     }
 
-    private Map<Path, IncrementalCompileState.SourceRecord> previousSources(Path statePath) {
-        return codec.read(statePath)
+    private static Map<Path, IncrementalCompileState.SourceRecord> previousSources(
+            Optional<IncrementalCompileState> previousState) {
+        return previousState
                 .map(state -> {
                     Map<Path, IncrementalCompileState.SourceRecord> previous = new LinkedHashMap<>();
                     state.sources().forEach(source -> previous.put(source.path(), source));
@@ -291,11 +297,15 @@ public final class IncrementalCompileStateRecorder {
         return reverseDependencies;
     }
 
-    private static List<IncrementalCompileState.ClasspathEntry> classpathEntries(Classpath classpath) {
+    private static List<IncrementalCompileState.ClasspathEntry> classpathEntries(
+            Classpath classpath,
+            List<IncrementalCompileState.ClasspathEntry> previousEntries) {
+        Map<Path, IncrementalCompileState.ClasspathEntry> previous = new LinkedHashMap<>();
+        previousEntries.forEach(entry -> previous.put(entry.path(), entry));
         return classpath.entries().stream()
                 .map(path -> path.toAbsolutePath().normalize())
                 .sorted()
-                .map(path -> new IncrementalCompileState.ClasspathEntry(path, hash(path)))
+                .map(path -> IncrementalCompileInputHasher.classpathEntry(path, previous.get(path)))
                 .toList();
     }
 

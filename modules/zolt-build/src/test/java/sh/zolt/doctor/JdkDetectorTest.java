@@ -35,6 +35,52 @@ final class JdkDetectorTest {
     }
 
     @Test
+    void readsJavaVersionFromJdkReleaseFileWithoutStartingJava() throws IOException {
+        Path javaHome = tempDir.resolve("jdk");
+        tool(javaHome, "java");
+        tool(javaHome, "javac");
+        tool(javaHome, "jar");
+        Files.writeString(javaHome.resolve("release"), """
+                IMPLEMENTOR="Example"
+                JAVA_VERSION="21.0.8"
+                """);
+        int[] processReads = new int[1];
+        JdkDetector detector = detector(
+                Map.of("JAVA_HOME", javaHome.toString()),
+                java -> {
+                    processReads[0]++;
+                    return Optional.of("openjdk version \"17.0.10\"");
+                });
+
+        JdkStatus status = detector.detect("21");
+
+        assertTrue(status.ok());
+        assertEquals("21", status.version().orElseThrow());
+        assertEquals(0, processReads[0]);
+    }
+
+    @Test
+    void fallsBackToJavaProcessWhenReleaseFileHasNoVersion() throws IOException {
+        Path javaHome = tempDir.resolve("jdk");
+        tool(javaHome, "java");
+        tool(javaHome, "javac");
+        tool(javaHome, "jar");
+        Files.writeString(javaHome.resolve("release"), "IMPLEMENTOR=\"Example\"\n");
+        int[] processReads = new int[1];
+        JdkDetector detector = detector(
+                Map.of("JAVA_HOME", javaHome.toString()),
+                java -> {
+                    processReads[0]++;
+                    return Optional.of("openjdk version \"21.0.8\"");
+                });
+
+        JdkStatus status = detector.detect("21");
+
+        assertTrue(status.ok());
+        assertEquals(1, processReads[0]);
+    }
+
+    @Test
     void detectsToolsFromPathWhenJavaHomeIsUnset() throws IOException {
         Path bin = tempDir.resolve("bin");
         tool(bin, "java");

@@ -94,11 +94,15 @@ final class IncrementalCompileStateParser {
             case "sourceRoot" -> sourceRoots.add(decodedPart(parts, 1, 2));
             case "generatedSourceRoot" -> generatedSourceRoots.add(decodedPart(parts, 1, 2));
             case "compileClasspath" -> compileClasspath.add(new IncrementalCompileState.ClasspathEntry(
-                    pathPart(parts, 1, 3),
-                    decodedPart(parts, 2, 3)));
+                    pathPart(parts, 1, 5),
+                    Long.parseLong(decodedPart(parts, 2, 5)),
+                    Long.parseLong(decodedPart(parts, 3, 5)),
+                    decodedPart(parts, 4, 5)));
             case "processorClasspath" -> processorClasspath.add(new IncrementalCompileState.ClasspathEntry(
-                    pathPart(parts, 1, 3),
-                    decodedPart(parts, 2, 3)));
+                    pathPart(parts, 1, 5),
+                    Long.parseLong(decodedPart(parts, 2, 5)),
+                    Long.parseLong(decodedPart(parts, 3, 5)),
+                    decodedPart(parts, 4, 5)));
             case "source" -> source(sources, pathPart(parts, 1, 6))
                     .set(
                             pathPart(parts, 1, 6),

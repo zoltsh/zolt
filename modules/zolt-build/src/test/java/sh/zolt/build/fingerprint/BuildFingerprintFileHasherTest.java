@@ -2,15 +2,15 @@ package sh.zolt.build.fingerprint;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.nio.charset.StandardCharsets;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -48,14 +48,32 @@ final class BuildFingerprintFileHasherTest {
     }
 
     @Test
-    void staleCachedStateThrowsStateMiss() throws IOException {
+    void staleCachedStateRehashesOnlyTheChangedFile() throws IOException {
         Path source = tempDir.resolve("source.txt");
         Files.writeString(source, "old");
         BuildFingerprintCachedFileHash cached = BuildFingerprintCachedFileHash.read(source, "cached-hash");
         Files.writeString(source, "newer content");
-        BuildFingerprintState state = new BuildFingerprintState("fingerprint", Map.of(source.toAbsolutePath().normalize(), cached));
+        BuildFingerprintState state = new BuildFingerprintState(
+                "fingerprint",
+                Map.of(source.toAbsolutePath().normalize(), cached));
 
-        assertThrows(BuildFingerprintStateMiss.class, () -> hasher.fileHash(source, state, null));
+        assertEquals(
+                hasher.fileHash(source, null, null),
+                hasher.fileHash(source, state, null));
+    }
+
+    @Test
+    void collectedStateCarriesForwardCurrentCachedHashes() throws IOException {
+        Path source = tempDir.resolve("source.txt");
+        Files.writeString(source, "content");
+        BuildFingerprintCachedFileHash cached = BuildFingerprintCachedFileHash.read(source, "cached-hash");
+        BuildFingerprintState state = new BuildFingerprintState(
+                "fingerprint",
+                Map.of(source.toAbsolutePath().normalize(), cached));
+        Map<Path, BuildFingerprintCachedFileHash> collected = new HashMap<>();
+
+        assertEquals("cached-hash", hasher.fileHash(source, state, collected));
+        assertEquals(cached, collected.get(source.toAbsolutePath().normalize()));
     }
 
     @Test
@@ -67,6 +85,22 @@ final class BuildFingerprintFileHasherTest {
         String hash = hasher.fileHash(source, null, collected);
 
         assertEquals(hash, collected.get(source.toAbsolutePath().normalize()).hash());
+    }
+
+    @Test
+    void reusesCurrentLockfileVerifiedArtifactHash() throws IOException {
+        Path artifact = tempDir.resolve("artifact.jar");
+        Files.writeString(artifact, "artifact bytes");
+        BuildFingerprintFileHasher verifiedHasher =
+                new BuildFingerprintFileHasher(path -> Optional.of("lockfile-verified-hash"));
+        Map<Path, BuildFingerprintCachedFileHash> collected = new HashMap<>();
+
+        assertEquals(
+                "lockfile-verified-hash",
+                verifiedHasher.fileHash(artifact, null, collected));
+        assertEquals(
+                "lockfile-verified-hash",
+                collected.get(artifact.toAbsolutePath().normalize()).hash());
     }
 
     @Test
@@ -94,7 +128,7 @@ final class BuildFingerprintFileHasherTest {
 
     private String incrementalState(Path outputDirectory) {
         Path project = tempDir.toAbsolutePath().normalize();
-        return "version=3\n"
+        return "version=4\n"
                 + "scope=main\n"
                 + encodedLine("projectDirectory", project.toString())
                 + encodedLine("outputDirectory", outputDirectory.toAbsolutePath().normalize().toString())

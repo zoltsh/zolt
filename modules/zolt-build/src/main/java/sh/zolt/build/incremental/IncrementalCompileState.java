@@ -59,10 +59,21 @@ public record IncrementalCompileState(
         return outputDirectory.resolve(TEST_FILE_NAME);
     }
 
-    public record ClasspathEntry(Path path, String hash) {
+    public record ClasspathEntry(
+            Path path,
+            long size,
+            long lastModifiedNanos,
+            String hash) {
         public ClasspathEntry {
             path = normalize(path, "Incremental compile classpath entry path is required.");
+            if (size < -1L || lastModifiedNanos < -1L) {
+                throw new BuildException("Incremental compile classpath file metadata is invalid.");
+            }
             hash = requireText(hash, "Incremental compile classpath entry hash is required.");
+        }
+
+        boolean hasRegularFileMetadata() {
+            return size >= 0L && lastModifiedNanos >= 0L;
         }
     }
 

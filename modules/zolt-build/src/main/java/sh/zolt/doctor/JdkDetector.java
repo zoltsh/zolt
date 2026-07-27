@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 
 public final class JdkDetector implements JdkChecker {
     private static final Pattern VERSION_PATTERN = Pattern.compile("version \"([^\"]+)\"");
+    private static final String RELEASE_VERSION_PREFIX = "JAVA_VERSION=";
 
     private final Function<String, String> environment;
     private final String pathSeparator;
@@ -65,11 +66,47 @@ public final class JdkDetector implements JdkChecker {
                 Optional<Path> java = findTool("java", javaHome);
                 Optional<Path> javac = findTool("javac", javaHome);
                 Optional<Path> jar = findTool("jar", javaHome);
-                Optional<String> version = java.flatMap(versionReader::read).flatMap(JdkDetector::majorVersion);
+                Optional<String> version = java
+                        .flatMap(this::readVersion)
+                        .flatMap(JdkDetector::majorVersion);
                 toolchain = new Toolchain(javaHome, java, javac, jar, version);
             }
             return toolchain;
         }
+    }
+
+    private Optional<String> readVersion(Path java) {
+        return javaHome(java)
+                .flatMap(JdkDetector::readReleaseVersion)
+                .or(() -> versionReader.read(java));
+    }
+
+    private static Optional<Path> javaHome(Path java) {
+        Path bin = java.toAbsolutePath().normalize().getParent();
+        return bin == null ? Optional.empty() : Optional.ofNullable(bin.getParent());
+    }
+
+    static Optional<String> readReleaseVersion(Path javaHome) {
+        Path release = javaHome.resolve("release");
+        if (!Files.isRegularFile(release)) {
+            return Optional.empty();
+        }
+        try {
+            return Files.readAllLines(release, StandardCharsets.UTF_8).stream()
+                    .filter(line -> line.startsWith(RELEASE_VERSION_PREFIX))
+                    .map(line -> unquote(line.substring(RELEASE_VERSION_PREFIX.length()).strip()))
+                    .filter(value -> !value.isBlank())
+                    .findFirst();
+        } catch (IOException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private static String unquote(String value) {
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
     }
 
     static Optional<String> majorVersion(String versionOutput) {

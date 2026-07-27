@@ -1,12 +1,9 @@
 package sh.zolt.javac;
 
-import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 
 /**
  * Executes one worker compile request and writes its response, shared by both transports. The legacy
@@ -14,6 +11,8 @@ import javax.tools.ToolProvider;
  * task and appends the attribution section. The response is not flushed here so callers can frame it.
  */
 final class WorkerCompile {
+    private static final PlainCompiler PLAIN_COMPILER = new PlainCompiler();
+
     private WorkerCompile() {
     }
 
@@ -27,16 +26,11 @@ final class WorkerCompile {
                     result);
             return;
         }
-        ByteArrayOutputStream diagnostics = new ByteArrayOutputStream();
-        int exitCode;
-        try {
-            JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-            exitCode = compiler.run(null, diagnostics, diagnostics, arguments.toArray(String[]::new));
-        } catch (RuntimeException | LinkageError exception) {
-            exitCode = 1;
-            diagnostics.writeBytes(("javac worker failed: " + exception + System.lineSeparator())
-                    .getBytes(StandardCharsets.UTF_8));
-        }
-        WorkerCompileProtocol.writeResponse(response, exitCode, diagnostics.toByteArray(), null);
+        PlainCompiler.Result result = PLAIN_COMPILER.compile(arguments);
+        WorkerCompileProtocol.writeResponse(
+                response,
+                result.exitCode(),
+                result.diagnostics().getBytes(StandardCharsets.UTF_8),
+                null);
     }
 }

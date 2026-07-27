@@ -18,11 +18,15 @@ final class IncrementalCompileStateFormatter {
                 content,
                 "compileClasspath",
                 entry.path().toString(),
+                Long.toString(entry.size()),
+                Long.toString(entry.lastModifiedNanos()),
                 entry.hash()));
         state.processorClasspath().forEach(entry -> encodedRecord(
                 content,
                 "processorClasspath",
                 entry.path().toString(),
+                Long.toString(entry.size()),
+                Long.toString(entry.lastModifiedNanos()),
                 entry.hash()));
         for (IncrementalCompileState.SourceRecord source : state.sources()) {
             encodedRecord(

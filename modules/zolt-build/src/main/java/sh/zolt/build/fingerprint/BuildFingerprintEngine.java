@@ -100,28 +100,24 @@ final class BuildFingerprintEngine {
             }
             Optional<BuildFingerprintState> state = stateStore.readState(fingerprintPath);
             if (state.isPresent() && state.orElseThrow().matchesFingerprint(existing)) {
-                try {
-                    String current = content.fingerprint(
-                            projectDirectory,
-                            config,
-                            lockfilePath,
-                            sourceRoots,
-                            resourceRoots,
-                            resourceRootKey,
-                            sources,
-                            generatedSteps,
-                            generatedProducerFingerprints,
-                            compileClasspath,
-                            processorClasspath,
-                            outputDirectory,
-                            outputDirectoryName,
-                            generatedSourcesDirectory,
-                            state.orElseThrow(),
-                            null);
-                    return comparison.compare(existing, current);
-                } catch (BuildFingerprintStateMiss ignored) {
-                    // Fall back to the full content-hash path below.
-                }
+                String current = content.fingerprint(
+                        projectDirectory,
+                        config,
+                        lockfilePath,
+                        sourceRoots,
+                        resourceRoots,
+                        resourceRootKey,
+                        sources,
+                        generatedSteps,
+                        generatedProducerFingerprints,
+                        compileClasspath,
+                        processorClasspath,
+                        outputDirectory,
+                        outputDirectoryName,
+                        generatedSourcesDirectory,
+                        state.orElseThrow(),
+                        null);
+                return comparison.compare(existing, current);
             }
             String current = content.fingerprint(
                     projectDirectory,
@@ -169,6 +165,7 @@ final class BuildFingerprintEngine {
         Path fingerprintPath = stateStore.fingerprintPath(outputDirectory, fileName);
         try {
             Files.createDirectories(fingerprintPath.getParent());
+            BuildFingerprintState cachedState = matchingState(fingerprintPath).orElse(null);
             Map<Path, BuildFingerprintCachedFileHash> state = new LinkedHashMap<>();
             String fingerprint = content.fingerprint(
                     projectDirectory,
@@ -185,7 +182,7 @@ final class BuildFingerprintEngine {
                     outputDirectory,
                     outputDirectoryName,
                     generatedSourcesDirectory,
-                    null,
+                    cachedState,
                     state);
             Files.writeString(fingerprintPath, fingerprint, StandardCharsets.UTF_8);
             stateStore.writeState(fingerprintPath, fingerprint, state);
@@ -196,6 +193,14 @@ final class BuildFingerprintEngine {
                             + ". Check that the build output directory is writable.",
                     exception);
         }
+    }
+
+    private Optional<BuildFingerprintState> matchingState(Path fingerprintPath) throws IOException {
+        if (!Files.isRegularFile(fingerprintPath)) {
+            return Optional.empty();
+        }
+        String fingerprint = Files.readString(fingerprintPath, StandardCharsets.UTF_8);
+        return stateStore.readState(fingerprintPath).filter(state -> state.matchesFingerprint(fingerprint));
     }
 
     private static String relative(Path projectDirectory, Path path) {

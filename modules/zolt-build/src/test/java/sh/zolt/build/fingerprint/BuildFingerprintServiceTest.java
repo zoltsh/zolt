@@ -189,6 +189,64 @@ final class BuildFingerprintServiceTest {
         assertEquals("fingerprint-mismatch:sources", check.reason());
     }
 
+    @Test
+    void refreshesChangedFilesWithoutDroppingCurrentCachedHashes() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Path source = write("src/main/java/com/example/Main.java", "package com.example; final class Main {}\n");
+        Path dependency = write("cache/example.jar", "dependency");
+        write("target/classes/com/example/Main.class", "class");
+        SourceDiscoveryResult sources = new SourceDiscoveryResult(List.of(source), List.of());
+        ProjectConfig config = config();
+        Path output = projectDir.resolve("target/classes");
+        Classpath compile = new Classpath(List.of(dependency));
+        Classpath empty = new Classpath(List.of());
+        ClasspathSet classpaths = new ClasspathSet(compile, compile, compile, empty, empty, empty);
+        Path fingerprint = output.resolve(".zolt-build-main.fingerprint");
+
+        service.writeMainCompileFingerprint(
+                projectDir,
+                config,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                classpaths,
+                output,
+                projectDir.resolve("target/generated/sources/annotations"));
+        Files.writeString(source, "package com.example; final class Main { int changed; }\n");
+        assertFalse(service.isMainCompileCurrent(
+                projectDir,
+                config,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                classpaths,
+                output,
+                projectDir.resolve("target/generated/sources/annotations")));
+
+        service.writeMainCompileFingerprint(
+                projectDir,
+                config,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                classpaths,
+                output,
+                projectDir.resolve("target/generated/sources/annotations"));
+
+        BuildFingerprintState refreshed = new BuildFingerprintStateStore()
+                .readState(fingerprint)
+                .orElseThrow();
+        assertEquals(
+                new BuildFingerprintFileHasher().fileHash(dependency, null, null),
+                refreshed.hashIfCurrent(dependency).orElseThrow());
+        assertTrue(service.isMainCompileCurrent(
+                projectDir,
+                config,
+                projectDir.resolve("zolt.lock"),
+                sources,
+                classpaths,
+                output,
+                projectDir.resolve("target/generated/sources/annotations")));
+    }
+
     private static ProjectConfig config() {
         return ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata("demo", "0.1.0", "com.example", "21", Optional.empty()),

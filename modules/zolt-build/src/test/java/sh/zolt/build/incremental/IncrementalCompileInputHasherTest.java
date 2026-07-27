@@ -1,17 +1,34 @@
 package sh.zolt.build.incremental;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class IncrementalCompileInputHasherTest {
     @TempDir
     private Path tempDir;
+
+    @Test
+    void classpathEntryReusesCurrentLockfileVerifiedHash() throws IOException {
+        Path jar = tempDir.resolve("dependency.jar");
+        Files.writeString(jar, "dependency bytes");
+
+        IncrementalCompileState.ClasspathEntry entry =
+                IncrementalCompileInputHasher.classpathEntry(
+                        jar,
+                        path -> Optional.of("lockfile-verified-hash"));
+
+        assertEquals("lockfile-verified-hash", entry.hash());
+        assertEquals(Files.size(jar), entry.size());
+    }
 
     @Test
     void hashesFileContent() throws IOException {
@@ -46,6 +63,41 @@ final class IncrementalCompileInputHasherTest {
     @Test
     void missingInputHashesAsMissing() {
         assertEquals("missing", IncrementalCompileInputHasher.hash(tempDir.resolve("missing.jar")));
+    }
+
+    @Test
+    void currentClasspathFileReusesItsRecordedHashUntilMetadataChanges() throws IOException {
+        Path jar = tempDir.resolve("library.jar");
+        Files.writeString(jar, "content");
+        IncrementalCompileState.ClasspathEntry recorded =
+                IncrementalCompileInputHasher.classpathEntry(jar);
+        IncrementalCompileState.ClasspathEntry cached = new IncrementalCompileState.ClasspathEntry(
+                recorded.path(),
+                recorded.size(),
+                recorded.lastModifiedNanos(),
+                "cached-hash");
+
+        assertTrue(IncrementalCompileInputHasher.classpathEntryCurrent(cached));
+        assertEquals(cached, IncrementalCompileInputHasher.classpathEntry(jar, cached));
+
+        Files.writeString(jar, "changed content");
+
+        assertFalse(IncrementalCompileInputHasher.classpathEntryCurrent(cached));
+        assertNotEquals(cached, IncrementalCompileInputHasher.classpathEntry(jar, cached));
+    }
+
+    @Test
+    void classpathDirectoryStillUsesItsContentHash() throws IOException {
+        Path classes = tempDir.resolve("classes");
+        Files.createDirectories(classes);
+        Files.writeString(classes.resolve("Example.class"), "old");
+        IncrementalCompileState.ClasspathEntry recorded =
+                IncrementalCompileInputHasher.classpathEntry(classes);
+
+        assertTrue(IncrementalCompileInputHasher.classpathEntryCurrent(recorded));
+        Files.writeString(classes.resolve("Example.class"), "new");
+
+        assertFalse(IncrementalCompileInputHasher.classpathEntryCurrent(recorded));
     }
 
     @Test

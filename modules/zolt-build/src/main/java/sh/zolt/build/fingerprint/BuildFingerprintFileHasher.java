@@ -3,6 +3,7 @@ package sh.zolt.build.fingerprint;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.build.incremental.IncrementalCompileStateCodec;
+import sh.zolt.build.lockfile.VerifiedArtifactHashes;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,6 +14,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 final class BuildFingerprintFileHasher {
@@ -34,6 +36,16 @@ final class BuildFingerprintFileHasher {
             ".zolt-build-test.fingerprint.state",
             ".zolt-incremental-main.state",
             ".zolt-incremental-test.state");
+
+    private final Function<Path, Optional<String>> verifiedArtifactHash;
+
+    BuildFingerprintFileHasher() {
+        this(VerifiedArtifactHashes::currentHash);
+    }
+
+    BuildFingerprintFileHasher(Function<Path, Optional<String>> verifiedArtifactHash) {
+        this.verifiedArtifactHash = verifiedArtifactHash;
+    }
 
     String hashText(String text) {
         return sha256(text.getBytes(StandardCharsets.UTF_8));
@@ -81,14 +93,22 @@ final class BuildFingerprintFileHasher {
             return "missing";
         }
         if (cachedState != null) {
-            return cachedState.hashIfCurrent(normalized)
-                    .orElseThrow(BuildFingerprintStateMiss::new);
+            Optional<BuildFingerprintCachedFileHash> cached = cachedState.fileIfCurrent(normalized);
+            if (cached.isPresent()) {
+                if (collectedState != null) {
+                    collectedState.put(normalized, cached.orElseThrow());
+                }
+                return cached.orElseThrow().hash();
+            }
+        }
+        Optional<String> verified = verifiedArtifactHash.apply(normalized);
+        if (verified.isPresent()) {
+            recordCollectedState(normalized, verified.orElseThrow(), collectedState);
+            return verified.orElseThrow();
         }
         try {
             String hash = sha256(Files.readAllBytes(normalized));
-            if (collectedState != null) {
-                collectedState.put(normalized, BuildFingerprintCachedFileHash.read(normalized, hash));
-            }
+            recordCollectedState(normalized, hash, collectedState);
             return hash;
         } catch (IOException exception) {
             throw new BuildException(
@@ -96,6 +116,23 @@ final class BuildFingerprintFileHasher {
                             + normalized
                             + ". Check that it is readable.",
                     exception);
+        }
+    }
+
+    private static void recordCollectedState(
+            Path path,
+            String hash,
+            Map<Path, BuildFingerprintCachedFileHash> collectedState) {
+        if (collectedState != null) {
+            try {
+                collectedState.put(path, BuildFingerprintCachedFileHash.read(path, hash));
+            } catch (IOException exception) {
+                throw new BuildException(
+                        "Could not fingerprint file "
+                                + path
+                                + ". Check that it is readable.",
+                        exception);
+            }
         }
     }
 

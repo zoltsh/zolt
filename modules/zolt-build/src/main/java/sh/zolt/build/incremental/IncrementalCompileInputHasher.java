@@ -1,14 +1,19 @@
 package sh.zolt.build.incremental;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.build.lockfile.VerifiedArtifactHashes;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 final class IncrementalCompileInputHasher {
     private static final Set<String> LOCAL_COMPILE_METADATA = Set.of(
@@ -42,6 +47,61 @@ final class IncrementalCompileInputHasher {
                             + normalized
                             + ". Check that it is readable.",
                     exception);
+        }
+    }
+
+    static IncrementalCompileState.ClasspathEntry classpathEntry(Path path) {
+        return classpathEntry(path, VerifiedArtifactHashes::currentHash);
+    }
+
+    static IncrementalCompileState.ClasspathEntry classpathEntry(
+            Path path,
+            Function<Path, Optional<String>> verifiedArtifactHash) {
+        Path normalized = path.toAbsolutePath().normalize();
+        String contentHash = verifiedArtifactHash
+                .apply(normalized)
+                .orElseGet(() -> hash(normalized));
+        if (!Files.isRegularFile(normalized)) {
+            return new IncrementalCompileState.ClasspathEntry(normalized, -1L, -1L, contentHash);
+        }
+        try {
+            BasicFileAttributes attributes = Files.readAttributes(normalized, BasicFileAttributes.class);
+            return new IncrementalCompileState.ClasspathEntry(
+                    normalized,
+                    attributes.size(),
+                    attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS),
+                    contentHash);
+        } catch (IOException exception) {
+            throw new BuildException(
+                    "Could not read incremental compile input metadata for "
+                            + normalized
+                            + ". Check that it is readable.",
+                    exception);
+        }
+    }
+
+    static IncrementalCompileState.ClasspathEntry classpathEntry(
+            Path path,
+            IncrementalCompileState.ClasspathEntry cached) {
+        Path normalized = path.toAbsolutePath().normalize();
+        return cached != null
+                        && cached.path().equals(normalized)
+                        && classpathEntryCurrent(cached)
+                ? cached
+                : classpathEntry(normalized);
+    }
+
+    static boolean classpathEntryCurrent(IncrementalCompileState.ClasspathEntry entry) {
+        if (!entry.hasRegularFileMetadata()) {
+            return entry.hash().equals(hash(entry.path()));
+        }
+        try {
+            BasicFileAttributes attributes = Files.readAttributes(entry.path(), BasicFileAttributes.class);
+            return attributes.isRegularFile()
+                    && attributes.size() == entry.size()
+                    && attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS) == entry.lastModifiedNanos();
+        } catch (IOException exception) {
+            return false;
         }
     }
 

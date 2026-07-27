@@ -25,8 +25,10 @@ final class IncrementalCompileStateCodecTest {
                 List.of("processor-classpath"),
                 List.of("src/main/java"),
                 List.of("target/generated/sources/openapi"),
-                List.of(new IncrementalCompileState.ClasspathEntry(project.resolve("lib/b.jar"), "hash-b")),
-                List.of(new IncrementalCompileState.ClasspathEntry(project.resolve("processor/a.jar"), "hash-a")),
+                List.of(new IncrementalCompileState.ClasspathEntry(
+                        project.resolve("lib/b.jar"), 42L, 123L, "hash-b")),
+                List.of(new IncrementalCompileState.ClasspathEntry(
+                        project.resolve("processor/a.jar"), 84L, 456L, "hash-a")),
                 List.of(new IncrementalCompileState.SourceRecord(
                         project.resolve("src/main/java/com/example/App.java"),
                         project.resolve("src/main/java"),
