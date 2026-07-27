@@ -115,7 +115,7 @@ Maven, and Gradle on generated multi-module Java workspaces.
 
 ## Rust
 
-No reason. I wanted to self-host to prove it out and support the GraalVM ecosystem.
+If Rust is needed, we'll rewrite Zolt, ship both, and keep them in sync.
 
 ## Security
 
