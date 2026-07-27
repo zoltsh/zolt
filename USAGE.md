@@ -56,8 +56,9 @@ zolt update --dry-run
 ```
 
 Zolt supports BOM imports, version aliases, scopes, exclusions, optional
-dependencies, classifiers, artifact types, and constraints. See
-[Resolution](./REFERENCE.md#resolution-and-lockfile-contracts) and
+dependencies, classifiers, artifact types, and constraints.
+
+See [Resolution](./REFERENCE.md#resolution-and-lockfile-contracts) and
 [Updates](./REFERENCE.md#dependency-updates).
 
 ## Workspaces
@@ -101,8 +102,9 @@ zolt shims install
 ```
 
 Projects can pin managed Temurin or GraalVM JDKs. A separate test-runtime JDK can
-verify the Java version users actually run. See
-[Toolchains](./REFERENCE.md#java-toolchains).
+verify the Java version users actually run.
+
+See [Toolchains](./REFERENCE.md#java-toolchains).
 
 ## Frameworks
 
@@ -132,8 +134,8 @@ zolt package --mode quarkus
 zolt native
 ```
 
-Packages can include sources, Javadoc, manifests, Maven metadata, and package
-evidence. Native builds use the resolved GraalVM toolchain.
+Packages support sources, Javadoc, manifests, Maven metadata, and evidence.
+Native builds use the resolved GraalVM toolchain.
 
 ## Publish
 
