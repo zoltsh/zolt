@@ -47,6 +47,13 @@ import sh.zolt.workspace.service.Workspace;
 
 @Command(name = "licenses", description = "Report the licenses of resolved dependencies from cached POMs.")
 public final class LicensesCommand implements Runnable {
+    /**
+     * The scopes {@code zolt check --check license-policy} evaluates, and therefore the only scopes an
+     * annotation may claim. {@code LicensePolicyQualityCheck} selects the same way; both call this one
+     * factory so the report and the command it names can never drift apart.
+     */
+    private static final SbomScopeSelection ENFORCED_SCOPES = SbomScopeSelection.requiredOnly();
+
     enum Format {
         TEXT,
         JSON
@@ -125,7 +132,7 @@ public final class LicensesCommand implements Runnable {
             Resolved resolved = workspace ? resolveWorkspace(selection) : resolveProject(selection);
             LicenseReport report = reportBuilder.build(resolved.components(), resolved.index());
             LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
-                    resolved.components(), resolved.index(), resolved.scopes());
+                    resolved.enforced(), resolved.index(), resolved.scopes());
 
             String document = format == Format.JSON
                     ? jsonWriter.write(report, annotations)
@@ -153,8 +160,14 @@ public final class LicensesCommand implements Runnable {
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         LicenseIndex index = resolveLicenses(lockfile, selection);
         SbomModel model = assembler.assemble(config, lockfile, selection, Optional.empty(), toolVersion, index);
-        List<SbomComponent> components = externalComponents(model, index);
-        return new Resolved(components, index, List.of(new LicensePolicyScope(config, components)));
+        SbomModel enforcedModel =
+                assembler.assemble(config, lockfile, ENFORCED_SCOPES, Optional.empty(), toolVersion, index);
+        List<SbomComponent> enforced = externalComponents(enforcedModel, index);
+        return new Resolved(
+                externalComponents(model, index),
+                enforced,
+                index,
+                List.of(new LicensePolicyScope(config, enforced)));
     }
 
     private Resolved resolveWorkspace(SbomScopeSelection selection) {
@@ -175,9 +188,14 @@ public final class LicensesCommand implements Runnable {
                 .toList();
         SbomModel model = workspaceAssembler.assemble(
                 discovered.config().name(), members, lockfile, selection, Optional.empty(), toolVersion, index);
-        List<SbomComponent> components = externalComponents(model, index);
+        SbomModel enforcedModel = workspaceAssembler.assemble(
+                discovered.config().name(), members, lockfile, ENFORCED_SCOPES, Optional.empty(), toolVersion, index);
+        List<SbomComponent> enforced = externalComponents(enforcedModel, index);
         return new Resolved(
-                components, index, workspaceScopes.from(discovered, lockfile, selection, components));
+                externalComponents(model, index),
+                enforced,
+                index,
+                workspaceScopes.from(discovered, lockfile, enforced));
     }
 
     /** The report covers resolvable third-party dependencies; first-party members are excluded. */
@@ -191,8 +209,17 @@ public final class LicensesCommand implements Runnable {
         return component.group() + ":" + component.name() + ":" + component.version();
     }
 
-    /** {@code scopes} pairs each member-local {@code [dependencyPolicy.licenses]} with what it governs. */
-    private record Resolved(List<SbomComponent> components, LicenseIndex index, List<LicensePolicyScope> scopes) {
+    /**
+     * {@code components} is what the report lists — every scope the user selected. {@code enforced} is
+     * the separate {@link #ENFORCED_SCOPES} assembly the annotations are computed from, so an
+     * optional-scope entry stays listed but unannotated. {@code scopes} pairs each member-local
+     * {@code [dependencyPolicy.licenses]} with the enforced closure it governs.
+     */
+    private record Resolved(
+            List<SbomComponent> components,
+            List<SbomComponent> enforced,
+            LicenseIndex index,
+            List<LicensePolicyScope> scopes) {
     }
 
     private LicenseIndex resolveLicenses(ZoltLockfile lockfile, SbomScopeSelection selection) {

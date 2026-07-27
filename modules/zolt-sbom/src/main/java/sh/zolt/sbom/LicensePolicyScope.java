@@ -5,7 +5,9 @@ import sh.zolt.project.LicensePolicySettings;
 import sh.zolt.project.ProjectConfig;
 
 /**
- * One policy owner paired with the dependency closure it actually consumes.
+ * One policy owner paired with the dependency closure it actually consumes, within the scopes the
+ * enforcing command evaluates ({@link SbomScopeSelection#requiredOnly()}) — never the wider set a
+ * report may list.
  *
  * <p>A single project is one scope over its own dependencies. A workspace is one scope per member:
  * {@code [dependencyPolicy]} is member-local, and a member's policy governs only what that member

@@ -29,6 +29,11 @@ import sh.zolt.workspace.service.WorkspaceMember;
  * quality check consumes. Holding this in the CLI — which already sees both zolt-workspace and
  * zolt-sbom — is what keeps zolt-sbom free of any workspace dependency: only the projected result
  * crosses the boundary, as a plain list of components.
+ *
+ * <p>The projection is filtered at {@link SbomScopeSelection#requiredOnly()} whatever scopes the report
+ * was asked for, because that is what {@code zolt check --workspace --check license-policy} evaluates.
+ * A member's test-only dependency is therefore listed by a {@code --include-test} report and left
+ * unannotated rather than marked against a policy the named command never applies to it.
  */
 final class WorkspaceLicensePolicyScopes {
     private final WorkspaceMemberPolicyResolver policyResolver = new WorkspaceMemberPolicyResolver();
@@ -37,12 +42,15 @@ final class WorkspaceLicensePolicyScopes {
     /**
      * One scope per member that configures a policy. Members without one are skipped rather than
      * projected: they would contribute nothing, and the projection is not free.
+     *
+     * @param components the enforcing-scope components the report resolved, already narrowed to
+     *     {@link SbomScopeSelection#requiredOnly()} by the caller
      */
     List<LicensePolicyScope> from(
             Workspace workspace,
             ZoltLockfile lockfile,
-            SbomScopeSelection selection,
             List<SbomComponent> components) {
+        SbomScopeSelection enforced = SbomScopeSelection.requiredOnly();
         List<LicensePolicyScope> scopes = new ArrayList<>();
         for (WorkspaceMember member : workspace.members()) {
             ProjectConfig effectiveConfig = policyResolver.merge(workspace, member);
@@ -51,7 +59,7 @@ final class WorkspaceLicensePolicyScopes {
             }
             ZoltLockfile memberLock =
                     projection.project(member.path(), effectiveConfig, lockfile, workspace, policyResolver);
-            Set<String> consumed = consumedCoordinates(memberLock, selection);
+            Set<String> consumed = consumedCoordinates(memberLock, enforced);
             scopes.add(new LicensePolicyScope(
                     effectiveConfig,
                     components.stream()
@@ -62,9 +70,9 @@ final class WorkspaceLicensePolicyScopes {
     }
 
     /** External coordinates in the member's projected closure; first-party members are not third parties. */
-    private static Set<String> consumedCoordinates(ZoltLockfile memberLock, SbomScopeSelection selection) {
+    private static Set<String> consumedCoordinates(ZoltLockfile memberLock, SbomScopeSelection enforced) {
         return memberLock.packages().stream()
-                .filter(lockPackage -> selection.includes(SbomScopeGroup.of(lockPackage.scope())))
+                .filter(lockPackage -> enforced.includes(SbomScopeGroup.of(lockPackage.scope())))
                 .filter(lockPackage -> lockPackage.workspace().isEmpty())
                 .map(lockPackage -> lockPackage.packageId() + ":" + lockPackage.version())
                 .collect(Collectors.toCollection(LinkedHashSet::new));

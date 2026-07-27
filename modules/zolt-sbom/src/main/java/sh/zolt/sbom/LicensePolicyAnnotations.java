@@ -17,6 +17,14 @@ import sh.zolt.project.ProjectConfig;
  * When no policy is configured the annotations are {@link #none() unconfigured} and every renderer
  * emits exactly what it emitted before.
  *
+ * <p><strong>Enforcement scope.</strong> The annotation names an enforcing command, so it may only
+ * cover what that command evaluates: {@link SbomScopeSelection#requiredOnly()}, compile and runtime.
+ * A report may list wider scopes ({@code --include-test} and friends); those entries stay listed and
+ * stay UNANNOTATED, because marking a test-only dependency {@code [denied]} would claim a violation
+ * {@code zolt check --check license-policy} passes. The caller therefore hands in the enforcing-scope
+ * closure, not the reported one, and a coordinate that is in both an enforced and an optional scope is
+ * in the enforcing closure and is annotated.
+ *
  * <p>Across a workspace each member owns its own policy ({@code [dependencyPolicy]} is member-local,
  * not merged down from the root) while the report aggregates every member's dependencies. Evaluation is
  * therefore scoped: a member's policy sees only the closure that member consumes, exactly as
@@ -37,7 +45,7 @@ public record LicensePolicyAnnotations(
         return new LicensePolicyAnnotations(false, Map.of(), 0);
     }
 
-    /** Single owner: one policy over the dependencies that same owner consumes. */
+    /** Single owner: one policy over the enforcing-scope dependencies that same owner consumes. */
     public static LicensePolicyAnnotations evaluate(
             List<SbomComponent> components,
             LicenseIndex index,
@@ -50,13 +58,15 @@ public record LicensePolicyAnnotations(
      * with the strictest verdict winning among the scopes that reach it. Scopes whose policy is unset
      * contribute nothing; when none is configured the result is {@link #none()}.
      *
-     * <p>{@code reported} is the component list the report itself renders. It fixes two things: findings
-     * for coordinates the report does not show are dropped, so the summary counts can never exceed the
-     * annotated rows, and {@code evaluated} counts distinct coordinates to match the report's own
-     * per-coordinate deduplication rather than the raw component-list length.
+     * <p>{@code enforced} is the closure the enforcing command actually evaluates — the caller's
+     * {@link SbomScopeSelection#requiredOnly()} assembly, NOT the wider list the report renders. It fixes
+     * two things: a finding for a coordinate outside that closure is dropped, so an optional-scope entry
+     * is listed without a status the enforcing command would not raise, and {@code evaluated} counts
+     * distinct enforced coordinates rather than the raw component-list length, matching the report's own
+     * per-coordinate deduplication.
      */
     public static LicensePolicyAnnotations evaluate(
-            List<SbomComponent> reported,
+            List<SbomComponent> enforced,
             LicenseIndex index,
             List<LicensePolicyScope> scopes) {
         List<LicensePolicyScope> enforcing = scopes.stream()
@@ -65,20 +75,20 @@ public record LicensePolicyAnnotations(
         if (enforcing.isEmpty()) {
             return none();
         }
-        Set<String> reportedCoordinates = new LinkedHashSet<>();
-        for (SbomComponent component : reported) {
-            reportedCoordinates.add(coordinate(component));
+        Set<String> enforcedCoordinates = new LinkedHashSet<>();
+        for (SbomComponent component : enforced) {
+            enforcedCoordinates.add(coordinate(component));
         }
         LicensePolicyEvaluator evaluator = new LicensePolicyEvaluator();
         Map<String, LicensePolicyFinding> strictest = new LinkedHashMap<>();
         for (LicensePolicyScope scope : enforcing) {
             for (LicensePolicyFinding finding : evaluator.evaluate(scope.components(), index, scope.policy())) {
-                if (reportedCoordinates.contains(finding.coordinate())) {
+                if (enforcedCoordinates.contains(finding.coordinate())) {
                     strictest.merge(finding.coordinate(), finding, LicensePolicyAnnotations::stricter);
                 }
             }
         }
-        return new LicensePolicyAnnotations(true, strictest, reportedCoordinates.size());
+        return new LicensePolicyAnnotations(true, strictest, enforcedCoordinates.size());
     }
 
     private static String coordinate(SbomComponent component) {

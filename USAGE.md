@@ -1528,14 +1528,23 @@ In `--format json` the same status is additive: each offending component gains a
 `policy` object and the document gains a `licensePolicy` summary; nothing existing
 is renamed or removed. Without a policy configured the output is unchanged.
 
+Annotations reflect the enforcement scope, which is compile/runtime — exactly what
+`zolt check --check license-policy` evaluates. Entries a wider report lists via
+`--include-provided`, `--include-dev`, `--include-test`, or `--include-tools` stay
+listed and stay unannotated: no `[denied]`/`[unknown]` marker, no JSON `policy`
+object, and no place in the summary. Marking a test-only dependency would claim a
+violation the command named as the enforcer passes. A coordinate that is in an
+enforced scope as well as an optional one is enforced, and is annotated.
+
 In a workspace, `[dependencyPolicy]` is member-local, so each member's policy is
 evaluated only against that member's own dependency closure — the same scoping
 `zolt check --workspace --check license-policy` enforces with. A coordinate takes
 the strictest verdict among the members that actually consume it; a member that
 does not depend on a coordinate never affects its verdict. The report therefore
 cannot flag something the command it points at would pass. The summary's
-denominator counts the distinct coordinates the report lists, not raw component
-entries: one coordinate reached from several members is still one dependency.
+denominator counts the distinct coordinates in the enforcing scope, not raw
+component entries: one coordinate reached from several members is still one
+dependency.
 
 `zolt publish --sbom` attaches a CycloneDX SBOM to the publish as a supplemental
 artifact (classifier `cyclonedx`, extension `json`). It rides the existing

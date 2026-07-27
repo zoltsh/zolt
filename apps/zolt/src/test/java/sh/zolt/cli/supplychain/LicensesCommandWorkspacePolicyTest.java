@@ -156,6 +156,55 @@ final class LicensesCommandWorkspacePolicyTest {
         }
     }
 
+    /**
+     * The workspace analog of the scope defect: {@code zolt check --workspace --check license-policy}
+     * evaluates compile/runtime, so a member's provided-scope dependency must stay listed and
+     * unannotated however wide the report was asked to be — and the test-scope closure must stay out of
+     * the denominator.
+     */
+    @Test
+    void anOptionalScopeMemberDependencyStaysListedButUnannotatedAndTheEnforcingCommandAgrees()
+            throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            addArtifacts(repository);
+            // modules/core denies GPL and consumes it, but only at provided scope.
+            Path workspace = writeWorkspace(
+                    repository,
+                    """
+
+                    [dependencies]
+                    "org.example:mit-lib" = "1.0.0"
+
+                    [provided.dependencies]
+                    "org.example:gpl-lib" = "1.0.0"
+
+                    [dependencyPolicy.licenses]
+                    deny = ["GPL-3.0-only"]
+                    """,
+                    """
+
+                    [dependencies]
+                    "org.example:apache-lib" = "1.0.0"
+                    """);
+            Path cache = tempDir.resolve("cache");
+            assertEquals(0, resolve(workspace, cache).exitCode());
+
+            CommandResult licenses = execute("licenses", "--workspace", "--include-provided", "--include-test",
+                    "--cwd", workspace.toString(), "--cache-root", cache.toString());
+            CommandResult check = execute("check", "--workspace", "--check", "license-policy",
+                    "--cwd", workspace.toString(), "--cache-root", cache.toString());
+
+            assertEquals(0, licenses.exitCode(), licenses.stdout() + licenses.stderr());
+            assertTrue(licenses.stdout().contains("org.example:gpl-lib:1.0.0"), licenses.stdout());
+            assertFalse(licenses.stdout().contains("[denied]"), licenses.stdout());
+            // mit-lib and apache-lib are the whole enforcing closure; gpl-lib is listed outside it.
+            assertTrue(licenses.stdout().contains("License policy: 0 denied, 0 unknown of 2 dependencies."),
+                    licenses.stdout());
+            assertEquals(0, check.exitCode(), check.stdout() + check.stderr());
+            assertFalse(check.stdout().contains("error license-policy"), check.stdout());
+        }
+    }
+
     private static CommandResult resolve(Path workspace, Path cache) {
         CommandResult resolve = execute("resolve", "--workspace",
                 "--cwd", workspace.toString(), "--cache-root", cache.toString());

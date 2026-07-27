@@ -114,43 +114,149 @@ final class LicensesCommandPolicyTest {
         assertFalse(json.stdout().contains("\"policy\""), json.stdout());
     }
 
+    /**
+     * The annotation names {@code zolt check --check license-policy} as its enforcer, and that command
+     * evaluates compile/runtime only. A test-scoped dependency a wider report lists therefore stays
+     * listed and stays unannotated — asserted alongside the enforcing command passing on the same
+     * fixture, because the two surfaces disagreeing is the whole defect.
+     */
+    @Test
+    void aTestScopedDependencyStaysListedButUnannotatedAndTheEnforcingCommandAgrees() throws IOException {
+        Path projectDir = tempDir.resolve("test-scope");
+        Path cache = tempDir.resolve("cache-test-scope");
+        writeProject(projectDir, """
+
+                [dependencyPolicy.licenses]
+                deny = ["GPL-3.0-only"]
+                """, lockPackage("lib", "compile") + lockPackage("test-lib", "test"));
+        writePom(cache, "lib", "Apache-2.0");
+        writePom(cache, "test-lib", "GPL-3.0-only");
+
+        CommandResult text = execute("licenses", "--include-test", "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+        CommandResult json = execute("licenses", "--include-test", "--format", "json",
+                "--cwd", projectDir.toString(), "--cache-root", cache.toString());
+        CommandResult check = execute("check", "--check", "license-policy", "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+
+        assertEquals(0, text.exitCode(), text.stderr());
+        // Listed by the report the user asked for...
+        assertTrue(text.stdout().contains("org.example:test-lib:1.0.0"), text.stdout());
+        // ...but never marked, and never counted.
+        assertFalse(text.stdout().contains("[denied]"), text.stdout());
+        assertTrue(text.stdout().contains("License policy: 0 denied, 0 unknown of 1 dependency."), text.stdout());
+        assertFalse(json.stdout().contains("\"policy\""), json.stdout());
+        assertTrue(json.stdout().contains("\"evaluated\": 1"), json.stdout());
+        // The command the report points at agrees: nothing to enforce.
+        assertEquals(0, check.exitCode(), check.stdout() + check.stderr());
+    }
+
+    /** In both an enforced and an optional scope means enforced: the coordinate is annotated. */
+    @Test
+    void aCoordinateInBothCompileAndTestScopeIsAnnotated() throws IOException {
+        Path projectDir = tempDir.resolve("both-scopes");
+        Path cache = tempDir.resolve("cache-both-scopes");
+        writeProject(projectDir, """
+
+                [dependencyPolicy.licenses]
+                deny = ["GPL-3.0-only"]
+                """, lockPackage("lib", "compile") + lockPackage("lib", "test"));
+        writePom(cache, "lib", "GPL-3.0-only");
+
+        CommandResult text = execute("licenses", "--include-test", "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+        CommandResult check = execute("check", "--check", "license-policy", "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+
+        assertEquals(0, text.exitCode(), text.stderr());
+        assertTrue(
+                text.stdout().contains(
+                        "org.example:lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny"),
+                text.stdout());
+        assertTrue(text.stdout().contains("License policy: 1 denied, 0 unknown of 1 dependency."), text.stdout());
+        // And again the enforcing command agrees — this time by failing.
+        assertEquals(1, check.exitCode(), check.stdout() + check.stderr());
+    }
+
+    /** The denominator is the enforcing closure, not the report: optional-scope extras never inflate it. */
+    @Test
+    void theSummaryCountsOnlyTheCoordinatesInTheEnforcingScope() throws IOException {
+        Path projectDir = tempDir.resolve("denominator");
+        Path cache = tempDir.resolve("cache-denominator");
+        writeProject(projectDir, """
+
+                [dependencyPolicy.licenses]
+                deny = ["GPL-3.0-only"]
+                """,
+                lockPackage("lib", "compile")
+                        + lockPackage("runtime-lib", "runtime")
+                        + lockPackage("test-lib", "test")
+                        + lockPackage("provided-lib", "provided"));
+        writePom(cache, "lib", "Apache-2.0");
+        writePom(cache, "runtime-lib", "Apache-2.0");
+        writePom(cache, "test-lib", "Apache-2.0");
+        writePom(cache, "provided-lib", "Apache-2.0");
+
+        CommandResult text = execute("licenses", "--include-test", "--include-provided",
+                "--cwd", projectDir.toString(), "--cache-root", cache.toString());
+
+        assertEquals(0, text.exitCode(), text.stderr());
+        assertTrue(text.stdout().contains("Apache-2.0 (4)"), text.stdout());
+        // Four listed, two enforced: compile and runtime.
+        assertTrue(text.stdout().contains("License policy: 0 denied, 0 unknown of 2 dependencies."), text.stdout());
+    }
+
     private static void writeProject(Path projectDir, String policy) throws IOException {
+        writeProject(projectDir, policy, lockPackage("lib", "compile"));
+    }
+
+    private static void writeProject(Path projectDir, String policy, String packages) throws IOException {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + policy);
         Files.writeString(projectDir.resolve("zolt.lock"), """
                 version = 1
                 projectResolutionFingerprint = "sha256:cli-licenses-policy"
+                """ + packages);
+    }
+
+    private static String lockPackage(String artifact, String scope) {
+        return """
 
                 [[package]]
-                id = "org.example:lib"
+                id = "org.example:%1$s"
                 version = "1.0.0"
                 source = "maven-central"
-                scope = "compile"
+                scope = "%2$s"
                 direct = true
-                jar = "org/example/lib/1.0.0/lib-1.0.0.jar"
-                pom = "org/example/lib/1.0.0/lib-1.0.0.pom"
+                jar = "org/example/%1$s/1.0.0/%1$s-1.0.0.jar"
+                pom = "org/example/%1$s/1.0.0/%1$s-1.0.0.pom"
                 jarSha256 = "1111111111111111111111111111111111111111111111111111111111111111"
                 dependencies = []
-                """);
+                """.formatted(artifact, scope);
     }
 
     private static void writePom(Path cache, String licenseName) throws IOException {
-        writePomBody(cache, "  <licenses><license><name>" + licenseName + "</name></license></licenses>\n");
+        writePom(cache, "lib", licenseName);
+    }
+
+    private static void writePom(Path cache, String artifact, String licenseName) throws IOException {
+        writePomBody(
+                cache, artifact, "  <licenses><license><name>" + licenseName + "</name></license></licenses>\n");
     }
 
     private static void writePomWithoutLicense(Path cache) throws IOException {
-        writePomBody(cache, "");
+        writePomBody(cache, "lib", "");
     }
 
-    private static void writePomBody(Path cache, String licenses) throws IOException {
-        Path pom = cache.resolve("org/example/lib/1.0.0/lib-1.0.0.pom");
+    private static void writePomBody(Path cache, String artifact, String licenses) throws IOException {
+        Path pom = cache.resolve("org/example/" + artifact + "/1.0.0/" + artifact + "-1.0.0.pom");
         Files.createDirectories(pom.getParent());
         Files.writeString(pom, """
                 <project>
                   <groupId>org.example</groupId>
-                  <artifactId>lib</artifactId>
+                  <artifactId>%s</artifactId>
                   <version>1.0.0</version>
                 %s</project>
-                """.formatted(licenses));
+                """.formatted(artifact, licenses));
     }
 }

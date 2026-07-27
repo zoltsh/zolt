@@ -138,6 +138,36 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     );
     expect.value(failure.stdout).toContain("add `Apache-2.0` to [dependencyPolicy.licenses].allow");
 
+    // The annotation claims what `zolt check --check license-policy` enforces, and that command
+    // evaluates compile/runtime only. A test-scoped dependency under the same deny list is therefore
+    // listed by `--include-test` with no marker at all, and never joins the summary's denominator.
+    const scoped = await copyFixture(root, work, "hello-zolt", "license-scope");
+    await appendFile(join(scoped, "zolt.toml"), [
+      "", "[test.dependencies]", '"org.apiguardian:apiguardian-api" = "1.1.2"',
+      "", "[dependencyPolicy.licenses]", 'deny = ["Apache-2.0"]', "",
+    ].join("\n"), "utf8");
+    await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", scoped, "--cache-root", zolt.cacheRoot]);
+
+    const scopedArgs = ["--no-progress", "licenses", "--cwd", scoped, "--cache-root", zolt.cacheRoot];
+    const required = await runZolt(t, zolt, scopedArgs);
+    const withTests = await runZolt(t, zolt, [...scopedArgs, "--include-test"]);
+    // The compile-scope dependency is still marked in both.
+    expect.value(withTests.stdout).toContain(
+      "com.google.guava:guava:33.4.0-jre  [denied] denied by [dependencyPolicy.licenses].deny",
+    );
+    // The test-scope one is listed as a bare coordinate: no marker, no reason.
+    expect.value(required.stdout.includes("org.apiguardian:apiguardian-api")).toBe(false);
+    expect.value(withTests.stdout).toMatch(/^ {2}org\.apiguardian:apiguardian-api:1\.1\.2$/mu);
+    // And the summary is identical either way, because the denominator is the enforced closure.
+    const summary = /^License policy: .*$/mu;
+    expect.value(withTests.stdout.match(summary)?.[0]).toBe(required.stdout.match(summary)?.[0]);
+
+    const scopedFailure = await runZolt(t, zolt, [
+      "--no-progress", "check", "--check", "license-policy", "--cwd", scoped, "--cache-root", zolt.cacheRoot,
+    ], { check: false });
+    expect.value(scopedFailure.exitCode).toBe(1);
+    expect.value(scopedFailure.stdout.includes("org.apiguardian:apiguardian-api")).toBe(false);
+
     const allowed = await copyFixture(root, work, "hello-zolt", "license-allowed");
     await appendFile(join(allowed, "zolt.toml"), [
       "", "[dependencyPolicy.licenses]", 'allow = ["Apache-2.0", "MIT"]', 'unknown = "fail"', "",
