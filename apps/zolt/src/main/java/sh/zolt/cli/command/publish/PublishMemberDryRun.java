@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.publish;
 
+import sh.zolt.cli.command.CommandLockfiles;
 import sh.zolt.publish.PublishCentralReadinessService;
 import sh.zolt.publish.PublishCentralRequirement;
 import sh.zolt.publish.PublishDryRunPlan;
@@ -20,6 +21,12 @@ import java.util.function.Supplier;
  * <p>Deliberately narrow: only the {@code --dry-run --central} path routes. A live member publish and
  * every non-Central dry run keep their standalone behaviour, and family publishing stays behind
  * {@code --workspace}. Outside a member directory this is {@link #absent()} and nothing changes.
+ *
+ * <p>Because this route plans against the workspace-aggregated root lock, it owes the same dependency
+ * guarantees {@code zolt publish --workspace} gives: {@link #resolve} runs
+ * {@link CommandLockfiles#requireFreshWorkspaceLockfile} before planning, so a stale root lock is refused
+ * rather than silently planned against, and it threads {@code --offline} all the way into planning so the
+ * flag is honoured from a member directory too.
  */
 final class PublishMemberDryRun {
     private final Optional<WorkspaceMemberDryRun> member;
@@ -35,14 +42,17 @@ final class PublishMemberDryRun {
     static PublishMemberDryRun resolve(
             boolean enabled,
             WorkspacePublishService workspacePublishService,
+            CommandLockfiles lockfiles,
             Path projectRoot,
             Path cacheRoot,
+            boolean offline,
             WorkspaceMemberSbomGenerator sbomGenerator) {
         if (!enabled) {
             return absent();
         }
+        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, offline, "zolt publish --dry-run --central");
         return new PublishMemberDryRun(
-                workspacePublishService.planMemberDryRun(projectRoot, cacheRoot, true, sbomGenerator));
+                workspacePublishService.planMemberDryRun(projectRoot, cacheRoot, offline, true, sbomGenerator));
     }
 
     boolean present() {

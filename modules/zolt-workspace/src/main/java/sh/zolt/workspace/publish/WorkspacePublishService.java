@@ -130,10 +130,15 @@ public final class WorkspacePublishService {
      * versioning are what {@code --workspace} is for, and this preview answers only "is THIS member ready
      * for Central". Returns empty when the directory is not a workspace member (including the workspace
      * root itself), leaving standalone planning untouched.
+     *
+     * <p>{@code offline} is the caller's {@code --offline} flag and reaches the underlying build plan, so a
+     * member dry run never reaches a repository when the user asked it not to. Lock freshness is the
+     * caller's gate, exactly as it is for {@code --workspace}.
      */
     public Optional<WorkspaceMemberDryRun> planMemberDryRun(
             Path startDirectory,
             Path cacheRoot,
+            boolean offline,
             boolean central,
             WorkspaceMemberSbomGenerator sbomGenerator) {
         Path directory = startDirectory.toAbsolutePath().normalize();
@@ -147,7 +152,7 @@ public final class WorkspacePublishService {
         }
         String memberPath = discovered.orElseThrow().path();
         WorkspaceBuildPlan plan = workspaceBuildService.planBuild(
-                directory, cacheRoot, false, WorkspaceSelectionRequest.exact(List.of(memberPath)));
+                directory, cacheRoot, offline, WorkspaceSelectionRequest.exact(List.of(memberPath)));
         WorkspaceMember member = plan.workspace().members().stream()
                 .filter(candidate -> candidate.path().equals(memberPath))
                 .findFirst()

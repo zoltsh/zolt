@@ -87,6 +87,80 @@ final class PublishCommandMemberCentralDryRunTest {
         }
     }
 
+    /**
+     * The member route plans from the workspace lock, so it owes the same guarantee {@code --workspace}
+     * gives: {@code --offline} means no repository is contacted. With no root lock at all the planner has
+     * to resolve, and offline resolution must fail from the cache rather than reach for the network.
+     */
+    @Test
+    void offlineMemberDryRunWithNoRootLockFailsWithoutTouchingTheNetwork() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            Path memberDir = workspace(repository, "core", readyMemberConfig("core", repository));
+            Path cacheRoot = tempDir.resolve("cache");
+            // Deliberately no `resolve --workspace`: the root lock is absent, which is what forces the
+            // planner to resolve rather than read.
+            assertFalse(Files.exists(memberDir.getParent().getParent().resolve("zolt.lock")));
+            repository.clearAuthorizations();
+
+            CommandResult result = execute("publish", "--dry-run", "--central", "--offline",
+                    "--cwd", memberDir.toString(),
+                    "--cache-root", cacheRoot.toString());
+
+            assertEquals(1, result.exitCode(), result.stdout() + result.stderr());
+            assertEquals(java.util.Map.of(), repository.authorizations(),
+                    "--offline must reach no repository, even with no workspace lock to plan from");
+        }
+    }
+
+    /**
+     * A stale root lock is refused, not silently planned against — the same contract
+     * {@code zolt publish --workspace} enforces through the shared
+     * {@code CommandLockfiles.requireFreshWorkspaceLockfile} gate. The gate verifies rather than
+     * regenerates, so the refusal is identical online and offline; both modes are pinned here.
+     */
+    @Test
+    void staleRootLockRefusesTheMemberDryRunOnlineAndOffline() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            Path memberDir = workspace(repository, "core", readyMemberConfig("core", repository));
+            Path workspaceDir = memberDir.getParent().getParent();
+            Path cacheRoot = tempDir.resolve("cache");
+            assertEquals(0, resolveWorkspace(memberDir, cacheRoot).exitCode());
+            String freshLockfile = Files.readString(workspaceDir.resolve("zolt.lock"));
+            // Change a resolution input so the root lock no longer matches the workspace config. The
+            // repository URL is declared in both files and they must agree, so both move together.
+            String changed = repository.baseUri() + "?changed=true";
+            Files.writeString(workspaceDir.resolve("zolt.toml"), """
+                    [workspace]
+                    name = "family"
+                    members = ["modules/core"]
+
+                    [repositories]
+                    test = "%s"
+                    """.formatted(changed));
+            Files.writeString(memberDir.resolve("zolt.toml"), readyMemberConfig("core", changed));
+
+            CommandResult online = execute("publish", "--dry-run", "--central",
+                    "--cwd", memberDir.toString(),
+                    "--cache-root", cacheRoot.toString());
+            CommandResult offline = execute("publish", "--dry-run", "--central", "--offline",
+                    "--cwd", memberDir.toString(),
+                    "--cache-root", cacheRoot.toString());
+            // The same fixture through the --workspace entry path, to pin that the two agree.
+            CommandResult family = execute("publish", "--dry-run", "--workspace", "--all",
+                    "--cwd", memberDir.toString(),
+                    "--cache-root", cacheRoot.toString());
+
+            assertEquals(1, online.exitCode(), online.stdout() + online.stderr());
+            assertTrue(online.stderr().contains("Workspace zolt.lock is out of date"), online.stderr());
+            assertEquals(1, offline.exitCode(), offline.stdout() + offline.stderr());
+            assertTrue(offline.stderr().contains("Workspace zolt.lock is out of date"), offline.stderr());
+            assertEquals(1, family.exitCode(), family.stdout() + family.stderr());
+            assertTrue(family.stderr().contains("Workspace zolt.lock is out of date"), family.stderr());
+            // The gate never rewrites the lock it refused.
+            assertEquals(freshLockfile, Files.readString(workspaceDir.resolve("zolt.lock")));
+        }
+    }
+
     @Test
     void nonMemberDirectoryInsideAWorkspaceTreeKeepsTheStandaloneLockPath() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
@@ -144,6 +218,10 @@ final class PublishCommandMemberCentralDryRunTest {
     }
 
     private static String readyMemberConfig(String name, CliTestRepository repository) {
+        return readyMemberConfig(name, repository.baseUri().toString());
+    }
+
+    private static String readyMemberConfig(String name, String repositoryUri) {
         return memberConfig(name) + """
 
                 [repositories]
@@ -178,7 +256,7 @@ final class PublishCommandMemberCentralDryRunTest {
                 [publish.signing]
                 enabled = true
                 keyId = "ABCDEF0123456789"
-                """.formatted(repository.baseUri());
+                """.formatted(repositoryUri);
     }
 
     private static String bareMemberConfig(String name, CliTestRepository repository) {

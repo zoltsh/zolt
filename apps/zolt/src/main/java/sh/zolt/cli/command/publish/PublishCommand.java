@@ -166,11 +166,15 @@ public final class PublishCommand implements Callable<Integer> {
             }
             // A workspace member has no member-level zolt.lock, so a Central dry run there plans through
             // the workspace planner against the aggregated root lock (and brings its own member SBOM).
+            // It therefore takes the same workspace lock freshness gate and the same --offline handling as
+            // `publish --workspace`; both entry paths must give identical dependency guarantees.
             PublishMemberDryRun memberDryRun = PublishMemberDryRun.resolve(
                     dryRun && central,
                     workspacePublishService,
+                    lockfiles,
                     projectRoot,
                     cacheRoot,
+                    offline,
                     sbomGenerator.memberGenerator(sbom, ZoltCli.version()));
             Optional<Path> sbomFile = memberDryRun.present() ? Optional.empty() : generateSbom(projectRoot);
             if (central && !dryRun) {

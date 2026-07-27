@@ -230,10 +230,14 @@ repositories.
 It also runs from inside a workspace member directory. Members have no member-level
 `zolt.lock` — a `--workspace` resolve writes only the root one — so the readiness
 dry run plans that member through the workspace planner against the aggregated root
-lock and prints the same checklist for the member's own coordinates. Only the
-readiness dry run works this way; actually publishing a family is still
-`zolt publish --workspace`, and family-scoped gates (inter-member completeness,
-uniform versions) belong to that command rather than this per-member preview.
+lock and prints the same checklist for the member's own coordinates. Because it
+plans from the workspace lock it takes the same lock guarantees as
+`zolt publish --workspace`: a stale root lock is refused with the same message
+rather than planned against, and `--offline` is honoured all the way into
+planning. Only the readiness dry run works this way; actually publishing a family
+is still `zolt publish --workspace`, and family-scoped gates (inter-member
+completeness, uniform versions) belong to that command rather than this per-member
+preview.
 
 Enable `[publish.signing]` to attach a detached GPG signature (`.asc`) to every
 uploaded artifact and to the POM. Publish shells out to the `gpg` binary
