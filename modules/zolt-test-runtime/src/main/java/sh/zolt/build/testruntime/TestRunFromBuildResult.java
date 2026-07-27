@@ -1,7 +1,6 @@
 package sh.zolt.build.testruntime;
 
-import sh.zolt.build.BuildResult;
-import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
@@ -9,7 +8,7 @@ import sh.zolt.test.shard.TestShardSpec;
 import java.nio.file.Path;
 import java.util.List;
 
-/** Compiles tests from a prebuilt {@link BuildResult} and runs them, for the build-then-test entry paths. */
+/** Compiles tests from a prebuilt result and runs them, preserving its resolved package model. */
 final class TestRunFromBuildResult {
     private TestRunFromBuildResult() {
     }
@@ -18,8 +17,7 @@ final class TestRunFromBuildResult {
             TestRunService service,
             Path projectDirectory,
             ProjectConfig config,
-            ClasspathSet classpaths,
-            BuildResult buildResult,
+            BuildResultWithClasspaths buildResult,
             TestSelection selection,
             TestJvmArguments jvmArguments,
             TestReportSettings reportSettings,
@@ -29,8 +27,8 @@ final class TestRunFromBuildResult {
         return service.runCompiledTests(
                 projectDirectory,
                 config,
-                classpaths,
-                service.compileTests(projectDirectory, config, classpaths, buildResult),
+                buildResult.classpaths(),
+                service.compileTests(projectDirectory, config, buildResult),
                 selection,
                 jvmArguments,
                 reportSettings,

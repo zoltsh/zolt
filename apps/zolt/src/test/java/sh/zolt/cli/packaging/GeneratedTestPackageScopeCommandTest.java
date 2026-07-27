@@ -307,7 +307,8 @@ final class GeneratedTestPackageScopeCommandTest {
                 project,
                 config,
                 build.classpaths(),
-                build.buildResult());
+                build.buildResult(),
+                build.classpathPackages());
     }
 
     private static void assertSuccess(CommandResult result) {

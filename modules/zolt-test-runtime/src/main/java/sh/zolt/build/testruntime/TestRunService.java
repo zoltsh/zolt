@@ -1,6 +1,7 @@
 package sh.zolt.build.testruntime;
 
 import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.run.JavaRunner;
@@ -26,9 +27,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Supplier;
 
-public final class TestRunService {
+public final class TestRunService extends CompiledTestRunService {
     private final TestCompileService testCompileService;
-    private final CompiledTestRunInvoker compiledTestRunInvoker;
 
     public TestRunService() {
         this(new JdkDetector());
@@ -79,27 +79,32 @@ public final class TestRunService {
             PlainJunitWorkerRunner plainJunitWorkerRunner,
             boolean plainJunitWorkerEnabled,
             String pathSeparator) {
-        this.testCompileService = testCompileService;
-        this.compiledTestRunInvoker = new CompiledTestRunInvoker(new CompiledTestExecutionRunner(new CompiledTestRunner(
-                jdkDetector,
-                javaRunner,
-                frameworkTestRunner,
-                plainJunitWorkerClasspath,
-                plainJunitWorkerRunner,
-                plainJunitWorkerEnabled,
-                pathSeparator)));
+        this(
+                testCompileService,
+                new CompiledTestRunInvoker(
+                        new CompiledTestExecutionRunner(
+                                new CompiledTestRunner(
+                                        jdkDetector,
+                                        javaRunner,
+                                        frameworkTestRunner,
+                                        plainJunitWorkerClasspath,
+                                        plainJunitWorkerRunner,
+                                        plainJunitWorkerEnabled,
+                                        pathSeparator))));
     }
 
     private TestRunService(
             TestCompileService testCompileService,
             CompiledTestRunInvoker compiledTestRunInvoker) {
+        super(compiledTestRunInvoker);
         this.testCompileService = testCompileService;
-        this.compiledTestRunInvoker = compiledTestRunInvoker;
     }
 
     /** Returns a service that restores the main build and test classes from the build cache. */
     public TestRunService withBuildCache(BuildCacheService buildCacheService) {
-        return new TestRunService(testCompileService.withBuildCache(buildCacheService), compiledTestRunInvoker);
+        return new TestRunService(
+                testCompileService.withBuildCache(buildCacheService),
+                compiledTestRunInvoker());
     }
 
     public TestRunResult runTests(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
@@ -213,108 +218,6 @@ public final class TestRunService {
         return testCompileService.buildTestInputs(projectDirectory, config, cacheRoot);
     }
 
-    public TestRunResult runCompiledTests(
-            Path projectDirectory,
-            ProjectConfig config,
-            ClasspathSet classpaths,
-            TestCompileResult compileResult) {
-        return compiledTestRunInvoker.runCompiledTests(projectDirectory, config, classpaths, compileResult);
-    }
-
-    public TestRunResult runCompiledTests(
-            Path projectDirectory,
-            ProjectConfig config,
-            ClasspathSet classpaths,
-            TestCompileResult compileResult,
-            TestSelection selection) {
-        return compiledTestRunInvoker.runCompiledTests(
-                projectDirectory, config, classpaths, compileResult, selection);
-    }
-
-    public TestRunResult runCompiledTests(
-            Path projectDirectory,
-            ProjectConfig config,
-            ClasspathSet classpaths,
-            TestCompileResult compileResult,
-            TestSelection selection,
-            TestJvmArguments jvmArguments) {
-        return compiledTestRunInvoker.runCompiledTests(
-                projectDirectory, config, classpaths, compileResult, selection, jvmArguments);
-    }
-
-    public TestRunResult runCompiledTests(
-            Path projectDirectory,
-            ProjectConfig config,
-            ClasspathSet classpaths,
-            TestCompileResult compileResult,
-            TestSelection selection,
-            TestJvmArguments jvmArguments,
-            TestReportSettings reportSettings) {
-        return compiledTestRunInvoker.runCompiledTests(
-                projectDirectory, config, classpaths, compileResult, selection, jvmArguments, reportSettings);
-    }
-
-    public TestRunResult runCompiledTests(
-            Path projectDirectory,
-            ProjectConfig config,
-            ClasspathSet classpaths,
-            TestCompileResult compileResult,
-            TestSelection selection,
-            TestJvmArguments jvmArguments,
-            TestReportSettings reportSettings,
-            List<String> cliEvents) {
-        return compiledTestRunInvoker.runCompiledTests(
-                projectDirectory, config, classpaths, compileResult, selection, jvmArguments, reportSettings, cliEvents);
-    }
-
-    public TestRunResult runCompiledTests(
-            Path projectDirectory,
-            ProjectConfig config,
-            ClasspathSet classpaths,
-            TestCompileResult compileResult,
-            TestSelection selection,
-            TestJvmArguments jvmArguments,
-            TestReportSettings reportSettings,
-            List<String> cliEvents,
-            String suiteName) {
-        return compiledTestRunInvoker.runCompiledTests(
-                projectDirectory, config, classpaths, compileResult, selection, jvmArguments, reportSettings, cliEvents,
-                suiteName);
-    }
-
-    public TestRunResult runCompiledTests(
-            Path projectDirectory,
-            ProjectConfig config,
-            ClasspathSet classpaths,
-            TestCompileResult compileResult,
-            TestSelection selection,
-            TestJvmArguments jvmArguments,
-            TestReportSettings reportSettings,
-            List<String> cliEvents,
-            String suiteName,
-            TestShardSpec shard) {
-        return compiledTestRunInvoker.runCompiledTests(
-                projectDirectory, config, classpaths, compileResult, selection, jvmArguments, reportSettings, cliEvents,
-                suiteName, shard);
-    }
-
-    public TestRunResult runCompiledTests(
-            Path projectDirectory,
-            ProjectConfig config,
-            ClasspathSet classpaths,
-            TestCompileResult compileResult,
-            TestSelection selection,
-            TestJvmArguments jvmArguments,
-            TestReportSettings reportSettings,
-            List<String> cliEvents,
-            String suiteName,
-            TestShardSpec shard,
-            TestProfileSettings profileSettings) {
-        return compiledTestRunInvoker.runCompiledTests(
-                projectDirectory, config, classpaths, compileResult, selection, jvmArguments, reportSettings, cliEvents,
-                suiteName, shard, profileSettings);
-    }
-
     public TestRunResult runTests(
             Path projectDirectory,
             ProjectConfig config,
@@ -338,13 +241,64 @@ public final class TestRunService {
             List<String> cliEvents,
             String suiteName,
             TestShardSpec shard) {
+        return runTests(
+                projectDirectory,
+                config,
+                new BuildResultWithClasspaths(
+                        buildResult,
+                        classpaths,
+                        List.of()),
+                selection,
+                jvmArguments,
+                reportSettings,
+                cliEvents,
+                suiteName,
+                shard);
+    }
+
+    public TestRunResult runTests(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResultWithClasspaths buildResult,
+            TestSelection selection,
+            TestJvmArguments jvmArguments,
+            TestReportSettings reportSettings,
+            List<String> cliEvents,
+            String suiteName,
+            TestShardSpec shard) {
         return TestRunFromBuildResult.run(
-                this, projectDirectory, config, classpaths, buildResult,
+                this, projectDirectory, config, buildResult,
                 selection, jvmArguments, reportSettings, cliEvents, suiteName, shard);
     }
 
     public TestCompileResult compileTests(
             Path projectDirectory, ProjectConfig config, ClasspathSet classpaths, BuildResult buildResult) {
         return testCompileService.compileTests(projectDirectory, config, classpaths, buildResult);
+    }
+
+    public TestCompileResult compileTests(
+            Path projectDirectory,
+            ProjectConfig config,
+            ClasspathSet classpaths,
+            BuildResult buildResult,
+            List<ResolvedClasspathPackage> classpathPackages) {
+        return testCompileService.compileTests(
+                projectDirectory,
+                config,
+                classpaths,
+                buildResult,
+                classpathPackages);
+    }
+
+    public TestCompileResult compileTests(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResultWithClasspaths buildResult) {
+        return compileTests(
+                projectDirectory,
+                config,
+                buildResult.classpaths(),
+                buildResult.buildResult(),
+                buildResult.classpathPackages());
     }
 }

@@ -1,5 +1,6 @@
 package sh.zolt.workspace.service;
 
+import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.build.testruntime.TestRunService;
@@ -225,8 +226,7 @@ public final class WorkspaceTestService {
                             testRunService.compileTests(
                                     member.directory(),
                                     member.config(),
-                                    memberBuild.classpaths(),
-                                    memberBuild.result()),
+                                    testInputs(memberBuild)),
                             testSelection,
                             testJvmArguments,
                             testReportSettings.forWorkspaceMember(member.path()),
@@ -276,12 +276,13 @@ public final class WorkspaceTestService {
                     testRunService.runTests(
                             member.directory(),
                             integrationConfig,
-                            memberBuild.classpaths(),
-                            memberBuild.result(),
+                            testInputs(memberBuild),
                             testSelection,
                             testJvmArguments,
                             testReportSettings.forWorkspaceMember(member.path()),
-                            cliEvents)));
+                            cliEvents,
+                            "all",
+                            null)));
         }
         return new WorkspaceTestResult(
                 buildResult.resolveResult(),
@@ -296,6 +297,14 @@ public final class WorkspaceTestService {
             members.put(member.path(), member);
         }
         return members;
+    }
+
+    private static BuildResultWithClasspaths testInputs(
+            WorkspaceBuildResult.MemberBuildResult memberBuild) {
+        return new BuildResultWithClasspaths(
+                memberBuild.result(),
+                memberBuild.classpaths(),
+                memberBuild.classpathPackages());
     }
 
     private static Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath(WorkspaceBuildResult result) {

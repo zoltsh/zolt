@@ -165,7 +165,7 @@ public final class TestCompileService {
         return compileTests(projectDirectory, config, classpaths, buildResult, List.of());
     }
 
-    private TestCompileResult compileTests(
+    public TestCompileResult compileTests(
             Path projectDirectory,
             ProjectConfig config,
             ClasspathSet classpaths,

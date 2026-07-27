@@ -262,8 +262,7 @@ public final class IntegrationTestCommand implements Runnable {
                                         () -> projectTestRunService.compileTests(
                                                 projectRoot,
                                                 integrationConfig,
-                                                buildResult.classpaths(),
-                                                buildResult.buildResult()),
+                                                buildResult),
                                         CommandTestAttributes::testCompile);
                                 return new TestCompileResultWithClasspaths(
                                         testCompileResult,

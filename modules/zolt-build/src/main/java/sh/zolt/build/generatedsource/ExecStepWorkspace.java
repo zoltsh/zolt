@@ -45,7 +45,10 @@ final class ExecStepWorkspace {
             entries.add(root.resolve(config.build().testOutput()).normalize());
             entries.add(root.resolve(config.build().output()).normalize());
             packages.stream()
-                    .filter(dependency -> dependency.scope().entersTestClasspath())
+                    .filter(dependency ->
+                            dependency.scope().entersMainRuntimeClasspath()
+                                    || dependency.scope()
+                                            .entersTestClasspath())
                     .map(dependency -> dependency.resolvedPackage().jarPath())
                     .forEach(entries::add);
         } else {

@@ -285,8 +285,7 @@ public final class TestCommand implements Runnable {
                                         () -> projectTestRunService.compileTests(
                                                 projectRoot,
                                                 config,
-                                                buildResult.classpaths(),
-                                                buildResult.buildResult()),
+                                                buildResult),
                                         CommandTestAttributes::testCompile);
                                 return new TestCompileResultWithClasspaths(
                                         testCompileResult,
