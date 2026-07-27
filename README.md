@@ -38,7 +38,6 @@ curl -fsSL https://dist.zolt.sh/install.sh | sh
 ```sh
 zolt init hello
 cd hello
-
 zolt add test org.junit.jupiter:junit-jupiter-api:5.11.4
 zolt test
 zolt package

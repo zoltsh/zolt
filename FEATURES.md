@@ -1,148 +1,250 @@
 # Zolt Features
 
-Zolt covers the Java project lifecycle from project creation through release.
-See [USAGE.md](./USAGE.md) for commands, configuration, and detailed behavior.
+Zolt covers Java projects from setup through release. See
+[USAGE.md](./USAGE.md) for details.
 
-## CLI
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Develop</strong><br>
+      <a href="#cli">CLI</a> ·
+      <a href="#projects">Projects</a> ·
+      <a href="#dependencies">Dependencies</a> ·
+      <a href="#builds">Builds</a> ·
+      <a href="#tests">Tests</a>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Ship</strong><br>
+      <a href="#toolchains">Toolchains</a> ·
+      <a href="#frameworks">Frameworks</a> ·
+      <a href="#packaging">Packaging</a> ·
+      <a href="#publishing">Publishing</a>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Operate</strong><br>
+      <a href="#quality">Quality</a> ·
+      <a href="#enterprise">Enterprise</a> ·
+      <a href="#distribution">Distribution</a> ·
+      <a href="#platforms">Platforms</a>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Inspect</strong><br>
+      <a href="#insight">Insight</a> ·
+      <a href="#boundaries">Boundaries</a> ·
+      <a href="#more">More</a>
+    </td>
+  </tr>
+</table>
+
+<a id="cli"></a>
+<details>
+<summary><strong>CLI</strong> — human output, JSON, plans, dry runs, and next steps</summary>
+
+`zolt --list` · `zolt help` · `zolt doctor` · `zolt plan`
 
 - One native binary with fast startup.
-- Commands grouped by job in `zolt --help` and `zolt --list`.
-- Human-readable output by default and JSON output for automation.
-- Actionable failures that identify the problem, relevant file, and next step.
+- Commands grouped by job.
+- Human-readable output by default and JSON for automation.
+- Actionable failures with the problem, relevant file, and next step.
 - Typed build, test, package, native, and CI plans before execution.
-- Non-mutating previews for dependency updates, package contents, publishing,
-  and cache pruning.
-- Consistent workspace selection with `--workspace`, `--all`, `--member`, and `--members`.
-- Consistent automation controls with `--quiet`, `--verbose`, `--color`, `--progress`, and `--timings`.
-- Run from another project directory with `--directory`.
-- Project-defined command aliases and tasks.
+- Non-mutating previews for updates, package contents, publishing, and cache pruning.
+- Consistent workspace selection and automation controls.
+- Project-defined aliases and tasks.
 
-## Projects
+</details>
 
-- Create a Java project or workspace with `zolt init`.
+<a id="projects"></a>
+<details>
+<summary><strong>Projects</strong> — scaffold, configure, build, run, and manage workspaces</summary>
+
+`zolt init` · `zolt tasks` · `zolt aliases` · `zolt clean`
+
+- Create a Java project or workspace.
 - Keep the project model in `zolt.toml`.
 - Build, test, package, run, check, clean, and publish selected workspace members.
 - Schedule workspace members in dependency order.
 - Use workspace dependencies without publishing intermediate artifacts.
-- Configure project tasks, aliases, sources, resources, generated sources, and integration-test roots.
+- Configure tasks, aliases, sources, resources, generated sources, and integration-test roots.
 
-## Dependencies
+</details>
 
-- Add and remove compile, runtime, provided, development, test, and annotation-processor dependencies.
-- Import Maven BOMs and manage shared version aliases.
-- Configure exclusions, optional dependencies, classifiers, artifact types, and strict constraints.
-- Resolve to a deterministic `zolt.lock`.
-- Pin POM and artifact integrity with SHA-256 hashes.
-- Verify locked and offline builds.
-- Inspect the graph with `tree`, `why`, `conflicts`, `policy`, and `classpath audit`.
-- Report available versions with `outdated`.
-- Preview and apply dependency updates with `update`.
-- Use authenticated Maven-compatible repositories and local repository overlays.
+<a id="dependencies"></a>
+<details>
+<summary><strong>Dependencies</strong> — add, update, lock, inspect, and verify</summary>
 
-## Builds
+`zolt add` · `zolt remove` · `zolt platform` · `zolt resolve` ·
+`zolt outdated` · `zolt update` · `zolt tree` · `zolt why` ·
+`zolt conflicts`
+
+- Compile, runtime, provided, development, test, and annotation-processor scopes.
+- Maven BOMs, shared version aliases, exclusions, optional dependencies, classifiers,
+  artifact types, and strict constraints.
+- Deterministic `zolt.lock` files with SHA-256 integrity.
+- Locked and offline builds.
+- Dependency graph, selection, policy, and classpath inspection.
+- Authenticated Maven-compatible repositories and local repository overlays.
+
+</details>
+
+<a id="builds"></a>
+<details>
+<summary><strong>Builds</strong> — compile, run, package, and cache</summary>
+
+`zolt build` · `zolt run` · `zolt package` · `zolt run-package` · `zolt cache`
 
 - Compile Java sources and copy or filter resources.
 - Run applications directly from the project model.
-- Package and run the produced artifact.
 - Inspect typed build and package plans without executing them.
-- Reuse local build outputs through a content-addressed cache.
-- Share build outputs through an optional remote cache.
-- Keep cache inputs tied to sources, dependencies, configuration, and the resolved JDK.
+- Reuse local outputs through a content-addressed cache.
+- Share outputs through an optional remote cache.
+- Tie cache inputs to sources, dependencies, configuration, and the resolved JDK.
 
-## Tests
+</details>
 
-- Run JUnit Platform and JUnit Vintage tests.
-- Run Groovy and Spock tests.
-- Configure separate unit and integration-test roots.
-- Select test classes, methods, patterns, suites, and JUnit tags.
-- Split tests into deterministic shards.
-- Balance supported test workers from profiling evidence.
-- Write JUnit XML reports and test profile JSON.
-- Generate JaCoCo HTML, XML, and execution-data reports.
-- Enforce line, branch, instruction, and method coverage floors.
-- Compile with one JDK and run tests on a separately pinned target JDK.
+<a id="tests"></a>
+<details>
+<summary><strong>Tests</strong> — select, shard, profile, report, and measure coverage</summary>
 
-## Toolchains
+`zolt test` · `zolt integration-test` · `zolt test plan` · `zolt coverage`
 
-- Manage Eclipse Temurin and GraalVM Community JDKs.
-- Pin project JDKs in `zolt.toml` and `zolt.lock`.
-- Install and select a user-global default JDK.
-- Use `prefer-managed`, `require-managed`, or `allow-system` policy.
-- Run commands inside the resolved JDK with `zolt exec`.
-- Install opt-in `java`, `javac`, `jar`, `javadoc`, `jshell`, and `native-image` shims.
-- Build native executables with GraalVM Native Image.
+- JUnit Platform, JUnit Vintage, Groovy, and Spock.
+- Separate unit and integration-test roots.
+- Class, method, pattern, suite, and JUnit tag selection.
+- Deterministic shards and profiling-based worker balancing.
+- JUnit XML reports and test profile JSON.
+- JaCoCo HTML, XML, and execution-data reports.
+- Line, branch, instruction, and method coverage floors.
+- Separate build and test-runtime JDKs.
 
-## Frameworks
+</details>
 
-- Package Spring Boot applications and WAR files.
-- Package Quarkus fast-jar applications and inspect augmentation plans.
-- Build Micronaut and Vert.x application shapes through documented examples.
-- Generate Java sources from OpenAPI and Protobuf definitions.
-- Run declared process or JVM generation steps with typed inputs, outputs, ordering, and cache policy.
-- Export generated roots through the IDE model.
+<a id="toolchains"></a>
+<details>
+<summary><strong>Toolchains</strong> — manage JDKs, shims, and native-image</summary>
 
-## Packaging
+`zolt toolchain` · `zolt exec` · `zolt shims` · `zolt native`
 
-- Create thin jars with a verified runtime-classpath sidecar.
-- Create deterministic uber jars with explicit duplicate handling.
-- Create plain WAR and Spring Boot WAR packages.
-- Create Spring Boot and Quarkus packages.
-- Publish BOM-only workspace members.
-- Attach sources and Javadoc jars.
-- Configure manifest entries and Maven package metadata.
-- Inspect package contents before writing an archive.
+- Eclipse Temurin and GraalVM Community JDKs.
+- Project-pinned and user-global JDKs.
+- `prefer-managed`, `require-managed`, and `allow-system` policy.
+- Commands run inside the resolved JDK.
+- Opt-in `java`, `javac`, `jar`, `javadoc`, `jshell`, and `native-image` shims.
+- GraalVM Native Image builds.
 
-## Publishing
+</details>
 
-- Publish artifacts and POMs to Maven-compatible repositories.
-- Check Maven Central readiness without uploading.
-- Publish through the Sonatype Central Portal.
-- Attach checksums, detached GPG signatures, sources, Javadoc, and CycloneDX SBOMs.
-- Publish a workspace family in dependency order or as one Central bundle.
-- Preflight the complete upload set before the first request.
-- Resume interrupted plain-repository publishes safely.
-- Build native release archives and verify them by unpacking and running real workflows.
+<a id="frameworks"></a>
+<details>
+<summary><strong>Frameworks</strong> — Spring Boot, Quarkus, Micronaut, Vert.x, OpenAPI, and Protobuf</summary>
 
-## Quality
+`zolt quarkus plan` · `zolt quarkus test-plan`
 
-- Run local and CI quality contexts with `zolt check`.
-- Require test reports, coverage, package evidence, publish readiness, and offline readiness.
-- Generate CycloneDX SBOMs from the locked graph.
-- Report dependency licenses without network access.
-- Enforce dependency and license policy.
-- Emit stable JSON for CI and other tooling.
-- Control progress, color, summaries, diagnostics, and timings independently.
+- Spring Boot application and WAR packaging.
+- Quarkus fast-jar packaging and augmentation plans.
+- Documented Micronaut and Vert.x application examples.
+- OpenAPI and Protobuf generated Java sources.
+- Declared process or JVM generation steps with typed inputs, outputs, ordering,
+  and cache policy.
+- Generated roots exported through the IDE model.
 
-## Insight
+</details>
 
-- Export single-project and workspace IDE models as JSON.
-- Check lockfile freshness without rewriting it.
-- Audit Maven or Gradle projects before migration.
-- Show migration scorecards and focused blockers.
-- Generate a draft `zolt.toml` from supported Maven and Gradle inputs.
-- Compare an incumbent build with its Zolt migration.
-- Inspect dependency selection, classpaths, package plans, test plans, and framework inputs.
+<a id="packaging"></a>
+<details>
+<summary><strong>Packaging</strong> — thin, uber, WAR, framework, BOM, sources, and Javadoc</summary>
 
-## Enterprise
+`zolt package` · `zolt package --plan` · `zolt run-package`
 
-- Use HTTP and HTTPS proxies, including authenticated proxies.
-- Add private certificate authorities without replacing the JDK trust store.
-- Authenticate repositories with basic credentials or bearer tokens referenced through environment variables.
-- Redirect all user-global state with `ZOLT_USER_HOME`.
-- Configure Java toolchain mirrors.
-- Keep secrets out of project configuration, lockfiles, fingerprints, plans, and logs.
+- Thin jars with a verified runtime-classpath sidecar.
+- Deterministic uber jars with explicit duplicate handling.
+- Plain WAR, Spring Boot, Spring Boot WAR, and Quarkus packages.
+- BOM-only workspace members.
+- Sources and Javadoc jars.
+- Manifest entries and Maven package metadata.
+- Package content plans before archive creation.
 
-## Distribution
+</details>
 
-- Install and update the native Zolt binary through release channels.
-- List, install, select, execute, prune, and roll back installed versions.
-- Build Zolt with Zolt.
-- Compare bootstrap and self-hosted artifacts.
-- Smoke native Zolt binaries against real project and release workflows.
+<a id="publishing"></a>
+<details>
+<summary><strong>Publishing</strong> — Maven repositories, Central, signing, SBOMs, and releases</summary>
 
-## Platforms
+`zolt publish` · `zolt release-archive` · `zolt release-verify`
 
-Native Zolt releases support:
+- Maven-compatible repositories and the Sonatype Central Portal.
+- Maven Central readiness checks without uploading.
+- Checksums, GPG signatures, sources, Javadoc, and CycloneDX SBOMs.
+- Dependency-ordered workspace families and atomic Central bundles.
+- Full upload preflight before the first request.
+- Safe resume for interrupted plain-repository publishes.
+- Native release archives verified through real workflows.
+
+</details>
+
+<a id="quality"></a>
+<details>
+<summary><strong>Quality</strong> — CI checks, policy, evidence, and offline readiness</summary>
+
+`zolt check` · `zolt sbom` · `zolt licenses`
+
+- Local and CI quality contexts.
+- Test report, coverage, package, publish, and offline-readiness requirements.
+- CycloneDX SBOMs generated from the locked graph.
+- Offline dependency license reports.
+- Dependency and license policy.
+- Stable JSON output and independent progress, color, summary, diagnostic, and timing controls.
+
+</details>
+
+<a id="insight"></a>
+<details>
+<summary><strong>Insight</strong> — IDE models, plans, dependency evidence, and migration audits</summary>
+
+`zolt plan` · `zolt ide model` · `zolt explain` · `zolt why`
+
+- Single-project and workspace IDE models as JSON.
+- Lockfile freshness checks without rewriting.
+- Maven and Gradle migration audits, scorecards, and blockers.
+- Draft `zolt.toml` generation from supported Maven and Gradle inputs.
+- Incumbent build comparison.
+- Dependency, classpath, package, test, and framework plans.
+
+</details>
+
+<a id="enterprise"></a>
+<details>
+<summary><strong>Enterprise</strong> — proxies, private CAs, credentials, mirrors, and isolated state</summary>
+
+`zolt config show`
+
+- HTTP and HTTPS proxies, including authenticated proxies.
+- Private certificate authorities without replacing the JDK trust store.
+- Basic credentials and bearer tokens referenced through environment variables.
+- User-global state redirected with `ZOLT_USER_HOME`.
+- Java toolchain mirrors.
+- Secrets kept out of project configuration, lockfiles, fingerprints, plans, and logs.
+
+</details>
+
+<a id="distribution"></a>
+<details>
+<summary><strong>Distribution</strong> — install, update, roll back, release, and self-host</summary>
+
+`zolt self` · `zolt self-check` · `zolt self-parity` · `zolt native-smoke`
+
+- Installer-managed native Zolt versions and release channels.
+- Install, select, execute, prune, update, and roll back.
+- Zolt builds of Zolt.
+- Bootstrap and self-hosted artifact comparison.
+- Native binary smoke tests against real project and release workflows.
+
+</details>
+
+<a id="platforms"></a>
+<details>
+<summary><strong>Platforms</strong> — Linux and macOS native releases</summary>
 
 - Linux x64
 - Linux arm64
@@ -151,16 +253,22 @@ Native Zolt releases support:
 
 Windows x64 is experimental and is not yet a supported host.
 
-## Boundaries
+</details>
 
-Zolt is Java-focused and intentionally opinionated. Dynamic versions, version
-ranges, remote SNAPSHOT dependencies, and arbitrary build-plugin behavior are
-outside its reproducible model. Use `zolt explain`, `zolt plan`, and the
-[examples](./examples/) to check a project's fit.
+<a id="boundaries"></a>
+<details>
+<summary><strong>Boundaries</strong> — Java-focused and reproducible by design</summary>
 
+Dynamic versions, version ranges, remote SNAPSHOT dependencies, and arbitrary
+build-plugin behavior are outside Zolt's reproducible model. Use `zolt explain`,
+`zolt plan`, and the [examples](./examples/) to check a project's fit.
+
+</details>
+
+<a id="more"></a>
 ## More
 
-- [Usage guide](./USAGE.md)
+- [Usage](./USAGE.md)
 - [Examples](./examples/)
 - [Benchmarks](./docs/benchmarks/)
 - [Security](./SECURITY.md)
