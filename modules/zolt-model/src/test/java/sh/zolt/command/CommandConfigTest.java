@@ -67,11 +67,16 @@ final class CommandConfigTest {
     }
 
     @Test
-    void validatesRelativeNormalizedCwdPaths() {
+    void validatesPortableRelativeNormalizedCwdPaths() {
         assertTrue(CommandConfigRules.isRelativeNormalizedPath("docs"));
         assertTrue(CommandConfigRules.isRelativeNormalizedPath("tools/member"));
         assertFalse(CommandConfigRules.isRelativeNormalizedPath("/tmp"));
+        assertFalse(CommandConfigRules.isRelativeNormalizedPath("C:/tmp"));
+        assertFalse(CommandConfigRules.isRelativeNormalizedPath("tools\\member"));
         assertFalse(CommandConfigRules.isRelativeNormalizedPath("../outside"));
         assertFalse(CommandConfigRules.isRelativeNormalizedPath("docs/../scripts"));
+        assertFalse(CommandConfigRules.isRelativeNormalizedPath("docs/./scripts"));
+        assertFalse(CommandConfigRules.isRelativeNormalizedPath("docs//scripts"));
+        assertFalse(CommandConfigRules.isRelativeNormalizedPath("docs/"));
     }
 }

@@ -1,6 +1,5 @@
 package sh.zolt.command;
 
-import java.nio.file.Path;
 import java.util.Locale;
 
 public final class CommandConfigRules {
@@ -78,18 +77,23 @@ public final class CommandConfigRules {
     }
 
     public static boolean isRelativeNormalizedPath(String value) {
-        if (value == null || value.isBlank()) {
+        if (value == null
+                || value.isBlank()
+                || value.startsWith("/")
+                || value.contains("\\")
+                || isWindowsDrivePath(value)) {
             return false;
         }
-        Path path = Path.of(value);
-        if (path.isAbsolute()) {
-            return false;
+        for (String segment : value.split("/", -1)) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
+                return false;
+            }
         }
-        Path normalized = path.normalize();
-        if (normalized.startsWith("..")) {
-            return false;
-        }
-        return normalized.toString().equals(value);
+        return true;
+    }
+
+    private static boolean isWindowsDrivePath(String value) {
+        return value.length() >= 2 && isAsciiLetter(value.charAt(0)) && value.charAt(1) == ':';
     }
 
     private static boolean isAsciiLetterOrDigit(char character) {
