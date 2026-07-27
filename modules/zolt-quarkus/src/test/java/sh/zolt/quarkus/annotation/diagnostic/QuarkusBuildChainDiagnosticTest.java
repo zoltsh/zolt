@@ -3,6 +3,8 @@ package sh.zolt.quarkus.annotation.diagnostic;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.quarkus.testsupport.QuarkusTestRuntimeClasspath;
+
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.net.URL;
@@ -10,6 +12,7 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class QuarkusBuildChainDiagnosticTest {
@@ -80,11 +83,13 @@ final class QuarkusBuildChainDiagnosticTest {
         return out.toString(StandardCharsets.UTF_8);
     }
 
-    private static URL quarkusJar(String artifactId) throws Exception {
-        return repoRoot()
-                .resolve(".zolt/cache/io/quarkus/" + artifactId + "/3.33.2/" + artifactId + "-3.33.2.jar")
-                .toUri()
-                .toURL();
+    private static URL quarkusJar(String artifactId) {
+        String relativeJar = "io/quarkus/" + artifactId + "/3.33.2/" + artifactId + "-3.33.2.jar";
+        List<Path> jars = QuarkusTestRuntimeClasspath.existingRepoCacheJars(repoRoot(), List.of(relativeJar));
+        if (jars.isEmpty()) {
+            throw new AssertionError("Could not locate " + relativeJar + " in any candidate artifact cache.");
+        }
+        return QuarkusTestRuntimeClasspath.url(jars.get(0));
     }
 
     private static Path repoRoot() {

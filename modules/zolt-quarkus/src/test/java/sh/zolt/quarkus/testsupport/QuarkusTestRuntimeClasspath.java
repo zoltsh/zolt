@@ -1,5 +1,7 @@
 package sh.zolt.quarkus.testsupport;
 
+import sh.zolt.home.UserGlobalDirectory;
+
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -8,7 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-final class QuarkusTestRuntimeClasspath {
+public final class QuarkusTestRuntimeClasspath {
     private QuarkusTestRuntimeClasspath() {
     }
 
@@ -26,19 +28,35 @@ final class QuarkusTestRuntimeClasspath {
         return urls;
     }
 
-    static List<Path> existingRepoCacheJars(Path repoRoot, List<String> relativeJars) {
-        Path cacheRoot = repoRoot.resolve(".zolt/cache");
+    public static List<Path> existingRepoCacheJars(Path repoRoot, List<String> relativeJars) {
+        return existingCacheJars(candidateCacheRoots(repoRoot, System.getenv("ZOLT_CACHE_ROOT")), relativeJars);
+    }
+
+    static List<Path> candidateCacheRoots(Path repoRoot, String cacheRootOverride) {
+        List<Path> cacheRoots = new ArrayList<>();
+        if (cacheRootOverride != null && !cacheRootOverride.isBlank()) {
+            cacheRoots.add(repoRoot.resolve(cacheRootOverride));
+        }
+        cacheRoots.add(repoRoot.resolve(".zolt/cache"));
+        cacheRoots.add(UserGlobalDirectory.artifactCache());
+        return cacheRoots;
+    }
+
+    static List<Path> existingCacheJars(List<Path> cacheRoots, List<String> relativeJars) {
         List<Path> jars = new ArrayList<>();
         for (String relativeJar : relativeJars) {
-            Path jar = cacheRoot.resolve(relativeJar);
-            if (Files.isRegularFile(jar)) {
-                jars.add(jar);
+            for (Path cacheRoot : cacheRoots) {
+                Path jar = cacheRoot.resolve(relativeJar);
+                if (Files.isRegularFile(jar)) {
+                    jars.add(jar);
+                    break;
+                }
             }
         }
         return jars;
     }
 
-    static URL url(Path path) {
+    public static URL url(Path path) {
         try {
             return path.toUri().toURL();
         } catch (MalformedURLException exception) {
