@@ -25,6 +25,20 @@ export async function expectTextFile(path: string, contract: TextFileContract): 
   }
 }
 
+/** Command output has no negative value matcher, so exclusions go through an explicit failure. */
+export function expectOutputExcludes(
+  t: SmokeContext,
+  output: string,
+  excluded: readonly string[],
+  label: string,
+): void {
+  for (const value of excluded) {
+    if (output.includes(value)) {
+      t.fail(`${label} should not contain ${JSON.stringify(value)}:\n${output}`);
+    }
+  }
+}
+
 export async function expectLockfilePackages(path: string, contract: LockfilePackageContract): Promise<void> {
   const packageIds = new Set((await readFile(path, "utf8"))
     .split("[[package]]")
