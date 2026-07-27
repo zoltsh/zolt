@@ -1498,6 +1498,26 @@ unknown = "warn"
 when a compile/runtime dependency violates the policy, naming the dependency, the
 license, and the policy line.
 
+With a policy configured, `zolt licenses` shows what it makes of each dependency
+without enforcing anything — offending entries carry a `[denied]` or `[unknown]`
+marker and the evaluator's reason, followed by a summary and a pointer at the
+command that does enforce:
+
+```text
+GPL-3.0-only (1)
+  org.example:lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny
+
+License policy: 1 denied, 0 unknown of 12 dependencies.
+Next: run `zolt check --check license-policy` to enforce it.
+```
+
+`zolt licenses` still exits 0 — reporting and enforcement stay separate surfaces.
+In `--format json` the same status is additive: each offending component gains a
+`policy` object and the document gains a `licensePolicy` summary; nothing existing
+is renamed or removed. Without a policy configured the output is unchanged. In a
+workspace, `[dependencyPolicy]` is member-local, so a coordinate is annotated with
+the strictest verdict any member's policy gives it.
+
 `zolt publish --sbom` attaches a CycloneDX SBOM to the publish as a supplemental
 artifact (classifier `cyclonedx`, extension `json`). It rides the existing
 supplemental planner, so checksums and signing apply to it uniformly; it is off

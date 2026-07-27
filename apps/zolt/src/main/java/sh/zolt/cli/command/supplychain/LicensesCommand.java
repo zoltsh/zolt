@@ -25,6 +25,7 @@ import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.sbom.LicenseIndex;
 import sh.zolt.sbom.LicenseNoticesWriter;
+import sh.zolt.sbom.LicensePolicyAnnotations;
 import sh.zolt.sbom.LicenseReport;
 import sh.zolt.sbom.LicenseReportBuilder;
 import sh.zolt.sbom.LicenseReportJsonWriter;
@@ -121,8 +122,12 @@ public final class LicensesCommand implements Runnable {
                     new SbomScopeSelection(includeProvided, includeDev, includeTest, includeTools);
             Resolved resolved = workspace ? resolveWorkspace(selection) : resolveProject(selection);
             LicenseReport report = reportBuilder.build(resolved.components(), resolved.index());
+            LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
+                    resolved.components(), resolved.index(), resolved.configs());
 
-            String document = format == Format.JSON ? jsonWriter.write(report) : textWriter.write(report);
+            String document = format == Format.JSON
+                    ? jsonWriter.write(report, annotations)
+                    : textWriter.write(report, annotations);
             CommandOutput.printAndFlush(spec, document);
             if (notices != null) {
                 writeNotices(resolved.components(), resolved.index());
@@ -146,7 +151,7 @@ public final class LicensesCommand implements Runnable {
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         LicenseIndex index = resolveLicenses(lockfile, selection);
         SbomModel model = assembler.assemble(config, lockfile, selection, Optional.empty(), toolVersion, index);
-        return new Resolved(externalComponents(model, index), index);
+        return new Resolved(externalComponents(model, index), index, List.of(config));
     }
 
     private Resolved resolveWorkspace(SbomScopeSelection selection) {
@@ -167,7 +172,10 @@ public final class LicensesCommand implements Runnable {
                 .toList();
         SbomModel model = workspaceAssembler.assemble(
                 discovered.config().name(), members, lockfile, selection, Optional.empty(), toolVersion, index);
-        return new Resolved(externalComponents(model, index), index);
+        return new Resolved(
+                externalComponents(model, index),
+                index,
+                discovered.members().stream().map(member -> member.config()).toList());
     }
 
     /** The report covers resolvable third-party dependencies; first-party members are excluded. */
@@ -178,7 +186,8 @@ public final class LicensesCommand implements Runnable {
                 .toList();
     }
 
-    private record Resolved(List<SbomComponent> components, LicenseIndex index) {
+    /** {@code configs} carries the member-local {@code [dependencyPolicy.licenses]} the report annotates with. */
+    private record Resolved(List<SbomComponent> components, LicenseIndex index, List<ProjectConfig> configs) {
     }
 
     private LicenseIndex resolveLicenses(ZoltLockfile lockfile, SbomScopeSelection selection) {

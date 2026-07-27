@@ -132,6 +132,14 @@ new `zolt check` id `license-policy` (in IMPLEMENTED_CHECKS +
 CI_CONTEXT_CHECKS), LicensePolicyQualityCheck in zolt-quality delegating to
 zolt-sbom's evaluator; offline; failures name dependency, license, and the
 policy line with a Next: (remove dep / policy exclude / amend policy).
+Reporting: `zolt licenses` annotates the same evaluator's verdicts onto its own
+output — `[denied]`/`[unknown]` markers carrying the evaluator's reason, a counts
+summary, and a pointer at the enforcing command — through
+`LicensePolicyAnnotations` in zolt-sbom, which both writers accept as an optional
+argument. Enforcement does not move: `zolt licenses` still exits 0, and with no
+policy configured its text and JSON output are byte-unchanged (JSON gains new
+fields only). In a workspace `[dependencyPolicy]` is member-local, so a
+coordinate takes the strictest verdict across member policies.
 
 Workspace quality checks consume one shared member projection rather than the
 aggregate lock. The projection merges workspace-root repositories/platforms
