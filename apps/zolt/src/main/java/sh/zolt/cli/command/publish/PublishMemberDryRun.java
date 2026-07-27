@@ -4,6 +4,7 @@ import sh.zolt.cli.command.CommandLockfiles;
 import sh.zolt.publish.PublishCentralReadinessService;
 import sh.zolt.publish.PublishCentralRequirement;
 import sh.zolt.publish.PublishDryRunPlan;
+import sh.zolt.workspace.publish.WorkspaceMemberDirectory;
 import sh.zolt.workspace.publish.WorkspaceMemberDryRun;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomGenerator;
 import sh.zolt.workspace.publish.WorkspacePublishService;
@@ -27,6 +28,13 @@ import java.util.function.Supplier;
  * {@link CommandLockfiles#requireFreshWorkspaceLockfile} before planning, so a stale root lock is refused
  * rather than silently planned against, and it threads {@code --offline} all the way into planning so the
  * flag is honoured from a member directory too.
+ *
+ * <p><strong>Membership decides first.</strong> That lock gate applies to any directory beneath a
+ * discoverable workspace root, so it is asked only after {@link WorkspaceMemberDirectory} confirms this
+ * directory IS a declared member. A standalone project nested in a workspace tree — its own
+ * {@code zolt.toml}, its own {@code zolt.lock} — otherwise gets refused by a root lock governing members
+ * it is not one of, which is exactly the "outside a member directory nothing changes" guarantee above.
+ * The membership test reads config only, so ordering it first costs no lock read.
  */
 final class PublishMemberDryRun {
     private final Optional<WorkspaceMemberDryRun> member;
@@ -47,7 +55,7 @@ final class PublishMemberDryRun {
             Path cacheRoot,
             boolean offline,
             WorkspaceMemberSbomGenerator sbomGenerator) {
-        if (!enabled) {
+        if (!enabled || workspacePublishService.memberDirectory().at(projectRoot).isEmpty()) {
             return absent();
         }
         lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, offline, "zolt publish --dry-run --central");

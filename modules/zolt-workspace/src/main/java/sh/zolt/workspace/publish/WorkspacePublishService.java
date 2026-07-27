@@ -8,7 +8,6 @@ import sh.zolt.publish.PublishCentralReadinessService;
 import sh.zolt.publish.PublishDryRunService;
 import sh.zolt.publish.PublishException;
 import sh.zolt.publish.PublishSettingsReader;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
@@ -43,7 +42,7 @@ import java.util.Set;
  */
 public final class WorkspacePublishService {
     private final WorkspaceBuildService workspaceBuildService;
-    private final WorkspaceDiscoveryService workspaceDiscoveryService = new WorkspaceDiscoveryService();
+    private final WorkspaceMemberDirectory memberDirectory = new WorkspaceMemberDirectory();
     private final PublishSettingsReader publishSettingsReader;
     // Per-member Phase-1 planning (config merge, lock projection, single-project planner reuse,
     // inter-member and Central-readiness gates) is delegated so this orchestrator holds only the flow.
@@ -119,6 +118,15 @@ public final class WorkspacePublishService {
     }
 
     /**
+     * The config-only membership test {@link #planMemberDryRun} routes on. Callers ask it BEFORE any
+     * workspace-lock freshness gate, so a standalone project nested under a workspace tree keeps the
+     * standalone path instead of being refused by a lock that governs members it is not one of.
+     */
+    public WorkspaceMemberDirectory memberDirectory() {
+        return memberDirectory;
+    }
+
+    /**
      * Plans a single member's publish dry run when {@code startDirectory} IS a workspace member
      * directory, so {@code zolt publish --dry-run --central} works from inside a member. Members have no
      * member-level {@code zolt.lock}; this routes through the same per-member planning
@@ -129,7 +137,8 @@ public final class WorkspacePublishService {
      * <p>Family-scoped gates are deliberately not applied: inter-member completeness and uniform
      * versioning are what {@code --workspace} is for, and this preview answers only "is THIS member ready
      * for Central". Returns empty when the directory is not a workspace member (including the workspace
-     * root itself), leaving standalone planning untouched.
+     * root itself), leaving standalone planning untouched — the caller settles that with
+     * {@link #memberDirectory()} first, so no workspace-lock gate is applied to a non-member.
      *
      * <p>{@code offline} is the caller's {@code --offline} flag and reaches the underlying build plan, so a
      * member dry run never reaches a repository when the user asked it not to. Lock freshness is the
@@ -142,11 +151,7 @@ public final class WorkspacePublishService {
             boolean central,
             WorkspaceMemberSbomGenerator sbomGenerator) {
         Path directory = startDirectory.toAbsolutePath().normalize();
-        Optional<WorkspaceMember> discovered = workspaceDiscoveryService.discover(directory)
-                .filter(candidate -> !candidate.root().toAbsolutePath().normalize().equals(directory))
-                .flatMap(candidate -> candidate.members().stream()
-                        .filter(member -> member.directory().toAbsolutePath().normalize().equals(directory))
-                        .findFirst());
+        Optional<WorkspaceMember> discovered = memberDirectory.at(directory);
         if (discovered.isEmpty()) {
             return Optional.empty();
         }

@@ -161,6 +161,63 @@ final class PublishCommandMemberCentralDryRunTest {
         }
     }
 
+    /**
+     * Membership is settled before the workspace-lock gate, not after. That gate applies to every
+     * directory beneath a workspace root, so asking it first refused a standalone project that merely
+     * sits inside a workspace tree — over a lock governing members it is not one of. Here the root lock
+     * is stale and the nested non-member's own lock is fresh: the standalone path must run untouched.
+     */
+    @Test
+    void aStaleWorkspaceLockNeverRefusesANestedNonMemberProject() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            Path memberDir = workspace(repository, "core", readyMemberConfig("core", repository));
+            Path workspaceDir = memberDir.getParent().getParent();
+            Path cacheRoot = tempDir.resolve("cache");
+            assertEquals(0, resolveWorkspace(memberDir, cacheRoot).exitCode());
+
+            // A standalone project under the workspace tree that the workspace never declares. It owns
+            // its own zolt.lock, resolved and packaged on the standalone path.
+            Path outsider = workspaceDir.resolve("modules/outsider");
+            Files.createDirectories(outsider);
+            Files.writeString(outsider.resolve("zolt.toml"), readyMemberConfig("outsider", repository));
+            Path source = outsider.resolve("src/main/java/com/example/outsider/Main.java");
+            Files.createDirectories(source.getParent());
+            Files.writeString(source, """
+                    package com.example.outsider;
+
+                    public final class Main {
+                    }
+                    """);
+            CommandResult packaged = execute("package",
+                    "--cwd", outsider.toString(), "--cache-root", cacheRoot.toString());
+            assertEquals(0, packaged.exitCode(), packaged.stdout() + packaged.stderr());
+            assertTrue(Files.exists(outsider.resolve("zolt.lock")));
+
+            // Make the WORKSPACE root lock stale; the outsider's own lock is untouched by this.
+            String changed = repository.baseUri() + "?changed=true";
+            Files.writeString(workspaceDir.resolve("zolt.toml"), """
+                    [workspace]
+                    name = "family"
+                    members = ["modules/core"]
+
+                    [repositories]
+                    test = "%s"
+                    """.formatted(changed));
+            Files.writeString(memberDir.resolve("zolt.toml"), readyMemberConfig("core", changed));
+            repository.clearAuthorizations();
+
+            CommandResult result = execute("publish", "--dry-run", "--central",
+                    "--cwd", outsider.toString(), "--cache-root", cacheRoot.toString());
+
+            assertEquals(0, result.exitCode(), result.stdout() + result.stderr());
+            assertFalse(result.stderr().contains("Workspace zolt.lock is out of date"), result.stderr());
+            // Planned as itself, from its own lock — not as a member of the family.
+            assertTrue(result.stdout().contains("com.example:outsider:0.1.0"), result.stdout());
+            assertEquals(java.util.Map.of(), repository.authorizations(),
+                    "the standalone dry run must not touch the network");
+        }
+    }
+
     @Test
     void nonMemberDirectoryInsideAWorkspaceTreeKeepsTheStandaloneLockPath() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
