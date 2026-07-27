@@ -131,8 +131,7 @@ public final class BundledJavaToolchainCatalog implements JavaToolchainCatalog {
         String nativeImage = "";
         if (request.features().contains(JavaFeature.NATIVE_IMAGE)) {
             if (distribution == JavaDistribution.GRAALVM_COMMUNITY) {
-                // GraalVM ships native-image under lib/svm/bin; on Windows it is a .cmd launcher.
-                nativeImage = windows ? "lib/svm/bin/native-image.cmd" : "lib/svm/bin/native-image";
+                nativeImage = windows ? "lib/svm/bin/native-image.exe" : "lib/svm/bin/native-image";
             } else {
                 nativeImage = "bin/native-image" + exe;
             }

@@ -78,7 +78,7 @@ final class WindowsToolchainSyncServiceTest {
             tool(output, "jdk/bin/java.exe", "java");
             tool(output, "jdk/bin/javac.exe", "javac");
             tool(output, "jdk/bin/jar.exe", "jar");
-            tool(output, "jdk/lib/svm/bin/native-image.cmd", "native-image");
+            tool(output, "jdk/lib/svm/bin/native-image.exe", "native-image");
         }
         return archive;
     }

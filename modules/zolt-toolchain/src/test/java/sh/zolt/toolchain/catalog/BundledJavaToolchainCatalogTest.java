@@ -101,7 +101,7 @@ final class BundledJavaToolchainCatalogTest {
         assertEquals("bin/java.exe", locked.layout().java());
         assertEquals("bin/javac.exe", locked.layout().javac());
         assertEquals("bin/jar.exe", locked.layout().jar());
-        assertEquals("lib/svm/bin/native-image.cmd", locked.layout().nativeImage());
+        assertEquals("lib/svm/bin/native-image.exe", locked.layout().nativeImage());
         assertTrue(locked.artifactUri().endsWith("graalvm-community-jdk-21.0.2_windows-x64_bin.zip"));
         assertEquals(
                 "e17b7bead097bf372a5c75df17815b0a2f30b777a019d25eff7706b21421f7fa",
