@@ -157,22 +157,32 @@ jobs:
   smoke:
     # Each suite runs as its own matrix lane so a slow suite cannot eat the budget
     # of the others: the timeout below applies per lane, not to all four together.
+    # Any lane that builds a real Native Image gets 60 minutes rather than 30: a
+    # single native-image invocation is allowed up to ten minutes on its own (the
+    # Zolt self-host build up to fifteen), and the native lane chains six such
+    # suites. native-container runs only one, but it is the same open-ended step
+    # plus a PostgreSQL container pull, so it takes the same ceiling. An unused
+    # ceiling costs nothing; a short one costs a red build.
     name: smoke packaged workflows ${{ matrix.name }}
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: core
             suite: ""
+            timeout: 30
           - name: container
             suite: container
+            timeout: 30
           - name: native
             suite: native
+            timeout: 60
           - name: native-container
             suite: native-container
+            timeout: 60
 
     steps:
       - name: Check out repository
