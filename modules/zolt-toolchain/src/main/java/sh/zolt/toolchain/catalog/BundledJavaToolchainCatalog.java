@@ -24,8 +24,8 @@ public final class BundledJavaToolchainCatalog implements JavaToolchainCatalog {
             new HostPlatform(OperatingSystem.MACOS, Architecture.X64),
             new HostPlatform(OperatingSystem.MACOS, Architecture.AARCH64));
     // windows-x64 is lockable on request (so a Windows host can `toolchain sync` a checksum-verified
-    // JDK) but is intentionally NOT part of the default multi-platform set enumerated by locks()/
-    // available(); promoting it into the committed multi-platform lockfile is a separate change.
+    // JDK) but is intentionally NOT part of the default multi-platform set enumerated by available();
+    // promoting it into the committed multi-platform lockfile is a separate change.
     private static final List<HostPlatform> LOCKABLE_PLATFORMS = Stream.concat(
                     SUPPORTED_PLATFORMS.stream(),
                     Stream.of(new HostPlatform(OperatingSystem.WINDOWS, Architecture.X64)))
@@ -62,7 +62,8 @@ public final class BundledJavaToolchainCatalog implements JavaToolchainCatalog {
 
     @Override
     public List<LockedJavaToolchain> locks(JavaToolchainRequest request, HostPlatform platform) {
-        return SUPPORTED_PLATFORMS.stream()
+        return Stream.concat(SUPPORTED_PLATFORMS.stream(), Stream.of(platform))
+                .distinct()
                 .map(target -> lock(request, target))
                 .flatMap(Optional::stream)
                 .toList();

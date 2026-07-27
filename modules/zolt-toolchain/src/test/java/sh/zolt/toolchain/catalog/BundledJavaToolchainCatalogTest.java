@@ -74,6 +74,21 @@ final class BundledJavaToolchainCatalogTest {
     }
 
     @Test
+    void addsWindowsHostToStablePlatformMatrixOnRequest() {
+        List<LockedJavaToolchain> locked = catalog.locks(
+                new JavaToolchainRequest(
+                        "21",
+                        JavaDistribution.GRAALVM_COMMUNITY,
+                        Set.of(JavaFeature.NATIVE_IMAGE),
+                        ToolchainPolicy.PREFER_MANAGED),
+                HostPlatform.parse("windows-x64"));
+
+        assertEquals(
+                List.of("linux-x64", "linux-aarch64", "macos-x64", "macos-aarch64", "windows-x64"),
+                locked.stream().map(java -> java.platform().id()).toList());
+    }
+
+    @Test
     void locksWindowsGraalVmNativeImageToolchainWithExeLayout() {
         LockedJavaToolchain locked = catalog.lock(
                 new JavaToolchainRequest(

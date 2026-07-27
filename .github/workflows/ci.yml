@@ -551,8 +551,20 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Cache Zolt managed toolchains
+        uses: actions/cache@v4
+        with:
+          path: ~/.zolt/toolchains
+          key: zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('zolt.lock') }}
+          restore-keys: |
+            zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-
+            zolt-toolchains-${{ runner.os }}-
+
+      - name: Sync Zolt-managed Java
+        run: bash scripts/bootstrap-zolt-jvm --no-progress toolchain sync 2>&1 | tee windows-smoke.log
+
       - name: Build workspace via bash bootstrap (Git Bash)
-        run: bash scripts/bootstrap-zolt-jvm --no-progress build --workspace 2>&1 | tee windows-smoke.log
+        run: bash scripts/bootstrap-zolt-jvm --no-progress build --workspace 2>&1 | tee -a windows-smoke.log
 
       - name: Smoke-test small members via bash bootstrap (Git Bash)
         run: bash scripts/bootstrap-zolt-jvm --no-progress test --workspace --member modules/zolt-toml --member modules/zolt-model 2>&1 | tee -a windows-smoke.log
