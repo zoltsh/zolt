@@ -22,13 +22,20 @@ public final class CliTestPackageEvidence {
     }
 
     public static void write(Path projectRoot) throws IOException {
+        write(projectRoot, projectRoot.resolve("zolt.lock"));
+    }
+
+    /**
+     * Plans against an explicit lockfile, for a workspace member: members have no member-level
+     * {@code zolt.lock}, so their package plan reads the workspace-aggregated root lock.
+     */
+    public static void write(Path projectRoot, Path lockfile) throws IOException {
         ProjectConfig config =
                 new ZoltTomlParser().parse(projectRoot.resolve("zolt.toml"));
         PackagePlan plan = new PackagePlanService().plan(
                 projectRoot,
                 config,
-                new ZoltLockfileReader().read(
-                        projectRoot.resolve("zolt.lock")));
+                new ZoltLockfileReader().read(lockfile));
         plan.runtimeClasspathPath().ifPresent(path -> write(path, ""));
         List<PackageArtifact> artifacts = new ArrayList<>();
         for (PackagePlanOutput output : plan.evidence().outputs()) {

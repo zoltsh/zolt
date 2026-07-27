@@ -227,6 +227,14 @@ jars, GPG signatures, and checksums, printing an actionable next step for each
 unmet requirement. The check is opt-in, so it never blocks publishing to internal
 repositories.
 
+It also runs from inside a workspace member directory. Members have no member-level
+`zolt.lock` — a `--workspace` resolve writes only the root one — so the readiness
+dry run plans that member through the workspace planner against the aggregated root
+lock and prints the same checklist for the member's own coordinates. Only the
+readiness dry run works this way; actually publishing a family is still
+`zolt publish --workspace`, and family-scoped gates (inter-member completeness,
+uniform versions) belong to that command rather than this per-member preview.
+
 Enable `[publish.signing]` to attach a detached GPG signature (`.asc`) to every
 uploaded artifact and to the POM. Publish shells out to the `gpg` binary
 (`--batch --detach-sign --armor`); `keyId` selects the signing key and, when a key

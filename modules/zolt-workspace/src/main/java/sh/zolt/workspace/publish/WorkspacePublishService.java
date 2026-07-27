@@ -6,7 +6,9 @@ import sh.zolt.maven.repository.MavenRepositoryClient;
 import sh.zolt.publish.CentralPortalClient;
 import sh.zolt.publish.PublishCentralReadinessService;
 import sh.zolt.publish.PublishDryRunService;
+import sh.zolt.publish.PublishException;
 import sh.zolt.publish.PublishSettingsReader;
+import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
@@ -41,6 +43,7 @@ import java.util.Set;
  */
 public final class WorkspacePublishService {
     private final WorkspaceBuildService workspaceBuildService;
+    private final WorkspaceDiscoveryService workspaceDiscoveryService = new WorkspaceDiscoveryService();
     private final PublishSettingsReader publishSettingsReader;
     // Per-member Phase-1 planning (config merge, lock projection, single-project planner reuse,
     // inter-member and Central-readiness gates) is delegated so this orchestrator holds only the flow.
@@ -113,6 +116,55 @@ public final class WorkspacePublishService {
     public WorkspacePublishReport publish(
             Path startDirectory, Path cacheRoot, WorkspaceSelectionRequest selectionRequest, Options options) {
         return publish(startDirectory, cacheRoot, selectionRequest, options, WorkspaceMemberSbomGenerator.disabled());
+    }
+
+    /**
+     * Plans a single member's publish dry run when {@code startDirectory} IS a workspace member
+     * directory, so {@code zolt publish --dry-run --central} works from inside a member. Members have no
+     * member-level {@code zolt.lock}; this routes through the same per-member planning
+     * ({@link WorkspaceMemberPlanner}) that {@code --workspace} uses, against the workspace-aggregated
+     * root lock, and hands back the merged config and publish settings so the caller renders the
+     * standard Central readiness checklist.
+     *
+     * <p>Family-scoped gates are deliberately not applied: inter-member completeness and uniform
+     * versioning are what {@code --workspace} is for, and this preview answers only "is THIS member ready
+     * for Central". Returns empty when the directory is not a workspace member (including the workspace
+     * root itself), leaving standalone planning untouched.
+     */
+    public Optional<WorkspaceMemberDryRun> planMemberDryRun(
+            Path startDirectory,
+            Path cacheRoot,
+            boolean central,
+            WorkspaceMemberSbomGenerator sbomGenerator) {
+        Path directory = startDirectory.toAbsolutePath().normalize();
+        Optional<WorkspaceMember> discovered = workspaceDiscoveryService.discover(directory)
+                .filter(candidate -> !candidate.root().toAbsolutePath().normalize().equals(directory))
+                .flatMap(candidate -> candidate.members().stream()
+                        .filter(member -> member.directory().toAbsolutePath().normalize().equals(directory))
+                        .findFirst());
+        if (discovered.isEmpty()) {
+            return Optional.empty();
+        }
+        String memberPath = discovered.orElseThrow().path();
+        WorkspaceBuildPlan plan = workspaceBuildService.planBuild(
+                directory, cacheRoot, false, WorkspaceSelectionRequest.exact(List.of(memberPath)));
+        WorkspaceMember member = plan.workspace().members().stream()
+                .filter(candidate -> candidate.path().equals(memberPath))
+                .findFirst()
+                .orElseThrow();
+        WorkspaceMemberPlanner.Planned planned = memberPlanner.planOffline(
+                member, plan.workspace(), plan.lockfile(), cacheRoot, central, sbomGenerator);
+        if (!planned.publish().configured()) {
+            throw new PublishException("No [publish] configuration found. Add release/snapshot publish "
+                    + "repositories before running `zolt publish --dry-run`.");
+        }
+        return Optional.of(new WorkspaceMemberDryRun(
+                member.directory(),
+                memberPath,
+                WorkspaceMemberPlanner.coordinateString(planned.config()),
+                planned.config(),
+                planned.publish(),
+                planned.plan()));
     }
 
     public WorkspacePublishReport publish(

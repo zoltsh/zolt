@@ -164,7 +164,15 @@ public final class PublishCommand implements Callable<Integer> {
             if (workspace) {
                 return runWorkspacePublish(projectRoot);
             }
-            Optional<Path> sbomFile = generateSbom(projectRoot);
+            // A workspace member has no member-level zolt.lock, so a Central dry run there plans through
+            // the workspace planner against the aggregated root lock (and brings its own member SBOM).
+            PublishMemberDryRun memberDryRun = PublishMemberDryRun.resolve(
+                    dryRun && central,
+                    workspacePublishService,
+                    projectRoot,
+                    cacheRoot,
+                    sbomGenerator.memberGenerator(sbom, ZoltCli.version()));
+            Optional<Path> sbomFile = memberDryRun.present() ? Optional.empty() : generateSbom(projectRoot);
             if (central && !dryRun) {
                 progress.start("Publishing to Maven Central");
                 PublishDryRunPlan plan =
@@ -192,25 +200,23 @@ public final class PublishCommand implements Callable<Integer> {
             }
             if (dryRun) {
                 progress.start("Preparing publish dry run");
-                PublishDryRunPlan plan =
-                        dryRunService.plan(
-                                projectRoot,
-                                !central,
-                                sbomFile,
-                                cacheRoot);
-                if (context == PublishContext.RELEASE) {
-                    plan = releasePolicyService.apply(projectRoot, plan);
-                }
+                PublishDryRunPlan planned =
+                        memberDryRun.plan(() -> dryRunService.plan(projectRoot, !central, sbomFile, cacheRoot));
+                PublishDryRunPlan plan = context == PublishContext.RELEASE
+                        ? releasePolicyService.apply(projectRoot, planned)
+                        : planned;
                 StringBuilder output = new StringBuilder(PublishDryRunFormatter.text(plan));
                 boolean centralReady = true;
                 if (central) {
-                    List<PublishCentralRequirement> readiness = centralReadinessService.evaluate(projectRoot, plan);
+                    List<PublishCentralRequirement> readiness =
+                            memberDryRun.readiness(centralReadinessService, projectRoot, plan);
                     output.append(PublishDryRunFormatter.centralReadiness(readiness));
                     centralReady = readiness.stream().allMatch(PublishCentralRequirement::satisfied);
                     if (plan.ok()) {
-                        PublishCentralBundleResult bundle = centralPublishService.assembleBundle(projectRoot, plan);
+                        Path bundleRoot = memberDryRun.root(projectRoot);
+                        PublishCentralBundleResult bundle = centralPublishService.assembleBundle(bundleRoot, plan);
                         output.append(PublishDryRunFormatter.centralBundle(
-                                displayPath(projectRoot, bundle.bundlePath()), bundle.entries()));
+                                displayPath(bundleRoot, bundle.bundlePath()), bundle.entries()));
                     }
                 }
                 CommandOutput.printAndFlush(spec, output.toString());

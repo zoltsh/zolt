@@ -74,6 +74,69 @@ final class WorkspaceMemberPlanner {
             WorkspacePublishService.Options options,
             Optional<ResumeState> resumeState,
             WorkspaceMemberSbomGenerator sbomGenerator) {
+        Planned planned =
+                planOffline(member, workspace, aggregatedLock, cacheRoot, options.central(), sbomGenerator);
+        ProjectConfig config = planned.config();
+        PublishSettings publish = planned.publish();
+        PublishDryRunPlan memberPlan = planned.plan();
+
+        List<String> extraBlockers = new ArrayList<>();
+        List<String> notes = new ArrayList<>();
+        if (!planned.bom()) {
+            for (String sibling : PublishInterMemberGuard.missingSiblings(planned.memberLock(), publishSet)) {
+                if (resumeState.isPresent()) {
+                    // A resumed set omits providers only when the state proves they landed; an absent
+                    // sibling the state does not record as published is an incomplete family, not a note.
+                    if (resumeState.orElseThrow().recordsPublished(sibling)) {
+                        notes.add("inter-member dependency `" + sibling + "` of `" + coordinateString(config)
+                                + "` is absent from the resumed set and recorded as already published; "
+                                + "treating it as satisfied.");
+                    } else {
+                        extraBlockers.add("inter-member dependency `" + sibling + "` of `" + coordinateString(config)
+                                + "` was never uploaded in the interrupted publish; re-run the full publish: "
+                                + "`zolt publish --workspace`.");
+                    }
+                } else {
+                    extraBlockers.add("inter-member dependency `" + sibling + "` of `" + coordinateString(config)
+                            + "` is not in the publish set; publish the family together or add `--member` for it.");
+                }
+            }
+        }
+        if (options.central()) {
+            for (PublishCentralRequirement requirement :
+                    centralReadinessService.evaluate(config, publish, memberPlan)) {
+                if (!requirement.satisfied()) {
+                    extraBlockers.add(
+                            coordinateString(config) + ": " + requirement.name() + " — " + requirement.remediation());
+                }
+            }
+        }
+        PublishDryRunPlan finalPlan =
+                extraBlockers.isEmpty() ? memberPlan : memberPlan.withContext(memberPlan.context(), extraBlockers);
+        MemberPublication publication = new MemberPublication(
+                member.directory(),
+                member.path(),
+                coordinateString(config),
+                planned.bom(),
+                finalPlan,
+                publish,
+                config.repositoryCredentials());
+        return new Result(publication, finalPlan.blockers(), notes);
+    }
+
+    /**
+     * The offline half of a member publish plan: policy-merged config, projected member lock, package
+     * plan, SBOM, and the single-project planner's own blockers — with no family-scoped gate applied.
+     * {@link #plan} layers inter-member and Central-readiness blockers on top; a member-directory
+     * Central dry run instead renders readiness as its own checklist, so it consumes this directly.
+     */
+    Planned planOffline(
+            WorkspaceMember member,
+            Workspace workspace,
+            ZoltLockfile aggregatedLock,
+            Path cacheRoot,
+            boolean central,
+            WorkspaceMemberSbomGenerator sbomGenerator) {
         ProjectConfig config = policyResolver.merge(workspace, member);
         boolean bom = config.packageSettings().mode() == PackageMode.BOM;
         ZoltLockfile memberLock = bom
@@ -113,55 +176,22 @@ final class WorkspaceMemberPlanner {
                 publish,
                 () -> memberLock,
                 () -> packagePlan,
-                !options.central(),
+                !central,
                 sbomFile);
-
-        List<String> extraBlockers = new ArrayList<>();
-        List<String> notes = new ArrayList<>();
-        if (!bom) {
-            for (String sibling : PublishInterMemberGuard.missingSiblings(memberLock, publishSet)) {
-                if (resumeState.isPresent()) {
-                    // A resumed set omits providers only when the state proves they landed; an absent
-                    // sibling the state does not record as published is an incomplete family, not a note.
-                    if (resumeState.orElseThrow().recordsPublished(sibling)) {
-                        notes.add("inter-member dependency `" + sibling + "` of `" + coordinateString(config)
-                                + "` is absent from the resumed set and recorded as already published; "
-                                + "treating it as satisfied.");
-                    } else {
-                        extraBlockers.add("inter-member dependency `" + sibling + "` of `" + coordinateString(config)
-                                + "` was never uploaded in the interrupted publish; re-run the full publish: "
-                                + "`zolt publish --workspace`.");
-                    }
-                } else {
-                    extraBlockers.add("inter-member dependency `" + sibling + "` of `" + coordinateString(config)
-                            + "` is not in the publish set; publish the family together or add `--member` for it.");
-                }
-            }
-        }
-        if (options.central()) {
-            for (PublishCentralRequirement requirement :
-                    centralReadinessService.evaluate(config, publish, memberPlan)) {
-                if (!requirement.satisfied()) {
-                    extraBlockers.add(
-                            coordinateString(config) + ": " + requirement.name() + " — " + requirement.remediation());
-                }
-            }
-        }
-        PublishDryRunPlan finalPlan =
-                extraBlockers.isEmpty() ? memberPlan : memberPlan.withContext(memberPlan.context(), extraBlockers);
-        MemberPublication publication = new MemberPublication(
-                member.directory(),
-                member.path(),
-                coordinateString(config),
-                bom,
-                finalPlan,
-                publish,
-                config.repositoryCredentials());
-        return new Result(publication, finalPlan.blockers(), notes);
+        return new Planned(config, publish, memberLock, bom, memberPlan);
     }
 
-    private static String coordinateString(ProjectConfig config) {
+    static String coordinateString(ProjectConfig config) {
         return config.project().group() + ":" + config.project().name() + ":" + config.project().version();
+    }
+
+    /** One member's offline plan inputs and result, before any family-scoped blocker is layered on. */
+    record Planned(
+            ProjectConfig config,
+            PublishSettings publish,
+            ZoltLockfile memberLock,
+            boolean bom,
+            PublishDryRunPlan plan) {
     }
 
     /** One member's planned publication plus its aggregated blockers and non-blocking notes. */
