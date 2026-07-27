@@ -67,6 +67,17 @@ final class TestConsoleFailureHandlerTest {
     }
 
     @Test
+    void launcherWithoutTestEngineFailsEvenWhenConsoleExitsCleanly() {
+        TestRunException exception = assertThrows(
+                TestRunException.class,
+                () -> handler.throwIfLauncherDidNotStart(
+                        "Cannot create Launcher without at least one TestEngine; consider adding an engine implementation JAR"));
+
+        assertTrue(exception.getMessage().contains("No test engine is present"));
+        assertTrue(exception.getMessage().contains("org.junit.jupiter:junit-jupiter"));
+    }
+
+    @Test
     void unfilteredRunWithCompiledTestsButZeroTestsFoundFailsLoudly() {
         TestRunException exception = assertThrows(
                 TestRunException.class,

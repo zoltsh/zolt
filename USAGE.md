@@ -8,14 +8,11 @@ set and [REFERENCE.md](./REFERENCE.md) for configuration and contracts.
 ```sh
 zolt init hello --group com.example --java 21
 cd hello
-zolt add com.google.guava:guava:33.4.0-jre
-zolt add test org.junit.platform:junit-platform-console-standalone:1.11.4
 zolt test
 zolt package
 ```
 
-Zolt writes `zolt.toml`, resolves `zolt.lock`, compiles the project, runs tests,
-and packages the artifact.
+`init` includes JUnit and a passing test. Use `--no-tests` for a bare project.
 
 ## Build
 

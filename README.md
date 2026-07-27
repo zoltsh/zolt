@@ -38,13 +38,12 @@ curl -fsSL https://dist.zolt.sh/install.sh | sh
 ```sh
 zolt init hello
 cd hello
-zolt add test org.junit.jupiter:junit-jupiter-api:5.11.4
 zolt test
 zolt package
 ```
 
-This creates a small `zolt.toml`, resolves a reproducible `zolt.lock`, runs the
-test suite, and packages the project.
+Zolt creates the project, resolves `zolt.lock`, runs its JUnit test, and
+packages it.
 
 ## Model
 

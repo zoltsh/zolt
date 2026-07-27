@@ -2,6 +2,7 @@ package sh.zolt.resolve.request;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.dependency.VersionComparator;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.CoordinateParser;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 
 final class ToolingDependencyContributor {
+    private static final VersionComparator VERSION_COMPARATOR = new VersionComparator();
     private static final PackageId JUNIT_PLATFORM_CONSOLE_PACKAGE = new PackageId(
             "org.junit.platform",
             "junit-platform-console");
@@ -80,17 +82,44 @@ final class ToolingDependencyContributor {
         if (consoleAlreadyOnTestClasspath) {
             return;
         }
-        String version = projectManagedVersions.getOrDefault(
-                JUNIT_PLATFORM_CONSOLE_PACKAGE,
-                JUNIT_PLATFORM_CONSOLE_VERSION);
-        if (version == null || version.isBlank()) {
-            version = JUNIT_PLATFORM_CONSOLE_VERSION;
-        }
+        String version = junitConsoleVersion(projectManagedVersions, requests);
         requests.add(new DependencyRequest(
                 JUNIT_PLATFORM_CONSOLE_PACKAGE,
                 version,
                 DependencyScope.TEST,
                 RequestOrigin.TRANSITIVE));
+    }
+
+    private static String junitConsoleVersion(
+            Map<PackageId, String> projectManagedVersions,
+            List<DependencyRequest> requests) {
+        String managedVersion = projectManagedVersions.get(JUNIT_PLATFORM_CONSOLE_PACKAGE);
+        if (managedVersion != null && !managedVersion.isBlank()) {
+            return managedVersion;
+        }
+        return requests.stream()
+                .filter(request -> request.scope().entersTestClasspath())
+                .map(ToolingDependencyContributor::junitPlatformVersion)
+                .flatMap(Optional::stream)
+                .max(VERSION_COMPARATOR)
+                .orElse(JUNIT_PLATFORM_CONSOLE_VERSION);
+    }
+
+    private static Optional<String> junitPlatformVersion(DependencyRequest request) {
+        String group = request.packageId().groupId();
+        String version = request.requestedVersion();
+        if (group.equals("org.junit.platform")) {
+            return Optional.of(version);
+        }
+        if ((group.equals("org.junit.jupiter") || group.equals("org.junit.vintage"))
+                && version.startsWith("5.")) {
+            return Optional.of("1." + version.substring(2));
+        }
+        if ((group.equals("org.junit.jupiter") || group.equals("org.junit.vintage"))
+                && version.startsWith("6.")) {
+            return Optional.of(version);
+        }
+        return Optional.empty();
     }
 
     private void addCoverageToolRequests(

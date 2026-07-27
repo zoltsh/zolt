@@ -62,6 +62,55 @@ final class ToolingDependencyContributorTest {
     }
 
     @Test
+    void alignsInjectedConsoleWithDeclaredJupiterFiveLine() {
+        PackageId jupiter = new PackageId("org.junit.jupiter", "junit-jupiter");
+        List<DependencyRequest> requests = new ArrayList<>();
+        requests.add(new DependencyRequest(
+                jupiter,
+                "5.14.4",
+                DependencyScope.TEST,
+                RequestOrigin.DIRECT));
+
+        contributor.contribute(testDependencyConfig(), Map.of(), requests, false);
+
+        assertEquals("1.14.4", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+    }
+
+    @Test
+    void alignsInjectedConsoleWithDeclaredJupiterSixLine() {
+        PackageId jupiter = new PackageId("org.junit.jupiter", "junit-jupiter");
+        List<DependencyRequest> requests = new ArrayList<>();
+        requests.add(new DependencyRequest(
+                jupiter,
+                "6.1.2",
+                DependencyScope.TEST,
+                RequestOrigin.DIRECT));
+
+        contributor.contribute(testDependencyConfig(), Map.of(), requests, false);
+
+        assertEquals("6.1.2", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+    }
+
+    @Test
+    void usesNewestDeclaredJUnitPlatformLine() {
+        List<DependencyRequest> requests = new ArrayList<>();
+        requests.add(new DependencyRequest(
+                new PackageId("org.junit.jupiter", "junit-jupiter"),
+                "5.11.4",
+                DependencyScope.TEST,
+                RequestOrigin.DIRECT));
+        requests.add(new DependencyRequest(
+                new PackageId("org.junit.platform", "junit-platform-engine"),
+                "1.14.4",
+                DependencyScope.TEST,
+                RequestOrigin.DIRECT));
+
+        contributor.contribute(testDependencyConfig(), Map.of(), requests, false);
+
+        assertEquals("1.14.4", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+    }
+
+    @Test
     void doesNotAddJUnitConsoleWhenConsoleAlreadyEntersTestClasspath() {
         PackageId standalone = new PackageId("org.junit.platform", "junit-platform-console-standalone");
         List<DependencyRequest> requests = new ArrayList<>();

@@ -26,6 +26,15 @@ final class TestConsoleFailureHandler {
         }
     }
 
+    void throwIfLauncherDidNotStart(String output) {
+        if (output.contains("Cannot create Launcher without at least one TestEngine")) {
+            throw new TestRunException(
+                    "No test engine is present on the test classpath. "
+                            + "Add one such as `org.junit.jupiter:junit-jupiter` to [test.dependencies], "
+                            + "then run `zolt test` again.");
+        }
+    }
+
     /**
      * Guards against a silent no-op: when test sources compiled but the JUnit Platform
      * discovered zero tests (for example because the resolved {@code junit-platform} launcher

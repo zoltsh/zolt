@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,7 +21,14 @@ final class GeneratedWorkspaceInitFlowTest {
 
     @Test
     void generatedWorkspaceResolvesBuildsTestsAndRuns() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            runGeneratedWorkspaceFlow(repository);
+        }
+    }
+
+    private void runGeneratedWorkspaceFlow(CliTestRepository repository) throws IOException {
         Path cacheRoot = tempDir.resolve("cache");
+        addJUnitArtifacts(repository);
 
         CommandResult init = execute(
                 "init",
@@ -39,6 +48,8 @@ final class GeneratedWorkspaceInitFlowTest {
         assertTrue(workspaceToml.contains("[workspace]"));
         assertTrue(workspaceToml.contains("members = [\"apps/platform\"]"));
         assertTrue(workspaceToml.contains("defaultMembers = [\"apps/platform\"]"));
+        useTestRepository(workspaceDir.resolve("zolt.toml"), repository);
+        useTestRepository(appDir.resolve("zolt.toml"), repository);
 
         CommandResult resolve = execute(
                 "resolve",
@@ -47,8 +58,10 @@ final class GeneratedWorkspaceInitFlowTest {
                 "--cache-root", cacheRoot.toString());
         assertEquals(0, resolve.exitCode());
         assertEquals("", resolve.stderr());
-        assertTrue(resolve.stdout().contains("Resolved 0 packages"));
+        assertTrue(resolve.stdout().contains("Resolved 3 packages"));
         assertTrue(Files.exists(workspaceDir.resolve("zolt.lock")));
+        assertTrue(Files.readString(workspaceDir.resolve("zolt.lock"))
+                .contains("id = \"org.junit.jupiter:junit-jupiter\""));
 
         CommandResult build = execute(
                 "build",
@@ -70,9 +83,6 @@ final class GeneratedWorkspaceInitFlowTest {
         assertTrue(run.stdout().contains("Hello from platform!"));
         assertTrue(run.stdout().contains("Ran com.example.Main in apps/platform"));
 
-        writeFakeConsoleJar(cacheRoot.resolve(
-                "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
-        writeGeneratedWorkspaceTestLockfile(workspaceDir);
         CommandResult test = execute(
                 "test",
                 "--workspace",
@@ -87,19 +97,67 @@ final class GeneratedWorkspaceInitFlowTest {
         assertTrue(Files.exists(appDir.resolve("target/test-classes/com/example/MainTest.class")));
     }
 
-    private static void writeGeneratedWorkspaceTestLockfile(Path workspaceDir) throws IOException {
-        Files.writeString(workspaceDir.resolve("zolt.lock"), """
-                version = 5
-
-                [[package]]
-                id = "org.junit.platform:junit-platform-console-standalone"
-                version = "1.11.4"
-                source = "maven-central"
-                scope = "test"
-                direct = true
-                jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
-                dependencies = []
-                members = ["apps/platform"]
+    private void addJUnitArtifacts(CliTestRepository repository) throws IOException {
+        repository.addArtifact(
+                "org.junit.jupiter",
+                "junit-jupiter",
+                "5.14.4",
+                """
+                <project>
+                  <groupId>org.junit.jupiter</groupId>
+                  <artifactId>junit-jupiter</artifactId>
+                  <version>5.14.4</version>
+                  <dependencies>
+                    <dependency>
+                      <groupId>org.junit.jupiter</groupId>
+                      <artifactId>junit-jupiter-api</artifactId>
+                      <version>5.14.4</version>
+                    </dependency>
+                  </dependencies>
+                </project>
                 """);
+        repository.addArtifact(
+                "org.junit.jupiter",
+                "junit-jupiter-api",
+                "5.14.4",
+                pom("org.junit.jupiter", "junit-jupiter-api", "5.14.4"),
+                bundledJUnitJar());
+        Path fakeConsole = tempDir.resolve("fake-console/junit-platform-console-1.14.4.jar");
+        writeFakeConsoleJar(fakeConsole);
+        repository.addArtifact(
+                "org.junit.platform",
+                "junit-platform-console",
+                "1.14.4",
+                pom("org.junit.platform", "junit-platform-console", "1.14.4"),
+                Files.readAllBytes(fakeConsole));
+    }
+
+    private static byte[] bundledJUnitJar() throws IOException {
+        try {
+            Path jar = Path.of(Test.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .toURI());
+            return Files.readAllBytes(jar);
+        } catch (Exception exception) {
+            throw new IOException("Could not read the bundled JUnit test jar.", exception);
+        }
+    }
+
+    private static void useTestRepository(Path config, CliTestRepository repository) throws IOException {
+        String toml = Files.readString(config)
+                .replace(ProjectConfig.MAVEN_CENTRAL, repository.baseUri().toString());
+        Files.writeString(config, toml);
+    }
+
+    private static String pom(String group, String artifact, String version) {
+        return """
+                <project>
+                  <groupId>%s</groupId>
+                  <artifactId>%s</artifactId>
+                  <version>%s</version>
+                </project>
+                """.formatted(group, artifact, version);
     }
 }

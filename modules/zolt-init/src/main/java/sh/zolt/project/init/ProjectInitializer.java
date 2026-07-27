@@ -13,6 +13,9 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class ProjectInitializer {
+    private static final String DEFAULT_TEST_FRAMEWORK = "org.junit.jupiter:junit-jupiter";
+    private static final String DEFAULT_TEST_FRAMEWORK_VERSION = "5.14.4";
+
     private final ProjectConfigWriter writer;
     private final WorkspaceConfigWriter workspaceWriter;
 
@@ -22,6 +25,15 @@ public final class ProjectInitializer {
     }
 
     public ProjectInitResult init(Path baseDirectory, String name, String group, String javaVersion) {
+        return init(baseDirectory, name, group, javaVersion, true);
+    }
+
+    public ProjectInitResult init(
+            Path baseDirectory,
+            String name,
+            String group,
+            String javaVersion,
+            boolean includeTests) {
         validateProjectName(name);
         validateJavaPackage(group);
         validateJavaVersion(javaVersion);
@@ -37,7 +49,7 @@ public final class ProjectInitializer {
                 new ProjectMetadata(name, "0.1.0", group, javaVersion, Optional.of(mainClass)),
                 ProjectConfig.defaultRepositories(),
                 Map.of(),
-                Map.of(),
+                testDependencies(includeTests),
                 BuildSettings.defaults());
 
         Path packagePath = Path.of(group.replace('.', '/'));
@@ -47,10 +59,12 @@ public final class ProjectInitializer {
 
         try {
             Files.createDirectories(mainSource.getParent());
-            Files.createDirectories(testSource.getParent());
             writer.write(configFile, config);
             Files.writeString(mainSource, mainSource(name, group));
-            Files.writeString(testSource, testSource(group));
+            if (includeTests) {
+                Files.createDirectories(testSource.getParent());
+                Files.writeString(testSource, testSource(name, group));
+            }
             Files.writeString(projectDirectory.resolve(".gitignore"), gitignore());
         } catch (IOException | ProjectConfigWriteException exception) {
             throw new ProjectInitException(
@@ -61,6 +75,15 @@ public final class ProjectInitializer {
     }
 
     public ProjectInitResult initWorkspace(Path baseDirectory, String name, String group, String javaVersion) {
+        return initWorkspace(baseDirectory, name, group, javaVersion, true);
+    }
+
+    public ProjectInitResult initWorkspace(
+            Path baseDirectory,
+            String name,
+            String group,
+            String javaVersion,
+            boolean includeTests) {
         validateProjectName(name);
         validateJavaPackage(group);
         validateJavaVersion(javaVersion);
@@ -78,7 +101,7 @@ public final class ProjectInitializer {
                 new ProjectMetadata(name, "0.1.0", group, javaVersion, Optional.of(mainClass)),
                 ProjectConfig.defaultRepositories(),
                 Map.of(),
-                Map.of(),
+                testDependencies(includeTests),
                 BuildSettings.defaults());
         WorkspaceInitConfig workspaceConfig = new WorkspaceInitConfig(
                 name,
@@ -95,11 +118,13 @@ public final class ProjectInitializer {
 
         try {
             Files.createDirectories(mainSource.getParent());
-            Files.createDirectories(testSource.getParent());
             workspaceWriter.write(rootConfigFile, workspaceConfig);
             writer.write(memberConfigFile, config);
             Files.writeString(mainSource, mainSource(name, group));
-            Files.writeString(testSource, testSource(group));
+            if (includeTests) {
+                Files.createDirectories(testSource.getParent());
+                Files.writeString(testSource, testSource(name, group));
+            }
             Files.writeString(workspaceDirectory.resolve(".gitignore"), gitignore());
         } catch (IOException | ProjectConfigWriteException exception) {
             throw new ProjectInitException(
@@ -127,19 +152,37 @@ public final class ProjectInitializer {
                     }
 
                     public static void main(String[] args) {
-                        System.out.println("Hello from %s!");
+                        System.out.println(greeting());
+                    }
+
+                    static String greeting() {
+                        return "Hello from %s!";
                     }
                 }
                 """.formatted(group, escapeJavaString(projectName));
     }
 
-    private static String testSource(String group) {
+    private static String testSource(String projectName, String group) {
         return """
                 package %s;
 
+                import static org.junit.jupiter.api.Assertions.assertEquals;
+
+                import org.junit.jupiter.api.Test;
+
                 final class MainTest {
+                    @Test
+                    void greets() {
+                        assertEquals("Hello from %s!", Main.greeting());
+                    }
                 }
-                """.formatted(group);
+                """.formatted(group, escapeJavaString(projectName));
+    }
+
+    private static Map<String, String> testDependencies(boolean includeTests) {
+        return includeTests
+                ? Map.of(DEFAULT_TEST_FRAMEWORK, DEFAULT_TEST_FRAMEWORK_VERSION)
+                : Map.of();
     }
 
     private static String gitignore() {

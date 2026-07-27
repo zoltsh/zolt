@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
@@ -127,6 +128,20 @@ final class CliSurfaceTest {
         assertTrue(Files.exists(tempDir.resolve("platform/zolt.toml")));
         assertTrue(Files.exists(tempDir.resolve("platform/apps/platform/zolt.toml")));
         assertTrue(Files.exists(tempDir.resolve("platform/apps/platform/src/main/java/com/example/Main.java")));
+    }
+
+    @Test
+    void initCanOmitTests() throws IOException {
+        CommandResult result = execute(
+                "init",
+                "--no-tests",
+                "--directory", tempDir.toString(),
+                "hello");
+
+        Path project = tempDir.resolve("hello");
+        assertEquals(0, result.exitCode());
+        assertFalse(Files.exists(project.resolve("src/test")));
+        assertFalse(Files.readString(project.resolve("zolt.toml")).contains("junit"));
     }
 
     @Test

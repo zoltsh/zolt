@@ -1,8 +1,6 @@
 # Reference
 
-Zolt is a Java build tool, not just a project generator. The smallest demo is
-`zolt init && zolt test && zolt package`, but the current command surface also
-covers dependency editing, reproducible resolution, workspaces, framework
+Zolt covers dependency editing, reproducible resolution, workspaces, framework
 packaging, generated sources, migration audits, quality gates, publishing, and
 native release workflows.
 
@@ -11,16 +9,13 @@ native release workflows.
 ```sh
 zolt init hello --group com.example --java 21
 cd hello
-zolt add com.google.guava:guava:33.4.0-jre
-zolt add test org.junit.platform:junit-platform-console-standalone:1.11.4
-zolt resolve
 zolt test
 zolt package
 zolt run-package
 ```
 
-Zolt writes a small `zolt.toml`, resolves a deterministic `zolt.lock`, compiles
-sources, runs tests, and packages artifacts from the project model.
+`init` includes JUnit and a passing test. Use `--no-tests` for a bare project.
+`test` resolves the lockfile before compiling and running the suite.
 
 ## Command Map
 
@@ -28,6 +23,7 @@ Common project commands:
 
 ```sh
 zolt init NAME
+zolt init NAME --no-tests
 zolt resolve
 zolt build
 zolt run -- ARGS

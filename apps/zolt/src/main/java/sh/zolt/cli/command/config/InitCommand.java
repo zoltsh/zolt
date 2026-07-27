@@ -34,6 +34,9 @@ public final class InitCommand implements Runnable {
     @Option(names = "--workspace", description = "Create a workspace root with a default app member.")
     private boolean workspace;
 
+    @Option(names = "--no-tests", description = "Create the project without JUnit or test sources.")
+    private boolean noTests;
+
     @Mixin
     private CommandProjectDirectory projectDirectory = new CommandProjectDirectory();
 
@@ -77,8 +80,8 @@ public final class InitCommand implements Runnable {
     public void run() {
         try {
             ProjectInitResult result = workspace
-                    ? projectInitializer.initWorkspace(projectDirectory.path(), name, group, javaVersion)
-                    : projectInitializer.init(projectDirectory.path(), name, group, javaVersion);
+                    ? projectInitializer.initWorkspace(projectDirectory.path(), name, group, javaVersion, !noTests)
+                    : projectInitializer.init(projectDirectory.path(), name, group, javaVersion, !noTests);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             output.summary("Created Zolt " + (workspace ? "workspace" : "project") + " at " + result.projectDirectory());
             output.pointer("cd", result.projectDirectory().getFileName().toString());

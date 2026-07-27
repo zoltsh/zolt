@@ -255,6 +255,7 @@ public final class CompiledTestRunner {
             throw exception;
         }
         long requestNanos = System.nanoTime() - requestStarted;
+        consoleFailureHandler.throwIfLauncherDidNotStart(result.output());
         consoleFailureHandler.throwIfSelectedTestsDidNotMatch(result.output(), testSelection);
         consoleFailureHandler.throwIfCompiledTestsProducedNoTests(
                 result.output(), testSelection, compileResult.sourceCount());

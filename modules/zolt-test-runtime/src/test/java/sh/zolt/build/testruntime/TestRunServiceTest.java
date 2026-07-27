@@ -11,10 +11,12 @@ import static sh.zolt.build.testruntime.TestRunServiceLockfileTestSupport.writeC
 import static sh.zolt.build.testruntime.TestRunServiceLockfileTestSupport.writeNonStandaloneConsoleLockfile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.run.JavaRunner;
 import sh.zolt.build.testruntime.TestRunServiceTestSupport.CachingJdkChecker;
+import sh.zolt.test.runtime.TestRunException;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.TestSelection;
 import java.io.IOException;
@@ -78,6 +80,24 @@ final class TestRunServiceTest {
         assertTrue(command.stream().anyMatch(value -> value.contains("target/test-classes")));
         assertTrue(command.stream().anyMatch(value -> value.contains("target/classes")));
         assertTrue(command.stream().anyMatch(value -> value.contains("junit-platform-console-standalone-1.11.4.jar")));
+    }
+
+    @Test
+    void launcherWithoutTestEngineCannotReportSuccess() throws IOException {
+        writeConsoleLockfile(projectDir);
+        source(projectDir, "src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
+        source(projectDir, "src/test/java/com/example/MainTest.java", "package com.example; public final class MainTest {}\n");
+        TestRunService service = service((command, outputConsumer) -> new JavaRunner.ProcessResult(
+                0,
+                "Cannot create Launcher without at least one TestEngine; "
+                        + "consider adding an engine implementation JAR to the classpath\n"));
+
+        TestRunException exception = assertThrows(
+                TestRunException.class,
+                () -> service.runTests(projectDir, config(), projectDir.resolve("cache")));
+
+        assertTrue(exception.getMessage().contains("No test engine is present"));
+        assertTrue(exception.getMessage().contains("org.junit.jupiter:junit-jupiter"));
     }
 
     @Test
