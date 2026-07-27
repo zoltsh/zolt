@@ -30,16 +30,19 @@ export async function verifyEnterprisePackage(
   await expect.archive(war).toContainEntries([
     "WEB-INF/classes/application.properties",
     "WEB-INF/classes/com/example/enterprise/generated/model/Status200Response.class",
-    "WEB-INF/lib-provided/tomcat-embed-core-11.0.21.jar",
   ]);
   const jarTool = await t.tools.jar({ minVersion: 8 });
   const entries = await t.cmd(jarTool.command, ["tf", war], { cwd: project });
+  expect.value(entries.stdout).toMatch(
+    /^WEB-INF\/lib-provided\/tomcat-embed-core-11\.0\.21-[0-9a-f]{24}\.jar$/mu,
+  );
   expect.value(entries.stdout.includes("spring-boot-devtools")).toBeFalsy();
   expect.value(/^WEB-INF\/lib\/lombok-/mu.test(entries.stdout)).toBeFalsy();
   expect.value(entries.stdout).toMatch(/^WEB-INF\/lib-provided\/lombok-[^/]+\.jar$/mu);
 
   const evidence = await runZolt(t, zolt, [
-    "--no-progress", "check", "--cwd", project, "--check", "package-contents",
+    "--no-progress", "check", "--cwd", project, "--cache-root", zolt.cacheRoot,
+    "--check", "package-contents",
   ]);
   expect.value(evidence.stdout).toContain("Package mode `spring-boot-war`");
   expect.value(evidence.stdout).toContain("rule:spring-boot-war-provided-lib");

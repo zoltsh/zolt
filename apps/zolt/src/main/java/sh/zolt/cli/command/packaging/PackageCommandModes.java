@@ -3,7 +3,6 @@ package sh.zolt.cli.command.packaging;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.project.PackageMode;
-import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import java.util.Optional;
 
@@ -27,7 +26,7 @@ final class PackageCommandModes {
             ProjectConfig config,
             Optional<PackageMode> packageModeOverride) {
         return packageModeOverride
-                .map(mode -> config.withPackageSettings(new PackageSettings(mode)))
+                .map(mode -> config.withPackageSettings(config.packageSettings().withMode(mode)))
                 .orElse(config);
     }
 

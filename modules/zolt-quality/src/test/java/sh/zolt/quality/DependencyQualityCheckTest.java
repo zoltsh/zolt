@@ -142,6 +142,41 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
     }
 
     @Test
+    void dependencyMetadataAcceptsAnExcludedEdgeWhenAnotherPathReintroducesThePackage() throws IOException {
+        Path projectDir = tempDir.resolve("excluded-edge-reintroduced");
+        ProjectConfig config = parseProject(projectDir, """
+
+                [dependencies]
+                "com.example:root-lib" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "legacy" }] }
+                """);
+        writeLockfile(projectDir, packageEntry(
+                "com.example:root-lib",
+                "1.0.0",
+                "compile",
+                true,
+                "dependencies = [\"com.example:legacy:1.0.0:jar:runtime\"]")
+                + """
+
+                [[policy]]
+                kind = "edge-exclusion"
+                id = "com.example:legacy"
+                requested = "1.0.0"
+                source = "com.example:root-lib:1.0.0"
+                policy = "dependency edge exclusion from com.example:root-lib:1.0.0 to com.example:legacy"
+                """);
+
+        QualityCheckResult result = check.checkProjectMetadata(Optional.empty(), projectDir, config, false).getFirst();
+
+        assertResult(
+                result,
+                QualityCheckService.DEPENDENCY_METADATA,
+                QualityCheckStatus.PASSED,
+                "com.example:root-lib",
+                "Dependency metadata for `com.example:root-lib` is represented in zolt.lock.",
+                "");
+    }
+
+    @Test
     void dependencyMetadataRejectsPublishOnlyDependenciesPresentInLockfile() throws IOException {
         Path projectDir = tempDir.resolve("publish-only-in-lockfile");
         ProjectConfig config = parseProject(projectDir, """

@@ -1,9 +1,9 @@
 package sh.zolt.project;
 
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 public record ResourceFilteringSettings(
         boolean enabled,
@@ -14,7 +14,9 @@ public record ResourceFilteringSettings(
     public ResourceFilteringSettings {
         includes = includes == null ? List.of() : List.copyOf(includes);
         missing = missing == null ? ResourceMissingTokenPolicy.FAIL : missing;
-        tokens = tokens == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(tokens));
+        tokens = tokens == null
+                ? Map.of()
+                : Collections.unmodifiableSortedMap(new TreeMap<>(tokens));
     }
 
     public static ResourceFilteringSettings defaults() {

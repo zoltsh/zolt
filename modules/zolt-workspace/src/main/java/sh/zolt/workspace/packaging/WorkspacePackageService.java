@@ -7,7 +7,6 @@ import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.framework.FrameworkPackageAugmenter;
 import sh.zolt.project.PackageMode;
-import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
@@ -199,7 +198,8 @@ public final class WorkspacePackageService {
             WorkspaceMember member = membersByPath.get(memberPath);
             WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
             ProjectConfig memberConfig = packageModeOverride
-                    .map(mode -> member.config().withPackageSettings(new PackageSettings(mode)))
+                    .map(mode -> member.config().withPackageSettings(
+                            member.config().packageSettings().withMode(mode)))
                     .orElse(member.config());
             if (memberConfig.packageSettings().mode() == PackageMode.BOM) {
                 // A BOM has no jar; generate its dependencyManagement POM from the family instead.

@@ -14,11 +14,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 
 /**
  * Recomputes the live, inputs-only side of the main build for package evidence.
@@ -159,10 +161,10 @@ final class PackageBuildInputFingerprint {
         }
     }
 
-    private static Map<String, String> effectiveResourceTokens(ProjectConfig config) {
+    static SortedMap<String, String> effectiveResourceTokens(ProjectConfig config) {
         Map<String, ResourceTokenSettings> configured =
                 config.build().resourceFiltering().tokens();
-        Map<String, String> values = new java.util.TreeMap<>();
+        SortedMap<String, String> values = new java.util.TreeMap<>();
         for (Map.Entry<String, ResourceTokenSettings> entry : configured.entrySet()) {
             ResourceTokenSettings token = entry.getValue();
             String value = token.value()
@@ -171,7 +173,7 @@ final class PackageBuildInputFingerprint {
                     .orElse("");
             values.put(entry.getKey(), value);
         }
-        return Map.copyOf(values);
+        return Collections.unmodifiableSortedMap(values);
     }
 
     private static String environmentToken(String variable) {

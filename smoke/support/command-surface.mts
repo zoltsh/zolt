@@ -1,11 +1,12 @@
 export const EXPECTED_ZOLT_COMMANDS = [
-  "help", "init", "version", "config", "doctor", "self", "update",
+  "help", "init", "version", "config", "doctor", "self",
   "add", "remove", "platform", "resolve", "tree", "why", "policy", "conflicts",
+  "outdated", "update",
   "aliases", "tasks", "task", "build", "run", "exec", "test", "integration-test", "coverage",
   "package", "run-package", "clean",
   "check", "plan", "classpath", "ide", "toolchain", "shims", "explain", "quarkus",
   "native", "native-smoke", "release-archive", "release-verify", "publish",
-  "self-check", "self-parity",
+  "sbom", "licenses", "self-check", "self-parity", "cache",
 ] as const;
 
 export function parseListedCommands(output: string): string[] {

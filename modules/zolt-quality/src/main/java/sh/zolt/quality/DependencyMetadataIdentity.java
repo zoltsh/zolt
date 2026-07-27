@@ -36,6 +36,19 @@ final class DependencyMetadataIdentity {
                 .anyMatch(excluded::equals);
     }
 
+    static boolean recordsAppliedEdgeExclusion(
+            ZoltLockfile lockfile,
+            LockPackage source,
+            PackageId excluded) {
+        String sourceCoordinate = source.packageId() + ":" + source.version();
+        return lockfile.policyEffects().stream()
+                .filter(effect -> "edge-exclusion".equals(effect.kind()))
+                .filter(effect -> effect.packageId().equals(excluded))
+                .anyMatch(effect -> effect.source()
+                        .map(sourceCoordinate::equals)
+                        .orElse(false));
+    }
+
     static LockArtifactVariant declaredVariant(DependencyMetadata metadata) {
         return new LockArtifactVariant(
                 metadata.type() == null ? "jar" : metadata.type(),

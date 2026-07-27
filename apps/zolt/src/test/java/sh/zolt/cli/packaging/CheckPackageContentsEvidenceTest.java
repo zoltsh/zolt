@@ -74,6 +74,45 @@ final class CheckPackageContentsEvidenceTest {
     }
 
     @Test
+    void packageModeOverridePreservesConfiguredOutputsAndFreshEvidence() throws IOException {
+        Path projectDir = tempDir.resolve("package-mode-override-evidence");
+        writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
+        Files.writeString(
+                projectDir.resolve("zolt.toml"),
+                Files.readString(projectDir.resolve("zolt.toml"))
+                        + "\n[package]\nmode = \"thin\"\nsources = true\n");
+        writeMainSource(projectDir, """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        Path cache = tempDir.resolve("package-mode-override-cache");
+
+        CommandResult packaged = execute(
+                "package",
+                "--mode", "thin",
+                "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+        CommandResult checked = execute(
+                "check",
+                "--context", "ci",
+                "--require-package",
+                "--check", "package-contents",
+                "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+
+        assertEquals(0, packaged.exitCode(), packaged.stderr());
+        assertTrue(Files.isRegularFile(projectDir.resolve("target/demo-0.1.0-sources.jar")));
+        assertEquals(0, checked.exitCode(), checked.stdout());
+        assertTrue(checked.stdout().contains(
+                "ok package-contents demo Package mode `thin` has 0 dependency dispositions."));
+        assertEquals("", checked.stderr());
+    }
+
+    @Test
     void checkPackageContentsReportsMissingEvidenceForExistingArchive() throws IOException {
         Path projectDir = tempDir.resolve("check-package-contents-missing-evidence");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");

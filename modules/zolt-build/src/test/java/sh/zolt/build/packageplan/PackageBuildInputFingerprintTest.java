@@ -53,6 +53,27 @@ final class PackageBuildInputFingerprintTest {
                 fingerprint(testConfig("fixtures-v2.sql"), List.of()));
     }
 
+    @Test
+    void effectiveResourceTokensAreCanonicalByName() {
+        ProjectConfig config = new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [resources.tokens]
+                projectVersion = { project = "version" }
+                enterprisePlatformVersion = { value = "2026.06" }
+                """);
+
+        assertEquals(
+                List.of("enterprisePlatformVersion", "projectVersion"),
+                List.copyOf(PackageBuildInputFingerprint
+                        .effectiveResourceTokens(config)
+                        .keySet()));
+    }
+
     private String fingerprint(
             List<GeneratedSourceProducerFingerprint> producers) {
         return fingerprint(config(), producers);

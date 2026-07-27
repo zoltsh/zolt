@@ -61,6 +61,10 @@ public record PackageSettings(
         return new PackageSettings(PackageMode.THIN, false, false, false, PublicationMetadata.empty(), Map.of());
     }
 
+    public PackageSettings withMode(PackageMode mode) {
+        return new PackageSettings(mode, sources, javadoc, tests, metadata, manifestAttributes, uberDuplicates, bom);
+    }
+
     public PackageSettings withBom(BomSettings bom) {
         return new PackageSettings(mode, sources, javadoc, tests, metadata, manifestAttributes, uberDuplicates, bom);
     }

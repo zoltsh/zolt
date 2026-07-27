@@ -7,7 +7,9 @@ export async function verifyEnterpriseReleaseChecks(
   zolt: ZoltRuntime,
   project: string,
 ): Promise<void> {
-  const dryRun = await runZolt(t, zolt, ["--no-progress", "publish", "--cwd", project, "--dry-run"]);
+  const dryRun = await runZolt(t, zolt, [
+    "--no-progress", "publish", "--cwd", project, "--cache-root", zolt.cacheRoot, "--dry-run",
+  ]);
   expect.value(dryRun.stdout).toContain("Version kind: release");
   expect.value(dryRun.stdout).toContain("Target repository: company-releases");
   expect.value(dryRun.stdout).toContain("Artifact path: target/spring-boot-enterprise-canary-0.1.0.war");
@@ -15,6 +17,7 @@ export async function verifyEnterpriseReleaseChecks(
 
   const ci = await runZolt(t, zolt, [
     "--no-progress", "check", "--cwd", project, "--context", "ci",
+    "--cache-root", zolt.cacheRoot,
     "--reports-dir", "target/test-reports", "--coverage-dir", "target/coverage",
     "--require-package", "--require-publish-dry-run",
   ]);
@@ -24,7 +27,8 @@ export async function verifyEnterpriseReleaseChecks(
   expect.value(ci.stdout).toContain("CI publish dry-run preflight is ready");
 
   const release = await runZolt(t, zolt, [
-    "--no-progress", "publish", "--cwd", project, "--context", "release", "--dry-run",
+    "--no-progress", "publish", "--cwd", project, "--cache-root", zolt.cacheRoot,
+    "--context", "release", "--dry-run",
   ], { check: false });
   expect.value(release.exitCode === 0).toBeFalsy();
   const output = `${release.stdout}\n${release.stderr}`;

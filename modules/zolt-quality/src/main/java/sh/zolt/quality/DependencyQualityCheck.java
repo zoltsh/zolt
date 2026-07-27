@@ -292,9 +292,13 @@ final class DependencyQualityCheck {
         }
 
         for (sh.zolt.project.DependencyExclusionSpec exclusion : metadata.exclusions()) {
-            if (DependencyMetadataIdentity.containsDependency(
-                    lockPackage,
-                    DependencyMetadataIdentity.packageId(exclusion.coordinate()))) {
+            sh.zolt.dependency.PackageId excluded =
+                    DependencyMetadataIdentity.packageId(exclusion.coordinate());
+            if (DependencyMetadataIdentity.containsDependency(lockPackage, excluded)
+                    && !DependencyMetadataIdentity.recordsAppliedEdgeExclusion(
+                            lockfile,
+                            lockPackage,
+                            excluded)) {
                 return QualityCheckResult.failed(
                         DEPENDENCY_METADATA,
                         member,
