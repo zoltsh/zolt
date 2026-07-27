@@ -138,8 +138,8 @@ zolt config show
 
 ## Platforms
 
-Native releases support Linux x64, Linux arm64, macOS arm64, and macOS x64.
-Windows x64 is experimental and is not yet a supported host.
+Native releases support Linux and macOS on x64 and arm64. Windows x64 remains
+experimental.
 
 ## Boundaries
 
@@ -151,6 +151,7 @@ outside that model. Use `zolt explain`, `zolt plan`, and the
 ## More
 
 - [Usage](./USAGE.md)
+- [Reference](./REFERENCE.md)
 - [Examples](./examples/)
 - [Benchmarks](./docs/benchmarks/)
 - [Security](./SECURITY.md)

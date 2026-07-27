@@ -81,4 +81,4 @@ the old behavior, the new behavior, and how to migrate.
   canonical). Scripts or habits that ran `zolt update` for self-update must switch
   to `zolt self update`.
 
-See [Dependency Updates](../USAGE.md#dependency-updates) for the repurposed command.
+See [Dependency Updates](../REFERENCE.md#dependency-updates) for the repurposed command.

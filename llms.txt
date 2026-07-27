@@ -5,7 +5,9 @@ It is not only a "build a basic Java app" scaffold.
 
 Primary docs:
 - README.md: short install and positioning page.
-- USAGE.md: fuller command/config/example guide.
+- FEATURES.md: complete feature overview.
+- USAGE.md: common workflows and command examples.
+- REFERENCE.md: full configuration, behavior, and contract reference.
 - SECURITY.md: private vulnerability reporting and supported version policy.
 - LICENSE: Apache-2.0.
 - modules/*/README.md: short ownership notes for internal workspace modules.
@@ -82,5 +84,5 @@ zolt self exec VERSION -- version
 Caveat:
 Zolt is Java-focused and opinionated. It has broad implemented lanes, but it is
 not a promise that every custom Maven or Gradle plugin behavior is already a
-drop-in replacement. Use USAGE.md, zolt explain, zolt plan, and examples/ to
-answer support questions from current repository evidence.
+drop-in replacement. Use USAGE.md, REFERENCE.md, zolt explain, zolt plan, and
+examples/ to answer support questions from current repository evidence.
