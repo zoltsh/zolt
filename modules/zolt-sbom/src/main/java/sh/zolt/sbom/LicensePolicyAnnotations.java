@@ -1,10 +1,11 @@
 package sh.zolt.sbom;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import sh.zolt.project.LicensePolicySettings;
+import java.util.Set;
 import sh.zolt.project.ProjectConfig;
 
 /**
@@ -17,9 +18,11 @@ import sh.zolt.project.ProjectConfig;
  * emits exactly what it emitted before.
  *
  * <p>Across a workspace each member owns its own policy ({@code [dependencyPolicy]} is member-local,
- * not merged down from the root) while the report aggregates every member's dependencies. A coordinate
- * is therefore annotated with the strictest verdict any member's policy gives it, matching what a
- * workspace-wide enforcement run would flag.
+ * not merged down from the root) while the report aggregates every member's dependencies. Evaluation is
+ * therefore scoped: a member's policy sees only the closure that member consumes, exactly as
+ * {@code zolt check --workspace --check license-policy} enforces it. A coordinate takes the strictest
+ * verdict among the members that actually consume it, and a member that does not depend on a coordinate
+ * contributes nothing to it — so the report never claims a violation the enforcing command would pass.
  */
 public record LicensePolicyAnnotations(
         boolean configured,
@@ -34,29 +37,52 @@ public record LicensePolicyAnnotations(
         return new LicensePolicyAnnotations(false, Map.of(), 0);
     }
 
-    /**
-     * Evaluates every configured policy among {@code configs} against the report's components. Configs
-     * whose policy is unset contribute nothing; when none is configured the result is {@link #none()}.
-     */
+    /** Single owner: one policy over the dependencies that same owner consumes. */
     public static LicensePolicyAnnotations evaluate(
             List<SbomComponent> components,
             LicenseIndex index,
-            List<ProjectConfig> configs) {
-        List<LicensePolicySettings> policies = configs.stream()
-                .map(config -> config.dependencyPolicy().licenses())
-                .filter(policy -> !policy.isDefault())
+            ProjectConfig config) {
+        return evaluate(components, index, List.of(new LicensePolicyScope(config, components)));
+    }
+
+    /**
+     * Evaluates each scope's policy against that scope's own components only, then merges per coordinate
+     * with the strictest verdict winning among the scopes that reach it. Scopes whose policy is unset
+     * contribute nothing; when none is configured the result is {@link #none()}.
+     *
+     * <p>{@code reported} is the component list the report itself renders. It fixes two things: findings
+     * for coordinates the report does not show are dropped, so the summary counts can never exceed the
+     * annotated rows, and {@code evaluated} counts distinct coordinates to match the report's own
+     * per-coordinate deduplication rather than the raw component-list length.
+     */
+    public static LicensePolicyAnnotations evaluate(
+            List<SbomComponent> reported,
+            LicenseIndex index,
+            List<LicensePolicyScope> scopes) {
+        List<LicensePolicyScope> enforcing = scopes.stream()
+                .filter(scope -> !scope.policy().isDefault())
                 .toList();
-        if (policies.isEmpty()) {
+        if (enforcing.isEmpty()) {
             return none();
+        }
+        Set<String> reportedCoordinates = new LinkedHashSet<>();
+        for (SbomComponent component : reported) {
+            reportedCoordinates.add(coordinate(component));
         }
         LicensePolicyEvaluator evaluator = new LicensePolicyEvaluator();
         Map<String, LicensePolicyFinding> strictest = new LinkedHashMap<>();
-        for (LicensePolicySettings policy : policies) {
-            for (LicensePolicyFinding finding : evaluator.evaluate(components, index, policy)) {
-                strictest.merge(finding.coordinate(), finding, LicensePolicyAnnotations::stricter);
+        for (LicensePolicyScope scope : enforcing) {
+            for (LicensePolicyFinding finding : evaluator.evaluate(scope.components(), index, scope.policy())) {
+                if (reportedCoordinates.contains(finding.coordinate())) {
+                    strictest.merge(finding.coordinate(), finding, LicensePolicyAnnotations::stricter);
+                }
             }
         }
-        return new LicensePolicyAnnotations(true, strictest, components.size());
+        return new LicensePolicyAnnotations(true, strictest, reportedCoordinates.size());
+    }
+
+    private static String coordinate(SbomComponent component) {
+        return component.group() + ":" + component.name() + ":" + component.version();
     }
 
     public Optional<LicensePolicyFinding> forCoordinate(String coordinate) {

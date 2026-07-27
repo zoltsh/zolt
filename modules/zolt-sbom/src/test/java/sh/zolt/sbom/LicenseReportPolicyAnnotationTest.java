@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +57,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
     void noConfiguredPolicyLeavesTextOutputByteUnchanged() {
         LicenseReport report = builder.build(components(), index());
         LicensePolicyAnnotations annotations =
-                LicensePolicyAnnotations.evaluate(components(), index(), List.of(config()));
+                LicensePolicyAnnotations.evaluate(components(), index(), config());
 
         assertFalse(annotations.configured());
         assertEquals(
@@ -68,7 +69,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
     void noConfiguredPolicyLeavesJsonOutputByteUnchanged() {
         LicenseReport report = builder.build(components(), index());
         LicensePolicyAnnotations annotations =
-                LicensePolicyAnnotations.evaluate(components(), index(), List.of(config()));
+                LicensePolicyAnnotations.evaluate(components(), index(), config());
 
         assertEquals(
                 new LicenseReportJsonWriter().write(report),
@@ -78,7 +79,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
     @Test
     void deniedAndUnknownEntriesAreMarkedWithASummaryAndEnforcementPointer() {
         LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
-                components(), index(), List.of(configWithPolicy(denyGpl())));
+                components(), index(), configWithPolicy(denyGpl()));
 
         String text = new LicenseReportTextWriter().write(builder.build(components(), index()), annotations);
 
@@ -103,7 +104,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
         LicensePolicySettings policy =
                 new LicensePolicySettings(List.of(), List.of("GPL-3.0-only"), UnknownLicensePolicy.FAIL);
         LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
-                components(), index(), List.of(configWithPolicy(policy)));
+                components(), index(), configWithPolicy(policy));
 
         String text = new LicenseReportTextWriter().write(builder.build(components(), index()), annotations);
 
@@ -119,7 +120,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
     @Test
     void jsonAddsPolicyFieldsWithoutChangingTheExistingShape() {
         LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
-                components(), index(), List.of(configWithPolicy(denyGpl())));
+                components(), index(), configWithPolicy(denyGpl()));
 
         String json = new LicenseReportJsonWriter().write(builder.build(components(), index()), annotations);
 
@@ -183,15 +184,20 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
     }
 
     @Test
-    void workspaceMemberPoliciesMergeToTheStrictestVerdictPerCoordinate() {
-        // One member denies GPL and only warns on unknowns; another fails on unknowns. A member with no
-        // policy at all contributes nothing.
+    void memberPoliciesMergeToTheStrictestVerdictAmongTheMembersThatConsumeACoordinate() {
+        // Both members consume everything, so both policies reach every coordinate: one denies GPL and
+        // only warns on unknowns, the other fails on unknowns. A member with no policy contributes nothing.
         ProjectConfig deniesGpl = configWithPolicy(denyGpl());
         ProjectConfig failsOnUnknown =
                 configWithPolicy(new LicensePolicySettings(List.of(), List.of(), UnknownLicensePolicy.FAIL));
 
         LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
-                components(), index(), List.of(deniesGpl, failsOnUnknown, config()));
+                components(),
+                index(),
+                List.of(
+                        new LicensePolicyScope(deniesGpl, components()),
+                        new LicensePolicyScope(failsOnUnknown, components()),
+                        new LicensePolicyScope(config(), components())));
 
         assertTrue(annotations.configured());
         assertEquals(Optional.empty(), annotations.statusFor("org.example:lib-a:1.0.0"));
@@ -201,5 +207,55 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
         assertEquals(3, annotations.evaluated());
         assertEquals(2, annotations.denied());
         assertEquals(0, annotations.unknown());
+    }
+
+    /**
+     * The defect this scoping exists to prevent: a strict member must not taint a coordinate it does not
+     * consume, or {@code zolt licenses --workspace} would report a violation that
+     * {@code zolt check --workspace --check license-policy} passes.
+     */
+    @Test
+    void aMemberPolicyNeverReachesACoordinateThatMemberDoesNotConsume() {
+        List<SbomComponent> all = components();
+        // Member A consumes the GPL library but configures no policy; member B denies GPL but consumes
+        // only the Apache-2.0 one.
+        List<SbomComponent> onlyApache = all.stream()
+                .filter(component -> component.name().equals("lib-a"))
+                .toList();
+
+        LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
+                all,
+                index(),
+                List.of(
+                        new LicensePolicyScope(config(), all),
+                        new LicensePolicyScope(configWithPolicy(denyGpl()), onlyApache)));
+
+        assertTrue(annotations.configured());
+        assertEquals(Optional.empty(), annotations.statusFor("org.example:lib-b:2.0.0"));
+        assertEquals(Optional.empty(), annotations.statusFor("org.example:lib-c:3.0.0"));
+        assertEquals(0, annotations.denied());
+        assertEquals(0, annotations.unknown());
+        // Still the whole report's dependencies, not just the scoped member's.
+        assertEquals(3, annotations.evaluated());
+    }
+
+    @Test
+    void evaluatedCountsDistinctReportedCoordinatesRatherThanComponentEntries() {
+        // A workspace assembles one component per member context, so a shared coordinate can appear more
+        // than once while the report lists it once.
+        List<SbomComponent> duplicated = new ArrayList<>(components());
+        duplicated.addAll(components());
+
+        LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
+                duplicated, index(), List.of(new LicensePolicyScope(configWithPolicy(denyGpl()), duplicated)));
+
+        assertEquals(6, duplicated.size());
+        assertEquals(3, annotations.evaluated());
+        // The denominator now matches what the report actually lists.
+        assertEquals(3, builder.build(duplicated, index()).groups().stream()
+                .mapToInt(group -> group.components().size())
+                .sum());
+        assertEquals(1, annotations.denied());
+        assertEquals(1, annotations.unknown());
     }
 }

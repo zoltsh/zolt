@@ -138,8 +138,18 @@ summary, and a pointer at the enforcing command — through
 `LicensePolicyAnnotations` in zolt-sbom, which both writers accept as an optional
 argument. Enforcement does not move: `zolt licenses` still exits 0, and with no
 policy configured its text and JSON output are byte-unchanged (JSON gains new
-fields only). In a workspace `[dependencyPolicy]` is member-local, so a
-coordinate takes the strictest verdict across member policies.
+fields only). In a workspace `[dependencyPolicy]` is member-local, so annotation
+is scoped the way enforcement is: the CLI pairs each member's effective config
+with that member's projected external closure — the same
+`WorkspaceMemberSbomLockProjection` the workspace quality check consumes — and
+passes those `LicensePolicyScope` pairs into the evaluator. A coordinate takes
+the strictest verdict among the members that consume it, and a member that does
+not consume it contributes nothing, so `zolt licenses --workspace` and `zolt
+check --workspace --check license-policy` cannot disagree. Pairing in the CLI is
+deliberate: zolt-sbom gains no dependency on zolt-workspace, only the projected
+component list crosses the boundary. The `evaluated` denominator counts distinct
+reported coordinates, matching `LicenseReportBuilder`'s per-coordinate dedup
+rather than the aggregate component-entry count.
 
 Workspace quality checks consume one shared member projection rather than the
 aggregate lock. The projection merges workspace-root repositories/platforms

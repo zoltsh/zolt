@@ -26,6 +26,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.sbom.LicenseIndex;
 import sh.zolt.sbom.LicenseNoticesWriter;
 import sh.zolt.sbom.LicensePolicyAnnotations;
+import sh.zolt.sbom.LicensePolicyScope;
 import sh.zolt.sbom.LicenseReport;
 import sh.zolt.sbom.LicenseReportBuilder;
 import sh.zolt.sbom.LicenseReportJsonWriter;
@@ -61,6 +62,7 @@ public final class LicensesCommand implements Runnable {
     private final LicenseNoticesWriter noticesWriter = new LicenseNoticesWriter();
     private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
     private final WorkspaceSbomAssembler workspaceAssembler = new WorkspaceSbomAssembler();
+    private final WorkspaceLicensePolicyScopes workspaceScopes = new WorkspaceLicensePolicyScopes();
 
     @Mixin
     private CommandProjectDirectory projectDirectory = new CommandProjectDirectory();
@@ -123,7 +125,7 @@ public final class LicensesCommand implements Runnable {
             Resolved resolved = workspace ? resolveWorkspace(selection) : resolveProject(selection);
             LicenseReport report = reportBuilder.build(resolved.components(), resolved.index());
             LicensePolicyAnnotations annotations = LicensePolicyAnnotations.evaluate(
-                    resolved.components(), resolved.index(), resolved.configs());
+                    resolved.components(), resolved.index(), resolved.scopes());
 
             String document = format == Format.JSON
                     ? jsonWriter.write(report, annotations)
@@ -151,7 +153,8 @@ public final class LicensesCommand implements Runnable {
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         LicenseIndex index = resolveLicenses(lockfile, selection);
         SbomModel model = assembler.assemble(config, lockfile, selection, Optional.empty(), toolVersion, index);
-        return new Resolved(externalComponents(model, index), index, List.of(config));
+        List<SbomComponent> components = externalComponents(model, index);
+        return new Resolved(components, index, List.of(new LicensePolicyScope(config, components)));
     }
 
     private Resolved resolveWorkspace(SbomScopeSelection selection) {
@@ -172,22 +175,24 @@ public final class LicensesCommand implements Runnable {
                 .toList();
         SbomModel model = workspaceAssembler.assemble(
                 discovered.config().name(), members, lockfile, selection, Optional.empty(), toolVersion, index);
+        List<SbomComponent> components = externalComponents(model, index);
         return new Resolved(
-                externalComponents(model, index),
-                index,
-                discovered.members().stream().map(member -> member.config()).toList());
+                components, index, workspaceScopes.from(discovered, lockfile, selection, components));
     }
 
     /** The report covers resolvable third-party dependencies; first-party members are excluded. */
     private static List<SbomComponent> externalComponents(SbomModel model, LicenseIndex index) {
         return model.components().stream()
-                .filter(component -> index.byCoordinate().containsKey(
-                        component.group() + ":" + component.name() + ":" + component.version()))
+                .filter(component -> index.byCoordinate().containsKey(coordinate(component)))
                 .toList();
     }
 
-    /** {@code configs} carries the member-local {@code [dependencyPolicy.licenses]} the report annotates with. */
-    private record Resolved(List<SbomComponent> components, LicenseIndex index, List<ProjectConfig> configs) {
+    private static String coordinate(SbomComponent component) {
+        return component.group() + ":" + component.name() + ":" + component.version();
+    }
+
+    /** {@code scopes} pairs each member-local {@code [dependencyPolicy.licenses]} with what it governs. */
+    private record Resolved(List<SbomComponent> components, LicenseIndex index, List<LicensePolicyScope> scopes) {
     }
 
     private LicenseIndex resolveLicenses(ZoltLockfile lockfile, SbomScopeSelection selection) {

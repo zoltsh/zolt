@@ -1526,9 +1526,16 @@ Next: run `zolt check --check license-policy` to enforce it.
 `zolt licenses` still exits 0 — reporting and enforcement stay separate surfaces.
 In `--format json` the same status is additive: each offending component gains a
 `policy` object and the document gains a `licensePolicy` summary; nothing existing
-is renamed or removed. Without a policy configured the output is unchanged. In a
-workspace, `[dependencyPolicy]` is member-local, so a coordinate is annotated with
-the strictest verdict any member's policy gives it.
+is renamed or removed. Without a policy configured the output is unchanged.
+
+In a workspace, `[dependencyPolicy]` is member-local, so each member's policy is
+evaluated only against that member's own dependency closure — the same scoping
+`zolt check --workspace --check license-policy` enforces with. A coordinate takes
+the strictest verdict among the members that actually consume it; a member that
+does not depend on a coordinate never affects its verdict. The report therefore
+cannot flag something the command it points at would pass. The summary's
+denominator counts the distinct coordinates the report lists, not raw component
+entries: one coordinate reached from several members is still one dependency.
 
 `zolt publish --sbom` attaches a CycloneDX SBOM to the publish as a supplemental
 artifact (classifier `cyclonedx`, extension `json`). It rides the existing
