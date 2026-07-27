@@ -3,6 +3,7 @@ package sh.zolt.cli.command.self;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.update.NativeInstallCommandSupport;
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.release.archive.ReleaseArchiveException;
 import sh.zolt.release.channel.ReleaseChannelManifestException;
 import sh.zolt.release.channel.ReleaseDistributionUrlLayout;
@@ -52,7 +53,7 @@ public final class SelfCommand implements Runnable {
 
     public static class NativeSelfOptions {
         @Option(names = "--install-root", hidden = true)
-        private Path installRoot = Path.of(System.getProperty("user.home"), ".zolt");
+        private Path installRoot = UserGlobalDirectory.root();
 
         @Option(names = "--current-executable", hidden = true)
         private Path currentExecutable;
@@ -79,7 +80,7 @@ public final class SelfCommand implements Runnable {
         private final NativeUpdateService nativeUpdateService;
 
         @Option(names = "--install-root", hidden = true)
-        private Path installRoot = Path.of(System.getProperty("user.home"), ".zolt");
+        private Path installRoot = UserGlobalDirectory.root();
 
         @Option(names = "--channel-url", hidden = true)
         private String channelUrl;

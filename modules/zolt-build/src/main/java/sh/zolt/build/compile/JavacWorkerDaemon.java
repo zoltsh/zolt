@@ -1,5 +1,6 @@
 package sh.zolt.build.compile;
 
+import sh.zolt.home.UserGlobalDirectory;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -195,7 +196,7 @@ final class JavacWorkerDaemon {
         if (!configured.isBlank()) {
             return Path.of(configured).toAbsolutePath().normalize();
         }
-        return Path.of(System.getProperty("user.home"), ".zolt", "run", "javac");
+        return UserGlobalDirectory.runtime("javac");
     }
 
     private static void createPrivateDirectory(Path directory) throws IOException {

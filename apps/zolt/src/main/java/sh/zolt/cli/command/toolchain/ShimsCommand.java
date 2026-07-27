@@ -3,6 +3,7 @@ package sh.zolt.cli.command.toolchain;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.error.ActionableException;
+import sh.zolt.home.UserGlobalDirectory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -114,7 +115,7 @@ public final class ShimsCommand implements Runnable {
     }
 
     private static Path defaultShimsDir() {
-        return Path.of(System.getProperty("user.home"), ".zolt", "shims").toAbsolutePath().normalize();
+        return UserGlobalDirectory.shims();
     }
 
     private static void writeShim(Path path, String shim) throws IOException {

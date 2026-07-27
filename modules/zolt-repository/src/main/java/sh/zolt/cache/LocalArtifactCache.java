@@ -1,6 +1,7 @@
 package sh.zolt.cache;
 
 import sh.zolt.concurrent.RepositoryExecutionLane;
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
@@ -31,7 +32,7 @@ public final class LocalArtifactCache {
     }
 
     public static Path defaultRoot() {
-        return Path.of(System.getProperty("user.home"), ".zolt", "cache");
+        return UserGlobalDirectory.artifactCache();
     }
 
     public int downloadConcurrency() {

@@ -1,5 +1,6 @@
 package sh.zolt.toolchain.store;
 
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,13 +10,11 @@ public final class ToolchainStore {
     private final Path root;
 
     public ToolchainStore(Path root) {
-        this.root = root == null
-                ? Path.of(System.getProperty("user.home"), ".zolt", "toolchains")
-                : root;
+        this.root = root == null ? UserGlobalDirectory.toolchains() : root;
     }
 
     public static ToolchainStore defaults() {
-        return new ToolchainStore(Path.of(System.getProperty("user.home"), ".zolt", "toolchains"));
+        return new ToolchainStore(UserGlobalDirectory.toolchains());
     }
 
     public Path root() {

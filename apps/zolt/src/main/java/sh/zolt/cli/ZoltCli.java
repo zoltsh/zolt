@@ -178,8 +178,32 @@ public final class ZoltCli implements Runnable {
     private CommandLine.Model.CommandSpec spec;
 
     public static void main(String[] args) {
-        int exitCode = newCommandLine().execute(args);
-        System.exit(exitCode);
+        System.exit(run(args));
+    }
+
+    static int run(String... args) {
+        CommandLine commandLine;
+        try {
+            commandLine = newCommandLine();
+        } catch (RuntimeException exception) {
+            return reportStartupFailure(exception);
+        }
+        return commandLine.execute(args);
+    }
+
+    /**
+     * Renders a machine-configuration failure raised while the command tree is being built. A bad
+     * {@code ZOLT_USER_HOME} is read by option defaults before any command runs, so it escapes the
+     * parsed-command exception handler; anything without an actionable carrier keeps its existing
+     * unhandled-error path.
+     */
+    private static int reportStartupFailure(RuntimeException exception) {
+        CommandLine bare = new CommandLine(CommandLine.Model.CommandSpec.create().name("zolt"));
+        if (!sh.zolt.cli.command.CommandFailures.printActionable(bare.getCommandSpec(), exception)) {
+            throw exception;
+        }
+        bare.getErr().flush();
+        return bare.getCommandSpec().exitCodeOnExecutionException();
     }
 
     static CommandLine newCommandLine() {

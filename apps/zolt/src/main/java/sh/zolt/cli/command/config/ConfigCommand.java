@@ -7,6 +7,7 @@ import sh.zolt.config.RepositoryOverlayConfigSource;
 import sh.zolt.config.UserGlobalConfig;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
+import sh.zolt.home.UserGlobalDirectory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import picocli.CommandLine.Command;
@@ -116,7 +117,7 @@ public final class ConfigCommand implements Runnable {
         }
 
         private static Path defaultConfigPath() {
-            return Path.of(System.getProperty("user.home"), ".zolt", "config.toml").toAbsolutePath().normalize();
+            return UserGlobalDirectory.configFile();
         }
 
         private static boolean isDefaultConfigPath(Path path) {

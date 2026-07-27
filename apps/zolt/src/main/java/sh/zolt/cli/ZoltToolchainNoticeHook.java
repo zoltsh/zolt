@@ -1,5 +1,6 @@
 package sh.zolt.cli;
 
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.toml.ToolchainRequirement;
 import sh.zolt.toml.ToolchainRequirementReader;
 import java.nio.file.Files;
@@ -19,7 +20,7 @@ final class ZoltToolchainNoticeHook {
     private Path toolchainCheckDirectory;
 
     @Option(names = "--toolchain-check-install-root", scope = CommandLine.ScopeType.INHERIT, hidden = true)
-    private Path toolchainCheckInstallRoot = Path.of(System.getProperty("user.home"), ".zolt");
+    private Path toolchainCheckInstallRoot = UserGlobalDirectory.root();
 
     void printAfterSuccess(CommandLine commandLine, ParseResult parseResult, boolean quiet) {
         if (shouldSkip(parseResult, quiet)) {

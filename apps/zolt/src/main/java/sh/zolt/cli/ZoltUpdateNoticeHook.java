@@ -1,5 +1,6 @@
 package sh.zolt.cli;
 
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.release.ReleaseTarget;
 import sh.zolt.release.channel.ReleaseDistributionUrlLayout;
 import sh.zolt.release.update.NativeUpdateNotice;
@@ -19,7 +20,7 @@ final class ZoltUpdateNoticeHook {
     private String updateCheck = "never";
 
     @Option(names = "--update-check-install-root", scope = CommandLine.ScopeType.INHERIT, hidden = true)
-    private Path updateCheckInstallRoot = Path.of(System.getProperty("user.home"), ".zolt");
+    private Path updateCheckInstallRoot = UserGlobalDirectory.root();
 
     @Option(names = "--update-check-channel-url", scope = CommandLine.ScopeType.INHERIT, hidden = true)
     private String updateCheckChannelUrl;

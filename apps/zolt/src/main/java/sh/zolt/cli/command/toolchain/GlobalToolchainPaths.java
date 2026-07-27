@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.toolchain;
 
+import sh.zolt.home.UserGlobalDirectory;
 import java.nio.file.Path;
 
 final class GlobalToolchainPaths {
@@ -7,7 +8,7 @@ final class GlobalToolchainPaths {
     }
 
     static Path defaultConfigPath() {
-        return Path.of(System.getProperty("user.home"), ".zolt", "config.toml").toAbsolutePath().normalize();
+        return UserGlobalDirectory.configFile();
     }
 
     static Path lockfile(Path configPath) {

@@ -3,6 +3,7 @@ package sh.zolt.cli.net;
 import sh.zolt.config.NetworkConfig;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.maven.repository.MavenRepositoryClient;
 import sh.zolt.net.NetworkTransport;
 import sh.zolt.net.ProxyConfiguration;
@@ -26,7 +27,7 @@ public final class CommandNetwork {
     }
 
     public static Path defaultConfigPath() {
-        return Path.of(System.getProperty("user.home"), ".zolt", "config.toml").toAbsolutePath().normalize();
+        return UserGlobalDirectory.configFile();
     }
 
     /** Transport (proxy + CA trust) resolved from the default user global config and environment. */

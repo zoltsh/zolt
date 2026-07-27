@@ -1,5 +1,6 @@
 package sh.zolt.config;
 
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.project.RepositoryCredentialSettings;
 import java.nio.file.Path;
 import java.util.Map;
@@ -25,7 +26,7 @@ public record UserGlobalConfig(
         return new UserGlobalConfig(
                 1,
                 configPath,
-                UserGlobalConfigToml.expandUserHome(Path.of("~/.zolt/cache")),
+                UserGlobalDirectory.artifactCache(),
                 new RepositoryExecutionConfig(8, "platform"),
                 Map.of("mavenLocal", new RepositoryOverlayConfig("mavenLocal", "maven-local", false)),
                 UserGlobalToolchainDefaults.none(),

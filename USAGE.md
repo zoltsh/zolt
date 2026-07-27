@@ -748,6 +748,48 @@ The shims are small wrapper scripts for `java`, `javac`, `jar`, `javadoc`,
 project toolchain still wins inside a Zolt project and the global default is
 used outside one. Zolt does not edit shell profiles automatically.
 
+## User-Global Directory
+
+Everything Zolt keeps per machine rather than per project lives in one tree,
+`~/.zolt` by default:
+
+| Path | Contents |
+| --- | --- |
+| `~/.zolt/config.toml` | user-global config (`[network]`, `[buildCache]`, `[defaults.toolchain.java]`, …) |
+| `~/.zolt/cache` | shared Maven artifact cache |
+| `~/.zolt/build-cache` | build-cache CAS (default when `[buildCache].dir` is unset) |
+| `~/.zolt/toolchains` | managed JDKs |
+| `~/.zolt/global-toolchains.lock` | global toolchain lock metadata |
+| `~/.zolt/shims` | opt-in `java`/`javac`/… wrapper scripts |
+| `~/.zolt/run` | runtime state for the persistent javac worker |
+
+Set `ZOLT_USER_HOME` to move the whole tree at once — the same idea as
+`GRADLE_USER_HOME`, and the supported way to make a CI job or a hermetic
+sandbox self-contained without rewriting `user.home`:
+
+```sh
+export ZOLT_USER_HOME="$PWD/.ci/zolt-home"
+zolt build
+```
+
+Every user-global path above then resolves under that directory, so config reads
+and cache writes stay together. Rules:
+
+- The value must be an **absolute** path. A relative value is rejected with an
+  actionable error rather than silently followed, because a relative user home
+  would move with the working directory from command to command.
+- Blank or whitespace-only values are ignored, falling back to `~/.zolt`.
+- The directory is created on demand; it does not need to exist up front.
+
+Precedence, per path: an explicit CLI option naming one concrete location
+(`--config`, `--shims-dir`, `--cache-root`, `--install-root`) beats
+`ZOLT_USER_HOME`, which beats the default under the OS home. `ZOLT_CA_BUNDLE`
+and `ZOLT_TOOLCHAIN_MIRROR` are unaffected — they configure *transport* for their
+own slice, not where the directory lives, and keep winning there. A `~` written
+inside a config value (for example `[network].caBundle = "~/corp-ca.pem"`) is
+still the OS home, matching shell conventions; `ZOLT_USER_HOME` redirects Zolt's
+own directory, not your home directory.
+
 ## Enterprise Networks
 
 Zolt runs behind corporate proxies, TLS-intercepting firewalls, and internal

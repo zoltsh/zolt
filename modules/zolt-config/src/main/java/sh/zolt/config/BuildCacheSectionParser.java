@@ -1,12 +1,12 @@
 package sh.zolt.config;
 
 import static sh.zolt.config.UserGlobalConfigToml.booleanOrDefault;
-import static sh.zolt.config.UserGlobalConfigToml.expandUserHome;
 import static sh.zolt.config.UserGlobalConfigToml.positiveIntOrDefault;
 import static sh.zolt.config.UserGlobalConfigToml.resolveConfigRelativePath;
 import static sh.zolt.config.UserGlobalConfigToml.stringOrNull;
 import static sh.zolt.config.UserGlobalConfigToml.validateKeys;
 
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.project.RepositoryCredentialSettings;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -42,7 +42,7 @@ final class BuildCacheSectionParser {
         String rawDir = stringOrNull(table, "buildCache", "dir");
         Path directory = rawDir != null
                 ? resolveConfigRelativePath(rawDir, configPath)
-                : expandUserHome(Path.of("~/.zolt/build-cache"));
+                : UserGlobalDirectory.buildCache();
         int maxSizeMb = positiveIntOrDefault(table, "buildCache", "maxSizeMb", DEFAULT_BUILD_CACHE_MAX_SIZE_MB);
         return new BuildCacheConfig(
                 true, Optional.of(directory), (long) maxSizeMb * 1024L * 1024L, buildCacheRemote(table));
