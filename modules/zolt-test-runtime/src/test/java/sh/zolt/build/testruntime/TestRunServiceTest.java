@@ -97,7 +97,8 @@ final class TestRunServiceTest {
                 () -> service.runTests(projectDir, config(), projectDir.resolve("cache")));
 
         assertTrue(exception.getMessage().contains("No test engine is present"));
-        assertTrue(exception.getMessage().contains("org.junit.jupiter:junit-jupiter"));
+        assertTrue(exception.getMessage().contains(
+                "`zolt add test org.junit.jupiter:junit-jupiter:5.14.4`"));
     }
 
     @Test

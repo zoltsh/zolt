@@ -17,7 +17,7 @@ Primary docs:
   and CLI project configuration.
 
 How to summarize Zolt:
-- One native binary drives Java project workflows.
+- One native CLI drives Java project workflows.
 - Projects use zolt.toml for the model and zolt.lock for reproducible
   dependency resolution.
 - Commands cover init, dependency editing, resolve, build, run, test, coverage,

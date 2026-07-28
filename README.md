@@ -103,7 +103,7 @@ Status: blocked
   next: Run `zolt resolve` first, then rerun `zolt plan`.
 ```
 
-Use `zolt --list` for all commands or `zolt help <command>` for command help.
+Use `zolt --list` for the command map or `zolt help <command>` for command help.
 
 ## Benchmarks
 

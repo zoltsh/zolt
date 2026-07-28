@@ -5,7 +5,7 @@ Zolt covers Java projects from setup through release. See
 
 ## Highlights
 
-- **Single binary.** Install Zolt and start working.
+- **Native CLI.** Install Zolt and start working.
 - **Small project model.** `zolt.toml` defines the project. `zolt.lock` defines
   the resolved graph.
 - **Reproducible dependencies.** Resolution, repository selection, and artifact

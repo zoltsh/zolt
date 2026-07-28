@@ -74,7 +74,8 @@ final class TestConsoleFailureHandlerTest {
                         "Cannot create Launcher without at least one TestEngine; consider adding an engine implementation JAR"));
 
         assertTrue(exception.getMessage().contains("No test engine is present"));
-        assertTrue(exception.getMessage().contains("org.junit.jupiter:junit-jupiter"));
+        assertTrue(exception.getMessage().contains(
+                "`zolt add test org.junit.jupiter:junit-jupiter:5.14.4`"));
     }
 
     @Test

@@ -30,7 +30,7 @@ final class TestConsoleFailureHandler {
         if (output.contains("Cannot create Launcher without at least one TestEngine")) {
             throw new TestRunException(
                     "No test engine is present on the test classpath. "
-                            + "Add one such as `org.junit.jupiter:junit-jupiter` to [test.dependencies], "
+                            + "Run `zolt add test org.junit.jupiter:junit-jupiter:5.14.4`, "
                             + "then run `zolt test` again.");
         }
     }

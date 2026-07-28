@@ -427,7 +427,7 @@ central = "https://repo.maven.apache.org/maven2"
 "com.google.guava:guava" = "33.4.0-jre"
 
 [test.dependencies]
-"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
+"org.junit.jupiter:junit-jupiter" = "5.14.4"
 
 [build]
 source = "src/main/java"
@@ -455,7 +455,7 @@ Dependencies can be split by usage:
 "org.projectlombok:lombok" = {}
 
 [test.dependencies]
-"org.junit.jupiter:junit-jupiter" = "5.11.4"
+"org.junit.jupiter:junit-jupiter" = "5.14.4"
 
 [test.annotationProcessors]
 "org.projectlombok:lombok" = {}
@@ -1171,7 +1171,7 @@ Vintage, and Spock:
 [test.dependencies]
 "org.apache.groovy:groovy" = "4.0.22"
 "org.spockframework:spock-core" = "2.3-groovy-4.0"
-"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
+"org.junit.platform:junit-platform-console-standalone" = "1.14.4"
 
 [test.sources]
 groovy = ["src/test/groovy"]
