@@ -102,6 +102,29 @@ final class TestRunServiceTest {
     }
 
     @Test
+    void supportOnlyTestSourcesMayDiscoverZeroTests() throws IOException {
+        writeConsoleLockfile(projectDir);
+        source(projectDir, "src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
+        source(projectDir, "src/test/java/com/example/TestSupport.java", """
+                package com.example;
+
+                public final class TestSupport {
+                    public static String fixture() {
+                        return "fixture";
+                    }
+                }
+                """);
+        TestRunService service = service((command, outputConsumer) -> new JavaRunner.ProcessResult(
+                0,
+                "[         0 tests found           ]\n"));
+
+        TestRunResult result = service.runTests(projectDir, config(), projectDir.resolve("cache"));
+
+        assertEquals(1, result.compileResult().sourceCount());
+        assertTrue(result.output().contains("0 tests found"));
+    }
+
+    @Test
     void compilesAdditionalJavaTestRootsBeforeRunningJUnitConsole() throws IOException {
         writeConsoleLockfile(projectDir);
         source(projectDir, "src/main/java/com/example/Main.java", """
