@@ -116,9 +116,21 @@ The manual `benchmarks` workflow has one input: `profile`.
 
 | Profile | Zolt | Work |
 | --- | --- | --- |
-| `smoke` | Branch-built zap | Small enterprise lane, five one-sample real-project lanes, and one-sample self-host |
+| `smoke` | Ephemeral branch distribution | Small enterprise lane, five one-sample real-project lanes, and one-sample self-host |
+| `candidate` | Ephemeral branch distribution | Publication-scale layered enterprise lane plus five pinned real-project lanes |
 | `publishable` | Resolved zap release | Layered `enterprise-v1` plus five pinned real-project lanes, each with 5 clean and 7 repeated samples |
 | `full` | Resolved zap release | Layered and wide enterprise lanes, five real projects, and self-host |
+
+Run full-scale validation of an unmerged branch with:
+
+```sh
+gh workflow run benchmarks.yml --ref benchmark-improvements -f profile=candidate
+```
+
+Candidate runs use one release-verified ephemeral branch distribution and the
+same six lanes and sample floors as `publishable`. They are complete pre-merge
+validation, but not public performance evidence because the Zolt binary is not
+a main-issued release.
 
 Run the canonical publication profile with:
 
@@ -144,16 +156,18 @@ command's start, completion, duration, and position in the sequence. Artifacts
 retain the evidence and command logs but exclude mutable build, cache, checkout,
 fixture, and workspace trees.
 
-Pushes to `benchmark-improvements` select `smoke` automatically. Those runs build
-and release-verify one ephemeral branch benchmark distribution, then share it
-across the parallel lane jobs. It is never published to the zap channel. Smoke
-results are merge gates, not public performance evidence.
+Pushes to `benchmark-improvements` select `smoke` automatically. Both `smoke`
+and `candidate` build and release-verify one ephemeral branch benchmark
+distribution, then share it across the parallel lane jobs. It is never
+published to the zap channel. Smoke results are merge gates; candidate results
+are full-scale pre-merge evidence. Neither is public performance evidence.
 
 Profile definitions are versioned under `benchmarks/profiles/`. Inspect the
 resolved contract or matrix locally with:
 
 ```sh
 scripts/benchmark-profile show --profile publishable
+scripts/benchmark-profile matrix --profile candidate
 scripts/benchmark-profile matrix --profile full
 ```
 

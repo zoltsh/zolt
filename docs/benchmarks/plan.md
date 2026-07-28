@@ -128,6 +128,9 @@ Profiles live under `benchmarks/profiles/`:
 
 - `smoke` builds one ephemeral branch benchmark distribution and fans out small enterprise,
   real-project, and self-host validation lanes;
+- `candidate` builds one ephemeral branch benchmark distribution and runs the
+  publication-scale layered enterprise lane plus all five pinned real-project
+  lanes, without qualifying the result as public evidence;
 - `publishable` resolves one exact zap release and runs the canonical layered
   `enterprise-v1` lane plus all five pinned real-project lanes;
 - `full` resolves one exact zap release and fans out both enterprise topologies,
@@ -204,6 +207,6 @@ A dated public result is publishable only when the complete manual
   workload digest, and exact commands;
 - uploads one complete artifact containing raw samples and logs.
 
-Local smoke runs and branch-built runs are validation evidence, not public
-performance claims. Copy a successful publication run into
+Local smoke runs and branch-built candidate runs are validation evidence, not
+public performance claims. Copy a successful publication run into
 `docs/benchmarks/results/` only after that gate passes.

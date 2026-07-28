@@ -455,7 +455,7 @@ class Runner:
                 },
             )
 
-    def finalize_correctness(self) -> None:
+    def finalize_correctness(self) -> list[str]:
         checks = self.correctness["checks"]
         if not isinstance(checks, list):
             fail("correctness checks collection is invalid")
@@ -465,9 +465,7 @@ class Runner:
         self.correctness_path.write_text(
             json.dumps(self.correctness, indent=2) + "\n", encoding="utf-8"
         )
-        if not passed:
-            failed = [str(check.get("name")) for check in checks if not check.get("passed")]
-            fail("benchmark correctness checks failed: " + ", ".join(failed))
+        return [str(check.get("name")) for check in checks if not check.get("passed")]
 
     def execute(self) -> None:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
@@ -524,13 +522,15 @@ class Runner:
                 self.stop_gradle_daemons()
             if workflow == "package":
                 self.verify_packages()
-        self.finalize_correctness()
+        failed_checks = self.finalize_correctness()
         write_summary(
             self.samples_path,
             self.summary_path,
             self.report_path,
             self.correctness,
         )
+        if failed_checks:
+            fail("benchmark correctness checks failed: " + ", ".join(failed_checks))
 
     def stop_gradle_daemons(self) -> None:
         for tool in self.tools:

@@ -13,11 +13,12 @@ fail() {
   exit 1
 }
 
-expected_profiles=$'full\npublishable\nsmoke'
+expected_profiles=$'candidate\nfull\npublishable\nsmoke'
 [[ "$(scripts/benchmark-profile list)" == "$expected_profiles" ]] \
   || fail "profile list is unexpected"
 
 scripts/benchmark-profile show --profile smoke >"$WORK_DIR/smoke.json"
+scripts/benchmark-profile show --profile candidate >"$WORK_DIR/candidate.json"
 scripts/benchmark-profile show --profile publishable >"$WORK_DIR/publishable.json"
 scripts/benchmark-profile show --profile full >"$WORK_DIR/full.json"
 
@@ -29,6 +30,23 @@ jq -e '
   and (.sha256 | test("^[0-9a-f]{64}$"))
 ' "$WORK_DIR/smoke.json" >/dev/null \
   || fail "smoke profile contract is invalid"
+
+jq -e '
+  .id == "candidate"
+  and .zolt.source == "build"
+  and .publication == false
+  and .aiSummary == true
+  and (.lanes | length) == 6
+  and ([.lanes[] | select(.kind == "real-project")] | length) == 5
+  and ([.lanes[] | select(.kind == "real-project") | .project] | sort)
+    == ["apache-commons-cli", "hikaricp", "junit-framework", "netty", "spring-petclinic"]
+  and .lanes[0].workload == "benchmarks/workloads/enterprise-v1.json"
+  and .lanes[0].topology == "layered"
+  and .lanes[0].repeat == 7
+  and .lanes[0].cleanRepeat == 5
+  and .lanes[0].jobTimeout == 360
+' "$WORK_DIR/candidate.json" >/dev/null \
+  || fail "candidate profile contract is invalid"
 
 jq -e '
   .id == "publishable"
@@ -54,6 +72,14 @@ jq -e '
 ' "$WORK_DIR/publishable-matrix.json" >/dev/null \
   || fail "publishable profile did not preserve per-lane CI budgets"
 
+scripts/benchmark-profile matrix --profile candidate >"$WORK_DIR/candidate-matrix.json"
+jq -e '
+  (.include | length) == 6
+  and ([.include[] | select(.kind == "enterprise" and .timeoutMinutes == 360)] | length) == 1
+  and ([.include[] | select(.kind == "real-project" and .timeoutMinutes == 180)] | length) == 5
+' "$WORK_DIR/candidate-matrix.json" >/dev/null \
+  || fail "candidate profile did not preserve publication-scale CI budgets"
+
 scripts/benchmark-profile matrix --profile full >"$WORK_DIR/full-matrix.json"
 jq -e '
   (.include | length) == 8
@@ -65,6 +91,23 @@ jq -e '
   and ([.include[].id] | unique | length) == 8
 ' "$WORK_DIR/full-matrix.json" >/dev/null \
   || fail "full profile did not expand to the expected parallel lane matrix"
+
+scripts/benchmark-profile command \
+  --profile candidate \
+  --lane enterprise-layered \
+  --zolt /tmp/zolt \
+  --work-dir "$WORK_DIR/candidate-run" \
+  --artifact-name profile-test \
+  >"$WORK_DIR/candidate-command.json"
+jq -e '
+  index("--enterprise-workload") != null
+  and index("benchmarks/workloads/enterprise-v1.json") != null
+  and index("--include-gradle-daemon") != null
+  and index("--include-tuned-modes") != null
+  and index("--topology") != null
+  and index("layered") != null
+' "$WORK_DIR/candidate-command.json" >/dev/null \
+  || fail "candidate profile command is incomplete"
 
 scripts/benchmark-profile command \
   --profile publishable \
@@ -185,6 +228,15 @@ fi
 grep -F 'name: build branch benchmark distribution' \
   .github/workflows/benchmarks.yml >/dev/null \
   || fail "benchmark workflow does not clearly label the ephemeral branch distribution"
+
+grep -F '          - candidate' .github/workflows/benchmarks.yml >/dev/null \
+  || fail "benchmark workflow does not expose the candidate profile"
+
+# This is a literal shell fragment in the suite runner.
+# shellcheck disable=SC2016
+grep -F 'if ! scripts/benchmark-enterprise "${enterprise_args[@]}"; then' \
+  scripts/benchmark-suite >/dev/null \
+  || fail "benchmark suite does not preserve failed enterprise evidence"
 
 # This is a literal GitHub expression in the workflow.
 # shellcheck disable=SC2016

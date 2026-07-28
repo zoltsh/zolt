@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "candidate",
+  "description": "Publication-scale branch candidate validation using one ephemeral distribution; not public benchmark evidence.",
+  "publication": false,
+  "aiSummary": true,
+  "zolt": {
+    "source": "build",
+    "channel": "zap"
+  },
+  "lanes": [
+    {
+      "id": "enterprise-layered",
+      "kind": "enterprise",
+      "workload": "benchmarks/workloads/enterprise-v1.json",
+      "topology": "layered",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800,
+      "jobTimeout": 360
+    },
+    {
+      "id": "real-spring-petclinic",
+      "kind": "real-project",
+      "project": "spring-petclinic",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-apache-commons-cli",
+      "kind": "real-project",
+      "project": "apache-commons-cli",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-hikaricp",
+      "kind": "real-project",
+      "project": "hikaricp",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-netty",
+      "kind": "real-project",
+      "project": "netty",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-junit-framework",
+      "kind": "real-project",
+      "project": "junit-framework",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    }
+  ]
+}

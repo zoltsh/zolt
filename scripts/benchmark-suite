@@ -375,8 +375,12 @@ if [[ "$SKIP_GENERATED" == false ]]; then
       if [[ "$INCLUDE_TUNED_MODES" == true ]]; then
         enterprise_args+=(--include-tuned-modes)
       fi
-      scripts/benchmark-enterprise "${enterprise_args[@]}"
+      if ! scripts/benchmark-enterprise "${enterprise_args[@]}"; then
+        SUITE_FAILED=true
+      fi
       generated_summary="$generated_dir/summary.json"
+      [[ -f "$generated_summary" ]] \
+        || fail "enterprise lane did not write a summary"
     elif [[ -z "$generated_summary" ]]; then
       generated_args=(
         --modules "$MODULE_COUNT"

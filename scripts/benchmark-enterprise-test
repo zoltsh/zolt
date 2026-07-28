@@ -84,6 +84,7 @@ python3 - "$WORK_DIR/tuned-plan" <<'PY'
 import argparse
 import contextlib
 import io
+import json
 import pathlib
 import runpy
 import sys
@@ -156,6 +157,16 @@ if "benchmark command 1/1 started: no-op-build / probe / sample 1" not in progre
     raise SystemExit("enterprise runner does not report command start progress")
 if "benchmark command 1/1 finished: no-op-build / probe / sample 1" not in progress:
     raise SystemExit("enterprise runner does not report command completion progress")
+
+progress_runner.correctness["checks"] = [
+    {"name": "probe-correctness", "passed": False},
+]
+failed_checks = progress_runner.finalize_correctness()
+if failed_checks != ["probe-correctness"]:
+    raise SystemExit(f"enterprise runner lost failed correctness checks: {failed_checks}")
+correctness = json.loads(progress_runner.correctness_path.read_text(encoding="utf-8"))
+if correctness.get("status") != "failed":
+    raise SystemExit("enterprise runner did not persist failed correctness evidence")
 PY
 
 python3 scripts/benchmark-enterprise-fixture \
