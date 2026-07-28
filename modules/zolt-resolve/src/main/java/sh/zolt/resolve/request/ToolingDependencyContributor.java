@@ -82,28 +82,29 @@ final class ToolingDependencyContributor {
         if (consoleAlreadyOnTestClasspath) {
             return;
         }
-        String version = junitConsoleVersion(projectManagedVersions, requests);
+        JunitConsoleVersion selection = junitConsoleVersion(projectManagedVersions, requests);
         requests.add(new DependencyRequest(
                 JUNIT_PLATFORM_CONSOLE_PACKAGE,
-                version,
+                selection.version(),
                 DependencyScope.TEST,
                 RequestOrigin.TRANSITIVE,
-                RequestVersionOrigin.INJECTED));
+                selection.origin()));
     }
 
-    private static String junitConsoleVersion(
+    private static JunitConsoleVersion junitConsoleVersion(
             Map<PackageId, String> projectManagedVersions,
             List<DependencyRequest> requests) {
         Optional<String> declaredVersion = junitPlatformVersion(requests, RequestVersionOrigin.DECLARED);
         if (declaredVersion.isPresent()) {
-            return declaredVersion.orElseThrow();
+            return JunitConsoleVersion.injected(declaredVersion.orElseThrow());
         }
         String managedVersion = projectManagedVersions.get(JUNIT_PLATFORM_CONSOLE_PACKAGE);
         if (managedVersion != null && !managedVersion.isBlank()) {
-            return managedVersion;
+            return new JunitConsoleVersion(managedVersion, RequestVersionOrigin.MANAGED);
         }
-        return junitPlatformVersion(requests, RequestVersionOrigin.MANAGED)
-                .orElse(JUNIT_PLATFORM_CONSOLE_VERSION);
+        return JunitConsoleVersion.injected(
+                junitPlatformVersion(requests, RequestVersionOrigin.MANAGED)
+                        .orElse(JUNIT_PLATFORM_CONSOLE_VERSION));
     }
 
     private static Optional<String> junitPlatformVersion(
@@ -179,5 +180,11 @@ final class ToolingDependencyContributor {
                 || !config.testAnnotationProcessors().isEmpty()
                 || !config.managedTestAnnotationProcessors().isEmpty()
                 || !config.workspaceTestAnnotationProcessors().isEmpty();
+    }
+
+    private record JunitConsoleVersion(String version, RequestVersionOrigin origin) {
+        private static JunitConsoleVersion injected(String version) {
+            return new JunitConsoleVersion(version, RequestVersionOrigin.INJECTED);
+        }
     }
 }

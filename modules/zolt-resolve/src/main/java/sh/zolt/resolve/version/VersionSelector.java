@@ -6,6 +6,7 @@ import sh.zolt.dependency.VersionComparator;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.request.DependencyRequest;
+import sh.zolt.resolve.request.RequestVersionOrigin;
 import sh.zolt.resolve.graph.PackageNode;
 import sh.zolt.resolve.graph.ResolutionEdge;
 import sh.zolt.resolve.graph.ResolutionGraph;
@@ -86,8 +87,8 @@ public final class VersionSelector {
      * line the resolver selected for junit-platform-engine/commons. Without this, a jupiter-5.12 project
      * with no JUnit BOM gets engine/commons bumped to the newer line while console/launcher/reporting stay
      * pinned at the injected {@code 1.11.4} baseline, producing a lockfile whose launcher and engine jars
-     * are unaligned and crash the JUnit worker at discovery. Project-managed (direct) console/launcher
-     * versions are left untouched; where they leave the platform unreconcilable, resolve hard-fails with an
+     * are unaligned and crash the JUnit worker at discovery. Direct pins and platform-managed versions
+     * are left untouched; where they leave the platform unreconcilable, resolve hard-fails with an
      * actionable message rather than emitting a crashing lockfile.
      */
     private void alignJunitPlatform(
@@ -112,7 +113,7 @@ public final class VersionSelector {
                     || node.selectedVersion().equals(anchorVersion)) {
                 continue;
             }
-            if (isProjectManaged(requestsByPackage.get(PackageVariantKey.of(node)))) {
+            if (isPinnedByProject(requestsByPackage.get(PackageVariantKey.of(node)))) {
                 throw ResolveException.actionable(
                         "Unaligned JUnit Platform: `"
                                 + node.packageId()
@@ -137,8 +138,9 @@ public final class VersionSelector {
                 && artifacts.contains(packageId.artifactId());
     }
 
-    private static boolean isProjectManaged(List<DependencyRequest> requests) {
-        return requests != null && requests.stream().anyMatch(DependencyRequest::direct);
+    private static boolean isPinnedByProject(List<DependencyRequest> requests) {
+        return requests != null && requests.stream().anyMatch(request ->
+                request.direct() || request.versionOrigin() == RequestVersionOrigin.MANAGED);
     }
 
     private Selection selectVersion(List<DependencyRequest> requests) {

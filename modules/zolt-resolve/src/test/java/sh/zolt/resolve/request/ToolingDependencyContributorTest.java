@@ -44,7 +44,7 @@ final class ToolingDependencyContributorTest {
         assertEquals("1.12.0", request.requestedVersion());
         assertEquals(DependencyScope.TEST, request.scope());
         assertEquals(RequestOrigin.TRANSITIVE, request.origin());
-        assertEquals(RequestVersionOrigin.INJECTED, request.versionOrigin());
+        assertEquals(RequestVersionOrigin.MANAGED, request.versionOrigin());
     }
 
     @Test
@@ -60,6 +60,7 @@ final class ToolingDependencyContributorTest {
         DependencyRequest request = onlyRequest(requests, JUNIT_CONSOLE);
         assertEquals("1.11.4", request.requestedVersion());
         assertEquals(DependencyScope.TEST, request.scope());
+        assertEquals(RequestVersionOrigin.INJECTED, request.versionOrigin());
     }
 
     @Test
@@ -74,7 +75,9 @@ final class ToolingDependencyContributorTest {
 
         contributor.contribute(testDependencyConfig(), Map.of(), requests, false);
 
-        assertEquals("1.14.4", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+        DependencyRequest console = onlyRequest(requests, JUNIT_CONSOLE);
+        assertEquals("1.14.4", console.requestedVersion());
+        assertEquals(RequestVersionOrigin.INJECTED, console.versionOrigin());
     }
 
     @Test
@@ -113,7 +116,9 @@ final class ToolingDependencyContributorTest {
                 requests,
                 false);
 
-        assertEquals("1.11.4", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+        DependencyRequest console = onlyRequest(requests, JUNIT_CONSOLE);
+        assertEquals("1.11.4", console.requestedVersion());
+        assertEquals(RequestVersionOrigin.MANAGED, console.versionOrigin());
     }
 
     @Test
@@ -129,7 +134,9 @@ final class ToolingDependencyContributorTest {
 
         contributor.contribute(testDependencyConfig(), Map.of(), requests, false);
 
-        assertEquals("1.10.2", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+        DependencyRequest console = onlyRequest(requests, JUNIT_CONSOLE);
+        assertEquals("1.10.2", console.requestedVersion());
+        assertEquals(RequestVersionOrigin.INJECTED, console.versionOrigin());
     }
 
     @Test

@@ -13,6 +13,7 @@ import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.graph.PackageNode;
 import sh.zolt.resolve.request.RequestOrigin;
+import sh.zolt.resolve.request.RequestVersionOrigin;
 import sh.zolt.resolve.graph.ResolutionEdge;
 import sh.zolt.resolve.graph.ResolutionGraph;
 import sh.zolt.resolve.traversal.DependencyTraversalDecision;
@@ -185,6 +186,28 @@ final class VersionSelectorTest {
         assertTrue(exception.getMessage().contains("junit-platform-console"));
         assertTrue(exception.getMessage().contains("1.11.4"));
         assertTrue(exception.getMessage().contains("1.12.0"));
+    }
+
+    @Test
+    void injectedConsoleWithManagedVersionAtSkewedLineHardFails() {
+        PackageId engine = new PackageId("org.junit.platform", "junit-platform-engine");
+        PackageId console = new PackageId("org.junit.platform", "junit-platform-console");
+        ResolutionGraph graph = graphWithTransitiveRequests(List.of(
+                transitive(engine, "1.10.2")));
+        DependencyRequest managedConsole = new DependencyRequest(
+                console,
+                "1.11.4",
+                DependencyScope.TEST,
+                RequestOrigin.TRANSITIVE,
+                RequestVersionOrigin.MANAGED);
+
+        ResolveException exception = assertThrows(
+                ResolveException.class,
+                () -> selector.select(List.of(managedConsole), graph));
+
+        assertTrue(exception.getMessage().contains("junit-platform-console"));
+        assertTrue(exception.getMessage().contains("1.11.4"));
+        assertTrue(exception.getMessage().contains("1.10.2"));
     }
 
     @Test

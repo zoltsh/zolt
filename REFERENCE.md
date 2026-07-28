@@ -1171,6 +1171,7 @@ Zolt treats test engines as project dependencies and the JUnit Platform console
 launcher as build tooling. When test dependencies are configured and no console
 is declared, Zolt adds one. Version order: explicit JUnit version, managed
 console, another managed JUnit dependency, Zolt default.
+Resolution fails if a managed console conflicts with the resolved engine line.
 
 Declare a console artifact only to pin or override the launcher:
 

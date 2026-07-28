@@ -118,7 +118,7 @@ final class DependencyRequestPlannerTest {
         assertEquals("1.12.0", request.requestedVersion());
         assertEquals(DependencyScope.TEST, request.scope());
         assertEquals(RequestOrigin.TRANSITIVE, request.origin());
-        assertEquals(RequestVersionOrigin.INJECTED, request.versionOrigin());
+        assertEquals(RequestVersionOrigin.MANAGED, request.versionOrigin());
     }
 
     private static DependencyRequest onlyRequest(List<DependencyRequest> requests, PackageId packageId) {
