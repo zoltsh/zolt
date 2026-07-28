@@ -93,16 +93,18 @@ final class ToolingDependencyContributor {
     private static String junitConsoleVersion(
             Map<PackageId, String> projectManagedVersions,
             List<DependencyRequest> requests) {
-        String managedVersion = projectManagedVersions.get(JUNIT_PLATFORM_CONSOLE_PACKAGE);
-        if (managedVersion != null && !managedVersion.isBlank()) {
-            return managedVersion;
-        }
-        return requests.stream()
+        Optional<String> requestedVersion = requests.stream()
                 .filter(request -> request.scope().entersTestClasspath())
                 .map(ToolingDependencyContributor::junitPlatformVersion)
                 .flatMap(Optional::stream)
-                .max(VERSION_COMPARATOR)
-                .orElse(JUNIT_PLATFORM_CONSOLE_VERSION);
+                .max(VERSION_COMPARATOR);
+        if (requestedVersion.isPresent()) {
+            return requestedVersion.orElseThrow();
+        }
+        String managedVersion = projectManagedVersions.get(JUNIT_PLATFORM_CONSOLE_PACKAGE);
+        return managedVersion == null || managedVersion.isBlank()
+                ? JUNIT_PLATFORM_CONSOLE_VERSION
+                : managedVersion;
     }
 
     private static Optional<String> junitPlatformVersion(DependencyRequest request) {

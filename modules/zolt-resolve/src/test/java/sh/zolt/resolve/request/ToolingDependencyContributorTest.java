@@ -77,6 +77,25 @@ final class ToolingDependencyContributorTest {
     }
 
     @Test
+    void declaredJupiterLineOverridesManagedConsoleVersion() {
+        PackageId jupiter = new PackageId("org.junit.jupiter", "junit-jupiter");
+        List<DependencyRequest> requests = new ArrayList<>();
+        requests.add(new DependencyRequest(
+                jupiter,
+                "5.11.4",
+                DependencyScope.TEST,
+                RequestOrigin.DIRECT));
+
+        contributor.contribute(
+                testDependencyConfig(),
+                Map.of(JUNIT_CONSOLE, "1.14.4"),
+                requests,
+                false);
+
+        assertEquals("1.11.4", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+    }
+
+    @Test
     void alignsInjectedConsoleWithDeclaredJupiterSixLine() {
         PackageId jupiter = new PackageId("org.junit.jupiter", "junit-jupiter");
         List<DependencyRequest> requests = new ArrayList<>();
