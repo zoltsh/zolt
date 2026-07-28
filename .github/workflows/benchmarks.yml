@@ -73,6 +73,7 @@ jobs:
         run: |
           scripts/benchmark-profile-test
           scripts/benchmark-suite-test
+          scripts/benchmark-openai-summary-test
           scripts/benchmark-enterprise-test
           scripts/benchmark-self-host-test
           scripts/benchmark-large-source-test

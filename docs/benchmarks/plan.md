@@ -149,8 +149,10 @@ configured, `scripts/benchmark-openai-summary` reads only
 metadata, and writes JSON plus Markdown. The step is non-blocking so evidence is
 still published when the API is unavailable.
 
-The prompt must keep first-clean results separate, name omissions, avoid
-unsupported evidence grades, and never include secrets or full command logs.
+The prompt leads with a direct verdict, reports correctness failures before
+timings, includes a representative loss whenever Zolt loses, keeps first-clean
+results separate, and refuses composite scores or unsupported evidence claims.
+It never includes secrets or full command logs.
 
 ## Publication Gate
 
