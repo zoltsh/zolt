@@ -18,7 +18,9 @@ fail() {
 }
 
 rm -rf "$WORK_DIR"
-mkdir -p "$UPSTREAM/src/main/java/example" "$UPSTREAM/src/main/resources"
+mkdir -p \
+  "$UPSTREAM/src/main/java/example/annotated" \
+  "$UPSTREAM/src/main/resources"
 
 cat >"$UPSTREAM/pom.xml" <<'EOF'
 <project>
@@ -47,6 +49,17 @@ public final class Sample {
         return "sample";
     }
 }
+EOF
+cat >"$UPSTREAM/src/main/java/example/package-info.java" <<'EOF'
+/**
+ * Annotation-free package documentation. Maven may emit an empty class file
+ * for this source while other javac integrations omit it.
+ */
+package example;
+EOF
+cat >"$UPSTREAM/src/main/java/example/annotated/package-info.java" <<'EOF'
+@Deprecated
+package example.annotated;
 EOF
 printf 'fixture=true\n' >"$UPSTREAM/src/main/resources/application.properties"
 
@@ -129,6 +142,8 @@ if [[ " $* " == *" clean "* ]]; then
 else
   mkdir -p target/classes
   find src/main/java -name '*.java' -print0 | xargs -0 javac -d target/classes
+  mkdir -p target/classes/example
+  : >target/classes/example/package-info.class
 fi
 printf 'maven ok\n'
 FAKE
@@ -237,7 +252,9 @@ EOF
       || fail "$gradle_mode overlay did not disable incomplete Gradle module-path inference"
     grep -F "options.compilerArgs += ['--module-path', classpath.asPath]" "$generated_gradle" >/dev/null \
       || fail "$gradle_mode overlay did not put the full compile classpath on the module path"
-    grep -F "classpath = files()" "$generated_gradle" >/dev/null \
+    grep -F "def emptyCompileClasspath = files()" "$generated_gradle" >/dev/null \
+      || fail "$gradle_mode overlay did not create a configuration-cache-safe empty classpath"
+    grep -F "classpath = emptyCompileClasspath" "$generated_gradle" >/dev/null \
       || fail "$gradle_mode overlay did not clear the duplicate compile classpath"
   done
 
@@ -260,6 +277,23 @@ EOF
     )
   ' "$WORK_DIR/run-$tool/correctness.json" >/dev/null \
     || fail "$tool comparison did not prove native-build and semantic-mutation correctness"
+
+  jq -e '
+    any(.checks[];
+      .name == "maven-compiled-class-set"
+      and .passed
+      and .evidence.rawClassCount == (.evidence.classCount + 1)
+      and .evidence.ignoredAnnotationFreePackageInfo == ["example/package-info.class"]
+      and .evidence.baselineClassCount == 3
+    )
+    and any(.checks[];
+      .name == "zolt-compiled-class-set"
+      and .passed
+      and .evidence.ignoredAnnotationFreePackageInfo == []
+      and .evidence.baselineClassCount == 3
+    )
+  ' "$WORK_DIR/run-$tool/correctness.json" >/dev/null \
+    || fail "$tool comparison did not normalize only annotation-free package metadata"
 done
 
 jq -e '

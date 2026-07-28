@@ -471,6 +471,7 @@ suite = {
                 "repeatedWorkflowCount": repeated_count,
                 "comparableWorkflowCount": comparable_count,
                 "firstCleanBuildSeparated": True,
+                "failure": summary.get("failure"),
             },
             "workflows": workflow_records,
             "caveats": caveats,

@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 WORK_DIR="target/benchmark-self-host-test"
+FAKE_ZOLT="$WORK_DIR/fake-zolt"
 rm -rf "$WORK_DIR"
 
 scripts/benchmark-self-host \
@@ -20,6 +21,8 @@ jq -e '
   and .environment.classification == "zolt-self-host"
   and .environment.repeatCount == 2
   and .environment.cleanRepeatCount == 2
+  and (.environment.toolchainSetupCommand | index("toolchain") != null)
+  and (.environment.toolchainSetupCommand | index("sync") != null)
   and .correctness.status == "not-run"
   and ([.workflows[].workflow] == [
     "dependency-setup",
@@ -33,5 +36,38 @@ jq -e '
 
 test -f "$WORK_DIR/correctness.json"
 test -f "$WORK_DIR/report.md"
+
+cat >"$FAKE_ZOLT" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'fake zolt 1.0\n'
+  exit 0
+fi
+if [[ " $* " == *" toolchain sync "* ]]; then
+  printf 'intentional toolchain sync failure\n' >&2
+  exit 42
+fi
+exit 0
+FAKE
+chmod +x "$FAKE_ZOLT"
+
+if scripts/benchmark-self-host \
+  --zolt "$FAKE_ZOLT" \
+  --work-dir "$WORK_DIR/failure" \
+  --repeat 1 \
+  --clean-repeat 1 \
+  >/dev/null; then
+  printf 'error: self-host benchmark accepted a failed toolchain sync\n' >&2
+  exit 1
+fi
+
+jq -e '
+  .status == "failed"
+  and .correctness.status == "failed"
+  and (.failure.error | contains("toolchain sync"))
+' "$WORK_DIR/failure/summary.json" >/dev/null
+grep -F 'intentional toolchain sync failure' \
+  "$WORK_DIR/failure/logs/prepare/toolchain-sync.log" >/dev/null
 
 printf 'benchmark self-host script test passed\n'

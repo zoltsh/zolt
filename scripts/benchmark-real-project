@@ -549,8 +549,10 @@ def write_gradle_config(destination):
         lines.append(f"    implementation '{gradle_quote(notation)}'")
     for coordinate, version in sorted((adapter.get("providedDependencies") or {}).items()):
         lines.append(f"    compileOnly '{gradle_quote(coordinate)}:{gradle_quote(version)}'")
+    lines.append("}")
+    if modular_source:
+        lines.append("def emptyCompileClasspath = files()")
     lines.extend([
-        "}",
         "tasks.withType(JavaCompile).configureEach {",
         f"    options.release = {int(adapter['compilerRelease'])}",
         "    options.encoding = 'UTF-8'",
@@ -560,7 +562,7 @@ def write_gradle_config(destination):
             "    // Keep automatic modules without manifest names visible to module-info.java.",
             "    doFirst {",
             "        options.compilerArgs += ['--module-path', classpath.asPath]",
-            "        classpath = files()",
+            "        classpath = emptyCompileClasspath",
             "    }",
         ])
     lines.append("}")
@@ -929,13 +931,45 @@ else:
             tool: source_digest(commands[tool]["cwd"])
             for tool in overlay_tool_ids
         }
-        class_sets = {
-            tool: sorted(
+        def annotation_free_package_info(project_root, relative_class):
+            if pathlib.Path(relative_class).name != "package-info.class":
+                return False
+            source = (
+                project_root
+                / "src/main/java"
+                / pathlib.Path(relative_class).with_suffix(".java")
+            )
+            if not source.is_file():
+                return False
+            text = source.read_text(encoding="utf-8", errors="replace")
+            text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+            text = re.sub(r"//[^\n]*", "", text)
+            before_package = text.partition("package")[0]
+            return re.search(r"(?m)^\s*@", before_package) is None
+
+        class_inventories = {}
+        for tool, output_root in output_roots.items():
+            if tool not in overlay_tool_ids:
+                continue
+            raw = sorted(
                 str(path.relative_to(output_root))
                 for path in output_root.glob("**/*.class")
             )
-            for tool, output_root in output_roots.items()
-            if tool in overlay_tool_ids
+            ignored = sorted(
+                relative_class
+                for relative_class in raw
+                if annotation_free_package_info(
+                    commands[tool]["cwd"], relative_class
+                )
+            )
+            class_inventories[tool] = {
+                "raw": raw,
+                "normalized": sorted(set(raw) - set(ignored)),
+                "ignoredAnnotationFreePackageInfo": ignored,
+            }
+        class_sets = {
+            tool: inventory["normalized"]
+            for tool, inventory in class_inventories.items()
         }
         baseline_classes = class_sets["zolt"]
         correctness_checks = [
@@ -951,9 +985,15 @@ else:
                 "passed": values == baseline_classes and bool(values),
                 "evidence": {
                     "classCount": len(values),
+                    "rawClassCount": len(class_inventories[tool]["raw"]),
                     "baselineClassCount": len(baseline_classes),
                     "missing": sorted(set(baseline_classes) - set(values)),
                     "extra": sorted(set(values) - set(baseline_classes)),
+                    "ignoredAnnotationFreePackageInfo": (
+                        class_inventories[tool][
+                            "ignoredAnnotationFreePackageInfo"
+                        ]
+                    ),
                 },
             }
             for tool, values in class_sets.items()
@@ -1186,6 +1226,7 @@ caveats = [
     "Dependency caches are warmed before timed builds; dependency download speed is not measured.",
     "Generated overlay builds do not reproduce every upstream plugin or packaging behavior.",
     "Implementation and public-API mutation classes are seeded and compiled before timing; every timed edit must produce distinct bytecode that differs from the seed.",
+    "Annotation-free package-info.class outputs are normalized across compilers and disclosed in correctness evidence; annotated package metadata remains correctness-gated.",
 ]
 if include_tuned_modes:
     caveats.append(

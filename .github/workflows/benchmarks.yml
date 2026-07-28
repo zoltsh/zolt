@@ -254,16 +254,24 @@ jobs:
         run: |
           artifact_name="zolt-benchmark-${BENCHMARK_PROFILE_ID}-${BENCHMARK_LANE_ID}-${ZOLT_BENCH_VERSION}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           printf 'BENCHMARK_ARTIFACT_NAME=%s\n' "$artifact_name" >> "$GITHUB_ENV"
+          lane_status=0
           scripts/benchmark-profile run \
             --profile "$BENCHMARK_PROFILE_ID" \
             --lane "$BENCHMARK_LANE_ID" \
             --zolt "$ZOLT_BENCH_ZOLT" \
             --resolved-zolt-version "${BENCHMARK_RELEASE_VERSION:-$ZOLT_BENCH_VERSION}" \
             --work-dir "$BENCHMARK_DIR" \
-            --artifact-name "$artifact_name"
+            --artifact-name "$artifact_name" \
+            || lane_status=$?
           mkdir -p target/benchmark-shard-summaries
-          cp "$BENCHMARK_DIR/suite-summary.json" \
-            "target/benchmark-shard-summaries/${BENCHMARK_LANE_ID}.json"
+          if [[ -f "$BENCHMARK_DIR/suite-summary.json" ]]; then
+            cp "$BENCHMARK_DIR/suite-summary.json" \
+              "target/benchmark-shard-summaries/${BENCHMARK_LANE_ID}.json"
+          else
+            printf 'error: benchmark lane did not produce suite-summary.json\n' >&2
+            lane_status=1
+          fi
+          exit "$lane_status"
 
       - name: Write lane summary
         if: always()

@@ -170,6 +170,14 @@ class Runner:
             str(self.cache),
             "--no-progress",
         ]
+        self.toolchain_sync = [
+            self.zolt,
+            "--no-progress",
+            "toolchain",
+            "sync",
+            "--cwd",
+            str(self.workspace),
+        ]
         self.package = [
             self.zolt,
             "package",
@@ -270,6 +278,7 @@ class Runner:
 
     def execute(self) -> tuple[list[dict], dict]:
         self.prepare()
+        self.checked(self.toolchain_sync, "prepare/toolchain-sync.log")
         mutation = self.workspace / "apps/zolt/src/main/java/sh/zolt/cli/ZoltCli.java"
         if not mutation.is_file():
             raise RuntimeError(f"self-host mutation target is missing: {mutation}")
@@ -429,6 +438,7 @@ def main() -> int:
     args = parse_args()
     runner = Runner(args)
     runner.work_dir.mkdir(parents=True, exist_ok=True)
+    failure = None
     if args.dry_run:
         workflows = [
             {
@@ -450,8 +460,39 @@ def main() -> int:
         correctness = {"schemaVersion": 1, "status": "not-run", "checks": []}
         status = "dry-run"
     else:
-        workflows, correctness = runner.execute()
-        status = "complete"
+        try:
+            workflows, correctness = runner.execute()
+            status = "complete"
+        except Exception as exc:
+            workflows = [
+                {
+                    "workflow": workflow,
+                    "label": label,
+                    "kind": kind,
+                    "winner": None,
+                    "tools": {
+                        "zolt": metrics(
+                            runner.resolve if workflow == "dependency-setup"
+                            else runner.package if workflow == "package"
+                            else runner.build,
+                            [
+                                row
+                                for row in runner.samples
+                                if row["workflow"] == workflow
+                            ],
+                        )
+                    },
+                }
+                for workflow, label, kind in WORKFLOW_SPECS
+            ]
+            correctness = {
+                "schemaVersion": 1,
+                "status": "failed",
+                "checks": [],
+                "completedAt": now_iso(),
+            }
+            status = "failed"
+            failure = {"error": str(exc)}
 
     members = workspace_members(ROOT)
     source_files = [
@@ -470,6 +511,7 @@ def main() -> int:
             ),
             "repeatCount": args.repeat,
             "cleanRepeatCount": args.clean_repeat,
+            "toolchainSetupCommand": runner.toolchain_sync,
             "sourceFiles": len(source_files),
             "sourceLines": sum(
                 len(path.read_text(encoding="utf-8", errors="replace").splitlines())
@@ -497,9 +539,11 @@ def main() -> int:
         },
         "correctness": correctness,
         "workflows": workflows,
+        "failure": failure,
         "caveats": [
             "This lane is non-comparative: it validates and times Zolt building the checked-out Zolt source tree.",
             "The copied workspace excludes existing build outputs and local dependency caches.",
+            "The repository-locked Java toolchain is synced before dependency setup and is excluded from timed samples.",
             "Dependency setup and the first clean build are separated from repeated workflow claims.",
         ],
     }
@@ -528,12 +572,14 @@ def main() -> int:
             f"{data['p95Millis'] if data['p95Millis'] is not None else 'n/a'} | "
             f"{data['coefficientOfVariation'] if data['coefficientOfVariation'] is not None else 'n/a'} |"
         )
+    if failure:
+        report.extend(["", f"Failure: `{json.dumps(failure, sort_keys=True)}`"])
     (runner.work_dir / "report.md").write_text(
         "\n".join(report) + "\n", encoding="utf-8"
     )
     print(f"wrote self-host summary: {runner.work_dir / 'summary.json'}")
     print(f"wrote self-host correctness: {runner.work_dir / 'correctness.json'}")
-    return 0
+    return 1 if failure else 0
 
 
 if __name__ == "__main__":

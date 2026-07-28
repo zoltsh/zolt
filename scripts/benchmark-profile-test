@@ -107,6 +107,7 @@ import sys
 
 for index, value in enumerate(sys.argv[1:], start=1):
     path = pathlib.Path(value)
+    status = "complete" if index == 1 else "failed"
     path.write_text(json.dumps({
         "schemaVersion": 1,
         "repository": {"name": "zsumz/zolt", "commit": "test"},
@@ -114,8 +115,13 @@ for index, value in enumerate(sys.argv[1:], start=1):
             "id": f"test-{index}",
             "name": f"Test {index}",
             "kind": "zolt-self-host",
-            "status": "complete",
-            "summary": {"classification": "Zolt self-host validation"},
+            "status": status,
+            "summary": {
+                "classification": "Zolt self-host validation",
+                "failure": None if status == "complete" else {
+                    "error": "intentional lane failure"
+                },
+            },
             "workflows": [],
         }],
     }) + "\n", encoding="utf-8")
@@ -136,8 +142,26 @@ jq -e --arg sha "$profile_sha" '
   .profile.id == "full"
   and .profile.sha256 == $sha
   and .run.laneCount == 2
+  and .run.completedLaneCount == 1
   and ([.lanes[].id] | sort) == ["test-1", "test-2"]
+  and any(.lanes[];
+    .id == "test-2"
+    and .status == "failed"
+    and .summary.failure.error == "intentional lane failure"
+  )
 ' "$WORK_DIR/aggregate/suite-summary.json" >/dev/null \
   || fail "precomputed lane aggregation lost profile or lane metadata"
+
+grep -F '| Test 2 | intentional lane failure |' \
+  "$WORK_DIR/aggregate/summary-brief.md" >/dev/null \
+  || fail "aggregate brief did not retain the failed lane reason"
+
+# These are literal shell fragments in the workflow.
+# shellcheck disable=SC2016
+if ! grep -F 'lane_status=0' .github/workflows/benchmarks.yml >/dev/null \
+  || ! grep -F '|| lane_status=$?' .github/workflows/benchmarks.yml >/dev/null \
+  || ! grep -F 'exit "$lane_status"' .github/workflows/benchmarks.yml >/dev/null; then
+  fail "benchmark workflow does not preserve failed lane summaries"
+fi
 
 printf 'benchmark profile script test passed\n'

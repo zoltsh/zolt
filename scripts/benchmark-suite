@@ -445,7 +445,11 @@ if [[ "$INCLUDE_SELF_HOST" == true ]]; then
   if [[ "$SELF_HOST_DRY_RUN" == true ]]; then
     self_host_args+=(--dry-run)
   fi
-  scripts/benchmark-self-host "${self_host_args[@]}"
+  if ! scripts/benchmark-self-host "${self_host_args[@]}"; then
+    SUITE_FAILED=true
+  fi
+  [[ -f "$self_host_dir/summary.json" ]] \
+    || fail "self-host lane did not write a summary"
   scripts/benchmark-suite-summary \
     --summary "$self_host_dir/summary.json" \
     --output "$self_host_dir/suite-summary.json" \
