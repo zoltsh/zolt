@@ -81,6 +81,7 @@ jobs:
           scripts/benchmark-large-source-report-test
           scripts/benchmark-netty-compare-test
           scripts/benchmark-real-project-test
+          scripts/zap-distribution-test
 
       - name: Resolve released Zolt once
         id: release
