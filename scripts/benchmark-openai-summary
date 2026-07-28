@@ -101,7 +101,7 @@ model = sys.argv[4]
 reasoning_effort = sys.argv[5]
 dry_run = sys.argv[6] == "true"
 suite = json.loads(input_path.read_text(encoding="utf-8"))
-prompt_version = "zolt-benchmark-summary-v4"
+prompt_version = "zolt-benchmark-summary-v6"
 
 model_input = {
     "schemaVersion": suite.get("schemaVersion"),
@@ -120,6 +120,7 @@ model_input = {
             "environment": lane.get("environment"),
             "tools": lane.get("tools"),
             "correctness": lane.get("correctness"),
+            "outcomeRule": lane.get("outcomeRule"),
             "summary": lane.get("summary"),
             "workflows": lane.get("workflows"),
             "caveats": lane.get("caveats"),
@@ -164,13 +165,19 @@ system_prompt = (
     "numeric fields. Report evidence, not advocacy. Lead with the verdict. "
     "If a correctness check failed or a run did not complete, say that first "
     "and do not present the affected timing as valid performance evidence. "
-    "Otherwise say plainly where Zolt was faster and where it was slower. "
-    "Never hide a loss, call a loss a tie, cherry-pick wins, average unlike "
-    "workflows, or invent a composite score. If Zolt lost any valid comparison, "
-    "include its largest measured loss by ratio in resultBullets; if Zolt won "
-    "one, include its largest measured win by ratio. For each highlighted comparison, "
-    "name the fastest tool and "
-    "give both medians. Express a ratio only as 'A took N times as long as B', "
+    "Otherwise use the supplied faster, slower, and inconclusive outcomes. "
+    "Never hide a meaningful loss; report statistically inconclusive results "
+    "as inconclusive. Do not turn the lowest median into a win when the supplied "
+    "outcome is inconclusive. zoltOutcome is the workflow verdict: faster means "
+    "Zolt cleared every enabled comparator; slower means at least one supplied "
+    "comparisonsVsZolt comparison is slower. Use comparisonsVsZolt and "
+    "zoltReferenceTool for the highlighted pair. Never cherry-pick wins, average unlike workflows, "
+    "or invent a composite score. If Zolt has any valid slower outcome, include "
+    "its largest measured loss by ratio in resultBullets; if Zolt has a faster "
+    "outcome, include its largest measured win by ratio. For each highlighted "
+    "comparison, name the comparator and give both medians. Never call "
+    "fastestMedianTool a winner unless the supplied winner agrees. Express a "
+    "ratio only as 'A took N times as long as B', "
     "calculated from supplied medians and rounded to at most two decimals. "
     "Keep first clean build separate from repeated workflows. Do not call a "
     "one-sample or smoke result a trend or publishable; use the supplied run "
@@ -190,7 +197,8 @@ system_prompt = (
 user_prompt = (
     "Produce the benchmark brief. bottomLine must directly answer: 'How are "
     "our benchmarks?' Preserve, in order: correctness or completion failures, "
-    "the largest Zolt loss, the largest Zolt win, and the evidence boundary. "
+    "the largest conclusive Zolt loss, the largest conclusive Zolt win, "
+    "inconclusive results, and the evidence boundary. "
     "Use exact numbers and sample counts. Keep limitations strictly about the "
     "current run and methodology. Do not soften the answer. Return only the "
     "structured JSON required by the schema.\n\n"
@@ -282,20 +290,37 @@ workflow_labels = {
     "no-op-build": "Warm no-op",
     "leaf-change-build": "Leaf source change",
     "root-change-build": "Root library change",
+    "implementation-change-build": "Implementation change",
+    "api-change-build": "Public API change",
 }
 workflow_order = [
     "setup-warm-build",
     "no-op-build",
     "leaf-change-build",
     "root-change-build",
+    "implementation-change-build",
+    "api-change-build",
 ]
 tool_labels = {
     "zolt": "Zolt",
-    "maven": "Maven",
+    "maven": "Maven default",
+    "maven-parallel": "Maven parallel",
     "gradle-no-daemon": "Gradle no-daemon",
     "gradle-daemon": "Gradle daemon",
+    "gradle-parallel-configuration-cache": "Gradle tuned",
+    "upstream-maven": "Upstream Maven",
+    "upstream-gradle": "Upstream Gradle",
 }
-tool_order = ["zolt", "maven", "gradle-no-daemon", "gradle-daemon"]
+tool_order = [
+    "zolt",
+    "maven",
+    "maven-parallel",
+    "gradle-no-daemon",
+    "gradle-daemon",
+    "gradle-parallel-configuration-cache",
+    "upstream-maven",
+    "upstream-gradle",
+]
 
 
 def fmt_ms(value):
@@ -324,6 +349,7 @@ def result_table_rows(suite_document):
             winner = workflow.get("winner")
             cells = [
                 workflow_labels[workflow_id],
+                workflow.get("zoltOutcome") or "inconclusive",
                 tool_labels.get(winner, winner or "n/a"),
             ]
             for tool in tool_order:
@@ -351,8 +377,8 @@ if table_rows:
     lines.extend([
         "### Results",
         "",
-        "| Workflow | Winner | Zolt | Maven | Gradle no-daemon | Gradle daemon |",
-        "| --- | --- | ---: | ---: | ---: | ---: |",
+        "| Workflow | Zolt outcome | Conclusive winner | Zolt | Maven default | Maven parallel | Gradle no-daemon | Gradle daemon | Gradle tuned | Upstream Maven | Upstream Gradle |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ])
     lines.extend("| " + " | ".join(row) + " |" for row in table_rows)
     lines.append("")

@@ -20,6 +20,19 @@ fail() {
 rm -rf "$WORK_DIR"
 mkdir -p "$UPSTREAM/src/main/java/example" "$UPSTREAM/src/main/resources"
 
+cat >"$UPSTREAM/pom.xml" <<'EOF'
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>example</groupId>
+  <artifactId>native-fixture</artifactId>
+  <version>1.0.0</version>
+</project>
+EOF
+
+cat >"$UPSTREAM/build.gradle" <<'EOF'
+plugins { id 'java' }
+EOF
+
 cat >"$UPSTREAM/src/main/java/module-info.java" <<'EOF'
 module example.fixture {
     exports example;
@@ -62,11 +75,20 @@ cat >"$ADAPTER" <<EOF
     "sourceRoots": [{ "from": "src/main/java", "to": "src/main/java" }],
     "resourceRoots": [{ "from": "src/main/resources", "to": "src/main/resources" }],
     "sourceChangeTarget": "src/main/java/example/Sample.java",
+    "nativeBuild": {
+      "tool": "NATIVE_TOOL",
+      "projectDirectory": ".",
+      "classesDirectory": "NATIVE_CLASSES",
+      "workflows": ["first-clean-build", "clean-build", "warm-no-op-build"],
+      "resolveArgs": ["compile"],
+      "buildArgs": ["compile"],
+      "cleanArgs": ["clean"]
+    },
     "platforms": {},
     "dependencies": {},
     "providedDependencies": {},
     "excludes": [],
-    "coveredWorkflows": ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"],
+    "coveredWorkflows": ["first-clean-build", "clean-build", "warm-no-op-build", "implementation-change-build", "api-change-build"],
     "omittedBuildFeatures": ["tests"]
   }
 }
@@ -101,6 +123,7 @@ if [[ "${1:-}" == "--version" ]]; then
   printf 'fake maven 1.0\n'
   exit 0
 fi
+[[ -f pom.xml ]] || exit 3
 if [[ " $* " == *" clean "* ]]; then
   rm -rf target/classes
 else
@@ -121,6 +144,7 @@ if [[ " $* " == *" --stop "* ]]; then
   printf 'gradle stopped\n'
   exit 0
 fi
+[[ -f build.gradle ]] || exit 3
 if [[ " $* " == *" clean "* ]]; then
   rm -rf build/classes/java/main
 else
@@ -133,7 +157,16 @@ chmod +x "$FAKE_ZOLT" "$FAKE_MAVEN" "$FAKE_GRADLE"
 
 for tool in maven gradle; do
   project_id="fixture-$tool"
-  sed "s/PROJECT_ID/$project_id/g" "$ADAPTER" >"$WORK_DIR/$project_id-coverage.json"
+  if [[ "$tool" == "maven" ]]; then
+    native_classes="target/classes"
+  else
+    native_classes="build/classes/java/main"
+  fi
+  sed \
+    -e "s/PROJECT_ID/$project_id/g" \
+    -e "s/NATIVE_TOOL/$tool/g" \
+    -e "s|NATIVE_CLASSES|$native_classes|g" \
+    "$ADAPTER" >"$WORK_DIR/$project_id-coverage.json"
   cat >"$MANIFEST" <<EOF
 {
   "schemaVersion": 2,
@@ -147,7 +180,7 @@ for tool in maven gradle; do
     "adapterStatus": "main-source-ready",
     "adapterPath": "$WORK_DIR/$project_id-coverage.json",
     "pin": { "type": "commit", "value": "$PIN", "sourceBranch": "main" },
-    "workflows": ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"],
+    "workflows": ["first-clean-build", "clean-build", "warm-no-op-build", "implementation-change-build", "api-change-build"],
     "coverageNotes": ["Fixture coverage note."]
   }]
 }
@@ -162,37 +195,43 @@ EOF
     --zolt "$FAKE_ZOLT" \
     --maven "$FAKE_MAVEN" \
     --gradle "$FAKE_GRADLE" \
+    --include-tuned-modes \
     >/dev/null
 
-  jq -e '
-    .status == "complete"
-    and (.workflows | length) == 4
+  jq -e --arg tool "$tool" '
+    .schemaVersion == 3
+    and .status == "complete"
+    and (.workflows | length) == 5
     and .correctness.status == "passed"
     and all(.workflows[];
-      (.tools | keys | sort) == (["zolt", "maven", "gradle-no-daemon", "gradle-daemon"] | sort)
+      ((.tools | keys) - ["upstream-maven", "upstream-gradle"] | sort)
+      == (["zolt", "maven", "maven-parallel", "gradle-no-daemon", "gradle-daemon", "gradle-parallel-configuration-cache"] | sort)
       and all(.tools[]; .sampleCount == .successfulSampleCount)
       and all(.tools[]; has("p95Millis") and has("standardDeviationMillis") and has("median95ConfidenceIntervalMillis"))
+      and .zoltOutcome == "inconclusive"
     )
   ' "$WORK_DIR/run-$tool/summary.json" >/dev/null \
-    || fail "$tool comparison summary did not record four successful workflows"
+    || fail "$tool comparison summary did not record five successful workflows"
 
-  jq -e '
+  jq -e --arg tool "$tool" '
     .lanes[0].kind == "real-project-comparison"
     and .lanes[0].status == "complete"
-    and .lanes[0].summary.completedWorkflowCount == 4
+    and .lanes[0].summary.completedWorkflowCount == 5
     and .lanes[0].correctness.status == "passed"
-    and (.lanes[0].tools | keys | sort) == (["zolt", "maven", "gradle-no-daemon", "gradle-daemon"] | sort)
+    and ((.lanes[0].tools | keys) - ["upstream-maven", "upstream-gradle"] | sort)
+      == (["zolt", "maven", "maven-parallel", "gradle-no-daemon", "gradle-daemon", "gradle-parallel-configuration-cache"] | sort)
+    and (.lanes[0].tools | has("upstream-" + $tool))
   ' "$WORK_DIR/run-$tool/suite-summary.json" >/dev/null \
     || fail "$tool suite lane was not a completed real-project comparison"
 
-  for competitor in maven gradle-no-daemon gradle-daemon; do
+  for competitor in maven maven-parallel gradle-no-daemon gradle-daemon gradle-parallel-configuration-cache; do
     diff -qr \
       "$WORK_DIR/run-$tool/projects/zolt/src/main" \
       "$WORK_DIR/run-$tool/projects/$competitor/src/main" \
       >/dev/null || fail "$competitor overlay did not contain the same source and resource trees"
   done
 
-  for gradle_mode in gradle-no-daemon gradle-daemon; do
+  for gradle_mode in gradle-no-daemon gradle-daemon gradle-parallel-configuration-cache; do
     generated_gradle="$WORK_DIR/run-$tool/projects/$gradle_mode/build.gradle"
     grep -F "java { modularity.inferModulePath = false }" "$generated_gradle" >/dev/null \
       || fail "$gradle_mode overlay did not disable incomplete Gradle module-path inference"
@@ -201,6 +240,26 @@ EOF
     grep -F "classpath = files()" "$generated_gradle" >/dev/null \
       || fail "$gradle_mode overlay did not clear the duplicate compile classpath"
   done
+
+  jq -e --arg native "upstream-$tool" '
+    any(.checks[];
+      .name == ($native + "-genuine-upstream-build")
+      and .passed
+      and .evidence.usesPinnedUpstreamBuildFiles
+      and (.evidence.projectDirectory | endswith("/checkout"))
+    )
+    and any(.checks[];
+      (.name | endswith("-implementation-change-build-bytecode-change"))
+      and .passed
+      and .evidence.seedDigestChanged
+    )
+    and any(.checks[];
+      (.name | endswith("-api-change-build-bytecode-change"))
+      and .passed
+      and .evidence.seedDigestChanged
+    )
+  ' "$WORK_DIR/run-$tool/correctness.json" >/dev/null \
+    || fail "$tool comparison did not prove native-build and semantic-mutation correctness"
 done
 
 jq -e '
@@ -220,7 +279,7 @@ while IFS= read -r adapter_path; do
     .status == "comparison-ready"
     and .adapter.type == "generated-same-source-overlay"
     and (.adapter.sourceRoots | length) > 0
-    and (.adapter.coveredWorkflows == ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"])
+    and (.adapter.coveredWorkflows == ["first-clean-build", "clean-build", "warm-no-op-build", "implementation-change-build", "api-change-build"])
   ' "$adapter_path" >/dev/null || fail "adapter is not comparison-ready: $adapter_path"
 done < <(jq -r '.projects[].adapterPath' docs/benchmarks/projects.json)
 

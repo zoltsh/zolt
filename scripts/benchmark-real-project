@@ -15,6 +15,7 @@ MAVEN_BIN="${ZOLT_BENCH_MAVEN:-}"
 GRADLE_BIN="${ZOLT_BENCH_GRADLE:-}"
 SAMPLE_TIMEOUT_SECONDS=1800
 DRY_RUN=false
+INCLUDE_TUNED_MODES=false
 
 usage() {
   cat <<'USAGE'
@@ -33,14 +34,17 @@ Options:
   --maven PATH             Maven executable. Default: mvn on PATH.
   --gradle PATH            Gradle executable. Default: gradle on PATH.
   --sample-timeout SECONDS Per-command timeout. Default: 1800.
+  --include-tuned-modes     Include Maven parallel and Gradle parallel/configuration-cache.
   --dry-run                Validate the lane and write planned outputs without cloning or timing.
   -h, --help               Show this help.
 
 Each checked-in adapter copies one explicit upstream source set into isolated
-Zolt, Maven, Gradle no-daemon, and Gradle daemon overlays. Dependency caches are
-warmed before timing. The measured workflows are a clean compile, a warm no-op
-compile, and an incremental source change. Adapter omissions remain part of
-every result artifact.
+Zolt, default Maven, and default Gradle overlays. Tuned Maven parallel and
+Gradle parallel/configuration-cache overlays are optional and explicitly
+labeled. Dependency caches are warmed before timing. The measured workflows are
+first and repeated clean builds, a warm no-op, an implementation change, and a
+public-API change. Semantic-change samples must produce distinct bytecode.
+Adapter omissions remain part of every result artifact.
 USAGE
 }
 
@@ -116,6 +120,10 @@ while [[ "$#" -gt 0 ]]; do
       SAMPLE_TIMEOUT_SECONDS="$2"
       shift 2
       ;;
+    --include-tuned-modes)
+      INCLUDE_TUNED_MODES=true
+      shift
+      ;;
     --dry-run)
       DRY_RUN=true
       shift
@@ -144,7 +152,7 @@ else
 fi
 mkdir -p "$WORK_DIR"
 
-python3 - "$ROOT" "$PROJECT_MANIFEST" "$PROJECT_ID" "$WORK_DIR" "$CACHE_DIR" "$REPEAT_COUNT" "$CLEAN_REPEAT_COUNT" "$ZOLT_BIN" "$MAVEN_BIN" "$GRADLE_BIN" "$SAMPLE_TIMEOUT_SECONDS" "$DRY_RUN" <<'PY'
+python3 - "$ROOT" "$PROJECT_MANIFEST" "$PROJECT_ID" "$WORK_DIR" "$CACHE_DIR" "$REPEAT_COUNT" "$CLEAN_REPEAT_COUNT" "$ZOLT_BIN" "$MAVEN_BIN" "$GRADLE_BIN" "$SAMPLE_TIMEOUT_SECONDS" "$DRY_RUN" "$INCLUDE_TUNED_MODES" <<'PY'
 import html
 import hashlib
 import json
@@ -152,6 +160,7 @@ import math
 import os
 import pathlib
 import platform
+import re
 import shutil
 import statistics
 import subprocess
@@ -172,6 +181,10 @@ explicit_maven = sys.argv[9] or None
 explicit_gradle = sys.argv[10] or None
 sample_timeout_seconds = int(sys.argv[11])
 dry_run = sys.argv[12] == "true"
+include_tuned_modes = sys.argv[13] == "true"
+
+sys.path.insert(0, str(repo_root / "scripts"))
+from benchmark_statistics import OUTCOME_RULE, classify_workflow
 
 if not manifest_path.is_file():
     raise SystemExit(f"project manifest not found: {manifest_path}")
@@ -209,9 +222,14 @@ if adapter.get("type") != "generated-same-source-overlay":
 source_roots = adapter.get("sourceRoots") or []
 if not source_roots:
     raise SystemExit(f"adapter {project_id} has no source roots")
-source_change_target = adapter.get("sourceChangeTarget")
-if not source_change_target:
-    raise SystemExit(f"adapter {project_id} has no source-change target")
+mutation_anchor = adapter.get("sourceChangeTarget")
+if not mutation_anchor:
+    raise SystemExit(f"adapter {project_id} has no mutation anchor")
+native_build = adapter.get("nativeBuild") or None
+if native_build and native_build.get("tool") != native_tool:
+    raise SystemExit(
+        f"adapter native build tool does not match manifest for {project_id}"
+    )
 
 work_dir.mkdir(parents=True, exist_ok=True)
 checkout_dir = work_dir / "checkout"
@@ -219,9 +237,20 @@ logs_dir = work_dir / "logs"
 projects_dir = work_dir / "projects"
 zolt_project = projects_dir / "zolt"
 maven_project = projects_dir / "maven"
+maven_parallel_project = projects_dir / "maven-parallel"
 gradle_no_daemon_project = projects_dir / "gradle-no-daemon"
 gradle_daemon_project = projects_dir / "gradle-daemon"
-tool_ids = ("zolt", "maven", "gradle-no-daemon", "gradle-daemon")
+gradle_tuned_project = projects_dir / "gradle-parallel-configuration-cache"
+overlay_tool_ids = ["zolt", "maven"]
+if include_tuned_modes:
+    overlay_tool_ids.append("maven-parallel")
+overlay_tool_ids.extend(["gradle-no-daemon", "gradle-daemon"])
+if include_tuned_modes:
+    overlay_tool_ids.append("gradle-parallel-configuration-cache")
+native_tool_id = f"upstream-{native_tool}" if native_build else None
+tool_ids = tuple(
+    overlay_tool_ids + ([native_tool_id] if native_tool_id else [])
+)
 logs_dir.mkdir(parents=True, exist_ok=True)
 samples_path = work_dir / "samples.jsonl"
 summary_path = work_dir / "summary.json"
@@ -348,7 +377,14 @@ def copy_root(row, destination):
 def prepare_overlays():
     if projects_dir.exists():
         shutil.rmtree(projects_dir)
-    destinations = (zolt_project, maven_project, gradle_no_daemon_project, gradle_daemon_project)
+    destinations = [
+        zolt_project,
+        maven_project,
+        gradle_no_daemon_project,
+        gradle_daemon_project,
+    ]
+    if include_tuned_modes:
+        destinations.extend([maven_parallel_project, gradle_tuned_project])
     for destination in destinations:
         destination.mkdir(parents=True)
         for row in source_roots:
@@ -361,9 +397,11 @@ def prepare_overlays():
                 shutil.rmtree(target)
             elif target.exists():
                 target.unlink()
-        changed = destination / source_change_target
+        changed = destination / mutation_anchor
         if not changed.is_file():
-            raise RuntimeError(f"source-change target is missing from overlay: {source_change_target}")
+            raise RuntimeError(
+                f"mutation anchor is missing from overlay: {mutation_anchor}"
+            )
     source_count = len(list(zolt_project.glob("**/*.java")))
     if source_count == 0:
         raise RuntimeError(f"adapter {project_id} copied no Java sources")
@@ -371,6 +409,9 @@ def prepare_overlays():
     write_maven_config(maven_project)
     write_gradle_config(gradle_no_daemon_project)
     write_gradle_config(gradle_daemon_project)
+    if include_tuned_modes:
+        write_maven_config(maven_parallel_project)
+        write_gradle_config(gradle_tuned_project)
     return source_count, sum(
         len(path.read_text(encoding="utf-8", errors="replace").splitlines())
         for path in zolt_project.glob("**/*.java")
@@ -531,8 +572,11 @@ def write_gradle_config(destination):
 
 zolt_cache = cache_dir / "zolt"
 maven_cache = cache_dir / "maven"
+maven_parallel_cache = cache_dir / "maven-parallel"
 gradle_no_daemon_cache = cache_dir / "gradle-no-daemon"
 gradle_daemon_cache = cache_dir / "gradle-daemon"
+gradle_tuned_cache = cache_dir / "gradle-parallel-configuration-cache"
+native_cache = cache_dir / (native_tool_id or "upstream-unused")
 
 
 def tool_commands():
@@ -552,6 +596,22 @@ def tool_commands():
         gradle,
         "--gradle-user-home",
         str(gradle_daemon_cache),
+        "--console=plain",
+        "--quiet",
+    ]
+    maven_parallel_prefix = [
+        mvn,
+        f"-Dmaven.repo.local={maven_parallel_cache}",
+        "-T",
+        "1C",
+        "-q",
+    ]
+    gradle_tuned_prefix = [
+        gradle,
+        "--gradle-user-home",
+        str(gradle_tuned_cache),
+        "--parallel",
+        "--configuration-cache",
         "--console=plain",
         "--quiet",
     ]
@@ -589,6 +649,48 @@ def tool_commands():
             "clean": [*gradle_daemon_prefix, "clean"],
         },
     }
+    if include_tuned_modes:
+        commands["maven-parallel"] = {
+            "cwd": maven_parallel_project,
+            "resolve": [*maven_parallel_prefix, "-DskipTests", "compile"],
+            "build": [*maven_parallel_prefix, "-DskipTests", "compile"],
+            "clean": [*maven_parallel_prefix, "clean"],
+        }
+        commands["gradle-parallel-configuration-cache"] = {
+            "cwd": gradle_tuned_project,
+            "resolve": [
+                *gradle_tuned_prefix,
+                "dependencies",
+                "--configuration",
+                "compileClasspath",
+            ],
+            "build": [*gradle_tuned_prefix, "classes"],
+            "clean": [*gradle_tuned_prefix, "clean"],
+        }
+    if native_build:
+        native_cwd = checkout_dir / str(native_build.get("projectDirectory") or ".")
+        resolve_args = [str(value) for value in native_build.get("resolveArgs") or []]
+        build_args = [str(value) for value in native_build.get("buildArgs") or []]
+        clean_args = [str(value) for value in native_build.get("cleanArgs") or []]
+        if not resolve_args or not build_args or not clean_args:
+            raise RuntimeError(
+                f"native build commands are incomplete for {project_id}"
+            )
+        if native_tool == "maven":
+            prefix = [mvn, f"-Dmaven.repo.local={native_cache}"]
+        else:
+            prefix = [
+                gradle,
+                "--gradle-user-home",
+                str(native_cache),
+                "--console=plain",
+            ]
+        commands[native_tool_id] = {
+            "cwd": native_cwd,
+            "resolve": [*prefix, *resolve_args],
+            "build": [*prefix, *build_args],
+            "clean": [*prefix, *clean_args],
+        }
     return commands
 
 
@@ -648,9 +750,71 @@ workflow_specs = [
     ("first-clean-build", "Clean compile with warm dependency cache", 1),
     ("clean-build", "Repeated clean compile with warm dependency cache", clean_repeat_count),
     ("warm-no-op-build", "Warm no-op compile", repeat_count),
-    ("source-change-build", "Incremental source-input change compile", repeat_count),
+    (
+        "implementation-change-build",
+        "Bytecode-affecting implementation change compile",
+        repeat_count,
+    ),
+    (
+        "api-change-build",
+        "Public API constant change compile",
+        repeat_count,
+    ),
 ]
 commands = tool_commands()
+native_workflows = set((native_build or {}).get("workflows") or [])
+
+
+def workflow_tool_ids(workflow_id):
+    selected = list(overlay_tool_ids)
+    if native_tool_id and workflow_id in native_workflows:
+        selected.append(native_tool_id)
+    return selected
+
+
+def mutation_source(tool, workflow_id):
+    anchor = commands[tool]["cwd"] / mutation_anchor
+    source = anchor.read_text(encoding="utf-8")
+    match = re.search(r"^\s*package\s+([A-Za-z_][A-Za-z0-9_.]*)\s*;", source, re.MULTILINE)
+    package_name = match.group(1) if match else ""
+    if workflow_id == "implementation-change-build":
+        class_name = "ZoltBenchmarkImplementationMutation"
+    elif workflow_id == "api-change-build":
+        class_name = "ZoltBenchmarkApiMutation"
+    else:
+        raise RuntimeError(f"unsupported mutation workflow: {workflow_id}")
+    return (
+        anchor.parent / f"{class_name}.java",
+        pathlib.Path(*package_name.split(".")) / f"{class_name}.class"
+        if package_name
+        else pathlib.Path(f"{class_name}.class"),
+        package_name,
+        class_name,
+    )
+
+
+def write_mutation(tool, workflow_id, sample_index):
+    source_path, class_path, package_name, class_name = mutation_source(
+        tool, workflow_id
+    )
+    package_line = f"package {package_name};\n\n" if package_name else ""
+    if workflow_id == "implementation-change-build":
+        body = (
+            f"{package_line}final class {class_name} {{\n"
+            f"    static int value() {{ return {sample_index}; }}\n"
+            "}\n"
+        )
+    else:
+        body = (
+            f"{package_line}public final class {class_name} {{\n"
+            f"    public static final int VALUE = {sample_index};\n"
+            f"    private {class_name}() {{}}\n"
+            "}\n"
+        )
+    source_path.write_text(body, encoding="utf-8")
+    return source_path, class_path
+
+
 samples = []
 workflow_records = []
 status = "dry-run" if dry_run else "complete"
@@ -675,11 +839,23 @@ environment = {
         "gradle-daemon": capture_tool([tool_paths["gradle"], "--version"]),
     },
 }
+if include_tuned_modes:
+    environment["tools"].update({
+        "maven-parallel": environment["tools"]["maven"],
+        "gradle-parallel-configuration-cache": environment["tools"][
+            "gradle-daemon"
+        ],
+    })
+if native_tool_id:
+    environment["tools"][native_tool_id] = environment["tools"][
+        "maven" if native_tool == "maven" else "gradle-daemon"
+    ]
 
 if dry_run:
     for workflow_id, label, sample_count in workflow_specs:
         tools = {}
-        for tool in tool_ids:
+        selected_tools = workflow_tool_ids(workflow_id)
+        for tool in selected_tools:
             tools[tool] = {
                 "command": commands[tool]["build"],
                 "samples": [],
@@ -691,7 +867,17 @@ if dry_run:
                 "maxMillis": None,
                 "logs": [],
             }
-        workflow_records.append({"id": workflow_id, "label": label, "kind": "comparison", "winner": None, "tools": tools})
+        workflow_records.append({
+            "id": workflow_id,
+            "label": label,
+            "kind": "comparison",
+            "winner": None,
+            "fastestMedianTool": None,
+            "zoltOutcome": "inconclusive",
+            "zoltReferenceTool": None,
+            "comparisonsVsZolt": {},
+            "tools": tools,
+        })
 else:
     try:
         prepare_checkout()
@@ -727,9 +913,21 @@ else:
             "gradle-no-daemon": gradle_no_daemon_project / "build/classes/java/main",
             "gradle-daemon": gradle_daemon_project / "build/classes/java/main",
         }
+        if include_tuned_modes:
+            output_roots.update({
+                "maven-parallel": maven_parallel_project / "target/classes",
+                "gradle-parallel-configuration-cache": (
+                    gradle_tuned_project / "build/classes/java/main"
+                ),
+            })
+        if native_tool_id:
+            output_roots[native_tool_id] = (
+                commands[native_tool_id]["cwd"]
+                / str(native_build.get("classesDirectory") or "target/classes")
+            )
         source_digests = {
             tool: source_digest(commands[tool]["cwd"])
-            for tool in tool_ids
+            for tool in overlay_tool_ids
         }
         class_sets = {
             tool: sorted(
@@ -737,6 +935,7 @@ else:
                 for path in output_root.glob("**/*.class")
             )
             for tool, output_root in output_roots.items()
+            if tool in overlay_tool_ids
         }
         baseline_classes = class_sets["zolt"]
         correctness_checks = [
@@ -759,6 +958,21 @@ else:
             }
             for tool, values in class_sets.items()
         )
+        if native_tool_id:
+            native_classes = sorted(
+                str(path.relative_to(output_roots[native_tool_id]))
+                for path in output_roots[native_tool_id].glob("**/*.class")
+            )
+            correctness_checks.append({
+                "name": f"{native_tool_id}-genuine-upstream-build",
+                "passed": bool(native_classes),
+                "evidence": {
+                    "projectDirectory": str(commands[native_tool_id]["cwd"]),
+                    "buildCommand": commands[native_tool_id]["build"],
+                    "classCount": len(native_classes),
+                    "usesPinnedUpstreamBuildFiles": True,
+                },
+            })
         correctness = {
             "schemaVersion": 1,
             "status": (
@@ -777,24 +991,48 @@ else:
 
         with samples_path.open("w", encoding="utf-8") as sample_stream:
             for workflow_index, (workflow_id, label, sample_count) in enumerate(workflow_specs):
-                rows_by_tool = {tool: [] for tool in tool_ids}
-                baselines = {
-                    tool: (commands[tool]["cwd"] / source_change_target).read_text(encoding="utf-8")
-                    for tool in tool_ids
-                }
+                selected_tools = workflow_tool_ids(workflow_id)
+                rows_by_tool = {tool: [] for tool in selected_tools}
+                mutation_sources = {}
+                mutation_digests = {tool: [] for tool in overlay_tool_ids}
+                mutation_seed_digests = {}
+                if workflow_id in {
+                    "implementation-change-build",
+                    "api-change-build",
+                }:
+                    for tool in overlay_tool_ids:
+                        source_path, class_relative_path = write_mutation(
+                            tool, workflow_id, 0
+                        )
+                        mutation_sources[tool] = source_path
+                        checked(
+                            commands[tool]["build"],
+                            commands[tool]["cwd"],
+                            f"prepare/{workflow_id}-{tool}-seed-build.log",
+                        )
+                        seed_class = output_roots[tool] / class_relative_path
+                        if not seed_class.is_file():
+                            raise RuntimeError(
+                                "semantic mutation seed did not produce "
+                                f"{seed_class}"
+                            )
+                        mutation_seed_digests[tool] = hashlib.sha256(
+                            seed_class.read_bytes()
+                        ).hexdigest()
                 for sample_index in range(1, sample_count + 1):
-                    rotation = (workflow_index + sample_index - 1) % len(tool_ids)
-                    tool_order = tool_ids[rotation:] + tool_ids[:rotation]
+                    rotation = (workflow_index + sample_index - 1) % len(selected_tools)
+                    tool_order = selected_tools[rotation:] + selected_tools[:rotation]
                     for tool in tool_order:
-                        changed_path = commands[tool]["cwd"] / source_change_target
-                        baseline = baselines[tool]
                         if workflow_id in {"first-clean-build", "clean-build"}:
                             checked(commands[tool]["clean"], commands[tool]["cwd"], f"prepare/{workflow_id}-{tool}-{sample_index:03d}-clean.log")
-                        elif workflow_id == "source-change-build":
-                            changed_path.write_text(
-                                baseline.rstrip() + f"\n// Zolt benchmark source-input change: {tool} sample {sample_index}\n",
-                                encoding="utf-8",
+                        elif workflow_id in {
+                            "implementation-change-build",
+                            "api-change-build",
+                        }:
+                            source_path, class_relative_path = write_mutation(
+                                tool, workflow_id, sample_index
                             )
+                            mutation_sources[tool] = source_path
                         result = run_process(
                             commands[tool]["build"],
                             commands[tool]["cwd"],
@@ -824,48 +1062,139 @@ else:
                             }
                             status = "failed"
                             break
+                        if workflow_id in {
+                            "implementation-change-build",
+                            "api-change-build",
+                        }:
+                            output_class = output_roots[tool] / class_relative_path
+                            if not output_class.is_file():
+                                failure = {
+                                    "workflow": workflow_id,
+                                    "tool": tool,
+                                    "sample": sample_index,
+                                    "error": (
+                                        "semantic mutation did not produce "
+                                        f"{output_class}"
+                                    ),
+                                }
+                                status = "failed"
+                                break
+                            mutation_digests[tool].append(
+                                hashlib.sha256(output_class.read_bytes()).hexdigest()
+                            )
                     if failure:
                         break
-                if workflow_id == "source-change-build":
-                    for tool in tool_ids:
-                        (commands[tool]["cwd"] / source_change_target).write_text(
-                            baselines[tool], encoding="utf-8"
-                        )
+                if workflow_id in {
+                    "implementation-change-build",
+                    "api-change-build",
+                }:
+                    for source_path in mutation_sources.values():
+                        source_path.unlink(missing_ok=True)
+                    for tool in overlay_tool_ids:
+                        digests = mutation_digests[tool]
+                        correctness_checks.append({
+                            "name": f"{tool}-{workflow_id}-bytecode-change",
+                            "passed": (
+                                len(digests) == sample_count
+                                and len(set(digests)) == sample_count
+                                and mutation_seed_digests.get(tool) not in digests
+                            ),
+                            "evidence": {
+                                "sampleCount": sample_count,
+                                "distinctClassDigests": len(set(digests)),
+                                "seedDigestChanged": (
+                                    mutation_seed_digests.get(tool) not in digests
+                                ),
+                            },
+                        })
+                    if not failure:
+                        for tool in overlay_tool_ids:
+                            checked(
+                                commands[tool]["clean"],
+                                commands[tool]["cwd"],
+                                f"reset/{workflow_id}-{tool}-clean.log",
+                            )
+                            checked(
+                                commands[tool]["build"],
+                                commands[tool]["cwd"],
+                                f"reset/{workflow_id}-{tool}-build.log",
+                            )
                 tools = {
                     tool: metric(commands[tool]["build"], rows_by_tool[tool])
-                    for tool in tool_ids
+                    for tool in selected_tools
                 }
-                successful_medians = {
-                    tool: values.get("medianMillis")
-                    for tool, values in tools.items()
-                    if values.get("medianMillis") is not None
-                }
-                winner = min(successful_medians, key=successful_medians.get) if len(successful_medians) == len(tool_ids) else None
+                outcomes = classify_workflow(
+                    {
+                        tool: [
+                            row["durationMillis"]
+                            for row in rows_by_tool[tool]
+                            if row["exitCode"] == 0
+                        ]
+                        for tool in selected_tools
+                    },
+                    seed=f"real-project:{project_id}:{workflow_id}",
+                )
                 workflow_records.append({
                     "id": workflow_id,
                     "label": label,
                     "kind": "comparison",
-                    "winner": winner,
+                    "winner": outcomes["winner"],
+                    "fastestMedianTool": outcomes["fastestMedianTool"],
+                    "zoltOutcome": outcomes["zoltOutcome"],
+                    "zoltReferenceTool": outcomes["zoltReferenceTool"],
+                    "comparisonsVsZolt": outcomes["comparisonsVsZolt"],
                     "tools": tools,
                 })
                 if failure:
                     break
+        correctness = {
+            "schemaVersion": 1,
+            "status": (
+                "passed"
+                if all(check["passed"] for check in correctness_checks)
+                else "failed"
+            ),
+            "checks": correctness_checks,
+            "completedAt": now_iso(),
+        }
+        if correctness["status"] != "passed":
+            raise RuntimeError("real-project semantic correctness checks failed")
     except Exception as exc:
         status = "failed"
         failure = {"error": str(exc)}
     finally:
-        run_process(
-            [tool_paths["gradle"], "--gradle-user-home", str(gradle_daemon_cache), "--stop"],
-            work_dir,
-            "setup/gradle-daemon-stop.log",
-            60,
-        )
+        daemon_caches = [("gradle-daemon", gradle_daemon_cache)]
+        if include_tuned_modes:
+            daemon_caches.append(
+                ("gradle-parallel-configuration-cache", gradle_tuned_cache)
+            )
+        for daemon_name, daemon_cache in daemon_caches:
+            run_process(
+                [
+                    tool_paths["gradle"],
+                    "--gradle-user-home",
+                    str(daemon_cache),
+                    "--stop",
+                ],
+                work_dir,
+                f"setup/{daemon_name}-stop.log",
+                60,
+            )
 
 caveats = [
     "The Zolt, Maven, and Gradle overlays compile the same copied source and resource trees with the same declared release level and dependencies.",
     "Dependency caches are warmed before timed builds; dependency download speed is not measured.",
     "Generated overlay builds do not reproduce every upstream plugin or packaging behavior.",
+    "Implementation and public-API mutation classes are seeded and compiled before timing; every timed edit must produce distinct bytecode that differs from the seed.",
 ]
+if include_tuned_modes:
+    caveats.append(
+        "Default tool modes remain visible beside Maven -T 1C and Gradle parallel/configuration-cache modes."
+    )
+if native_tool_id:
+    caveats.append(
+        f"{native_tool_id} runs the pinned checkout's original build files for the workflows declared by the adapter."
+    )
 caveats.extend(project.get("coverageNotes") or [])
 if dry_run:
     caveats.insert(0, "Dry run only; no repository checkout or timing samples were collected.")
@@ -875,8 +1204,12 @@ if failure:
 completed_workflows = sum(
     1
     for row in workflow_records
-    if len(row.get("tools") or {}) == len(tool_ids)
-    and all((values.get("successfulSampleCount") or 0) == (values.get("sampleCount") or 0) for values in row["tools"].values())
+    if row.get("tools")
+    and all(
+        (values.get("successfulSampleCount") or 0)
+        == (values.get("sampleCount") or 0)
+        for values in row["tools"].values()
+    )
 )
 
 project_record = {
@@ -889,6 +1222,25 @@ project_record = {
     "adapterPath": project.get("adapterPath"),
     "pin": pin,
     "sourceBranch": project.get("sourceBranch"),
+}
+tool_labels = {
+    "zolt": "Zolt",
+    "maven": "Maven default",
+    "maven-parallel": "Maven parallel (-T 1C)",
+    "gradle-no-daemon": "Gradle default (no daemon)",
+    "gradle-daemon": "Gradle default (daemon)",
+    "gradle-parallel-configuration-cache": (
+        "Gradle tuned (parallel + configuration cache)"
+    ),
+    "upstream-maven": "Upstream Maven build",
+    "upstream-gradle": "Upstream Gradle build",
+}
+lane_tools = {
+    tool: {
+        "label": tool_labels[tool],
+        "version": environment["tools"][tool],
+    }
+    for tool in tool_ids
 }
 lane = {
     "id": f"real-{project_id}-comparison",
@@ -905,18 +1257,8 @@ lane = {
             "omittedBuildFeatures": adapter.get("omittedBuildFeatures") or [],
         },
     },
-    "tools": {
-        "zolt": {"label": "Zolt", "version": environment["tools"]["zolt"]},
-        "maven": {"label": "Maven", "version": environment["tools"]["maven"]},
-        "gradle-no-daemon": {
-            "label": "Gradle no-daemon",
-            "version": environment["tools"]["gradle-no-daemon"],
-        },
-        "gradle-daemon": {
-            "label": "Gradle daemon",
-            "version": environment["tools"]["gradle-daemon"],
-        },
-    },
+    "tools": lane_tools,
+    "outcomeRule": OUTCOME_RULE,
     "summary": {
         "classification": "Real-project same-source comparison",
         "completedWorkflowCount": completed_workflows,
@@ -953,7 +1295,8 @@ repository = {
 }
 
 summary = {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
+    "outcomeRule": OUTCOME_RULE,
     "createdAt": now_iso(),
     "project": project_record,
     "status": status,
@@ -968,7 +1311,10 @@ summary = {
 suite = {
     "schemaVersion": 2,
     "createdAt": now_iso(),
-    "suite": {"name": "zolt-real-project-benchmark", "mode": "four-way-comparison"},
+    "suite": {
+        "name": "zolt-real-project-benchmark",
+        "mode": "default-and-tuned-comparison",
+    },
     "repository": repository,
     "run": {
         "classification": lane["summary"]["classification"],
@@ -990,19 +1336,26 @@ lines = [
     f"- Adapter: `{project.get('adapterPath')}`",
     f"- Status: `{status}`",
     "",
-    "| Workflow | Winner | Zolt | Maven | Gradle no-daemon | Gradle daemon |",
-    "| --- | --- | ---: | ---: | ---: | ---: |",
+    "| Workflow | Zolt outcome | Conclusive winner | "
+    + " | ".join(tool_labels[tool] for tool in tool_ids)
+    + " |",
+    "| --- | --- | --- | " + " | ".join("---:" for _ in tool_ids) + " |",
 ]
 for workflow in workflow_records:
     tools = workflow.get("tools") or {}
-    zolt_ms = (tools.get("zolt") or {}).get("medianMillis")
-    maven_ms = (tools.get("maven") or {}).get("medianMillis")
-    gradle_no_daemon_ms = (tools.get("gradle-no-daemon") or {}).get("medianMillis")
-    gradle_daemon_ms = (tools.get("gradle-daemon") or {}).get("medianMillis")
     fmt = lambda value: f"{value:,} ms" if isinstance(value, (int, float)) else "n/a"
-    lines.append(
-        f"| {workflow.get('label')} | {workflow.get('winner') or 'n/a'} | {fmt(zolt_ms)} | {fmt(maven_ms)} | {fmt(gradle_no_daemon_ms)} | {fmt(gradle_daemon_ms)} |"
+    cells = [
+        str(workflow.get("label")),
+        str(workflow.get("zoltOutcome") or "inconclusive"),
+        tool_labels.get(
+            workflow.get("winner"), workflow.get("winner") or "n/a"
+        ),
+    ]
+    cells.extend(
+        fmt((tools.get(tool) or {}).get("medianMillis"))
+        for tool in tool_ids
     )
+    lines.append("| " + " | ".join(cells) + " |")
 if failure:
     lines.extend(["", f"Failure: `{json.dumps(failure, sort_keys=True)}`"])
 lines.extend(["", "## Caveats", ""])

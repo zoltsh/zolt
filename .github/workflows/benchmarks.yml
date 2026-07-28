@@ -71,6 +71,7 @@ jobs:
 
       - name: Validate benchmark contracts
         run: |
+          scripts/benchmark-statistics-test
           scripts/benchmark-profile-test
           scripts/benchmark-suite-test
           scripts/benchmark-openai-summary-test

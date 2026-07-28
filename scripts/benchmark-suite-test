@@ -118,9 +118,9 @@ jq -e '
 ' "$WORK_DIR/suite/suite-summary.json" >/dev/null \
   || fail "suite summary did not preserve both generated topologies"
 
-grep -F '| Workload | Workflow | Winner | Zolt | Maven | Gradle no-daemon | Gradle daemon |' \
+grep -F '| Workload | Workflow | Zolt outcome | Conclusive winner | Zolt | Maven default | Maven parallel | Gradle no-daemon | Gradle daemon | Gradle tuned | Upstream Maven | Upstream Gradle |' \
   "$WORK_DIR/suite/summary-brief.md" >/dev/null \
-  || fail "suite summary did not report the four comparison modes"
+  || fail "suite summary did not report all default and tuned comparison modes"
 grep -F '| Gradle |' "$WORK_DIR/suite/summary-brief.md" >/dev/null \
   && fail "suite summary retained the obsolete generic Gradle column"
 
@@ -128,6 +128,7 @@ scripts/benchmark-suite \
   --skip-generated \
   --real-projects spring-petclinic,apache-commons-cli,hikaricp,netty,junit-framework \
   --real-project-dry-run \
+  --include-tuned-modes \
   --repeat 1 \
   --zolt "$FAKE_TOOL" \
   --maven "$FAKE_TOOL" \
@@ -141,9 +142,11 @@ jq -e '
   and all(.lanes[];
     .kind == "real-project-comparison"
     and .status == "dry-run"
-    and (.workflows | length) == 4
+    and (.workflows | length) == 5
     and all(.workflows[];
-      (.tools | keys | sort) == (["zolt", "maven", "gradle-no-daemon", "gradle-daemon"] | sort)
+      ((.tools | keys) - ["upstream-maven", "upstream-gradle"] | sort)
+      == (["zolt", "maven", "maven-parallel", "gradle-no-daemon", "gradle-daemon", "gradle-parallel-configuration-cache"] | sort)
+      and .zoltOutcome == "inconclusive"
     )
   )
 ' "$WORK_DIR/real-project-suite/suite-summary.json" >/dev/null \

@@ -101,6 +101,8 @@ workflow_labels = {
     "clean-build": "Repeated clean build",
     "no-op-build": "Warm no-op build",
     "leaf-change-build": "Leaf implementation change",
+    "implementation-change-build": "Implementation change",
+    "api-change-build": "Public API change",
     "root-change-build": "Root source change",
     "shared-api-change-build": "Shared API fan-out change",
     "resource-change-build": "Resource-only change",
@@ -115,6 +117,8 @@ workflow_order = [
     "clean-build",
     "no-op-build",
     "leaf-change-build",
+    "implementation-change-build",
+    "api-change-build",
     "root-change-build",
     "shared-api-change-build",
     "resource-change-build",
@@ -127,6 +131,8 @@ repeated_workflows = {
     "clean-build",
     "no-op-build",
     "leaf-change-build",
+    "implementation-change-build",
+    "api-change-build",
     "root-change-build",
     "shared-api-change-build",
     "resource-change-build",
@@ -136,11 +142,26 @@ repeated_workflows = {
 }
 tool_labels = {
     "zolt": "Zolt",
-    "maven": "Maven",
+    "maven": "Maven default",
+    "maven-parallel": "Maven parallel (-T 1C)",
     "gradle-no-daemon": "Gradle (no daemon)",
     "gradle-daemon": "Gradle (daemon)",
+    "gradle-parallel-configuration-cache": (
+        "Gradle tuned (parallel + configuration cache)"
+    ),
+    "upstream-maven": "Upstream Maven build",
+    "upstream-gradle": "Upstream Gradle build",
 }
-tool_order = ["zolt", "maven", "gradle-no-daemon", "gradle-daemon"]
+tool_order = [
+    "zolt",
+    "maven",
+    "maven-parallel",
+    "gradle-no-daemon",
+    "gradle-daemon",
+    "gradle-parallel-configuration-cache",
+    "upstream-maven",
+    "upstream-gradle",
+]
 
 
 def sort_key(row):
@@ -192,8 +213,10 @@ def classify(environment, workflows, correctness):
     ]
     has_production_competitors = bool(comparable) and all(
         "maven" in row.get("tools", {})
+        and "maven-parallel" in row.get("tools", {})
         and "gradle-no-daemon" in row.get("tools", {})
         and "gradle-daemon" in row.get("tools", {})
+        and "gradle-parallel-configuration-cache" in row.get("tools", {})
         for row in comparable
     )
     enterprise = environment.get("classification") == "enterprise-generated"
@@ -282,11 +305,13 @@ for row in source_workflows:
         for tool, metrics in ordered_tools.items()
         if isinstance(metrics.get("medianMillis"), (int, float))
     }
-    winner = (
-        min(medians, key=medians.get)
-        if medians and workflow not in {"setup", "dependency-setup"}
-        else None
-    )
+    winner = row.get("winner")
+    if "winner" not in row:
+        winner = (
+            min(medians, key=medians.get)
+            if medians and workflow not in {"setup", "dependency-setup"}
+            else None
+        )
     zolt_median = medians.get("zolt")
     ratios = {}
     if zolt_median and workflow not in {"setup", "dependency-setup"}:
@@ -301,7 +326,7 @@ for row in source_workflows:
         kind = "repeated"
     if workflow in repeated_workflows:
         repeated_count += 1
-        if winner == "zolt":
+        if row.get("zoltOutcome") == "faster":
             zolt_repeated_wins += 1
     if workflow not in {"setup", "dependency-setup"} and "zolt" in tools and len(tools) > 1:
         comparable_count += 1
@@ -310,6 +335,10 @@ for row in source_workflows:
         "label": workflow_labels.get(workflow, workflow),
         "kind": kind,
         "winner": winner,
+        "fastestMedianTool": row.get("fastestMedianTool"),
+        "zoltOutcome": row.get("zoltOutcome") or "inconclusive",
+        "zoltReferenceTool": row.get("zoltReferenceTool"),
+        "comparisonsVsZolt": row.get("comparisonsVsZolt") or {},
         "tools": ordered_tools,
         "ratiosVsZolt": ratios,
     })
@@ -352,8 +381,13 @@ if lane_kind != "zolt-self-host":
     }
     for required_tool, label in [
         ("maven", "Maven"),
+        ("maven-parallel", "Maven parallel"),
         ("gradle-no-daemon", "Gradle no-daemon"),
         ("gradle-daemon", "Gradle daemon"),
+        (
+            "gradle-parallel-configuration-cache",
+            "Gradle parallel/configuration-cache",
+        ),
     ]:
         if required_tool not in available_tools:
             caveats.append(f"{label} results are missing from at least one core comparison.")
@@ -392,6 +426,7 @@ suite = {
         "releaseChannel": os.environ.get("BENCHMARK_RELEASE_CHANNEL"),
         "releaseVersion": os.environ.get("BENCHMARK_RELEASE_VERSION") or None,
         "gradleDaemonIncluded": os.environ.get("BENCHMARK_INCLUDE_GRADLE_DAEMON") == "true",
+        "tunedModesIncluded": os.environ.get("BENCHMARK_INCLUDE_TUNED_MODES") == "true",
         "artifactName": artifact_name or None,
     },
     "lanes": [
@@ -420,10 +455,15 @@ suite = {
             "tools": {
                 "zolt": first_version_line(environment, "zolt"),
                 "maven": first_version_line(environment, "maven"),
+                "maven-parallel": first_version_line(environment, "maven-parallel"),
                 "gradle": first_version_line(environment, "gradle"),
                 "gradle-no-daemon": first_version_line(environment, "gradle-no-daemon"),
                 "gradle-daemon": first_version_line(environment, "gradle-daemon"),
+                "gradle-parallel-configuration-cache": first_version_line(
+                    environment, "gradle-parallel-configuration-cache"
+                ),
             },
+            "outcomeRule": summary.get("outcomeRule"),
             "correctness": correctness or None,
             "summary": {
                 "classification": classification,

@@ -104,13 +104,26 @@ repeated_workflows = [
 ]
 tool_labels = {
     "zolt": "Zolt",
-    "maven": "Maven",
+    "maven": "Maven default",
+    "maven-parallel": "Maven parallel",
     "gradle-no-daemon": "Gradle (no daemon)",
     "gradle-daemon": "Gradle (daemon)",
+    "gradle-parallel-configuration-cache": "Gradle tuned",
 }
-tool_order = ["zolt", "maven", "gradle-no-daemon", "gradle-daemon"]
+tool_order = [
+    "zolt",
+    "maven",
+    "maven-parallel",
+    "gradle-no-daemon",
+    "gradle-daemon",
+    "gradle-parallel-configuration-cache",
+]
 
 environment = summary.get("environment") or {}
+workflow_records = {
+    row.get("workflow"): row
+    for row in summary.get("workflows", [])
+}
 workflows = {
     row.get("workflow"): row.get("tools", {})
     for row in summary.get("workflows", [])
@@ -160,14 +173,20 @@ def result_table_rows():
         ]
         if not available_tools:
             continue
-        fastest_tool = min(available_tools, key=lambda tool: median(tools, tool))
+        workflow_record = workflow_records.get(workflow) or {}
         rows.append([
             workflow_labels.get(workflow, workflow),
-            tool_labels.get(fastest_tool, fastest_tool),
+            workflow_record.get("zoltOutcome") or "inconclusive",
+            tool_labels.get(
+                workflow_record.get("winner"),
+                workflow_record.get("winner") or "n/a",
+            ),
             fmt_ms(median(tools, "zolt")),
             fmt_ms(median(tools, "maven")),
+            fmt_ms(median(tools, "maven-parallel")),
             fmt_ms(median(tools, "gradle-no-daemon")),
             fmt_ms(median(tools, "gradle-daemon")),
+            fmt_ms(median(tools, "gradle-parallel-configuration-cache")),
         ])
     return rows
 
@@ -182,8 +201,10 @@ def run_type():
     ]
     has_production_competitors = bool(comparable) and all(
         "maven" in workflows.get(workflow, {})
+        and "maven-parallel" in workflows.get(workflow, {})
         and "gradle-no-daemon" in workflows.get(workflow, {})
         and "gradle-daemon" in workflows.get(workflow, {})
+        and "gradle-parallel-configuration-cache" in workflows.get(workflow, {})
         for workflow in comparable
     )
     if environment.get("classification") == "enterprise-generated":
@@ -241,6 +262,8 @@ def run_type():
 lanes = []
 zolt_fastest_count = 0
 zolt_fastest_repeated_count = 0
+zolt_slower_repeated_count = 0
+zolt_inconclusive_repeated_count = 0
 for workflow in workflow_order:
     tools = workflows.get(workflow, {})
     zolt_median = median(tools, "zolt")
@@ -253,15 +276,17 @@ for workflow in workflow_order:
     ]
     if not available_tools:
         continue
-    fastest_tool = (
-        None
-        if workflow == "dependency-setup"
-        else min(available_tools, key=lambda tool: median(tools, tool))
-    )
-    if fastest_tool == "zolt":
+    workflow_record = workflow_records.get(workflow) or {}
+    fastest_tool = workflow_record.get("winner")
+    zolt_outcome = workflow_record.get("zoltOutcome") or "inconclusive"
+    if zolt_outcome == "faster":
         zolt_fastest_count += 1
         if workflow in repeated_workflows:
             zolt_fastest_repeated_count += 1
+    elif workflow in repeated_workflows and zolt_outcome == "slower":
+        zolt_slower_repeated_count += 1
+    elif workflow in repeated_workflows:
+        zolt_inconclusive_repeated_count += 1
     competitors = []
     for tool in available_tools:
         if tool == "zolt":
@@ -284,7 +309,8 @@ for workflow in workflow_order:
         "samples": tools.get("zolt", {}).get("samples"),
         "zoltMedianMillis": zolt_median,
         "fastestTool": fastest_tool,
-        "zoltFastest": fastest_tool == "zolt",
+        "zoltOutcome": zolt_outcome,
+        "zoltFastest": zolt_outcome == "faster",
         "competitors": competitors,
     })
 
@@ -312,6 +338,8 @@ context = {
         },
         "zoltFastestWorkflows": zolt_fastest_count,
         "zoltFastestRepeatedWorkflows": zolt_fastest_repeated_count,
+        "zoltSlowerRepeatedWorkflows": zolt_slower_repeated_count,
+        "zoltInconclusiveRepeatedWorkflows": zolt_inconclusive_repeated_count,
         "comparableWorkflows": len(lanes),
         "repeatedWorkflows": sum(1 for lane in lanes if lane["kind"] == "repeated"),
     },
@@ -334,15 +362,15 @@ summary_lines = [
     "",
     f"Tools: Zolt `{context['run']['tools']['zolt']}`; Maven `{context['run']['tools']['maven']}`; Gradle `{context['run']['tools']['gradle']}`.",
     "",
-    f"Zolt was fastest in {zolt_fastest_repeated_count} of {context['run']['repeatedWorkflows']} repeated workflows.",
+    f"Under the declared pairwise effect-and-noise rule, Zolt was conclusively faster than every comparator in {zolt_fastest_repeated_count} repeated workflows, had at least one conclusive loss in {zolt_slower_repeated_count}, and was inconclusive in {zolt_inconclusive_repeated_count}.",
     "",
 ]
 if result_rows:
     summary_lines.extend([
         "## Results",
         "",
-        "| Workflow | Winner | Zolt | Maven | Gradle no-daemon | Gradle daemon |",
-        "| --- | --- | ---: | ---: | ---: | ---: |",
+        "| Workflow | Zolt outcome | Conclusive winner | Zolt | Maven default | Maven parallel | Gradle no-daemon | Gradle daemon | Gradle tuned |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ])
     summary_lines.extend("| " + " | ".join(row) + " |" for row in result_rows)
 
@@ -364,6 +392,7 @@ prompt_lines = [
     "- Include one bullet per lane.",
     "- Treat dependency setup and first clean build separately from repeated steady-state lanes.",
     "- Mention correctness status and do not make performance claims from a failed correctness gate.",
+    "- Use the supplied faster, slower, and inconclusive outcomes; do not promote the lowest median to a win.",
     "- Do not claim publishable or production-grade evidence unless run.type is `Publishable enterprise generated evidence` or `Production-grade generated evidence`.",
     "- Use wall-clock milliseconds and ratios exactly as provided or directly derived.",
     "",

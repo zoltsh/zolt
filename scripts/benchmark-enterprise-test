@@ -80,6 +80,46 @@ python3 scripts/benchmark-enterprise \
 [[ -f "$WORK_DIR/runner-generate-only/fixture-metadata.json" ]] \
   || fail "enterprise runner did not generate fixture metadata"
 
+python3 - "$WORK_DIR/tuned-plan" <<'PY'
+import argparse
+import pathlib
+import runpy
+import sys
+
+root = pathlib.Path.cwd()
+work_dir = pathlib.Path(sys.argv[1])
+sys.path.insert(0, str(root / "scripts"))
+module = runpy.run_path(str(root / "scripts/benchmark-enterprise"))
+args = argparse.Namespace(
+    zolt="/usr/bin/true",
+    maven="/usr/bin/true",
+    gradle="/usr/bin/true",
+    include_gradle_daemon=True,
+    include_tuned_modes=True,
+)
+tools = module["build_tools"](args, work_dir)
+by_id = {tool.identifier: tool for tool in tools}
+expected = {
+    "zolt",
+    "maven",
+    "maven-parallel",
+    "gradle-no-daemon",
+    "gradle-daemon",
+    "gradle-parallel-configuration-cache",
+}
+if set(by_id) != expected:
+    raise SystemExit(f"unexpected enterprise tool plan: {sorted(by_id)}")
+if "-T" not in by_id["maven-parallel"].build or "1C" not in by_id["maven-parallel"].build:
+    raise SystemExit("Maven tuned mode is missing -T 1C")
+gradle_tuned = by_id["gradle-parallel-configuration-cache"].build
+if "--parallel" not in gradle_tuned or "--configuration-cache" not in gradle_tuned:
+    raise SystemExit("Gradle tuned mode is missing parallel/configuration-cache")
+if by_id["maven"].root == by_id["maven-parallel"].root:
+    raise SystemExit("Maven default and tuned modes share project output")
+if by_id["gradle-daemon"].root == by_id["gradle-parallel-configuration-cache"].root:
+    raise SystemExit("Gradle default and tuned modes share project output")
+PY
+
 python3 scripts/benchmark-enterprise-fixture \
   --workload benchmarks/workloads/enterprise-v1.json \
   --topology layered \
@@ -112,7 +152,14 @@ workflow_ids = [
     "test-run",
     "package",
 ]
-tools = ["zolt", "maven", "gradle-no-daemon", "gradle-daemon"]
+tools = [
+    "zolt",
+    "maven",
+    "maven-parallel",
+    "gradle-no-daemon",
+    "gradle-daemon",
+    "gradle-parallel-configuration-cache",
+]
 workflows = []
 for workflow_index, workflow in enumerate(workflow_ids):
     samples = 1 if workflow in {"dependency-setup", "first-clean-build"} else 5
@@ -135,10 +182,20 @@ for workflow_index, workflow in enumerate(workflow_ids):
         "label": workflow,
         "kind": "setup" if workflow == "dependency-setup" else "cold" if workflow == "first-clean-build" else "repeated",
         "winner": None if workflow == "dependency-setup" else "zolt",
+        "fastestMedianTool": "zolt",
+        "zoltOutcome": "inconclusive" if samples == 1 else "faster",
+        "zoltReferenceTool": "maven",
+        "comparisonsVsZolt": {},
         "tools": metrics,
     })
 summary = {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
+    "outcomeRule": {
+        "id": "paired-bootstrap-median-ratio-v1",
+        "minimumSamples": 5,
+        "minimumEffectRatio": 1.05,
+        "confidenceLevel": 0.95,
+    },
     "environment": {
         "classification": "enterprise-generated",
         "moduleCount": 200,
@@ -194,6 +251,7 @@ jq -e '
   and .lanes[0].id == "enterprise-generated-layered"
   and .lanes[0].kind == "enterprise-generated"
   and .lanes[0].summary.repeatedWorkflowCount == 8
+  and .lanes[0].outcomeRule.id == "paired-bootstrap-median-ratio-v1"
   and .lanes[0].correctness.status == "passed"
   and .lanes[0].workload.cleanRepeatCount == 5
   and .lanes[0].workload.appModules == 2

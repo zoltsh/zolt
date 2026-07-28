@@ -48,6 +48,7 @@ scripts/benchmark-suite \
   --clean-repeat 5 \
   --repeat 7 \
   --include-gradle-daemon \
+  --include-tuned-modes \
   --self-host
 ```
 
@@ -55,6 +56,7 @@ Useful variants:
 
 ```sh
 scripts/benchmark-suite --topology wide --modules 100 --repeat 7 --include-gradle-daemon
+scripts/benchmark-suite --topology layered --repeat 7 --include-gradle-daemon --include-tuned-modes
 scripts/benchmark-suite --topology layered --layer-width 8 --modules 100 --repeat 7
 scripts/benchmark-suite --topology chain --modules 40 --repeat 5
 scripts/benchmark-suite --zolt ~/.zolt/bin/zolt
@@ -68,10 +70,16 @@ scripts/benchmark-suite --skip-generated --real-projects spring-petclinic,netty 
 scripts/benchmark-competitors --topology wide --modules 200 --skip-maven --skip-gradle
 ```
 
-The generated-lane script can still be used directly while debugging:
+The generated enterprise lane can still be used directly while debugging:
 
 ```sh
-scripts/benchmark-competitors --topology wide --modules 40 --repeat 5 --include-gradle-daemon
+scripts/benchmark-enterprise \
+  --workload benchmarks/workloads/enterprise-v1.json \
+  --topology layered \
+  --repeat 7 \
+  --clean-repeat 5 \
+  --include-gradle-daemon \
+  --include-tuned-modes
 ```
 
 After a direct generated-lane run, generate a suite-level summary:
@@ -109,7 +117,7 @@ The manual `benchmarks` workflow has one input: `profile`.
 | Profile | Zolt | Work |
 | --- | --- | --- |
 | `smoke` | Branch-built zap | Small enterprise lane, five one-sample real-project lanes, and one-sample self-host |
-| `publishable` | Resolved zap release | Canonical layered `enterprise-v1` lane with 5 clean and 7 repeated samples |
+| `publishable` | Resolved zap release | Layered `enterprise-v1` plus five pinned real-project lanes, each with 5 clean and 7 repeated samples |
 | `full` | Resolved zap release | Layered and wide enterprise lanes, five real projects, and self-host |
 
 Run the canonical publication profile with:
@@ -122,8 +130,11 @@ The workflow resolves the selected release channel once, records the exact Zolt
 version in every lane, and then runs profile lanes as parallel matrix jobs. A
 final aggregation job uploads one combined artifact containing every lane's raw
 samples, logs, correctness evidence, deterministic summaries, and profile
-digest. `full` therefore keeps the one-option interface without serializing all
-work onto one runner.
+digest. Publication profiles include Maven default, Maven parallel, Gradle
+no-daemon, Gradle daemon, and Gradle parallel/configuration-cache beside Zolt.
+The tuned modes are never substituted for or blended with the defaults. `full`
+keeps the same one-option interface while adding a wide enterprise lane and
+self-host evidence.
 
 Pushes to `benchmark-improvements` select `smoke` automatically. Those runs build
 and release-verify the branch zap once, then share it across the parallel lane
@@ -182,6 +193,7 @@ scripts/benchmark-netty-compare \
 Validate all benchmark contracts without doing a production-sized run:
 
 ```sh
+scripts/benchmark-statistics-test
 scripts/benchmark-suite-test
 scripts/benchmark-profile-test
 scripts/benchmark-enterprise-test
@@ -202,21 +214,27 @@ initial candidate suite.
 `projects.json` is the machine-readable version used by the suite runner.
 
 The real-project runner checks out a pinned commit and generates isolated Zolt,
-Maven, Gradle no-daemon, and Gradle daemon overlays from the same checked-in
-adapter contract:
+Maven default, Maven parallel, Gradle no-daemon, Gradle daemon, and Gradle
+parallel/configuration-cache overlays from the same checked-in adapter contract:
 
 ```sh
-scripts/benchmark-real-project --project spring-petclinic --repeat 5
-scripts/benchmark-real-project --project apache-commons-cli --repeat 5
-scripts/benchmark-real-project --project netty --repeat 3 --sample-timeout 3600
-scripts/benchmark-real-project --project junit-framework --repeat 3
+scripts/benchmark-real-project --project spring-petclinic --repeat 5 --include-tuned-modes
+scripts/benchmark-real-project --project apache-commons-cli --repeat 5 --include-tuned-modes
+scripts/benchmark-real-project --project netty --repeat 3 --sample-timeout 3600 --include-tuned-modes
+scripts/benchmark-real-project --project junit-framework --repeat 3 --include-tuned-modes
 ```
 
 Those runs clone the pinned upstream commit into the benchmark output directory,
 warm dependency caches outside the timed samples, and record first clean,
-repeated clean, warm no-op, and source-input change timings for all four modes.
-Tool order rotates by sample; reports include p95, variation, confidence
-intervals, source digests, compiled-class parity, adapter scope, and omissions.
+repeated clean, warm no-op, implementation-change, and public-API-change timings.
+Each change sample must produce a distinct compiled class digest; a comment-only
+or otherwise non-semantic edit fails the lane. The mutation class is seeded and
+compiled outside timing so every measured sample is an edit, not a first-time
+class addition. Tool order rotates by sample; reports include p95, variation,
+confidence intervals, source digests, compiled-class parity, adapter scope, and
+omissions. Apache Commons CLI also runs the pinned checkout's original Maven
+build directly for clean and no-op upstream baselines. That row is labeled
+`Upstream Maven`; it is not conflated with the generated Maven overlay.
 The separate `benchmark-netty-compare`
 runner remains a specialist lane with additional dependency and thin-package
 rows for the same smaller `common` source subset.
@@ -233,12 +251,23 @@ When publishing benchmark evidence:
   topology, source volume, and repeat count;
 - keep the first clean build separate from repeated no-op, leaf-change, and
   root-change workflows;
-- compare medians and keep raw samples available;
-- say whether Gradle was measured with or without the daemon;
+- publish the supplied `faster`, `slower`, or `inconclusive` outcome, not a
+  winner inferred only from the lowest median;
+- keep raw samples and paired comparison evidence available;
+- label Maven default versus parallel and Gradle no-daemon versus daemon versus
+  parallel/configuration-cache;
 - avoid claims from machines with missing competitors, failed setup commands, or
   mixed cache states.
 
+The outcome rule is fixed before a run: compare paired duration ratios, require
+at least five paired samples, and compute a deterministic 95% bootstrap
+confidence interval for the median ratio. Zolt is `faster` only when the entire
+interval is below `1 / 1.05`, and `slower` only when it is above `1.05`.
+Everything else is `inconclusive`. First-clean rows have one sample and are
+therefore always inconclusive; their raw timings remain useful context.
+
 The README should stay conservative until this directory contains dated evidence
 from a clean machine. A good public claim is specific: for example, "on this
-machine, for this generated 100-module workspace, Zolt's median warm no-op build
-was N ms versus Maven M ms and Gradle G ms."
+machine and pinned workload, Zolt was faster/slower/inconclusive against the
+fastest comparator under the declared outcome rule; the observed medians were N
+ms and M ms."

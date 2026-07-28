@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Contract tests for the benchmark outcome rule."""
+
+from __future__ import annotations
+
+import pathlib
+import sys
+
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from benchmark_statistics import OUTCOME_RULE, classify_workflow  # noqa: E402
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(f"error: {message}")
+
+
+result = classify_workflow(
+    {
+        "zolt": [100, 101, 99, 100, 100, 101, 99],
+        "maven": [150, 151, 149, 150, 150, 151, 149],
+        "gradle-daemon": [101, 102, 100, 101, 101, 102, 100],
+        "gradle-parallel-configuration-cache": [70, 71, 69, 70, 70, 71, 69],
+    },
+    seed="clear-results",
+)
+require(OUTCOME_RULE["minimumSamples"] == 5, "minimum sample rule drifted")
+require(
+    OUTCOME_RULE["minimumEffectRatio"] == 1.05,
+    "minimum effect rule drifted",
+)
+require(
+    result["comparisonsVsZolt"]["maven"]["outcome"] == "faster",
+    "clear Zolt win was not classified faster",
+)
+require(
+    result["comparisonsVsZolt"]["gradle-daemon"]["outcome"] == "inconclusive",
+    "small median difference was not classified inconclusive",
+)
+require(
+    result["comparisonsVsZolt"]["gradle-parallel-configuration-cache"]["outcome"]
+    == "slower",
+    "clear Zolt loss was not classified slower",
+)
+require(
+    result["zoltOutcome"] == "slower"
+    and result["zoltReferenceTool"] == "gradle-parallel-configuration-cache",
+    "headline result did not preserve the conclusive Zolt loss",
+)
+require(
+    result["winner"] == "gradle-parallel-configuration-cache",
+    "conclusive pairwise winner was not selected",
+)
+
+insufficient = classify_workflow(
+    {
+        "zolt": [10],
+        "maven": [100],
+    },
+    seed="insufficient",
+)
+require(
+    insufficient["zoltOutcome"] == "inconclusive"
+    and insufficient["winner"] is None,
+    "one-sample result was not classified inconclusive",
+)
+
+single_tool = classify_workflow(
+    {"zolt": [10, 10, 10, 10, 10]},
+    seed="single-tool",
+)
+require(
+    single_tool["zoltOutcome"] == "inconclusive"
+    and single_tool["winner"] is None,
+    "a single-tool workflow declared a winner",
+)
+
+masked_loss = classify_workflow(
+    {
+        "zolt": [100, 100, 100, 100, 100, 100, 100],
+        "noisy-fastest-median": [60, 60, 60, 60, 200, 200, 200],
+        "stable-faster-competitor": [80, 80, 80, 80, 80, 80, 80],
+    },
+    seed="do-not-hide-loss",
+)
+require(
+    masked_loss["comparisonsVsZolt"]["noisy-fastest-median"]["outcome"]
+    == "inconclusive"
+    and masked_loss["comparisonsVsZolt"]["stable-faster-competitor"]["outcome"]
+    == "slower"
+    and masked_loss["zoltOutcome"] == "slower"
+    and masked_loss["zoltReferenceTool"] == "stable-faster-competitor",
+    "an inconclusive fastest median hid a conclusive Zolt loss",
+)
+
+overall_win = classify_workflow(
+    {
+        "zolt": [50, 50, 50, 50, 50, 50, 50],
+        "maven": [80, 80, 80, 80, 80, 80, 80],
+        "gradle": [90, 90, 90, 90, 90, 90, 90],
+    },
+    seed="overall-win",
+)
+require(
+    overall_win["zoltOutcome"] == "faster"
+    and overall_win["winner"] == "zolt",
+    "Zolt was not declared faster after clearing every comparator",
+)
+
+print("benchmark statistics test passed")

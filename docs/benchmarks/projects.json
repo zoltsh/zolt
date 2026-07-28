@@ -21,7 +21,8 @@
         "first-clean-build",
         "clean-build",
         "warm-no-op-build",
-        "source-change-build"
+        "implementation-change-build",
+        "api-change-build"
       ],
       "coverageNotes": [
         "Full main Java and resource source set at the pinned commit.",
@@ -48,10 +49,12 @@
         "first-clean-build",
         "clean-build",
         "warm-no-op-build",
-        "source-change-build"
+        "implementation-change-build",
+        "api-change-build"
       ],
       "coverageNotes": [
         "Full main Java and resource source set at the pinned commit.",
+        "The pinned checkout's original Maven build runs as a separate upstream baseline.",
         "Tests, reports, site generation, and release plugins are excluded."
       ]
     },
@@ -75,7 +78,8 @@
         "first-clean-build",
         "clean-build",
         "warm-no-op-build",
-        "source-change-build"
+        "implementation-change-build",
+        "api-change-build"
       ],
       "coverageNotes": [
         "Full main Java source set and optional compile dependencies at the pinned commit.",
@@ -103,7 +107,8 @@
         "first-clean-build",
         "clean-build",
         "warm-no-op-build",
-        "source-change-build"
+        "implementation-change-build",
+        "api-change-build"
       ],
       "coverageNotes": [
         "Netty common main Java subset at the pinned commit.",
@@ -130,7 +135,8 @@
         "first-clean-build",
         "clean-build",
         "warm-no-op-build",
-        "source-change-build"
+        "implementation-change-build",
+        "api-change-build"
       ],
       "coverageNotes": [
         "JUnit Platform Commons main Java and resource subset at the pinned commit.",

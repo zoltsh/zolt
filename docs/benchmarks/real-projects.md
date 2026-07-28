@@ -8,17 +8,22 @@ checked in or included with the result.
 ## Rules
 
 - Pin every upstream project to a commit SHA.
-- Generate isolated Zolt, Maven, Gradle no-daemon, and Gradle daemon overlays
-  from the same copied source and resource trees.
+- Generate isolated Zolt, Maven default, Maven parallel, Gradle no-daemon,
+  Gradle daemon, and Gradle parallel/configuration-cache overlays from the same
+  copied source and resource trees.
 - Declare the same compiler release, dependencies, and provided dependencies in
   every overlay.
 - Warm dependency caches outside timed samples.
-- Measure first clean, repeated clean, warm no-op, and source-input change
-  separately.
+- Measure first clean, repeated clean, warm no-op, implementation change, and
+  public-API change separately.
 - Record exact tool versions, commands, raw samples, logs, and adapter coverage.
 - Rotate tool order and report median, mean, p95, min, max, standard deviation,
   coefficient of variation, and a bootstrap median confidence interval.
 - Require identical copied-source digests and compiled class sets before timing.
+- Require every implementation and API mutation sample to produce distinct
+  compiled bytecode that differs from an untimed, precompiled seed.
+- Keep any build using the upstream project's original build files as a
+  separately labeled native baseline.
 - Keep omitted modules, tests, generators, native code, and packaging behavior
   next to every result; a subset must never be described as the full project.
 
@@ -54,6 +59,7 @@ scripts/benchmark-suite \
   --skip-generated \
   --real-projects spring-petclinic,apache-commons-cli,hikaricp,netty,junit-framework \
   --zolt ~/.zolt/bin/zolt \
+  --include-tuned-modes \
   --repeat 3
 ```
 
@@ -63,15 +69,18 @@ Run one adapter while debugging:
 scripts/benchmark-real-project \
   --project junit-framework \
   --zolt ~/.zolt/bin/zolt \
+  --include-tuned-modes \
   --repeat 1
 ```
 
 The suite shares dependency caches across real-project lanes, but every tool
 mode has isolated compiled outputs per project. Each project always runs Zolt,
-Maven, Gradle no-daemon, and Gradle daemon; `nativeTool` records the upstream
-project's own build system rather than limiting comparison coverage. A dry run
-validates manifest, pin, adapter, tool, and reporting contracts without cloning
-or timing:
+Maven default, Gradle no-daemon, and Gradle daemon; publication profiles add
+Maven parallel and Gradle parallel/configuration-cache. `nativeTool` records the
+upstream project's build system rather than limiting overlay coverage. Apache
+Commons CLI additionally runs the pinned checkout's original Maven build for
+first clean, repeated clean, and no-op workflows. A dry run validates manifest,
+pin, adapter, tool, and reporting contracts without cloning or timing:
 
 ```sh
 scripts/benchmark-suite --skip-generated --real-projects spring-petclinic,apache-commons-cli,hikaricp,netty,junit-framework --real-project-dry-run
@@ -83,10 +92,18 @@ PetClinic, Commons CLI, and HikariCP cover their full main Java and resource
 source sets in generated compiler overlays. This does not mean their complete
 native Maven build lifecycle is reproduced. Netty and JUnit are named module
 subsets because their complete reactors include build features outside the
-current Zolt adapter scope. Tests, generators, and upstream release packaging
-are excluded from all five comparison lanes. The specialist Netty
-runner adds dependency-resolution and thin-package rows but does not widen the
-source coverage beyond `common`.
+current Zolt adapter scope. The separately labeled Commons CLI upstream-Maven
+row is genuine native-build evidence but excludes tests, reports, site, and
+release plugins. Tests, generators, and upstream release packaging are excluded
+from all five overlay comparisons. The specialist Netty runner adds
+dependency-resolution and thin-package rows but does not widen the source
+coverage beyond `common`.
+
+Repeated result labels follow the suite-wide predeclared outcome rule: a 5%
+minimum effect, at least five paired samples, and a deterministic 95% bootstrap
+confidence interval for the paired median-duration ratio. A lower median alone
+does not establish a win; results that do not cross the effect and noise
+thresholds are `inconclusive`.
 
 Every uploaded result includes the coverage JSON so these limits remain visible
 with the numbers.

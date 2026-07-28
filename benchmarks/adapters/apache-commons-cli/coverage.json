@@ -21,11 +21,24 @@
       { "from": "src/main/resources", "to": "src/main/resources", "optional": true }
     ],
     "sourceChangeTarget": "src/main/java/org/apache/commons/cli/CommandLine.java",
+    "nativeBuild": {
+      "tool": "maven",
+      "projectDirectory": ".",
+      "classesDirectory": "target/classes",
+      "workflows": [
+        "first-clean-build",
+        "clean-build",
+        "warm-no-op-build"
+      ],
+      "resolveArgs": ["-q", "-DskipTests", "compile"],
+      "buildArgs": ["-q", "-DskipTests", "compile"],
+      "cleanArgs": ["-q", "clean"]
+    },
     "platforms": {},
     "dependencies": {},
     "providedDependencies": {},
     "excludes": [],
-    "coveredWorkflows": ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"],
+    "coveredWorkflows": ["first-clean-build", "clean-build", "warm-no-op-build", "implementation-change-build", "api-change-build"],
     "omittedBuildFeatures": ["tests", "reports", "site", "release-plugins"]
   }
 }

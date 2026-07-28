@@ -51,7 +51,9 @@ def project_ids() -> set[str]:
     return {
         str(project["id"])
         for project in data.get("projects") or []
-        if isinstance(project, dict) and project.get("id")
+        if isinstance(project, dict)
+        and project.get("id")
+        and project.get("status") == "comparison-ready"
     }
 
 
@@ -124,6 +126,48 @@ def load_profile(identifier: str) -> tuple[dict[str, Any], pathlib.Path, str]:
         ]
         if not publication_lanes:
             fail(f"publication profile requires an enterprise lane in {path}")
+        real_project_lanes = [
+            lane for lane in validated if lane["kind"] == "real-project"
+        ]
+        if not real_project_lanes:
+            fail(f"publication profile requires real-project evidence in {path}")
+        publication_projects = [str(lane["project"]) for lane in real_project_lanes]
+        if (
+            len(publication_projects) != len(projects)
+            or set(publication_projects) != projects
+        ):
+            fail(
+                "publication profile must include every comparison-ready "
+                f"real project exactly once in {path}"
+            )
+        if any(
+            int(lane["repeat"]) < 7 or int(lane["cleanRepeat"]) < 5
+            for lane in real_project_lanes
+        ):
+            fail(
+                f"publication real-project lanes require repeat=7 and "
+                f"cleanRepeat=5 in {path}"
+            )
+        manifest_projects = {
+            project["id"]: project
+            for project in json.loads(
+                PROJECT_MANIFEST.read_text(encoding="utf-8")
+            ).get("projects") or []
+        }
+        has_native_upstream = False
+        for lane in real_project_lanes:
+            project = manifest_projects[str(lane["project"])]
+            adapter_path = ROOT / str(project["adapterPath"])
+            adapter = (
+                json.loads(adapter_path.read_text(encoding="utf-8")).get(
+                    "adapter"
+                )
+                or {}
+            )
+            if adapter.get("nativeBuild"):
+                has_native_upstream = True
+        if not has_native_upstream:
+            fail(f"publication profile requires a native upstream build in {path}")
         for lane in publication_lanes:
             workload = json.loads(
                 (ROOT / str(lane["workload"])).read_text(encoding="utf-8")
@@ -177,6 +221,7 @@ def lane_command(
                 "--enterprise-sample-timeout",
                 str(lane["sampleTimeout"]),
                 "--include-gradle-daemon",
+                "--include-tuned-modes",
             ]
         )
     elif kind == "real-project":
@@ -187,6 +232,7 @@ def lane_command(
                 str(lane["project"]),
                 "--real-project-sample-timeout",
                 str(lane["sampleTimeout"]),
+                "--include-tuned-modes",
             ]
         )
     else:

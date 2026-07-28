@@ -11,10 +11,13 @@ The suite has three lanes:
 
 1. `enterprise-generated`: a deterministic Java workspace generated from a
    versioned workload specification and built from identical sources by Zolt,
-   Maven, Gradle no-daemon, and Gradle daemon.
+   Maven default, Maven parallel, Gradle no-daemon, Gradle daemon, and Gradle
+   parallel/configuration-cache.
 2. `real-project-comparison`: pinned upstream projects copied into equivalent
-   compiler overlays. These are explicitly main-source comparisons, not claims
-   about the projects' complete native build systems.
+   compiler overlays. These are explicitly main-source comparisons. An adapter
+   may additionally declare a separately labeled build using the pinned
+   project's original build files; Apache Commons CLI provides the first such
+   Maven baseline.
 3. `zolt-self-host`: a packaged Zolt binary builds and packages a clean copy of
    Zolt. This lane is deliberately non-comparative.
 
@@ -71,9 +74,11 @@ Zolt's optional build-output cache is disabled so a user's machine configuration
 cannot silently change the workload.
 
 Real-project overlays report first clean, repeated clean, warm no-op, and
-source-input change compile. They use the same statistics and rotating tool
-order. Tests, code generation, and native release packaging remain excluded
-unless an adapter explicitly adds them.
+bytecode-affecting implementation and public-API changes. Every change sample
+must emit a new class digest that differs from a precompiled, untimed seed.
+They use the same statistics and rotating tool order. Tests, code generation,
+and native release packaging remain excluded unless an adapter explicitly adds
+them.
 
 The self-host lane reports dependency setup, first and repeated clean builds,
 warm no-op, a Zolt CLI source edit, and packaging. It never declares a competitor
@@ -85,7 +90,7 @@ Timing is accepted only after correctness passes.
 
 The enterprise lane checks:
 
-- identical main class sets across all four tool modes;
+- identical main class sets across all enabled tool modes;
 - identical copied resource sets;
 - annotation-processor output with `javap`;
 - exactly one changed library output after the leaf implementation edit;
@@ -98,9 +103,12 @@ The fanout gate exposed and now covers a Zolt correctness defect: Java
 values. A changed dependency constant must invalidate workspace consumers.
 
 Real-project lanes check source/resource overlay digests and compiled class-set
-parity before timing. The self-host lane requires class output for every declared
-source member, a true no-op skip, CLI-source invalidation, a packaged Zolt jar,
-and restoration of the mutation target.
+parity before timing, then require distinct bytecode for every implementation
+and API mutation sample. A declared native upstream row must produce classes
+from the pinned checkout using its original build files. The self-host lane
+requires class output for every declared source member, a true no-op skip,
+CLI-source invalidation, a packaged Zolt jar, and restoration of the mutation
+target.
 
 Any failed command or correctness check fails its lane and remains visible in
 the combined suite result.
@@ -121,9 +129,14 @@ Profiles live under `benchmarks/profiles/`:
 - `smoke` builds the branch zap once and fans out small enterprise,
   real-project, and self-host validation lanes;
 - `publishable` resolves one exact zap release and runs the canonical layered
-  `enterprise-v1` publication lane;
+  `enterprise-v1` lane plus all five pinned real-project lanes;
 - `full` resolves one exact zap release and fans out both enterprise topologies,
   all five real-project lanes, and self-host.
+
+Publication profiles retain the default Maven and Gradle modes and add
+explicitly labeled tuned modes: Maven `-T 1C` and Gradle
+`--parallel --configuration-cache`. Each mode has isolated project output and
+dependency/tool caches.
 
 The `benchmarks` GitHub Actions workflow:
 
@@ -150,17 +163,38 @@ metadata, and writes JSON plus Markdown. The step is non-blocking so evidence is
 still published when the API is unavailable.
 
 The prompt leads with a direct verdict, reports correctness failures before
-timings, includes a representative loss whenever Zolt loses, keeps first-clean
-results separate, and refuses composite scores or unsupported evidence claims.
-It never includes secrets or full command logs.
+timings, never hides a meaningful loss, reports statistically inconclusive
+results as inconclusive, keeps first-clean results separate, and refuses
+composite scores or unsupported evidence claims. It consumes the precomputed
+outcomes instead of declaring a winner from medians. It never includes secrets
+or full command logs.
+
+## Outcome Rule
+
+Repeated workflows use `paired-bootstrap-median-ratio-v1`. The harness pairs
+same-index samples, computes duration ratios from the first named tool's
+perspective, and requires:
+
+- at least five paired samples;
+- a minimum effect ratio of `1.05`;
+- a deterministic 95% bootstrap confidence interval over 10,000 median-ratio
+  resamples.
+
+The first tool is `faster` only when the entire interval is below `1 / 1.05`,
+and `slower` only when the entire interval is above `1.05`. Every other result
+is `inconclusive`. A conclusive winner must be faster than every other enabled
+tool under that rule. The lowest raw median remains visible but is not promoted
+to a win.
 
 ## Publication Gate
 
-A dated public result is publishable only when the manual `publishable` profile,
-or a publication-scale enterprise lane in `full`:
+A dated public result is publishable only when the complete manual
+`publishable` or `full` profile:
 
 - uses `enterprise-v1.json` with at least five clean and seven repeated samples;
-- includes all four tool modes;
+- includes Zolt, both Maven modes, and all three Gradle modes;
+- includes all five pinned real-project lanes at the same sample floor;
+- includes at least one genuine native upstream-build baseline;
 - uses the exact released native Zolt resolved once by the planning job;
 - passes every correctness gate;
 - reports the profile digest, resolved Zolt version, runner, JDK, tool versions,

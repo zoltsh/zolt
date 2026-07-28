@@ -34,7 +34,10 @@ jq -e '
   .id == "publishable"
   and .zolt.source == "release"
   and .publication == true
-  and (.lanes | length) == 1
+  and (.lanes | length) == 6
+  and ([.lanes[] | select(.kind == "real-project")] | length) == 5
+  and ([.lanes[] | select(.kind == "real-project") | .project] | sort)
+    == ["apache-commons-cli", "hikaricp", "junit-framework", "netty", "spring-petclinic"]
   and .lanes[0].workload == "benchmarks/workloads/enterprise-v1.json"
   and .lanes[0].topology == "layered"
   and .lanes[0].repeat == 7
@@ -64,6 +67,7 @@ jq -e '
   index("--enterprise-workload") != null
   and index("benchmarks/workloads/enterprise-v1.json") != null
   and index("--include-gradle-daemon") != null
+  and index("--include-tuned-modes") != null
   and index("--topology") != null
   and index("layered") != null
 ' "$WORK_DIR/publishable-command.json" >/dev/null \
@@ -92,6 +96,7 @@ jq -e '
   and index("--real-project") != null
   and index("netty") != null
   and index("--real-project-sample-timeout") != null
+  and index("--include-tuned-modes") != null
 ' "$WORK_DIR/netty-command.json" >/dev/null \
   || fail "real-project profile command is incomplete"
 

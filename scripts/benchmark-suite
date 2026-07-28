@@ -18,6 +18,7 @@ ZOLT_BIN="${ZOLT_BENCH_ZOLT:-}"
 MAVEN_BIN="${ZOLT_BENCH_MAVEN:-}"
 GRADLE_BIN="${ZOLT_BENCH_GRADLE:-}"
 INCLUDE_GRADLE_DAEMON=false
+INCLUDE_TUNED_MODES=false
 GENERATED_SUMMARY=""
 GENERATED_TOPOLOGIES=()
 SKIP_GENERATED=false
@@ -56,6 +57,7 @@ Options:
   --maven PATH                Maven executable passed to generated lane.
   --gradle PATH               Gradle executable passed to generated lane.
   --include-gradle-daemon     Include Gradle daemon in generated lane.
+  --include-tuned-modes       Include Maven parallel and Gradle parallel/configuration-cache.
   --enterprise-workload FILE  Use the correctness-gated enterprise workload spec.
   --enterprise-sample-timeout SECONDS
                               Per-command timeout for enterprise lanes. Default: 1800.
@@ -208,6 +210,10 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --include-gradle-daemon)
       INCLUDE_GRADLE_DAEMON=true
+      shift
+      ;;
+    --include-tuned-modes)
+      INCLUDE_TUNED_MODES=true
       shift
       ;;
     --enterprise-workload)
@@ -366,6 +372,9 @@ if [[ "$SKIP_GENERATED" == false ]]; then
       if [[ "$INCLUDE_GRADLE_DAEMON" == true ]]; then
         enterprise_args+=(--include-gradle-daemon)
       fi
+      if [[ "$INCLUDE_TUNED_MODES" == true ]]; then
+        enterprise_args+=(--include-tuned-modes)
+      fi
       scripts/benchmark-enterprise "${enterprise_args[@]}"
       generated_summary="$generated_dir/summary.json"
     elif [[ -z "$generated_summary" ]]; then
@@ -408,6 +417,8 @@ if [[ "$SKIP_GENERATED" == false ]]; then
       layered) topology_name="Layered DAG" ;;
     esac
 
+    BENCHMARK_INCLUDE_GRADLE_DAEMON="$INCLUDE_GRADLE_DAEMON" \
+    BENCHMARK_INCLUDE_TUNED_MODES="$INCLUDE_TUNED_MODES" \
     scripts/benchmark-suite-summary \
       --summary "$generated_summary" \
       --output "$generated_dir/suite-summary.json" \
@@ -471,6 +482,9 @@ if [[ "${#REAL_PROJECTS[@]}" -gt 0 ]]; then
     if [[ "$REAL_PROJECT_DRY_RUN" == true ]]; then
       real_project_args+=(--dry-run)
     fi
+    if [[ "$INCLUDE_TUNED_MODES" == true ]]; then
+      real_project_args+=(--include-tuned-modes)
+    fi
 
     if ! scripts/benchmark-real-project "${real_project_args[@]}"; then
       SUITE_FAILED=true
@@ -504,7 +518,8 @@ workflow_order = [
     "no-op-build",
     "warm-no-op-build",
     "leaf-change-build",
-    "source-change-build",
+    "implementation-change-build",
+    "api-change-build",
     "root-change-build",
     "shared-api-change-build",
     "resource-change-build",
@@ -534,7 +549,8 @@ workflow_labels = {
     "test-run": "Warm test run",
     "package": "Package",
     "warm-no-op-build": "Warm no-op",
-    "source-change-build": "Source change",
+    "implementation-change-build": "Implementation change",
+    "api-change-build": "Public API change",
     "test": "Test",
     "sequential-clean-compile-all": "Sequential clean compile all",
     "parallel-clean-compile-all": "Parallel clean compile all",
@@ -544,12 +560,25 @@ workflow_labels = {
     "public-api-change-common": "Public API change in common",
     "package-or-install": "Package or install",
 }
-tool_order = ["zolt", "maven", "gradle-no-daemon", "gradle-daemon"]
+tool_order = [
+    "zolt",
+    "maven",
+    "maven-parallel",
+    "gradle-no-daemon",
+    "gradle-daemon",
+    "gradle-parallel-configuration-cache",
+    "upstream-maven",
+    "upstream-gradle",
+]
 tool_labels = {
     "zolt": "Zolt",
-    "maven": "Maven",
+    "maven": "Maven default",
+    "maven-parallel": "Maven parallel",
     "gradle-no-daemon": "Gradle no-daemon",
     "gradle-daemon": "Gradle daemon",
+    "gradle-parallel-configuration-cache": "Gradle tuned",
+    "upstream-maven": "Upstream Maven build",
+    "upstream-gradle": "Upstream Gradle build",
 }
 
 
@@ -769,6 +798,7 @@ if lanes:
             row = [
                 lane_name,
                 workflow_labels.get(workflow_id, workflow.get("label") or workflow_id or "unknown"),
+                workflow.get("zoltOutcome") or "inconclusive",
                 tool_labels.get(workflow.get("winner"), workflow.get("winner") or "n/a"),
             ]
             row.extend(fmt_ms((tools.get(tool) or {}).get("medianMillis")) for tool in tool_order)
@@ -778,8 +808,8 @@ if lanes:
         lines.extend([
             "## Comparison Results",
             "",
-            "| Workload | Workflow | Winner | Zolt | Maven | Gradle no-daemon | Gradle daemon |",
-            "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+            "| Workload | Workflow | Zolt outcome | Conclusive winner | Zolt | Maven default | Maven parallel | Gradle no-daemon | Gradle daemon | Gradle tuned | Upstream Maven | Upstream Gradle |",
+            "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ])
         for row in comparison_rows:
             lines.append("| " + " | ".join(row) + " |")

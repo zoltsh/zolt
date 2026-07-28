@@ -63,6 +63,11 @@ cat >"$INPUT" <<'JSON'
           }
         ]
       },
+      "outcomeRule": {
+        "id": "paired-bootstrap-median-ratio-v1",
+        "minimumSamples": 5,
+        "minimumEffectRatio": 1.05
+      },
       "summary": {
         "classification": "Publishable enterprise generated evidence"
       },
@@ -71,6 +76,7 @@ cat >"$INPUT" <<'JSON'
           "id": "no-op-build",
           "kind": "repeated",
           "winner": "zolt",
+          "zoltOutcome": "faster",
           "tools": {
             "zolt": {
               "samples": 7,
@@ -86,6 +92,7 @@ cat >"$INPUT" <<'JSON'
           "id": "test-run",
           "kind": "repeated",
           "winner": "gradle-daemon",
+          "zoltOutcome": "slower",
           "tools": {
             "zolt": {
               "samples": 7,
@@ -122,16 +129,20 @@ jq -e '
       | last
       | fromjson
     ) as $input
-  | $document.promptVersion == "zolt-benchmark-summary-v4"
+  | $document.promptVersion == "zolt-benchmark-summary-v6"
     and $document.request.text.verbosity == "low"
     and ($system | contains("Report evidence, not advocacy."))
-    and ($system | contains("Never hide a loss"))
+    and ($system | contains("Never hide a meaningful loss"))
+    and ($system | contains("report statistically inconclusive results as inconclusive"))
+    and ($system | contains("zoltOutcome is the workflow verdict"))
+    and ($system | contains("Never call fastestMedianTool a winner unless the supplied winner agrees"))
     and ($system | contains("do not present the affected timing as valid performance evidence"))
     and ($system | contains("invent a composite score"))
     and ($system | contains("Do not call a one-sample or smoke result a trend or publishable"))
     and ($input.profile.id == "publishable")
     and ($input.lanes[0].environment.releaseVersion == "zolt 1.2.3")
     and ($input.lanes[0].correctness.status == "passed")
+    and ($input.lanes[0].outcomeRule.id == "paired-bootstrap-median-ratio-v1")
 ' "$REQUEST" >/dev/null \
   || fail "OpenAI request does not enforce the direct benchmark-summary contract"
 

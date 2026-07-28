@@ -20,14 +20,27 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Iterable
 
+from benchmark_statistics import OUTCOME_RULE, classify_workflow
+
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TOOL_ORDER = ("zolt", "maven", "gradle-no-daemon", "gradle-daemon")
+TOOL_ORDER = (
+    "zolt",
+    "maven",
+    "maven-parallel",
+    "gradle-no-daemon",
+    "gradle-daemon",
+    "gradle-parallel-configuration-cache",
+)
 TOOL_LABELS = {
     "zolt": "Zolt",
-    "maven": "Maven",
-    "gradle-no-daemon": "Gradle no-daemon",
-    "gradle-daemon": "Gradle daemon",
+    "maven": "Maven default",
+    "maven-parallel": "Maven parallel (-T 1C)",
+    "gradle-no-daemon": "Gradle default (no daemon)",
+    "gradle-daemon": "Gradle default (daemon)",
+    "gradle-parallel-configuration-cache": (
+        "Gradle tuned (parallel + configuration cache)"
+    ),
 }
 WORKFLOW_LABELS = {
     "dependency-setup": "Dependency setup",
@@ -84,6 +97,10 @@ class Tool:
     test_compile: list[str]
     test_run: list[str]
     package: list[str]
+
+
+def uses_target_layout(tool: Tool) -> bool:
+    return tool.identifier in {"zolt", "maven", "maven-parallel"}
 
 
 class Runner:
@@ -238,7 +255,7 @@ class Runner:
     def remove_package_outputs(self, tool: Tool) -> None:
         if tool.identifier == "zolt":
             patterns = ("**/target/*.jar", "**/target/*.jar.zolt-package.json")
-        elif tool.identifier == "maven":
+        elif uses_target_layout(tool):
             patterns = ("**/target/*.jar",)
         else:
             patterns = ("**/build/libs/*.jar",)
@@ -492,7 +509,10 @@ class Runner:
 
     def stop_gradle_daemons(self) -> None:
         for tool in self.tools:
-            if tool.identifier != "gradle-daemon":
+            if tool.identifier not in {
+                "gradle-daemon",
+                "gradle-parallel-configuration-cache",
+            }:
                 continue
             subprocess.run(
                 [tool.build[0], "--gradle-user-home", tool.build[2], "--stop"],
@@ -526,7 +546,7 @@ def member_key(tool: Tool, path: pathlib.Path, marker: str) -> str:
 
 def compiled_class_set(tool: Tool) -> set[str]:
     values: set[str] = set()
-    if tool.identifier in {"zolt", "maven"}:
+    if uses_target_layout(tool):
         for path in tool.root.glob("**/target/classes/**/*.class"):
             values.add(member_key(tool, path, "classes"))
     else:
@@ -542,7 +562,7 @@ def compiled_class_set(tool: Tool) -> set[str]:
 
 def compiled_test_class_set(tool: Tool) -> set[str]:
     values: set[str] = set()
-    if tool.identifier in {"zolt", "maven"}:
+    if uses_target_layout(tool):
         for path in tool.root.glob("**/target/test-classes/**/*.class"):
             values.add(member_key(tool, path, "test-classes"))
     else:
@@ -558,7 +578,7 @@ def compiled_test_class_set(tool: Tool) -> set[str]:
 
 def compiled_resource_map(tool: Tool) -> dict[str, str]:
     values: dict[str, str] = {}
-    if tool.identifier in {"zolt", "maven"}:
+    if uses_target_layout(tool):
         for path in tool.root.glob("**/target/classes/bench-enterprise.properties"):
             values[member_key(tool, path, "classes")] = sha256(path)
     else:
@@ -572,7 +592,7 @@ def compiled_resource_map(tool: Tool) -> dict[str, str]:
 
 
 def platform_classes_dir(tool: Tool) -> pathlib.Path:
-    if tool.identifier in {"zolt", "maven"}:
+    if uses_target_layout(tool):
         return tool.root / "modules/platform/target/classes"
     return tool.root / "modules/platform/build/classes/java/main"
 
@@ -583,7 +603,7 @@ def primary_class_hashes(tool: Tool) -> dict[str, str]:
         name = f"lib{index:03d}"
         package = pathlib.Path("bench/enterprise") / name
         class_name = f"Lib{index:03d}.class"
-        if tool.identifier in {"zolt", "maven"}:
+        if uses_target_layout(tool):
             path = tool.root / "modules" / name / "target/classes" / package / class_name
         else:
             path = (
@@ -604,12 +624,12 @@ def primary_class_hashes(tool: Tool) -> dict[str, str]:
 
 def jar_paths(tool: Tool) -> dict[str, pathlib.Path]:
     values: dict[str, pathlib.Path] = {}
-    pattern = "**/target/*.jar" if tool.identifier in {"zolt", "maven"} else "**/build/libs/*.jar"
+    pattern = "**/target/*.jar" if uses_target_layout(tool) else "**/build/libs/*.jar"
     for path in tool.root.glob(pattern):
         if not path.is_file() or path.name.endswith(("-sources.jar", "-javadoc.jar", "-tests.jar")):
             continue
         relative = path.relative_to(tool.root)
-        marker = "target" if tool.identifier in {"zolt", "maven"} else "build"
+        marker = "target" if uses_target_layout(tool) else "build"
         member = "/".join(relative.parts[: relative.parts.index(marker)])
         if member:
             values[member] = path
@@ -765,22 +785,21 @@ def write_summary(
     workflows = []
     for workflow in WORKFLOW_ORDER:
         tools: dict[str, object] = {}
+        samples_by_tool: dict[str, list[int]] = {}
         for tool in TOOL_ORDER:
             values = groups.get((workflow, tool))
             if values:
                 tools[tool] = metric(values, f"{workflow}:{tool}")
+                samples_by_tool[tool] = values
         if not tools:
             continue
-        medians = {
-            tool: int(values["medianMillis"])
-            for tool, values in tools.items()
-            if isinstance(values, dict)
-        }
-        winner = (
-            min(medians, key=medians.get)
-            if len(medians) > 1 and workflow != "dependency-setup"
-            else None
+        outcomes = classify_workflow(
+            samples_by_tool,
+            seed=f"enterprise:{workflow}",
         )
+        if workflow == "dependency-setup":
+            outcomes["winner"] = None
+            outcomes["zoltOutcome"] = "inconclusive"
         workflows.append(
             {
                 "workflow": workflow,
@@ -792,12 +811,17 @@ def write_summary(
                     if workflow == "first-clean-build"
                     else "repeated"
                 ),
-                "winner": winner,
+                "winner": outcomes["winner"],
+                "fastestMedianTool": outcomes["fastestMedianTool"],
+                "zoltOutcome": outcomes["zoltOutcome"],
+                "zoltReferenceTool": outcomes["zoltReferenceTool"],
+                "comparisonsVsZolt": outcomes["comparisonsVsZolt"],
                 "tools": tools,
             }
         )
     summary = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
+        "outcomeRule": OUTCOME_RULE,
         "environment": environment,
         "correctness": correctness,
         "workflows": workflows,
@@ -848,8 +872,8 @@ def write_summary(
             "",
             "## Results",
             "",
-            "| Workflow | Samples | Winner | Zolt | Maven | Gradle no-daemon | Gradle daemon |",
-            "| --- | ---: | --- | ---: | ---: | ---: | ---: |",
+            "| Workflow | Samples | Zolt outcome | Conclusive winner | Zolt | Maven default | Maven parallel | Gradle no-daemon | Gradle daemon | Gradle tuned |",
+            "| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
     for row in workflows:
@@ -863,9 +887,12 @@ def write_summary(
         sample_count = next(iter(tools.values())).get("samples")
         report_lines.append(
             f"| {row['label']} | {sample_count} | "
+            f"{row.get('zoltOutcome') or 'inconclusive'} | "
             f"{TOOL_LABELS.get(str(row.get('winner')), row.get('winner') or 'n/a')} | "
             f"{median_for('zolt')} | {median_for('maven')} | "
-            f"{median_for('gradle-no-daemon')} | {median_for('gradle-daemon')} |"
+            f"{median_for('maven-parallel')} | {median_for('gradle-no-daemon')} | "
+            f"{median_for('gradle-daemon')} | "
+            f"{median_for('gradle-parallel-configuration-cache')} |"
         )
     report_lines.extend(
         [
@@ -876,6 +903,8 @@ def write_summary(
             "- First clean build is a cold tool-process sample after dependency resolution.",
             "- Repeated clean builds remove outputs between samples while retaining warmed dependency and tool caches.",
             "- Tool execution order rotates for every workflow and sample.",
+            "- Default Maven and Gradle modes remain visible beside explicitly labeled tuned Maven parallel and Gradle parallel/configuration-cache modes.",
+            f"- Outcomes use `{OUTCOME_RULE['id']}`: at least {OUTCOME_RULE['minimumSamples']} paired samples and a 95% bootstrap median-duration-ratio interval entirely beyond the {OUTCOME_RULE['minimumEffectRatio']} effect boundary are required; all other comparisons are inconclusive.",
             "- The leaf edit changes a literal in the selected library and correctness checks require exactly that library's primary class output to change.",
             "- The shared API edit changes an inlined public constant used by every generated library; correctness checks require every library's primary class output to change.",
             "- Every repeated metric records median, p95, min, max, standard deviation, coefficient of variation, a bootstrap 95% median interval, and raw samples.",
@@ -897,8 +926,10 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
     fixtures = work_dir / "fixtures"
     zolt_cache = work_dir / "caches/zolt"
     maven_cache = work_dir / "caches/maven"
+    maven_parallel_cache = work_dir / "caches/maven-parallel"
     gradle_no_daemon_cache = work_dir / "caches/gradle-no-daemon"
     gradle_daemon_cache = work_dir / "caches/gradle-daemon"
+    gradle_tuned_cache = work_dir / "caches/gradle-parallel-configuration-cache"
     zolt_workspace = ["--workspace", "--cache-root", str(zolt_cache)]
     zolt_all_members = [
         "--workspace",
@@ -908,6 +939,13 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
         "--no-build-cache",
     ]
     maven_prefix = [maven, f"-Dmaven.repo.local={maven_cache}", "-q"]
+    maven_parallel_prefix = [
+        maven,
+        f"-Dmaven.repo.local={maven_parallel_cache}",
+        "-T",
+        "1C",
+        "-q",
+    ]
     gradle_no_daemon = [
         gradle,
         "--gradle-user-home",
@@ -920,6 +958,15 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
         gradle,
         "--gradle-user-home",
         str(gradle_daemon_cache),
+        "--console=plain",
+        "--quiet",
+    ]
+    gradle_tuned = [
+        gradle,
+        "--gradle-user-home",
+        str(gradle_tuned_cache),
+        "--parallel",
+        "--configuration-cache",
         "--console=plain",
         "--quiet",
     ]
@@ -971,6 +1018,55 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
             [*gradle_no_daemon, "--offline", "assemble"],
         ),
     ]
+    if args.include_tuned_modes:
+        tools.extend(
+            [
+                Tool(
+                    "maven-parallel",
+                    fixtures / "maven-parallel",
+                    [*maven_parallel_prefix, "-Dgroups=benchmark", "package"],
+                    [*maven_parallel_prefix, "clean"],
+                    [*maven_parallel_prefix, "-o", "-DskipTests", "compile"],
+                    [
+                        *maven_parallel_prefix,
+                        "-o",
+                        "-Dgroups=!benchmark",
+                        "test",
+                    ],
+                    [
+                        *maven_parallel_prefix,
+                        "-o",
+                        "-Dgroups=benchmark",
+                        "test",
+                    ],
+                    [*maven_parallel_prefix, "-o", "-DskipTests", "package"],
+                ),
+                Tool(
+                    "gradle-parallel-configuration-cache",
+                    fixtures / "gradle-parallel-configuration-cache",
+                    [
+                        *gradle_tuned,
+                        "-PbenchmarkTestRun=true",
+                        "test",
+                    ],
+                    [*gradle_tuned, "clean"],
+                    [*gradle_tuned, "--offline", "classes"],
+                    [
+                        *gradle_tuned,
+                        "--offline",
+                        "-PbenchmarkCompileOnly=true",
+                        "test",
+                    ],
+                    [
+                        *gradle_tuned,
+                        "--offline",
+                        "-PbenchmarkTestRun=true",
+                        "test",
+                    ],
+                    [*gradle_tuned, "--offline", "assemble"],
+                ),
+            ]
+        )
     if args.include_gradle_daemon:
         tools.append(
             Tool(
@@ -1020,6 +1116,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--maven")
     parser.add_argument("--gradle")
     parser.add_argument("--include-gradle-daemon", action="store_true")
+    parser.add_argument("--include-tuned-modes", action="store_true")
     parser.add_argument("--clean-repeat", type=int)
     parser.add_argument("--repeat", type=int)
     parser.add_argument("--sample-timeout", type=int, default=1800)
@@ -1058,9 +1155,16 @@ def main() -> int:
     gradle_fixture = work_dir / "fixtures/gradle"
     gradle_no_daemon_fixture = work_dir / "fixtures/gradle-no-daemon"
     gradle_daemon_fixture = work_dir / "fixtures/gradle-daemon"
+    maven_parallel_fixture = work_dir / "fixtures/maven-parallel"
+    gradle_tuned_fixture = (
+        work_dir / "fixtures/gradle-parallel-configuration-cache"
+    )
     shutil.copytree(gradle_fixture, gradle_no_daemon_fixture)
     if args.include_gradle_daemon:
         shutil.copytree(gradle_fixture, gradle_daemon_fixture)
+    if args.include_tuned_modes:
+        shutil.copytree(work_dir / "fixtures/maven", maven_parallel_fixture)
+        shutil.copytree(gradle_fixture, gradle_tuned_fixture)
     workload_data = metadata.get("workload") or {}
     clean_samples = args.clean_repeat or int(workload_data.get("cleanSamples") or 0)
     repeated_samples = args.repeat or int(workload_data.get("repeatedSamples") or 0)
@@ -1079,7 +1183,10 @@ def main() -> int:
         runner.execute()
     finally:
         for tool in tools:
-            if tool.identifier == "gradle-daemon":
+            if tool.identifier in {
+                "gradle-daemon",
+                "gradle-parallel-configuration-cache",
+            }:
                 subprocess.run(
                     [tool.build[0], "--gradle-user-home", tool.build[2], "--stop"],
                     cwd=tool.root,
