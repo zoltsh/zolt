@@ -1,0 +1,540 @@
+#!/usr/bin/env python3
+"""Benchmark a packaged Zolt binary building the checked-out Zolt source tree."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+import pathlib
+import platform
+import random
+import shutil
+import statistics
+import subprocess
+import sys
+import time
+import tomllib
+from datetime import datetime, timezone
+
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+WORKFLOW_SPECS = (
+    ("dependency-setup", "Dependency setup", "setup"),
+    ("first-clean-build", "First clean build", "cold"),
+    ("clean-build", "Repeated clean build", "repeated"),
+    ("no-op-build", "Warm no-op build", "repeated"),
+    ("leaf-change-build", "Zolt CLI source change", "repeated"),
+    ("package", "Package Zolt CLI", "repeated"),
+)
+
+
+def workspace_members(root: pathlib.Path) -> list[str]:
+    config = tomllib.loads((root / "zolt.toml").read_text(encoding="utf-8"))
+    return list((config.get("workspace") or {}).get("members") or [])
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run a non-comparative Zolt-building-Zolt benchmark lane."
+    )
+    parser.add_argument("--zolt", default=os.environ.get("ZOLT_BENCH_ZOLT") or "zolt")
+    parser.add_argument(
+        "--work-dir",
+        type=pathlib.Path,
+        default=ROOT / "target/benchmarks/competitors/zolt-self-host",
+    )
+    parser.add_argument("--repeat", type=positive_int, default=5)
+    parser.add_argument("--clean-repeat", type=positive_int, default=3)
+    parser.add_argument("--sample-timeout", type=positive_int, default=1800)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate the contract and write planned outputs without building.",
+    )
+    return parser.parse_args()
+
+
+def positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def resolve_tool(value: str) -> str:
+    if "/" in value:
+        resolved = pathlib.Path(value).expanduser().resolve()
+        if not resolved.is_file():
+            raise SystemExit(f"Zolt executable not found: {resolved}")
+        return str(resolved)
+    resolved = shutil.which(value)
+    if not resolved:
+        raise SystemExit(f"Zolt executable not found on PATH: {value}")
+    return resolved
+
+
+def safe_work_dir(path: pathlib.Path) -> pathlib.Path:
+    resolved = path.expanduser().resolve()
+    if resolved in {ROOT, ROOT.parent, pathlib.Path("/")} or not resolved.is_relative_to(ROOT):
+        raise SystemExit(f"refusing unsafe self-host work directory: {resolved}")
+    return resolved
+
+
+def percentile95(values: list[int]) -> int | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    return ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)]
+
+
+def median_interval(values: list[int]) -> list[int] | None:
+    if len(values) < 2:
+        return None
+    rng = random.Random(20260727)
+    bootstrapped = sorted(
+        round(statistics.median(rng.choices(values, k=len(values))))
+        for _ in range(10_000)
+    )
+    return [
+        bootstrapped[math.floor(0.025 * (len(bootstrapped) - 1))],
+        bootstrapped[math.ceil(0.975 * (len(bootstrapped) - 1))],
+    ]
+
+
+def metrics(command: list[str], rows: list[dict]) -> dict:
+    durations = [row["durationMillis"] for row in rows if row["exitCode"] == 0]
+    mean = statistics.mean(durations) if durations else None
+    deviation = statistics.pstdev(durations) if durations else None
+    return {
+        "command": command,
+        "samples": len(durations),
+        "rawMillis": durations,
+        "medianMillis": round(statistics.median(durations)) if durations else None,
+        "meanMillis": round(mean, 3) if mean is not None else None,
+        "standardDeviationMillis": round(deviation, 3) if deviation is not None else None,
+        "coefficientOfVariation": (
+            round(deviation / mean, 6) if mean not in {None, 0} and deviation is not None else None
+        ),
+        "median95ConfidenceIntervalMillis": median_interval(durations),
+        "p95Millis": percentile95(durations),
+        "minMillis": min(durations) if durations else None,
+        "maxMillis": max(durations) if durations else None,
+        "logs": [row["log"] for row in rows],
+    }
+
+
+class Runner:
+    def __init__(self, args: argparse.Namespace) -> None:
+        self.args = args
+        self.work_dir = safe_work_dir(args.work_dir)
+        self.workspace = self.work_dir / "workspace"
+        self.cache = self.work_dir / "cache"
+        self.logs = self.work_dir / "logs"
+        self.zolt = args.zolt if args.dry_run else resolve_tool(args.zolt)
+        self.samples: list[dict] = []
+        self.sample_file = self.work_dir / "samples.jsonl"
+        self.build = [
+            self.zolt,
+            "build",
+            "--workspace",
+            "--all",
+            "--cwd",
+            str(self.workspace),
+            "--cache-root",
+            str(self.cache),
+            "--no-build-cache",
+            "--no-progress",
+        ]
+        self.clean = [
+            self.zolt,
+            "clean",
+            "--workspace",
+            "--all",
+            "--cwd",
+            str(self.workspace),
+            "--no-progress",
+        ]
+        self.resolve = [
+            self.zolt,
+            "resolve",
+            "--workspace",
+            "--cwd",
+            str(self.workspace),
+            "--cache-root",
+            str(self.cache),
+            "--no-progress",
+        ]
+        self.package = [
+            self.zolt,
+            "package",
+            "--workspace",
+            "--member",
+            "apps/zolt",
+            "--cwd",
+            str(self.workspace),
+            "--cache-root",
+            str(self.cache),
+            "--no-build-cache",
+            "--no-progress",
+        ]
+
+    def run_process(self, command: list[str], log_name: str, timeout: int | None = None) -> dict:
+        log_path = self.logs / log_name
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        started = time.perf_counter_ns()
+        timed_out = False
+        with log_path.open("w", encoding="utf-8") as stream:
+            stream.write("$ " + " ".join(command) + "\n\n")
+            try:
+                process = subprocess.run(
+                    command,
+                    cwd=self.workspace,
+                    stdout=stream,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    check=False,
+                    timeout=timeout or self.args.sample_timeout,
+                )
+                exit_code = process.returncode
+            except subprocess.TimeoutExpired:
+                exit_code = 124
+                timed_out = True
+                stream.write(f"\nCommand timed out after {timeout or self.args.sample_timeout} seconds.\n")
+        return {
+            "exitCode": exit_code,
+            "durationMillis": round((time.perf_counter_ns() - started) / 1_000_000),
+            "timedOut": timed_out,
+            "log": str(log_path.relative_to(ROOT)),
+        }
+
+    def checked(self, command: list[str], log_name: str) -> dict:
+        result = self.run_process(command, log_name)
+        if result["exitCode"] != 0:
+            raise RuntimeError(
+                f"self-host command failed ({result['exitCode']}): {' '.join(command)}; "
+                f"log: {result['log']}"
+            )
+        return result
+
+    def prepare(self) -> None:
+        if self.work_dir.exists():
+            shutil.rmtree(self.work_dir)
+        self.logs.mkdir(parents=True)
+        def ignored(directory: str, names: list[str]) -> set[str]:
+            path = pathlib.Path(directory)
+            excluded = {
+                name
+                for name in names
+                if name in {".gradle", ".idea", "__pycache__"}
+            }
+            if path == ROOT:
+                excluded.update(name for name in names if name in {".git", ".zolt"})
+            if path == ROOT or (path / "zolt.toml").is_file():
+                excluded.update(name for name in names if name in {"build", "target"})
+            return excluded
+
+        shutil.copytree(ROOT, self.workspace, ignore=ignored)
+
+    def timed_sample(
+        self,
+        workflow: str,
+        sample: int,
+        command: list[str],
+        stream,
+    ) -> dict:
+        result = self.run_process(
+            command,
+            f"samples/{workflow}-{sample:03d}.log",
+        )
+        row = {
+            "workflow": workflow,
+            "tool": "zolt",
+            "sample": sample,
+            **result,
+        }
+        self.samples.append(row)
+        stream.write(json.dumps(row) + "\n")
+        stream.flush()
+        if result["exitCode"] != 0:
+            raise RuntimeError(
+                f"self-host sample failed ({result['exitCode']}): {workflow} sample {sample}; "
+                f"log: {result['log']}"
+            )
+        return row
+
+    def execute(self) -> tuple[list[dict], dict]:
+        self.prepare()
+        mutation = self.workspace / "apps/zolt/src/main/java/sh/zolt/cli/ZoltCli.java"
+        if not mutation.is_file():
+            raise RuntimeError(f"self-host mutation target is missing: {mutation}")
+        baseline = mutation.read_text(encoding="utf-8")
+        workflow_rows: dict[str, list[dict]] = {workflow: [] for workflow, _, _ in WORKFLOW_SPECS}
+
+        with self.sample_file.open("w", encoding="utf-8") as stream:
+            workflow_rows["dependency-setup"].append(
+                self.timed_sample("dependency-setup", 1, self.resolve, stream)
+            )
+
+            self.checked(self.clean, "prepare/first-clean-build-clean.log")
+            workflow_rows["first-clean-build"].append(
+                self.timed_sample("first-clean-build", 1, self.build, stream)
+            )
+
+            for sample in range(1, self.args.clean_repeat + 1):
+                self.checked(self.clean, f"prepare/clean-build-{sample:03d}-clean.log")
+                workflow_rows["clean-build"].append(
+                    self.timed_sample("clean-build", sample, self.build, stream)
+                )
+
+            for sample in range(1, self.args.repeat + 1):
+                workflow_rows["no-op-build"].append(
+                    self.timed_sample("no-op-build", sample, self.build, stream)
+                )
+
+            try:
+                for sample in range(1, self.args.repeat + 1):
+                    mutation.write_text(
+                        baseline.rstrip()
+                        + f"\n// Zolt self-host benchmark source edit {sample}\n",
+                        encoding="utf-8",
+                    )
+                    workflow_rows["leaf-change-build"].append(
+                        self.timed_sample("leaf-change-build", sample, self.build, stream)
+                    )
+            finally:
+                mutation.write_text(baseline, encoding="utf-8")
+
+            self.checked(self.build, "prepare/package-build.log")
+            for sample in range(1, self.args.repeat + 1):
+                workflow_rows["package"].append(
+                    self.timed_sample("package", sample, self.package, stream)
+                )
+
+        package_jars = sorted(
+            self.workspace.glob("apps/zolt/target/zolt-*.jar")
+        )
+        no_op_logs = [
+            ROOT / row["log"] for row in workflow_rows["no-op-build"]
+        ]
+        leaf_logs = [
+            ROOT / row["log"] for row in workflow_rows["leaf-change-build"]
+        ]
+        project_members = [
+            self.workspace / member
+            for member in workspace_members(self.workspace)
+            if any((self.workspace / member).glob("src/main/java/**/*.java"))
+        ]
+        members_with_classes = [
+            member
+            for member in project_members
+            if any((member / "target/classes").glob("**/*.class"))
+        ]
+        checks = [
+            {
+                "name": "workspace-member-class-outputs",
+                "passed": len(project_members) == len(members_with_classes),
+                "evidence": {
+                    "sourceMembers": len(project_members),
+                    "membersWithClasses": len(members_with_classes),
+                },
+            },
+            {
+                "name": "warm-no-op-skip",
+                "passed": all(
+                    "Skipped workspace main compilation; inputs are unchanged"
+                    in path.read_text(encoding="utf-8", errors="replace")
+                    for path in no_op_logs
+                ),
+                "evidence": {"samples": len(no_op_logs)},
+            },
+            {
+                "name": "zolt-cli-source-invalidation",
+                "passed": all(
+                    "Compiled 1 main source files in apps/zolt"
+                    in path.read_text(encoding="utf-8", errors="replace")
+                    for path in leaf_logs
+                ),
+                "evidence": {"samples": len(leaf_logs)},
+            },
+            {
+                "name": "zolt-cli-package",
+                "passed": len(package_jars) == 1,
+                "evidence": {
+                    "jars": [str(path.relative_to(self.workspace)) for path in package_jars]
+                },
+            },
+            {
+                "name": "mutation-restored",
+                "passed": mutation.read_text(encoding="utf-8") == baseline,
+                "evidence": {"source": str(mutation.relative_to(self.workspace))},
+            },
+        ]
+        correctness = {
+            "schemaVersion": 1,
+            "status": "passed" if all(check["passed"] for check in checks) else "failed",
+            "checks": checks,
+            "completedAt": now_iso(),
+        }
+        workflows = []
+        command_by_workflow = {
+            "dependency-setup": self.resolve,
+            "first-clean-build": self.build,
+            "clean-build": self.build,
+            "no-op-build": self.build,
+            "leaf-change-build": self.build,
+            "package": self.package,
+        }
+        for workflow, label, kind in WORKFLOW_SPECS:
+            workflows.append(
+                {
+                    "workflow": workflow,
+                    "label": label,
+                    "kind": kind,
+                    "winner": None,
+                    "tools": {
+                        "zolt": metrics(command_by_workflow[workflow], workflow_rows[workflow])
+                    },
+                }
+            )
+        if correctness["status"] != "passed":
+            raise RuntimeError("self-host correctness checks failed")
+        return workflows, correctness
+
+
+def capture_version(zolt: str) -> dict:
+    process = subprocess.run(
+        [zolt, "--version"],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    return {
+        "command": zolt,
+        "exitCode": process.returncode,
+        "stdout": process.stdout.splitlines(),
+        "stderr": process.stderr.splitlines(),
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    runner = Runner(args)
+    runner.work_dir.mkdir(parents=True, exist_ok=True)
+    if args.dry_run:
+        workflows = [
+            {
+                "workflow": workflow,
+                "label": label,
+                "kind": kind,
+                "winner": None,
+                "tools": {
+                    "zolt": metrics(
+                        runner.resolve if workflow == "dependency-setup"
+                        else runner.package if workflow == "package"
+                        else runner.build,
+                        [],
+                    )
+                },
+            }
+            for workflow, label, kind in WORKFLOW_SPECS
+        ]
+        correctness = {"schemaVersion": 1, "status": "not-run", "checks": []}
+        status = "dry-run"
+    else:
+        workflows, correctness = runner.execute()
+        status = "complete"
+
+    members = workspace_members(ROOT)
+    source_files = [
+        path
+        for member in members
+        for path in (ROOT / member).glob("src/**/*.java")
+    ]
+    summary = {
+        "schemaVersion": 2,
+        "status": status,
+        "environment": {
+            "classification": "zolt-self-host",
+            "moduleCount": len(members),
+            "appModules": sum(
+                1 for member in members if member.startswith("apps/")
+            ),
+            "repeatCount": args.repeat,
+            "cleanRepeatCount": args.clean_repeat,
+            "sourceFiles": len(source_files),
+            "sourceLines": sum(
+                len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+                for path in source_files
+            ),
+            "platform": {
+                "system": platform.system(),
+                "release": platform.release(),
+                "machine": platform.machine(),
+                "python": platform.python_version(),
+            },
+            "tools": {
+                "zolt": (
+                    {
+                        "command": runner.zolt,
+                        "exitCode": None,
+                        "stdout": [],
+                        "stderr": [],
+                        "status": "planned",
+                    }
+                    if args.dry_run
+                    else capture_version(runner.zolt)
+                )
+            },
+        },
+        "correctness": correctness,
+        "workflows": workflows,
+        "caveats": [
+            "This lane is non-comparative: it validates and times Zolt building the checked-out Zolt source tree.",
+            "The copied workspace excludes existing build outputs and local dependency caches.",
+            "Dependency setup and the first clean build are separated from repeated workflow claims.",
+        ],
+    }
+    runner.work_dir.mkdir(parents=True, exist_ok=True)
+    (runner.work_dir / "summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
+    (runner.work_dir / "correctness.json").write_text(
+        json.dumps(correctness, indent=2) + "\n", encoding="utf-8"
+    )
+    report = [
+        "# Zolt Self-host Benchmark",
+        "",
+        "This lane is intentionally non-comparative. It measures a packaged Zolt binary building Zolt.",
+        "",
+        f"Correctness: **{correctness['status']}**.",
+        "",
+        "| Workflow | Samples | Median | p95 | CV |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for row in workflows:
+        data = row["tools"]["zolt"]
+        report.append(
+            f"| {row['label']} | {data['samples']} | "
+            f"{data['medianMillis'] if data['medianMillis'] is not None else 'n/a'} | "
+            f"{data['p95Millis'] if data['p95Millis'] is not None else 'n/a'} | "
+            f"{data['coefficientOfVariation'] if data['coefficientOfVariation'] is not None else 'n/a'} |"
+        )
+    (runner.work_dir / "report.md").write_text(
+        "\n".join(report) + "\n", encoding="utf-8"
+    )
+    print(f"wrote self-host summary: {runner.work_dir / 'summary.json'}")
+    print(f"wrote self-host correctness: {runner.work_dir / 'correctness.json'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -13,6 +13,7 @@ import sh.zolt.cli.WorkspaceCommandFixture.WorkspaceApplicationFixture;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -117,6 +118,58 @@ final class WorkspaceBuildCommandTest {
         assertFalse(second.stdout().contains("Compiled 1 main source files in modules/core"));
         assertFalse(second.stdout().contains("Compiled 1 main source files in apps/api"));
         assertFalse(second.stdout().contains("Compiled 2 workspace main source files"));
+    }
+
+    @Test
+    void buildWorkspaceRecompilesConsumersWhenDependencyConstantChanges() throws IOException {
+        WorkspaceApplicationFixture fixture = WorkspaceCommandFixture.create(tempDir, "workspace");
+        Path coreSource = fixture.coreDir().resolve("src/main/java/com/example/core/Core.java");
+        Path apiSource = fixture.apiDir().resolve("src/main/java/com/example/api/Api.java");
+        Files.writeString(coreSource, """
+                package com.example.core;
+
+                public final class Core {
+                    public static final String MESSAGE = "one";
+
+                    private Core() {
+                    }
+                }
+                """);
+        Files.writeString(apiSource, """
+                package com.example.api;
+
+                import com.example.core.Core;
+
+                public final class Api {
+                    public static String message() {
+                        return Core.MESSAGE;
+                    }
+                }
+                """);
+        Path cacheRoot = tempDir.resolve("cache");
+        CommandResult first = execute(
+                "build",
+                "--workspace",
+                "--all",
+                "--cwd", fixture.apiDir().toString(),
+                "--cache-root", cacheRoot.toString());
+        Path apiClass = fixture.apiDir().resolve("target/classes/com/example/api/Api.class");
+        byte[] firstApiClass = Files.readAllBytes(apiClass);
+        Files.writeString(coreSource, Files.readString(coreSource).replace("\"one\"", "\"two\""));
+
+        CommandResult second = execute(
+                "build",
+                "--workspace",
+                "--all",
+                "--cwd", fixture.apiDir().toString(),
+                "--cache-root", cacheRoot.toString());
+
+        assertEquals(0, first.exitCode());
+        assertEquals(0, second.exitCode());
+        assertTrue(second.stdout().contains("Compiled 1 main source files in modules/core"));
+        assertTrue(second.stdout().contains("Compiled 1 main source files in apps/api"));
+        assertFalse(second.stdout().contains("Skipped main compilation in apps/api; inputs are unchanged"));
+        assertFalse(Arrays.equals(firstApiClass, Files.readAllBytes(apiClass)));
     }
 
     @Test

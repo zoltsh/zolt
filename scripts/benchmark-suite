@@ -10,6 +10,7 @@ SUMMARY_BRIEF=""
 PROJECT_MANIFEST="docs/benchmarks/projects.json"
 MODULE_COUNT=40
 REPEAT_COUNT=5
+CLEAN_REPEAT_COUNT=1
 LAYER_WIDTH=8
 CLASSES_PER_MODULE=1
 METHODS_PER_CLASS=1
@@ -24,6 +25,11 @@ REAL_PROJECTS=()
 REAL_PROJECT_DRY_RUN=false
 REAL_PROJECT_SAMPLE_TIMEOUT_SECONDS=1800
 ARTIFACT_NAME=""
+ENTERPRISE_WORKLOAD=""
+ENTERPRISE_SAMPLE_TIMEOUT_SECONDS=1800
+INCLUDE_SELF_HOST=false
+SELF_HOST_DRY_RUN=false
+SELF_HOST_SAMPLE_TIMEOUT_SECONDS=1800
 SUITE_FAILED=false
 
 usage() {
@@ -39,6 +45,7 @@ Options:
   --project-manifest FILE     Real-project manifest. Default: docs/benchmarks/projects.json.
   --modules COUNT             Generated workspace module count. Default: 40.
   --repeat COUNT              Generated workspace repeated samples. Default: 5.
+  --clean-repeat COUNT        Repeated clean-build samples. Default: 1.
   --topology SHAPE            Generated graph: chain, wide, or layered. Repeatable.
   --topologies SHAPES         Comma-separated generated graph shapes. Default: wide.
   --layer-width COUNT         Parallel members per layered wave. Default: 8.
@@ -48,6 +55,13 @@ Options:
   --maven PATH                Maven executable passed to generated lane.
   --gradle PATH               Gradle executable passed to generated lane.
   --include-gradle-daemon     Include Gradle daemon in generated lane.
+  --enterprise-workload FILE  Use the correctness-gated enterprise workload spec.
+  --enterprise-sample-timeout SECONDS
+                              Per-command timeout for enterprise lanes. Default: 1800.
+  --self-host                 Run packaged Zolt against a clean copy of this checkout.
+  --self-host-dry-run         Validate the self-host lane without building.
+  --self-host-sample-timeout SECONDS
+                              Per-command timeout for self-host lanes. Default: 1800.
   --generated-summary FILE    Use an existing generated-lane summary instead of running it.
   --skip-generated            Do not run or summarize the generated lane.
   --real-project ID           Run a pinned real-project same-source comparison. Repeatable.
@@ -141,6 +155,12 @@ while [[ "$#" -gt 0 ]]; do
       REPEAT_COUNT="$2"
       shift 2
       ;;
+    --clean-repeat)
+      [[ "$#" -ge 2 ]] || fail "--clean-repeat requires a value"
+      positive_int "$2" || fail "--clean-repeat requires a positive integer"
+      CLEAN_REPEAT_COUNT="$2"
+      shift 2
+      ;;
     --topology)
       [[ "$#" -ge 2 ]] || fail "--topology requires a value"
       add_topologies "$2"
@@ -187,6 +207,32 @@ while [[ "$#" -gt 0 ]]; do
     --include-gradle-daemon)
       INCLUDE_GRADLE_DAEMON=true
       shift
+      ;;
+    --enterprise-workload)
+      [[ "$#" -ge 2 ]] || fail "--enterprise-workload requires a value"
+      ENTERPRISE_WORKLOAD="$2"
+      shift 2
+      ;;
+    --enterprise-sample-timeout)
+      [[ "$#" -ge 2 ]] || fail "--enterprise-sample-timeout requires a value"
+      positive_int "$2" || fail "--enterprise-sample-timeout requires a positive integer"
+      ENTERPRISE_SAMPLE_TIMEOUT_SECONDS="$2"
+      shift 2
+      ;;
+    --self-host)
+      INCLUDE_SELF_HOST=true
+      shift
+      ;;
+    --self-host-dry-run)
+      INCLUDE_SELF_HOST=true
+      SELF_HOST_DRY_RUN=true
+      shift
+      ;;
+    --self-host-sample-timeout)
+      [[ "$#" -ge 2 ]] || fail "--self-host-sample-timeout requires a value"
+      positive_int "$2" || fail "--self-host-sample-timeout requires a positive integer"
+      SELF_HOST_SAMPLE_TIMEOUT_SECONDS="$2"
+      shift 2
       ;;
     --generated-summary)
       [[ "$#" -ge 2 ]] || fail "--generated-summary requires a value"
@@ -253,6 +299,10 @@ fi
 if [[ -n "$GENERATED_SUMMARY" ]]; then
   GENERATED_SUMMARY="$(abs_path "$GENERATED_SUMMARY")"
 fi
+if [[ -n "$ENTERPRISE_WORKLOAD" ]]; then
+  ENTERPRISE_WORKLOAD="$(abs_path "$ENTERPRISE_WORKLOAD")"
+  [[ -f "$ENTERPRISE_WORKLOAD" ]] || fail "enterprise workload not found: $ENTERPRISE_WORKLOAD"
+fi
 if [[ "${#GENERATED_TOPOLOGIES[@]}" -eq 0 ]]; then
   GENERATED_TOPOLOGIES=(wide)
 fi
@@ -269,7 +319,39 @@ if [[ "$SKIP_GENERATED" == false ]]; then
     generated_summary="$GENERATED_SUMMARY"
     mkdir -p "$generated_dir"
 
-    if [[ -z "$generated_summary" ]]; then
+    lane_kind="generated"
+    lane_id_prefix="generated-java-workspace"
+    lane_prefix="Generated Java workspace"
+    if [[ -n "$ENTERPRISE_WORKLOAD" ]]; then
+      lane_kind="enterprise-generated"
+      lane_id_prefix="enterprise-generated"
+      lane_prefix="Enterprise generated workspace"
+    fi
+
+    if [[ -z "$generated_summary" && -n "$ENTERPRISE_WORKLOAD" ]]; then
+      enterprise_args=(
+        --workload "$ENTERPRISE_WORKLOAD"
+        --topology "$topology"
+        --work-dir "$generated_dir"
+        --repeat "$REPEAT_COUNT"
+        --clean-repeat "$CLEAN_REPEAT_COUNT"
+        --sample-timeout "$ENTERPRISE_SAMPLE_TIMEOUT_SECONDS"
+      )
+      if [[ -n "$ZOLT_BIN" ]]; then
+        enterprise_args+=(--zolt "$ZOLT_BIN")
+      fi
+      if [[ -n "$MAVEN_BIN" ]]; then
+        enterprise_args+=(--maven "$MAVEN_BIN")
+      fi
+      if [[ -n "$GRADLE_BIN" ]]; then
+        enterprise_args+=(--gradle "$GRADLE_BIN")
+      fi
+      if [[ "$INCLUDE_GRADLE_DAEMON" == true ]]; then
+        enterprise_args+=(--include-gradle-daemon)
+      fi
+      scripts/benchmark-enterprise "${enterprise_args[@]}"
+      generated_summary="$generated_dir/summary.json"
+    elif [[ -z "$generated_summary" ]]; then
       generated_args=(
         --modules "$MODULE_COUNT"
         --repeat "$REPEAT_COUNT"
@@ -312,13 +394,38 @@ if [[ "$SKIP_GENERATED" == false ]]; then
     scripts/benchmark-suite-summary \
       --summary "$generated_summary" \
       --output "$generated_dir/suite-summary.json" \
-      --lane-id "generated-java-workspace-$topology" \
-      --lane-name "Generated Java workspace: $topology_name" \
-      --lane-kind generated \
+      --lane-id "${lane_id_prefix}-${topology}" \
+      --lane-name "$lane_prefix: $topology_name" \
+      --lane-kind "$lane_kind" \
       --artifact-name "$generated_artifact_name"
 
     lane_summaries+=("$generated_dir/suite-summary.json")
   done
+fi
+
+if [[ "$INCLUDE_SELF_HOST" == true ]]; then
+  self_host_dir="$WORK_DIR/zolt-self-host"
+  self_host_args=(
+    --work-dir "$self_host_dir"
+    --repeat "$REPEAT_COUNT"
+    --clean-repeat "$CLEAN_REPEAT_COUNT"
+    --sample-timeout "$SELF_HOST_SAMPLE_TIMEOUT_SECONDS"
+  )
+  if [[ -n "$ZOLT_BIN" ]]; then
+    self_host_args+=(--zolt "$ZOLT_BIN")
+  fi
+  if [[ "$SELF_HOST_DRY_RUN" == true ]]; then
+    self_host_args+=(--dry-run)
+  fi
+  scripts/benchmark-self-host "${self_host_args[@]}"
+  scripts/benchmark-suite-summary \
+    --summary "$self_host_dir/summary.json" \
+    --output "$self_host_dir/suite-summary.json" \
+    --lane-id "zolt-self-host" \
+    --lane-name "Zolt builds Zolt" \
+    --lane-kind "zolt-self-host" \
+    --artifact-name "$ARTIFACT_NAME"
+  lane_summaries+=("$self_host_dir/suite-summary.json")
 fi
 
 if [[ "${#REAL_PROJECTS[@]}" -gt 0 ]]; then
@@ -332,6 +439,7 @@ if [[ "${#REAL_PROJECTS[@]}" -gt 0 ]]; then
       --work-dir "$project_dir"
       --cache-dir "$WORK_DIR/real-project-cache"
       --repeat "$REPEAT_COUNT"
+      --clean-repeat "$CLEAN_REPEAT_COUNT"
       --sample-timeout "$REAL_PROJECT_SAMPLE_TIMEOUT_SECONDS"
     )
     if [[ -n "$ZOLT_BIN" ]]; then
@@ -372,14 +480,20 @@ artifact_name = sys.argv[4] or None
 lane_summary_paths = [pathlib.Path(path) for path in sys.argv[5:]]
 
 workflow_order = [
+    "dependency-setup",
     "setup-warm-build",
     "first-clean-build",
-    "dependency-setup",
+    "clean-build",
     "no-op-build",
     "warm-no-op-build",
     "leaf-change-build",
     "source-change-build",
     "root-change-build",
+    "shared-api-change-build",
+    "resource-change-build",
+    "test-compile-build",
+    "test-run",
+    "package",
     "sequential-clean-compile-all",
     "parallel-clean-compile-all",
     "clean-compile-single-module",
@@ -390,15 +504,21 @@ workflow_order = [
     "test",
 ]
 workflow_labels = {
+    "dependency-setup": "Dependency setup",
     "setup-warm-build": "First clean build",
-    "no-op-build": "Warm no-op",
-    "leaf-change-build": "Leaf source change",
-    "root-change-build": "Root library change",
     "first-clean-build": "First clean build",
+    "clean-build": "Repeated clean build",
+    "no-op-build": "Warm no-op",
+    "leaf-change-build": "Leaf implementation change",
+    "root-change-build": "Root source change",
+    "shared-api-change-build": "Shared API fan-out change",
+    "resource-change-build": "Resource-only change",
+    "test-compile-build": "Test source change build",
+    "test-run": "Warm test run",
+    "package": "Package",
     "warm-no-op-build": "Warm no-op",
     "source-change-build": "Source change",
     "test": "Test",
-    "dependency-setup": "Dependency setup",
     "sequential-clean-compile-all": "Sequential clean compile all",
     "parallel-clean-compile-all": "Parallel clean compile all",
     "clean-compile-single-module": "Clean compile single module",
@@ -519,11 +639,17 @@ classifications = [
     if ((lane.get("summary") or {}).get("classification"))
 ]
 has_generated_lane = any(lane.get("kind") == "generated" for lane in lanes)
+has_enterprise_lane = any(lane.get("kind") == "enterprise-generated" for lane in lanes)
 has_real_project_lane = any(lane.get("kind") == "real-project-comparison" for lane in lanes)
 classification = "Planned benchmark suite"
 if classifications:
-    if has_generated_lane and has_real_project_lane:
-        classification = "Generated and real-project comparisons"
+    if (has_generated_lane or has_enterprise_lane) and has_real_project_lane:
+        if any(value == "Publishable enterprise generated evidence" for value in classifications):
+            classification = "Publishable enterprise and real-project evidence"
+        else:
+            classification = "Generated and real-project comparisons"
+    elif any(value == "Publishable enterprise generated evidence" for value in classifications):
+        classification = "Publishable enterprise generated evidence"
     elif any(value == "Production-grade generated evidence" for value in classifications):
         classification = "Production-grade generated evidence"
     elif any(value == "Exploratory benchmark" for value in classifications):
@@ -562,10 +688,15 @@ if lanes:
     lane_count = len(lanes)
     completed = suite["run"]["completedLaneCount"]
     generated_count = sum(1 for lane in lanes if lane.get("kind") == "generated")
+    enterprise_count = sum(1 for lane in lanes if lane.get("kind") == "enterprise-generated")
     real_project_count = sum(1 for lane in lanes if lane.get("kind") == "real-project-comparison")
     lane_parts = []
     if generated_count:
         lane_parts.append(f"{generated_count} generated comparison{'s' if generated_count != 1 else ''}")
+    if enterprise_count:
+        lane_parts.append(
+            f"{enterprise_count} enterprise generated comparison{'s' if enterprise_count != 1 else ''}"
+        )
     if real_project_count:
         lane_parts.append(f"{real_project_count} real-project comparison{'s' if real_project_count != 1 else ''}")
     if lane_parts:

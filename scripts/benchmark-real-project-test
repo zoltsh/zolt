@@ -66,7 +66,7 @@ cat >"$ADAPTER" <<EOF
     "dependencies": {},
     "providedDependencies": {},
     "excludes": [],
-    "coveredWorkflows": ["first-clean-build", "warm-no-op-build", "source-change-build"],
+    "coveredWorkflows": ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"],
     "omittedBuildFeatures": ["tests"]
   }
 }
@@ -80,7 +80,16 @@ if [[ "${1:-}" == "--version" ]]; then
   exit 0
 fi
 case "${1:-}" in
-  resolve | build | clean) printf 'zolt %s ok\n' "$1" ;;
+  resolve) printf 'zolt resolve ok\n' ;;
+  clean)
+    rm -rf target/classes
+    printf 'zolt clean ok\n'
+    ;;
+  build)
+    mkdir -p target/classes
+    find src/main/java -name '*.java' -print0 | xargs -0 javac -d target/classes
+    printf 'zolt build ok\n'
+    ;;
   *) exit 2 ;;
 esac
 FAKE
@@ -92,6 +101,12 @@ if [[ "${1:-}" == "--version" ]]; then
   printf 'fake maven 1.0\n'
   exit 0
 fi
+if [[ " $* " == *" clean "* ]]; then
+  rm -rf target/classes
+else
+  mkdir -p target/classes
+  find src/main/java -name '*.java' -print0 | xargs -0 javac -d target/classes
+fi
 printf 'maven ok\n'
 FAKE
 
@@ -101,6 +116,16 @@ set -euo pipefail
 if [[ "${1:-}" == "--version" ]]; then
   printf 'fake gradle 1.0\n'
   exit 0
+fi
+if [[ " $* " == *" --stop "* ]]; then
+  printf 'gradle stopped\n'
+  exit 0
+fi
+if [[ " $* " == *" clean "* ]]; then
+  rm -rf build/classes/java/main
+else
+  mkdir -p build/classes/java/main
+  find src/main/java -name '*.java' -print0 | xargs -0 javac -d build/classes/java/main
 fi
 printf 'gradle ok\n'
 FAKE
@@ -122,7 +147,7 @@ for tool in maven gradle; do
     "adapterStatus": "main-source-ready",
     "adapterPath": "$WORK_DIR/$project_id-coverage.json",
     "pin": { "type": "commit", "value": "$PIN", "sourceBranch": "main" },
-    "workflows": ["first-clean-build", "warm-no-op-build", "source-change-build"],
+    "workflows": ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"],
     "coverageNotes": ["Fixture coverage note."]
   }]
 }
@@ -133,6 +158,7 @@ EOF
     --project-manifest "$MANIFEST" \
     --work-dir "$WORK_DIR/run-$tool" \
     --repeat 2 \
+    --clean-repeat 2 \
     --zolt "$FAKE_ZOLT" \
     --maven "$FAKE_MAVEN" \
     --gradle "$FAKE_GRADLE" \
@@ -140,18 +166,21 @@ EOF
 
   jq -e '
     .status == "complete"
-    and (.workflows | length) == 3
+    and (.workflows | length) == 4
+    and .correctness.status == "passed"
     and all(.workflows[];
       (.tools | keys | sort) == (["zolt", "maven", "gradle-no-daemon", "gradle-daemon"] | sort)
       and all(.tools[]; .sampleCount == .successfulSampleCount)
+      and all(.tools[]; has("p95Millis") and has("standardDeviationMillis") and has("median95ConfidenceIntervalMillis"))
     )
   ' "$WORK_DIR/run-$tool/summary.json" >/dev/null \
-    || fail "$tool comparison summary did not record three successful workflows"
+    || fail "$tool comparison summary did not record four successful workflows"
 
   jq -e '
     .lanes[0].kind == "real-project-comparison"
     and .lanes[0].status == "complete"
-    and .lanes[0].summary.completedWorkflowCount == 3
+    and .lanes[0].summary.completedWorkflowCount == 4
+    and .lanes[0].correctness.status == "passed"
     and (.lanes[0].tools | keys | sort) == (["zolt", "maven", "gradle-no-daemon", "gradle-daemon"] | sort)
   ' "$WORK_DIR/run-$tool/suite-summary.json" >/dev/null \
     || fail "$tool suite lane was not a completed real-project comparison"
@@ -191,7 +220,7 @@ while IFS= read -r adapter_path; do
     .status == "comparison-ready"
     and .adapter.type == "generated-same-source-overlay"
     and (.adapter.sourceRoots | length) > 0
-    and (.adapter.coveredWorkflows == ["first-clean-build", "warm-no-op-build", "source-change-build"])
+    and (.adapter.coveredWorkflows == ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"])
   ' "$adapter_path" >/dev/null || fail "adapter is not comparison-ready: $adapter_path"
 done < <(jq -r '.projects[].adapterPath' docs/benchmarks/projects.json)
 

@@ -3,7 +3,7 @@ name: benchmarks
 on:
   push:
     branches:
-      - benchmarks
+      - benchmark-improvements
   workflow_dispatch:
     inputs:
       modules:
@@ -31,10 +31,20 @@ on:
         required: true
         default: "1"
         type: string
+      enterprise_workload:
+        description: Correctness-gated generated workload specification.
+        required: true
+        default: benchmarks/workloads/enterprise-v1.json
+        type: string
       repeat:
         description: Timed samples per workflow.
         required: true
         default: "7"
+        type: string
+      clean_repeat:
+        description: Timed repeated clean-build samples.
+        required: true
+        default: "5"
         type: string
       zolt_source:
         description: Native Zolt binary source.
@@ -78,6 +88,16 @@ on:
         required: true
         default: "1800"
         type: string
+      self_host:
+        description: Run the non-comparative Zolt-building-Zolt lane.
+        required: true
+        default: true
+        type: boolean
+      self_host_sample_timeout:
+        description: Per-command timeout for the self-host lane, in seconds.
+        required: true
+        default: "1800"
+        type: string
       openai_reasoning_effort:
         description: Reasoning effort for optional OpenAI benchmark summary.
         required: true
@@ -96,11 +116,11 @@ jobs:
   benchmark:
     name: benchmark suite (${{ matrix.zolt_source }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        zolt_source: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.zolt_source) || '["build","release"]') }}
+        zolt_source: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.zolt_source) || '["build"]') }}
 
     env:
       BENCHMARK_DIR: target/benchmarks/competitors
@@ -109,7 +129,9 @@ jobs:
       BENCHMARK_LAYER_WIDTH: ${{ github.event_name == 'workflow_dispatch' && inputs.layer_width || '8' }}
       BENCHMARK_CLASSES_PER_MODULE: ${{ github.event_name == 'workflow_dispatch' && inputs.classes_per_module || '1' }}
       BENCHMARK_METHODS_PER_CLASS: ${{ github.event_name == 'workflow_dispatch' && inputs.methods_per_class || '1' }}
+      BENCHMARK_ENTERPRISE_WORKLOAD: ${{ github.event_name == 'workflow_dispatch' && inputs.enterprise_workload || 'benchmarks/workloads/smoke-v1.json' }}
       BENCHMARK_REPEAT: ${{ github.event_name == 'workflow_dispatch' && inputs.repeat || '1' }}
+      BENCHMARK_CLEAN_REPEAT: ${{ github.event_name == 'workflow_dispatch' && inputs.clean_repeat || '1' }}
       BENCHMARK_ZOLT_SOURCE: ${{ matrix.zolt_source }}
       BENCHMARK_RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'zap' }}
       BENCHMARK_RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || '' }}
@@ -118,8 +140,11 @@ jobs:
       BENCHMARK_REAL_PROJECTS: ${{ github.event_name == 'workflow_dispatch' && inputs.real_projects || 'spring-petclinic,apache-commons-cli,hikaricp,netty,junit-framework' }}
       BENCHMARK_REAL_PROJECT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.real_project_dry_run || false }}
       BENCHMARK_REAL_PROJECT_SAMPLE_TIMEOUT: ${{ github.event_name == 'workflow_dispatch' && inputs.real_project_sample_timeout || '1800' }}
+      BENCHMARK_SELF_HOST: ${{ github.event_name != 'workflow_dispatch' || inputs.self_host }}
+      BENCHMARK_SELF_HOST_SAMPLE_TIMEOUT: ${{ github.event_name == 'workflow_dispatch' && inputs.self_host_sample_timeout || '1800' }}
       BENCHMARK_GRADLE_VERSION: "9.6.1"
       BENCHMARK_AI_SUMMARY: ${{ github.event_name != 'workflow_dispatch' && 'false' || vars.BENCHMARK_AI_SUMMARY || 'true' }}
+      BENCHMARK_ARTIFACT_NAME: zolt-benchmark-native-${{ matrix.zolt_source }}-${{ github.run_id }}-${{ github.run_attempt }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.5' }}
       OPENAI_REASONING_EFFORT: ${{ github.event_name == 'workflow_dispatch' && inputs.openai_reasoning_effort || vars.OPENAI_REASONING_EFFORT || 'high' }}
 
@@ -191,6 +216,8 @@ jobs:
       - name: Validate benchmark harnesses
         run: |
           scripts/benchmark-suite-test
+          scripts/benchmark-enterprise-test
+          scripts/benchmark-self-host-test
           scripts/benchmark-large-source-test
           scripts/benchmark-large-source-report-test
           scripts/benchmark-netty-compare-test
@@ -238,7 +265,9 @@ jobs:
         run: |
           export PATH="$JAVA_HOME/bin:$PATH"
           topology_label="${BENCHMARK_TOPOLOGIES//,/+}"
-          artifact_name="zolt-benchmark-native-${BENCHMARK_ZOLT_SOURCE}-${topology_label}-${BENCHMARK_MODULES}-modules-${BENCHMARK_REPEAT}-repeats"
+          workload_label="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["id"])' "$BENCHMARK_ENTERPRISE_WORKLOAD")"
+          artifact_name="zolt-benchmark-native-${BENCHMARK_ZOLT_SOURCE}-${workload_label}-${topology_label}-${BENCHMARK_REPEAT}-repeats"
+          printf 'BENCHMARK_ARTIFACT_NAME=%s\n' "$artifact_name" >> "$GITHUB_ENV"
           args=(
             --modules "$BENCHMARK_MODULES"
             --repeat "$BENCHMARK_REPEAT"
@@ -246,10 +275,13 @@ jobs:
             --layer-width "$BENCHMARK_LAYER_WIDTH"
             --classes-per-module "$BENCHMARK_CLASSES_PER_MODULE"
             --methods-per-class "$BENCHMARK_METHODS_PER_CLASS"
+            --enterprise-workload "$BENCHMARK_ENTERPRISE_WORKLOAD"
             --work-dir "$BENCHMARK_DIR"
+            --clean-repeat "$BENCHMARK_CLEAN_REPEAT"
             --zolt "$ZOLT_BENCH_ZOLT"
             --project-manifest docs/benchmarks/projects.json
             --real-project-sample-timeout "$BENCHMARK_REAL_PROJECT_SAMPLE_TIMEOUT"
+            --self-host-sample-timeout "$BENCHMARK_SELF_HOST_SAMPLE_TIMEOUT"
             --artifact-name "$artifact_name"
           )
           if [[ "$BENCHMARK_INCLUDE_GRADLE_DAEMON" == "true" ]]; then
@@ -257,6 +289,9 @@ jobs:
           fi
           if [[ "$BENCHMARK_SKIP_GENERATED" == "true" ]]; then
             args+=(--skip-generated)
+          fi
+          if [[ "$BENCHMARK_SELF_HOST" == "true" ]]; then
+            args+=(--self-host)
           fi
           if [[ -n "$BENCHMARK_REAL_PROJECTS" ]]; then
             args+=(--real-projects "$BENCHMARK_REAL_PROJECTS")
@@ -340,8 +375,10 @@ jobs:
             printf '| Modules before app | `%s` |\n' "$BENCHMARK_MODULES"
             printf '| Classes per module | `%s` |\n' "$BENCHMARK_CLASSES_PER_MODULE"
             printf '| Methods per payload class | `%s` |\n' "$BENCHMARK_METHODS_PER_CLASS"
+            printf '| Enterprise workload | `%s` |\n' "$BENCHMARK_ENTERPRISE_WORKLOAD"
             printf '| Samples per repeated workflow | `%s` |\n' "$BENCHMARK_REPEAT"
-            printf '| First clean build samples | `1` |\n'
+            printf '| Repeated clean-build samples | `%s` |\n' "$BENCHMARK_CLEAN_REPEAT"
+            printf '| First cold clean-build samples | `1` |\n'
             printf '| Gradle daemon included | `%s` |\n' "$BENCHMARK_INCLUDE_GRADLE_DAEMON"
             printf '| Generated lane skipped | `%s` |\n' "$BENCHMARK_SKIP_GENERATED"
             if [[ -n "$BENCHMARK_REAL_PROJECTS" ]]; then
@@ -349,6 +386,7 @@ jobs:
               printf '| Real-project dry run | `%s` |\n' "$BENCHMARK_REAL_PROJECT_DRY_RUN"
               printf '| Real-project command timeout | `%s seconds` |\n' "$BENCHMARK_REAL_PROJECT_SAMPLE_TIMEOUT"
             fi
+            printf '| Zolt self-host lane | `%s` |\n' "$BENCHMARK_SELF_HOST"
             printf '\n'
             if [[ -f "$BENCHMARK_DIR/summary-brief.md" ]]; then
               cat "$BENCHMARK_DIR/summary-brief.md"
@@ -369,7 +407,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: zolt-benchmark-native-${{ env.BENCHMARK_ZOLT_SOURCE }}-${{ env.BENCHMARK_TOPOLOGIES }}-${{ env.BENCHMARK_MODULES }}-modules-${{ env.BENCHMARK_REPEAT }}-repeats
+          name: ${{ env.BENCHMARK_ARTIFACT_NAME }}
           path: |
             target/benchmarks/competitors/summary-brief.md
             target/benchmarks/competitors/suite-summary.json
@@ -378,8 +416,10 @@ jobs:
             target/benchmarks/competitors/summary-ai.md
             target/benchmarks/competitors/summary-ai-request.json
             target/benchmarks/competitors/generated-java-workspace-*/**
+            target/benchmarks/competitors/zolt-self-host/**
             target/benchmarks/competitors/real-projects/**
             !target/benchmarks/competitors/real-projects/*/checkout/**
             benchmarks/adapters/**
+            benchmarks/workloads/**
             docs/benchmarks/projects.json
           if-no-files-found: warn

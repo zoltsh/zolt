@@ -95,22 +95,44 @@ summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
 workflow_labels = {
     "setup": "Zolt dependency setup",
+    "dependency-setup": "Dependency setup",
     "setup-warm-build": "First clean build",
+    "first-clean-build": "First clean build",
+    "clean-build": "Repeated clean build",
     "no-op-build": "Warm no-op build",
-    "leaf-change-build": "Leaf source change",
-    "root-change-build": "Root library change",
+    "leaf-change-build": "Leaf implementation change",
+    "root-change-build": "Root source change",
+    "shared-api-change-build": "Shared API fan-out change",
+    "resource-change-build": "Resource-only change",
+    "test-compile-build": "Test source change build",
+    "test-run": "Warm test run",
+    "package": "Package",
 }
 workflow_order = [
+    "dependency-setup",
+    "first-clean-build",
     "setup-warm-build",
+    "clean-build",
     "no-op-build",
     "leaf-change-build",
     "root-change-build",
+    "shared-api-change-build",
+    "resource-change-build",
+    "test-compile-build",
+    "test-run",
+    "package",
     "setup",
 ]
 repeated_workflows = {
+    "clean-build",
     "no-op-build",
     "leaf-change-build",
     "root-change-build",
+    "shared-api-change-build",
+    "resource-change-build",
+    "test-compile-build",
+    "test-run",
+    "package",
 }
 tool_labels = {
     "zolt": "Zolt",
@@ -145,13 +167,23 @@ def first_version_line(environment, tool):
     return "version output empty"
 
 
-def classify(environment, workflows):
+def classify(environment, workflows, correctness):
+    if environment.get("classification") == "zolt-self-host":
+        if summary.get("status") == "dry-run":
+            return "Zolt self-host dry run"
+        if correctness.get("status") == "passed":
+            return "Zolt self-host validation"
+        return "Failed Zolt self-host validation"
     module_count = int(environment.get("moduleCount") or 0)
     repeat_count = int(environment.get("repeatCount") or 0)
+    clean_repeat_count = int(environment.get("cleanRepeatCount") or 0)
+    app_count = int(environment.get("appModules") or 1)
+    source_files = int(environment.get("sourceFiles") or 0)
+    source_lines = int(environment.get("sourceLines") or 0)
     comparable = [
         row
         for row in workflows
-        if row.get("workflow") != "setup"
+        if row.get("workflow") not in {"setup", "dependency-setup"}
         and "zolt" in row.get("tools", {})
         and (
             "maven" in row.get("tools", {})
@@ -164,6 +196,49 @@ def classify(environment, workflows):
         and "gradle-daemon" in row.get("tools", {})
         for row in comparable
     )
+    enterprise = environment.get("classification") == "enterprise-generated"
+    if enterprise:
+        required = {
+            "first-clean-build",
+            "clean-build",
+            "no-op-build",
+            "leaf-change-build",
+            "shared-api-change-build",
+            "resource-change-build",
+            "test-compile-build",
+            "test-run",
+            "package",
+        }
+        present = {row.get("workflow") for row in workflows}
+        correctness_passed = correctness.get("status") == "passed"
+        if (
+            module_count >= 200
+            and app_count >= 2
+            and source_files >= 1_000
+            and source_lines >= 20_000
+            and clean_repeat_count >= 3
+            and repeat_count >= 5
+            and required.issubset(present)
+            and has_production_competitors
+            and correctness_passed
+            and environment.get("zoltSource") == "release"
+        ):
+            return "Publishable enterprise generated evidence"
+        if (
+            module_count >= 200
+            and app_count >= 2
+            and source_files >= 1_000
+            and source_lines >= 20_000
+            and clean_repeat_count >= 3
+            and repeat_count >= 5
+            and required.issubset(present)
+            and has_production_competitors
+            and correctness_passed
+        ):
+            return "Publication-scale enterprise validation"
+        if module_count < 20 or repeat_count < 3:
+            return "Enterprise smoke validation"
+        return "Exploratory enterprise benchmark"
     if module_count < 20 or repeat_count < 3:
         return "Smoke validation"
     if module_count >= 40 and repeat_count >= 5 and has_production_competitors:
@@ -182,8 +257,9 @@ def display_path(path):
 
 
 environment = summary.get("environment") or {}
+correctness = summary.get("correctness") or {}
 source_workflows = sorted(summary.get("workflows", []), key=sort_key)
-classification = classify(environment, source_workflows)
+classification = classify(environment, source_workflows, correctness)
 workflow_records = []
 zolt_repeated_wins = 0
 repeated_count = 0
@@ -205,19 +281,28 @@ for row in source_workflows:
         for tool, metrics in ordered_tools.items()
         if isinstance(metrics.get("medianMillis"), (int, float))
     }
-    winner = min(medians, key=medians.get) if medians else None
+    winner = (
+        min(medians, key=medians.get)
+        if medians and workflow not in {"setup", "dependency-setup"}
+        else None
+    )
     zolt_median = medians.get("zolt")
     ratios = {}
-    if zolt_median:
+    if zolt_median and workflow not in {"setup", "dependency-setup"}:
         for tool, median in medians.items():
             if tool != "zolt":
                 ratios[tool] = median / zolt_median
-    kind = "setup" if workflow in {"setup", "setup-warm-build"} else "repeated"
+    if workflow in {"setup", "dependency-setup"}:
+        kind = "setup"
+    elif workflow in {"setup-warm-build", "first-clean-build"}:
+        kind = "cold"
+    else:
+        kind = "repeated"
     if workflow in repeated_workflows:
         repeated_count += 1
         if winner == "zolt":
             zolt_repeated_wins += 1
-    if "zolt" in tools and len(tools) > 1:
+    if workflow not in {"setup", "dependency-setup"} and "zolt" in tools and len(tools) > 1:
         comparable_count += 1
     workflow_records.append({
         "id": workflow,
@@ -228,31 +313,49 @@ for row in source_workflows:
         "ratiosVsZolt": ratios,
     })
 
-caveats = [
-    "First clean build is a single setup sample; steady-state claims should use repeated workflows.",
-]
-topology = environment.get("topology") or "chain"
+caveats = list(summary.get("caveats") or [])
+if environment.get("classification") == "enterprise-generated":
+    caveats.extend([
+        "Dependency setup and the first cold clean build are separated from repeated workflow claims.",
+        "Repeated clean builds retain warmed dependency and tool-process caches while removing compiled outputs.",
+        "Shared API fan-out, compiled class/resource parity, annotation processing, tests, and package contents are correctness-gated.",
+    ])
+elif environment.get("classification") != "zolt-self-host":
+    caveats.append(
+        "First clean build is a single setup sample; steady-state claims should use repeated workflows."
+    )
+topology = environment.get("topology") or ("n/a" if lane_kind == "zolt-self-host" else "chain")
 topology_notes = {
     "chain": "Serial-chain topology measures critical-path and compiler-process overhead; it does not demonstrate workspace parallelism.",
     "wide": "Wide topology measures one large parallel compilation wave followed by the app.",
     "layered": "Layered topology measures repeated dependency-ordered parallel compilation waves.",
 }
-caveats.append(topology_notes.get(topology, f"Generated workspace topology: {topology}."))
-if classification != "Production-grade generated evidence":
+caveats.extend(
+    []
+    if lane_kind == "zolt-self-host"
+    else [topology_notes.get(topology, f"Generated workspace topology: {topology}.")]
+)
+if classification not in {
+    "Production-grade generated evidence",
+    "Publishable enterprise generated evidence",
+    "Zolt self-host validation",
+    "Zolt self-host dry run",
+}:
     article = "an" if classification[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
     caveats.append(f"This is {article} {classification.lower()} run, not production-grade evidence.")
-available_tools = {
-    tool
-    for row in source_workflows
-    for tool in (row.get("tools") or {})
-}
-for required_tool, label in [
-    ("maven", "Maven"),
-    ("gradle-no-daemon", "Gradle no-daemon"),
-    ("gradle-daemon", "Gradle daemon"),
-]:
-    if required_tool not in available_tools:
-        caveats.append(f"{label} results are missing from at least one core comparison.")
+if lane_kind != "zolt-self-host":
+    available_tools = {
+        tool
+        for row in source_workflows
+        for tool in (row.get("tools") or {})
+    }
+    for required_tool, label in [
+        ("maven", "Maven"),
+        ("gradle-no-daemon", "Gradle no-daemon"),
+        ("gradle-daemon", "Gradle daemon"),
+    ]:
+        if required_tool not in available_tools:
+            caveats.append(f"{label} results are missing from at least one core comparison.")
 
 run_url = None
 if os.environ.get("GITHUB_SERVER_URL") and os.environ.get("GITHUB_REPOSITORY") and os.environ.get("GITHUB_RUN_ID"):
@@ -267,7 +370,13 @@ suite = {
     "createdAt": datetime.now(timezone.utc).isoformat(),
     "suite": {
         "name": "zolt-native-benchmarks",
-        "mode": "generated-workspace",
+        "mode": (
+            "enterprise-generated"
+            if lane_kind == "enterprise-generated"
+            else "zolt-self-host"
+            if lane_kind == "zolt-self-host"
+            else "generated-workspace"
+        ),
     },
     "repository": {
         "name": os.environ.get("GITHUB_REPOSITORY"),
@@ -289,24 +398,32 @@ suite = {
             "id": lane_id,
             "name": lane_name,
             "kind": lane_kind,
-            "status": "complete",
+            "status": summary.get("status") or "complete",
             "workload": {
                 "moduleCount": environment.get("moduleCount"),
-                "appModules": 1,
+                "platformModules": environment.get("platformModules"),
+                "appModules": environment.get("appModules") or 1,
                 "repeatCount": environment.get("repeatCount"),
+                "cleanRepeatCount": environment.get("cleanRepeatCount"),
                 "topology": topology,
                 "layerWidth": environment.get("layerWidth"),
+                "dependencyFanout": environment.get("dependencyFanout"),
                 "classesPerModule": environment.get("classesPerModule"),
                 "methodsPerClass": environment.get("methodsPerClass"),
+                "testsPerModule": environment.get("testsPerModule"),
                 "sourceFiles": environment.get("sourceFiles"),
                 "sourceLines": environment.get("sourceLines"),
+                "resourceFiles": environment.get("resourceFiles"),
             },
             "environment": environment,
             "tools": {
                 "zolt": first_version_line(environment, "zolt"),
                 "maven": first_version_line(environment, "maven"),
                 "gradle": first_version_line(environment, "gradle"),
+                "gradle-no-daemon": first_version_line(environment, "gradle-no-daemon"),
+                "gradle-daemon": first_version_line(environment, "gradle-daemon"),
             },
+            "correctness": correctness or None,
             "summary": {
                 "classification": classification,
                 "zoltFastestRepeatedWorkflows": zolt_repeated_wins,
@@ -320,6 +437,8 @@ suite = {
                 "summaryJson": display_path(summary_path),
                 "samplesJsonl": display_path(summary_path.with_name("samples.jsonl")),
                 "reportMarkdown": display_path(summary_path.with_name("report.md")),
+                "correctnessJson": display_path(summary_path.with_name("correctness.json"))
+                    if correctness else None,
                 "logsDirectory": display_path(summary_path.with_name("logs")),
             },
         }

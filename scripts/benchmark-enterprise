@@ -1,0 +1,1099 @@
+#!/usr/bin/env python3
+"""Run the publishable enterprise generated-workspace benchmark lane."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import os
+import pathlib
+import random
+import shutil
+import statistics
+import subprocess
+import sys
+import time
+import zipfile
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Callable, Iterable
+
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+TOOL_ORDER = ("zolt", "maven", "gradle-no-daemon", "gradle-daemon")
+TOOL_LABELS = {
+    "zolt": "Zolt",
+    "maven": "Maven",
+    "gradle-no-daemon": "Gradle no-daemon",
+    "gradle-daemon": "Gradle daemon",
+}
+WORKFLOW_LABELS = {
+    "dependency-setup": "Dependency setup",
+    "first-clean-build": "First clean build",
+    "clean-build": "Repeated clean build",
+    "no-op-build": "Warm no-op build",
+    "leaf-change-build": "Leaf implementation change",
+    "shared-api-change-build": "Shared API fan-out change",
+    "resource-change-build": "Resource-only change",
+    "test-compile-build": "Test source change build",
+    "test-run": "Warm test run",
+    "package": "Package",
+}
+WORKFLOW_ORDER = tuple(WORKFLOW_LABELS)
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def fail(message: str) -> None:
+    raise SystemExit(f"error: {message}")
+
+
+def resolve_path(value: pathlib.Path) -> pathlib.Path:
+    return value.resolve() if value.is_absolute() else (ROOT / value).resolve()
+
+
+def resolve_tool(value: str | None, fallback: str) -> str | None:
+    if value:
+        path = pathlib.Path(value)
+        if "/" in value:
+            resolved = resolve_path(path)
+            return str(resolved)
+        return value
+    return shutil.which(fallback)
+
+
+def tool_exists(command: str | None) -> bool:
+    if not command:
+        return False
+    if "/" in command:
+        return pathlib.Path(command).is_file() and os.access(command, os.X_OK)
+    return shutil.which(command) is not None
+
+
+@dataclass
+class Tool:
+    identifier: str
+    root: pathlib.Path
+    resolve: list[str]
+    clean: list[str]
+    build: list[str]
+    test_compile: list[str]
+    test_run: list[str]
+    package: list[str]
+
+
+class Runner:
+    def __init__(
+        self,
+        work_dir: pathlib.Path,
+        metadata: dict[str, object],
+        tools: list[Tool],
+        timeout_seconds: int,
+        clean_samples: int,
+        repeated_samples: int,
+    ) -> None:
+        self.work_dir = work_dir
+        self.metadata = metadata
+        self.tools = tools
+        self.timeout_seconds = timeout_seconds
+        self.clean_samples = clean_samples
+        self.repeated_samples = repeated_samples
+        self.logs_dir = work_dir / "logs"
+        self.samples_path = work_dir / "samples.jsonl"
+        self.summary_path = work_dir / "summary.json"
+        self.report_path = work_dir / "report.md"
+        self.correctness_path = work_dir / "correctness.json"
+        self.samples: list[dict[str, object]] = []
+        self.correctness: dict[str, object] = {
+            "schemaVersion": 1,
+            "status": "pending",
+            "checks": [],
+        }
+        self.fanout_before: dict[str, dict[str, str]] = {}
+        self.leaf_before: dict[str, dict[str, str]] = {}
+
+    def tool_order_for(self, workflow_index: int, sample_index: int) -> list[Tool]:
+        if not self.tools:
+            return []
+        offset = (workflow_index + sample_index) % len(self.tools)
+        return self.tools[offset:] + self.tools[:offset]
+
+    def log_path(self, workflow: str, tool: Tool, sample: int) -> pathlib.Path:
+        return self.logs_dir / workflow / tool.identifier / f"sample-{sample:03d}.log"
+
+    def run(
+        self,
+        workflow: str,
+        tool: Tool,
+        sample: int,
+        command: list[str],
+        *,
+        timed: bool = True,
+    ) -> dict[str, object]:
+        log_path = self.log_path(workflow, tool, sample)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        started_at = now()
+        start = time.perf_counter_ns()
+        timed_out = False
+        exit_code = 0
+        with log_path.open("w", encoding="utf-8") as log:
+            log.write("$ " + " ".join(command) + "\n\n")
+            try:
+                completed = subprocess.run(
+                    command,
+                    cwd=tool.root,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    check=False,
+                    timeout=self.timeout_seconds,
+                )
+                exit_code = completed.returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                exit_code = 124
+                log.write(f"\nCommand timed out after {self.timeout_seconds} seconds.\n")
+            except FileNotFoundError as exc:
+                exit_code = 127
+                log.write(f"\n{exc}\n")
+        duration_nanos = time.perf_counter_ns() - start
+        row = {
+            "kind": "sample" if timed else "setup",
+            "workflow": workflow,
+            "workflowLabel": WORKFLOW_LABELS.get(workflow, workflow),
+            "tool": tool.identifier,
+            "sample": sample,
+            "command": command,
+            "exitCode": exit_code,
+            "timedOut": timed_out,
+            "durationNanos": duration_nanos,
+            "durationMillis": round(duration_nanos / 1_000_000),
+            "startedAt": started_at,
+            "finishedAt": now(),
+            "log": str(log_path.relative_to(ROOT)),
+        }
+        if timed:
+            self.samples.append(row)
+            with self.samples_path.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(row, separators=(",", ":")) + "\n")
+        if exit_code != 0:
+            fail(
+                f"{tool.identifier} {workflow} sample {sample} failed with exit "
+                f"{exit_code}; see {row['log']}"
+            )
+        return row
+
+    def prepare(self, tool: Tool, workflow: str, sample: int) -> None:
+        mutation = self.metadata["mutations"]
+        if not isinstance(mutation, dict):
+            fail("fixture metadata mutations are invalid")
+        if workflow in {"first-clean-build", "clean-build"}:
+            self.run(
+                f"prepare-{workflow}",
+                tool,
+                sample,
+                tool.clean,
+                timed=False,
+            )
+        elif workflow == "leaf-change-build":
+            path = tool.root / str(mutation["leafSource"])
+            text = path.read_text(encoding="utf-8")
+            token = str(mutation["leafToken"])
+            previous = token if sample == 1 else f"{token}-sample-{sample - 1:03d}"
+            replacement = f"{token}-sample-{sample:03d}"
+            if f'"{previous}"' not in text:
+                fail(f"leaf implementation token {previous} not found in {path}")
+            path.write_text(
+                text.replace(f'"{previous}"', f'"{replacement}"', 1),
+                encoding="utf-8",
+            )
+        elif workflow == "shared-api-change-build":
+            path = tool.root / str(mutation["sharedApiSource"])
+            text = path.read_text(encoding="utf-8")
+            previous = f"api-{sample - 1:03d}"
+            replacement = f"api-{sample:03d}"
+            if previous not in text:
+                fail(f"shared API token {previous} not found in {path}")
+            path.write_text(text.replace(previous, replacement, 1), encoding="utf-8")
+        elif workflow == "resource-change-build":
+            path = tool.root / str(mutation["resource"])
+            with path.open("a", encoding="utf-8") as output:
+                output.write(f"resourceSample={sample}\n")
+        elif workflow == "test-compile-build":
+            path = tool.root / str(mutation["testSource"])
+            text = path.read_text(encoding="utf-8")
+            token = str(mutation["testToken"])
+            previous = token if sample == 1 else f"{token}{sample - 1:03d}"
+            replacement = f"{token}{sample:03d}"
+            if previous not in text:
+                fail(f"test source token {previous} not found in {path}")
+            path.write_text(text.replace(previous, replacement, 1), encoding="utf-8")
+        elif workflow == "package":
+            self.remove_package_outputs(tool)
+
+    def remove_package_outputs(self, tool: Tool) -> None:
+        if tool.identifier == "zolt":
+            patterns = ("**/target/*.jar", "**/target/*.jar.zolt-package.json")
+        elif tool.identifier == "maven":
+            patterns = ("**/target/*.jar",)
+        else:
+            patterns = ("**/build/libs/*.jar",)
+        for pattern in patterns:
+            for path in tool.root.glob(pattern):
+                if path.is_file():
+                    path.unlink()
+
+    def command_for(self, tool: Tool, workflow: str) -> list[str]:
+        if workflow == "dependency-setup":
+            return tool.resolve
+        if workflow in {
+            "first-clean-build",
+            "clean-build",
+            "no-op-build",
+            "leaf-change-build",
+            "shared-api-change-build",
+            "resource-change-build",
+        }:
+            return tool.build
+        if workflow == "test-compile-build":
+            return tool.test_compile
+        if workflow == "test-run":
+            return tool.test_run
+        if workflow == "package":
+            return tool.package
+        fail(f"unsupported workflow: {workflow}")
+
+    def capture_fanout_baseline(self) -> None:
+        self.fanout_before = {
+            tool.identifier: primary_class_hashes(tool)
+            for tool in self.tools
+        }
+
+    def capture_leaf_baseline(self) -> None:
+        self.leaf_before = {
+            tool.identifier: primary_class_hashes(tool)
+            for tool in self.tools
+        }
+
+    def verify_leaf_change(self) -> None:
+        mutation = self.metadata.get("mutations") or {}
+        workload = self.metadata.get("workload") or {}
+        expected = f"lib{int(workload.get('modules') or 0):03d}"
+        for tool in self.tools:
+            before = self.leaf_before.get(tool.identifier, {})
+            after = primary_class_hashes(tool)
+            changed = sorted(
+                key for key, value in after.items() if before.get(key) != value
+            )
+            self.add_check(
+                f"{tool.identifier}-leaf-output-change",
+                changed == [expected],
+                {
+                    "source": mutation.get("leafSource"),
+                    "expectedChangedModules": [expected],
+                    "actualChangedModules": changed,
+                },
+            )
+
+    def verify_fanout(self) -> None:
+        expected = int(
+            (self.metadata.get("correctness") or {}).get("expectedFanoutModules") or 0
+        )
+        for tool in self.tools:
+            before = self.fanout_before.get(tool.identifier, {})
+            after = primary_class_hashes(tool)
+            changed = sorted(
+                key for key, value in after.items() if before.get(key) != value
+            )
+            self.add_check(
+                f"{tool.identifier}-shared-api-fanout",
+                len(changed) == expected,
+                {
+                    "expectedChangedModules": expected,
+                    "actualChangedModules": len(changed),
+                    "changedModules": changed,
+                },
+            )
+
+    def add_check(
+        self, name: str, passed: bool, evidence: dict[str, object] | None = None
+    ) -> None:
+        checks = self.correctness["checks"]
+        if not isinstance(checks, list):
+            fail("correctness checks collection is invalid")
+        checks.append(
+            {
+                "name": name,
+                "passed": passed,
+                "evidence": evidence or {},
+            }
+        )
+
+    def verify_initial_outputs(self) -> None:
+        class_sets = {tool.identifier: compiled_class_set(tool) for tool in self.tools}
+        baseline = next(iter(class_sets.values()), set())
+        for identifier, values in class_sets.items():
+            self.add_check(
+                f"{identifier}-compiled-class-set",
+                values == baseline and bool(values),
+                {
+                    "classCount": len(values),
+                    "baselineClassCount": len(baseline),
+                    "missing": sorted(baseline - values)[:20],
+                    "extra": sorted(values - baseline)[:20],
+                },
+            )
+        resource_sets = {
+            tool.identifier: compiled_resource_map(tool) for tool in self.tools
+        }
+        resource_baseline = next(iter(resource_sets.values()), {})
+        for identifier, values in resource_sets.items():
+            self.add_check(
+                f"{identifier}-resource-set",
+                values == resource_baseline,
+                {
+                    "resourceCount": len(values),
+                    "baselineResourceCount": len(resource_baseline),
+                },
+            )
+        if bool((self.metadata.get("workload") or {}).get("annotationProcessors")):
+            for tool in self.tools:
+                completed = subprocess.run(
+                    [
+                        "javap",
+                        "-classpath",
+                        str(platform_classes_dir(tool)),
+                        "bench.enterprise.platform.PlatformDescriptor",
+                    ],
+                    cwd=tool.root,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.add_check(
+                    f"{tool.identifier}-annotation-processor",
+                    completed.returncode == 0
+                    and "java.lang.String getName();" in completed.stdout,
+                    {
+                        "exitCode": completed.returncode,
+                        "generatedGetter": "java.lang.String getName();"
+                        in completed.stdout,
+                    },
+                )
+
+    def verify_test_outputs(self) -> None:
+        class_sets = {
+            tool.identifier: compiled_test_class_set(tool) for tool in self.tools
+        }
+        baseline = next(iter(class_sets.values()), set())
+        for identifier, values in class_sets.items():
+            self.add_check(
+                f"{identifier}-compiled-test-class-set",
+                values == baseline and bool(values),
+                {
+                    "classCount": len(values),
+                    "baselineClassCount": len(baseline),
+                    "missing": sorted(baseline - values)[:20],
+                    "extra": sorted(values - baseline)[:20],
+                },
+            )
+
+    def verify_packages(self) -> None:
+        package_sets = {
+            tool.identifier: packaged_entry_map(tool, self.metadata)
+            for tool in self.tools
+        }
+        baseline = next(iter(package_sets.values()), {})
+        for identifier, values in package_sets.items():
+            self.add_check(
+                f"{identifier}-package-contents",
+                values == baseline and bool(values),
+                {
+                    "memberCount": len(values),
+                    "baselineMemberCount": len(baseline),
+                    "entryCount": sum(len(entries) for entries in values.values()),
+                },
+            )
+
+    def finalize_correctness(self) -> None:
+        checks = self.correctness["checks"]
+        if not isinstance(checks, list):
+            fail("correctness checks collection is invalid")
+        passed = bool(checks) and all(bool(check.get("passed")) for check in checks)
+        self.correctness["status"] = "passed" if passed else "failed"
+        self.correctness["completedAt"] = now()
+        self.correctness_path.write_text(
+            json.dumps(self.correctness, indent=2) + "\n", encoding="utf-8"
+        )
+        if not passed:
+            failed = [str(check.get("name")) for check in checks if not check.get("passed")]
+            fail("benchmark correctness checks failed: " + ", ".join(failed))
+
+    def execute(self) -> None:
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        self.samples_path.write_text("", encoding="utf-8")
+        environment = environment_record(
+            self.metadata,
+            self.tools,
+            self.clean_samples,
+            self.repeated_samples,
+        )
+        with self.samples_path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(environment, separators=(",", ":")) + "\n")
+        workflow_samples = [
+            ("dependency-setup", 1),
+            ("first-clean-build", 1),
+            ("clean-build", self.clean_samples),
+            ("no-op-build", self.repeated_samples),
+            ("leaf-change-build", self.repeated_samples),
+            ("shared-api-change-build", self.repeated_samples),
+            ("resource-change-build", self.repeated_samples),
+            ("test-compile-build", self.repeated_samples),
+            ("test-run", self.repeated_samples),
+            ("package", self.repeated_samples),
+        ]
+        for workflow_index, (workflow, sample_count) in enumerate(workflow_samples):
+            if workflow == "leaf-change-build":
+                self.capture_leaf_baseline()
+            if workflow == "shared-api-change-build":
+                self.capture_fanout_baseline()
+            for sample in range(1, sample_count + 1):
+                for tool in self.tool_order_for(workflow_index, sample - 1):
+                    self.prepare(tool, workflow, sample)
+                    self.run(
+                        workflow,
+                        tool,
+                        sample,
+                        self.command_for(tool, workflow),
+                    )
+                if workflow == "first-clean-build" and sample == 1:
+                    self.verify_initial_outputs()
+                if workflow == "leaf-change-build" and sample == 1:
+                    self.verify_leaf_change()
+                if workflow == "shared-api-change-build" and sample == 1:
+                    self.verify_fanout()
+                if workflow == "test-compile-build" and sample == 1:
+                    self.verify_test_outputs()
+            if workflow == "dependency-setup":
+                self.stop_gradle_daemons()
+            if workflow == "package":
+                self.verify_packages()
+        self.finalize_correctness()
+        write_summary(
+            self.samples_path,
+            self.summary_path,
+            self.report_path,
+            self.correctness,
+        )
+
+    def stop_gradle_daemons(self) -> None:
+        for tool in self.tools:
+            if tool.identifier != "gradle-daemon":
+                continue
+            subprocess.run(
+                [tool.build[0], "--gradle-user-home", tool.build[2], "--stop"],
+                cwd=tool.root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=60,
+            )
+
+
+def sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def member_key(tool: Tool, path: pathlib.Path, marker: str) -> str:
+    relative = path.relative_to(tool.root)
+    parts = relative.parts
+    marker_index = parts.index(marker)
+    member_parts = parts[:marker_index]
+    if member_parts and member_parts[-1] == "target":
+        member_parts = member_parts[:-1]
+    member = "/".join(member_parts)
+    tail = "/".join(parts[marker_index + 1 :])
+    return f"{member}:{tail}"
+
+
+def compiled_class_set(tool: Tool) -> set[str]:
+    values: set[str] = set()
+    if tool.identifier in {"zolt", "maven"}:
+        for path in tool.root.glob("**/target/classes/**/*.class"):
+            values.add(member_key(tool, path, "classes"))
+    else:
+        for path in tool.root.glob("**/build/classes/java/main/**/*.class"):
+            relative = path.relative_to(tool.root)
+            parts = relative.parts
+            build_index = parts.index("build")
+            member = "/".join(parts[:build_index])
+            tail = "/".join(parts[build_index + 4 :])
+            values.add(f"{member}:{tail}")
+    return values
+
+
+def compiled_test_class_set(tool: Tool) -> set[str]:
+    values: set[str] = set()
+    if tool.identifier in {"zolt", "maven"}:
+        for path in tool.root.glob("**/target/test-classes/**/*.class"):
+            values.add(member_key(tool, path, "test-classes"))
+    else:
+        for path in tool.root.glob("**/build/classes/java/test/**/*.class"):
+            relative = path.relative_to(tool.root)
+            parts = relative.parts
+            build_index = parts.index("build")
+            member = "/".join(parts[:build_index])
+            tail = "/".join(parts[build_index + 4 :])
+            values.add(f"{member}:{tail}")
+    return values
+
+
+def compiled_resource_map(tool: Tool) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if tool.identifier in {"zolt", "maven"}:
+        for path in tool.root.glob("**/target/classes/bench-enterprise.properties"):
+            values[member_key(tool, path, "classes")] = sha256(path)
+    else:
+        for path in tool.root.glob("**/build/resources/main/bench-enterprise.properties"):
+            relative = path.relative_to(tool.root)
+            parts = relative.parts
+            build_index = parts.index("build")
+            member = "/".join(parts[:build_index])
+            values[f"{member}:bench-enterprise.properties"] = sha256(path)
+    return values
+
+
+def platform_classes_dir(tool: Tool) -> pathlib.Path:
+    if tool.identifier in {"zolt", "maven"}:
+        return tool.root / "modules/platform/target/classes"
+    return tool.root / "modules/platform/build/classes/java/main"
+
+
+def primary_class_hashes(tool: Tool) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for index in range(1, 10_000):
+        name = f"lib{index:03d}"
+        package = pathlib.Path("bench/enterprise") / name
+        class_name = f"Lib{index:03d}.class"
+        if tool.identifier in {"zolt", "maven"}:
+            path = tool.root / "modules" / name / "target/classes" / package / class_name
+        else:
+            path = (
+                tool.root
+                / "modules"
+                / name
+                / "build/classes/java/main"
+                / package
+                / class_name
+            )
+        if not path.exists():
+            if index == 1:
+                continue
+            break
+        values[name] = sha256(path)
+    return values
+
+
+def jar_paths(tool: Tool) -> dict[str, pathlib.Path]:
+    values: dict[str, pathlib.Path] = {}
+    pattern = "**/target/*.jar" if tool.identifier in {"zolt", "maven"} else "**/build/libs/*.jar"
+    for path in tool.root.glob(pattern):
+        if not path.is_file() or path.name.endswith(("-sources.jar", "-javadoc.jar", "-tests.jar")):
+            continue
+        relative = path.relative_to(tool.root)
+        marker = "target" if tool.identifier in {"zolt", "maven"} else "build"
+        member = "/".join(relative.parts[: relative.parts.index(marker)])
+        if member:
+            values[member] = path
+    return values
+
+
+def packaged_entry_map(
+    tool: Tool, metadata: dict[str, object]
+) -> dict[str, list[str]]:
+    expected_members = set(str(member) for member in metadata.get("members") or [])
+    jars = jar_paths(tool)
+    values: dict[str, list[str]] = {}
+    for member in sorted(expected_members):
+        jar = jars.get(member)
+        if not jar:
+            continue
+        with zipfile.ZipFile(jar) as archive:
+            entries = sorted(
+                name
+                for name in archive.namelist()
+                if not name.endswith("/")
+                and name != "META-INF/MANIFEST.MF"
+                and not name.startswith("META-INF/maven/")
+            )
+        values[member] = entries
+    return values
+
+
+def version(command: str) -> dict[str, object]:
+    try:
+        completed = subprocess.run(
+            [command, "--version"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        return {
+            "command": command,
+            "exitCode": completed.returncode,
+            "stdout": completed.stdout.strip().splitlines()[:12],
+            "stderr": completed.stderr.strip().splitlines()[:12],
+        }
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return {"command": command, "exitCode": None, "error": str(exc)}
+
+
+def environment_record(
+    metadata: dict[str, object],
+    tools: list[Tool],
+    clean_samples: int,
+    repeated_samples: int,
+) -> dict[str, object]:
+    workload = dict(metadata.get("workload") or {})
+    workload["cleanSamples"] = clean_samples
+    workload["repeatedSamples"] = repeated_samples
+    versions: dict[str, object] = {}
+    seen: dict[str, str] = {}
+    for tool in tools:
+        command = tool.build[0]
+        if command not in seen:
+            seen[command] = tool.identifier
+            versions[tool.identifier] = version(command)
+        else:
+            versions[tool.identifier] = versions[seen[command]]
+    return {
+        "kind": "environment",
+        "createdAt": now(),
+        "classification": "enterprise-generated",
+        "workload": workload,
+        "moduleCount": workload.get("modules"),
+        "platformModules": workload.get("platformModules"),
+        "appModules": workload.get("apps"),
+        "repeatCount": repeated_samples,
+        "cleanRepeatCount": clean_samples,
+        "topology": workload.get("topology"),
+        "layerWidth": workload.get("layerWidth"),
+        "dependencyFanout": workload.get("dependencyFanout"),
+        "classesPerModule": workload.get("classesPerModule"),
+        "methodsPerClass": workload.get("methodsPerClass"),
+        "testsPerModule": workload.get("testsPerModule"),
+        "sourceFiles": workload.get("sourceFiles"),
+        "sourceLines": workload.get("sourceLines"),
+        "resourceFiles": workload.get("resourceFiles"),
+        "sourceDigest": metadata.get("sourceDigest"),
+        "zoltSource": os.environ.get("BENCHMARK_ZOLT_SOURCE"),
+        "releaseChannel": os.environ.get("BENCHMARK_RELEASE_CHANNEL"),
+        "releaseVersion": os.environ.get("BENCHMARK_RELEASE_VERSION") or None,
+        "platform": {
+            "system": os.uname().sysname,
+            "release": os.uname().release,
+            "machine": os.uname().machine,
+            "python": sys.version.split()[0],
+        },
+        "javaHome": os.environ.get("JAVA_HOME"),
+        "tools": versions,
+    }
+
+
+def percentile_nearest_rank(values: list[int], percentile: float) -> int:
+    ordered = sorted(values)
+    rank = max(1, math.ceil(percentile * len(ordered)))
+    return ordered[rank - 1]
+
+
+def bootstrap_median_ci(values: list[int], seed: str) -> list[int] | None:
+    if len(values) < 3:
+        return None
+    generator = random.Random(seed)
+    medians = []
+    for _ in range(10_000):
+        sample = [generator.choice(values) for _ in values]
+        medians.append(statistics.median(sample))
+    medians.sort()
+    lower = medians[math.floor(0.025 * (len(medians) - 1))]
+    upper = medians[math.ceil(0.975 * (len(medians) - 1))]
+    return [round(lower), round(upper)]
+
+
+def metric(values: list[int], seed: str) -> dict[str, object]:
+    median = statistics.median(values)
+    mean = statistics.fmean(values)
+    deviation = statistics.stdev(values) if len(values) > 1 else 0.0
+    return {
+        "samples": len(values),
+        "medianMillis": round(median),
+        "meanMillis": round(mean, 2),
+        "standardDeviationMillis": round(deviation, 2),
+        "coefficientOfVariation": round(deviation / mean, 4) if mean else None,
+        "median95ConfidenceIntervalMillis": bootstrap_median_ci(values, seed),
+        "p95Millis": percentile_nearest_rank(values, 0.95),
+        "minMillis": min(values),
+        "maxMillis": max(values),
+    }
+
+
+def write_summary(
+    samples_path: pathlib.Path,
+    summary_path: pathlib.Path,
+    report_path: pathlib.Path,
+    correctness: dict[str, object],
+) -> None:
+    environment: dict[str, object] | None = None
+    groups: dict[tuple[str, str], list[int]] = {}
+    for line in samples_path.read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        if event.get("kind") == "environment":
+            environment = event
+        elif event.get("kind") == "sample":
+            key = (str(event["workflow"]), str(event["tool"]))
+            groups.setdefault(key, []).append(int(event["durationMillis"]))
+    workflows = []
+    for workflow in WORKFLOW_ORDER:
+        tools: dict[str, object] = {}
+        for tool in TOOL_ORDER:
+            values = groups.get((workflow, tool))
+            if values:
+                tools[tool] = metric(values, f"{workflow}:{tool}")
+        if not tools:
+            continue
+        medians = {
+            tool: int(values["medianMillis"])
+            for tool, values in tools.items()
+            if isinstance(values, dict)
+        }
+        winner = (
+            min(medians, key=medians.get)
+            if len(medians) > 1 and workflow != "dependency-setup"
+            else None
+        )
+        workflows.append(
+            {
+                "workflow": workflow,
+                "label": WORKFLOW_LABELS[workflow],
+                "kind": (
+                    "setup"
+                    if workflow == "dependency-setup"
+                    else "cold"
+                    if workflow == "first-clean-build"
+                    else "repeated"
+                ),
+                "winner": winner,
+                "tools": tools,
+            }
+        )
+    summary = {
+        "schemaVersion": 2,
+        "environment": environment,
+        "correctness": correctness,
+        "workflows": workflows,
+    }
+    summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    report_lines = [
+        "# Enterprise Generated Benchmark",
+        "",
+        "All timings are wall-clock milliseconds. Lower is better.",
+        "",
+        "## Workload",
+        "",
+        "| Field | Value |",
+        "| --- | ---: |",
+    ]
+    workload = (environment or {}).get("workload") or {}
+    for label, key in (
+        ("Profile", "id"),
+        ("Topology", "topology"),
+        ("Library modules", "modules"),
+        ("Platform modules", "platformModules"),
+        ("Applications", "apps"),
+        ("Main and test source files", "sourceFiles"),
+        ("Source lines", "sourceLines"),
+        ("Resources", "resourceFiles"),
+        ("Dependency fanout", "dependencyFanout"),
+        ("Repeated clean samples", "cleanSamples"),
+        ("Repeated workflow samples", "repeatedSamples"),
+    ):
+        report_lines.append(f"| {label} | {workload.get(key)} |")
+    report_lines.extend(
+        [
+            "",
+            "## Correctness",
+            "",
+            f"Overall status: **{correctness.get('status')}**.",
+            "",
+            "| Check | Result |",
+            "| --- | --- |",
+        ]
+    )
+    for check in correctness.get("checks") or []:
+        report_lines.append(
+            f"| {check.get('name')} | {'pass' if check.get('passed') else 'fail'} |"
+        )
+    report_lines.extend(
+        [
+            "",
+            "## Results",
+            "",
+            "| Workflow | Samples | Winner | Zolt | Maven | Gradle no-daemon | Gradle daemon |",
+            "| --- | ---: | --- | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for row in workflows:
+        tools = row["tools"]
+
+        def median_for(tool: str) -> str:
+            values = tools.get(tool) or {}
+            value = values.get("medianMillis")
+            return f"{value:,}" if isinstance(value, int) else "n/a"
+
+        sample_count = next(iter(tools.values())).get("samples")
+        report_lines.append(
+            f"| {row['label']} | {sample_count} | "
+            f"{TOOL_LABELS.get(str(row.get('winner')), row.get('winner') or 'n/a')} | "
+            f"{median_for('zolt')} | {median_for('maven')} | "
+            f"{median_for('gradle-no-daemon')} | {median_for('gradle-daemon')} |"
+        )
+    report_lines.extend(
+        [
+            "",
+            "## Methodology",
+            "",
+            "- Dependency setup is reported separately and is not used for compile-speed claims.",
+            "- First clean build is a cold tool-process sample after dependency resolution.",
+            "- Repeated clean builds remove outputs between samples while retaining warmed dependency and tool caches.",
+            "- Tool execution order rotates for every workflow and sample.",
+            "- The leaf edit changes a literal in the selected library and correctness checks require exactly that library's primary class output to change.",
+            "- The shared API edit changes an inlined public constant used by every generated library; correctness checks require every library's primary class output to change.",
+            "- Every repeated metric records median, p95, min, max, standard deviation, coefficient of variation, a bootstrap 95% median interval, and raw samples.",
+            "",
+        ]
+    )
+    report_path.write_text("\n".join(report_lines), encoding="utf-8")
+
+
+def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
+    zolt = resolve_tool(args.zolt, "zolt")
+    maven = resolve_tool(args.maven, "mvn")
+    gradle = resolve_tool(args.gradle, "gradle")
+    required = {"zolt": zolt, "maven": maven, "gradle": gradle}
+    missing = [name for name, command in required.items() if not tool_exists(command)]
+    if missing:
+        fail("required benchmark tools are unavailable: " + ", ".join(missing))
+    assert zolt and maven and gradle
+    fixtures = work_dir / "fixtures"
+    zolt_cache = work_dir / "caches/zolt"
+    maven_cache = work_dir / "caches/maven"
+    gradle_no_daemon_cache = work_dir / "caches/gradle-no-daemon"
+    gradle_daemon_cache = work_dir / "caches/gradle-daemon"
+    zolt_workspace = ["--workspace", "--cache-root", str(zolt_cache)]
+    zolt_all_members = [
+        "--workspace",
+        "--all",
+        "--cache-root",
+        str(zolt_cache),
+        "--no-build-cache",
+    ]
+    maven_prefix = [maven, f"-Dmaven.repo.local={maven_cache}", "-q"]
+    gradle_no_daemon = [
+        gradle,
+        "--gradle-user-home",
+        str(gradle_no_daemon_cache),
+        "--no-daemon",
+        "--console=plain",
+        "--quiet",
+    ]
+    gradle_daemon = [
+        gradle,
+        "--gradle-user-home",
+        str(gradle_daemon_cache),
+        "--console=plain",
+        "--quiet",
+    ]
+    tools = [
+        Tool(
+            "zolt",
+            fixtures / "zolt",
+            [zolt, "resolve", *zolt_workspace],
+            [zolt, "clean", "--workspace", "--all"],
+            [zolt, "build", *zolt_all_members, "--offline"],
+            [
+                zolt,
+                "test",
+                *zolt_all_members,
+                "--exclude-tag",
+                "benchmark",
+            ],
+            [
+                zolt,
+                "test",
+                *zolt_all_members,
+                "--include-tag",
+                "benchmark",
+            ],
+            [zolt, "package", *zolt_all_members],
+        ),
+        Tool(
+            "maven",
+            fixtures / "maven",
+            [*maven_prefix, "-Dgroups=benchmark", "package"],
+            [*maven_prefix, "clean"],
+            [*maven_prefix, "-o", "-DskipTests", "compile"],
+            [*maven_prefix, "-o", "-Dgroups=!benchmark", "test"],
+            [*maven_prefix, "-o", "-Dgroups=benchmark", "test"],
+            [*maven_prefix, "-o", "-DskipTests", "package"],
+        ),
+        Tool(
+            "gradle-no-daemon",
+            fixtures / "gradle-no-daemon",
+            [
+                *gradle_no_daemon,
+                "-PbenchmarkTestRun=true",
+                "test",
+            ],
+            [*gradle_no_daemon, "clean"],
+            [*gradle_no_daemon, "--offline", "classes"],
+            [*gradle_no_daemon, "--offline", "-PbenchmarkCompileOnly=true", "test"],
+            [*gradle_no_daemon, "--offline", "-PbenchmarkTestRun=true", "test"],
+            [*gradle_no_daemon, "--offline", "assemble"],
+        ),
+    ]
+    if args.include_gradle_daemon:
+        tools.append(
+            Tool(
+                "gradle-daemon",
+                fixtures / "gradle-daemon",
+                [
+                    *gradle_daemon,
+                    "-PbenchmarkTestRun=true",
+                    "test",
+                ],
+                [*gradle_daemon, "clean"],
+                [*gradle_daemon, "--offline", "classes"],
+                [
+                    *gradle_daemon,
+                    "--offline",
+                    "-PbenchmarkCompileOnly=true",
+                    "test",
+                ],
+                [
+                    *gradle_daemon,
+                    "--offline",
+                    "-PbenchmarkTestRun=true",
+                    "test",
+                ],
+                [*gradle_daemon, "--offline", "assemble"],
+            )
+        )
+    return tools
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run a correctness-gated enterprise generated benchmark."
+    )
+    parser.add_argument(
+        "--workload",
+        type=pathlib.Path,
+        default=ROOT / "benchmarks/workloads/enterprise-v1.json",
+    )
+    parser.add_argument("--topology", choices=("chain", "wide", "layered"), default="layered")
+    parser.add_argument(
+        "--work-dir",
+        type=pathlib.Path,
+        default=ROOT / "target/benchmarks/enterprise-generated",
+    )
+    parser.add_argument("--zolt")
+    parser.add_argument("--maven")
+    parser.add_argument("--gradle")
+    parser.add_argument("--include-gradle-daemon", action="store_true")
+    parser.add_argument("--clean-repeat", type=int)
+    parser.add_argument("--repeat", type=int)
+    parser.add_argument("--sample-timeout", type=int, default=1800)
+    parser.add_argument("--generate-only", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    work_dir = resolve_path(args.work_dir)
+    workload = resolve_path(args.workload)
+    if work_dir in (pathlib.Path("/"), ROOT):
+        fail(f"refusing unsafe benchmark work directory: {work_dir}")
+    generator = ROOT / "scripts/benchmark-enterprise-fixture"
+    generated = subprocess.run(
+        [
+            sys.executable,
+            str(generator),
+            "--workload",
+            str(workload),
+            "--topology",
+            args.topology,
+            "--output-dir",
+            str(work_dir),
+        ],
+        cwd=ROOT,
+        check=False,
+    )
+    if generated.returncode != 0:
+        return generated.returncode
+    if args.generate_only:
+        return 0
+    metadata = json.loads(
+        (work_dir / "fixture-metadata.json").read_text(encoding="utf-8")
+    )
+    gradle_fixture = work_dir / "fixtures/gradle"
+    gradle_no_daemon_fixture = work_dir / "fixtures/gradle-no-daemon"
+    gradle_daemon_fixture = work_dir / "fixtures/gradle-daemon"
+    shutil.copytree(gradle_fixture, gradle_no_daemon_fixture)
+    if args.include_gradle_daemon:
+        shutil.copytree(gradle_fixture, gradle_daemon_fixture)
+    workload_data = metadata.get("workload") or {}
+    clean_samples = args.clean_repeat or int(workload_data.get("cleanSamples") or 0)
+    repeated_samples = args.repeat or int(workload_data.get("repeatedSamples") or 0)
+    if clean_samples < 1 or repeated_samples < 1 or args.sample_timeout < 1:
+        fail("sample counts and timeout must be positive")
+    tools = build_tools(args, work_dir)
+    runner = Runner(
+        work_dir,
+        metadata,
+        tools,
+        args.sample_timeout,
+        clean_samples,
+        repeated_samples,
+    )
+    try:
+        runner.execute()
+    finally:
+        for tool in tools:
+            if tool.identifier == "gradle-daemon":
+                subprocess.run(
+                    [tool.build[0], "--gradle-user-home", tool.build[2], "--stop"],
+                    cwd=tool.root,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                    timeout=60,
+                )
+    print(f"wrote enterprise samples: {runner.samples_path}")
+    print(f"wrote enterprise summary: {runner.summary_path}")
+    print(f"wrote enterprise correctness: {runner.correctness_path}")
+    print(f"wrote enterprise report: {runner.report_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

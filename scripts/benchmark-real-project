@@ -9,6 +9,7 @@ PROJECT_ID=""
 WORK_DIR="target/benchmarks/competitors/real-projects"
 CACHE_DIR=""
 REPEAT_COUNT=3
+CLEAN_REPEAT_COUNT=3
 ZOLT_BIN="${ZOLT_BENCH_ZOLT:-}"
 MAVEN_BIN="${ZOLT_BENCH_MAVEN:-}"
 GRADLE_BIN="${ZOLT_BENCH_GRADLE:-}"
@@ -27,6 +28,7 @@ Options:
   --work-dir DIR           Output directory. Default: target/benchmarks/competitors/real-projects.
   --cache-dir DIR          Shared dependency cache directory. Default: WORK_DIR/caches.
   --repeat COUNT           Timed samples for repeated workflows. Default: 3.
+  --clean-repeat COUNT     Timed repeated clean-build samples. Default: 3.
   --zolt PATH              Zolt executable. Default: ZOLT_BENCH_ZOLT or zolt on PATH.
   --maven PATH             Maven executable. Default: mvn on PATH.
   --gradle PATH            Gradle executable. Default: gradle on PATH.
@@ -87,6 +89,12 @@ while [[ "$#" -gt 0 ]]; do
       REPEAT_COUNT="$2"
       shift 2
       ;;
+    --clean-repeat)
+      [[ "$#" -ge 2 ]] || fail "--clean-repeat requires a value"
+      positive_int "$2" || fail "--clean-repeat requires a positive integer"
+      CLEAN_REPEAT_COUNT="$2"
+      shift 2
+      ;;
     --zolt)
       [[ "$#" -ge 2 ]] || fail "--zolt requires a value"
       ZOLT_BIN="$2"
@@ -136,9 +144,11 @@ else
 fi
 mkdir -p "$WORK_DIR"
 
-python3 - "$ROOT" "$PROJECT_MANIFEST" "$PROJECT_ID" "$WORK_DIR" "$CACHE_DIR" "$REPEAT_COUNT" "$ZOLT_BIN" "$MAVEN_BIN" "$GRADLE_BIN" "$SAMPLE_TIMEOUT_SECONDS" "$DRY_RUN" <<'PY'
+python3 - "$ROOT" "$PROJECT_MANIFEST" "$PROJECT_ID" "$WORK_DIR" "$CACHE_DIR" "$REPEAT_COUNT" "$CLEAN_REPEAT_COUNT" "$ZOLT_BIN" "$MAVEN_BIN" "$GRADLE_BIN" "$SAMPLE_TIMEOUT_SECONDS" "$DRY_RUN" <<'PY'
 import html
+import hashlib
 import json
+import math
 import os
 import pathlib
 import platform
@@ -147,6 +157,7 @@ import statistics
 import subprocess
 import sys
 import time
+import random
 from datetime import datetime, timezone
 
 repo_root = pathlib.Path(sys.argv[1])
@@ -155,11 +166,12 @@ project_id = sys.argv[3]
 work_dir = pathlib.Path(sys.argv[4])
 cache_dir = pathlib.Path(sys.argv[5])
 repeat_count = int(sys.argv[6])
-explicit_zolt = sys.argv[7] or None
-explicit_maven = sys.argv[8] or None
-explicit_gradle = sys.argv[9] or None
-sample_timeout_seconds = int(sys.argv[10])
-dry_run = sys.argv[11] == "true"
+clean_repeat_count = int(sys.argv[7])
+explicit_zolt = sys.argv[8] or None
+explicit_maven = sys.argv[9] or None
+explicit_gradle = sys.argv[10] or None
+sample_timeout_seconds = int(sys.argv[11])
+dry_run = sys.argv[12] == "true"
 
 if not manifest_path.is_file():
     raise SystemExit(f"project manifest not found: {manifest_path}")
@@ -215,6 +227,7 @@ samples_path = work_dir / "samples.jsonl"
 summary_path = work_dir / "summary.json"
 suite_path = work_dir / "suite-summary.json"
 report_path = work_dir / "report.md"
+correctness_path = work_dir / "correctness.json"
 
 
 def now_iso():
@@ -546,7 +559,15 @@ def tool_commands():
         "zolt": {
             "cwd": zolt_project,
             "resolve": [zolt, "resolve", "--cwd", str(zolt_project), "--cache-root", str(zolt_cache)],
-            "build": [zolt, "build", "--cwd", str(zolt_project), "--cache-root", str(zolt_cache)],
+            "build": [
+                zolt,
+                "build",
+                "--cwd",
+                str(zolt_project),
+                "--cache-root",
+                str(zolt_cache),
+                "--no-build-cache",
+            ],
             "clean": [zolt, "clean", "--cwd", str(zolt_project)],
         },
         "maven": {
@@ -575,9 +596,32 @@ def median(values):
     return round(statistics.median(values)) if values else None
 
 
+def percentile95(values):
+    if not values:
+        return None
+    ordered = sorted(values)
+    return ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)]
+
+
+def median_interval(values):
+    if len(values) < 2:
+        return None
+    rng = random.Random(20260727)
+    medians = sorted(
+        round(statistics.median(rng.choices(values, k=len(values))))
+        for _ in range(10_000)
+    )
+    return [
+        medians[math.floor(0.025 * (len(medians) - 1))],
+        medians[math.ceil(0.975 * (len(medians) - 1))],
+    ]
+
+
 def metric(command, rows):
     successful = [row for row in rows if row["exitCode"] == 0]
     durations = [row["durationMillis"] for row in successful]
+    mean = statistics.mean(durations) if durations else None
+    deviation = statistics.pstdev(durations) if durations else None
     return {
         "command": command,
         "samples": durations,
@@ -585,6 +629,15 @@ def metric(command, rows):
         "successfulSampleCount": len(successful),
         "timedOutSampleCount": sum(1 for row in rows if row.get("timedOut")),
         "medianMillis": median(durations),
+        "meanMillis": round(mean, 3) if mean is not None else None,
+        "standardDeviationMillis": round(deviation, 3) if deviation is not None else None,
+        "coefficientOfVariation": (
+            round(deviation / mean, 6)
+            if mean not in (None, 0) and deviation is not None
+            else None
+        ),
+        "median95ConfidenceIntervalMillis": median_interval(durations),
+        "p95Millis": percentile95(durations),
         "minMillis": min(durations) if durations else None,
         "maxMillis": max(durations) if durations else None,
         "logs": [row["log"] for row in rows],
@@ -593,14 +646,16 @@ def metric(command, rows):
 
 workflow_specs = [
     ("first-clean-build", "Clean compile with warm dependency cache", 1),
+    ("clean-build", "Repeated clean compile with warm dependency cache", clean_repeat_count),
     ("warm-no-op-build", "Warm no-op compile", repeat_count),
-    ("source-change-build", "Incremental source change compile", repeat_count),
+    ("source-change-build", "Incremental source-input change compile", repeat_count),
 ]
 commands = tool_commands()
 samples = []
 workflow_records = []
 status = "dry-run" if dry_run else "complete"
 failure = None
+correctness = {"schemaVersion": 1, "status": "not-run", "checks": []}
 source_files = None
 source_lines = None
 
@@ -610,6 +665,7 @@ environment = {
     "processor": platform.processor(),
     "python": platform.python_version(),
     "repeatCount": repeat_count,
+    "cleanRepeatCount": clean_repeat_count,
     "sampleTimeoutSeconds": sample_timeout_seconds,
     "tools": {
         "git": capture_tool(["git", "--version"]),
@@ -643,21 +699,100 @@ else:
         for tool in tool_ids:
             checked(commands[tool]["resolve"], commands[tool]["cwd"], f"setup/{tool}-resolve.log")
             checked(commands[tool]["build"], commands[tool]["cwd"], f"setup/{tool}-build.log")
+
+        def source_digest(project_dir):
+            digest = hashlib.sha256()
+            paths = sorted(
+                path
+                for path in project_dir.glob("**/*")
+                if path.is_file()
+                and (
+                    path.suffix == ".java"
+                    or any(
+                        path.is_relative_to(project_dir / row["to"])
+                        for row in adapter.get("resourceRoots") or []
+                    )
+                )
+            )
+            for path in paths:
+                digest.update(str(path.relative_to(project_dir)).encode("utf-8"))
+                digest.update(b"\0")
+                digest.update(path.read_bytes())
+                digest.update(b"\0")
+            return digest.hexdigest()
+
+        output_roots = {
+            "zolt": zolt_project / "target/classes",
+            "maven": maven_project / "target/classes",
+            "gradle-no-daemon": gradle_no_daemon_project / "build/classes/java/main",
+            "gradle-daemon": gradle_daemon_project / "build/classes/java/main",
+        }
+        source_digests = {
+            tool: source_digest(commands[tool]["cwd"])
+            for tool in tool_ids
+        }
+        class_sets = {
+            tool: sorted(
+                str(path.relative_to(output_root))
+                for path in output_root.glob("**/*.class")
+            )
+            for tool, output_root in output_roots.items()
+        }
+        baseline_classes = class_sets["zolt"]
+        correctness_checks = [
+            {
+                "name": "same-source-overlay-digest",
+                "passed": len(set(source_digests.values())) == 1,
+                "evidence": {"digests": source_digests},
+            }
+        ]
+        correctness_checks.extend(
+            {
+                "name": f"{tool}-compiled-class-set",
+                "passed": values == baseline_classes and bool(values),
+                "evidence": {
+                    "classCount": len(values),
+                    "baselineClassCount": len(baseline_classes),
+                    "missing": sorted(set(baseline_classes) - set(values)),
+                    "extra": sorted(set(values) - set(baseline_classes)),
+                },
+            }
+            for tool, values in class_sets.items()
+        )
+        correctness = {
+            "schemaVersion": 1,
+            "status": (
+                "passed"
+                if all(check["passed"] for check in correctness_checks)
+                else "failed"
+            ),
+            "checks": correctness_checks,
+            "completedAt": now_iso(),
+        }
+        if correctness["status"] != "passed":
+            raise RuntimeError("real-project correctness checks failed")
+
+        for tool in tool_ids:
             checked(commands[tool]["clean"], commands[tool]["cwd"], f"setup/{tool}-clean.log")
 
         with samples_path.open("w", encoding="utf-8") as sample_stream:
-            for workflow_id, label, sample_count in workflow_specs:
-                tools = {}
-                for tool in tool_ids:
-                    rows = []
-                    changed_path = commands[tool]["cwd"] / source_change_target
-                    baseline = changed_path.read_text(encoding="utf-8")
-                    for sample_index in range(1, sample_count + 1):
-                        if workflow_id == "first-clean-build":
+            for workflow_index, (workflow_id, label, sample_count) in enumerate(workflow_specs):
+                rows_by_tool = {tool: [] for tool in tool_ids}
+                baselines = {
+                    tool: (commands[tool]["cwd"] / source_change_target).read_text(encoding="utf-8")
+                    for tool in tool_ids
+                }
+                for sample_index in range(1, sample_count + 1):
+                    rotation = (workflow_index + sample_index - 1) % len(tool_ids)
+                    tool_order = tool_ids[rotation:] + tool_ids[:rotation]
+                    for tool in tool_order:
+                        changed_path = commands[tool]["cwd"] / source_change_target
+                        baseline = baselines[tool]
+                        if workflow_id in {"first-clean-build", "clean-build"}:
                             checked(commands[tool]["clean"], commands[tool]["cwd"], f"prepare/{workflow_id}-{tool}-{sample_index:03d}-clean.log")
                         elif workflow_id == "source-change-build":
                             changed_path.write_text(
-                                baseline.rstrip() + f"\n// Zolt benchmark source change: {tool} sample {sample_index}\n",
+                                baseline.rstrip() + f"\n// Zolt benchmark source-input change: {tool} sample {sample_index}\n",
                                 encoding="utf-8",
                             )
                         result = run_process(
@@ -671,11 +806,12 @@ else:
                             "workflow": workflow_id,
                             "workflowLabel": label,
                             "tool": tool,
+                            "executionOrder": tool_order.index(tool) + 1,
                             "sample": sample_index,
                             **result,
                         }
                         samples.append(row)
-                        rows.append(row)
+                        rows_by_tool[tool].append(row)
                         sample_stream.write(json.dumps(row) + "\n")
                         sample_stream.flush()
                         if result["exitCode"] != 0:
@@ -688,11 +824,17 @@ else:
                             }
                             status = "failed"
                             break
-                    if workflow_id == "source-change-build":
-                        changed_path.write_text(baseline, encoding="utf-8")
-                    tools[tool] = metric(commands[tool]["build"], rows)
                     if failure:
                         break
+                if workflow_id == "source-change-build":
+                    for tool in tool_ids:
+                        (commands[tool]["cwd"] / source_change_target).write_text(
+                            baselines[tool], encoding="utf-8"
+                        )
+                tools = {
+                    tool: metric(commands[tool]["build"], rows_by_tool[tool])
+                    for tool in tool_ids
+                }
                 successful_medians = {
                     tool: values.get("medianMillis")
                     for tool, values in tools.items()
@@ -780,9 +922,11 @@ lane = {
         "completedWorkflowCount": completed_workflows,
         "plannedWorkflowCount": len(workflow_specs),
         "repeatCount": repeat_count,
+        "cleanRepeatCount": clean_repeat_count,
         "failure": failure,
     },
     "environment": environment,
+    "correctness": correctness,
     "workflows": workflow_records,
     "caveats": caveats,
     "artifacts": {
@@ -790,6 +934,7 @@ lane = {
         "suiteSummary": rel(suite_path),
         "samples": rel(samples_path),
         "report": rel(report_path),
+        "correctness": rel(correctness_path),
         "logs": rel(logs_dir),
         "adapter": rel(adapter_path),
         "checkout": rel(checkout_dir) if checkout_dir.exists() else None,
@@ -814,6 +959,7 @@ summary = {
     "status": status,
     "coverage": coverage,
     "environment": environment,
+    "correctness": correctness,
     "workflows": workflow_records,
     "samples": samples,
     "caveats": caveats,
@@ -834,6 +980,7 @@ suite = {
 
 summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 suite_path.write_text(json.dumps(suite, indent=2) + "\n", encoding="utf-8")
+correctness_path.write_text(json.dumps(correctness, indent=2) + "\n", encoding="utf-8")
 
 lines = [
     f"# {project.get('name') or project_id} Same-Source Comparison",

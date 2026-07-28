@@ -23,6 +23,7 @@ public final class ClassFileAbiReader {
     private static final int ACC_PROTECTED = 0x0004;
     private static final Set<String> COMPILE_RELEVANT_ATTRIBUTES = Set.of(
             "AnnotationDefault",
+            "ConstantValue",
             "Deprecated",
             "Exceptions",
             "InnerClasses",
@@ -186,7 +187,11 @@ public final class ClassFileAbiReader {
         for (int index = 0; index < count; index++) {
             String name = constantPool.utf8(input.readUnsignedShort());
             byte[] bytes = input.readNBytes(input.readInt());
-            if (COMPILE_RELEVANT_ATTRIBUTES.contains(name)) {
+            if ("ConstantValue".equals(name) && bytes.length == 2) {
+                try (DataInputStream attributeInput = new DataInputStream(new ByteArrayInputStream(bytes))) {
+                    attributes.add(name + "=" + constantPool.constantValue(attributeInput.readUnsignedShort()));
+                }
+            } else if (COMPILE_RELEVANT_ATTRIBUTES.contains(name)) {
                 attributes.add(name + "=" + sha256(bytes));
             }
         }

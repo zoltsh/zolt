@@ -63,22 +63,44 @@ output_dir = pathlib.Path(sys.argv[2])
 summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
 workflow_labels = {
+    "dependency-setup": "Dependency setup",
     "setup-warm-build": "First clean build",
+    "first-clean-build": "First clean build",
+    "clean-build": "Repeated clean build",
     "no-op-build": "Warm no-op build",
-    "leaf-change-build": "Leaf source change",
-    "root-change-build": "Root library change",
+    "leaf-change-build": "Leaf implementation change",
+    "root-change-build": "Root source change",
+    "shared-api-change-build": "Shared API fan-out change",
+    "resource-change-build": "Resource-only change",
+    "test-compile-build": "Test source change build",
+    "test-run": "Warm test run",
+    "package": "Package",
     "setup": "Zolt dependency setup",
 }
 workflow_order = [
+    "dependency-setup",
+    "first-clean-build",
     "setup-warm-build",
+    "clean-build",
     "no-op-build",
     "leaf-change-build",
     "root-change-build",
+    "shared-api-change-build",
+    "resource-change-build",
+    "test-compile-build",
+    "test-run",
+    "package",
 ]
 repeated_workflows = [
+    "clean-build",
     "no-op-build",
     "leaf-change-build",
     "root-change-build",
+    "shared-api-change-build",
+    "resource-change-build",
+    "test-compile-build",
+    "test-run",
+    "package",
 ]
 tool_labels = {
     "zolt": "Zolt",
@@ -91,6 +113,10 @@ tool_order = ["zolt", "maven", "gradle-no-daemon", "gradle-daemon"]
 environment = summary.get("environment") or {}
 workflows = {
     row.get("workflow"): row.get("tools", {})
+    for row in summary.get("workflows", [])
+}
+workflow_kinds = {
+    row.get("workflow"): row.get("kind")
     for row in summary.get("workflows", [])
 }
 
@@ -122,6 +148,8 @@ def fmt_ms(value):
 def result_table_rows():
     rows = []
     for workflow in workflow_order:
+        if workflow == "dependency-setup":
+            continue
         tools = workflows.get(workflow, {})
         if "zolt" not in tools or len(tools) <= 1:
             continue
@@ -158,6 +186,51 @@ def run_type():
         and "gradle-daemon" in workflows.get(workflow, {})
         for workflow in comparable
     )
+    if environment.get("classification") == "enterprise-generated":
+        correctness = summary.get("correctness") or {}
+        source_files = int(environment.get("sourceFiles") or 0)
+        source_lines = int(environment.get("sourceLines") or 0)
+        clean_repeat = int(environment.get("cleanRepeatCount") or 0)
+        app_modules = int(environment.get("appModules") or 0)
+        required = {
+            "first-clean-build",
+            "clean-build",
+            "no-op-build",
+            "leaf-change-build",
+            "shared-api-change-build",
+            "resource-change-build",
+            "test-compile-build",
+            "test-run",
+            "package",
+        }
+        if (
+            module_count >= 200
+            and app_modules >= 2
+            and source_files >= 1_000
+            and source_lines >= 20_000
+            and clean_repeat >= 3
+            and repeat_count >= 5
+            and required.issubset(workflows)
+            and has_production_competitors
+            and correctness.get("status") == "passed"
+            and environment.get("zoltSource") == "release"
+        ):
+            return "Publishable enterprise generated evidence"
+        if (
+            module_count >= 200
+            and app_modules >= 2
+            and source_files >= 1_000
+            and source_lines >= 20_000
+            and clean_repeat >= 3
+            and repeat_count >= 5
+            and required.issubset(workflows)
+            and has_production_competitors
+            and correctness.get("status") == "passed"
+        ):
+            return "Publication-scale enterprise validation"
+        if module_count < 20 or repeat_count < 3:
+            return "Enterprise smoke validation"
+        return "Exploratory enterprise benchmark"
     if module_count < 20 or repeat_count < 3:
         return "Smoke validation"
     if module_count >= 40 and repeat_count >= 5 and has_production_competitors:
@@ -179,7 +252,11 @@ for workflow in workflow_order:
     ]
     if not available_tools:
         continue
-    fastest_tool = min(available_tools, key=lambda tool: median(tools, tool))
+    fastest_tool = (
+        None
+        if workflow == "dependency-setup"
+        else min(available_tools, key=lambda tool: median(tools, tool))
+    )
     if fastest_tool == "zolt":
         zolt_fastest_count += 1
         if workflow in repeated_workflows:
@@ -201,7 +278,8 @@ for workflow in workflow_order:
     lanes.append({
         "workflow": workflow,
         "label": workflow_labels.get(workflow, workflow),
-        "kind": "setup" if workflow == "setup-warm-build" else "repeated",
+        "kind": workflow_kinds.get(workflow)
+        or ("setup" if workflow in {"setup-warm-build", "dependency-setup"} else "repeated"),
         "samples": tools.get("zolt", {}).get("samples"),
         "zoltMedianMillis": zolt_median,
         "fastestTool": fastest_tool,
@@ -213,8 +291,13 @@ context = {
     "run": {
         "type": run_type(),
         "moduleCount": environment.get("moduleCount"),
-        "appModules": 1,
+        "platformModules": environment.get("platformModules"),
+        "appModules": environment.get("appModules") or 1,
         "repeatCount": environment.get("repeatCount"),
+        "cleanRepeatCount": environment.get("cleanRepeatCount"),
+        "sourceFiles": environment.get("sourceFiles"),
+        "sourceLines": environment.get("sourceLines"),
+        "correctness": summary.get("correctness"),
         "machine": {
             "system": (environment.get("platform") or {}).get("system"),
             "release": (environment.get("platform") or {}).get("release"),
@@ -246,7 +329,7 @@ result_rows = result_table_rows()
 summary_lines = [
     "# Benchmark Summary",
     "",
-    f"This ran a generated Java workspace with {module_count} library modules plus one app. Repeated workflows use {repeat_count} {sample_word} per tool; first clean build is reported separately as one setup sample.",
+    f"This ran a generated Java workspace with {module_count} library modules, {context['run']['platformModules'] or 0} platform modules, and {context['run']['appModules']} apps. Repeated workflows use {repeat_count} {sample_word} per tool; dependency setup and first clean build are reported separately.",
     "",
     f"Tools: Zolt `{context['run']['tools']['zolt']}`; Maven `{context['run']['tools']['maven']}`; Gradle `{context['run']['tools']['gradle']}`.",
     "",
@@ -278,8 +361,9 @@ prompt_lines = [
     "- Keep it factual and concise.",
     "- Mention the run type, module count, repeat count, and tool versions.",
     "- Include one bullet per lane.",
-    "- Treat the first clean build as a single setup lane, not a repeated steady-state lane.",
-    "- Do not claim production-grade evidence unless run.type is `Production-grade generated evidence`.",
+    "- Treat dependency setup and first clean build separately from repeated steady-state lanes.",
+    "- Mention correctness status and do not make performance claims from a failed correctness gate.",
+    "- Do not claim publishable or production-grade evidence unless run.type is `Publishable enterprise generated evidence` or `Production-grade generated evidence`.",
     "- Use wall-clock milliseconds and ratios exactly as provided or directly derived.",
     "",
     "```json",

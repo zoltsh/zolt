@@ -1,194 +1,157 @@
 # Benchmark Plan
 
-The benchmark suite should feel like product evidence, not a timing script. The
-goal is to publish repeatable runs that show how Zolt behaves on a large
-Java-native workload, then keep the raw data available so humans and LLMs can
-summarize the result without inventing claims.
+The benchmark suite is product evidence, not a timing script. It publishes
+repeatable runs that show how Zolt behaves on controlled enterprise-scale Java,
+pinned upstream source sets, and its own source tree. Raw samples and correctness
+evidence remain available so humans and models do not have to invent claims.
 
-## Target Shape
+## Implemented Shape
 
-The flagship run should have three lanes:
+The suite has three lanes:
 
-1. `enterprise-generated`: a large deterministic Java workspace generated from a
-   workload spec.
-2. `real-projects`: pinned upstream projects with checked-in Zolt adapters.
-3. `zolt-self-host`: Zolt building Zolt, kept separate from competitor claims.
+1. `enterprise-generated`: a deterministic Java workspace generated from a
+   versioned workload specification and built from identical sources by Zolt,
+   Maven, Gradle no-daemon, and Gradle daemon.
+2. `real-project-comparison`: pinned upstream projects copied into equivalent
+   compiler overlays. These are explicitly main-source comparisons, not claims
+   about the projects' complete native build systems.
+3. `zolt-self-host`: a packaged Zolt binary builds and packages a clean copy of
+   Zolt. This lane is deliberately non-comparative.
 
-Only the first lane is suitable for broad scaling claims at first. Real-project
-lanes become publishable comparisons only after the adapter builds the same
-meaningful source set as the native build.
+The enterprise lane is the centerpiece for scaling and end-to-end workflow
+claims. Real-project lanes support only claims about the checked-in source and
+build-feature boundary. Self-host results establish practical coverage without
+being mixed into competitor ratios.
 
-## Enterprise Workload
+## Enterprise Workloads
 
-The generated fixture now supports `wide`, `layered`, and `chain` graphs plus
-configurable classes and methods per module. That fixes the old serial-chain
-benchmark as the only generated shape, but it is still only the foundation of
-an enterprise-like workload. The target fixture should eventually look more
-like a large internal Java platform:
+Workload specifications live under `benchmarks/workloads/`:
 
-- 200 to 500 modules plus multiple apps;
-- layered modules instead of a single chain;
-- shared platform modules, feature modules, adapters, clients, and test fixtures;
-- Java 21 sources with many classes per module, not one class per module;
-- compile dependencies, runtime dependencies, provided dependencies, BOMs, and
-  annotation processors;
-- resources, generated sources, and test sources;
-- at least one Spring Boot style app and one plain Java service app;
-- jar packaging for libraries and runnable app packaging for apps.
+- `smoke-v1.json` is the fast harness and pull-request validation profile.
+- `enterprise-v1.json` is the publication profile: 200 library modules, a
+  platform module, two applications, at least 1,000 Java files and 20,000 source
+  lines, five repeated clean samples, and seven repeated workflow samples.
 
-The generator should be deterministic from a small JSON or TOML spec:
+`scripts/benchmark-enterprise-fixture` deterministically creates equivalent
+Zolt, Maven, and Gradle projects. The workload includes:
 
-```text
-enterprise-large:
-  modules: 300
-  apps: 4
-  classesPerModule: 16
-  testsPerModule: 4
-  dependencyFanout: 3
-  annotationProcessors: true
-  generatedSources: true
-  resources: true
-  seed: 20260708
-```
+- `wide`, `layered`, and `chain` dependency graphs;
+- multiple classes and methods per module;
+- one shared platform module used by every library;
+- compile, runtime, and provided dependencies;
+- imported BOMs;
+- Lombok annotation processing and generated getter output;
+- resources and JUnit test sources in every member;
+- a plain Java application and a Spring Boot application;
+- library and application jars.
 
-That gives us a benchmark we can scale up and down without committing huge
-source trees to the repository.
+The generated source trees carry a common digest in `fixture-metadata.json`.
+Changing the seed or workload fields changes the fixture deterministically
+without committing generated source trees.
 
-## Workflows
+## Measured Workflows
 
-Each lane should report these workflows independently:
+The enterprise lane reports these workflows independently:
 
-- dependency setup or resolve;
-- first clean build;
+- dependency setup, excluded from compile-speed claims;
+- first clean build, kept separate as a single cold tool-process sample;
+- repeated clean build with warm dependency and tool caches;
 - warm no-op build;
-- leaf source change;
-- shared API change with broad fanout;
+- leaf implementation change that changes the selected library's bytecode;
+- shared public constant change with full fanout;
 - resource-only change;
-- test compile;
-- test run;
+- test-source change build with the same selected sentinel tests;
+- tagged benchmark-test run;
 - package.
 
-The first clean build stays separate. The repeated workflows should use medians,
-p95, min, max, and raw samples.
+Every repeated row records raw samples, median, mean, p95, min, max, standard
+deviation, coefficient of variation, and a deterministic bootstrap 95%
+confidence interval for the median. Tool order rotates by workflow and sample.
+Zolt's optional build-output cache is disabled so a user's machine configuration
+cannot silently change the workload.
 
-## Automation
+Real-project overlays report first clean, repeated clean, warm no-op, and
+source-input change compile. They use the same statistics and rotating tool
+order. Tests, code generation, and native release packaging remain excluded
+unless an adapter explicitly adds them.
 
-The suite runner sits on top of the generated-workspace
-`scripts/benchmark-competitors` script:
+The self-host lane reports dependency setup, first and repeated clean builds,
+warm no-op, a Zolt CLI source edit, and packaging. It never declares a competitor
+winner.
 
-- `scripts/benchmark-suite` runs selected lanes and writes the overall suite
-  summary;
-- `scripts/benchmark-competitors` generates identical `wide`, `layered`, or
-  `chain` source trees for Zolt, Maven, and Gradle;
-- `scripts/benchmark-large-source` preserves the roughly 500,000-line source
-  volume and ABI-change comparison as a specialist manual lane;
-- `scripts/benchmark-netty-compare` creates an explicitly scoped Netty `common`
-  specialist comparison while the full core-reactor adapter remains incomplete;
-- `docs/benchmarks/projects.json` records five pinned, comparison-ready
-  real-project lanes;
-- `scripts/benchmark-enterprise-fixture` generates Zolt, Maven, and Gradle
-  versions of the enterprise workload;
-- `scripts/benchmark-real-project` checks out pinned upstream refs, applies
-  adapters, and records upstream-tool and Zolt commands;
-- `scripts/benchmark-openai-summary` turns the structured benchmark result into
-  optional model-generated prose when `OPENAI_API_KEY` is configured.
+## Correctness Gates
 
-The GitHub workflow should expose simple modes:
+Timing is accepted only after correctness passes.
 
-- `smoke`: small generated workload, one repeat, runs on push to this branch;
-- `enterprise`: large generated workload, five to seven repeats, manual;
-- `real-projects`: pinned real projects, required on pushes to the benchmark branch;
-- `publishable`: enterprise plus stable real-project adapters, manual or
-  scheduled after the workflow is proven.
+The enterprise lane checks:
 
-Use released native Zolt for publishable runs. Building Zolt in the same job is
-useful for branch validation, but it should not be mixed into public comparison
-setup time.
+- identical main class sets across all four tool modes;
+- identical copied resource sets;
+- annotation-processor output with `javap`;
+- exactly one changed library output after the leaf implementation edit;
+- the exact expected library fanout after an inlined public constant changes;
+- identical compiled test class sets;
+- equivalent class and resource entries in every produced jar.
 
-## OpenAI Summary
+The fanout gate exposed and now covers a Zolt correctness defect: Java
+`ConstantValue` attributes are part of public ABI because consumers inline those
+values. A changed dependency constant must invalidate workspace consumers.
 
-The benchmark result remains the evidence. The OpenAI step is a summarizer, not
-the source of truth.
+Real-project lanes check source/resource overlay digests and compiled class-set
+parity before timing. The self-host lane requires class output for every declared
+source member, a true no-op skip, CLI-source invalidation, a packaged Zolt jar,
+and restoration of the mutation target.
 
-The OpenAI step should:
+Any failed command or correctness check fails its lane and remains visible in
+the combined suite result.
 
-- run only when `OPENAI_API_KEY` is present;
-- use the Responses API;
-- read `suite-summary.json`, not command logs unless explicitly requested;
-- use structured outputs to produce `summary-ai.json`;
-- write a human Markdown version to `summary-ai.md`;
-- be non-blocking by default so benchmark evidence still publishes if the API is
-  unavailable;
-- record the model, reasoning effort, request id when available, and prompt
-  version in the artifact;
-- never include secrets, environment dumps, or full command logs in the prompt.
+## Automation and Artifacts
 
-Suggested environment variables:
+`scripts/benchmark-suite` is the public entrypoint. It can run any combination
+of the three lane types and writes:
 
-```text
-OPENAI_API_KEY
-OPENAI_MODEL=gpt-5.5
-OPENAI_REASONING_EFFORT=high
-BENCHMARK_AI_SUMMARY=true
-```
+- lane `samples.jsonl`, `summary.json`, `report.md`, `correctness.json`, and logs;
+- a combined `suite-summary.json`;
+- a deterministic `summary-brief.md` and `llm-summary.md`;
+- optional `summary-ai.json` and `summary-ai.md`.
 
-Keep the model and reasoning effort configurable. Use `high` by default for
-public benchmark prose where better evidence handling is worth the extra latency
-and cost.
+The `benchmarks` GitHub Actions workflow:
 
-The first useful summary schema:
+- validates every benchmark harness contract before running;
+- supports released or freshly built native Zolt;
+- uses the small workload on branch pushes;
+- defaults manual runs to `enterprise-v1.json`, five clean samples, seven
+  repeated samples, real-project lanes, and self-host coverage;
+- uploads workload specs, adapter contracts, raw samples, correctness evidence,
+  summaries, and logs;
+- excludes cloned upstream source trees from artifacts.
 
-```json
-{
-  "headline": "string",
-  "whatRan": "string",
-  "bottomLine": "string",
-  "resultBullets": ["string"],
-  "methodologyNotes": ["string"],
-  "limitations": ["string"]
-}
-```
+Use a released native Zolt for public competitor claims. A branch-built zap is
+the correct choice for validating a candidate Zolt change, but its build time is
+not included in benchmark timing.
 
-The prompt should be strict: summarize only the supplied JSON, keep first clean
-build separate, mention missing competitors only when data is actually missing,
-avoid labels like evidence grade or publishable claims, and never include
-follow-ups, recommendations, roadmap items, or backlog prose.
+## Optional Model Summary
 
-## Real Projects
+The structured result remains the source of truth. When `OPENAI_API_KEY` is
+configured, `scripts/benchmark-openai-summary` reads only
+`suite-summary.json`, requests a structured response, records model and request
+metadata, and writes JSON plus Markdown. The step is non-blocking so evidence is
+still published when the API is unavailable.
 
-Real projects should be split into two groups:
+The prompt must keep first-clean results separate, name omissions, avoid
+unsupported evidence grades, and never include secrets or full command logs.
 
-- `comparison-ready`: Zolt adapter covers the same meaningful source set;
-- `upstream-baseline`: upstream Maven or Gradle timings only while the Zolt
-  adapter is not ready.
+## Publication Gate
 
-Start with small and medium projects to prove the adapter flow, then add one
-large enterprise-grade baseline:
+A dated public result is publishable only when a manual GitHub run:
 
-- Spring PetClinic for familiar Spring application shape;
-- Apache Commons CLI for a compact Maven library;
-- HikariCP for a library with optional compile dependencies;
-- Netty as the large Maven codebase benchmark, following the public Mill
-  comparison shape: clean-all, single-module, incremental, and no-op workflows.
+- uses `enterprise-v1.json` with at least five clean and seven repeated samples;
+- includes all four tool modes;
+- uses a released native Zolt;
+- passes every correctness gate;
+- reports the runner, JDK, tool versions, workload digest, and exact commands;
+- uploads one complete artifact containing raw samples and logs.
 
-Large real projects are valuable, but they should not block the enterprise
-fixture. The generated enterprise workload is the controllable centerpiece.
-
-## Milestones
-
-1. Add the suite runner and suite-level JSON contract for generated-workspace
-   runs. Done for the first generated lane.
-2. Add topology and source-volume controls to the generated lane. Done for
-   `wide`, `layered`, and `chain`; the full enterprise fixture features listed
-   above remain future work.
-3. Add OpenAI summary script and wire it into CI behind `OPENAI_API_KEY`. Done
-   for the current suite summary.
-4. Add real-project checkout/adapters for Spring PetClinic, Commons CLI,
-   HikariCP, Netty `common`, and JUnit Platform Commons. Done.
-5. Add Netty as a conservative Zolt `common` subset comparison. Done; full
-   core-reactor parity remains future work.
-6. Publish a dated benchmark result under `docs/benchmarks/results/`.
-
-Done means a manual GitHub run produces one clean artifact with raw samples,
-report, deterministic summary, optional AI summary, and enough metadata for a
-reader or LLM to reconstruct exactly what was measured.
+Local smoke runs and branch-built runs are validation evidence, not public
+performance claims. Copy a successful publication run into
+`docs/benchmarks/results/` only after that gate passes.

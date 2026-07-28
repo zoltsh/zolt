@@ -141,7 +141,7 @@ jq -e '
   and all(.lanes[];
     .kind == "real-project-comparison"
     and .status == "dry-run"
-    and (.workflows | length) == 3
+    and (.workflows | length) == 4
     and all(.workflows[];
       (.tools | keys | sort) == (["zolt", "maven", "gradle-no-daemon", "gradle-daemon"] | sort)
     )

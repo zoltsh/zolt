@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/benchmark-self-host-test"
+rm -rf "$WORK_DIR"
+
+scripts/benchmark-self-host \
+  --zolt zolt-does-not-need-to-exist \
+  --work-dir "$WORK_DIR" \
+  --repeat 2 \
+  --clean-repeat 2 \
+  --dry-run \
+  >/dev/null
+
+jq -e '
+  .status == "dry-run"
+  and .environment.classification == "zolt-self-host"
+  and .environment.repeatCount == 2
+  and .environment.cleanRepeatCount == 2
+  and .correctness.status == "not-run"
+  and ([.workflows[].workflow] == [
+    "dependency-setup",
+    "first-clean-build",
+    "clean-build",
+    "no-op-build",
+    "leaf-change-build",
+    "package"
+  ])
+' "$WORK_DIR/summary.json" >/dev/null
+
+test -f "$WORK_DIR/correctness.json"
+test -f "$WORK_DIR/report.md"
+
+printf 'benchmark self-host script test passed\n'

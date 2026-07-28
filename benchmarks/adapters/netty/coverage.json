@@ -38,7 +38,7 @@
       "src/main/java/io/netty/util/NetUtilSubstitutions.java",
       "src/main/java/io/netty/util/internal/svm"
     ],
-    "coveredWorkflows": ["first-clean-build", "warm-no-op-build", "source-change-build"],
+    "coveredWorkflows": ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"],
     "omittedBuildFeatures": ["all-other-modules", "tests", "native-transports", "generated-native-sources", "graal-native-image-substitutions", "full-reactor-packaging"]
   }
 }

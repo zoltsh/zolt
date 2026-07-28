@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/benchmark-enterprise-test"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+for topology in chain wide layered; do
+  output="$WORK_DIR/$topology"
+  python3 scripts/benchmark-enterprise-fixture \
+    --workload benchmarks/workloads/smoke-v1.json \
+    --topology "$topology" \
+    --output-dir "$output" \
+    >/dev/null
+
+  jq -e '
+    .schemaVersion == 1
+    and .workload.modules == 8
+    and .workload.platformModules == 1
+    and .workload.apps == 2
+    and .workload.testsPerModule == 1
+    and .workload.resources == true
+    and .workload.annotationProcessors == true
+    and .workload.springBootApp == true
+    and .correctness.expectedMainSourceFiles == 20
+    and .correctness.expectedTestSourceFiles == 22
+    and .correctness.expectedResourceFiles == 11
+    and .sourceDigest == .toolSourceDigests.zolt
+    and .sourceDigest == .toolSourceDigests.maven
+    and .sourceDigest == .toolSourceDigests.gradle
+  ' "$output/fixture-metadata.json" >/dev/null \
+    || fail "$topology fixture metadata is incomplete"
+
+  for competitor in maven gradle; do
+    diff -qr "$output/fixtures/zolt/modules/platform/src" "$output/fixtures/$competitor/modules/platform/src" >/dev/null \
+      || fail "$topology platform sources differ for $competitor"
+    diff -qr "$output/fixtures/zolt/apps/app002/src" "$output/fixtures/$competitor/apps/app002/src" >/dev/null \
+      || fail "$topology Spring application sources differ for $competitor"
+  done
+
+  grep -F '[annotationProcessors]' "$output/fixtures/zolt/modules/platform/zolt.toml" >/dev/null \
+    || fail "$topology Zolt fixture is missing annotation processor coverage"
+  grep -F '<annotationProcessorPaths>' "$output/fixtures/maven/modules/platform/pom.xml" >/dev/null \
+    || fail "$topology Maven fixture is missing annotation processor coverage"
+  grep -F "annotationProcessor 'org.projectlombok:lombok:" "$output/fixtures/gradle/build.gradle" >/dev/null \
+    || fail "$topology Gradle fixture is missing annotation processor coverage"
+  grep -F 'spring-boot-starter' "$output/fixtures/zolt/apps/app002/zolt.toml" >/dev/null \
+    || fail "$topology Zolt fixture is missing the Spring Boot application"
+  grep -F '@Tag("benchmark")' \
+    "$output/fixtures/zolt/apps/app001/src/test/java/bench/enterprise/app001/App001Benchmark001Test.java" >/dev/null \
+    || fail "$topology fixture is missing generated benchmark tests"
+  grep -F "includeTags 'benchmark'" "$output/fixtures/gradle/build.gradle" >/dev/null \
+    || fail "$topology Gradle fixture does not select the same tagged benchmark tests"
+done
+
+if grep -F 'lib001' "$WORK_DIR/wide/fixtures/zolt/modules/lib008/zolt.toml" >/dev/null; then
+  fail "wide topology unexpectedly linked library modules"
+fi
+layered_edges="$(grep -c -F 'workspace = "modules/lib' "$WORK_DIR/layered/fixtures/zolt/modules/lib008/zolt.toml")"
+[[ "$layered_edges" == "2" ]] \
+  || fail "layered dependency fanout expected 2 graph edges, found $layered_edges"
+grep -F 'workspace = "modules/lib007"' "$WORK_DIR/chain/fixtures/zolt/modules/lib008/zolt.toml" >/dev/null \
+  || fail "chain topology did not include its immediate predecessor"
+
+python3 scripts/benchmark-enterprise \
+  --workload benchmarks/workloads/smoke-v1.json \
+  --topology layered \
+  --work-dir "$WORK_DIR/runner-generate-only" \
+  --generate-only \
+  >/dev/null
+[[ -f "$WORK_DIR/runner-generate-only/fixture-metadata.json" ]] \
+  || fail "enterprise runner did not generate fixture metadata"
+
+python3 scripts/benchmark-enterprise-fixture \
+  --workload benchmarks/workloads/enterprise-v1.json \
+  --topology layered \
+  --output-dir "$WORK_DIR/enterprise-volume" \
+  >/dev/null
+jq -e '
+  .workload.modules == 200
+  and .workload.apps == 2
+  and .workload.sourceFiles >= 1000
+  and .workload.sourceLines >= 20000
+  and .correctness.expectedFanoutModules == 200
+' "$WORK_DIR/enterprise-volume/fixture-metadata.json" >/dev/null \
+  || fail "publishable workload does not meet the documented volume floor"
+
+python3 - "$WORK_DIR/enterprise-summary.json" <<'PY'
+import json
+import pathlib
+import sys
+
+output = pathlib.Path(sys.argv[1])
+workflow_ids = [
+    "dependency-setup",
+    "first-clean-build",
+    "clean-build",
+    "no-op-build",
+    "leaf-change-build",
+    "shared-api-change-build",
+    "resource-change-build",
+    "test-compile-build",
+    "test-run",
+    "package",
+]
+tools = ["zolt", "maven", "gradle-no-daemon", "gradle-daemon"]
+workflows = []
+for workflow_index, workflow in enumerate(workflow_ids):
+    samples = 1 if workflow in {"dependency-setup", "first-clean-build"} else 5
+    metrics = {}
+    for tool_index, tool in enumerate(tools):
+        median = 100 + workflow_index * 10 + tool_index * 100
+        metrics[tool] = {
+            "samples": samples,
+            "medianMillis": median,
+            "meanMillis": median,
+            "standardDeviationMillis": 1,
+            "coefficientOfVariation": 0.01,
+            "median95ConfidenceIntervalMillis": [median - 1, median + 1] if samples > 1 else None,
+            "p95Millis": median + 1,
+            "minMillis": median - 1,
+            "maxMillis": median + 1,
+        }
+    workflows.append({
+        "workflow": workflow,
+        "label": workflow,
+        "kind": "setup" if workflow == "dependency-setup" else "cold" if workflow == "first-clean-build" else "repeated",
+        "winner": None if workflow == "dependency-setup" else "zolt",
+        "tools": metrics,
+    })
+summary = {
+    "schemaVersion": 2,
+    "environment": {
+        "classification": "enterprise-generated",
+        "moduleCount": 200,
+        "platformModules": 1,
+        "appModules": 2,
+        "repeatCount": 7,
+        "cleanRepeatCount": 5,
+        "topology": "layered",
+        "layerWidth": 12,
+        "dependencyFanout": 3,
+        "classesPerModule": 8,
+        "methodsPerClass": 4,
+        "testsPerModule": 2,
+        "sourceFiles": 2010,
+        "sourceLines": 45000,
+        "resourceFiles": 203,
+        "zoltSource": "build",
+        "tools": {
+            tool: {"exitCode": 0, "stdout": [f"{tool} 1.0"], "stderr": []}
+            for tool in tools
+        },
+    },
+    "correctness": {
+        "schemaVersion": 1,
+        "status": "passed",
+        "checks": [{"name": "fixture", "passed": True, "evidence": {}}],
+    },
+    "workflows": workflows,
+}
+output.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+PY
+
+scripts/benchmark-suite \
+  --enterprise-workload benchmarks/workloads/enterprise-v1.json \
+  --generated-summary "$WORK_DIR/enterprise-summary.json" \
+  --topology layered \
+  --skip-generated=false \
+  --work-dir "$WORK_DIR/suite" \
+  >/dev/null 2>&1 \
+  && fail "suite unexpectedly accepted an invalid boolean option"
+
+scripts/benchmark-suite \
+  --enterprise-workload benchmarks/workloads/enterprise-v1.json \
+  --generated-summary "$WORK_DIR/enterprise-summary.json" \
+  --topology layered \
+  --work-dir "$WORK_DIR/suite" \
+  >/dev/null
+
+jq -e '
+  .run.classification == "Publication-scale enterprise validation"
+  and .run.laneCount == 1
+  and .lanes[0].id == "enterprise-generated-layered"
+  and .lanes[0].kind == "enterprise-generated"
+  and .lanes[0].summary.repeatedWorkflowCount == 8
+  and .lanes[0].correctness.status == "passed"
+  and .lanes[0].workload.cleanRepeatCount == 5
+  and .lanes[0].workload.appModules == 2
+' "$WORK_DIR/suite/suite-summary.json" >/dev/null \
+  || fail "suite did not keep a branch-built enterprise run below publishable status"
+
+jq '.environment.zoltSource = "release"' \
+  "$WORK_DIR/enterprise-summary.json" \
+  >"$WORK_DIR/release-enterprise-summary.json"
+
+scripts/benchmark-suite \
+  --enterprise-workload benchmarks/workloads/enterprise-v1.json \
+  --generated-summary "$WORK_DIR/release-enterprise-summary.json" \
+  --topology layered \
+  --work-dir "$WORK_DIR/release-suite" \
+  >/dev/null
+
+jq -e '
+  .run.classification == "Publishable enterprise generated evidence"
+  and .lanes[0].environment.zoltSource == "release"
+  and .lanes[0].correctness.status == "passed"
+' "$WORK_DIR/release-suite/suite-summary.json" >/dev/null \
+  || fail "suite did not require a released Zolt for publishable evidence"
+
+printf 'benchmark enterprise script test passed\n'

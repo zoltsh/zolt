@@ -10,15 +10,17 @@ The real-project lane manifest lives in [projects.json](./projects.json).
 
 The public entrypoint is `scripts/benchmark-suite`. It runs selected benchmark
 lanes, writes one suite-level summary, and keeps each lane's raw evidence under
-the suite artifact. The generated Java workspace lane uses
-`scripts/benchmark-competitors` underneath. It generates byte-for-byte identical
-Java sources and equivalent dependency graphs for Zolt, Maven, and Gradle, then
-records wall-clock samples for workflows that matter on larger projects:
+the suite artifact. The primary enterprise lane uses a versioned workload spec
+to generate byte-for-byte identical Java sources and equivalent dependency
+graphs for Zolt, Maven, and Gradle, then records wall-clock samples for:
 
-- first clean build as a single setup lane;
+- dependency setup;
+- first and repeated clean builds;
 - warm no-op build;
-- leaf source change build;
-- root or shared library source change build.
+- leaf and shared-API fanout changes;
+- resource changes;
+- test-source change build and tagged test run;
+- package.
 
 Generated workspaces support three graph shapes:
 
@@ -28,15 +30,23 @@ Generated workspaces support three graph shapes:
 - `chain`: a serial dependency chain retained as a control, not as parallelism
   evidence.
 
-`--classes-per-module` and `--methods-per-class` scale source volume independently
-from module count. Every report records topology, layer width, source-file count,
-and source-line count so unlike workloads are not silently compared.
+The enterprise workload also covers BOMs, dependency scopes, Lombok annotation
+processing, resources, tests, multiple applications, and a Spring Boot app. Every
+report records topology, fanout, source volume, sample counts, strong statistics,
+and correctness evidence so unlike or incorrect workloads are not silently
+compared.
 
 The script writes raw JSON-lines samples, command logs, a JSON summary, and a
 Markdown report under `target/benchmarks/competitors` by default.
 
 ```sh
-scripts/benchmark-suite --topologies wide,layered --modules 40 --repeat 5 --include-gradle-daemon
+scripts/benchmark-suite \
+  --enterprise-workload benchmarks/workloads/enterprise-v1.json \
+  --topologies wide,layered \
+  --clean-repeat 5 \
+  --repeat 7 \
+  --include-gradle-daemon \
+  --self-host
 ```
 
 Useful variants:
@@ -46,6 +56,8 @@ scripts/benchmark-suite --topology wide --modules 100 --repeat 7 --include-gradl
 scripts/benchmark-suite --topology layered --layer-width 8 --modules 100 --repeat 7
 scripts/benchmark-suite --topology chain --modules 40 --repeat 5
 scripts/benchmark-suite --zolt ~/.zolt/bin/zolt
+scripts/benchmark-suite --enterprise-workload benchmarks/workloads/smoke-v1.json --repeat 1 --clean-repeat 1
+scripts/benchmark-suite --skip-generated --self-host --zolt ~/.zolt/bin/zolt
 scripts/benchmark-suite --topology wide --generated-summary target/benchmarks/competitors/generated-java-workspace-wide/summary.json
 scripts/benchmark-suite --real-projects spring-petclinic,apache-commons-cli --repeat 5
 scripts/benchmark-suite --skip-generated --real-project netty --repeat 1 --real-project-sample-timeout 3600
@@ -107,14 +119,13 @@ secret named `OPENAI_API_KEY`. Optional repository variables:
 Use `zolt_source=release` for publishable comparisons. It installs the selected
 release channel and avoids mixing Zolt build time into the benchmark setup. Use
 `zolt_source=build` only when measuring the checked-out branch's native binary.
-While this work is on the `benchmarks` branch, pushes to that branch build the
-branch's native binary and run a 10-module, 1-repeat `wide` four-way smoke
-benchmark without a model summary, plus one four-way repeat of every configured
-real-project comparison. This makes the five pinned
-adapters a branch merge gate without pretending a single sample is publishable.
-Production-grade generated evidence remains an explicit manual run.
-Manual runs default to 100 modules, 7 repeats, `wide,layered` topologies, all
-five real-project comparisons, and Gradle daemon coverage.
+Pushes to `benchmark-improvements` build and release-verify a branch zap, run
+the correctness-gated smoke workload, exercise every configured real-project
+adapter, and run the non-comparative self-host lane. One-sample push results are
+merge gates, not publishable performance evidence. Manual runs default to the
+200-library `enterprise-v1` workload, 7 repeated samples, 5 repeated clean
+samples, `wide,layered` topologies, all five real-project comparisons, self-host,
+and Gradle daemon coverage.
 For a Netty-only validation run, dispatch the workflow with
 `skip_generated=true`, `real_projects=netty`, `repeat=1`, and
 `real_project_sample_timeout=3600`.
@@ -162,6 +173,8 @@ Validate all benchmark contracts without doing a production-sized run:
 
 ```sh
 scripts/benchmark-suite-test
+scripts/benchmark-enterprise-test
+scripts/benchmark-self-host-test
 scripts/benchmark-large-source-test
 scripts/benchmark-large-source-report-test
 scripts/benchmark-netty-compare-test
@@ -189,9 +202,11 @@ scripts/benchmark-real-project --project junit-framework --repeat 3
 ```
 
 Those runs clone the pinned upstream commit into the benchmark output directory,
-warm dependency caches outside the timed samples, and record clean compile,
-warm no-op, and incremental source-change timings for all four modes. Each result
-includes the adapter scope and omissions. The separate `benchmark-netty-compare`
+warm dependency caches outside the timed samples, and record first clean,
+repeated clean, warm no-op, and source-input change timings for all four modes.
+Tool order rotates by sample; reports include p95, variation, confidence
+intervals, source digests, compiled-class parity, adapter scope, and omissions.
+The separate `benchmark-netty-compare`
 runner remains a specialist lane with additional dependency and thin-package
 rows for the same smaller `common` source subset.
 

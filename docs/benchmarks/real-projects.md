@@ -13,8 +13,12 @@ checked in or included with the result.
 - Declare the same compiler release, dependencies, and provided dependencies in
   every overlay.
 - Warm dependency caches outside timed samples.
-- Measure clean compile, warm no-op, and incremental source change separately.
+- Measure first clean, repeated clean, warm no-op, and source-input change
+  separately.
 - Record exact tool versions, commands, raw samples, logs, and adapter coverage.
+- Rotate tool order and report median, mean, p95, min, max, standard deviation,
+  coefficient of variation, and a bootstrap median confidence interval.
+- Require identical copied-source digests and compiled class sets before timing.
 - Keep omitted modules, tests, generators, native code, and packaging behavior
   next to every result; a subset must never be described as the full project.
 
@@ -75,10 +79,12 @@ scripts/benchmark-suite --skip-generated --real-projects spring-petclinic,apache
 
 ## Coverage Boundary
 
-PetClinic, Commons CLI, and HikariCP cover their full main source sets. Netty and
-JUnit are named module subsets because their complete reactors include build
-features outside the current Zolt adapter scope. Tests and upstream release
-packaging are excluded from all five comparison lanes. The specialist Netty
+PetClinic, Commons CLI, and HikariCP cover their full main Java and resource
+source sets in generated compiler overlays. This does not mean their complete
+native Maven build lifecycle is reproduced. Netty and JUnit are named module
+subsets because their complete reactors include build features outside the
+current Zolt adapter scope. Tests, generators, and upstream release packaging
+are excluded from all five comparison lanes. The specialist Netty
 runner adds dependency-resolution and thin-package rows but does not widen the
 source coverage beyond `common`.
 

@@ -19,6 +19,7 @@
       },
       "workflows": [
         "first-clean-build",
+        "clean-build",
         "warm-no-op-build",
         "source-change-build"
       ],
@@ -45,6 +46,7 @@
       },
       "workflows": [
         "first-clean-build",
+        "clean-build",
         "warm-no-op-build",
         "source-change-build"
       ],
@@ -71,6 +73,7 @@
       },
       "workflows": [
         "first-clean-build",
+        "clean-build",
         "warm-no-op-build",
         "source-change-build"
       ],
@@ -98,6 +101,7 @@
       },
       "workflows": [
         "first-clean-build",
+        "clean-build",
         "warm-no-op-build",
         "source-change-build"
       ],
@@ -124,6 +128,7 @@
       },
       "workflows": [
         "first-clean-build",
+        "clean-build",
         "warm-no-op-build",
         "source-change-build"
       ],

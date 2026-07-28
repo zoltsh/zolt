@@ -25,7 +25,7 @@
     "dependencies": {},
     "providedDependencies": {},
     "excludes": [],
-    "coveredWorkflows": ["first-clean-build", "warm-no-op-build", "source-change-build"],
+    "coveredWorkflows": ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"],
     "omittedBuildFeatures": ["tests", "reports", "site", "release-plugins"]
   }
 }

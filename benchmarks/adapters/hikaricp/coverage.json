@@ -36,7 +36,7 @@
       "io.prometheus:simpleclient": "0.16.0"
     },
     "excludes": [],
-    "coveredWorkflows": ["first-clean-build", "warm-no-op-build", "source-change-build"],
+    "coveredWorkflows": ["first-clean-build", "clean-build", "warm-no-op-build", "source-change-build"],
     "omittedBuildFeatures": ["tests", "generated-proxy-sources", "osgi-bundle-metadata", "release-plugins"]
   }
 }
