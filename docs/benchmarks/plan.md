@@ -148,7 +148,10 @@ The `benchmarks` GitHub Actions workflow:
 - runs profile lanes in parallel matrix jobs and aggregates their evidence;
 - uploads workload specs, adapter contracts, raw samples, correctness evidence,
   profile digest, summaries, and logs in one combined artifact;
-- excludes cloned upstream source trees from artifacts.
+- gives publication-scale enterprise lanes six hours while retaining the
+  three-hour default for other lanes and reports progress for every command;
+- excludes mutable build, cache, checkout, fixture, and workspace trees from
+  artifacts.
 
 Use a released native Zolt for public competitor claims. A branch-built zap is
 the correct choice for validating a candidate Zolt change, but its build time is

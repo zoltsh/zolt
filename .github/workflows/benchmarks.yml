@@ -165,7 +165,7 @@ jobs:
       needs.plan.result == 'success' &&
       (needs.build-zolt.result == 'success' || needs.build-zolt.result == 'skipped')
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
@@ -307,6 +307,13 @@ jobs:
             benchmarks/workloads/**
             benchmarks/adapters/**
             docs/benchmarks/projects.json
+            !${{ env.BENCHMARK_DIR }}/**/cache/**
+            !${{ env.BENCHMARK_DIR }}/**/caches/**
+            !${{ env.BENCHMARK_DIR }}/**/checkout/**
+            !${{ env.BENCHMARK_DIR }}/**/fixtures/**
+            !${{ env.BENCHMARK_DIR }}/**/projects/**
+            !${{ env.BENCHMARK_DIR }}/**/workspace/**
+            !${{ env.BENCHMARK_DIR }}/real-project-cache/**
             !target/benchmarks/shards/*/real-projects/*/checkout/**
           if-no-files-found: warn
 

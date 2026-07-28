@@ -42,15 +42,26 @@ jq -e '
   and .lanes[0].topology == "layered"
   and .lanes[0].repeat == 7
   and .lanes[0].cleanRepeat == 5
+  and .lanes[0].jobTimeout == 360
 ' "$WORK_DIR/publishable.json" >/dev/null \
   || fail "publishable profile contract is invalid"
+
+scripts/benchmark-profile matrix --profile publishable >"$WORK_DIR/publishable-matrix.json"
+jq -e '
+  (.include | length) == 6
+  and ([.include[] | select(.kind == "enterprise" and .timeoutMinutes == 360)] | length) == 1
+  and ([.include[] | select(.kind == "real-project" and .timeoutMinutes == 180)] | length) == 5
+' "$WORK_DIR/publishable-matrix.json" >/dev/null \
+  || fail "publishable profile did not preserve per-lane CI budgets"
 
 scripts/benchmark-profile matrix --profile full >"$WORK_DIR/full-matrix.json"
 jq -e '
   (.include | length) == 8
   and ([.include[] | select(.kind == "enterprise")] | length) == 2
+  and ([.include[] | select(.kind == "enterprise" and .timeoutMinutes == 360)] | length) == 2
   and ([.include[] | select(.kind == "real-project")] | length) == 5
   and ([.include[] | select(.kind == "self-host")] | length) == 1
+  and ([.include[] | select(.kind != "enterprise" and .timeoutMinutes == 180)] | length) == 6
   and ([.include[].id] | unique | length) == 8
 ' "$WORK_DIR/full-matrix.json" >/dev/null \
   || fail "full profile did not expand to the expected parallel lane matrix"
@@ -174,5 +185,25 @@ fi
 grep -F 'name: build branch benchmark distribution' \
   .github/workflows/benchmarks.yml >/dev/null \
   || fail "benchmark workflow does not clearly label the ephemeral branch distribution"
+
+# This is a literal GitHub expression in the workflow.
+# shellcheck disable=SC2016
+grep -F 'timeout-minutes: ${{ matrix.timeoutMinutes }}' \
+  .github/workflows/benchmarks.yml >/dev/null \
+  || fail "benchmark workflow does not apply the profile lane timeout"
+
+for volatile_dir in cache caches checkout fixtures projects workspace; do
+  # This is a literal GitHub expression in the workflow.
+  # shellcheck disable=SC2016
+  grep -F '!${{ env.BENCHMARK_DIR }}/**/'"$volatile_dir"'/**' \
+    .github/workflows/benchmarks.yml >/dev/null \
+    || fail "benchmark artifacts include volatile $volatile_dir output"
+done
+
+# This is a literal GitHub expression in the workflow.
+# shellcheck disable=SC2016
+grep -F '!${{ env.BENCHMARK_DIR }}/real-project-cache/**' \
+  .github/workflows/benchmarks.yml >/dev/null \
+  || fail "benchmark artifacts include the shared real-project cache"
 
 printf 'benchmark profile script test passed\n'

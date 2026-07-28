@@ -82,6 +82,8 @@ python3 scripts/benchmark-enterprise \
 
 python3 - "$WORK_DIR/tuned-plan" <<'PY'
 import argparse
+import contextlib
+import io
 import pathlib
 import runpy
 import sys
@@ -118,6 +120,42 @@ if by_id["maven"].root == by_id["maven-parallel"].root:
     raise SystemExit("Maven default and tuned modes share project output")
 if by_id["gradle-daemon"].root == by_id["gradle-parallel-configuration-cache"].root:
     raise SystemExit("Gradle default and tuned modes share project output")
+
+progress_root = (work_dir / "progress").resolve()
+progress_root.mkdir(parents=True, exist_ok=True)
+progress_tool = module["Tool"](
+    "probe",
+    progress_root,
+    ["/usr/bin/true"],
+    ["/usr/bin/true"],
+    ["/usr/bin/true"],
+    ["/usr/bin/true"],
+    ["/usr/bin/true"],
+    ["/usr/bin/true"],
+)
+progress_runner = module["Runner"](
+    progress_root,
+    {},
+    [progress_tool],
+    30,
+    1,
+    1,
+)
+progress_runner.command_total = 1
+
+captured = io.StringIO()
+with contextlib.redirect_stdout(captured):
+    progress_runner.run(
+        "no-op-build",
+        progress_tool,
+        1,
+        ["/usr/bin/true"],
+    )
+progress = captured.getvalue()
+if "benchmark command 1/1 started: no-op-build / probe / sample 1" not in progress:
+    raise SystemExit("enterprise runner does not report command start progress")
+if "benchmark command 1/1 finished: no-op-build / probe / sample 1" not in progress:
+    raise SystemExit("enterprise runner does not report command completion progress")
 PY
 
 python3 scripts/benchmark-enterprise-fixture \

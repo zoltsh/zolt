@@ -70,6 +70,10 @@ def validate_lane(lane: Any, index: int, projects: set[str]) -> dict[str, Any]:
     positive(lane.get("repeat"), f"{field}.repeat")
     positive(lane.get("cleanRepeat"), f"{field}.cleanRepeat")
     positive(lane.get("sampleTimeout"), f"{field}.sampleTimeout")
+    if "jobTimeout" in lane:
+        job_timeout = positive(lane.get("jobTimeout"), f"{field}.jobTimeout")
+        if job_timeout > 360:
+            fail(f"{field}.jobTimeout must not exceed 360 minutes")
     if kind == "enterprise":
         workload = lane.get("workload")
         if not isinstance(workload, str) or not workload:
@@ -306,7 +310,11 @@ def main() -> int:
             json.dumps(
                 {
                     "include": [
-                        {"id": lane["id"], "kind": lane["kind"]}
+                        {
+                            "id": lane["id"],
+                            "kind": lane["kind"],
+                            "timeoutMinutes": lane.get("jobTimeout", 180),
+                        }
                         for lane in profile["lanes"]
                     ]
                 },

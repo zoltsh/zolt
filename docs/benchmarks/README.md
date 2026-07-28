@@ -136,6 +136,14 @@ The tuned modes are never substituted for or blended with the defaults. `full`
 keeps the same one-option interface while adding a wide enterprise lane and
 self-host evidence.
 
+The canonical enterprise lane runs 336 timed tool commands plus 36 untimed
+clean commands on the current 200-library, six-tool contract. Expect it to take
+several hours on a GitHub-hosted runner. Its profile grants that lane a six-hour
+CI ceiling while the other lanes retain three hours, and the log reports every
+command's start, completion, duration, and position in the sequence. Artifacts
+retain the evidence and command logs but exclude mutable build, cache, checkout,
+fixture, and workspace trees.
+
 Pushes to `benchmark-improvements` select `smoke` automatically. Those runs build
 and release-verify one ephemeral branch benchmark distribution, then share it
 across the parallel lane jobs. It is never published to the zap channel. Smoke

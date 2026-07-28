@@ -125,6 +125,8 @@ class Runner:
         self.report_path = work_dir / "report.md"
         self.correctness_path = work_dir / "correctness.json"
         self.samples: list[dict[str, object]] = []
+        self.command_count = 0
+        self.command_total = 0
         self.correctness: dict[str, object] = {
             "schemaVersion": 1,
             "status": "pending",
@@ -157,6 +159,17 @@ class Runner:
         start = time.perf_counter_ns()
         timed_out = False
         exit_code = 0
+        self.command_count += 1
+        progress = (
+            f"{self.command_count}/{self.command_total}"
+            if self.command_total
+            else str(self.command_count)
+        )
+        print(
+            f"benchmark command {progress} started: "
+            f"{workflow} / {tool.identifier} / sample {sample}",
+            flush=True,
+        )
         with log_path.open("w", encoding="utf-8") as log:
             log.write("$ " + " ".join(command) + "\n\n")
             try:
@@ -178,6 +191,12 @@ class Runner:
                 exit_code = 127
                 log.write(f"\n{exc}\n")
         duration_nanos = time.perf_counter_ns() - start
+        print(
+            f"benchmark command {progress} finished: "
+            f"{workflow} / {tool.identifier} / sample {sample} / "
+            f"{round(duration_nanos / 1_000_000)} ms / exit {exit_code}",
+            flush=True,
+        )
         row = {
             "kind": "sample" if timed else "setup",
             "workflow": workflow,
@@ -473,6 +492,12 @@ class Runner:
             ("test-run", self.repeated_samples),
             ("package", self.repeated_samples),
         ]
+        measured_commands = sum(
+            sample_count * len(self.tools)
+            for _, sample_count in workflow_samples
+        )
+        clean_commands = (1 + self.clean_samples) * len(self.tools)
+        self.command_total = measured_commands + clean_commands
         for workflow_index, (workflow, sample_count) in enumerate(workflow_samples):
             if workflow == "leaf-change-build":
                 self.capture_leaf_baseline()

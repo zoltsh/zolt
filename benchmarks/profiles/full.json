@@ -16,7 +16,8 @@
       "topology": "layered",
       "repeat": 7,
       "cleanRepeat": 5,
-      "sampleTimeout": 1800
+      "sampleTimeout": 1800,
+      "jobTimeout": 360
     },
     {
       "id": "enterprise-wide",
@@ -25,7 +26,8 @@
       "topology": "wide",
       "repeat": 7,
       "cleanRepeat": 5,
-      "sampleTimeout": 1800
+      "sampleTimeout": 1800,
+      "jobTimeout": 360
     },
     {
       "id": "real-spring-petclinic",
