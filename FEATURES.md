@@ -53,7 +53,7 @@ zolt integration-test
 zolt coverage
 ```
 
-- **Runners.** JUnit Platform, JUnit Vintage, Groovy, and Spock.
+- **Support.** JUnit Platform, JUnit Vintage, Groovy test sources, and Spock.
 - **Selection.** Classes, methods, patterns, suites, and JUnit tags.
 - **Scale.** Deterministic shards and profiling-based worker balancing.
 - **Reports.** JUnit XML, test profile JSON, and JaCoCo HTML, XML, and
