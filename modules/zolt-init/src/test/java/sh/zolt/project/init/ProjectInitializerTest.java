@@ -101,6 +101,19 @@ final class ProjectInitializerTest {
     }
 
     @Test
+    void canCreateWorkspaceWithoutTests() {
+        ProjectInitResult result = initializer.initWorkspace(
+                tempDir, "platform", "com.example", "21", false);
+        Path memberRoot = result.projectDirectory().resolve("apps/platform");
+
+        ProjectConfig config = parser.parse(memberRoot.resolve("zolt.toml"));
+
+        assertTrue(config.testDependencies().isEmpty());
+        assertFalse(Files.exists(memberRoot.resolve("src/test")));
+        assertFalse(Files.exists(result.testSource()));
+    }
+
+    @Test
     void rejectsPathLikeProjectName() {
         ProjectInitException exception = assertThrows(
                 ProjectInitException.class,

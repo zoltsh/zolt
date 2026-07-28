@@ -9,18 +9,50 @@ import {
   writePublisherFixture,
 } from "./support/publish-fixture.mts";
 import { parsePublishDryRun } from "./support/publish-output.mts";
-import { expectTextFile, packagedZolt, runZolt } from "./support/zolt-smoke.mts";
+import {
+  expectTestsFound,
+  expectTextFile,
+  packagedZolt,
+  runZolt,
+  singleJar,
+} from "./support/zolt-smoke.mts";
 
 smoke.suite("publish compatibility smoke", { tags: ["publish", "compatibility"] }, async (t: SmokeContext) => {
   const work = await t.tempDir("zolt-publish-compatibility");
   const zolt = await packagedZolt(t);
 
-  await t.step("initializes and builds a quickstart through the packaged CLI", async () => {
+  await t.step("initializes, tests, and packages a quickstart through the packaged CLI", async () => {
     const root = work.path("quickstart");
+    const project = join(root, "app");
     await mkdir(root, { recursive: true });
-    await runZolt(t, zolt, ["--no-progress", "init", "--cwd", root, "--group", "com.example.quickstart", "--java", "21", "app"]);
-    await runZolt(t, zolt, ["--no-progress", "build", "--cwd", join(root, "app"), "--cache-root", zolt.cacheRoot]);
-    await expect.file(join(root, "app/target/classes/com/example/quickstart/Main.class")).toExist();
+    await runZolt(t, zolt, [
+      "--no-progress",
+      "init",
+      "--cwd",
+      root,
+      "--group",
+      "com.example.quickstart",
+      "--java",
+      "21",
+      "app",
+    ]);
+    await expectTestsFound(t, zolt, 1, [
+      "--no-progress",
+      "test",
+      "--cwd",
+      project,
+      "--cache-root",
+      zolt.cacheRoot,
+    ]);
+    await runZolt(t, zolt, [
+      "--no-progress",
+      "package",
+      "--cwd",
+      project,
+      "--cache-root",
+      zolt.cacheRoot,
+    ]);
+    await expect.file(await singleJar(join(project, "target"))).toExist();
   });
 
   await t.step("dry-run metadata materializes a consumable Maven artifact", async () => {
