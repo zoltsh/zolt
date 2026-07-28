@@ -232,11 +232,14 @@ package {package};
 {chr(10).join(imports)}
 
 public final class {name} {{
+    private static final String VALUE =
+        Integer.toHexString(java.util.Objects.hash({", ".join(values)}));
+
     private {name}() {{
     }}
 
     public static String value() {{
-        return String.join(">", {", ".join(values)});
+        return VALUE;
     }}
 }}
 """,

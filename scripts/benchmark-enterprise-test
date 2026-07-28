@@ -134,6 +134,15 @@ jq -e '
 ' "$WORK_DIR/enterprise-volume/fixture-metadata.json" >/dev/null \
   || fail "publishable workload does not meet the documented volume floor"
 
+enterprise_module="$WORK_DIR/enterprise-volume/fixtures/maven/modules/lib200/src/main/java/bench/enterprise/lib200/Lib200.java"
+grep -F 'private static final String VALUE =' "$enterprise_module" >/dev/null \
+  || fail "publishable fixture does not memoize generated dependency values"
+grep -F 'Integer.toHexString(java.util.Objects.hash(' "$enterprise_module" >/dev/null \
+  || fail "publishable fixture does not bound generated dependency value size"
+if grep -F 'return String.join' "$enterprise_module" >/dev/null; then
+  fail "publishable fixture recursively expands dependency values"
+fi
+
 python3 - "$WORK_DIR/enterprise-summary.json" <<'PY'
 import json
 import pathlib
