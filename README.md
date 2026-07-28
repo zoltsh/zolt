@@ -22,6 +22,8 @@
   <span> · </span>
   <a href="./USAGE.md">Usage</a>
   <span> · </span>
+  <a href="./FAQ.md">FAQ</a>
+  <span> · </span>
   <a href="#benchmarks">Benchmarks</a>
 </p>
 
@@ -111,9 +113,9 @@ Benchmark claims should point to repeatable evidence. See
 [docs/benchmarks](./docs/benchmarks/) for the public harness that compares Zolt,
 Maven, and Gradle on generated multi-module Java workspaces.
 
-## Rust
+## FAQ
 
-If Rust is needed, we'll rewrite Zolt, ship both, and keep them in sync.
+Why not Rust, Maven, Gradle, or Bazel? See [FAQ.md](./FAQ.md).
 
 ## Security
 

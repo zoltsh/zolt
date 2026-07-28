@@ -227,6 +227,7 @@ and `native-smoke`.
 
 ## More
 
+- [FAQ](./FAQ.md)
 - [Features](./FEATURES.md)
 - [Reference](./REFERENCE.md)
 - [Examples](./examples/)

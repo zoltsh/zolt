@@ -1167,10 +1167,18 @@ Zolt runs JUnit Platform based tests and can compile Java and Groovy test
 sources when configured. That covers examples such as JUnit Jupiter, JUnit
 Vintage, and Spock:
 
+Zolt treats test engines as project dependencies and the JUnit Platform console
+launcher as build tooling. When test dependencies are configured and no
+`junit-platform-console*` artifact is declared, Zolt adds the launcher and
+aligns it with the declared JUnit Platform, Jupiter, or Vintage version.
+
+Declare a console artifact only to pin or override the launcher:
+
 ```toml
 [test.dependencies]
 "org.apache.groovy:groovy" = "4.0.22"
 "org.spockframework:spock-core" = "2.3-groovy-4.0"
+# Optional explicit launcher pin:
 "org.junit.platform:junit-platform-console-standalone" = "1.14.4"
 
 [test.sources]
