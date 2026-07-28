@@ -2,8 +2,8 @@
 
 ## Why another build tool?
 
-Java does not need another framework for configuring a build framework. It
-needs one tool that owns the project lifecycle.
+Java does not need another programmable build framework. It needs one tool that
+owns the project lifecycle.
 
 Zolt handles dependencies, JDKs, builds, tests, workspaces, packaging,
 publishing, native images, and CI from one project model.
