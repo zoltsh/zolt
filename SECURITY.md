@@ -3,7 +3,7 @@
 ## Supported Versions
 
 Zolt is pre-1.0. Security fixes are handled on the latest published release and
-the current `dev` branch.
+the current `main` branch.
 
 Older snapshots, nightly builds, and prerelease artifacts may be replaced rather
 than patched in place.
@@ -11,7 +11,7 @@ than patched in place.
 | Version | Security support |
 | --- | --- |
 | Latest published release | Yes |
-| Current `dev` branch | Yes |
+| Current `main` branch | Yes |
 | Older snapshots, nightly builds, and prerelease artifacts | No |
 
 ## Reporting a Vulnerability
