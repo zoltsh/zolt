@@ -87,24 +87,34 @@ final class ToolingDependencyContributor {
                 JUNIT_PLATFORM_CONSOLE_PACKAGE,
                 version,
                 DependencyScope.TEST,
-                RequestOrigin.TRANSITIVE));
+                RequestOrigin.TRANSITIVE,
+                RequestVersionOrigin.INJECTED));
     }
 
     private static String junitConsoleVersion(
             Map<PackageId, String> projectManagedVersions,
             List<DependencyRequest> requests) {
-        Optional<String> requestedVersion = requests.stream()
+        Optional<String> declaredVersion = junitPlatformVersion(requests, RequestVersionOrigin.DECLARED);
+        if (declaredVersion.isPresent()) {
+            return declaredVersion.orElseThrow();
+        }
+        String managedVersion = projectManagedVersions.get(JUNIT_PLATFORM_CONSOLE_PACKAGE);
+        if (managedVersion != null && !managedVersion.isBlank()) {
+            return managedVersion;
+        }
+        return junitPlatformVersion(requests, RequestVersionOrigin.MANAGED)
+                .orElse(JUNIT_PLATFORM_CONSOLE_VERSION);
+    }
+
+    private static Optional<String> junitPlatformVersion(
+            List<DependencyRequest> requests,
+            RequestVersionOrigin versionOrigin) {
+        return requests.stream()
                 .filter(request -> request.scope().entersTestClasspath())
+                .filter(request -> request.versionOrigin() == versionOrigin)
                 .map(ToolingDependencyContributor::junitPlatformVersion)
                 .flatMap(Optional::stream)
                 .max(VERSION_COMPARATOR);
-        if (requestedVersion.isPresent()) {
-            return requestedVersion.orElseThrow();
-        }
-        String managedVersion = projectManagedVersions.get(JUNIT_PLATFORM_CONSOLE_PACKAGE);
-        return managedVersion == null || managedVersion.isBlank()
-                ? JUNIT_PLATFORM_CONSOLE_VERSION
-                : managedVersion;
     }
 
     private static Optional<String> junitPlatformVersion(DependencyRequest request) {
@@ -144,7 +154,10 @@ final class ToolingDependencyContributor {
                                     JACOCO_AGENT_PACKAGE.groupId(),
                                     JACOCO_AGENT_PACKAGE.artifactId(),
                                     Optional.of(JACOCO_VERSION)),
-                            Optional.of("runtime")))));
+                            Optional.of("runtime"))),
+                    List.of(),
+                    false,
+                    RequestVersionOrigin.INJECTED));
         }
         boolean cliAlreadyRequested = requests.stream()
                 .anyMatch(request -> request.packageId().equals(JACOCO_CLI_PACKAGE)
@@ -154,7 +167,8 @@ final class ToolingDependencyContributor {
                     JACOCO_CLI_PACKAGE,
                     JACOCO_VERSION,
                     DependencyScope.TOOL_COVERAGE,
-                    RequestOrigin.TRANSITIVE));
+                    RequestOrigin.TRANSITIVE,
+                    RequestVersionOrigin.INJECTED));
         }
     }
 

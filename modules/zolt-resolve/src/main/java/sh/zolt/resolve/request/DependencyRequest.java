@@ -14,7 +14,27 @@ public record DependencyRequest(
         RequestOrigin origin,
         Optional<ArtifactDescriptor> artifactDescriptor,
         List<DependencyExclusion> exclusions,
-        boolean optional) {
+        boolean optional,
+        RequestVersionOrigin versionOrigin) {
+    public DependencyRequest(
+            PackageId packageId,
+            String requestedVersion,
+            DependencyScope scope,
+            RequestOrigin origin,
+            Optional<ArtifactDescriptor> artifactDescriptor,
+            List<DependencyExclusion> exclusions,
+            boolean optional) {
+        this(
+                packageId,
+                requestedVersion,
+                scope,
+                origin,
+                artifactDescriptor,
+                exclusions,
+                optional,
+                RequestVersionOrigin.DECLARED);
+    }
+
     public DependencyRequest(
             PackageId packageId,
             String requestedVersion,
@@ -54,6 +74,23 @@ public record DependencyRequest(
             String requestedVersion,
             DependencyScope scope,
             RequestOrigin origin,
+            RequestVersionOrigin versionOrigin) {
+        this(
+                packageId,
+                requestedVersion,
+                scope,
+                origin,
+                Optional.empty(),
+                List.of(),
+                false,
+                versionOrigin);
+    }
+
+    public DependencyRequest(
+            PackageId packageId,
+            String requestedVersion,
+            DependencyScope scope,
+            RequestOrigin origin,
             List<DependencyExclusion> exclusions) {
         this(packageId, requestedVersion, scope, origin, Optional.empty(), exclusions);
     }
@@ -61,6 +98,7 @@ public record DependencyRequest(
     public DependencyRequest {
         artifactDescriptor = artifactDescriptor == null ? Optional.empty() : artifactDescriptor;
         exclusions = exclusions == null ? List.of() : List.copyOf(exclusions);
+        versionOrigin = versionOrigin == null ? RequestVersionOrigin.DECLARED : versionOrigin;
     }
 
     public boolean direct() {

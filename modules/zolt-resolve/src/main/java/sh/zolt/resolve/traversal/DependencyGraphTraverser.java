@@ -279,7 +279,8 @@ public final class DependencyGraphTraverser {
                 request.origin(),
                 descriptor,
                 request.exclusions(),
-                request.optional());
+                request.optional(),
+                request.versionOrigin());
     }
 
     private static String requireVersion(DependencyRequest request) {

@@ -42,6 +42,7 @@ final class DependencyRequestVersions {
                 request.origin(),
                 descriptor,
                 request.exclusions(),
-                request.optional());
+                request.optional(),
+                request.versionOrigin());
     }
 }

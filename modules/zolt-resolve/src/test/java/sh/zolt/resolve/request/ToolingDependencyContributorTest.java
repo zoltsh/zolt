@@ -44,6 +44,7 @@ final class ToolingDependencyContributorTest {
         assertEquals("1.12.0", request.requestedVersion());
         assertEquals(DependencyScope.TEST, request.scope());
         assertEquals(RequestOrigin.TRANSITIVE, request.origin());
+        assertEquals(RequestVersionOrigin.INJECTED, request.versionOrigin());
     }
 
     @Test
@@ -93,6 +94,42 @@ final class ToolingDependencyContributorTest {
                 false);
 
         assertEquals("1.11.4", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+    }
+
+    @Test
+    void managedConsoleVersionOverridesManagedJupiterLine() {
+        PackageId jupiter = new PackageId("org.junit.jupiter", "junit-jupiter");
+        List<DependencyRequest> requests = new ArrayList<>();
+        requests.add(new DependencyRequest(
+                jupiter,
+                "5.10.2",
+                DependencyScope.TEST,
+                RequestOrigin.DIRECT,
+                RequestVersionOrigin.MANAGED));
+
+        contributor.contribute(
+                testDependencyConfig(),
+                Map.of(JUNIT_CONSOLE, "1.11.4"),
+                requests,
+                false);
+
+        assertEquals("1.11.4", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
+    }
+
+    @Test
+    void derivesConsoleVersionFromManagedJupiterWhenConsoleIsNotManaged() {
+        PackageId jupiter = new PackageId("org.junit.jupiter", "junit-jupiter");
+        List<DependencyRequest> requests = new ArrayList<>();
+        requests.add(new DependencyRequest(
+                jupiter,
+                "5.10.2",
+                DependencyScope.TEST,
+                RequestOrigin.DIRECT,
+                RequestVersionOrigin.MANAGED));
+
+        contributor.contribute(testDependencyConfig(), Map.of(), requests, false);
+
+        assertEquals("1.10.2", onlyRequest(requests, JUNIT_CONSOLE).requestedVersion());
     }
 
     @Test

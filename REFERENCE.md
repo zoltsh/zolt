@@ -1168,9 +1168,9 @@ sources when configured. That covers examples such as JUnit Jupiter, JUnit
 Vintage, and Spock:
 
 Zolt treats test engines as project dependencies and the JUnit Platform console
-launcher as build tooling. When test dependencies are configured and no
-`junit-platform-console*` artifact is declared, Zolt adds the launcher and
-aligns it with the declared JUnit Platform, Jupiter, or Vintage version.
+launcher as build tooling. When test dependencies are configured and no console
+is declared, Zolt adds one. Version order: explicit JUnit version, managed
+console, another managed JUnit dependency, Zolt default.
 
 Declare a console artifact only to pin or override the launcher:
 

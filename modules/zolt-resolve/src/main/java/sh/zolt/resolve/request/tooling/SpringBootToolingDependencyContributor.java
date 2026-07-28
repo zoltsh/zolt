@@ -8,6 +8,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.request.RequestOrigin;
+import sh.zolt.resolve.request.RequestVersionOrigin;
 import java.util.List;
 import java.util.Map;
 
@@ -52,7 +53,8 @@ public final class SpringBootToolingDependencyContributor {
                 SPRING_BOOT_LOADER_PACKAGE,
                 version,
                 DependencyScope.RUNTIME,
-                RequestOrigin.TRANSITIVE));
+                RequestOrigin.TRANSITIVE,
+                RequestVersionOrigin.MANAGED));
     }
 
     private void addSpringBootAotToolRequests(
@@ -79,7 +81,8 @@ public final class SpringBootToolingDependencyContributor {
                 SPRING_BOOT_AOT_TOOL_PACKAGE,
                 version,
                 DependencyScope.TOOL_SPRING_AOT,
-                RequestOrigin.TRANSITIVE));
+                RequestOrigin.TRANSITIVE,
+                RequestVersionOrigin.MANAGED));
     }
 
     private static boolean isSpringBootArchive(PackageMode mode) {

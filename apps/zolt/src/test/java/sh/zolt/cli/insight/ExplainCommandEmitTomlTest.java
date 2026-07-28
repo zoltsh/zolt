@@ -404,11 +404,11 @@ final class ExplainCommandEmitTomlTest {
                       <version>1.1.2</version>
                     </project>
                     """);
-            repository.addArtifact("org.junit.platform", "junit-platform-console", "1.10.2", """
+            repository.addArtifact("org.junit.platform", "junit-platform-console", "1.11.4", """
                     <project>
                       <groupId>org.junit.platform</groupId>
                       <artifactId>junit-platform-console</artifactId>
-                      <version>1.10.2</version>
+                      <version>1.11.4</version>
                     </project>
                     """);
             Files.writeString(tempDir.resolve("pom.xml"), MAVEN_MANAGED_POM);
@@ -440,7 +440,7 @@ final class ExplainCommandEmitTomlTest {
             assertTrue(lock.contains("org.apiguardian:apiguardian-api:1.1.0"), () -> lock);
             assertFalse(lock.contains("org.apiguardian:apiguardian-api:1.1.2"), () -> lock);
             assertTrue(lock.contains(
-                    "id = \"org.junit.platform:junit-platform-console\"\nversion = \"1.10.2\""), () -> lock);
+                    "id = \"org.junit.platform:junit-platform-console\"\nversion = \"1.11.4\""), () -> lock);
         }
     }
 
