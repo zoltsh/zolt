@@ -8,9 +8,11 @@ lanes, specialist large-source comparisons, and optional OpenAI summaries over
 the structured result. See [plan.md](./plan.md) for the benchmark architecture.
 The real-project lane manifest lives in [projects.json](./projects.json).
 
-The public entrypoint is `scripts/benchmark-suite`. It runs selected benchmark
-lanes, writes one suite-level summary, and keeps each lane's raw evidence under
-the suite artifact. The primary enterprise lane uses a versioned workload spec
+The CI entrypoint is `scripts/benchmark-profile`; `scripts/benchmark-suite`
+remains the lower-level runner for local experiments. Profiles validate and
+expand into selected benchmark lanes, while the suite writes one summary and
+keeps each lane's raw evidence under the artifact. The primary enterprise lane
+uses a versioned workload spec
 to generate byte-for-byte identical Java sources and equivalent dependency
 graphs for Zolt, Maven, and Gradle, then records wall-clock samples for:
 
@@ -102,36 +104,44 @@ the deterministic summary when the key is absent.
 
 ## GitHub Actions
 
-Use the manual `benchmarks` workflow for public runs. It installs or builds a
-native Zolt binary, runs the suite harness, writes the deterministic compact summary
-into the job summary, optionally appends a model-generated summary, and uploads
-the report, raw samples, JSON summaries, prompt context, and command logs as
-workflow artifacts.
+The manual `benchmarks` workflow has one input: `profile`.
+
+| Profile | Zolt | Work |
+| --- | --- | --- |
+| `smoke` | Branch-built zap | Small enterprise lane, five one-sample real-project lanes, and one-sample self-host |
+| `publishable` | Resolved zap release | Canonical layered `enterprise-v1` lane with 5 clean and 7 repeated samples |
+| `full` | Resolved zap release | Layered and wide enterprise lanes, five real projects, and self-host |
+
+Run the canonical publication profile with:
+
+```sh
+gh workflow run benchmarks.yml --ref main -f profile=publishable
+```
+
+The workflow resolves the selected release channel once, records the exact Zolt
+version in every lane, and then runs profile lanes as parallel matrix jobs. A
+final aggregation job uploads one combined artifact containing every lane's raw
+samples, logs, correctness evidence, deterministic summaries, and profile
+digest. `full` therefore keeps the one-option interface without serializing all
+work onto one runner.
+
+Pushes to `benchmark-improvements` select `smoke` automatically. Those runs build
+and release-verify the branch zap once, then share it across the parallel lane
+jobs. Smoke results are merge gates, not public performance evidence.
+
+Profile definitions are versioned under `benchmarks/profiles/`. Inspect the
+resolved contract or matrix locally with:
+
+```sh
+scripts/benchmark-profile show --profile publishable
+scripts/benchmark-profile matrix --profile full
+```
 
 To enable model-generated summaries in GitHub Actions, add a repository Actions
 secret named `OPENAI_API_KEY`. Optional repository variables:
 
 - `OPENAI_MODEL`, default `gpt-5.5`;
-- `OPENAI_REASONING_EFFORT`, default `high`;
-- `BENCHMARK_AI_SUMMARY=false` to disable the model step without removing the
-  secret.
-
-Use `zolt_source=release` for publishable comparisons. It installs the selected
-release channel and avoids mixing Zolt build time into the benchmark setup. Use
-`zolt_source=build` only when measuring the checked-out branch's native binary.
-Pushes to `benchmark-improvements` build and release-verify a branch zap, run
-the correctness-gated smoke workload, exercise every configured real-project
-adapter, and run the non-comparative self-host lane. One-sample push results are
-merge gates, not publishable performance evidence. Manual runs default to the
-200-library `enterprise-v1` workload, 7 repeated samples, 5 repeated clean
-samples, `wide,layered` topologies, all five real-project comparisons, self-host,
-and Gradle daemon coverage.
-For a Netty-only validation run, dispatch the workflow with
-`skip_generated=true`, `real_projects=netty`, `repeat=1`, and
-`real_project_sample_timeout=3600`.
-That lane measures the same filtered Netty `common` main-source overlay with
-Zolt, Maven, Gradle no-daemon, and Gradle daemon; native platform modules, the
-rest of the reactor, and tests are explicitly omitted.
+- `OPENAI_REASONING_EFFORT`, default `high`.
 
 The workflow installs a pinned Gradle distribution directly instead of using
 `gradle/actions/setup-gradle`. That keeps the GitHub summary dedicated to the
@@ -173,6 +183,7 @@ Validate all benchmark contracts without doing a production-sized run:
 
 ```sh
 scripts/benchmark-suite-test
+scripts/benchmark-profile-test
 scripts/benchmark-enterprise-test
 scripts/benchmark-self-host-test
 scripts/benchmark-large-source-test

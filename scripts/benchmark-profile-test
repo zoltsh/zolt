@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/benchmark-profile-test"
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+expected_profiles=$'full\npublishable\nsmoke'
+[[ "$(scripts/benchmark-profile list)" == "$expected_profiles" ]] \
+  || fail "profile list is unexpected"
+
+scripts/benchmark-profile show --profile smoke >"$WORK_DIR/smoke.json"
+scripts/benchmark-profile show --profile publishable >"$WORK_DIR/publishable.json"
+scripts/benchmark-profile show --profile full >"$WORK_DIR/full.json"
+
+jq -e '
+  .id == "smoke"
+  and .zolt.source == "build"
+  and .publication == false
+  and (.lanes | length) == 7
+  and (.sha256 | test("^[0-9a-f]{64}$"))
+' "$WORK_DIR/smoke.json" >/dev/null \
+  || fail "smoke profile contract is invalid"
+
+jq -e '
+  .id == "publishable"
+  and .zolt.source == "release"
+  and .publication == true
+  and (.lanes | length) == 1
+  and .lanes[0].workload == "benchmarks/workloads/enterprise-v1.json"
+  and .lanes[0].topology == "layered"
+  and .lanes[0].repeat == 7
+  and .lanes[0].cleanRepeat == 5
+' "$WORK_DIR/publishable.json" >/dev/null \
+  || fail "publishable profile contract is invalid"
+
+scripts/benchmark-profile matrix --profile full >"$WORK_DIR/full-matrix.json"
+jq -e '
+  (.include | length) == 8
+  and ([.include[] | select(.kind == "enterprise")] | length) == 2
+  and ([.include[] | select(.kind == "real-project")] | length) == 5
+  and ([.include[] | select(.kind == "self-host")] | length) == 1
+  and ([.include[].id] | unique | length) == 8
+' "$WORK_DIR/full-matrix.json" >/dev/null \
+  || fail "full profile did not expand to the expected parallel lane matrix"
+
+scripts/benchmark-profile command \
+  --profile publishable \
+  --lane enterprise-layered \
+  --zolt /tmp/zolt \
+  --resolved-zolt-version 0.1.0-zap.test \
+  --work-dir "$WORK_DIR/publishable-run" \
+  --artifact-name profile-test \
+  >"$WORK_DIR/publishable-command.json"
+jq -e '
+  index("--enterprise-workload") != null
+  and index("benchmarks/workloads/enterprise-v1.json") != null
+  and index("--include-gradle-daemon") != null
+  and index("--topology") != null
+  and index("layered") != null
+' "$WORK_DIR/publishable-command.json" >/dev/null \
+  || fail "publishable profile command is incomplete"
+
+if scripts/benchmark-profile command \
+  --profile publishable \
+  --lane enterprise-layered \
+  --zolt /tmp/zolt \
+  --work-dir "$WORK_DIR/missing-version" \
+  --artifact-name profile-test \
+  >/dev/null 2>&1; then
+  fail "release profile accepted a missing resolved Zolt version"
+fi
+
+scripts/benchmark-profile command \
+  --profile full \
+  --lane real-netty \
+  --zolt /tmp/zolt \
+  --resolved-zolt-version 0.1.0-zap.test \
+  --work-dir "$WORK_DIR/netty-run" \
+  --artifact-name profile-test \
+  >"$WORK_DIR/netty-command.json"
+jq -e '
+  index("--skip-generated") != null
+  and index("--real-project") != null
+  and index("netty") != null
+  and index("--real-project-sample-timeout") != null
+' "$WORK_DIR/netty-command.json" >/dev/null \
+  || fail "real-project profile command is incomplete"
+
+python3 - "$WORK_DIR/lane-one.json" "$WORK_DIR/lane-two.json" <<'PY'
+import json
+import pathlib
+import sys
+
+for index, value in enumerate(sys.argv[1:], start=1):
+    path = pathlib.Path(value)
+    path.write_text(json.dumps({
+        "schemaVersion": 1,
+        "repository": {"name": "zsumz/zolt", "commit": "test"},
+        "lanes": [{
+            "id": f"test-{index}",
+            "name": f"Test {index}",
+            "kind": "zolt-self-host",
+            "status": "complete",
+            "summary": {"classification": "Zolt self-host validation"},
+            "workflows": [],
+        }],
+    }) + "\n", encoding="utf-8")
+PY
+
+profile_sha="$(jq -r .sha256 "$WORK_DIR/full.json")"
+BENCHMARK_PROFILE_ID=full \
+BENCHMARK_PROFILE_SHA256="$profile_sha" \
+scripts/benchmark-suite \
+  --skip-generated \
+  --lane-summary "$WORK_DIR/lane-one.json" \
+  --lane-summary "$WORK_DIR/lane-two.json" \
+  --work-dir "$WORK_DIR/aggregate" \
+  --artifact-name profile-test \
+  >/dev/null
+
+jq -e --arg sha "$profile_sha" '
+  .profile.id == "full"
+  and .profile.sha256 == $sha
+  and .run.laneCount == 2
+  and ([.lanes[].id] | sort) == ["test-1", "test-2"]
+' "$WORK_DIR/aggregate/suite-summary.json" >/dev/null \
+  || fail "precomputed lane aggregation lost profile or lane metadata"
+
+printf 'benchmark profile script test passed\n'

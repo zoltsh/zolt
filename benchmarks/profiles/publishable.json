@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "publishable",
+  "description": "Canonical publication run against the resolved zap release on the enterprise layered workload.",
+  "publication": true,
+  "aiSummary": true,
+  "zolt": {
+    "source": "release",
+    "channel": "zap"
+  },
+  "lanes": [
+    {
+      "id": "enterprise-layered",
+      "kind": "enterprise",
+      "workload": "benchmarks/workloads/enterprise-v1.json",
+      "topology": "layered",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    }
+  ]
+}

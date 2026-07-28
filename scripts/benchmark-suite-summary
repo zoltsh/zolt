@@ -222,6 +222,7 @@ def classify(environment, workflows, correctness):
             and has_production_competitors
             and correctness_passed
             and environment.get("zoltSource") == "release"
+            and environment.get("releaseVersion")
         ):
             return "Publishable enterprise generated evidence"
         if (

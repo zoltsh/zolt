@@ -156,6 +156,7 @@ summary = {
         "sourceLines": 45000,
         "resourceFiles": 203,
         "zoltSource": "build",
+        "releaseVersion": None,
         "tools": {
             tool: {"exitCode": 0, "stdout": [f"{tool} 1.0"], "stderr": []}
             for tool in tools
@@ -200,6 +201,24 @@ jq -e '
   || fail "suite did not keep a branch-built enterprise run below publishable status"
 
 jq '.environment.zoltSource = "release"' \
+  "$WORK_DIR/enterprise-summary.json" \
+  >"$WORK_DIR/unresolved-release-enterprise-summary.json"
+
+scripts/benchmark-suite \
+  --enterprise-workload benchmarks/workloads/enterprise-v1.json \
+  --generated-summary "$WORK_DIR/unresolved-release-enterprise-summary.json" \
+  --topology layered \
+  --work-dir "$WORK_DIR/unresolved-release-suite" \
+  >/dev/null
+
+jq -e '
+  .run.classification == "Publication-scale enterprise validation"
+  and .lanes[0].environment.zoltSource == "release"
+  and .lanes[0].environment.releaseVersion == null
+' "$WORK_DIR/unresolved-release-suite/suite-summary.json" >/dev/null \
+  || fail "suite treated an unresolved release as publishable evidence"
+
+jq '.environment.zoltSource = "release" | .environment.releaseVersion = "0.1.0-zap.test"' \
   "$WORK_DIR/enterprise-summary.json" \
   >"$WORK_DIR/release-enterprise-summary.json"
 

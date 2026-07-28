@@ -214,6 +214,7 @@ def run_type():
             and has_production_competitors
             and correctness.get("status") == "passed"
             and environment.get("zoltSource") == "release"
+            and environment.get("releaseVersion")
         ):
             return "Publishable enterprise generated evidence"
         if (

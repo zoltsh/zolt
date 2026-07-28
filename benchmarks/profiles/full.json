@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "full",
+  "description": "Complete released-Zolt evidence suite, sharded across enterprise, real-project, and self-host jobs.",
+  "publication": true,
+  "aiSummary": true,
+  "zolt": {
+    "source": "release",
+    "channel": "zap"
+  },
+  "lanes": [
+    {
+      "id": "enterprise-layered",
+      "kind": "enterprise",
+      "workload": "benchmarks/workloads/enterprise-v1.json",
+      "topology": "layered",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "enterprise-wide",
+      "kind": "enterprise",
+      "workload": "benchmarks/workloads/enterprise-v1.json",
+      "topology": "wide",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-spring-petclinic",
+      "kind": "real-project",
+      "project": "spring-petclinic",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-apache-commons-cli",
+      "kind": "real-project",
+      "project": "apache-commons-cli",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-hikaricp",
+      "kind": "real-project",
+      "project": "hikaricp",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-netty",
+      "kind": "real-project",
+      "project": "netty",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-junit-framework",
+      "kind": "real-project",
+      "project": "junit-framework",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "zolt-self-host",
+      "kind": "self-host",
+      "repeat": 7,
+      "cleanRepeat": 5,
+      "sampleTimeout": 1800
+    }
+  ]
+}

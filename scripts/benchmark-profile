@@ -1,0 +1,295 @@
+#!/usr/bin/env python3
+"""Validate benchmark profiles and run one profile lane."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+from typing import Any
+
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PROFILES = ROOT / "benchmarks/profiles"
+PROJECT_MANIFEST = ROOT / "docs/benchmarks/projects.json"
+IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+LANE_KINDS = {"enterprise", "real-project", "self-host"}
+TOPOLOGIES = {"chain", "wide", "layered"}
+
+
+def fail(message: str) -> None:
+    raise SystemExit(f"error: {message}")
+
+
+def positive(value: Any, field: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        fail(f"{field} must be a positive integer")
+    return value
+
+
+def profile_path(identifier: str) -> pathlib.Path:
+    if not IDENTIFIER.fullmatch(identifier):
+        fail(f"invalid profile id: {identifier}")
+    path = PROFILES / f"{identifier}.json"
+    if not path.is_file():
+        choices = ", ".join(available_profiles())
+        fail(f"unknown benchmark profile '{identifier}'; choose one of: {choices}")
+    return path
+
+
+def available_profiles() -> list[str]:
+    return sorted(path.stem for path in PROFILES.glob("*.json") if path.is_file())
+
+
+def project_ids() -> set[str]:
+    data = json.loads(PROJECT_MANIFEST.read_text(encoding="utf-8"))
+    return {
+        str(project["id"])
+        for project in data.get("projects") or []
+        if isinstance(project, dict) and project.get("id")
+    }
+
+
+def validate_lane(lane: Any, index: int, projects: set[str]) -> dict[str, Any]:
+    field = f"lanes[{index}]"
+    if not isinstance(lane, dict):
+        fail(f"{field} must be an object")
+    identifier = lane.get("id")
+    if not isinstance(identifier, str) or not IDENTIFIER.fullmatch(identifier):
+        fail(f"{field}.id must use lowercase letters, numbers, and hyphens")
+    kind = lane.get("kind")
+    if kind not in LANE_KINDS:
+        fail(f"{field}.kind must be enterprise, real-project, or self-host")
+    positive(lane.get("repeat"), f"{field}.repeat")
+    positive(lane.get("cleanRepeat"), f"{field}.cleanRepeat")
+    positive(lane.get("sampleTimeout"), f"{field}.sampleTimeout")
+    if kind == "enterprise":
+        workload = lane.get("workload")
+        if not isinstance(workload, str) or not workload:
+            fail(f"{field}.workload must be a repository-relative JSON path")
+        workload_path = (ROOT / workload).resolve()
+        if not workload_path.is_relative_to(ROOT) or not workload_path.is_file():
+            fail(f"{field}.workload not found: {workload}")
+        workload_data = json.loads(workload_path.read_text(encoding="utf-8"))
+        if workload_data.get("schemaVersion") != 1:
+            fail(f"{field}.workload has an unsupported schema")
+        if lane.get("topology") not in TOPOLOGIES:
+            fail(f"{field}.topology must be chain, wide, or layered")
+    elif kind == "real-project":
+        project = lane.get("project")
+        if project not in projects:
+            fail(f"{field}.project is not comparison-ready in {PROJECT_MANIFEST}: {project}")
+    return lane
+
+
+def load_profile(identifier: str) -> tuple[dict[str, Any], pathlib.Path, str]:
+    path = profile_path(identifier)
+    try:
+        profile = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        fail(f"invalid profile JSON in {path}: {exc}")
+    if profile.get("schemaVersion") != 1:
+        fail(f"unsupported schemaVersion in {path}")
+    if profile.get("id") != identifier:
+        fail(f"profile id in {path} must be '{identifier}'")
+    if not isinstance(profile.get("description"), str) or not profile["description"]:
+        fail(f"profile description is required in {path}")
+    if not isinstance(profile.get("publication"), bool):
+        fail(f"profile publication flag must be boolean in {path}")
+    if not isinstance(profile.get("aiSummary"), bool):
+        fail(f"profile aiSummary flag must be boolean in {path}")
+    zolt = profile.get("zolt")
+    if not isinstance(zolt, dict) or zolt.get("source") not in {"build", "release"}:
+        fail(f"profile zolt.source must be build or release in {path}")
+    if not isinstance(zolt.get("channel"), str) or not zolt["channel"]:
+        fail(f"profile zolt.channel is required in {path}")
+    lanes = profile.get("lanes")
+    if not isinstance(lanes, list) or not lanes:
+        fail(f"profile must define at least one lane in {path}")
+    projects = project_ids()
+    validated = [validate_lane(lane, index, projects) for index, lane in enumerate(lanes)]
+    identifiers = [str(lane["id"]) for lane in validated]
+    if len(identifiers) != len(set(identifiers)):
+        fail(f"profile lane ids must be unique in {path}")
+    if profile["publication"]:
+        if zolt["source"] != "release":
+            fail(f"publication profile must use a released Zolt in {path}")
+        publication_lanes = [
+            lane for lane in validated if lane["kind"] == "enterprise"
+        ]
+        if not publication_lanes:
+            fail(f"publication profile requires an enterprise lane in {path}")
+        for lane in publication_lanes:
+            workload = json.loads(
+                (ROOT / str(lane["workload"])).read_text(encoding="utf-8")
+            )
+            if workload.get("id") != "enterprise-v1":
+                fail(f"publication enterprise lanes must use enterprise-v1 in {path}")
+            if int(lane["repeat"]) < 7 or int(lane["cleanRepeat"]) < 5:
+                fail(f"publication enterprise lanes require repeat=7 and cleanRepeat=5 in {path}")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return profile, path, digest
+
+
+def lane_by_id(profile: dict[str, Any], identifier: str) -> dict[str, Any]:
+    for lane in profile["lanes"]:
+        if lane["id"] == identifier:
+            return lane
+    choices = ", ".join(str(lane["id"]) for lane in profile["lanes"])
+    fail(f"lane '{identifier}' is not in profile '{profile['id']}'; choose one of: {choices}")
+
+
+def lane_command(
+    profile: dict[str, Any],
+    lane: dict[str, Any],
+    args: argparse.Namespace,
+) -> list[str]:
+    command = [
+        str(ROOT / "scripts/benchmark-suite"),
+        "--work-dir",
+        str(args.work_dir),
+        "--repeat",
+        str(lane["repeat"]),
+        "--clean-repeat",
+        str(lane["cleanRepeat"]),
+        "--zolt",
+        args.zolt,
+        "--artifact-name",
+        args.artifact_name,
+    ]
+    if args.maven:
+        command.extend(["--maven", args.maven])
+    if args.gradle:
+        command.extend(["--gradle", args.gradle])
+    kind = lane["kind"]
+    if kind == "enterprise":
+        command.extend(
+            [
+                "--enterprise-workload",
+                str(lane["workload"]),
+                "--topology",
+                str(lane["topology"]),
+                "--enterprise-sample-timeout",
+                str(lane["sampleTimeout"]),
+                "--include-gradle-daemon",
+            ]
+        )
+    elif kind == "real-project":
+        command.extend(
+            [
+                "--skip-generated",
+                "--real-project",
+                str(lane["project"]),
+                "--real-project-sample-timeout",
+                str(lane["sampleTimeout"]),
+            ]
+        )
+    else:
+        command.extend(
+            [
+                "--skip-generated",
+                "--self-host",
+                "--self-host-sample-timeout",
+                str(lane["sampleTimeout"]),
+            ]
+        )
+    return command
+
+
+def verify_release_version(zolt: str, expected: str) -> None:
+    completed = subprocess.run(
+        [zolt, "--version"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    actual = completed.stdout.strip().splitlines()
+    if completed.returncode != 0 or not actual:
+        fail(f"could not read resolved Zolt version from {zolt}")
+    if actual[0] != expected:
+        fail(f"resolved Zolt version mismatch: expected {expected}, got {actual[0]}")
+
+
+def command_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--profile", required=True)
+    parser.add_argument("--lane", required=True)
+    parser.add_argument("--zolt", required=True)
+    parser.add_argument("--resolved-zolt-version", default="")
+    parser.add_argument("--maven")
+    parser.add_argument("--gradle")
+    parser.add_argument("--work-dir", type=pathlib.Path, required=True)
+    parser.add_argument("--artifact-name", required=True)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run versioned Zolt benchmark profiles.")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("list", help="List available profile ids.")
+    show = subparsers.add_parser("show", help="Validate and print a profile.")
+    show.add_argument("--profile", required=True)
+    matrix = subparsers.add_parser("matrix", help="Print the GitHub Actions lane matrix.")
+    matrix.add_argument("--profile", required=True)
+    command = subparsers.add_parser("command", help="Print one lane command as JSON.")
+    command_args(command)
+    run = subparsers.add_parser("run", help="Execute one lane.")
+    command_args(run)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    if args.command == "list":
+        print("\n".join(available_profiles()))
+        return 0
+    profile, path, digest = load_profile(args.profile)
+    if args.command == "show":
+        result = dict(profile)
+        result["path"] = str(path.relative_to(ROOT))
+        result["sha256"] = digest
+        print(json.dumps(result, indent=2))
+        return 0
+    if args.command == "matrix":
+        print(
+            json.dumps(
+                {
+                    "include": [
+                        {"id": lane["id"], "kind": lane["kind"]}
+                        for lane in profile["lanes"]
+                    ]
+                },
+                separators=(",", ":"),
+            )
+        )
+        return 0
+    lane = lane_by_id(profile, args.lane)
+    if profile["zolt"]["source"] == "release" and not args.resolved_zolt_version:
+        fail("release profiles require --resolved-zolt-version")
+    command = lane_command(profile, lane, args)
+    if args.command == "command":
+        print(json.dumps(command, indent=2))
+        return 0
+    if profile["zolt"]["source"] == "release":
+        verify_release_version(args.zolt, args.resolved_zolt_version)
+    environment = os.environ.copy()
+    environment["BENCHMARK_PROFILE_ID"] = str(profile["id"])
+    environment["BENCHMARK_PROFILE_SHA256"] = digest
+    environment["BENCHMARK_ZOLT_SOURCE"] = str(profile["zolt"]["source"])
+    environment["BENCHMARK_RELEASE_CHANNEL"] = str(profile["zolt"]["channel"])
+    environment["BENCHMARK_RELEASE_VERSION"] = (
+        args.resolved_zolt_version
+        if profile["zolt"]["source"] == "release"
+        else ""
+    )
+    completed = subprocess.run(command, cwd=ROOT, env=environment, check=False)
+    return completed.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())

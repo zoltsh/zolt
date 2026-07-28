@@ -107,23 +107,34 @@ the combined suite result.
 
 ## Automation and Artifacts
 
-`scripts/benchmark-suite` is the public entrypoint. It can run any combination
-of the three lane types and writes:
+`scripts/benchmark-profile` is the CI entrypoint. It validates a versioned
+profile, expands it into lanes, and invokes `scripts/benchmark-suite`, which
+remains the lower-level runner. The suite writes:
 
 - lane `samples.jsonl`, `summary.json`, `report.md`, `correctness.json`, and logs;
 - a combined `suite-summary.json`;
 - a deterministic `summary-brief.md` and `llm-summary.md`;
 - optional `summary-ai.json` and `summary-ai.md`.
 
+Profiles live under `benchmarks/profiles/`:
+
+- `smoke` builds the branch zap once and fans out small enterprise,
+  real-project, and self-host validation lanes;
+- `publishable` resolves one exact zap release and runs the canonical layered
+  `enterprise-v1` publication lane;
+- `full` resolves one exact zap release and fans out both enterprise topologies,
+  all five real-project lanes, and self-host.
+
 The `benchmarks` GitHub Actions workflow:
 
 - validates every benchmark harness contract before running;
-- supports released or freshly built native Zolt;
-- uses the small workload on branch pushes;
-- defaults manual runs to `enterprise-v1.json`, five clean samples, seven
-  repeated samples, real-project lanes, and self-host coverage;
+- exposes only one manual input, the profile name;
+- selects `smoke` automatically on branch pushes;
+- builds a branch zap once or resolves a released zap once, then shares that
+  exact version across every lane;
+- runs profile lanes in parallel matrix jobs and aggregates their evidence;
 - uploads workload specs, adapter contracts, raw samples, correctness evidence,
-  summaries, and logs;
+  profile digest, summaries, and logs in one combined artifact;
 - excludes cloned upstream source trees from artifacts.
 
 Use a released native Zolt for public competitor claims. A branch-built zap is
@@ -143,13 +154,15 @@ unsupported evidence grades, and never include secrets or full command logs.
 
 ## Publication Gate
 
-A dated public result is publishable only when a manual GitHub run:
+A dated public result is publishable only when the manual `publishable` profile,
+or a publication-scale enterprise lane in `full`:
 
 - uses `enterprise-v1.json` with at least five clean and seven repeated samples;
 - includes all four tool modes;
-- uses a released native Zolt;
+- uses the exact released native Zolt resolved once by the planning job;
 - passes every correctness gate;
-- reports the runner, JDK, tool versions, workload digest, and exact commands;
+- reports the profile digest, resolved Zolt version, runner, JDK, tool versions,
+  workload digest, and exact commands;
 - uploads one complete artifact containing raw samples and logs.
 
 Local smoke runs and branch-built runs are validation evidence, not public

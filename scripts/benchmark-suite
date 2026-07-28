@@ -30,6 +30,7 @@ ENTERPRISE_SAMPLE_TIMEOUT_SECONDS=1800
 INCLUDE_SELF_HOST=false
 SELF_HOST_DRY_RUN=false
 SELF_HOST_SAMPLE_TIMEOUT_SECONDS=1800
+PRECOMPUTED_LANE_SUMMARIES=()
 SUITE_FAILED=false
 
 usage() {
@@ -70,6 +71,7 @@ Options:
   --real-project-sample-timeout SECONDS
                              Per-command timeout for real-project lanes. Default: 1800.
   --artifact-name NAME        Uploaded artifact name recorded in the suite summary.
+  --lane-summary FILE         Aggregate an existing lane suite summary. Repeatable.
   -h, --help                  Show this help.
 USAGE
 }
@@ -268,6 +270,11 @@ while [[ "$#" -gt 0 ]]; do
       ARTIFACT_NAME="$2"
       shift 2
       ;;
+    --lane-summary)
+      [[ "$#" -ge 2 ]] || fail "--lane-summary requires a value"
+      PRECOMPUTED_LANE_SUMMARIES+=("$2")
+      shift 2
+      ;;
     -h | --help)
       usage
       exit 0
@@ -303,6 +310,13 @@ if [[ -n "$ENTERPRISE_WORKLOAD" ]]; then
   ENTERPRISE_WORKLOAD="$(abs_path "$ENTERPRISE_WORKLOAD")"
   [[ -f "$ENTERPRISE_WORKLOAD" ]] || fail "enterprise workload not found: $ENTERPRISE_WORKLOAD"
 fi
+if [[ "${#PRECOMPUTED_LANE_SUMMARIES[@]}" -gt 0 ]]; then
+  for index in "${!PRECOMPUTED_LANE_SUMMARIES[@]}"; do
+    PRECOMPUTED_LANE_SUMMARIES[index]="$(abs_path "${PRECOMPUTED_LANE_SUMMARIES[index]}")"
+    [[ -f "${PRECOMPUTED_LANE_SUMMARIES[index]}" ]] \
+      || fail "lane summary not found: ${PRECOMPUTED_LANE_SUMMARIES[index]}"
+  done
+fi
 if [[ "${#GENERATED_TOPOLOGIES[@]}" -eq 0 ]]; then
   GENERATED_TOPOLOGIES=(wide)
 fi
@@ -313,6 +327,9 @@ fi
 mkdir -p "$WORK_DIR" "$(dirname "$OUTPUT_FILE")" "$(dirname "$SUMMARY_BRIEF")"
 
 lane_summaries=()
+if [[ "${#PRECOMPUTED_LANE_SUMMARIES[@]}" -gt 0 ]]; then
+  lane_summaries=("${PRECOMPUTED_LANE_SUMMARIES[@]}")
+fi
 if [[ "$SKIP_GENERATED" == false ]]; then
   for topology in "${GENERATED_TOPOLOGIES[@]}"; do
     generated_dir="$WORK_DIR/generated-java-workspace-$topology"
@@ -664,6 +681,14 @@ suite = {
         "name": "zolt-benchmark-suite",
         "mode": "multi-lane",
     },
+    "profile": (
+        {
+            "id": os.environ.get("BENCHMARK_PROFILE_ID"),
+            "sha256": os.environ.get("BENCHMARK_PROFILE_SHA256"),
+        }
+        if os.environ.get("BENCHMARK_PROFILE_ID")
+        else None
+    ),
     "repository": repository,
     "run": {
         "classification": classification,
