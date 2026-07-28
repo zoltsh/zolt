@@ -1,0 +1,10 @@
+# Release-sensitive paths in zoltsh/zolt.
+
+/.github/CODEOWNERS              @zoltsh/release-engineers
+/.github/workflows/              @zoltsh/release-engineers
+/scripts/install-zolt            @zoltsh/release-engineers
+/scripts/*release*               @zoltsh/release-engineers
+/scripts/*distribution*          @zoltsh/release-engineers
+/modules/zolt-release/           @zoltsh/release-engineers
+/modules/zolt-update/            @zoltsh/release-engineers
+/release/                         @zoltsh/release-engineers

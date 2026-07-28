@@ -1,0 +1,106 @@
+name: dispatch zap candidate
+
+on:
+  workflow_run:
+    workflows:
+      - ci
+    types:
+      - completed
+
+permissions:
+  actions: read
+
+jobs:
+  dispatch:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Verify required source gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jobs="$(
+            gh api \
+              --paginate \
+              --slurp \
+              "repos/${SOURCE_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/jobs?filter=latest&per_page=100" |
+              jq '[.[].jobs[]]'
+          )"
+          errors=()
+
+          check_group() {
+            local prefix="$1"
+            local expected="$2"
+            local found
+            local failed
+
+            found="$(
+              jq --arg prefix "$prefix" \
+                '[.[] | select((.name // "") | startswith($prefix))] | length' \
+                <<<"$jobs"
+            )"
+            if [ "$found" -ne "$expected" ]; then
+              errors+=("'${prefix}': expected ${expected} jobs, found ${found}")
+              return
+            fi
+
+            failed="$(
+              jq -r --arg prefix "$prefix" \
+                '[.[] |
+                  select((.name // "") | startswith($prefix)) |
+                  select(.conclusion != "success") |
+                  "\(.name)=\(.conclusion)"
+                ] | join(", ")' \
+                <<<"$jobs"
+            )"
+            if [ -n "$failed" ]; then
+              errors+=("'${prefix}': ${failed}")
+            fi
+          }
+
+          check_group 'test ' 5
+          check_group 'coverage floors' 1
+          check_group 'smoke packaged workflows ' 4
+          check_group 'managed Java toolchain dogfood ' 2
+
+          if [ "${#errors[@]}" -ne 0 ]; then
+            for error in "${errors[@]}"; do
+              printf 'error: required release gate failed: %s\n' "$error" >&2
+            done
+            exit 1
+          fi
+          printf 'All required release gates passed.\n'
+
+      - name: Create releases dispatcher token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.ZOLT_RELEASES_DISPATCH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ZOLT_RELEASES_DISPATCH_APP_PRIVATE_KEY }}
+          owner: zoltsh
+          repositories: releases
+          permission-actions: write
+
+      - name: Dispatch exact gated source commit
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          gh workflow run zap-candidate.yml \
+              --repo zoltsh/releases \
+              --ref main \
+              --field "source_repository=${SOURCE_REPOSITORY}" \
+              --field "source_sha=${SOURCE_SHA}" \
+              --field "source_run_id=${SOURCE_RUN_ID}"
