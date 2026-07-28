@@ -6,10 +6,8 @@ import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.oneTestS
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.workspace;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.zeroTestsFoundSummary;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import sh.zolt.test.runtime.TestRunException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,10 +15,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Guards : a workspace member whose {@code [test.dependencies]} declare the
+ * Guards: a workspace member whose {@code [test.dependencies]} declare the
  * {@code junit-jupiter} aggregator (engine + params, launched via the auto-injected
- * {@code junit-platform-console}) must actually run its tests, and must never report
- * "Tests passed" when the JUnit Platform discovered zero tests while test classes compiled.
+ * {@code junit-platform-console}) runs through the expected launcher while still allowing
+ * support-only test sources that discover no tests.
  */
 final class WorkspaceTestServiceAggregatorTest {
     private final WorkspaceTestService service = new WorkspaceTestService();
@@ -49,22 +47,21 @@ final class WorkspaceTestServiceAggregatorTest {
     }
 
     @Test
-    void memberWithCompiledTestsButZeroTestsFoundFailsLoudly() throws IOException {
+    void supportOnlyMembersMayDiscoverZeroTests() throws IOException {
         Path cacheRoot = tempDir.resolve("cache");
-        // A member whose test classes compiled but whose engine discovers nothing: the console
-        // reports "[ 0 tests found ]". This must hard-fail, never report "Tests passed".
         createFakeConsoleJar(
                 tempDir,
                 cacheRoot.resolve("org/junit/platform/junit-platform-console/1.11.4/junit-platform-console-1.11.4.jar"),
                 zeroTestsFoundSummary());
         aggregatorWorkspace();
 
-        TestRunException exception = assertThrows(
-                TestRunException.class,
-                () -> service.test(tempDir, cacheRoot));
+        WorkspaceTestResult result = service.test(tempDir, cacheRoot);
 
-        assertTrue(exception.getMessage().contains("No tests were discovered"));
-        assertTrue(exception.getMessage().contains("test source file(s) compiled"));
+        assertTrue(result.members().stream()
+                .map(WorkspaceTestResult.MemberTestRunResult::result)
+                .allMatch(member -> member.output().contains("[         0 tests found           ]")));
+        assertTrue(Files.exists(tempDir.resolve("core/target/test-classes/com/acme/core/CoreTest.class")));
+        assertTrue(Files.exists(tempDir.resolve("api/target/test-classes/com/acme/api/ApiTest.class")));
     }
 
     private void aggregatorWorkspace() throws IOException {
