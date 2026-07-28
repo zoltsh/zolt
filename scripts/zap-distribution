@@ -42,6 +42,7 @@ Usage: scripts/zap-distribution [--publish] [--target <target>] [--origin <url>]
 
 Build, verify, and optionally publish a zap-channel native Zolt distribution.
 With --publish-from, publish already-built target artifacts and write a combined channel manifest.
+Publication is refused unless the current branch (or GitHub Actions ref) is main.
 
 Environment:
   ZOLT_RELEASE_VERSION        Override computed version.
@@ -150,6 +151,33 @@ release_signing_private_key() {
   printf '%s' "${ZOLT_RELEASE_ED25519_PRIVATE_KEY:-${ZOLT_RELEASE_SIGNING_KEY:-}}"
 }
 
+current_publish_ref() {
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    printf '%s' "${GITHUB_REF:-}"
+    return
+  fi
+  git symbolic-ref --quiet --short HEAD 2>/dev/null || true
+}
+
+require_main_publish_ref() {
+  local current_ref
+  local expected_ref
+
+  current_ref="$(current_publish_ref)"
+  expected_ref="main"
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    expected_ref="refs/heads/main"
+  fi
+  if [[ "$current_ref" != "$expected_ref" ]]; then
+    if [[ -z "$current_ref" ]]; then
+      current_ref="<detached-or-unknown>"
+    fi
+    printf 'error: zap publication is only allowed from main; current ref is %s\n' \
+      "$current_ref" >&2
+    exit 2
+  fi
+}
+
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --publish)
@@ -179,6 +207,10 @@ while [[ "$#" -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$PUBLISH" -eq 1 ]]; then
+  require_main_publish_ref
+fi
 
 if [[ "$CHANNEL" != "zap" ]]; then
   printf 'error: scripts/zap-distribution only publishes the zap channel; got %s\n' "$CHANNEL" >&2

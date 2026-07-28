@@ -95,7 +95,7 @@ jobs:
           printf 'Resolved benchmark release: %s\n' "$zolt_version"
 
   build-zolt:
-    name: build branch zap
+    name: build branch benchmark distribution
     needs: plan
     if: needs.plan.outputs.zolt_source == 'build'
     runs-on: ubuntu-24.04
@@ -147,7 +147,7 @@ jobs:
           mkdir -p target/benchmark-zolt-build
           cp "${archives[0]}" target/benchmark-zolt-build/zolt-build.tar.gz
 
-      - name: Upload branch zap
+      - name: Upload branch benchmark distribution
         uses: actions/upload-artifact@v7
         with:
           name: zolt-benchmark-build-${{ github.run_id }}-${{ github.run_attempt }}
@@ -206,14 +206,14 @@ jobs:
       - name: Prefer configured JDK tools
         run: printf '%s/bin\n' "$JAVA_HOME" >> "$GITHUB_PATH"
 
-      - name: Download branch zap
+      - name: Download branch benchmark distribution
         if: env.BENCHMARK_ZOLT_SOURCE == 'build'
         uses: actions/download-artifact@v8
         with:
           name: zolt-benchmark-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: target/benchmark-zolt-build
 
-      - name: Install branch zap
+      - name: Install branch benchmark distribution
         if: env.BENCHMARK_ZOLT_SOURCE == 'build'
         run: |
           install_root="$GITHUB_WORKSPACE/target/benchmarks/zolt-install"

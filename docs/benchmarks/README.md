@@ -137,8 +137,9 @@ keeps the same one-option interface while adding a wide enterprise lane and
 self-host evidence.
 
 Pushes to `benchmark-improvements` select `smoke` automatically. Those runs build
-and release-verify the branch zap once, then share it across the parallel lane
-jobs. Smoke results are merge gates, not public performance evidence.
+and release-verify one ephemeral branch benchmark distribution, then share it
+across the parallel lane jobs. It is never published to the zap channel. Smoke
+results are merge gates, not public performance evidence.
 
 Profile definitions are versioned under `benchmarks/profiles/`. Inspect the
 resolved contract or matrix locally with:

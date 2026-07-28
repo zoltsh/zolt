@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/zap-distribution-test"
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+if GITHUB_ACTIONS=true \
+  GITHUB_REF=refs/heads/benchmark-improvements \
+  scripts/zap-distribution \
+    --publish \
+    --publish-from "$WORK_DIR/missing" \
+    >"$WORK_DIR/non-main.log" 2>&1; then
+  fail "zap publisher accepted a non-main GitHub Actions ref"
+fi
+
+grep -F 'zap publication is only allowed from main' \
+  "$WORK_DIR/non-main.log" >/dev/null \
+  || fail "non-main publication failure did not explain the boundary"
+
+main_status=0
+GITHUB_ACTIONS=true \
+GITHUB_REF=refs/heads/main \
+scripts/zap-distribution \
+  --publish \
+  --publish-from "$WORK_DIR/missing" \
+  >"$WORK_DIR/main.log" 2>&1 \
+  || main_status=$?
+
+[[ "$main_status" -eq 2 ]] \
+  || fail "main publication probe did not stop at the missing artifact directory"
+grep -F -- '--publish-from directory does not exist' "$WORK_DIR/main.log" >/dev/null \
+  || fail "main publication probe did not pass the ref boundary"
+if grep -F 'zap publication is only allowed from main' "$WORK_DIR/main.log" >/dev/null; then
+  fail "zap publisher rejected the main GitHub Actions ref"
+fi
+
+python3 - <<'PY'
+import pathlib
+import re
+
+workflow = pathlib.Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+match = re.search(
+    r"(?ms)^  zap-publish:\n(.*?)(?=^  [a-z0-9-]+:\n|\Z)",
+    workflow,
+)
+if match is None:
+    raise SystemExit("error: zap-publish job is missing")
+condition = "if: github.event_name == 'push' && github.ref == 'refs/heads/main'"
+if condition not in match.group(1):
+    raise SystemExit("error: zap-publish job is not restricted to pushes on main")
+PY
+
+printf 'zap distribution publication boundary test passed\n'

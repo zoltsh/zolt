@@ -126,7 +126,7 @@ remains the lower-level runner. The suite writes:
 
 Profiles live under `benchmarks/profiles/`:
 
-- `smoke` builds the branch zap once and fans out small enterprise,
+- `smoke` builds one ephemeral branch benchmark distribution and fans out small enterprise,
   real-project, and self-host validation lanes;
 - `publishable` resolves one exact zap release and runs the canonical layered
   `enterprise-v1` lane plus all five pinned real-project lanes;
@@ -143,7 +143,7 @@ The `benchmarks` GitHub Actions workflow:
 - validates every benchmark harness contract before running;
 - exposes only one manual input, the profile name;
 - selects `smoke` automatically on branch pushes;
-- builds a branch zap once or resolves a released zap once, then shares that
+- builds an ephemeral branch benchmark distribution once or resolves a released zap once, then shares that
   exact version across every lane;
 - runs profile lanes in parallel matrix jobs and aggregates their evidence;
 - uploads workload specs, adapter contracts, raw samples, correctness evidence,

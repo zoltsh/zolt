@@ -89,6 +89,10 @@ jobs:
           fi
           gpg --version
 
+      - name: Test zap publication boundary
+        if: matrix.name == 'release-quality'
+        run: scripts/zap-distribution-test
+
       - name: Test workspace group with managed Java
         run: scripts/run-zolt-built test --workspace --members "${{ matrix.members }}" --no-progress --cache-root .zolt/cache
 
