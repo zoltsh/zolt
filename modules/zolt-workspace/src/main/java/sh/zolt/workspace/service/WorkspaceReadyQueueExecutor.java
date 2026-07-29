@@ -10,9 +10,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 final class WorkspaceReadyQueueExecutor {
+    private static final long SHUTDOWN_WAIT_MILLIS =
+            TimeUnit.SECONDS.toMillis(30);
+
     <T> Result<T> execute(
             WorkspaceBuildBatchPlanner.Plan plan,
             int maxWorkers,
@@ -61,7 +65,7 @@ final class WorkspaceReadyQueueExecutor {
                 readyQueuePeak = Math.max(readyQueuePeak, ready.size());
             }
         } finally {
-            executor.shutdownNow();
+            stop(executor);
         }
         long windowNanos = Math.max(0L, System.nanoTime() - windowStarted);
         long capacityNanos = saturatedMultiply(windowNanos, maxWorkers);
@@ -69,6 +73,30 @@ final class WorkspaceReadyQueueExecutor {
                 results,
                 Math.max(0L, capacityNanos - taskNanos),
                 readyQueuePeak);
+    }
+
+    private static void stop(ExecutorService executor) {
+        executor.shutdownNow();
+        boolean interrupted = false;
+        try {
+            while (true) {
+                try {
+                    if (executor.awaitTermination(
+                            SHUTDOWN_WAIT_MILLIS,
+                            TimeUnit.MILLISECONDS)) {
+                        return;
+                    }
+                    executor.shutdownNow();
+                } catch (InterruptedException exception) {
+                    interrupted = true;
+                    executor.shutdownNow();
+                }
+            }
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     private static <T> Completed<T> run(
