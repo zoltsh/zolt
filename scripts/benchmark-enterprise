@@ -1006,8 +1006,7 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
                 zolt,
                 "test",
                 *zolt_all_members,
-                "--exclude-tag",
-                "benchmark",
+                "--compile-only",
             ],
             [
                 zolt,
@@ -1024,7 +1023,7 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
             [*maven_prefix, "-Dgroups=benchmark", "package"],
             [*maven_prefix, "clean"],
             [*maven_prefix, "-o", "-DskipTests", "compile"],
-            [*maven_prefix, "-o", "-Dgroups=!benchmark", "test"],
+            [*maven_prefix, "-o", "testCompile"],
             [*maven_prefix, "-o", "-Dgroups=benchmark", "test"],
             [*maven_prefix, "-o", "-DskipTests", "package"],
         ),
@@ -1038,7 +1037,7 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
             ],
             [*gradle_no_daemon, "clean"],
             [*gradle_no_daemon, "--offline", "classes"],
-            [*gradle_no_daemon, "--offline", "-PbenchmarkCompileOnly=true", "test"],
+            [*gradle_no_daemon, "--offline", "testClasses"],
             [*gradle_no_daemon, "--offline", "-PbenchmarkTestRun=true", "test"],
             [*gradle_no_daemon, "--offline", "assemble"],
         ),
@@ -1055,8 +1054,7 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
                     [
                         *maven_parallel_prefix,
                         "-o",
-                        "-Dgroups=!benchmark",
-                        "test",
+                        "testCompile",
                     ],
                     [
                         *maven_parallel_prefix,
@@ -1079,8 +1077,7 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
                     [
                         *gradle_tuned,
                         "--offline",
-                        "-PbenchmarkCompileOnly=true",
-                        "test",
+                        "testClasses",
                     ],
                     [
                         *gradle_tuned,
@@ -1107,8 +1104,7 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
                 [
                     *gradle_daemon,
                     "--offline",
-                    "-PbenchmarkCompileOnly=true",
-                    "test",
+                    "testClasses",
                 ],
                 [
                     *gradle_daemon,

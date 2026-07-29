@@ -4,6 +4,7 @@ import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 import static sh.zolt.cli.CliTestSupport.writeFakeConsoleJar;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
@@ -143,6 +144,27 @@ final class WorkspaceTestCommandTest {
         assertTrue(Files.exists(coreDir.resolve("target/classes/com/example/core/Core.class")));
         assertTrue(Files.exists(apiDir.resolve("target/classes/com/example/api/Api.class")));
         assertTrue(Files.exists(apiDir.resolve("target/test-classes/com/example/api/ApiTest.class")));
+
+        CommandResult compileOnly = execute(
+                "test",
+                "--workspace",
+                "--all",
+                "--compile-only",
+                "--timings",
+                "--timings-format", "json",
+                "--cwd", apiDir.toString(),
+                "--cache-root", cacheRoot.toString());
+
+        assertEquals(0, compileOnly.exitCode());
+        assertTrue(compileOnly.stdout().contains("Tests compiled in modules/core"));
+        assertTrue(compileOnly.stdout().contains("Tests compiled in apps/api"));
+        assertTrue(compileOnly.stdout().contains("Compiled tests for 2 workspace members"));
+        assertFalse(compileOnly.stdout().contains("fake console"));
+        String[] compileLines = compileOnly.stderr().lines().toArray(String[]::new);
+        assertEquals(4, compileLines.length);
+        assertTrue(compileLines[2].contains("\"phase\":\"compile workspace test members\""));
+        assertTrue(compileLines[2].contains("\"workspaceBuildMaxWorkers\":\"2\""));
+        assertTrue(compileLines[3].contains("\"phase\":\"compile workspace tests\""));
     }
 
 }

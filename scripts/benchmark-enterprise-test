@@ -121,6 +121,12 @@ if by_id["maven"].root == by_id["maven-parallel"].root:
     raise SystemExit("Maven default and tuned modes share project output")
 if by_id["gradle-daemon"].root == by_id["gradle-parallel-configuration-cache"].root:
     raise SystemExit("Gradle default and tuned modes share project output")
+if "--compile-only" not in by_id["zolt"].test_compile:
+    raise SystemExit("Zolt test compile workflow does not use --compile-only")
+if by_id["maven"].test_compile[-1] != "testCompile":
+    raise SystemExit("Maven test compile workflow does not use testCompile")
+if by_id["gradle-no-daemon"].test_compile[-1] != "testClasses":
+    raise SystemExit("Gradle test compile workflow does not use testClasses")
 
 progress_root = (work_dir / "progress").resolve()
 progress_root.mkdir(parents=True, exist_ok=True)

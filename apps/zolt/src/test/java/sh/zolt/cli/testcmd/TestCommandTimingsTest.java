@@ -6,6 +6,7 @@ import sh.zolt.cli.CliTestSupport;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.writeFakeConsoleJar;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
@@ -105,5 +106,39 @@ final class TestCommandTimingsTest extends TestCommandTestSupport {
         assertTrue(lines[5].contains("\"testRunnerRequestNanos\""));
         assertTrue(lines[5].contains("\"testSlowEntries\":\"0\""));
         assertTrue(lines[5].contains("\"testSlowEvidence\":\"unavailable\""));
+    }
+
+    @Test
+    void compileOnlyCompilesTestsWithoutStartingTheRunner() throws IOException {
+        Path projectDir = tempDir.resolve("compile-only");
+        Path cacheRoot = tempDir.resolve("compile-only-cache");
+        writeFakeConsoleJar(cacheRoot.resolve(
+                "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), CliTestSupport.memberConfig("demo"));
+        writeJUnitConsoleLockfile(projectDir);
+        writeDemoTestSource(projectDir);
+
+        CommandResult result = execute(
+                "test",
+                "--compile-only",
+                "--timings",
+                "--timings-format", "json",
+                "--cwd", projectDir.toString(),
+                "--cache-root", cacheRoot.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.stdout().contains("Tests compiled"));
+        assertFalse(result.stdout().contains("fake console"));
+        assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/DemoTest.class")));
+        String[] lines = result.stderr().lines().toArray(String[]::new);
+        assertEquals(4, lines.length);
+        assertTrue(lines[0].contains("\"phase\":\"config read\""));
+        assertTrue(lines[1].contains("\"phase\":\"build test inputs\""));
+        assertTrue(lines[1].contains("\"depth\":1"));
+        assertTrue(lines[2].contains("\"phase\":\"compile test sources\""));
+        assertTrue(lines[2].contains("\"depth\":1"));
+        assertTrue(lines[3].contains("\"phase\":\"compile tests\""));
+        assertTrue(lines[3].contains("\"depth\":0"));
     }
 }

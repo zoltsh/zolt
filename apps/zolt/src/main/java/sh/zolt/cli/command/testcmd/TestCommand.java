@@ -92,6 +92,9 @@ public final class TestCommand implements Runnable {
     @Option(names = "--reports-dir", description = "Write JUnit XML reports to a project-relative directory.")
     private Path reportsDir;
 
+    @Option(names = "--compile-only", description = "Compile test sources without running tests.")
+    private boolean compileOnly;
+
     @Mixin
     private CommandTestProfileOptions profileOptions = new CommandTestProfileOptions();
 
@@ -158,10 +161,20 @@ public final class TestCommand implements Runnable {
                     suiteName,
                     TestShardSpec.parse(shardValue));
             if (workspace) {
-                runWorkspaceTests(projectRoot, timings, CommandProgress.human(spec), request);
+                if (compileOnly) {
+                    compileRunner().compileWorkspace(
+                            projectRoot, cacheRoot, all, members, memberGroups, timings, CommandProgress.human(spec));
+                } else {
+                    runWorkspaceTests(projectRoot, timings, CommandProgress.human(spec), request);
+                }
                 return;
             }
-            runSingleProjectTests(projectRoot, timings, CommandProgress.human(spec), request);
+            if (compileOnly) {
+                compileRunner().compileSingle(
+                        projectRoot, cacheRoot, noBuildCache, timings, CommandProgress.human(spec));
+            } else {
+                runSingleProjectTests(projectRoot, timings, CommandProgress.human(spec), request);
+            }
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
@@ -322,5 +335,10 @@ public final class TestCommand implements Runnable {
         CommandTestProfileOutput.print(output, result, request.profileSettings());
         output.provenance(CommandBuildProvenance.read(projectRoot));
         progress.result("Tested project");
+    }
+
+    private TestCompileCommandRunner compileRunner() {
+        return new TestCompileCommandRunner(
+                tomlParser, workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec);
     }
 }

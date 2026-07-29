@@ -6,6 +6,7 @@ import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.cli.command.CommandAttributeKeys;
 import sh.zolt.test.TestSelection;
+import sh.zolt.workspace.service.WorkspaceTestCompileResult;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -102,6 +103,49 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_INCLUDED_TAGS, Integer.toString(result.testIncludedTagCount()));
         attributes.put(CommandAttributeKeys.TEST_EXCLUDED_TAGS, Integer.toString(result.testExcludedTagCount()));
         addSlowTestEvidenceAttributes(attributes);
+        attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
+        return attributes;
+    }
+
+    public static Map<String, String> workspaceTestCompile(WorkspaceTestCompileResult result) {
+        Map<String, String> attributes = new LinkedHashMap<>();
+        attributes.put(CommandAttributeKeys.MEMBERS, Integer.toString(result.members().size()));
+        attributes.put(CommandAttributeKeys.INCLUDED_MEMBERS, Integer.toString(result.includedMemberCount()));
+        attributes.put(CommandAttributeKeys.SELECTED_MEMBERS, Integer.toString(result.selectedMemberCount()));
+        attributes.put(CommandAttributeKeys.DEPENDENCY_MEMBERS, Integer.toString(result.dependencyMemberCount()));
+        attributes.put(CommandAttributeKeys.MAIN_SOURCE_FILES, Integer.toString(result.mainSourceCount()));
+        attributes.put(CommandAttributeKeys.TEST_SOURCE_FILES, Integer.toString(result.testSourceCount()));
+        attributes.put(
+                CommandAttributeKeys.MAIN_COMPILATIONS_SKIPPED,
+                Integer.toString(result.mainCompilationSkippedCount()));
+        attributes.put(
+                CommandAttributeKeys.MAIN_COMPILATIONS_EXECUTED,
+                Integer.toString(result.mainCompilationExecutedCount()));
+        attributes.put(
+                CommandAttributeKeys.TEST_COMPILATIONS_SKIPPED,
+                Integer.toString(result.testCompilationSkippedCount()));
+        attributes.put(
+                CommandAttributeKeys.TEST_COMPILATIONS_EXECUTED,
+                Integer.toString(result.testCompilationExecutedCount()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_BUILD_MAX_WORKERS,
+                Integer.toString(result.maxWorkers()));
+        addMainFingerprintAttributes(
+                attributes,
+                result.mainFingerprintCheckNanos(),
+                result.mainFingerprintWriteNanos());
+        attributes.put(
+                CommandAttributeKeys.TEST_FINGERPRINT_CHECK_MILLIS,
+                Long.toString(result.testFingerprintCheckNanos() / 1_000_000L));
+        attributes.put(
+                CommandAttributeKeys.TEST_FINGERPRINT_CHECK_NANOS,
+                Long.toString(result.testFingerprintCheckNanos()));
+        attributes.put(
+                CommandAttributeKeys.TEST_FINGERPRINT_WRITE_MILLIS,
+                Long.toString(result.testFingerprintWriteNanos() / 1_000_000L));
+        attributes.put(
+                CommandAttributeKeys.TEST_FINGERPRINT_WRITE_NANOS,
+                Long.toString(result.testFingerprintWriteNanos()));
         attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
         return attributes;
     }

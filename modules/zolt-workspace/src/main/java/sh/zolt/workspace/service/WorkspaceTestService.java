@@ -111,6 +111,12 @@ public final class WorkspaceTestService {
                 new LinkedHashSet<>(plan.selection().selectedMembers()));
     }
 
+    public WorkspaceTestCompileResult compileTests(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult) {
+        return new WorkspaceTestCompileExecutor(testRunServices).compile(plan, buildResult);
+    }
+
     public WorkspaceTestResult runTests(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
@@ -314,4 +320,5 @@ public final class WorkspaceTestService {
         }
         return builds;
     }
+
 }
