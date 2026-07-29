@@ -1023,7 +1023,7 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
             [*maven_prefix, "-Dgroups=benchmark", "package"],
             [*maven_prefix, "clean"],
             [*maven_prefix, "-o", "-DskipTests", "compile"],
-            [*maven_prefix, "-o", "testCompile"],
+            [*maven_prefix, "-o", "test-compile"],
             [*maven_prefix, "-o", "-Dgroups=benchmark", "test"],
             [*maven_prefix, "-o", "-DskipTests", "package"],
         ),
@@ -1054,7 +1054,7 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
                     [
                         *maven_parallel_prefix,
                         "-o",
-                        "testCompile",
+                        "test-compile",
                     ],
                     [
                         *maven_parallel_prefix,
