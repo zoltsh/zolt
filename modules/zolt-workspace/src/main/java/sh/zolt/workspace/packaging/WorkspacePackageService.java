@@ -20,6 +20,7 @@ import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.publish.WorkspaceBomPackager;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
@@ -187,6 +188,21 @@ public final class WorkspacePackageService {
     }
 
     private WorkspacePackageResult packageBuiltJars(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Optional<Path> cacheRoot,
+            Optional<PackageMode> packageModeOverride) {
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return packageBuiltJarsLocked(
+                    plan,
+                    buildResult,
+                    cacheRoot,
+                    packageModeOverride);
+        }
+    }
+
+    private WorkspacePackageResult packageBuiltJarsLocked(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
             Optional<Path> cacheRoot,

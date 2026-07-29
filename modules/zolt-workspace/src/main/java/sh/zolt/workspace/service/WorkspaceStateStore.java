@@ -29,9 +29,13 @@ final class WorkspaceStateStore {
 
     void write(Path workspaceRoot, WorkspaceState state) {
         Path path = path(workspaceRoot);
-        Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
+        Path temporary = null;
         try {
             Files.createDirectories(path.getParent());
+            temporary = Files.createTempFile(
+                    path.getParent(),
+                    path.getFileName() + ".",
+                    ".tmp");
             Files.writeString(
                     temporary,
                     codec.format(state),
@@ -41,6 +45,8 @@ final class WorkspaceStateStore {
             throw new BuildException(
                     "Could not write workspace state at " + path + ".",
                     exception);
+        } finally {
+            deleteTemporary(temporary);
         }
     }
 
@@ -62,6 +68,17 @@ final class WorkspaceStateStore {
                     temporary,
                     target,
                     StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static void deleteTemporary(Path temporary) {
+        if (temporary == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(temporary);
+        } catch (IOException ignored) {
+            // The committed state is authoritative; a unique orphan is harmless.
         }
     }
 }

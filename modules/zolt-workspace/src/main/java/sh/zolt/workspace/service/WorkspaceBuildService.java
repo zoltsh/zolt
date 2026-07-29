@@ -220,6 +220,16 @@ public final class WorkspaceBuildService {
             WorkspaceBuildPlan plan,
             Path cacheRoot,
             Map<String, WorkspaceBuildRequirements> requirementsByMember) {
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return buildLocked(plan, cacheRoot, requirementsByMember);
+        }
+    }
+
+    private WorkspaceBuildResult buildLocked(
+            WorkspaceBuildPlan plan,
+            Path cacheRoot,
+            Map<String, WorkspaceBuildRequirements> requirementsByMember) {
         WorkspaceExecutionContext context = executionContext(plan, cacheRoot);
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();

@@ -3,7 +3,6 @@ package sh.zolt.workspace.service;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.build.testruntime.TestRunService;
-import sh.zolt.build.profile.TestProfileMerger;
 import sh.zolt.build.profile.TestProfileSettings;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
@@ -13,7 +12,6 @@ import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.test.TestSelection;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,7 +117,11 @@ public final class WorkspaceTestService {
     public WorkspaceTestCompileResult compileTests(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult) {
-        return new WorkspaceTestCompileExecutor(testRunServices).compile(plan, buildResult);
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return new WorkspaceTestCompileExecutor(testRunServices)
+                    .compile(plan, buildResult);
+        }
     }
 
     public WorkspaceTestResult runTests(
@@ -213,6 +215,33 @@ public final class WorkspaceTestService {
             String suiteName,
             TestShardSpec shard,
             TestProfileSettings profileSettings) {
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return runTestsLocked(
+                    plan,
+                    buildResult,
+                    cacheRoot,
+                    testSelection,
+                    jvmArguments,
+                    reportSettings,
+                    cliEvents,
+                    suiteName,
+                    shard,
+                    profileSettings);
+        }
+    }
+
+    private WorkspaceTestResult runTestsLocked(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Path cacheRoot,
+            TestSelection testSelection,
+            TestJvmArguments jvmArguments,
+            TestReportSettings reportSettings,
+            List<String> cliEvents,
+            String suiteName,
+            TestShardSpec shard,
+            TestProfileSettings profileSettings) {
         TestJvmArguments testJvmArguments = jvmArguments == null ? TestJvmArguments.empty() : jvmArguments;
         TestReportSettings testReportSettings = reportSettings == null ? TestReportSettings.disabled() : reportSettings;
         TestProfileSettings testProfileSettings = profileSettings == null ? TestProfileSettings.disabled() : profileSettings;
@@ -221,8 +250,9 @@ public final class WorkspaceTestService {
                 .absoluteProfileDirectory(plan.workspace().root());
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
-        Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
-        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
+        Map<String, WorkspaceMember> membersByPath = WorkspaceTestExecutionSupport.membersByPath(workspace);
+        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
+                WorkspaceTestExecutionSupport.buildsByPath(buildResult);
         List<TestRunService> usedServices = new ArrayList<>();
         var tasks = WorkspaceTestTasks.unit(
                 workspace,
@@ -242,15 +272,11 @@ public final class WorkspaceTestService {
         try {
             results = new WorkspaceTestExecutor().execute(tasks);
         } finally {
-            closeTestWorkers(usedServices);
+            WorkspaceTestExecutionSupport.closeTestWorkers(usedServices);
         }
-        workspaceProfileDirectory.ifPresent(directory -> TestProfileMerger.mergeProfiles(
-                directory,
-                results.stream()
-                        .map(WorkspaceTestResult.MemberTestRunResult::result)
-                        .map(result -> result.profileDirectory().map(path -> path.resolve("profile.json")))
-                        .flatMap(Optional::stream)
-                        .toList()));
+        WorkspaceTestExecutionSupport.mergeProfiles(
+                workspaceProfileDirectory,
+                results);
         return new WorkspaceTestResult(
                 buildResult.resolveResult(),
                 buildResult.members(),
@@ -267,12 +293,34 @@ public final class WorkspaceTestService {
             TestJvmArguments jvmArguments,
             TestReportSettings reportSettings,
             List<String> cliEvents) {
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return runIntegrationTestsLocked(
+                    plan,
+                    buildResult,
+                    cacheRoot,
+                    testSelection,
+                    jvmArguments,
+                    reportSettings,
+                    cliEvents);
+        }
+    }
+
+    private WorkspaceTestResult runIntegrationTestsLocked(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Path cacheRoot,
+            TestSelection testSelection,
+            TestJvmArguments jvmArguments,
+            TestReportSettings reportSettings,
+            List<String> cliEvents) {
         TestJvmArguments testJvmArguments = jvmArguments == null ? TestJvmArguments.empty() : jvmArguments;
         TestReportSettings testReportSettings = reportSettings == null ? TestReportSettings.disabled() : reportSettings;
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
-        Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
-        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
+        Map<String, WorkspaceMember> membersByPath = WorkspaceTestExecutionSupport.membersByPath(workspace);
+        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
+                WorkspaceTestExecutionSupport.buildsByPath(buildResult);
         List<TestRunService> usedServices = new ArrayList<>();
         var tasks = WorkspaceTestTasks.integration(
                 workspace,
@@ -289,48 +337,13 @@ public final class WorkspaceTestService {
         try {
             results = new WorkspaceTestExecutor().execute(tasks);
         } finally {
-            closeTestWorkers(usedServices);
+            WorkspaceTestExecutionSupport.closeTestWorkers(usedServices);
         }
         return new WorkspaceTestResult(
                 buildResult.resolveResult(),
                 buildResult.members(),
                 results,
                 workspace.members().size());
-    }
-
-    private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {
-        Map<String, WorkspaceMember> members = new LinkedHashMap<>();
-        for (WorkspaceMember member : workspace.members()) {
-            members.put(member.path(), member);
-        }
-        return members;
-    }
-
-    private static void closeTestWorkers(
-            List<TestRunService> services) {
-        RuntimeException firstFailure = null;
-        for (TestRunService service : services.stream().distinct().toList()) {
-            try {
-                service.closeTestWorkers();
-            } catch (RuntimeException failure) {
-                if (firstFailure == null) {
-                    firstFailure = failure;
-                } else {
-                    firstFailure.addSuppressed(failure);
-                }
-            }
-        }
-        if (firstFailure != null) {
-            throw firstFailure;
-        }
-    }
-
-    private static Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath(WorkspaceBuildResult result) {
-        Map<String, WorkspaceBuildResult.MemberBuildResult> builds = new LinkedHashMap<>();
-        for (WorkspaceBuildResult.MemberBuildResult member : result.members()) {
-            builds.put(member.member(), member);
-        }
-        return builds;
     }
 
 }
