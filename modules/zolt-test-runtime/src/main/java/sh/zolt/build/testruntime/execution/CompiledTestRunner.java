@@ -228,7 +228,7 @@ public final class CompiledTestRunner {
                     reportsDirectory,
                     testRuntime.events(),
                     profileDirectory);
-            if (result.workerResult().exitCode() != 0) {
+            if (!result.successful(testSelection)) {
                 String summary = profileDirectory
                         .flatMap(directory -> TestProfileSummaryFormatter.format(directory.resolve("profile.json"), testProfileSettings))
                         .map(value -> "\n\n" + value)

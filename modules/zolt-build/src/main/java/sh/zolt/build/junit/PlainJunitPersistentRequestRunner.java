@@ -36,7 +36,7 @@ final class PlainJunitPersistentRequestRunner {
                 PlainJunitWorkerEvidence.profile(
                         profileDirectory,
                         WORKER_ID));
-        if (result.workerResult().exitCode() != 0) {
+        if (!result.successful(testSelection)) {
             throw new TestRunException(
                     "JUnit worker tests failed with exit code "
                             + result.workerResult().exitCode()
