@@ -1,12 +1,11 @@
 package sh.zolt.workspace.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -78,6 +77,67 @@ final class WorkspaceBuildServiceIncrementalTest {
         assertEquals(0, first.mainCompilationSkippedCount());
         assertEquals(0, second.mainCompilationExecutedCount());
         assertEquals(3, second.mainCompilationSkippedCount());
+        assertEquals(3, second.executionMetrics().membersConsidered());
+        assertEquals(3, second.executionMetrics().membersDeclaredClean());
+        assertEquals(0, second.executionMetrics().memberPipelineInvocations());
+        assertEquals(0L, second.mainFingerprintCheckNanos());
+    }
+
+    @Test
+    void resourceEditCopiesOnlyTheResourceWithoutCompiling() throws IOException {
+        workspace("""
+                [workspace]
+                name = "acme-platform"
+                members = ["apps/api"]
+                """);
+        member("apps/api", "api", "");
+        source("apps/api/src/main/java/com/acme/api/Api.java", """
+                package com.acme.api;
+
+                public final class Api {
+                }
+                """);
+        source("apps/api/src/main/resources/application.properties", "message=first\n");
+        service.build(tempDir, tempDir.resolve("cache"), false);
+        Files.writeString(
+                tempDir.resolve("apps/api/src/main/resources/application.properties"),
+                "message=second\n");
+
+        WorkspaceBuildResult result =
+                service.build(tempDir, tempDir.resolve("cache"), false);
+
+        assertEquals(1, result.mainCompilationSkippedCount());
+        assertEquals(1, result.executionMetrics().memberPipelineInvocations());
+        assertEquals(
+                "message=second\n",
+                Files.readString(
+                        tempDir.resolve("apps/api/target/classes/application.properties")));
+    }
+
+    @Test
+    void corruptWorkspaceStateFallsBackToCanonicalMemberPipeline() throws IOException {
+        workspace("""
+                [workspace]
+                name = "acme-platform"
+                members = ["apps/api"]
+                """);
+        member("apps/api", "api", "");
+        source("apps/api/src/main/java/com/acme/api/Api.java", """
+                package com.acme.api;
+
+                public final class Api {
+                }
+                """);
+        service.build(tempDir, tempDir.resolve("cache"), false);
+        Path state = new WorkspaceStateStore().path(tempDir);
+        Files.writeString(state, "corrupt");
+
+        WorkspaceBuildResult result =
+                service.build(tempDir, tempDir.resolve("cache"), false);
+
+        assertEquals(1, result.executionMetrics().memberPipelineInvocations());
+        assertTrue(result.mainFingerprintCheckNanos() > 0L);
+        assertTrue(Files.readString(state).startsWith("version=1\nchecksum="));
     }
 
     private void workspace(String content) throws IOException {

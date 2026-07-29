@@ -260,7 +260,7 @@ public final class BuildService {
                 springBootAotClasspath(config, classpathPackages));
         long fingerprintWriteNanos = 0L;
         String buildCacheOutcome = "";
-        if (!compileSkipped) {
+        if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
             long fingerprintWriteStarted = System.nanoTime();
             buildFingerprintService.writeMainCompileFingerprint(
                     projectDirectory,
@@ -271,20 +271,22 @@ public final class BuildService {
                     outputDirectory,
                     generatedSourcesDirectory);
             fingerprintWriteNanos = elapsedSince(fingerprintWriteStarted);
-            if (restored) {
-                incrementalCompileStateRecorder.deleteMainState(outputDirectory);
-                buildCacheOutcome = "restored";
-            } else {
-                incrementalCompileStateRecorder.recordMain(
-                        projectDirectory,
-                        config,
-                        sources,
-                        classpaths,
-                        outputDirectory,
-                        generatedSourcesDirectory,
-                        javacResult.attribution(),
-                        javacResult.compiledSources());
-                buildCacheOutcome = mainBuildCacheGate.store(cacheAttempt, outputDirectory);
+            if (!compileSkipped) {
+                if (restored) {
+                    incrementalCompileStateRecorder.deleteMainState(outputDirectory);
+                    buildCacheOutcome = "restored";
+                } else {
+                    incrementalCompileStateRecorder.recordMain(
+                            projectDirectory,
+                            config,
+                            sources,
+                            classpaths,
+                            outputDirectory,
+                            generatedSourcesDirectory,
+                            javacResult.attribution(),
+                            javacResult.compiledSources());
+                    buildCacheOutcome = mainBuildCacheGate.store(cacheAttempt, outputDirectory);
+                }
             }
         }
         return new BuildResult(

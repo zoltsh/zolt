@@ -106,7 +106,7 @@ final class PackageTestCompileGate {
                                 config,
                                 resolvedPackages);
         BuildFingerprintCheck check =
-                fingerprintService.checkTestCompileCurrent(
+                fingerprintService.checkTestEvidenceCurrent(
                         projectRoot,
                         config,
                         projectRoot.resolve("zolt.lock"),

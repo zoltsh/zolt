@@ -92,6 +92,16 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[1].contains("\"workspaceClasspathCalculationNanos\""));
         assertTrue(lines[1].contains("\"workspacePackageCalculationNanos\":\"0\""));
         assertTrue(lines[1].contains("\"workspaceMemberExecutionNanos\""));
+        assertTrue(lines[1].contains("\"workspaceFileSnapshotNanos\""));
+        assertTrue(lines[1].contains("\"workspaceBytesHashed\""));
+        assertTrue(lines[1].contains("\"workspaceFilesHashed\""));
+        assertTrue(lines[1].contains("\"workspaceMembersConsidered\":\"2\""));
+        assertTrue(lines[1].contains("\"workspaceMembersDeclaredClean\":\"0\""));
+        assertTrue(lines[1].contains("\"workspaceMemberPipelineInvocations\":\"2\""));
+        assertTrue(lines[1].contains("\"workspaceAbiStateReads\""));
+        assertTrue(lines[1].contains("\"workspaceAbiStateCacheHits\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainResolutions\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainCacheHits\""));
         assertTrue(lines[1].contains("\"workspaceClasspathCalculations\":\"2\""));
         assertTrue(lines[1].contains("\"workspacePackageCalculations\":\"0\""));
         assertTrue(lines[2].contains("\"phase\":\"build workspace\""));

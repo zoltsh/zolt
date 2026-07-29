@@ -78,6 +78,77 @@ final class BuildFingerprintEngine {
             String outputDirectoryName,
             Path generatedSourcesDirectory,
             String fileName) {
+        return checkCurrent(
+                projectDirectory,
+                config,
+                lockfilePath,
+                sourceRoots,
+                resourceRoots,
+                resourceRootKey,
+                sources,
+                generatedSteps,
+                generatedProducerFingerprints,
+                compileClasspath,
+                processorClasspath,
+                outputDirectory,
+                outputDirectoryName,
+                generatedSourcesDirectory,
+                fileName,
+                true);
+    }
+
+    BuildFingerprintCheck checkEvidenceCurrent(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path lockfilePath,
+            List<String> sourceRoots,
+            List<String> resourceRoots,
+            String resourceRootKey,
+            List<Path> sources,
+            List<GeneratedSourceStep> generatedSteps,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
+            Classpath compileClasspath,
+            Classpath processorClasspath,
+            Path outputDirectory,
+            String outputDirectoryName,
+            Path generatedSourcesDirectory,
+            String fileName) {
+        return checkCurrent(
+                projectDirectory,
+                config,
+                lockfilePath,
+                sourceRoots,
+                resourceRoots,
+                resourceRootKey,
+                sources,
+                generatedSteps,
+                generatedProducerFingerprints,
+                compileClasspath,
+                processorClasspath,
+                outputDirectory,
+                outputDirectoryName,
+                generatedSourcesDirectory,
+                fileName,
+                false);
+    }
+
+    private BuildFingerprintCheck checkCurrent(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path lockfilePath,
+            List<String> sourceRoots,
+            List<String> resourceRoots,
+            String resourceRootKey,
+            List<Path> sources,
+            List<GeneratedSourceStep> generatedSteps,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
+            Classpath compileClasspath,
+            Classpath processorClasspath,
+            Path outputDirectory,
+            String outputDirectoryName,
+            Path generatedSourcesDirectory,
+            String fileName,
+            boolean compilationOnly) {
         Path fingerprintPath = stateStore.fingerprintPath(outputDirectory, fileName);
         if (!Files.isRegularFile(fingerprintPath)) {
             return BuildFingerprintCheck.miss("missing-fingerprint");
@@ -117,7 +188,7 @@ final class BuildFingerprintEngine {
                         generatedSourcesDirectory,
                         state.orElseThrow(),
                         null);
-                return comparison.compare(existing, current);
+                return compare(existing, current, compilationOnly);
             }
             String current = content.fingerprint(
                     projectDirectory,
@@ -136,7 +207,7 @@ final class BuildFingerprintEngine {
                     generatedSourcesDirectory,
                     null,
                     null);
-            return comparison.compare(existing, current);
+            return compare(existing, current, compilationOnly);
         } catch (IOException exception) {
             throw new BuildException(
                     "Could not read build fingerprint at "
@@ -144,6 +215,12 @@ final class BuildFingerprintEngine {
                             + ". Delete the file or rerun `zolt build` to refresh it.",
                     exception);
         }
+    }
+
+    private BuildFingerprintCheck compare(String existing, String current, boolean compilationOnly) {
+        return compilationOnly
+                ? comparison.compareForCompilation(existing, current)
+                : comparison.compare(existing, current);
     }
 
     void writeCompileFingerprint(

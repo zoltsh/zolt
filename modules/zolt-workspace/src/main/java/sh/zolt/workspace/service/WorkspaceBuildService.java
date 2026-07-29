@@ -30,6 +30,7 @@ public final class WorkspaceBuildService {
     private final WorkspaceClasspathService workspaceClasspathService;
     private final WorkspaceMemberSelector memberSelector;
     private final WorkspaceMemberBuildExecutor memberBuildExecutor;
+    private final WorkspaceDirtyPlanner dirtyPlanner = new WorkspaceDirtyPlanner();
 
     public WorkspaceBuildService() {
         this(new JdkDetector());
@@ -240,17 +241,37 @@ public final class WorkspaceBuildService {
                     member,
                     calculatedPackages.getOrDefault(member, List.of()));
         }
+        WorkspaceDirtyPlan dirtyPlan = dirtyPlanner.plan(
+                context,
+                selection,
+                membersByPath,
+                classpathsByMember,
+                classpathPackagesByMember,
+                requirementsByMember);
         long memberExecutionStarted = System.nanoTime();
         WorkspaceMemberBuildExecutor.Result execution = memberBuildExecutor.build(
+                context,
                 workspace,
                 selection,
                 membersByPath,
                 classpathsByMember,
-                classpathPackagesByMember);
+                classpathPackagesByMember,
+                dirtyPlan);
         context.addMemberExecutionNanos(elapsedSince(memberExecutionStarted));
         context.addSchedulerMetrics(
                 execution.schedulerIdleNanos(),
                 execution.readyQueuePeak());
+        context.addDirtyPlanMetrics(
+                selection.includedMembers().size(),
+                execution.pipelineInvocations());
+        dirtyPlanner.writeCurrent(
+                context,
+                selection,
+                membersByPath,
+                classpathsByMember,
+                classpathPackagesByMember,
+                requirementsByMember,
+                dirtyPlan);
         return new WorkspaceBuildResult(
                 plan.resolveResult(),
                 execution.results(),

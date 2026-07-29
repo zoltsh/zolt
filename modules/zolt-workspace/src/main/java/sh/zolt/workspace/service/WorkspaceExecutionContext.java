@@ -14,6 +14,9 @@ public final class WorkspaceExecutionContext {
     private final ZoltLockfile lockfile;
     private final Path cacheRoot;
     private final WorkspaceClasspathMemberGraph memberGraph;
+    private final WorkspaceFileSnapshot fileSnapshot;
+    private final WorkspaceAbiIndex abiIndex;
+    private final WorkspaceToolchainIndex toolchainIndex;
     private final long graphConstructionNanos;
     private final Map<ClasspathKey, ClasspathSet> classpaths = new LinkedHashMap<>();
     private final Map<String, List<ResolvedClasspathPackage>> classpathPackages = new LinkedHashMap<>();
@@ -22,9 +25,15 @@ public final class WorkspaceExecutionContext {
     private long packageCalculationNanos;
     private long memberExecutionNanos;
     private long schedulerIdleNanos;
+    private long fileSnapshotNanos;
+    private long bytesHashed;
     private int classpathCacheHits;
     private int packageCacheHits;
     private int readyQueuePeak;
+    private int filesHashed;
+    private int membersConsidered;
+    private int membersDeclaredClean;
+    private int memberPipelineInvocations;
 
     public WorkspaceExecutionContext(
             Workspace workspace,
@@ -35,6 +44,9 @@ public final class WorkspaceExecutionContext {
         this.cacheRoot = cacheRoot.toAbsolutePath().normalize();
         long started = System.nanoTime();
         this.memberGraph = new WorkspaceClasspathMemberGraph(workspace);
+        this.fileSnapshot = new WorkspaceFileSnapshot();
+        this.abiIndex = new WorkspaceAbiIndex();
+        this.toolchainIndex = new WorkspaceToolchainIndex();
         this.graphConstructionNanos = elapsedSince(started);
     }
 
@@ -52,6 +64,18 @@ public final class WorkspaceExecutionContext {
 
     WorkspaceClasspathMemberGraph memberGraph() {
         return memberGraph;
+    }
+
+    WorkspaceFileSnapshot fileSnapshot() {
+        return fileSnapshot;
+    }
+
+    WorkspaceAbiIndex abiIndex() {
+        return abiIndex;
+    }
+
+    WorkspaceToolchainIndex toolchainIndex() {
+        return toolchainIndex;
     }
 
     synchronized ClasspathSet classpaths(
@@ -112,7 +136,17 @@ public final class WorkspaceExecutionContext {
                 classpathPackages.size() + packageLocks.size(),
                 classpathCacheHits,
                 packageCacheHits,
-                readyQueuePeak);
+                readyQueuePeak,
+                fileSnapshotNanos,
+                bytesHashed,
+                filesHashed,
+                membersConsidered,
+                membersDeclaredClean,
+                memberPipelineInvocations,
+                abiIndex.reads(),
+                abiIndex.hits(),
+                toolchainIndex.resolutions(),
+                toolchainIndex.hits());
     }
 
     synchronized void addMemberExecutionNanos(long durationNanos) {
@@ -122,6 +156,23 @@ public final class WorkspaceExecutionContext {
     synchronized void addSchedulerMetrics(long idleNanos, int queuePeak) {
         schedulerIdleNanos += Math.max(0L, idleNanos);
         readyQueuePeak = Math.max(readyQueuePeak, queuePeak);
+    }
+
+    synchronized void addFileSnapshotMetrics(
+            long durationNanos,
+            long hashedBytes,
+            int hashedFiles) {
+        fileSnapshotNanos += Math.max(0L, durationNanos);
+        bytesHashed = Math.max(bytesHashed, hashedBytes);
+        filesHashed = Math.max(filesHashed, hashedFiles);
+    }
+
+    synchronized void addDirtyPlanMetrics(
+            int considered,
+            int pipelineInvocations) {
+        membersConsidered += Math.max(0, considered);
+        memberPipelineInvocations += Math.max(0, pipelineInvocations);
+        membersDeclaredClean += Math.max(0, considered - pipelineInvocations);
     }
 
     private static long elapsedSince(long started) {
@@ -143,7 +194,17 @@ public final class WorkspaceExecutionContext {
             int packageCalculations,
             int classpathCacheHits,
             int packageCacheHits,
-            int readyQueuePeak) {
+            int readyQueuePeak,
+            long fileSnapshotNanos,
+            long bytesHashed,
+            int filesHashed,
+            int membersConsidered,
+            int membersDeclaredClean,
+            int memberPipelineInvocations,
+            int abiStateReads,
+            int abiStateCacheHits,
+            int toolchainResolutions,
+            int toolchainCacheHits) {
         public Metrics(
                 long graphConstructionNanos,
                 long classpathCalculationNanos,
@@ -163,6 +224,90 @@ public final class WorkspaceExecutionContext {
                     packageCalculations,
                     classpathCacheHits,
                     packageCacheHits,
+                    0,
+                    0L,
+                    0L,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0);
+        }
+
+        public Metrics(
+                long graphConstructionNanos,
+                long classpathCalculationNanos,
+                long packageCalculationNanos,
+                long memberExecutionNanos,
+                long schedulerIdleNanos,
+                int classpathCalculations,
+                int packageCalculations,
+                int classpathCacheHits,
+                int packageCacheHits,
+                int readyQueuePeak) {
+            this(
+                    graphConstructionNanos,
+                    classpathCalculationNanos,
+                    packageCalculationNanos,
+                    memberExecutionNanos,
+                    schedulerIdleNanos,
+                    classpathCalculations,
+                    packageCalculations,
+                    classpathCacheHits,
+                    packageCacheHits,
+                    readyQueuePeak,
+                    0L,
+                    0L,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0);
+        }
+
+        public Metrics(
+                long graphConstructionNanos,
+                long classpathCalculationNanos,
+                long packageCalculationNanos,
+                long memberExecutionNanos,
+                long schedulerIdleNanos,
+                int classpathCalculations,
+                int packageCalculations,
+                int classpathCacheHits,
+                int packageCacheHits,
+                int readyQueuePeak,
+                long fileSnapshotNanos,
+                long bytesHashed,
+                int filesHashed,
+                int membersConsidered,
+                int membersDeclaredClean,
+                int memberPipelineInvocations) {
+            this(
+                    graphConstructionNanos,
+                    classpathCalculationNanos,
+                    packageCalculationNanos,
+                    memberExecutionNanos,
+                    schedulerIdleNanos,
+                    classpathCalculations,
+                    packageCalculations,
+                    classpathCacheHits,
+                    packageCacheHits,
+                    readyQueuePeak,
+                    fileSnapshotNanos,
+                    bytesHashed,
+                    filesHashed,
+                    membersConsidered,
+                    membersDeclaredClean,
+                    memberPipelineInvocations,
+                    0,
+                    0,
+                    0,
                     0);
         }
     }

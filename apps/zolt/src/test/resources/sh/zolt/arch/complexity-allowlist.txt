@@ -3,4 +3,5 @@ modules/zolt-model/src/main/java/sh/zolt/lockfile/LockPackage.java|4|1|17|0||kee
 modules/zolt-model/src/main/java/sh/zolt/project/BuildSettings.java|5|8|16|0||keep wide as build config value; fields group committed source/output/resource/test settings
 modules/zolt-model/src/main/java/sh/zolt/project/OpenApiGenerationSettings.java|4|2|17|0||keep wide as generated-source config value; fields mirror TOML OpenAPI schema
 modules/zolt-model/src/main/java/sh/zolt/project/ProjectConfig.java|2|10|32|0||keep wide as root project config aggregate; detailed construction already split by section, plus a withVersion override updater for build-time version stamping and workspace-member annotation-processor scopes
+modules/zolt-build/src/main/java/sh/zolt/build/incremental/IncrementalCompileState.java|8|6|15|3||keep the compatibility constructor while version 5 aggregate ABI fields roll through self-hosted and persisted state readers
 modules/zolt-quarkus/src/main/java/sh/zolt/quarkus/testworker/descriptor/QuarkusTestRunnerDescriptor.java|8|1|13|0||keep wide as serialized Quarkus test-worker descriptor; fields mirror descriptor properties

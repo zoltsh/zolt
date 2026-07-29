@@ -55,6 +55,36 @@ public final class CommandBuildAttributes {
                 CommandAttributeKeys.WORKSPACE_READY_QUEUE_PEAK,
                 Integer.toString(result.executionMetrics().readyQueuePeak()));
         attributes.put(
+                CommandAttributeKeys.WORKSPACE_FILE_SNAPSHOT_NANOS,
+                Long.toString(result.executionMetrics().fileSnapshotNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_BYTES_HASHED,
+                Long.toString(result.executionMetrics().bytesHashed()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_FILES_HASHED,
+                Integer.toString(result.executionMetrics().filesHashed()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBERS_CONSIDERED,
+                Integer.toString(result.executionMetrics().membersConsidered()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBERS_DECLARED_CLEAN,
+                Integer.toString(result.executionMetrics().membersDeclaredClean()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBER_PIPELINE_INVOCATIONS,
+                Integer.toString(result.executionMetrics().memberPipelineInvocations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_ABI_STATE_READS,
+                Integer.toString(result.executionMetrics().abiStateReads()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_ABI_STATE_CACHE_HITS,
+                Integer.toString(result.executionMetrics().abiStateCacheHits()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_RESOLUTIONS,
+                Integer.toString(result.executionMetrics().toolchainResolutions()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_CACHE_HITS,
+                Integer.toString(result.executionMetrics().toolchainCacheHits()));
+        attributes.put(
                 CommandAttributeKeys.WORKSPACE_CLASSPATH_CALCULATIONS,
                 Integer.toString(result.executionMetrics().classpathCalculations()));
         attributes.put(

@@ -4,11 +4,8 @@ import sh.zolt.build.discovery.SourceDiscoveryResult;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
-import sh.zolt.project.BuildSettings;
-import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 public final class BuildFingerprintService {
@@ -46,7 +43,7 @@ public final class BuildFingerprintService {
                 projectDirectory,
                 config,
                 lockfilePath,
-                mainSourceRoots(config.build()),
+                BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
                 "[resources].main",
                 sources.mainSources(),
@@ -72,7 +69,7 @@ public final class BuildFingerprintService {
                 projectDirectory,
                 config,
                 lockfilePath,
-                mainSourceRoots(config.build()),
+                BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
                 "[resources].main",
                 sources.mainSources(),
@@ -154,7 +151,41 @@ public final class BuildFingerprintService {
                 projectDirectory,
                 config,
                 lockfilePath,
-                testSourceRoots(config.build()),
+                BuildFingerprintSourceRoots.test(config.build()),
+                config.build().testResourceRoots(),
+                "[resources].test",
+                sources.allTestSources(),
+                config.build().generatedTestSources(),
+                generatedProducerFingerprints,
+                compileClasspath,
+                processorClasspath,
+                outputDirectory,
+                config.build().testOutput(),
+                generatedSourcesDirectory,
+                TEST_FILE_NAME);
+    }
+
+    /**
+     * Checks the complete canonical test fingerprint, including resources.
+     *
+     * <p>The test compiler intentionally ignores resource-only changes, but tests-JAR packaging must
+     * reject evidence captured before a resource edit.
+     */
+    public BuildFingerprintCheck checkTestEvidenceCurrent(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path lockfilePath,
+            SourceDiscoveryResult sources,
+            List<GeneratedSourceProducerFingerprint> generatedProducerFingerprints,
+            Classpath compileClasspath,
+            Classpath processorClasspath,
+            Path outputDirectory,
+            Path generatedSourcesDirectory) {
+        return engine.checkEvidenceCurrent(
+                projectDirectory,
+                config,
+                lockfilePath,
+                BuildFingerprintSourceRoots.test(config.build()),
                 config.build().testResourceRoots(),
                 "[resources].test",
                 sources.allTestSources(),
@@ -198,7 +229,7 @@ public final class BuildFingerprintService {
                 projectDirectory,
                 config,
                 lockfilePath,
-                testSourceRoots(config.build()),
+                BuildFingerprintSourceRoots.test(config.build()),
                 config.build().testResourceRoots(),
                 "[resources].test",
                 sources.allTestSources(),
@@ -230,7 +261,7 @@ public final class BuildFingerprintService {
                 projectDirectory,
                 config,
                 lockfilePath,
-                mainSourceRoots(config.build()),
+                BuildFingerprintSourceRoots.main(config.build()),
                 config.build().resourceRoots(),
                 "[resources].main",
                 sources.mainSources(),
@@ -303,7 +334,7 @@ public final class BuildFingerprintService {
                 projectDirectory,
                 config,
                 lockfilePath,
-                testSourceRoots(config.build()),
+                BuildFingerprintSourceRoots.test(config.build()),
                 config.build().testResourceRoots(),
                 "[resources].test",
                 sources.allTestSources(),
@@ -316,22 +347,4 @@ public final class BuildFingerprintService {
                 generatedSourcesDirectory);
     }
 
-    private static List<String> testSourceRoots(BuildSettings settings) {
-        List<String> roots = new ArrayList<>();
-        roots.addAll(settings.testSources());
-        roots.addAll(settings.generatedTestSources().stream()
-                .map(GeneratedSourceStep::output)
-                .toList());
-        roots.addAll(settings.groovyTestSources());
-        return List.copyOf(roots);
-    }
-
-    private static List<String> mainSourceRoots(BuildSettings settings) {
-        List<String> roots = new ArrayList<>();
-        roots.addAll(settings.sourceRoots());
-        roots.addAll(settings.generatedMainSources().stream()
-                .map(GeneratedSourceStep::output)
-                .toList());
-        return List.copyOf(roots);
-    }
 }

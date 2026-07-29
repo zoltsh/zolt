@@ -145,6 +145,16 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_MEMBER_EXECUTION_NANOS = "workspaceMemberExecutionNanos";
     public static final String WORKSPACE_SCHEDULER_IDLE_NANOS = "workspaceSchedulerIdleNanos";
     public static final String WORKSPACE_READY_QUEUE_PEAK = "workspaceReadyQueuePeak";
+    public static final String WORKSPACE_FILE_SNAPSHOT_NANOS = "workspaceFileSnapshotNanos";
+    public static final String WORKSPACE_BYTES_HASHED = "workspaceBytesHashed";
+    public static final String WORKSPACE_FILES_HASHED = "workspaceFilesHashed";
+    public static final String WORKSPACE_MEMBERS_CONSIDERED = "workspaceMembersConsidered";
+    public static final String WORKSPACE_MEMBERS_DECLARED_CLEAN = "workspaceMembersDeclaredClean";
+    public static final String WORKSPACE_MEMBER_PIPELINE_INVOCATIONS = "workspaceMemberPipelineInvocations";
+    public static final String WORKSPACE_ABI_STATE_READS = "workspaceAbiStateReads";
+    public static final String WORKSPACE_ABI_STATE_CACHE_HITS = "workspaceAbiStateCacheHits";
+    public static final String WORKSPACE_TOOLCHAIN_RESOLUTIONS = "workspaceToolchainResolutions";
+    public static final String WORKSPACE_TOOLCHAIN_CACHE_HITS = "workspaceToolchainCacheHits";
     public static final String XML_REPORT = "xmlReport";
 
     private CommandAttributeKeys() {

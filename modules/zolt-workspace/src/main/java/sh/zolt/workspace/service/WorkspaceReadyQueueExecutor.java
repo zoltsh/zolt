@@ -2,19 +2,21 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildException;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 final class WorkspaceReadyQueueExecutor {
     <T> Result<T> execute(
             WorkspaceBuildBatchPlanner.Plan plan,
             int maxWorkers,
-            Function<String, T> task) {
+            BiFunction<String, Boolean, TaskResult<T>> task) {
         if (plan.includedMembers().isEmpty()) {
             return new Result<>(Map.of(), 0L, 0);
         }
@@ -23,6 +25,7 @@ final class WorkspaceReadyQueueExecutor {
                 new ExecutorCompletionService<>(executor);
         Map<String, Integer> remaining = new LinkedHashMap<>(plan.dependencyCounts());
         PriorityQueue<String> ready = plan.readyMembers();
+        Set<String> invalidated = new LinkedHashSet<>();
         Map<String, T> results = new LinkedHashMap<>();
         long taskNanos = 0L;
         long windowStarted = System.nanoTime();
@@ -32,7 +35,9 @@ final class WorkspaceReadyQueueExecutor {
             while (results.size() < plan.includedMembers().size()) {
                 while (running < maxWorkers && !ready.isEmpty()) {
                     String member = ready.remove();
-                    completions.submit(() -> run(member, task));
+                    boolean dependencyInvalidated = invalidated.contains(member);
+                    completions.submit(
+                            () -> run(member, dependencyInvalidated, task));
                     running++;
                 }
                 if (running == 0) {
@@ -40,8 +45,12 @@ final class WorkspaceReadyQueueExecutor {
                 }
                 Completed<T> completed = await(completions);
                 running--;
-                results.put(completed.member(), completed.result());
+                results.put(completed.member(), completed.result().value());
                 taskNanos += completed.durationNanos();
+                if (completed.result().invalidatesDependents()) {
+                    invalidated.addAll(
+                            plan.dependentsByDependency().get(completed.member()));
+                }
                 for (String dependent : plan.dependentsByDependency().get(completed.member())) {
                     int count = remaining.get(dependent) - 1;
                     remaining.put(dependent, count);
@@ -64,9 +73,10 @@ final class WorkspaceReadyQueueExecutor {
 
     private static <T> Completed<T> run(
             String member,
-            Function<String, T> task) {
+            boolean dependencyInvalidated,
+            BiFunction<String, Boolean, TaskResult<T>> task) {
         long started = System.nanoTime();
-        T result = task.apply(member);
+        TaskResult<T> result = task.apply(member, dependencyInvalidated);
         return new Completed<>(member, result, Math.max(0L, System.nanoTime() - started));
     }
 
@@ -99,8 +109,13 @@ final class WorkspaceReadyQueueExecutor {
 
     private record Completed<T>(
             String member,
-            T result,
+            TaskResult<T> result,
             long durationNanos) {
+    }
+
+    record TaskResult<T>(
+            T value,
+            boolean invalidatesDependents) {
     }
 
     record Result<T>(

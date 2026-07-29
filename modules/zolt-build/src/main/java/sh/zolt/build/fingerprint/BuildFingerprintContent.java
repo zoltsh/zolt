@@ -96,9 +96,15 @@ final class BuildFingerprintContent {
         section(content, "sources", fileEntries(projectRoot, sources, cachedState, collectedState));
         section(content, "generatedProducerFingerprints", generatedProducerEntries(generatedProducerFingerprints));
         section(content, "generatedSourceInputs", generatedSourceInputEntries(projectRoot, generatedSteps, cachedState, collectedState));
-        section(content, "resources", resourceEntries(projectRoot, resourceRoots, resourceRootKey, config.build(), cachedState, collectedState));
         section(content, "generatedSources", generatedSourceEntries(projectRoot, generatedSourcesDirectory, cachedState, collectedState));
         section(content, "execOutputs", execOutputEntries(projectRoot, config.build().outputRoot(), generatedSteps, cachedState, collectedState));
+        section(content, "resources", resourceEntries(
+                projectRoot,
+                resourceRoots,
+                resourceRootKey,
+                config.build(),
+                cachedState,
+                collectedState));
         section(content, "expectedClasses", expectedClasses.entries(projectRoot, sourceRoots, sources, outputDirectory));
         return content.toString();
     }
@@ -150,40 +156,6 @@ final class BuildFingerprintContent {
                 .map(path -> fileHasher.relative(projectRoot, path) + "|"
                         + fileHasher.fileHash(path, cachedState, collectedState))
                 .toList();
-    }
-
-    private List<String> resourceEntries(
-            Path projectRoot,
-            List<String> configuredRoots,
-            String resourceRootKey,
-            BuildSettings settings,
-            BuildFingerprintState cachedState,
-            Map<Path, BuildFingerprintCachedFileHash> collectedState) {
-        List<Path> resources = new ArrayList<>();
-        Path mainOutput = outputPath(projectRoot, "[build].output", settings.output());
-        Path testOutput = outputPath(projectRoot, "[build].testOutput", settings.testOutput());
-        for (String configuredRoot : configuredRoots) {
-            Path root = existingRoot(projectRoot, resourceRootKey, configuredRoot);
-            if (!Files.isDirectory(root)) {
-                continue;
-            }
-            try (Stream<Path> paths = Files.walk(root)) {
-                paths.filter(Files::isRegularFile)
-                        .map(Path::normalize)
-                        .filter(path -> !path.getFileName().toString().endsWith(".java"))
-                        .filter(path -> !path.startsWith(mainOutput))
-                        .filter(path -> !path.startsWith(testOutput))
-                        .filter(path -> !startsWithOutputDirectorySegment(root.relativize(path)))
-                        .forEach(resources::add);
-            } catch (IOException exception) {
-                throw new BuildException(
-                        "Could not fingerprint resources under "
-                                + root
-                                + ". Check that the directory is readable.",
-                        exception);
-            }
-        }
-        return fileEntries(projectRoot, resources, cachedState, collectedState);
     }
 
     private List<String> generatedSourceInputEntries(
@@ -259,6 +231,40 @@ final class BuildFingerprintContent {
         return fileEntries(projectRoot, files, cachedState, collectedState);
     }
 
+    private List<String> resourceEntries(
+            Path projectRoot,
+            List<String> configuredRoots,
+            String resourceRootKey,
+            BuildSettings settings,
+            BuildFingerprintState cachedState,
+            Map<Path, BuildFingerprintCachedFileHash> collectedState) {
+        List<Path> resources = new ArrayList<>();
+        Path mainOutput = outputPath(projectRoot, "[build].output", settings.output());
+        Path testOutput = outputPath(projectRoot, "[build].testOutput", settings.testOutput());
+        for (String configuredRoot : configuredRoots) {
+            Path root = existingRoot(projectRoot, resourceRootKey, configuredRoot);
+            if (!Files.isDirectory(root)) {
+                continue;
+            }
+            try (Stream<Path> paths = Files.walk(root)) {
+                paths.filter(Files::isRegularFile)
+                        .map(Path::normalize)
+                        .filter(path -> !path.getFileName().toString().endsWith(".java"))
+                        .filter(path -> !path.startsWith(mainOutput))
+                        .filter(path -> !path.startsWith(testOutput))
+                        .filter(path -> !startsWithOutputDirectorySegment(root.relativize(path)))
+                        .forEach(resources::add);
+            } catch (IOException exception) {
+                throw new BuildException(
+                        "Could not fingerprint resources under "
+                                + root
+                                + ". Check that the directory is readable.",
+                        exception);
+            }
+        }
+        return fileEntries(projectRoot, resources, cachedState, collectedState);
+    }
+
     private static void section(StringBuilder content, String name, List<String> entries) {
         content.append('[').append(name).append(']').append('\n');
         entries.stream().sorted(Comparator.naturalOrder()).forEach(entry -> content.append(entry).append('\n'));
@@ -280,17 +286,17 @@ final class BuildFingerprintContent {
         }
     }
 
-    private static Path existingRoot(Path projectRoot, String key, String configuredPath) {
+    private static Path outputPath(Path projectRoot, String key, String configuredPath) {
         try {
-            return ProjectPaths.existingRoot(projectRoot, key, configuredPath);
+            return ProjectPaths.output(projectRoot, key, configuredPath);
         } catch (ProjectPathException exception) {
             throw new BuildException(exception.getMessage(), exception);
         }
     }
 
-    private static Path outputPath(Path projectRoot, String key, String configuredPath) {
+    private static Path existingRoot(Path projectRoot, String key, String configuredPath) {
         try {
-            return ProjectPaths.output(projectRoot, key, configuredPath);
+            return ProjectPaths.existingRoot(projectRoot, key, configuredPath);
         } catch (ProjectPathException exception) {
             throw new BuildException(exception.getMessage(), exception);
         }
@@ -300,4 +306,5 @@ final class BuildFingerprintContent {
         return relativePath.getNameCount() > 0
                 && OUTPUT_DIRECTORY_NAMES.contains(relativePath.getName(0).toString());
     }
+
 }

@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 final class WorkspaceReadyQueueExecutorTest {
@@ -30,9 +31,10 @@ final class WorkspaceReadyQueueExecutorTest {
         WorkspaceBuildBatchPlanner.Plan plan =
                 new WorkspaceBuildBatchPlanner().plan(workspace, members);
         CountDownLatch childStarted = new CountDownLatch(1);
+        AtomicBoolean childWasInvalidated = new AtomicBoolean();
 
         WorkspaceReadyQueueExecutor.Result<String> result =
-                new WorkspaceReadyQueueExecutor().execute(plan, 2, member -> {
+                new WorkspaceReadyQueueExecutor().execute(plan, 2, (member, invalidated) -> {
                     if ("modules/slow".equals(member)) {
                         try {
                             assertTrue(
@@ -44,14 +46,18 @@ final class WorkspaceReadyQueueExecutorTest {
                         }
                     }
                     if ("apps/fast-child".equals(member)) {
+                        childWasInvalidated.set(invalidated);
                         childStarted.countDown();
                     }
-                    return member;
+                    return new WorkspaceReadyQueueExecutor.TaskResult<>(
+                            member,
+                            "modules/fast".equals(member));
                 });
 
         assertEquals(3, result.resultsByMember().size());
         assertEquals(2, result.readyQueuePeak());
         assertTrue(result.schedulerIdleNanos() >= 0L);
+        assertTrue(childWasInvalidated.get());
     }
 
     private static Workspace workspace(List<String> members, List<WorkspaceProjectEdge> edges) {

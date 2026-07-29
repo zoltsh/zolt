@@ -164,7 +164,7 @@ final class WorkspaceRunServiceTest {
                 ignored -> {
                 });
 
-        assertEquals(3, jdkChecker.detectCalls());
+        assertEquals(2, jdkChecker.detectCalls());
         assertEquals(1, jdkChecker.toolchainReads());
     }
 
