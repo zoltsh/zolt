@@ -16,6 +16,9 @@ public record IncrementalCompileState(
         Path generatedSourcesDirectory,
         String compilerSettingsHash,
         String buildFingerprintSha256,
+        String publicAbiDigest,
+        String packagePrivateAbiDigest,
+        String outputManifestDigest,
         List<String> fallbackReasons,
         List<String> sourceRoots,
         List<String> generatedSourceRoots,
@@ -27,6 +30,43 @@ public record IncrementalCompileState(
         boolean processorAttributionComplete) {
     static final String MAIN_FILE_NAME = ".zolt-incremental-main.state";
     static final String TEST_FILE_NAME = ".zolt-incremental-test.state";
+
+    public IncrementalCompileState(
+            String scope,
+            Path projectDirectory,
+            Path outputDirectory,
+            Path generatedSourcesDirectory,
+            String compilerSettingsHash,
+            String buildFingerprintSha256,
+            List<String> fallbackReasons,
+            List<String> sourceRoots,
+            List<String> generatedSourceRoots,
+            List<ClasspathEntry> compileClasspath,
+            List<ClasspathEntry> processorClasspath,
+            List<SourceRecord> sources,
+            List<ClassRecord> classes,
+            Map<String, List<Path>> reverseDependencies,
+            boolean processorAttributionComplete) {
+        this(
+                scope,
+                projectDirectory,
+                outputDirectory,
+                generatedSourcesDirectory,
+                compilerSettingsHash,
+                buildFingerprintSha256,
+                "",
+                "",
+                "",
+                fallbackReasons,
+                sourceRoots,
+                generatedSourceRoots,
+                compileClasspath,
+                processorClasspath,
+                sources,
+                classes,
+                reverseDependencies,
+                processorAttributionComplete);
+    }
 
     public IncrementalCompileState {
         scope = requireText(scope, "Incremental compile state scope is required.");
@@ -49,6 +89,22 @@ public record IncrementalCompileState(
         sources = sortedSources(sources);
         classes = sortedClasses(classes);
         reverseDependencies = sortedReverseDependencies(reverseDependencies);
+        publicAbiDigest = digestOrCalculated(
+                publicAbiDigest,
+                classes.stream()
+                        .filter(ClassRecord::externallyVisible)
+                        .map(value -> value.binaryName() + "|" + value.abiHash())
+                        .toList());
+        packagePrivateAbiDigest = digestOrCalculated(
+                packagePrivateAbiDigest,
+                classes.stream()
+                        .map(value -> value.binaryName() + "|" + value.packagePrivateAbiHash())
+                        .toList());
+        outputManifestDigest = digestOrCalculated(
+                outputManifestDigest,
+                classes.stream()
+                        .map(value -> value.binaryName() + "|" + value.classFileHash())
+                        .toList());
     }
 
     public static Path mainStatePath(Path outputDirectory) {
@@ -149,6 +205,10 @@ public record IncrementalCompileState(
             superName.ifPresent(name -> requireText(name, "Incremental compile class super name cannot be blank."));
             interfaces = sortedStrings(interfaces);
         }
+
+        boolean externallyVisible() {
+            return (accessFlags & 0x0005) != 0;
+        }
     }
 
     private static Map<String, List<Path>> sortedReverseDependencies(Map<String, List<Path>> dependencies) {
@@ -223,5 +283,14 @@ public record IncrementalCompileState(
             throw new BuildException(message);
         }
         return value;
+    }
+
+    private static String digestOrCalculated(
+            String digest,
+            List<String> entries) {
+        if (digest != null && !digest.isBlank()) {
+            return digest;
+        }
+        return IncrementalCompileInputHasher.hashText(String.join("\n", entries));
     }
 }

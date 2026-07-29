@@ -10,6 +10,9 @@ final class IncrementalCompileStateFormatter {
         encodedLine(content, "generatedSourcesDirectory", state.generatedSourcesDirectory().toString());
         line(content, "compilerSettingsHash", state.compilerSettingsHash());
         line(content, "buildFingerprintSha256", state.buildFingerprintSha256());
+        line(content, "publicAbiDigest", state.publicAbiDigest());
+        line(content, "packagePrivateAbiDigest", state.packagePrivateAbiDigest());
+        line(content, "outputManifestDigest", state.outputManifestDigest());
         line(content, "processorAttributionComplete", Boolean.toString(state.processorAttributionComplete()));
         state.fallbackReasons().forEach(reason -> encodedRecord(content, "fallbackReason", reason));
         state.sourceRoots().forEach(root -> encodedRecord(content, "sourceRoot", root));

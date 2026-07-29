@@ -114,6 +114,11 @@ final class IncrementalCompileInputHasher {
     }
 
     private static String directoryHash(Path directory) {
+        Optional<IncrementalCompileSummary> summary =
+                new IncrementalCompileSummaryReader().readMain(directory);
+        if (summary.isPresent()) {
+            return "zolt-compile-abi:" + summary.orElseThrow().compileAbiDigest();
+        }
         try (java.util.stream.Stream<Path> paths = Files.walk(directory)) {
             StringBuilder content = new StringBuilder();
             paths.filter(Files::isRegularFile)

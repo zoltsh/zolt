@@ -1,8 +1,7 @@
 package sh.zolt.build.fingerprint;
 
 import sh.zolt.build.BuildException;
-import sh.zolt.build.incremental.IncrementalCompileState;
-import sh.zolt.build.incremental.IncrementalCompileStateCodec;
+import sh.zolt.build.incremental.IncrementalCompileSummaryReader;
 import sh.zolt.build.lockfile.VerifiedArtifactHashes;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -145,21 +144,9 @@ final class BuildFingerprintFileHasher {
     }
 
     private Optional<String> zoltOutputAbiHash(Path directory) {
-        Optional<IncrementalCompileState> state = new IncrementalCompileStateCodec()
-                .read(IncrementalCompileState.mainStatePath(directory));
-        if (state.isEmpty() || !state.orElseThrow().outputDirectory().equals(directory)) {
-            return Optional.empty();
-        }
-        StringBuilder content = new StringBuilder();
-        for (IncrementalCompileState.ClassRecord classRecord : state.orElseThrow().classes()) {
-            content.append(classRecord.binaryName())
-                    .append('|')
-                    .append(classRecord.abiHash())
-                    .append('|')
-                    .append(classRecord.packagePrivateAbiHash())
-                    .append('\n');
-        }
-        return Optional.of(hashText(content.toString()));
+        return new IncrementalCompileSummaryReader()
+                .readMain(directory)
+                .map(summary -> summary.compileAbiDigest());
     }
 
     private String directoryHash(
