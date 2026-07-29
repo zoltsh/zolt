@@ -119,6 +119,28 @@ final class JunitLauncherWorkerIsolationTest {
     }
 
     @Test
+    void changingUserDirectoryDoesNotRebaseTheDefaultFilesystem() {
+        String originalUserDirectory = System.getProperty("user.dir");
+        Path originalFilesystemDirectory =
+                Path.of(".").toAbsolutePath().normalize();
+        try {
+            System.setProperty("user.dir", tempDir.toString());
+
+            assertEquals(
+                    originalFilesystemDirectory,
+                    Path.of(".").toAbsolutePath().normalize());
+            assertFalse(originalFilesystemDirectory.equals(
+                    tempDir.toAbsolutePath().normalize()));
+        } finally {
+            if (originalUserDirectory == null) {
+                System.clearProperty("user.dir");
+            } else {
+                System.setProperty("user.dir", originalUserDirectory);
+            }
+        }
+    }
+
+    @Test
     void clientReusesRealServerAcrossProjectRelativePaths()
             throws Exception {
         Path firstOutput =

@@ -249,6 +249,8 @@ public final class PlainJunitWorkerPoolRunner implements AutoCloseable {
         }
         WorkerKey key = new WorkerKey(
                 javaExecutable.toAbsolutePath().normalize(),
+                // A JVM's default filesystem keeps its launch directory even if user.dir changes.
+                // Isolate member directories so project-relative test I/O preserves single-project semantics.
                 projectDirectory.toAbsolutePath().normalize(),
                 List.copyOf(workerClasspath),
                 workerJvmArguments,
