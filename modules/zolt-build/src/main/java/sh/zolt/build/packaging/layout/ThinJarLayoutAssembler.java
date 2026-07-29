@@ -16,6 +16,7 @@ import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
 import sh.zolt.build.packageplan.PackageInputFingerprinting;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -56,6 +57,7 @@ public final class ThinJarLayoutAssembler {
                 for (Path file : files) {
                     archive.writeFile(entryName(outputDirectory, file), file);
                 }
+                archive.commit();
             }
             Optional<Path> writtenRuntimeClasspathPath = Optional.empty();
             if (classpathPackages.isPresent()) {
@@ -119,7 +121,10 @@ public final class ThinJarLayoutAssembler {
         if (!content.isEmpty()) {
             content = content + "\n";
         }
-        Files.writeString(runtimeClasspathPath, content);
+        PackageArchiveWriter.writeStringAtomically(
+                runtimeClasspathPath,
+                content,
+                StandardCharsets.UTF_8);
     }
 
     private List<ResolvedClasspathPackage> packagedClasspathPackages(ZoltLockfile lockfile, Path cacheRoot) {

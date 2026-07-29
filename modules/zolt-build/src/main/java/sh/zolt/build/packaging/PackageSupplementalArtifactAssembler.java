@@ -58,6 +58,7 @@ public final class PackageSupplementalArtifactAssembler {
                 for (SourceJarEntry entry : entries) {
                     archive.writeFile(entry.name(), entry.file());
                 }
+                archive.commit();
             }
             return new PackageArtifact("sources", jarPath, entries.size());
         } catch (IOException exception) {

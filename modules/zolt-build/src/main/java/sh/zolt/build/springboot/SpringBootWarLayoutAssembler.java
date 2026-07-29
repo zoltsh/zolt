@@ -74,6 +74,7 @@ public final class SpringBootWarLayoutAssembler {
                             WEB_INF_LIB_PROVIDED_PREFIX + PackageRuntimeJars.nestedJarName(providedJar),
                             PackageRuntimeJars.read(providedJar));
                 }
+                archive.commit();
             }
             return new PackageResult(
                     buildResult,

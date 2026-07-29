@@ -224,12 +224,25 @@ public final class WorkspaceBuildService {
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
+        WorkspaceBuildRequirementResolver requirementResolver =
+                new WorkspaceBuildRequirementResolver();
+        Map<String, WorkspaceBuildRequirements> resolvedRequirements =
+                new LinkedHashMap<>();
+        for (String member : selection.includedMembers()) {
+            resolvedRequirements.put(
+                    member,
+                    requirementResolver.forMember(
+                            requirementsByMember.getOrDefault(
+                                    member,
+                                    WorkspaceBuildRequirements.mainBuild()),
+                            membersByPath.get(member).config()));
+        }
         Map<String, ClasspathSet> classpathsByMember = workspaceClasspathService.classpathsForMembers(
                 context,
                 selection.includedMembers(),
-                requirementsByMember);
+                resolvedRequirements);
         List<String> packageMembers = selection.includedMembers().stream()
-                .filter(member -> requirementsByMember
+                .filter(member -> resolvedRequirements
                         .getOrDefault(member, WorkspaceBuildRequirements.mainBuild())
                         .packageInputs())
                 .toList();
@@ -247,7 +260,7 @@ public final class WorkspaceBuildService {
                 membersByPath,
                 classpathsByMember,
                 classpathPackagesByMember,
-                requirementsByMember);
+                resolvedRequirements);
         long memberExecutionStarted = System.nanoTime();
         WorkspaceMemberBuildExecutor.Result execution = memberBuildExecutor.build(
                 context,
@@ -270,7 +283,7 @@ public final class WorkspaceBuildService {
                 membersByPath,
                 classpathsByMember,
                 classpathPackagesByMember,
-                requirementsByMember,
+                resolvedRequirements,
                 dirtyPlan);
         return new WorkspaceBuildResult(
                 plan.resolveResult(),

@@ -141,6 +141,51 @@ public final class WorkspaceClasspathService {
         return Collections.unmodifiableMap(locksByMember);
     }
 
+    public PackageInputs packageInputsFor(
+            WorkspaceExecutionContext context,
+            String memberPath,
+            boolean testClasspathRequired) {
+        ZoltLockfile packageLock = packageLockFor(context, memberPath);
+        List<ResolvedClasspathPackage> packages = context.classpathPackages(
+                memberPath,
+                () -> LockfileClasspathPackageConverter.classpathPackages(
+                        packageLock,
+                        context.cacheRoot(),
+                        context.workspace().root()));
+        ClasspathSet classpaths = testClasspathRequired
+                ? classpathsFor(
+                        context,
+                        memberPath,
+                        WorkspaceBuildRequirements.testRun())
+                : runtimePackageClasspaths(
+                        context,
+                        memberPath,
+                        packages);
+        return new PackageInputs(
+                classpaths,
+                packages,
+                packageLock);
+    }
+
+    private ClasspathSet runtimePackageClasspaths(
+            WorkspaceExecutionContext context,
+            String memberPath,
+            List<ResolvedClasspathPackage> packages) {
+        ClasspathSet buildClasspaths = classpathsFor(
+                context,
+                memberPath,
+                WorkspaceBuildRequirements.mainBuild());
+        ClasspathSet runtimeClasspaths = classpathBuilder.build(packages);
+        return new ClasspathSet(
+                buildClasspaths.compile(),
+                runtimeClasspaths.runtime(),
+                EMPTY_CLASSPATH,
+                EMPTY_CLASSPATH,
+                buildClasspaths.processor(),
+                EMPTY_CLASSPATH,
+                runtimeClasspaths.quarkusDeployment());
+    }
+
     private ClasspathSet classpathsFor(
             WorkspaceExecutionContext context,
             String memberPath,
@@ -156,32 +201,30 @@ public final class WorkspaceClasspathService {
             String memberPath,
             WorkspaceBuildRequirements requirements) {
         Workspace workspace = context.workspace();
-        ZoltLockfile lockfile = context.lockfile();
         Path cacheRoot = context.cacheRoot();
-        WorkspaceClasspathMemberGraph memberGraph = context.memberGraph();
         ClasspathSet compileClasspaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
-                lockFactory.compileLock(lockfile, memberPath, memberGraph),
+                lockFactory.compileLock(context, memberPath),
                 cacheRoot,
                 workspace.root()));
         ClasspathSet runtimeClasspaths = requirements.mainRuntimeClasspath()
                 ? classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
-                        lockFactory.runtimeLock(lockfile, memberPath, memberGraph),
+                        lockFactory.runtimeLock(context, memberPath),
                         cacheRoot,
                         workspace.root()))
                 : emptyClasspaths();
         ClasspathSet testClasspaths = requirements.testCompileClasspath()
                 ? classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
-                        lockFactory.testLock(lockfile, memberPath, memberGraph),
+                        lockFactory.testLock(context, memberPath),
                         cacheRoot,
                         workspace.root()))
                 : emptyClasspaths();
         Classpath processor = requirements.processorClasspath()
                 ? processorClasspathAssembler.mergedProcessorClasspath(
                         workspace,
-                        lockfile,
+                        context.lockfile(),
                         cacheRoot,
                         memberPath,
-                        memberGraph.compileDependenciesByMember(),
+                        context.memberGraph().compileDependenciesByMember(),
                         "processor",
                         DependencyScope.PROCESSOR,
                         compileClasspaths.processor())
@@ -189,10 +232,10 @@ public final class WorkspaceClasspathService {
         Classpath testProcessor = requirements.testProcessorClasspath()
                 ? processorClasspathAssembler.mergedProcessorClasspath(
                         workspace,
-                        lockfile,
+                        context.lockfile(),
                         cacheRoot,
                         memberPath,
-                        memberGraph.compileDependenciesByMember(),
+                        context.memberGraph().compileDependenciesByMember(),
                         "test-processor",
                         DependencyScope.TEST_PROCESSOR,
                         testClasspaths.testProcessor())
@@ -226,8 +269,13 @@ public final class WorkspaceClasspathService {
         return context.packageLock(
                 memberPath,
                 () -> lockFactory.packageLock(
-                        context.lockfile(),
-                        memberPath,
-                        context.memberGraph()));
+                        context,
+                        memberPath));
+    }
+
+    public record PackageInputs(
+            ClasspathSet classpaths,
+            List<ResolvedClasspathPackage> packages,
+            ZoltLockfile lockfile) {
     }
 }

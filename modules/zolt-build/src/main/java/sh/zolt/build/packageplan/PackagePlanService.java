@@ -102,6 +102,20 @@ public final class PackagePlanService {
             ProjectConfig config,
             ZoltLockfile lockfile,
             Path cacheRoot) {
+        return plan(
+                projectDirectory,
+                config,
+                lockfile,
+                cacheRoot,
+                new PackageOutputFingerprintIndex());
+    }
+
+    public PackagePlan plan(
+            Path projectDirectory,
+            ProjectConfig config,
+            ZoltLockfile lockfile,
+            Path cacheRoot,
+            PackageOutputFingerprintIndex outputFingerprints) {
         Path projectRoot = projectRoot(projectDirectory);
         PackageMode mode = config.packageSettings().mode();
         ProvidedPackagingOverrides providedOverrides =
@@ -140,7 +154,8 @@ public final class PackagePlanService {
                         ? List.of()
                         : PackageWorkspaceInputPlanner.workspaceInputs(
                                 projectRoot,
-                                lockfile.packages());
+                                lockfile.packages(),
+                                outputFingerprints);
         List<PackagePlanMaterializedInput> materializedInputs =
                 PackageWorkspaceInputPlanner.materializedInputs(
                         projectRoot,
@@ -190,8 +205,7 @@ public final class PackagePlanService {
         String applicationOutputFingerprint =
                 mode == PackageMode.BOM
                         ? "not-applicable"
-                        : PackageInputFingerprinting.applicationOutputFingerprint(
-                                applicationOutput);
+                        : outputFingerprints.fingerprint(applicationOutput);
         String packageLockFingerprint =
                 PackageInputFingerprint.packageLockFingerprint(lockfile);
         List<PackagePlanLiveInput> supplementalInputs =

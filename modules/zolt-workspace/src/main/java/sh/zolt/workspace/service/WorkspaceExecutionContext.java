@@ -4,9 +4,9 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 public final class WorkspaceExecutionContext {
@@ -17,10 +17,14 @@ public final class WorkspaceExecutionContext {
     private final WorkspaceFileSnapshot fileSnapshot;
     private final WorkspaceAbiIndex abiIndex;
     private final WorkspaceToolchainIndex toolchainIndex;
+    private final WorkspaceLockIndex lockIndex;
     private final long graphConstructionNanos;
-    private final Map<ClasspathKey, ClasspathSet> classpaths = new LinkedHashMap<>();
-    private final Map<String, List<ResolvedClasspathPackage>> classpathPackages = new LinkedHashMap<>();
-    private final Map<String, ZoltLockfile> packageLocks = new LinkedHashMap<>();
+    private final Map<ClasspathKey, ClasspathSet> classpaths =
+            new ConcurrentHashMap<>();
+    private final Map<String, List<ResolvedClasspathPackage>> classpathPackages =
+            new ConcurrentHashMap<>();
+    private final Map<String, ZoltLockfile> packageLocks =
+            new ConcurrentHashMap<>();
     private long classpathCalculationNanos;
     private long packageCalculationNanos;
     private long memberExecutionNanos;
@@ -47,82 +51,111 @@ public final class WorkspaceExecutionContext {
         this.fileSnapshot = new WorkspaceFileSnapshot();
         this.abiIndex = new WorkspaceAbiIndex();
         this.toolchainIndex = new WorkspaceToolchainIndex();
+        this.lockIndex = new WorkspaceLockIndex(lockfile);
         this.graphConstructionNanos = elapsedSince(started);
     }
 
     public Workspace workspace() {
         return workspace;
     }
-
     public ZoltLockfile lockfile() {
         return lockfile;
     }
-
     public Path cacheRoot() {
         return cacheRoot;
     }
-
     WorkspaceClasspathMemberGraph memberGraph() {
         return memberGraph;
     }
-
     WorkspaceFileSnapshot fileSnapshot() {
         return fileSnapshot;
     }
-
     WorkspaceAbiIndex abiIndex() {
         return abiIndex;
     }
-
     WorkspaceToolchainIndex toolchainIndex() {
         return toolchainIndex;
     }
+    WorkspaceLockIndex lockIndex() {
+        return lockIndex;
+    }
 
-    synchronized ClasspathSet classpaths(
+    ClasspathSet classpaths(
             String member,
             WorkspaceBuildRequirements requirements,
             Supplier<ClasspathSet> calculation) {
-        ClasspathKey key = new ClasspathKey(member, requirements);
+        ClasspathKey key = new ClasspathKey(
+                member,
+                requirements.withPackageInputs(false));
         ClasspathSet cached = classpaths.get(key);
         if (cached != null) {
-            classpathCacheHits++;
+            recordClasspathCacheHit();
             return cached;
         }
         long started = System.nanoTime();
         ClasspathSet value = calculation.get();
-        classpathCalculationNanos += elapsedSince(started);
-        classpaths.put(key, value);
+        ClasspathSet existing = classpaths.putIfAbsent(key, value);
+        if (existing != null) {
+            recordClasspathCacheHit();
+            return existing;
+        }
+        recordClasspathCalculation(elapsedSince(started));
         return value;
     }
 
-    synchronized List<ResolvedClasspathPackage> classpathPackages(
+    List<ResolvedClasspathPackage> classpathPackages(
             String member,
             Supplier<List<ResolvedClasspathPackage>> calculation) {
         List<ResolvedClasspathPackage> cached = classpathPackages.get(member);
         if (cached != null) {
-            packageCacheHits++;
+            recordPackageCacheHit();
             return cached;
         }
         long started = System.nanoTime();
         List<ResolvedClasspathPackage> value = List.copyOf(calculation.get());
-        packageCalculationNanos += elapsedSince(started);
-        classpathPackages.put(member, value);
+        List<ResolvedClasspathPackage> existing =
+                classpathPackages.putIfAbsent(member, value);
+        if (existing != null) {
+            recordPackageCacheHit();
+            return existing;
+        }
+        recordPackageCalculation(elapsedSince(started));
         return value;
     }
 
-    synchronized ZoltLockfile packageLock(
+    ZoltLockfile packageLock(
             String member,
             Supplier<ZoltLockfile> calculation) {
         ZoltLockfile cached = packageLocks.get(member);
         if (cached != null) {
-            packageCacheHits++;
+            recordPackageCacheHit();
             return cached;
         }
         long started = System.nanoTime();
         ZoltLockfile value = calculation.get();
-        packageCalculationNanos += elapsedSince(started);
-        packageLocks.put(member, value);
+        ZoltLockfile existing = packageLocks.putIfAbsent(member, value);
+        if (existing != null) {
+            recordPackageCacheHit();
+            return existing;
+        }
+        recordPackageCalculation(elapsedSince(started));
         return value;
+    }
+
+    private synchronized void recordClasspathCalculation(long durationNanos) {
+        classpathCalculationNanos += durationNanos;
+    }
+
+    private synchronized void recordPackageCalculation(long durationNanos) {
+        packageCalculationNanos += durationNanos;
+    }
+
+    private synchronized void recordClasspathCacheHit() {
+        classpathCacheHits++;
+    }
+
+    private synchronized void recordPackageCacheHit() {
+        packageCacheHits++;
     }
 
     public synchronized Metrics metrics() {

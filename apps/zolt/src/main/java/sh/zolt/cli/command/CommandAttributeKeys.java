@@ -65,6 +65,9 @@ public final class CommandAttributeKeys {
     public static final String OK = "ok";
     public static final String OUTPUT_BYTES = "outputBytes";
     public static final String PACKAGE_MODE = "packageMode";
+    public static final String PACKAGE_REUSED = "packageReused";
+    public static final String PACKAGES_EXECUTED = "packagesExecuted";
+    public static final String PACKAGES_REUSED = "packagesReused";
     public static final String PACKAGE_PRIVATE_ABI_CHANGED_CLASSES_SUFFIX = "PackagePrivateAbiChangedClasses";
     public static final String PASSED = "passed";
     public static final String POM_CACHE_HIT_MILLIS = "pomCacheHitMillis";
@@ -138,6 +141,7 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_PACKAGE_CACHE_HITS = "workspacePackageCacheHits";
     public static final String WORKSPACE_PACKAGE_CALCULATIONS = "workspacePackageCalculations";
     public static final String WORKSPACE_PACKAGE_CALCULATION_NANOS = "workspacePackageCalculationNanos";
+    public static final String WORKSPACE_PACKAGE_MAX_WORKERS = "workspacePackageMaxWorkers";
     public static final String WORKSPACE_DISCOVERY_NANOS = "workspaceDiscoveryNanos";
     public static final String WORKSPACE_SELECTION_NANOS = "workspaceSelectionNanos";
     public static final String WORKSPACE_RESOLUTION_NANOS = "workspaceResolutionNanos";

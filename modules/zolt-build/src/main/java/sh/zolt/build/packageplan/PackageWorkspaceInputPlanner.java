@@ -21,6 +21,16 @@ final class PackageWorkspaceInputPlanner {
     static List<PackagePlanWorkspaceInput> workspaceInputs(
             Path projectRoot,
             List<LockPackage> packages) {
+        return workspaceInputs(
+                projectRoot,
+                packages,
+                new PackageOutputFingerprintIndex());
+    }
+
+    static List<PackagePlanWorkspaceInput> workspaceInputs(
+            Path projectRoot,
+            List<LockPackage> packages,
+            PackageOutputFingerprintIndex outputFingerprints) {
         Map<String, PackagePlanWorkspaceInput> inputs = new LinkedHashMap<>();
         packages.stream()
                 .filter(lockPackage -> lockPackage.workspace().isPresent()
@@ -40,7 +50,7 @@ final class PackageWorkspaceInputPlanner {
                             "workspace:" + normalize(workspace) + "/" + normalize(output),
                             artifactIdentity,
                             source,
-                            PackageInputFingerprinting.applicationOutputFingerprint(source)));
+                            outputFingerprints.fingerprint(source)));
                 });
         return List.copyOf(inputs.values());
     }

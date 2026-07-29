@@ -4,6 +4,7 @@ import sh.zolt.build.packaging.PackageArtifact;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.project.PackageMode;
+import sh.zolt.workspace.packaging.WorkspacePackageResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,21 +29,40 @@ public final class CommandPackageResultWriter {
 
     public List<OutputLine> lines(PackageResult result, String suffix) {
         List<OutputLine> lines = new ArrayList<>();
-        lines.add(OutputLine.summary(PackageCommandModes.packageSummary(result) + suffix, List.of()));
+        String summary = PackageCommandModes.packageSummary(result);
+        if (result.packagingReused()) {
+            summary = summary.replaceFirst("^Packaged", "Reused");
+        }
+        lines.add(OutputLine.summary(summary + suffix, List.of()));
         appendRunnableDetails(lines, result, suffix);
         if (suffix.isBlank()) {
             appendPackageModeDetail(lines, result);
         }
         appendUberOverrideDetails(lines, result);
-        lines.add(OutputLine.pointer("wrote", result.jarPath().toString()));
+        String pointerVerb = result.packagingReused() ? "using" : "wrote";
+        lines.add(OutputLine.pointer(pointerVerb, result.jarPath().toString()));
         result.runtimeClasspathPath().ifPresent(path ->
-                lines.add(OutputLine.pointer("wrote", path.toString())));
+                lines.add(OutputLine.pointer(pointerVerb, path.toString())));
         result.evidenceManifestPath().ifPresent(path ->
-                lines.add(OutputLine.pointer("wrote", path.toString())));
+                lines.add(OutputLine.pointer(pointerVerb, path.toString())));
         for (PackageArtifact artifact : result.artifacts()) {
-            lines.add(OutputLine.pointer("wrote", artifact.path().toString()));
+            lines.add(OutputLine.pointer(pointerVerb, artifact.path().toString()));
         }
         return List.copyOf(lines);
+    }
+
+    static String workspaceSummary(WorkspacePackageResult result) {
+        if (result.packagedCount() == 0) {
+            return "Reused " + result.reusedCount() + " current workspace packages";
+        }
+        if (result.reusedCount() == 0) {
+            return "Packaged " + result.packagedCount() + " workspace members";
+        }
+        return "Packaged "
+                + result.packagedCount()
+                + " and reused "
+                + result.reusedCount()
+                + " workspace members";
     }
 
     private static void appendRunnableDetails(List<OutputLine> lines, PackageResult result, String suffix) {

@@ -11,6 +11,7 @@ import static sh.zolt.build.packageevidence.PackageEvidenceJsonFields.stringFiel
 import sh.zolt.build.packaging.PackageArtifact;
 import sh.zolt.build.PackageException;
 import sh.zolt.build.packageplan.PackagePlan;
+import sh.zolt.build.packaging.PackageArchiveWriter;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.ProjectConfig;
@@ -84,7 +85,7 @@ public final class PackageEvidenceManifestWriter {
         Path manifestPath = evidenceManifestPath(result.jarPath());
         try {
             Files.createDirectories(manifestPath.getParent());
-            Files.writeString(
+            PackageArchiveWriter.writeStringAtomically(
                     manifestPath,
                     json(projectRoot, config, plan, result, artifacts),
                     StandardCharsets.UTF_8);

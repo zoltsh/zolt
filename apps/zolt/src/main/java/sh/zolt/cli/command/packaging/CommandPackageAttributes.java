@@ -12,18 +12,30 @@ final class CommandPackageAttributes {
     }
 
     static Map<String, String> packageResult(PackageResult result) {
-        return Map.of(
-                CommandAttributeKeys.MODE, result.mode().configValue(),
-                CommandAttributeKeys.ENTRIES, Integer.toString(result.entryCount()),
-                CommandAttributeKeys.HAS_MAIN_CLASS, Boolean.toString(result.hasMainClass()),
-                CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.buildResult().resolvedLockfile()));
+        Map<String, String> attributes = new LinkedHashMap<>();
+        attributes.put(CommandAttributeKeys.MODE, result.mode().configValue());
+        attributes.put(CommandAttributeKeys.ENTRIES, Integer.toString(result.entryCount()));
+        attributes.put(CommandAttributeKeys.HAS_MAIN_CLASS, Boolean.toString(result.hasMainClass()));
+        attributes.put(CommandAttributeKeys.PACKAGE_REUSED, Boolean.toString(result.packagingReused()));
+        attributes.put(
+                CommandAttributeKeys.RESOLVED_LOCKFILE,
+                Boolean.toString(result.buildResult().resolvedLockfile()));
+        return attributes;
     }
 
     static Map<String, String> workspacePackage(WorkspacePackageResult result) {
-        return Map.of(
-                CommandAttributeKeys.MEMBERS, Integer.toString(result.members().size()),
-                CommandAttributeKeys.ENTRIES, Integer.toString(result.entryCount()),
-                CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
+        Map<String, String> attributes = new LinkedHashMap<>();
+        attributes.put(CommandAttributeKeys.MEMBERS, Integer.toString(result.members().size()));
+        attributes.put(CommandAttributeKeys.ENTRIES, Integer.toString(result.entryCount()));
+        attributes.put(CommandAttributeKeys.PACKAGES_EXECUTED, Integer.toString(result.packagedCount()));
+        attributes.put(CommandAttributeKeys.PACKAGES_REUSED, Integer.toString(result.reusedCount()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_PACKAGE_MAX_WORKERS,
+                Integer.toString(result.maxWorkers()));
+        attributes.put(
+                CommandAttributeKeys.RESOLVED_LOCKFILE,
+                Boolean.toString(result.resolvedLockfile()));
+        return attributes;
     }
 
     static Map<String, String> packagePlan(PackagePlan plan) {

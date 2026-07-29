@@ -65,6 +65,29 @@ final class CommandPackageResultWriterTest {
     }
 
     @Test
+    void reportsVerifiedPackageReuseWithoutClaimingFilesWereWritten() {
+        PackageResult result = new PackageResult(
+                buildResult(),
+                PackageMode.THIN,
+                Path.of("target/demo.jar"),
+                Optional.of(Path.of("target/demo.runtime-classpath")),
+                Optional.of(Path.of("target/demo.jar.zolt-package.json")),
+                2,
+                true,
+                "archive root",
+                List.of(),
+                List.of(),
+                List.of(),
+                true);
+
+        String output = print(result, "");
+
+        assertTrue(output.startsWith("SUMMARY Reused 2 compiled files as thin jar\n"), output);
+        assertTrue(output.contains("POINTER using target/demo.jar\n"), output);
+        assertFalse(output.contains("POINTER wrote"), output);
+    }
+
+    @Test
     void printsNonRunnableWarResult() {
         PackageResult result = new PackageResult(
                 buildResult(),

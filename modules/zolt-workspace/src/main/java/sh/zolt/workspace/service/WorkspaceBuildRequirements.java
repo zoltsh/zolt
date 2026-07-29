@@ -39,7 +39,7 @@ public record WorkspaceBuildRequirements(
                 false,
                 true,
                 true,
-                true);
+                false);
     }
 
     public static WorkspaceBuildRequirements runtime() {
@@ -61,7 +61,7 @@ public record WorkspaceBuildRequirements(
                 true,
                 true,
                 true,
-                true);
+                false);
     }
 
     public static WorkspaceBuildRequirements packaging() {
@@ -73,5 +73,19 @@ public record WorkspaceBuildRequirements(
                 true,
                 false,
                 true);
+    }
+
+    public WorkspaceBuildRequirements withPackageInputs(boolean required) {
+        if (packageInputs == required) {
+            return this;
+        }
+        return new WorkspaceBuildRequirements(
+                mainCompileClasspath,
+                mainRuntimeClasspath,
+                testCompileClasspath,
+                testRuntimeClasspath,
+                processorClasspath,
+                testProcessorClasspath,
+                required);
     }
 }

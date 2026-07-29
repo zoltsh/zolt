@@ -247,9 +247,10 @@ public final class PackageCommand implements Runnable {
         for (WorkspacePackageResult.MemberPackageResult member : result.members()) {
             printPackageResult(member.result(), " in " + member.member());
         }
-        output.success("Packaged " + result.members().size() + " workspace members");
+        String workspaceSummary = CommandPackageResultWriter.workspaceSummary(result);
+        output.success(workspaceSummary);
         output.provenance(CommandBuildProvenance.read(projectRoot));
-        progress.result("Packaged " + result.members().size() + " workspace members");
+        progress.result(workspaceSummary);
     }
 
     private void runSingleProjectPackage(
