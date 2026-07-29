@@ -9,6 +9,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
@@ -64,5 +65,44 @@ final class WorkspaceTestExecutorTest {
                 })));
 
         assertTrue(secondStopped.get());
+    }
+
+    @Test
+    void keepsWaitingWhenCancelledTaskIgnoresInitialInterrupt() throws Exception {
+        WorkspaceTestExecutor executor = new WorkspaceTestExecutor(2, 10);
+        CountDownLatch secondStarted = new CountDownLatch(1);
+        CountDownLatch firstFailed = new CountDownLatch(1);
+        CountDownLatch releaseSecond = new CountDownLatch(1);
+
+        CompletableFuture<Void> execution = CompletableFuture.runAsync(() ->
+                assertThrows(IllegalStateException.class, () -> executor.execute(List.of(
+                        () -> {
+                            assertTrue(secondStarted.await(5, TimeUnit.SECONDS));
+                            firstFailed.countDown();
+                            throw new IllegalStateException("first failed");
+                        },
+                        () -> {
+                            secondStarted.countDown();
+                            awaitIgnoringInterrupts(releaseSecond);
+                            return 2;
+                        }))));
+
+        assertTrue(firstFailed.await(5, TimeUnit.SECONDS));
+        assertThrows(
+                TimeoutException.class,
+                () -> execution.get(100, TimeUnit.MILLISECONDS));
+        releaseSecond.countDown();
+        execution.get(5, TimeUnit.SECONDS);
+    }
+
+    private static void awaitIgnoringInterrupts(CountDownLatch latch) {
+        while (true) {
+            try {
+                latch.await();
+                return;
+            } catch (InterruptedException ignored) {
+                // Keep running until the task's own cleanup is complete.
+            }
+        }
     }
 }

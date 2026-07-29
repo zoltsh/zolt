@@ -63,6 +63,7 @@ final class WorkspaceTestServiceAggregatorTest {
                 TestRunException.class,
                 () -> service.test(tempDir, cacheRoot));
 
+        assertTrue(exception.getMessage().contains("Workspace member `"));
         assertTrue(exception.getMessage().contains("No tests were discovered"));
         assertTrue(exception.getMessage().contains("test source file(s) compiled"));
     }

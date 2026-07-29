@@ -7,6 +7,7 @@ import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
+import sh.zolt.test.runtime.TestRunException;
 import sh.zolt.test.shard.TestShardSpec;
 import java.util.List;
 import java.util.Map;
@@ -38,25 +39,31 @@ final class WorkspaceTestTasks {
                     TestRunService testRunService =
                             testRunServices.forMember(workspace, member);
                     remember(usedServices, testRunService);
-                    return new WorkspaceTestResult.MemberTestRunResult(
-                            member.path(),
-                            testRunService.runCompiledTests(
-                                    member.directory(),
-                                    member.config(),
-                                    memberBuild.classpaths(),
-                                    testRunService.compileTests(
-                                            member.directory(),
-                                            member.config(),
-                                            testInputs(memberBuild)),
-                                    testSelection,
-                                    jvmArguments,
-                                    reportSettings.forWorkspaceMember(
-                                            member.path()),
-                                    cliEvents,
-                                    suiteName,
-                                    shard,
-                                    profileSettings.forWorkspaceMember(
-                                            member.path())));
+                    try {
+                        return new WorkspaceTestResult.MemberTestRunResult(
+                                member.path(),
+                                testRunService.runCompiledTests(
+                                        member.directory(),
+                                        member.config(),
+                                        memberBuild.classpaths(),
+                                        testRunService.compileTests(
+                                                member.directory(),
+                                                member.config(),
+                                                testInputs(memberBuild)),
+                                        testSelection,
+                                        jvmArguments,
+                                        reportSettings.forWorkspaceMember(
+                                                member.path()),
+                                        cliEvents,
+                                        suiteName,
+                                        shard,
+                                        profileSettings.forWorkspaceMember(
+                                                member.path())));
+                    } catch (RuntimeException failure) {
+                        throw memberFailure(
+                                member.path(),
+                                failure);
+                    }
                 })
                 .toList();
     }
@@ -83,21 +90,38 @@ final class WorkspaceTestTasks {
                     TestRunService testRunService =
                             testRunServices.forMember(workspace, member);
                     remember(usedServices, testRunService);
-                    return new WorkspaceTestResult.MemberTestRunResult(
-                            member.path(),
-                            testRunService.runTests(
-                                    member.directory(),
-                                    integrationConfig,
-                                    testInputs(memberBuild),
-                                    testSelection,
-                                    jvmArguments,
-                                    reportSettings.forWorkspaceMember(
-                                            member.path()),
-                                    cliEvents,
-                                    "all",
-                                    null));
+                    try {
+                        return new WorkspaceTestResult.MemberTestRunResult(
+                                member.path(),
+                                testRunService.runTests(
+                                        member.directory(),
+                                        integrationConfig,
+                                        testInputs(memberBuild),
+                                        testSelection,
+                                        jvmArguments,
+                                        reportSettings.forWorkspaceMember(
+                                                member.path()),
+                                        cliEvents,
+                                        "all",
+                                        null));
+                    } catch (RuntimeException failure) {
+                        throw memberFailure(
+                                member.path(),
+                                failure);
+                    }
                 })
                 .toList();
+    }
+
+    private static TestRunException memberFailure(
+            String memberPath,
+            RuntimeException failure) {
+        return new TestRunException(
+                "Workspace member `"
+                        + memberPath
+                        + "` tests failed.\n"
+                        + failure.getMessage(),
+                failure);
     }
 
     private static void remember(

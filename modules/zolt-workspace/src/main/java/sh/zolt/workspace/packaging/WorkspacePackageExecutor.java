@@ -11,7 +11,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 final class WorkspacePackageExecutor {
+    private static final long DEFAULT_SHUTDOWN_WAIT_MILLIS =
+            TimeUnit.SECONDS.toMillis(30);
+
     private final int maximumWorkers;
+    private final long shutdownWaitMillis;
 
     WorkspacePackageExecutor() {
         this(Math.min(
@@ -20,7 +24,12 @@ final class WorkspacePackageExecutor {
     }
 
     WorkspacePackageExecutor(int maximumWorkers) {
+        this(maximumWorkers, DEFAULT_SHUTDOWN_WAIT_MILLIS);
+    }
+
+    WorkspacePackageExecutor(int maximumWorkers, long shutdownWaitMillis) {
         this.maximumWorkers = Math.max(1, maximumWorkers);
+        this.shutdownWaitMillis = Math.max(1, shutdownWaitMillis);
     }
 
     <T> Result<T> execute(List<Callable<T>> tasks) {
@@ -44,18 +53,24 @@ final class WorkspacePackageExecutor {
             }
             return new Result<>(ordered, workers);
         } finally {
-            stop(executor);
+            stop(executor, shutdownWaitMillis);
         }
     }
 
-    private static void stop(ExecutorService executor) {
+    private static void stop(
+            ExecutorService executor,
+            long shutdownWaitMillis) {
         executor.shutdownNow();
         boolean interrupted = false;
         try {
             while (true) {
                 try {
-                    executor.awaitTermination(30, TimeUnit.SECONDS);
-                    return;
+                    if (executor.awaitTermination(
+                            shutdownWaitMillis,
+                            TimeUnit.MILLISECONDS)) {
+                        return;
+                    }
+                    executor.shutdownNow();
                 } catch (InterruptedException exception) {
                     interrupted = true;
                     executor.shutdownNow();
