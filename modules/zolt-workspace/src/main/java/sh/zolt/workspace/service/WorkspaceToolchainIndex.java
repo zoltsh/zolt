@@ -2,13 +2,13 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
-import java.util.IdentityHashMap;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 final class WorkspaceToolchainIndex {
-    private final Map<JdkChecker, Map<String, JdkStatus>> statuses =
-            new IdentityHashMap<>();
+    private final Map<Object, Map<String, JdkStatus>> statuses =
+            new HashMap<>();
     private int resolutions;
     private int hits;
 
@@ -17,7 +17,14 @@ final class WorkspaceToolchainIndex {
             Workspace workspace,
             WorkspaceMember member) {
         JdkChecker delegate = resolver.forMember(workspace, member);
-        return requiredVersion -> detect(delegate, requiredVersion);
+        Object cacheKey = resolver.cacheKey(
+                workspace,
+                member,
+                delegate);
+        return requiredVersion -> detect(
+                cacheKey,
+                delegate,
+                requiredVersion);
     }
 
     synchronized int resolutions() {
@@ -29,10 +36,11 @@ final class WorkspaceToolchainIndex {
     }
 
     private synchronized JdkStatus detect(
+            Object cacheKey,
             JdkChecker checker,
             String requiredVersion) {
         Map<String, JdkStatus> byVersion =
-                statuses.computeIfAbsent(checker, ignored -> new LinkedHashMap<>());
+                statuses.computeIfAbsent(cacheKey, ignored -> new LinkedHashMap<>());
         JdkStatus cached = byVersion.get(requiredVersion);
         if (cached != null) {
             hits++;

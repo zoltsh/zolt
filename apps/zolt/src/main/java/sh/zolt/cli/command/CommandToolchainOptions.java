@@ -4,13 +4,16 @@ import sh.zolt.cli.command.toolchain.CommandJavaToolchainJdkChecker;
 import sh.zolt.cli.command.toolchain.TestRuntimeJdkChecker;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toolchain.JavaToolchainExecutionService;
 import sh.zolt.toolchain.TestRuntimeToolchain;
 import sh.zolt.toolchain.TestRuntimeToolchainResolver;
+import sh.zolt.toolchain.ToolchainConfigReader;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceTestRunServiceResolver;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import picocli.CommandLine.Option;
@@ -65,12 +68,27 @@ public final class CommandToolchainOptions {
 
     public WorkspaceJdkCheckerResolver workspaceJdkCheckers(String commandName) {
         WorkspaceToolchainServices services = workspaceToolchainServices();
-        return (workspace, member) -> jdkChecker(
-                member.directory(),
-                workspace.root(),
-                member.config(),
-                commandName,
-                services);
+        return new WorkspaceJdkCheckerResolver() {
+            @Override
+            public JdkChecker forMember(
+                    sh.zolt.workspace.service.Workspace workspace,
+                    sh.zolt.workspace.service.WorkspaceMember member) {
+                return jdkChecker(
+                        member.directory(),
+                        workspace.root(),
+                        member.config(),
+                        commandName,
+                        services);
+            }
+
+            @Override
+            public Object cacheKey(
+                    sh.zolt.workspace.service.Workspace workspace,
+                    sh.zolt.workspace.service.WorkspaceMember member,
+                    JdkChecker checker) {
+                return workspaceToolchainKey(workspace.root(), member, services);
+            }
+        };
     }
 
     public WorkspaceTestRunServiceResolver workspaceTestRunServices(
@@ -125,8 +143,36 @@ public final class CommandToolchainOptions {
                 new ToolchainStore(toolchainInstallRoot));
     }
 
+    private static WorkspaceToolchainKey workspaceToolchainKey(
+            Path workspaceRoot,
+            sh.zolt.workspace.service.WorkspaceMember member,
+            WorkspaceToolchainServices services) {
+        ToolchainConfigReader reader = new ToolchainConfigReader();
+        Optional<JavaToolchainRequest> memberRequest =
+                reader.readJava(member.directory().resolve("zolt.toml"));
+        Path workspaceConfig = workspaceRoot.resolve("zolt.toml");
+        Optional<JavaToolchainRequest> workspaceRequest = memberRequest.isPresent()
+                        || !Files.isRegularFile(workspaceConfig)
+                ? Optional.empty()
+                : reader.readJava(workspaceConfig);
+        JavaToolchainRequest request = memberRequest
+                .or(() -> workspaceRequest)
+                .orElseGet(() -> JavaToolchainRequest.projectDefault(
+                        member.config().project().java()));
+        return new WorkspaceToolchainKey(
+                request,
+                services.platform(),
+                services.store());
+    }
+
     private record WorkspaceToolchainServices(
             JavaToolchainExecutionService toolchains,
+            HostPlatform platform,
+            ToolchainStore store) {
+    }
+
+    private record WorkspaceToolchainKey(
+            JavaToolchainRequest request,
             HostPlatform platform,
             ToolchainStore store) {
     }

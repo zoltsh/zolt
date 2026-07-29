@@ -109,11 +109,13 @@ final class WorkspaceMemberBuildExecutor {
                         classpathPackagesByMember,
                         context)
                 : cleanMember(
+                        workspace,
                         memberPath,
                         membersByPath,
                         classpathsByMember,
                         classpathPackagesByMember,
-                        memberPlan);
+                        memberPlan,
+                        context);
         String currentAbi = compileAbiDigest(
                 context,
                 membersByPath.get(memberPath),
@@ -158,27 +160,38 @@ final class WorkspaceMemberBuildExecutor {
         }
     }
 
-    private static WorkspaceBuildResult.MemberBuildResult cleanMember(
+    private WorkspaceBuildResult.MemberBuildResult cleanMember(
+            Workspace workspace,
             String memberPath,
             Map<String, WorkspaceMember> membersByPath,
             Map<String, ClasspathSet> classpathsByMember,
             Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember,
-            WorkspaceDirtyPlan.MemberPlan memberPlan) {
+            WorkspaceDirtyPlan.MemberPlan memberPlan,
+            WorkspaceExecutionContext context) {
         WorkspaceMember member = membersByPath.get(memberPath);
         Path outputDirectory = member.directory()
                 .resolve(member.config().build().output())
                 .toAbsolutePath()
                 .normalize();
+        ClasspathSet classpaths = classpathsByMember.get(memberPath);
+        int finalizedOutputCount = buildService
+                .withJdkChecker(context
+                        .toolchainIndex()
+                        .checker(jdkCheckers, workspace, member))
+                .ensureCleanMemberOutputsCurrent(
+                        member.directory(),
+                        member.config(),
+                        classpaths);
         return new WorkspaceBuildResult.MemberBuildResult(
                 memberPath,
                 new BuildResult(
                         Optional.empty(),
                         memberPlan.sourceCount(),
-                        0,
+                        finalizedOutputCount,
                         outputDirectory,
                         "",
                         true),
-                classpathsByMember.get(memberPath),
+                classpaths,
                 classpathPackagesByMember.get(memberPath));
     }
 

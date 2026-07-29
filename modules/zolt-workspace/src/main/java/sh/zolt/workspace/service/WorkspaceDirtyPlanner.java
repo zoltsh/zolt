@@ -193,9 +193,11 @@ final class WorkspaceDirtyPlanner {
         if (!snapshot.resourceOutputsCurrent(member.directory(), member.config().build())) {
             reasons.add("resource-output-missing-or-stale");
         }
-        if (!classpaths.processor().entries().isEmpty()
-                || !member.config().build().generatedMainSources().isEmpty()) {
+        if (WorkspaceCanonicalBuildPolicy.hasGeneratedInputs(member, classpaths)) {
             reasons.add("conservative-generated-input");
+        }
+        if (WorkspaceCanonicalBuildPolicy.hasFrameworkOutputs(member)) {
+            reasons.add("conservative-framework-output");
         }
         return List.copyOf(reasons);
     }

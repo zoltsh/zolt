@@ -43,7 +43,19 @@ final class SpringBootAotGenerationServiceTest {
         assertTrue(reflection.contains("\"name\": \"com.example.SpringGeneratedType\""));
         assertTrue(reflection.contains("\"name\": \"com.example.Main__ApplicationContextInitializer\""));
         assertTrue(reachability.contains("\"bundles\""));
-        assertTrue(Files.exists(projectDir.resolve("target/spring-aot/main/classes/com/example/Main__BeanDefinitions.class")));
+        Path beanDefinitions =
+                projectDir.resolve("target/spring-aot/main/classes/com/example/Main__BeanDefinitions.class");
+        assertTrue(Files.exists(beanDefinitions));
+
+        Files.delete(beanDefinitions);
+        service.generate(
+                projectDir,
+                springBootNativeConfig(),
+                jdkStatus(),
+                emptyClasspaths(),
+                new Classpath(List.of(projectDir.resolve("cache/spring-boot-aot.jar"))));
+
+        assertTrue(Files.exists(beanDefinitions));
     }
 
     private static JavaRunner javaRunnerThatWritesSpringAotMetadata() {

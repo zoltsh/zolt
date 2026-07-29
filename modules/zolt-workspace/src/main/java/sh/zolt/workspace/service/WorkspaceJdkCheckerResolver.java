@@ -7,6 +7,13 @@ import java.util.Objects;
 public interface WorkspaceJdkCheckerResolver {
     JdkChecker forMember(Workspace workspace, WorkspaceMember member);
 
+    default Object cacheKey(
+            Workspace workspace,
+            WorkspaceMember member,
+            JdkChecker checker) {
+        return checker;
+    }
+
     static WorkspaceJdkCheckerResolver fixed(JdkChecker jdkChecker) {
         Objects.requireNonNull(jdkChecker, "jdkChecker");
         return (workspace, member) -> jdkChecker;
