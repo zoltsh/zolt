@@ -218,7 +218,7 @@ if ! grep -F 'lane_status=0' .github/workflows/benchmarks.yml >/dev/null \
   fail "benchmark workflow does not preserve failed lane summaries"
 fi
 
-if rg -n 'branch zap' \
+if grep -n 'branch zap' \
   .github/workflows/benchmarks.yml \
   docs/benchmarks/README.md \
   docs/benchmarks/plan.md >/dev/null; then
