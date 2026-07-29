@@ -1,6 +1,8 @@
 package sh.zolt.cli.command;
 
 import sh.zolt.build.BuildService;
+import sh.zolt.build.junit.PlainJunitWorkerPoolRunner;
+import sh.zolt.build.junit.PlainJunitWorkerProcessSessionFactory;
 import sh.zolt.build.coverage.CoverageService;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.packaging.PackageService;
@@ -276,10 +278,17 @@ public final class CommandFrameworkServices {
 
     public static CommandTestServices testCommandServices() {
         CommandTestFrameworkServices testFrameworkServices = testFrameworkServices();
+        ThreadLocal<PlainJunitWorkerPoolRunner> workspaceWorkerPools =
+                ThreadLocal.withInitial(() -> PlainJunitWorkerPoolRunner.persistent(
+                        new PlainJunitWorkerProcessSessionFactory()));
         return new CommandTestServices(
                 testRunService(testFrameworkServices),
                 workspaceTestService(testFrameworkServices),
-                (compileChecker, runChecker) -> testRunService(testFrameworkServices, compileChecker, runChecker));
+                (compileChecker, runChecker) -> testRunService(
+                        testFrameworkServices,
+                        compileChecker,
+                        runChecker,
+                        workspaceWorkerPools.get()));
     }
 
     static TestRunService testRunService(FrameworkTestRunner frameworkTestRunner) {
@@ -300,11 +309,25 @@ public final class CommandFrameworkServices {
             CommandTestFrameworkServices testFrameworkServices,
             JdkChecker compileChecker,
             JdkChecker runChecker) {
+        return testRunService(
+                testFrameworkServices,
+                compileChecker,
+                runChecker,
+                new PlainJunitWorkerPoolRunner(
+                        new PlainJunitWorkerProcessSessionFactory()));
+    }
+
+    private static TestRunService testRunService(
+            CommandTestFrameworkServices testFrameworkServices,
+            JdkChecker compileChecker,
+            JdkChecker runChecker,
+            PlainJunitWorkerPoolRunner workerPoolRunner) {
         return new TestRunService(
                 compileChecker,
                 runChecker,
                 testFrameworkServices.frameworkTestRunner(),
-                testFrameworkServices.resolveService());
+                testFrameworkServices.resolveService(),
+                workerPoolRunner);
     }
 
     static TestRunService testRunService() {

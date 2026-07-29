@@ -14,13 +14,8 @@ final class PlainJunitWorkerSlot implements AutoCloseable {
     private final PlainJunitWorkerSessionFactory sessionFactory;
     private final Path javaExecutable;
     private final List<Path> workerClasspath;
-    private final Path projectDirectory;
-    private final List<Path> testRuntimeClasspath;
     private final TestJvmArguments jvmArguments;
     private final Map<String, String> environment;
-    private final Optional<Path> reportsDirectory;
-    private final List<String> events;
-    private final Optional<Path> profileDirectory;
 
     private PlainJunitWorkerSession session;
     private int observedSessionStarts;
@@ -33,36 +28,36 @@ final class PlainJunitWorkerSlot implements AutoCloseable {
             PlainJunitWorkerSessionFactory sessionFactory,
             Path javaExecutable,
             List<Path> workerClasspath,
-            Path projectDirectory,
-            List<Path> testRuntimeClasspath,
             TestJvmArguments jvmArguments,
-            Map<String, String> environment,
-            Optional<Path> reportsDirectory,
-            List<String> events,
-            Optional<Path> profileDirectory) {
+            Map<String, String> environment) {
         this.sessionFactory = sessionFactory;
         this.javaExecutable = javaExecutable;
         this.workerClasspath = List.copyOf(workerClasspath);
-        this.projectDirectory = projectDirectory;
-        this.testRuntimeClasspath =
-                List.copyOf(testRuntimeClasspath);
         this.jvmArguments = jvmArguments;
         this.environment = Map.copyOf(environment);
-        this.reportsDirectory = reportsDirectory;
-        this.events = List.copyOf(events);
-        this.profileDirectory = profileDirectory;
     }
 
     PlainJunitWorkerRunResult run(
+            Path projectDirectory,
+            List<Path> testRuntimeClasspath,
             Path testOutputDirectory,
-            TestSelection testSelection) {
+            TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            List<String> events,
+            Optional<Path> profileDirectory) {
         Optional<Path> requestProfileDirectory =
-                requestProfileDirectory(++requestSequence);
+                requestProfileDirectory(
+                        profileDirectory,
+                        ++requestSequence);
         TestRunException firstFailure;
         try {
             return runOnce(
+                    projectDirectory,
+                    testRuntimeClasspath,
                     testOutputDirectory,
                     testSelection,
+                    reportsDirectory,
+                    events,
                     requestProfileDirectory);
         } catch (TestRunException failure) {
             firstFailure = failure;
@@ -70,8 +65,12 @@ final class PlainJunitWorkerSlot implements AutoCloseable {
         }
         try {
             return runOnce(
+                    projectDirectory,
+                    testRuntimeClasspath,
                     testOutputDirectory,
                     testSelection,
+                    reportsDirectory,
+                    events,
                     requestProfileDirectory);
         } catch (TestRunException failure) {
             failure.addSuppressed(firstFailure);
@@ -89,11 +88,19 @@ final class PlainJunitWorkerSlot implements AutoCloseable {
     }
 
     private PlainJunitWorkerRunResult runOnce(
+            Path projectDirectory,
+            List<Path> testRuntimeClasspath,
             Path testOutputDirectory,
             TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            List<String> events,
             Optional<Path> requestProfileDirectory) {
-        PlainJunitWorkerSession active = session();
+        PlainJunitWorkerSession active = session(
+                projectDirectory,
+                testRuntimeClasspath);
         PlainJunitWorkerRunResult result = active.run(
+                projectDirectory,
+                testRuntimeClasspath,
                 testOutputDirectory,
                 testSelection,
                 reportsDirectory,
@@ -108,13 +115,17 @@ final class PlainJunitWorkerSlot implements AutoCloseable {
         return result;
     }
 
-    private Optional<Path> requestProfileDirectory(int request) {
+    private Optional<Path> requestProfileDirectory(
+            Optional<Path> profileDirectory,
+            int request) {
         return profileDirectory.map(directory -> directory
                 .resolve("requests")
                 .resolve("request-%06d".formatted(request)));
     }
 
-    private PlainJunitWorkerSession session() {
+    private PlainJunitWorkerSession session(
+            Path projectDirectory,
+            List<Path> testRuntimeClasspath) {
         if (session != null) {
             return session;
         }

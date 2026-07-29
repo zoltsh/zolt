@@ -44,6 +44,7 @@ public final class JunitWorkerProtocol {
 
     private static final String FIELD_VERSION = "v";
     private static final String FIELD_REQUEST_ID = "id";
+    private static final String FIELD_PROJECT_DIRECTORY = "cwd";
     private static final String FIELD_TEST_OUTPUT = "out";
     private static final String FIELD_TEST_RUNTIME_CLASSPATH = "classpath";
     private static final String FIELD_REPORTS = "reports";
@@ -96,12 +97,35 @@ public final class JunitWorkerProtocol {
             Optional<Path> reportsDirectory,
             List<String> events,
             Optional<Path> profileDirectory) {
+        return runRequest(
+                requestId,
+                null,
+                testRuntimeClasspath,
+                testOutputDirectory,
+                testSelection,
+                reportsDirectory,
+                events,
+                profileDirectory);
+    }
+
+    public static String runRequest(
+            String requestId,
+            Path projectDirectory,
+            List<Path> testRuntimeClasspath,
+            Path testOutputDirectory,
+            TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            List<String> events,
+            Optional<Path> profileDirectory) {
         if (testOutputDirectory == null) {
             throw new IllegalArgumentException("JUnit worker test output directory is required.");
         }
         Frame frame = Frame.command(RUN);
         frame.put(FIELD_VERSION, Integer.toString(SCHEMA_VERSION));
         frame.put(FIELD_REQUEST_ID, validateRequestId(requestId));
+        if (projectDirectory != null) {
+            frame.put(FIELD_PROJECT_DIRECTORY, projectDirectory.toString());
+        }
         frame.put(FIELD_TEST_OUTPUT, requireField("JUnit worker test output directory", testOutputDirectory.toString()));
         frame.put(FIELD_TEST_RUNTIME_CLASSPATH, encodedPaths(testRuntimeClasspath));
         optionalPath(reportsDirectory).ifPresent(path -> frame.put(FIELD_REPORTS, path));
@@ -132,6 +156,7 @@ public final class JunitWorkerProtocol {
         return new WorkerRequest(
                 WorkerCommand.RUN,
                 requestId,
+                frame.optional(FIELD_PROJECT_DIRECTORY),
                 frame.require(FIELD_TEST_OUTPUT, "JUnit worker test output directory"),
                 decodedPaths(frame),
                 frame.optional(FIELD_REPORTS),
@@ -224,6 +249,7 @@ public final class JunitWorkerProtocol {
     public record WorkerRequest(
             WorkerCommand command,
             String requestId,
+            Optional<String> projectDirectory,
             String testOutputDirectory,
             List<String> testRuntimeClasspath,
             Optional<String> reportsDirectory,
@@ -231,6 +257,9 @@ public final class JunitWorkerProtocol {
             List<String> events,
             TestSelection testSelection) {
         public WorkerRequest {
+            projectDirectory = projectDirectory == null
+                    ? Optional.empty()
+                    : projectDirectory;
             testRuntimeClasspath = testRuntimeClasspath == null
                     ? List.of()
                     : List.copyOf(testRuntimeClasspath);
@@ -250,6 +279,7 @@ public final class JunitWorkerProtocol {
             this(
                     command,
                     requestId,
+                    Optional.empty(),
                     testOutputDirectory,
                     List.of(),
                     reportsDirectory,
@@ -262,6 +292,7 @@ public final class JunitWorkerProtocol {
             return new WorkerRequest(
                     WorkerCommand.QUIT,
                     requestId,
+                    Optional.empty(),
                     "",
                     List.of(),
                     Optional.empty(),

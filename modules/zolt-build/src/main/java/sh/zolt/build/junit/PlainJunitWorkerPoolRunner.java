@@ -2,7 +2,6 @@ package sh.zolt.build.junit;
 
 import sh.zolt.build.profile.TestProfileMerger;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.test.TestInventoryEntry;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.runtime.TestRunException;
@@ -10,6 +9,7 @@ import sh.zolt.test.shard.TestWorkerPoolPlan;
 import sh.zolt.test.shard.TestWorkerPoolWave;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,8 +18,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-public final class PlainJunitWorkerPoolRunner {
+public final class PlainJunitWorkerPoolRunner implements AutoCloseable {
     private final PlainJunitWorkerSessionFactory sessionFactory;
+    private final boolean persistent;
+    private final Map<WorkerKey, PlainJunitWorkerSlot> persistentSlots =
+            new LinkedHashMap<>();
 
     public PlainJunitWorkerPoolRunner(
             PlainJunitWorkerRunner plainJunitWorkerRunner) {
@@ -29,11 +32,27 @@ public final class PlainJunitWorkerPoolRunner {
 
     public PlainJunitWorkerPoolRunner(
             PlainJunitWorkerSessionFactory sessionFactory) {
+        this(sessionFactory, false);
+    }
+
+    private PlainJunitWorkerPoolRunner(
+            PlainJunitWorkerSessionFactory sessionFactory,
+            boolean persistent) {
         if (sessionFactory == null) {
             throw new IllegalArgumentException(
                     "Plain JUnit worker session factory is required.");
         }
         this.sessionFactory = sessionFactory;
+        this.persistent = persistent;
+    }
+
+    public static PlainJunitWorkerPoolRunner persistent(
+            PlainJunitWorkerSessionFactory sessionFactory) {
+        return new PlainJunitWorkerPoolRunner(sessionFactory, true);
+    }
+
+    public boolean reusesProcesses() {
+        return persistent;
     }
 
     public PlainJunitWorkerPoolRunResult run(
@@ -50,25 +69,43 @@ public final class PlainJunitWorkerPoolRunner {
             Optional<Path> reportsDirectory,
             List<String> events,
             Optional<Path> profileDirectory) {
-        List<String> workerIds = workerIds(workerPoolPlan);
+        if (persistent && workerPoolPlan.empty()) {
+            return runPersistentRequest(
+                    javaExecutable,
+                    workerClasspath,
+                    projectDirectory,
+                    config,
+                    testRuntimeClasspath,
+                    testOutputDirectory,
+                    testSelection,
+                    jvmArguments,
+                    environment,
+                    reportsDirectory,
+                    events,
+                    profileDirectory);
+        }
+        List<String> workerIds =
+                PlainJunitWorkerPoolSupport.workerIds(workerPoolPlan);
         PlainJunitWorkerEvidence.writeManifests(
                 reportsDirectory,
                 jvmArguments,
                 workerIds);
         List<PlainJunitWorkerSlot> slots = workerIds.stream()
-                .map(workerId -> workerSlot(
+                .map(workerId -> slot(
                         javaExecutable,
                         workerClasspath,
                         projectDirectory,
                         config,
-                        testRuntimeClasspath,
                         jvmArguments,
                         environment,
-                        reportsDirectory,
-                        events,
-                        profileDirectory,
                         workerId))
                 .toList();
+        int startsBefore = slots.stream()
+                .mapToInt(PlainJunitWorkerSlot::processStarts)
+                .sum();
+        long startupBefore = slots.stream()
+                .mapToLong(PlainJunitWorkerSlot::startupNanos)
+                .sum();
         ExecutorService executor = Executors.newFixedThreadPool(
                 Math.max(1, slots.size()));
         StringBuilder output = new StringBuilder();
@@ -81,13 +118,26 @@ public final class PlainJunitWorkerPoolRunner {
                 for (int index = 0;
                         index < wave.entries().size();
                         index++) {
-                    TestInventoryEntry entry = wave.entries().get(index);
+                    sh.zolt.test.TestInventoryEntry entry =
+                            wave.entries().get(index);
                     PlainJunitWorkerSlot slot = slots.get(index);
+                    String workerId = workerIds.get(index);
                     futures.add(executor.submit(() -> new WorkerTaskResult(
                             entry.className(),
                             slot.run(
+                                    projectDirectory,
+                                    testRuntimeClasspath,
                                     testOutputDirectory,
-                                    workerSelection(testSelection, entry)))));
+                                    PlainJunitWorkerPoolSupport.workerSelection(
+                                            testSelection,
+                                            entry),
+                                    PlainJunitWorkerEvidence.reports(
+                                            reportsDirectory,
+                                            workerId),
+                                    events,
+                                    PlainJunitWorkerEvidence.profile(
+                                            profileDirectory,
+                                            workerId)))));
                 }
                 for (Future<WorkerTaskResult> future : futures) {
                     WorkerTaskResult task = getWorkerTask(future);
@@ -102,58 +152,122 @@ public final class PlainJunitWorkerPoolRunner {
                             workerIds));
         } catch (RuntimeException failure) {
             executor.shutdownNow();
-            abortSlots(slots, failure);
+            PlainJunitWorkerPoolSupport.abortSlots(slots, failure);
+            if (persistent) {
+                persistentSlots.clear();
+            }
             throw failure;
         } finally {
             executor.shutdownNow();
         }
-        closeSlots(slots, null);
+        if (!persistent) {
+            PlainJunitWorkerPoolSupport.closeSlots(slots, null);
+        }
         return new PlainJunitWorkerPoolRunResult(
                 output.toString(),
                 workerRequests,
                 slots.stream()
                         .mapToInt(PlainJunitWorkerSlot::processStarts)
-                        .sum(),
+                        .sum()
+                        - startsBefore,
                 slots.stream()
                         .mapToLong(PlainJunitWorkerSlot::startupNanos)
-                        .sum(),
+                        .sum()
+                        - startupBefore,
                 Math.max(0L, System.nanoTime() - requestStarted));
     }
 
-    private PlainJunitWorkerSlot workerSlot(
+    private PlainJunitWorkerPoolRunResult runPersistentRequest(
             Path javaExecutable,
             List<Path> workerClasspath,
             Path projectDirectory,
             ProjectConfig config,
             List<Path> testRuntimeClasspath,
+            Path testOutputDirectory,
+            TestSelection testSelection,
             TestJvmArguments jvmArguments,
             Map<String, String> environment,
             Optional<Path> reportsDirectory,
             List<String> events,
-            Optional<Path> profileDirectory,
-            String workerId) {
-        return new PlainJunitWorkerSlot(
-                sessionFactory,
+            Optional<Path> profileDirectory) {
+        String workerId = PlainJunitPersistentRequestRunner.workerId();
+        PlainJunitWorkerEvidence.writeManifests(
+                reportsDirectory,
+                jvmArguments,
+                List.of(workerId));
+        PlainJunitWorkerSlot slot = slot(
                 javaExecutable,
                 workerClasspath,
                 projectDirectory,
-                testRuntimeClasspath,
+                config,
+                jvmArguments,
+                environment,
+                workerId);
+        try {
+            return PlainJunitPersistentRequestRunner.run(
+                    slot,
+                    projectDirectory,
+                    testRuntimeClasspath,
+                    testOutputDirectory,
+                    testSelection,
+                    reportsDirectory,
+                    events,
+                    profileDirectory);
+        } catch (RuntimeException failure) {
+            slot.abort();
+            persistentSlots.clear();
+            throw failure;
+        }
+    }
+
+    private PlainJunitWorkerSlot slot(
+            Path javaExecutable,
+            List<Path> workerClasspath,
+            Path projectDirectory,
+            ProjectConfig config,
+            TestJvmArguments jvmArguments,
+            Map<String, String> environment,
+            String workerId) {
+        TestJvmArguments workerJvmArguments =
                 PlainJunitWorkerEvidence.jvmArguments(
                         jvmArguments,
-                        workerId),
+                        workerId);
+        Map<String, String> workerEnvironment =
                 PlainJunitWorkerEvidence.environment(
                         projectDirectory,
                         config,
                         environment,
                         jvmArguments,
-                        workerId),
-                PlainJunitWorkerEvidence.reports(
-                        reportsDirectory,
-                        workerId),
-                events,
-                PlainJunitWorkerEvidence.profile(
-                        profileDirectory,
-                        workerId));
+                        workerId);
+        if (!persistent) {
+            return new PlainJunitWorkerSlot(
+                    sessionFactory,
+                    javaExecutable,
+                    workerClasspath,
+                    workerJvmArguments,
+                    workerEnvironment);
+        }
+        WorkerKey key = new WorkerKey(
+                javaExecutable.toAbsolutePath().normalize(),
+                List.copyOf(workerClasspath),
+                workerJvmArguments,
+                reusableEnvironment(workerEnvironment),
+                workerId);
+        return persistentSlots.computeIfAbsent(
+                key,
+                ignored -> new PlainJunitWorkerSlot(
+                        sessionFactory,
+                        javaExecutable,
+                        workerClasspath,
+                        workerJvmArguments,
+                        workerEnvironment));
+    }
+
+    private static Map<String, String> reusableEnvironment(
+            Map<String, String> environment) {
+        Map<String, String> reusable = new LinkedHashMap<>(environment);
+        reusable.remove("ZOLT_TEST_WORKER_OUTPUT_DIR");
+        return Map.copyOf(reusable);
     }
 
     private static WorkerTaskResult getWorkerTask(
@@ -191,67 +305,20 @@ public final class PlainJunitWorkerPoolRunner {
                                 .stripTrailing());
     }
 
-    private static TestSelection workerSelection(
-            TestSelection selection,
-            TestInventoryEntry entry) {
-        List<TestSelection.MethodSelector> methodSelectors =
-                selection.methodSelectors().stream()
-                        .filter(method -> method.className()
-                                .equals(entry.className()))
-                        .toList();
-        return TestSelection.fromFields(
-                methodSelectors.isEmpty()
-                        ? List.of(entry.className())
-                        : List.of(),
-                methodSelectors,
-                List.of(),
-                selection.includedTags(),
-                selection.excludedTags());
+    @Override
+    public void close() {
+        List<PlainJunitWorkerSlot> slots =
+                List.copyOf(persistentSlots.values());
+        persistentSlots.clear();
+        PlainJunitWorkerPoolSupport.closeSlots(slots, null);
     }
 
-    private static List<String> workerIds(
-            TestWorkerPoolPlan workerPoolPlan) {
-        int workers = workerPoolPlan.waves().stream()
-                .mapToInt(wave -> wave.entries().size())
-                .max()
-                .orElse(0);
-        return java.util.stream.IntStream.range(0, workers)
-                .mapToObj(index -> "worker-" + (index + 1))
-                .toList();
-    }
-
-    private static void closeSlots(
-            List<PlainJunitWorkerSlot> slots,
-            RuntimeException failure) {
-        RuntimeException firstCloseFailure = null;
-        for (PlainJunitWorkerSlot slot : slots) {
-            try {
-                slot.close();
-            } catch (RuntimeException closeFailure) {
-                if (failure != null) {
-                    failure.addSuppressed(closeFailure);
-                } else if (firstCloseFailure == null) {
-                    firstCloseFailure = closeFailure;
-                } else {
-                    firstCloseFailure.addSuppressed(closeFailure);
-                }
-            }
-        }
-        if (failure == null && firstCloseFailure != null) {
-            throw firstCloseFailure;
-        }
-    }
-
-    private static void abortSlots(
-            List<PlainJunitWorkerSlot> slots,
-            RuntimeException failure) {
-        for (PlainJunitWorkerSlot slot : slots) {
-            try {
-                slot.abort();
-            } catch (RuntimeException abortFailure) {
-                failure.addSuppressed(abortFailure);
-            }
-        }
+    private record WorkerKey(
+            Path javaExecutable,
+            List<Path> workerClasspath,
+            TestJvmArguments jvmArguments,
+            Map<String, String> environment,
+            String workerId) {
     }
 
     private record WorkerTaskResult(

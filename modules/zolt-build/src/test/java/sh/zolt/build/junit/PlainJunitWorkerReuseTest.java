@@ -106,6 +106,50 @@ final class PlainJunitWorkerReuseTest {
         assertEquals("recovered\n", result.output());
     }
 
+    @Test
+    void reusesPersistentWorkerAcrossMemberRequests() {
+        AtomicInteger opens = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        List<Path> projectDirectories = new ArrayList<>();
+        List<List<Path>> runtimeClasspaths = new ArrayList<>();
+        PlainJunitWorkerPoolRunner runner =
+                PlainJunitWorkerPoolRunner.persistent((
+                        javaExecutable,
+                        workerClasspath,
+                        projectDirectory,
+                        testRuntimeClasspath,
+                        jvmArguments,
+                        environment) -> {
+                    opens.incrementAndGet();
+                    return dynamicSession(
+                            closes,
+                            projectDirectories,
+                            runtimeClasspaths);
+                });
+        Path firstProject = tempDir.resolve("modules/first");
+        Path secondProject = tempDir.resolve("modules/second");
+        List<Path> firstClasspath = List.of(firstProject.resolve("target/classes"));
+        List<Path> secondClasspath = List.of(secondProject.resolve("target/classes"));
+
+        PlainJunitWorkerPoolRunResult first =
+                runPersistent(runner, firstProject, firstClasspath);
+        PlainJunitWorkerPoolRunResult second =
+                runPersistent(runner, secondProject, secondClasspath);
+
+        assertEquals(1, opens.get());
+        assertEquals(0, closes.get());
+        assertEquals(1, first.workerStarts());
+        assertEquals(0, second.workerStarts());
+        assertEquals(1, first.workerRequests());
+        assertEquals(1, second.workerRequests());
+        assertEquals(List.of(firstProject, secondProject), projectDirectories);
+        assertEquals(List.of(firstClasspath, secondClasspath), runtimeClasspaths);
+
+        runner.close();
+
+        assertEquals(1, closes.get());
+    }
+
     private PlainJunitWorkerPoolRunResult run(
             PlainJunitWorkerPoolRunner runner,
             List<TestWorkerPoolWave> waves) {
@@ -118,6 +162,26 @@ final class PlainJunitWorkerReuseTest {
                 tempDir.resolve("target/test-classes"),
                 TestSelection.empty(),
                 new TestWorkerPoolPlan(true, 1, waves),
+                TestJvmArguments.empty(),
+                Map.of(),
+                Optional.empty(),
+                List.of(),
+                Optional.empty());
+    }
+
+    private PlainJunitWorkerPoolRunResult runPersistent(
+            PlainJunitWorkerPoolRunner runner,
+            Path projectDirectory,
+            List<Path> runtimeClasspath) {
+        return runner.run(
+                Path.of("java"),
+                List.of(Path.of("zolt-worker.jar")),
+                projectDirectory,
+                config(),
+                runtimeClasspath,
+                projectDirectory.resolve("target/test-classes"),
+                TestSelection.empty(),
+                new TestWorkerPoolPlan(true, 1, List.of()),
                 TestJvmArguments.empty(),
                 Map.of(),
                 Optional.empty(),
@@ -139,6 +203,52 @@ final class PlainJunitWorkerReuseTest {
                     List<String> events,
                     Optional<Path> profileDirectory) {
                 return run.apply(selection);
+            }
+
+            @Override
+            public long startupNanos() {
+                return 5L;
+            }
+
+            @Override
+            public int processStarts() {
+                return 1;
+            }
+
+            @Override
+            public void close() {
+                closes.incrementAndGet();
+            }
+        };
+    }
+
+    private static PlainJunitWorkerSession dynamicSession(
+            AtomicInteger closes,
+            List<Path> projectDirectories,
+            List<List<Path>> runtimeClasspaths) {
+        return new PlainJunitWorkerSession() {
+            @Override
+            public PlainJunitWorkerRunResult run(
+                    Path testOutputDirectory,
+                    TestSelection selection,
+                    Optional<Path> reportsDirectory,
+                    List<String> events,
+                    Optional<Path> profileDirectory) {
+                throw new AssertionError("Expected dynamic worker request");
+            }
+
+            @Override
+            public PlainJunitWorkerRunResult run(
+                    Path projectDirectory,
+                    List<Path> testRuntimeClasspath,
+                    Path testOutputDirectory,
+                    TestSelection testSelection,
+                    Optional<Path> reportsDirectory,
+                    List<String> events,
+                    Optional<Path> profileDirectory) {
+                projectDirectories.add(projectDirectory);
+                runtimeClasspaths.add(List.copyOf(testRuntimeClasspath));
+                return successful("ok\n");
             }
 
             @Override

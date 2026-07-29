@@ -1,6 +1,5 @@
 package sh.zolt.workspace.service;
 
-import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.build.testruntime.TestRunService;
@@ -224,28 +223,26 @@ public final class WorkspaceTestService {
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
-        List<WorkspaceTestResult.MemberTestRunResult> results = new ArrayList<>();
-        for (String memberPath : selection.selectedMembers()) {
-            WorkspaceMember member = membersByPath.get(memberPath);
-            WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
-            TestRunService testRunService = testRunServices.forMember(workspace, member);
-            results.add(new WorkspaceTestResult.MemberTestRunResult(
-                    member.path(),
-                    testRunService.runCompiledTests(
-                            member.directory(),
-                            member.config(),
-                            memberBuild.classpaths(),
-                            testRunService.compileTests(
-                                    member.directory(),
-                                    member.config(),
-                                    testInputs(memberBuild)),
-                            testSelection,
-                            testJvmArguments,
-                            testReportSettings.forWorkspaceMember(member.path()),
-                            cliEvents,
-                            suiteName,
-                            shard,
-                            testProfileSettings.forWorkspaceMember(member.path()))));
+        List<TestRunService> usedServices = new ArrayList<>();
+        var tasks = WorkspaceTestTasks.unit(
+                workspace,
+                selection.selectedMembers(),
+                membersByPath,
+                buildsByPath,
+                testRunServices,
+                usedServices,
+                testSelection,
+                testJvmArguments,
+                testReportSettings,
+                cliEvents,
+                suiteName,
+                shard,
+                testProfileSettings);
+        List<WorkspaceTestResult.MemberTestRunResult> results;
+        try {
+            results = new WorkspaceTestExecutor().execute(tasks);
+        } finally {
+            closeTestWorkers(usedServices);
         }
         workspaceProfileDirectory.ifPresent(directory -> TestProfileMerger.mergeProfiles(
                 directory,
@@ -276,25 +273,23 @@ public final class WorkspaceTestService {
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
-        List<WorkspaceTestResult.MemberTestRunResult> results = new ArrayList<>();
-        for (String memberPath : selection.selectedMembers()) {
-            WorkspaceMember member = membersByPath.get(memberPath);
-            WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
-            sh.zolt.project.ProjectConfig integrationConfig = member.config()
-                    .withBuildSettings(member.config().build().asIntegrationTestBuild());
-            TestRunService testRunService = testRunServices.forMember(workspace, member);
-            results.add(new WorkspaceTestResult.MemberTestRunResult(
-                    member.path(),
-                    testRunService.runTests(
-                            member.directory(),
-                            integrationConfig,
-                            testInputs(memberBuild),
-                            testSelection,
-                            testJvmArguments,
-                            testReportSettings.forWorkspaceMember(member.path()),
-                            cliEvents,
-                            "all",
-                            null)));
+        List<TestRunService> usedServices = new ArrayList<>();
+        var tasks = WorkspaceTestTasks.integration(
+                workspace,
+                selection.selectedMembers(),
+                membersByPath,
+                buildsByPath,
+                testRunServices,
+                usedServices,
+                testSelection,
+                testJvmArguments,
+                testReportSettings,
+                cliEvents);
+        List<WorkspaceTestResult.MemberTestRunResult> results;
+        try {
+            results = new WorkspaceTestExecutor().execute(tasks);
+        } finally {
+            closeTestWorkers(usedServices);
         }
         return new WorkspaceTestResult(
                 buildResult.resolveResult(),
@@ -311,12 +306,23 @@ public final class WorkspaceTestService {
         return members;
     }
 
-    private static BuildResultWithClasspaths testInputs(
-            WorkspaceBuildResult.MemberBuildResult memberBuild) {
-        return new BuildResultWithClasspaths(
-                memberBuild.result(),
-                memberBuild.classpaths(),
-                memberBuild.classpathPackages());
+    private static void closeTestWorkers(
+            List<TestRunService> services) {
+        RuntimeException firstFailure = null;
+        for (TestRunService service : services.stream().distinct().toList()) {
+            try {
+                service.closeTestWorkers();
+            } catch (RuntimeException failure) {
+                if (firstFailure == null) {
+                    firstFailure = failure;
+                } else {
+                    firstFailure.addSuppressed(failure);
+                }
+            }
+        }
+        if (firstFailure != null) {
+            throw firstFailure;
+        }
     }
 
     private static Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath(WorkspaceBuildResult result) {

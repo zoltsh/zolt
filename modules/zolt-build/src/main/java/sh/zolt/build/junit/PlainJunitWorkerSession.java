@@ -13,6 +13,22 @@ public interface PlainJunitWorkerSession extends AutoCloseable {
             List<String> events,
             Optional<Path> profileDirectory);
 
+    default PlainJunitWorkerRunResult run(
+            Path projectDirectory,
+            List<Path> testRuntimeClasspath,
+            Path testOutputDirectory,
+            TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            List<String> events,
+            Optional<Path> profileDirectory) {
+        return run(
+                testOutputDirectory,
+                testSelection,
+                reportsDirectory,
+                events,
+                profileDirectory);
+    }
+
     long startupNanos();
 
     int processStarts();

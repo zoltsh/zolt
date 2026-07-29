@@ -87,6 +87,26 @@ final class JunitWorkerProtocolTest {
     }
 
     @Test
+    void roundTripsRequestScopedProjectDirectory() {
+        Path projectDirectory = Path.of("modules/demo");
+
+        String frame = JunitWorkerProtocol.runRequest(
+                "request-1",
+                projectDirectory,
+                List.of(Path.of("target/test-classes")),
+                OUTPUT,
+                TestSelection.empty(),
+                Optional.empty(),
+                List.of(),
+                Optional.empty());
+
+        assertTrue(frame.contains("cwd=modules/demo"), frame);
+        assertEquals(
+                Optional.of(projectDirectory.toString()),
+                JunitWorkerProtocol.parseRequest(frame).projectDirectory());
+    }
+
+    @Test
     void roundTripsClassSelectors() {
         assertSelectionRoundTrips(TestSelection.fromFields(
                 List.of("com.example.MainTest", "com.example.OtherTest"),

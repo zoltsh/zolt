@@ -56,6 +56,7 @@ public final class JunitLauncherWorker {
                     return 0;
                 }
                 int exitCode = runRequest(
+                        request.projectDirectory(),
                         request.testRuntimeClasspath(),
                         request.testOutputDirectory(),
                         request.testSelection(),
@@ -80,6 +81,7 @@ public final class JunitLauncherWorker {
 
     private int runOnce(String testOutputDirectory, PrintStream out, PrintStream err) {
         return runRequest(
+                Optional.empty(),
                 List.of(),
                 testOutputDirectory,
                 TestSelection.empty(),
@@ -91,6 +93,7 @@ public final class JunitLauncherWorker {
     }
 
     private int runRequest(
+            Optional<String> projectDirectory,
             List<String> testRuntimeClasspath,
             String testOutputDirectory,
             TestSelection testSelection,
@@ -100,9 +103,15 @@ public final class JunitLauncherWorker {
             PrintStream out,
             PrintStream err) {
         ClassLoader original = Thread.currentThread().getContextClassLoader();
+        String originalUserDirectory = System.getProperty("user.dir");
         try (URLClassLoader requestLoader = requestClassLoader(
                 testRuntimeClasspath,
                 original)) {
+            projectDirectory.ifPresent(directory ->
+                    System.setProperty("user.dir", Path.of(directory)
+                            .toAbsolutePath()
+                            .normalize()
+                            .toString()));
             Thread.currentThread().setContextClassLoader(requestLoader);
             JunitProgrammaticLauncher launcher =
                     new JunitProgrammaticLauncher(out, requestLoader);
@@ -120,6 +129,11 @@ public final class JunitLauncherWorker {
             return 1;
         } finally {
             Thread.currentThread().setContextClassLoader(original);
+            if (originalUserDirectory == null) {
+                System.clearProperty("user.dir");
+            } else {
+                System.setProperty("user.dir", originalUserDirectory);
+            }
         }
     }
 

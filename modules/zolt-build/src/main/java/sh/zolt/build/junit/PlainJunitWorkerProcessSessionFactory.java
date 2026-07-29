@@ -78,6 +78,34 @@ public final class PlainJunitWorkerProcessSessionFactory
         }
 
         @Override
+        public PlainJunitWorkerRunResult run(
+                Path projectDirectory,
+                List<Path> testRuntimeClasspath,
+                Path testOutputDirectory,
+                TestSelection testSelection,
+                Optional<Path> reportsDirectory,
+                List<String> events,
+                Optional<Path> profileDirectory) {
+            long started = System.nanoTime();
+            try {
+                JunitWorkerClient.WorkerRunResult result = process.run(
+                        projectDirectory,
+                        testRuntimeClasspath,
+                        testOutputDirectory,
+                        testSelection,
+                        reportsDirectory,
+                        events,
+                        profileDirectory);
+                return new PlainJunitWorkerRunResult(
+                        result,
+                        0L,
+                        Math.max(0L, System.nanoTime() - started));
+            } catch (JunitWorkerClientException exception) {
+                throw new TestRunException(exception.getMessage(), exception);
+            }
+        }
+
+        @Override
         public long startupNanos() {
             return startupNanos;
         }

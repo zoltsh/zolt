@@ -183,7 +183,8 @@ public final class CompiledTestRunner {
         }
         if (plainJunitWorkerEnabled || testProfileSettings.enabled()) {
             List<Path> workerClasspath = plainJunitWorkerClasspath.get();
-            if (testWorkerPoolPlan.enabled() && !testWorkerPoolPlan.empty()) {
+            if (testWorkerPoolPlan.enabled()
+                    || plainJunitWorkerPoolRunner.reusesProcesses()) {
                 PlainJunitWorkerPoolRunResult poolResult = plainJunitWorkerPoolRunner.run(
                         jdkStatus.java().orElseThrow(),
                         workerClasspath,
