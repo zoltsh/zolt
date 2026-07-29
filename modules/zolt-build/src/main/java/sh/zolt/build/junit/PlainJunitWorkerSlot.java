@@ -109,7 +109,9 @@ final class PlainJunitWorkerSlot implements AutoCloseable {
         observeStarts(active);
         startupNanos += Math.max(0L, result.startupNanos());
         requestsSinceStart++;
-        if (requestsSinceStart >= MAX_REQUESTS_PER_PROCESS) {
+        if (result.workerResult().retireWorker()) {
+            retireActive();
+        } else if (requestsSinceStart >= MAX_REQUESTS_PER_PROCESS) {
             closeActive();
         }
         return result;
@@ -171,6 +173,15 @@ final class PlainJunitWorkerSlot implements AutoCloseable {
         PlainJunitWorkerSession active = session;
         session = null;
         active.close();
+    }
+
+    private void retireActive() {
+        if (session == null) {
+            return;
+        }
+        PlainJunitWorkerSession active = session;
+        session = null;
+        active.abort();
     }
 
     @Override

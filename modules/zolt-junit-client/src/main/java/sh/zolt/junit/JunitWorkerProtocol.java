@@ -51,6 +51,7 @@ public final class JunitWorkerProtocol {
     private static final String FIELD_PROFILE = "profile";
     private static final String FIELD_EVENTS = "events";
     private static final String FIELD_EXIT_CODE = "exit";
+    private static final String FIELD_RETIRE_WORKER = "retire";
 
     private JunitWorkerProtocol() {
     }
@@ -166,9 +167,19 @@ public final class JunitWorkerProtocol {
     }
 
     public static String result(String requestId, int exitCode) {
+        return result(requestId, exitCode, false);
+    }
+
+    public static String result(
+            String requestId,
+            int exitCode,
+            boolean retireWorker) {
         Frame frame = Frame.command(RESULT_PREFIX);
         frame.put(FIELD_REQUEST_ID, validateRequestId(requestId));
         frame.put(FIELD_EXIT_CODE, Integer.toString(exitCode));
+        if (retireWorker) {
+            frame.put(FIELD_RETIRE_WORKER, Boolean.TRUE.toString());
+        }
         return frame.render();
     }
 
@@ -181,12 +192,30 @@ public final class JunitWorkerProtocol {
         String requestId = validateRequestId(frame.require(FIELD_REQUEST_ID, "JUnit worker request id"));
         String exitCode = frame.require(FIELD_EXIT_CODE, "JUnit worker result exit code");
         try {
-            return new WorkerResult(requestId, Integer.parseInt(exitCode));
+            return new WorkerResult(
+                    requestId,
+                    Integer.parseInt(exitCode),
+                    retireWorker(frame));
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(
                     "Malformed JUnit worker result exit code `" + exitCode + "`.",
                     exception);
         }
+    }
+
+    private static boolean retireWorker(Frame frame) {
+        Optional<String> retire = frame.optional(FIELD_RETIRE_WORKER);
+        if (retire.isEmpty()) {
+            return false;
+        }
+        if (!Boolean.TRUE.toString().equals(retire.orElseThrow())
+                && !Boolean.FALSE.toString().equals(retire.orElseThrow())) {
+            throw new IllegalArgumentException(
+                    "Malformed JUnit worker retire flag `"
+                            + retire.orElseThrow()
+                            + "`.");
+        }
+        return Boolean.parseBoolean(retire.orElseThrow());
     }
 
     private static void requireSchemaVersion(Frame frame) {
@@ -302,6 +331,12 @@ public final class JunitWorkerProtocol {
         }
     }
 
-    public record WorkerResult(String requestId, int exitCode) {
+    public record WorkerResult(
+            String requestId,
+            int exitCode,
+            boolean retireWorker) {
+        public WorkerResult(String requestId, int exitCode) {
+            this(requestId, exitCode, false);
+        }
     }
 }

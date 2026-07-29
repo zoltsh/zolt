@@ -107,7 +107,7 @@ final class PlainJunitWorkerReuseTest {
     }
 
     @Test
-    void reusesPersistentWorkerAcrossMemberRequests() {
+    void reusesPersistentWorkerAcrossRequestsForOneProject() {
         AtomicInteger opens = new AtomicInteger();
         AtomicInteger closes = new AtomicInteger();
         List<Path> projectDirectories = new ArrayList<>();
@@ -127,9 +127,10 @@ final class PlainJunitWorkerReuseTest {
                             runtimeClasspaths);
                 });
         Path firstProject = tempDir.resolve("modules/first");
-        Path secondProject = tempDir.resolve("modules/second");
+        Path secondProject = firstProject;
         List<Path> firstClasspath = List.of(firstProject.resolve("target/classes"));
-        List<Path> secondClasspath = List.of(secondProject.resolve("target/classes"));
+        List<Path> secondClasspath =
+                List.of(secondProject.resolve("target/test-classes"));
 
         PlainJunitWorkerPoolRunResult first =
                 runPersistent(runner, firstProject, firstClasspath);
@@ -148,6 +149,84 @@ final class PlainJunitWorkerReuseTest {
         runner.close();
 
         assertEquals(1, closes.get());
+    }
+
+    @Test
+    void isolatesPersistentWorkersAcrossProjectDirectories() {
+        AtomicInteger opens = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        List<Path> projectDirectories = new ArrayList<>();
+        PlainJunitWorkerPoolRunner runner =
+                PlainJunitWorkerPoolRunner.persistent((
+                        javaExecutable,
+                        workerClasspath,
+                        projectDirectory,
+                        testRuntimeClasspath,
+                        jvmArguments,
+                        environment) -> {
+                    opens.incrementAndGet();
+                    return dynamicSession(
+                            closes,
+                            projectDirectories,
+                            new ArrayList<>());
+                });
+        Path firstProject = tempDir.resolve("modules/first");
+        Path secondProject = tempDir.resolve("modules/second");
+
+        PlainJunitWorkerPoolRunResult first = runPersistent(
+                runner,
+                firstProject,
+                List.of(firstProject.resolve("target/classes")));
+        PlainJunitWorkerPoolRunResult second = runPersistent(
+                runner,
+                secondProject,
+                List.of(secondProject.resolve("target/classes")));
+
+        assertEquals(2, opens.get());
+        assertEquals(0, closes.get());
+        assertEquals(1, first.workerStarts());
+        assertEquals(1, second.workerStarts());
+        assertEquals(
+                List.of(firstProject, secondProject),
+                projectDirectories);
+
+        runner.close();
+
+        assertEquals(2, closes.get());
+    }
+
+    @Test
+    void retiresAContaminatedWorkerBeforeTheNextProjectRequest() {
+        AtomicInteger opens = new AtomicInteger();
+        AtomicInteger closes = new AtomicInteger();
+        PlainJunitWorkerPoolRunner runner =
+                PlainJunitWorkerPoolRunner.persistent((
+                        javaExecutable,
+                        workerClasspath,
+                        projectDirectory,
+                        testRuntimeClasspath,
+                        jvmArguments,
+                        environment) -> retiringSession(
+                                closes,
+                                opens.incrementAndGet() == 1));
+        Path firstProject = tempDir.resolve("modules/first");
+        Path secondProject = firstProject;
+
+        runPersistent(
+                runner,
+                firstProject,
+                List.of(firstProject.resolve("target/classes")));
+        runPersistent(
+                runner,
+                secondProject,
+                List.of(secondProject.resolve("target/classes")));
+
+        assertEquals(2, opens.get());
+        assertEquals(1, closes.get());
+
+        runner.close();
+
+        assertEquals(2, closes.get());
     }
 
     private PlainJunitWorkerPoolRunResult run(
@@ -268,10 +347,62 @@ final class PlainJunitWorkerReuseTest {
         };
     }
 
+    private static PlainJunitWorkerSession retiringSession(
+            AtomicInteger closes,
+            boolean retire) {
+        return new PlainJunitWorkerSession() {
+            @Override
+            public PlainJunitWorkerRunResult run(
+                    Path testOutputDirectory,
+                    TestSelection selection,
+                    Optional<Path> reportsDirectory,
+                    List<String> events,
+                    Optional<Path> profileDirectory) {
+                throw new AssertionError("Expected dynamic worker request");
+            }
+
+            @Override
+            public PlainJunitWorkerRunResult run(
+                    Path projectDirectory,
+                    List<Path> testRuntimeClasspath,
+                    Path testOutputDirectory,
+                    TestSelection testSelection,
+                    Optional<Path> reportsDirectory,
+                    List<String> events,
+                    Optional<Path> profileDirectory) {
+                return successful("ok\n", retire);
+            }
+
+            @Override
+            public long startupNanos() {
+                return 5L;
+            }
+
+            @Override
+            public int processStarts() {
+                return 1;
+            }
+
+            @Override
+            public void close() {
+                closes.incrementAndGet();
+            }
+        };
+    }
+
     private static PlainJunitWorkerRunResult successful(
             String output) {
+        return successful(output, false);
+    }
+
+    private static PlainJunitWorkerRunResult successful(
+            String output,
+            boolean retire) {
         return new PlainJunitWorkerRunResult(
-                new JunitWorkerClient.WorkerRunResult(output, 0),
+                new JunitWorkerClient.WorkerRunResult(
+                        output,
+                        0,
+                        retire),
                 0L,
                 10L);
     }

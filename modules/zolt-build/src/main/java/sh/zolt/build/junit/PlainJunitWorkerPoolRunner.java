@@ -249,6 +249,7 @@ public final class PlainJunitWorkerPoolRunner implements AutoCloseable {
         }
         WorkerKey key = new WorkerKey(
                 javaExecutable.toAbsolutePath().normalize(),
+                projectDirectory.toAbsolutePath().normalize(),
                 List.copyOf(workerClasspath),
                 workerJvmArguments,
                 reusableEnvironment(workerEnvironment),
@@ -315,6 +316,7 @@ public final class PlainJunitWorkerPoolRunner implements AutoCloseable {
 
     private record WorkerKey(
             Path javaExecutable,
+            Path projectDirectory,
             List<Path> workerClasspath,
             TestJvmArguments jvmArguments,
             Map<String, String> environment,

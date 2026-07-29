@@ -87,7 +87,7 @@ public final class JunitWorkerClient implements AutoCloseable {
         String requestId = nextRequestId();
         writeFrame(JunitWorkerProtocol.runRequest(
                 requestId,
-                projectDirectory,
+                absoluteProjectDirectory(projectDirectory),
                 testRuntimeClasspath,
                 testOutputDirectory,
                 testSelection,
@@ -95,6 +95,14 @@ public final class JunitWorkerClient implements AutoCloseable {
                 events,
                 profileDirectory));
         return readRunResult(requestId);
+    }
+
+    private static Path absoluteProjectDirectory(
+            Path projectDirectory) {
+        if (projectDirectory == null) {
+            return null;
+        }
+        return projectDirectory.toAbsolutePath().normalize();
     }
 
     @Override
@@ -115,7 +123,10 @@ public final class JunitWorkerClient implements AutoCloseable {
     private WorkerRunResult readRunResult(String requestId) {
         StringBuilder workerOutput = new StringBuilder();
         JunitWorkerProtocol.WorkerResult result = readResult(requestId, workerOutput);
-        return new WorkerRunResult(workerOutput.toString(), result.exitCode());
+        return new WorkerRunResult(
+                workerOutput.toString(),
+                result.exitCode(),
+                result.retireWorker());
     }
 
     private JunitWorkerProtocol.WorkerResult readResult(String requestId, StringBuilder workerOutput) {
@@ -175,6 +186,12 @@ public final class JunitWorkerClient implements AutoCloseable {
         }
     }
 
-    public record WorkerRunResult(String output, int exitCode) {
+    public record WorkerRunResult(
+            String output,
+            int exitCode,
+            boolean retireWorker) {
+        public WorkerRunResult(String output, int exitCode) {
+            this(output, exitCode, false);
+        }
     }
 }

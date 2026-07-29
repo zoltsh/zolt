@@ -1,6 +1,7 @@
 package sh.zolt.junit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.test.TestSelection;
@@ -280,6 +281,23 @@ final class JunitWorkerProtocolTest {
         assertEquals("ZOLT_WORKER_RESULT\tid=request-1\texit=2", frame);
         assertEquals("request-1", result.requestId());
         assertEquals(2, result.exitCode());
+        assertFalse(result.retireWorker());
+    }
+
+    @Test
+    void formatsAndParsesWorkerRetirementResults() {
+        String frame = JunitWorkerProtocol.result(
+                "request-1",
+                0,
+                true);
+
+        JunitWorkerProtocol.WorkerResult result =
+                JunitWorkerProtocol.parseResult(frame);
+
+        assertEquals(
+                "ZOLT_WORKER_RESULT\tid=request-1\texit=0\tretire=true",
+                frame);
+        assertTrue(result.retireWorker());
     }
 
     @Test

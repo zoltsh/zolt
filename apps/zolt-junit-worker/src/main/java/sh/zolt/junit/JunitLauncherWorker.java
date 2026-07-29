@@ -14,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class JunitLauncherWorker {
     public static final String MAIN_CLASS = "sh.zolt.junit.JunitLauncherWorker";
@@ -55,6 +57,7 @@ public final class JunitLauncherWorker {
                     out.flush();
                     return 0;
                 }
+                Set<Long> threadsBefore = liveNonDaemonThreadIds();
                 int exitCode = runRequest(
                         request.projectDirectory(),
                         request.testRuntimeClasspath(),
@@ -65,8 +68,16 @@ public final class JunitLauncherWorker {
                         request.events(),
                         out,
                         err);
-                out.println(JunitWorkerProtocol.result(request.requestId(), exitCode));
+                boolean retireWorker =
+                        hasNewLiveNonDaemonThreads(threadsBefore);
+                out.println(JunitWorkerProtocol.result(
+                        request.requestId(),
+                        exitCode,
+                        retireWorker));
                 out.flush();
+                if (retireWorker) {
+                    return exitCode;
+                }
             }
             return 0;
         } catch (IOException exception) {
@@ -104,23 +115,29 @@ public final class JunitLauncherWorker {
             PrintStream err) {
         ClassLoader original = Thread.currentThread().getContextClassLoader();
         String originalUserDirectory = System.getProperty("user.dir");
+        Path requestDirectory = requestDirectory(projectDirectory);
         try (URLClassLoader requestLoader = requestClassLoader(
+                requestDirectory,
                 testRuntimeClasspath,
                 original)) {
-            projectDirectory.ifPresent(directory ->
-                    System.setProperty("user.dir", Path.of(directory)
-                            .toAbsolutePath()
-                            .normalize()
-                            .toString()));
+            System.setProperty(
+                    "user.dir",
+                    requestDirectory.toString());
             Thread.currentThread().setContextClassLoader(requestLoader);
             JunitProgrammaticLauncher launcher =
                     new JunitProgrammaticLauncher(out, requestLoader);
             return execute(
                     launcher,
-                    testOutputDirectory,
+                    resolveRequestPath(
+                            requestDirectory,
+                            testOutputDirectory),
                     testSelection,
-                    reportsDirectory,
-                    profileDirectory,
+                    resolveRequestPath(
+                            requestDirectory,
+                            reportsDirectory),
+                    resolveRequestPath(
+                            requestDirectory,
+                            profileDirectory),
                     events,
                     err);
         } catch (IOException exception) {
@@ -139,18 +156,18 @@ public final class JunitLauncherWorker {
 
     private int execute(
             JunitProgrammaticLauncher launcher,
-            String testOutputDirectory,
+            Path testOutputDirectory,
             TestSelection testSelection,
-            Optional<String> reportsDirectory,
-            Optional<String> profileDirectory,
+            Optional<Path> reportsDirectory,
+            Optional<Path> profileDirectory,
             List<String> events,
             PrintStream err) {
         try {
             return launcher.execute(
-                    Path.of(testOutputDirectory),
+                    testOutputDirectory,
                     testSelection,
-                    reportsDirectory.map(Path::of),
-                    profileDirectory.map(Path::of),
+                    reportsDirectory,
+                    profileDirectory,
                     events);
         } catch (ReflectiveOperationException | IOException | LinkageError exception) {
             err.println("error: Could not run tests through Zolt's JUnit launcher worker. "
@@ -174,17 +191,47 @@ public final class JunitLauncherWorker {
     }
 
     private static URLClassLoader requestClassLoader(
+            Path requestDirectory,
             List<String> classpath,
             ClassLoader fallback) {
         if (classpath == null || classpath.isEmpty()) {
             return new URLClassLoader(new URL[0], fallback);
         }
         URL[] urls = classpath.stream()
-                .map(Path::of)
-                .map(path -> path.toAbsolutePath().normalize())
+                .map(path -> resolveRequestPath(
+                        requestDirectory,
+                        path))
                 .map(JunitLauncherWorker::url)
                 .toArray(URL[]::new);
         return new URLClassLoader(urls, ClassLoader.getPlatformClassLoader());
+    }
+
+    private static Path requestDirectory(
+            Optional<String> projectDirectory) {
+        return projectDirectory
+                .filter(directory -> !directory.isBlank())
+                .map(Path::of)
+                .map(path -> path.toAbsolutePath().normalize())
+                .orElseGet(() -> Path.of("")
+                        .toAbsolutePath()
+                        .normalize());
+    }
+
+    private static Path resolveRequestPath(
+            Path requestDirectory,
+            String value) {
+        Path path = Path.of(value);
+        if (path.isAbsolute()) {
+            return path.normalize();
+        }
+        return requestDirectory.resolve(path).normalize();
+    }
+
+    private static Optional<Path> resolveRequestPath(
+            Path requestDirectory,
+            Optional<String> value) {
+        return value.map(path ->
+                resolveRequestPath(requestDirectory, path));
     }
 
     private static URL url(Path path) {
@@ -195,5 +242,23 @@ public final class JunitLauncherWorker {
                     "Invalid JUnit worker classpath entry `" + path + "`.",
                     exception);
         }
+    }
+
+    static Set<Long> liveNonDaemonThreadIds() {
+        Thread current = Thread.currentThread();
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(Thread::isAlive)
+                .filter(thread -> !thread.isDaemon())
+                .filter(thread -> thread != current)
+                .map(Thread::threadId)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    static boolean hasNewLiveNonDaemonThreads(Set<Long> threadsBefore) {
+        Set<Long> baseline = threadsBefore == null
+                ? Set.of()
+                : Set.copyOf(threadsBefore);
+        return liveNonDaemonThreadIds().stream()
+                .anyMatch(threadId -> !baseline.contains(threadId));
     }
 }

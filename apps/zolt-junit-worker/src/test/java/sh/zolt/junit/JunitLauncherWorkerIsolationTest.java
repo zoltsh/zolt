@@ -1,6 +1,7 @@
 package sh.zolt.junit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.test.TestSelection;
@@ -12,10 +13,47 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class JunitLauncherWorkerIsolationTest {
+    @TempDir
+    private Path tempDir;
+
+    @Test
+    void detectsLeakedNonDaemonThreadsAfterARequest()
+            throws InterruptedException {
+        Set<Long> threadsBefore =
+                JunitLauncherWorker.liveNonDaemonThreadIds();
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Thread leaked = Thread.ofPlatform()
+                .daemon(false)
+                .name("zolt-junit-leak-probe")
+                .unstarted(() -> {
+                    started.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+        try {
+            leaked.start();
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            assertTrue(JunitLauncherWorker
+                    .hasNewLiveNonDaemonThreads(threadsBefore));
+        } finally {
+            release.countDown();
+            leaked.join(TimeUnit.SECONDS.toMillis(5));
+        }
+        assertFalse(leaked.isAlive());
+    }
+
     @Test
     void serverModeUsesFreshClassloaderForEveryRequest() {
         TestSelection selection = selection();
@@ -72,6 +110,57 @@ final class JunitLauncherWorkerIsolationTest {
             JunitWorkerClient.WorkerRunResult second = process.run(
                     codeSource(StaticIsolationFixture.class),
                     selection());
+
+            assertEquals(0, first.exitCode(), first.output());
+            assertEquals(0, second.exitCode(), second.output());
+            assertTrue(first.output().contains("Tests succeeded: 1"));
+            assertTrue(second.output().contains("Tests succeeded: 1"));
+        }
+    }
+
+    @Test
+    void clientReusesRealServerAcrossProjectRelativePaths()
+            throws Exception {
+        Path firstOutput =
+                codeSource(StaticIsolationFixture.class);
+        Path firstProject =
+                firstOutput.getParent().getParent();
+        Path secondProject = tempDir.resolve("second-project");
+        Path secondOutput =
+                secondProject.resolve("target/test-classes");
+        copyFixture(firstOutput, secondOutput);
+        List<Path> secondRuntimeClasspath =
+                runtimeClasspath().stream()
+                        .map(path -> path.equals(firstOutput)
+                                ? secondOutput
+                                : path)
+                        .toList();
+        JunitWorkerProcessLauncher launcher =
+                new JunitWorkerProcessLauncher(
+                        javaExecutable(),
+                        compiledWorkerClasspath());
+
+        try (JunitWorkerProcess process = launcher.start(
+                firstProject,
+                runtimeClasspath())) {
+            JunitWorkerClient.WorkerRunResult first =
+                    process.run(
+                            firstProject,
+                            runtimeClasspath(),
+                            Path.of("target/test-classes"),
+                            selection(),
+                            Optional.empty(),
+                            List.of(),
+                            Optional.empty());
+            JunitWorkerClient.WorkerRunResult second =
+                    process.run(
+                            secondProject,
+                            secondRuntimeClasspath,
+                            Path.of("target/test-classes"),
+                            selection(),
+                            Optional.empty(),
+                            List.of(),
+                            Optional.empty());
 
             assertEquals(0, first.exitCode(), first.output());
             assertEquals(0, second.exitCode(), second.output());
@@ -148,6 +237,21 @@ final class JunitLauncherWorkerIsolationTest {
                     "Could not resolve classpath for " + type.getName(),
                     exception);
         }
+    }
+
+    private static void copyFixture(
+            Path sourceOutput,
+            Path targetOutput) throws java.io.IOException {
+        Path fixtureClass = Path.of(
+                "sh",
+                "zolt",
+                "junit",
+                "StaticIsolationFixture.class");
+        Files.createDirectories(
+                targetOutput.resolve(fixtureClass).getParent());
+        Files.copy(
+                sourceOutput.resolve(fixtureClass),
+                targetOutput.resolve(fixtureClass));
     }
 }
 
