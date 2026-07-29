@@ -46,6 +46,12 @@ final class WorkspaceBuildBatchPlannerTest {
         assertEquals(List.of(
                 List.of("modules/core", "modules/util"),
                 List.of("apps/api", "apps/worker")), batches);
+        assertEquals(
+                2,
+                planner.plan(
+                                workspace,
+                                List.of("modules/core", "modules/util", "apps/api", "apps/worker"))
+                        .dependencyDepth());
     }
 
     @Test

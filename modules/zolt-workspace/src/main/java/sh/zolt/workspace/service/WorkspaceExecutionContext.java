@@ -21,8 +21,10 @@ public final class WorkspaceExecutionContext {
     private long classpathCalculationNanos;
     private long packageCalculationNanos;
     private long memberExecutionNanos;
+    private long schedulerIdleNanos;
     private int classpathCacheHits;
     private int packageCacheHits;
+    private int readyQueuePeak;
 
     public WorkspaceExecutionContext(
             Workspace workspace,
@@ -105,14 +107,21 @@ public final class WorkspaceExecutionContext {
                 classpathCalculationNanos,
                 packageCalculationNanos,
                 memberExecutionNanos,
+                schedulerIdleNanos,
                 classpaths.size(),
                 classpathPackages.size() + packageLocks.size(),
                 classpathCacheHits,
-                packageCacheHits);
+                packageCacheHits,
+                readyQueuePeak);
     }
 
     synchronized void addMemberExecutionNanos(long durationNanos) {
         memberExecutionNanos += Math.max(0L, durationNanos);
+    }
+
+    synchronized void addSchedulerMetrics(long idleNanos, int queuePeak) {
+        schedulerIdleNanos += Math.max(0L, idleNanos);
+        readyQueuePeak = Math.max(readyQueuePeak, queuePeak);
     }
 
     private static long elapsedSince(long started) {
@@ -129,9 +138,32 @@ public final class WorkspaceExecutionContext {
             long classpathCalculationNanos,
             long packageCalculationNanos,
             long memberExecutionNanos,
+            long schedulerIdleNanos,
             int classpathCalculations,
             int packageCalculations,
             int classpathCacheHits,
-            int packageCacheHits) {
+            int packageCacheHits,
+            int readyQueuePeak) {
+        public Metrics(
+                long graphConstructionNanos,
+                long classpathCalculationNanos,
+                long packageCalculationNanos,
+                long memberExecutionNanos,
+                int classpathCalculations,
+                int packageCalculations,
+                int classpathCacheHits,
+                int packageCacheHits) {
+            this(
+                    graphConstructionNanos,
+                    classpathCalculationNanos,
+                    packageCalculationNanos,
+                    memberExecutionNanos,
+                    0L,
+                    classpathCalculations,
+                    packageCalculations,
+                    classpathCacheHits,
+                    packageCacheHits,
+                    0);
+        }
     }
 }

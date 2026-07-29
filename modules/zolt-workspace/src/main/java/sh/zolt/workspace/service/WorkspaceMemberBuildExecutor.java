@@ -1,20 +1,13 @@
 package sh.zolt.workspace.service;
 
-import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.JavacException;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 final class WorkspaceMemberBuildExecutor {
     private final BuildService buildService;
@@ -54,86 +47,61 @@ final class WorkspaceMemberBuildExecutor {
             Map<String, WorkspaceMember> membersByPath,
             Map<String, ClasspathSet> classpathsByMember,
             Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember) {
-        List<List<String>> batches = batchPlanner.batches(workspace, selection.includedMembers());
-        if (batches.isEmpty()) {
-            return new Result(List.of(), 0, 0);
+        WorkspaceBuildBatchPlanner.Plan plan =
+                batchPlanner.plan(workspace, selection.includedMembers());
+        if (plan.includedMembers().isEmpty()) {
+            return new Result(List.of(), 0, 0, 0L, 0);
         }
         int concurrency = workspaceBuildConcurrency(selection.includedMembers().size());
-        Map<String, WorkspaceBuildResult.MemberBuildResult> resultsByMember = new LinkedHashMap<>();
-        ExecutorService executor = Executors.newFixedThreadPool(concurrency);
-        try {
-            for (List<String> batch : batches) {
-                Map<String, Future<WorkspaceBuildResult.MemberBuildResult>> futures = new LinkedHashMap<>();
-                for (String memberPath : batch) {
-                    futures.put(memberPath, executor.submit(buildMemberTask(
-                            workspace,
-                            memberPath,
-                            membersByPath,
-                            classpathsByMember,
-                            classpathPackagesByMember)));
-                }
-                for (Map.Entry<String, Future<WorkspaceBuildResult.MemberBuildResult>> entry : futures.entrySet()) {
-                    resultsByMember.put(entry.getKey(), getMemberBuildResult(entry.getValue()));
-                }
-            }
-        } finally {
-            executor.shutdownNow();
-        }
+        WorkspaceReadyQueueExecutor.Result<WorkspaceBuildResult.MemberBuildResult> execution =
+                new WorkspaceReadyQueueExecutor().execute(
+                        plan,
+                        concurrency,
+                        memberPath -> buildMember(
+                                workspace,
+                                memberPath,
+                                membersByPath,
+                                classpathsByMember,
+                                classpathPackagesByMember));
         List<WorkspaceBuildResult.MemberBuildResult> orderedResults = new ArrayList<>();
         for (String memberPath : selection.includedMembers()) {
-            orderedResults.add(resultsByMember.get(memberPath));
+            orderedResults.add(execution.resultsByMember().get(memberPath));
         }
-        return new Result(List.copyOf(orderedResults), batches.size(), concurrency);
+        return new Result(
+                List.copyOf(orderedResults),
+                plan.dependencyDepth(),
+                concurrency,
+                execution.schedulerIdleNanos(),
+                execution.readyQueuePeak());
     }
 
-    private Callable<WorkspaceBuildResult.MemberBuildResult> buildMemberTask(
+    private WorkspaceBuildResult.MemberBuildResult buildMember(
             Workspace workspace,
             String memberPath,
             Map<String, WorkspaceMember> membersByPath,
             Map<String, ClasspathSet> classpathsByMember,
             Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember) {
-        return () -> {
-            WorkspaceMember member = membersByPath.get(memberPath);
-            ClasspathSet classpaths = classpathsByMember.get(member.path());
-            try {
-                return new WorkspaceBuildResult.MemberBuildResult(
-                        member.path(),
-                        buildService
-                                .withJdkChecker(jdkCheckers.forMember(workspace, member))
-                                .withBuildCache(buildCacheService)
-                                .build(
-                                        member.directory(),
-                                        member.config(),
-                                        classpaths),
-                        classpaths,
-                        classpathPackagesByMember.get(member.path()));
-            } catch (JavacException exception) {
-                throw new JavacException(
-                        exception.getMessage()
-                                + "\nWorkspace member `"
-                                + member.path()
-                                + "` failed to compile. If the missing type comes from a dependency of another workspace member, declare it directly in this member or move it to [api.dependencies] in the member that exposes it.",
-                        exception);
-            }
-        };
-    }
-
-    private static WorkspaceBuildResult.MemberBuildResult getMemberBuildResult(
-            Future<WorkspaceBuildResult.MemberBuildResult> future) {
+        WorkspaceMember member = membersByPath.get(memberPath);
+        ClasspathSet classpaths = classpathsByMember.get(member.path());
         try {
-            return future.get();
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new BuildException("Workspace build was interrupted while waiting for member compilation.", exception);
-        } catch (ExecutionException exception) {
-            Throwable cause = exception.getCause();
-            if (cause instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-            }
-            if (cause instanceof Error error) {
-                throw error;
-            }
-            throw new BuildException("Workspace build failed while compiling a member.", cause);
+            return new WorkspaceBuildResult.MemberBuildResult(
+                    member.path(),
+                    buildService
+                            .withJdkChecker(jdkCheckers.forMember(workspace, member))
+                            .withBuildCache(buildCacheService)
+                            .build(
+                                    member.directory(),
+                                    member.config(),
+                                    classpaths),
+                    classpaths,
+                    classpathPackagesByMember.get(member.path()));
+        } catch (JavacException exception) {
+            throw new JavacException(
+                    exception.getMessage()
+                            + "\nWorkspace member `"
+                            + member.path()
+                            + "` failed to compile. If the missing type comes from a dependency of another workspace member, declare it directly in this member or move it to [api.dependencies] in the member that exposes it.",
+                    exception);
         }
     }
 
@@ -148,7 +116,16 @@ final class WorkspaceMemberBuildExecutor {
     record Result(
             List<WorkspaceBuildResult.MemberBuildResult> results,
             int waveCount,
-            int maxWorkers) {
+            int maxWorkers,
+            long schedulerIdleNanos,
+            int readyQueuePeak) {
+        Result(
+                List<WorkspaceBuildResult.MemberBuildResult> results,
+                int waveCount,
+                int maxWorkers) {
+            this(results, waveCount, maxWorkers, 0L, 0);
+        }
+
         Result {
             results = List.copyOf(results);
         }

@@ -80,6 +80,8 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[1].contains("\"members\":\"2\""));
         assertTrue(lines[1].contains("\"sourceFiles\":\"2\""));
         assertTrue(lines[1].contains("\"workspaceBuildWaves\":\"2\""));
+        assertTrue(lines[1].contains("\"workspaceSchedulerIdleNanos\":"));
+        assertTrue(lines[1].contains("\"workspaceReadyQueuePeak\":\"1\""));
         assertTrue(lines[1].contains(expectedMaxWorkers));
         assertTrue(lines[1].contains("\"mainCompilationsSkipped\":\"0\""));
         assertTrue(lines[1].contains("\"mainCompilationsExecuted\":\"2\""));

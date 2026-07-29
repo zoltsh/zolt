@@ -248,6 +248,9 @@ public final class WorkspaceBuildService {
                 classpathsByMember,
                 classpathPackagesByMember);
         context.addMemberExecutionNanos(elapsedSince(memberExecutionStarted));
+        context.addSchedulerMetrics(
+                execution.schedulerIdleNanos(),
+                execution.readyQueuePeak());
         return new WorkspaceBuildResult(
                 plan.resolveResult(),
                 execution.results(),

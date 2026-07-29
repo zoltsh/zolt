@@ -143,6 +143,8 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_EDGES = "workspaceEdges";
     public static final String WORKSPACE_LOCKFILE_PACKAGES = "workspaceLockfilePackages";
     public static final String WORKSPACE_MEMBER_EXECUTION_NANOS = "workspaceMemberExecutionNanos";
+    public static final String WORKSPACE_SCHEDULER_IDLE_NANOS = "workspaceSchedulerIdleNanos";
+    public static final String WORKSPACE_READY_QUEUE_PEAK = "workspaceReadyQueuePeak";
     public static final String XML_REPORT = "xmlReport";
 
     private CommandAttributeKeys() {

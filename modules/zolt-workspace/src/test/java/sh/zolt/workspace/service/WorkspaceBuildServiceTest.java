@@ -64,6 +64,8 @@ final class WorkspaceBuildServiceTest extends WorkspaceBuildServiceTestSupport {
         assertEquals(0, result.executionMetrics().packageCalculations());
         assertTrue(result.executionMetrics().graphConstructionNanos() > 0L);
         assertTrue(result.executionMetrics().memberExecutionNanos() > 0L);
+        assertTrue(result.executionMetrics().schedulerIdleNanos() >= 0L);
+        assertEquals(1, result.executionMetrics().readyQueuePeak());
         assertTrue(result.members().stream()
                 .allMatch(member -> member.classpaths().runtime().entries().isEmpty()));
         assertTrue(result.members().stream()

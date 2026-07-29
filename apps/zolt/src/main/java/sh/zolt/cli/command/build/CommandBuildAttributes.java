@@ -49,6 +49,12 @@ public final class CommandBuildAttributes {
                 CommandAttributeKeys.WORKSPACE_MEMBER_EXECUTION_NANOS,
                 Long.toString(result.executionMetrics().memberExecutionNanos()));
         attributes.put(
+                CommandAttributeKeys.WORKSPACE_SCHEDULER_IDLE_NANOS,
+                Long.toString(result.executionMetrics().schedulerIdleNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_READY_QUEUE_PEAK,
+                Integer.toString(result.executionMetrics().readyQueuePeak()));
+        attributes.put(
                 CommandAttributeKeys.WORKSPACE_CLASSPATH_CALCULATIONS,
                 Integer.toString(result.executionMetrics().classpathCalculations()));
         attributes.put(
