@@ -2,6 +2,7 @@ package sh.zolt.resolve.request;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.dependency.VersionComparator;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.CoordinateParser;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 
 final class ToolingDependencyContributor {
+    private static final VersionComparator VERSION_COMPARATOR = new VersionComparator();
     private static final PackageId JUNIT_PLATFORM_CONSOLE_PACKAGE = new PackageId(
             "org.junit.platform",
             "junit-platform-console");
@@ -80,17 +82,57 @@ final class ToolingDependencyContributor {
         if (consoleAlreadyOnTestClasspath) {
             return;
         }
-        String version = projectManagedVersions.getOrDefault(
-                JUNIT_PLATFORM_CONSOLE_PACKAGE,
-                JUNIT_PLATFORM_CONSOLE_VERSION);
-        if (version == null || version.isBlank()) {
-            version = JUNIT_PLATFORM_CONSOLE_VERSION;
-        }
+        JunitConsoleVersion selection = junitConsoleVersion(projectManagedVersions, requests);
         requests.add(new DependencyRequest(
                 JUNIT_PLATFORM_CONSOLE_PACKAGE,
-                version,
+                selection.version(),
                 DependencyScope.TEST,
-                RequestOrigin.TRANSITIVE));
+                RequestOrigin.TRANSITIVE,
+                selection.origin()));
+    }
+
+    private static JunitConsoleVersion junitConsoleVersion(
+            Map<PackageId, String> projectManagedVersions,
+            List<DependencyRequest> requests) {
+        Optional<String> declaredVersion = junitPlatformVersion(requests, RequestVersionOrigin.DECLARED);
+        if (declaredVersion.isPresent()) {
+            return JunitConsoleVersion.injected(declaredVersion.orElseThrow());
+        }
+        String managedVersion = projectManagedVersions.get(JUNIT_PLATFORM_CONSOLE_PACKAGE);
+        if (managedVersion != null && !managedVersion.isBlank()) {
+            return new JunitConsoleVersion(managedVersion, RequestVersionOrigin.MANAGED);
+        }
+        return JunitConsoleVersion.injected(
+                junitPlatformVersion(requests, RequestVersionOrigin.MANAGED)
+                        .orElse(JUNIT_PLATFORM_CONSOLE_VERSION));
+    }
+
+    private static Optional<String> junitPlatformVersion(
+            List<DependencyRequest> requests,
+            RequestVersionOrigin versionOrigin) {
+        return requests.stream()
+                .filter(request -> request.scope().entersTestClasspath())
+                .filter(request -> request.versionOrigin() == versionOrigin)
+                .map(ToolingDependencyContributor::junitPlatformVersion)
+                .flatMap(Optional::stream)
+                .max(VERSION_COMPARATOR);
+    }
+
+    private static Optional<String> junitPlatformVersion(DependencyRequest request) {
+        String group = request.packageId().groupId();
+        String version = request.requestedVersion();
+        if (group.equals("org.junit.platform")) {
+            return Optional.of(version);
+        }
+        if ((group.equals("org.junit.jupiter") || group.equals("org.junit.vintage"))
+                && version.startsWith("5.")) {
+            return Optional.of("1." + version.substring(2));
+        }
+        if ((group.equals("org.junit.jupiter") || group.equals("org.junit.vintage"))
+                && version.startsWith("6.")) {
+            return Optional.of(version);
+        }
+        return Optional.empty();
     }
 
     private void addCoverageToolRequests(
@@ -113,7 +155,10 @@ final class ToolingDependencyContributor {
                                     JACOCO_AGENT_PACKAGE.groupId(),
                                     JACOCO_AGENT_PACKAGE.artifactId(),
                                     Optional.of(JACOCO_VERSION)),
-                            Optional.of("runtime")))));
+                            Optional.of("runtime"))),
+                    List.of(),
+                    false,
+                    RequestVersionOrigin.INJECTED));
         }
         boolean cliAlreadyRequested = requests.stream()
                 .anyMatch(request -> request.packageId().equals(JACOCO_CLI_PACKAGE)
@@ -123,7 +168,8 @@ final class ToolingDependencyContributor {
                     JACOCO_CLI_PACKAGE,
                     JACOCO_VERSION,
                     DependencyScope.TOOL_COVERAGE,
-                    RequestOrigin.TRANSITIVE));
+                    RequestOrigin.TRANSITIVE,
+                    RequestVersionOrigin.INJECTED));
         }
     }
 
@@ -134,5 +180,11 @@ final class ToolingDependencyContributor {
                 || !config.testAnnotationProcessors().isEmpty()
                 || !config.managedTestAnnotationProcessors().isEmpty()
                 || !config.workspaceTestAnnotationProcessors().isEmpty();
+    }
+
+    private record JunitConsoleVersion(String version, RequestVersionOrigin origin) {
+        private static JunitConsoleVersion injected(String version) {
+            return new JunitConsoleVersion(version, RequestVersionOrigin.INJECTED);
+        }
     }
 }

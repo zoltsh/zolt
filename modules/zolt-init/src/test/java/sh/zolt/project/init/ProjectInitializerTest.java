@@ -1,6 +1,7 @@
 package sh.zolt.project.init;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -46,6 +47,9 @@ final class ProjectInitializerTest {
         assertEquals("com.example", config.project().group());
         assertEquals("21", config.project().java());
         assertEquals("com.example.Main", config.project().main().orElseThrow());
+        assertEquals(
+                java.util.Map.of("org.junit.jupiter:junit-jupiter", "5.14.4"),
+                config.testDependencies());
     }
 
     @Test
@@ -67,6 +71,9 @@ final class ProjectInitializerTest {
         assertEquals(java.util.List.of("apps/platform"), workspaceConfig.defaultMembers());
         assertEquals("platform", memberConfig.project().name());
         assertEquals("com.example.Main", memberConfig.project().main().orElseThrow());
+        assertEquals(
+                java.util.Map.of("org.junit.jupiter:junit-jupiter", "5.14.4"),
+                memberConfig.testDependencies());
     }
 
     @Test
@@ -77,7 +84,33 @@ final class ProjectInitializerTest {
                 result.projectDirectory().resolve("src/main/java/dev/zolt/demo/Main.java"),
                 result.mainSource());
         assertTrue(Files.readString(result.mainSource()).contains("package dev.zolt.demo;"));
-        assertTrue(Files.readString(result.testSource()).contains("final class MainTest"));
+        String testSource = Files.readString(result.testSource());
+        assertTrue(testSource.contains("final class MainTest"));
+        assertTrue(testSource.contains("@Test"));
+        assertTrue(testSource.contains("assertEquals(\"Hello from hello!\", Main.greeting())"));
+    }
+
+    @Test
+    void canCreateProjectWithoutTests() {
+        ProjectInitResult result = initializer.init(tempDir, "hello", "com.example", "21", false);
+
+        ProjectConfig config = parser.parse(result.configFile());
+
+        assertTrue(config.testDependencies().isEmpty());
+        assertFalse(Files.exists(result.testSource()));
+    }
+
+    @Test
+    void canCreateWorkspaceWithoutTests() {
+        ProjectInitResult result = initializer.initWorkspace(
+                tempDir, "platform", "com.example", "21", false);
+        Path memberRoot = result.projectDirectory().resolve("apps/platform");
+
+        ProjectConfig config = parser.parse(memberRoot.resolve("zolt.toml"));
+
+        assertTrue(config.testDependencies().isEmpty());
+        assertFalse(Files.exists(memberRoot.resolve("src/test")));
+        assertFalse(Files.exists(result.testSource()));
     }
 
     @Test

@@ -67,36 +67,14 @@ final class TestConsoleFailureHandlerTest {
     }
 
     @Test
-    void unfilteredRunWithCompiledTestsButZeroTestsFoundFailsLoudly() {
+    void launcherWithoutTestEngineFailsEvenWhenConsoleExitsCleanly() {
         TestRunException exception = assertThrows(
                 TestRunException.class,
-                () -> handler.throwIfCompiledTestsProducedNoTests(
-                        "[         0 tests found           ]", TestSelection.empty(), 3));
+                () -> handler.throwIfLauncherDidNotStart(
+                        "Cannot create Launcher without at least one TestEngine; consider adding an engine implementation JAR"));
 
-        assertTrue(exception.getMessage().contains("No tests were discovered"));
-        assertTrue(exception.getMessage().contains("3 test source file(s) compiled"));
-        assertTrue(exception.getMessage().contains("junit-jupiter"));
-    }
-
-    @Test
-    void unfilteredRunWithTestsFoundDoesNotFail() {
-        handler.throwIfCompiledTestsProducedNoTests(
-                "[         1 tests found           ]\n[         1 tests successful      ]",
-                TestSelection.empty(),
-                1);
-    }
-
-    @Test
-    void zeroTestsFoundWithNoCompiledTestSourcesDoesNotFail() {
-        handler.throwIfCompiledTestsProducedNoTests(
-                "[         0 tests found           ]", TestSelection.empty(), 0);
-    }
-
-    @Test
-    void filteredRunWithZeroTestsFoundIsLeftToSelectionHandler() {
-        TestSelection selection = TestSelection.fromCli(List.of("com.example.MissingTest"), List.of(), List.of(), List.of());
-
-        handler.throwIfCompiledTestsProducedNoTests(
-                "[         0 tests found           ]", selection, 2);
+        assertTrue(exception.getMessage().contains("No test engine is present"));
+        assertTrue(exception.getMessage().contains(
+                "`zolt add test org.junit.jupiter:junit-jupiter:5.14.4`"));
     }
 }

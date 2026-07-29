@@ -7,24 +7,24 @@
 </p>
 
 <p align="center">
-  Single native binary, project-native builds, and
-  reproducible dependency resolution.
+  Dependencies, toolchains, builds, tests, workspaces, packaging, publishing,
+  native images, and CI.
 </p>
 
 <p align="center">
   <a href="#install">Install</a>
   <span> · </span>
-  <a href="#example">Example</a>
-  <span> · </span>
-  <a href="./USAGE.md">Usage</a>
-  <span> · </span>
-  <a href="#model">Model</a>
+  <a href="#start">Start</a>
   <span> · </span>
   <a href="#features">Features</a>
   <span> · </span>
-  <a href="#benchmarks">Benchmarks</a>
+  <a href="#cli">CLI</a>
   <span> · </span>
-  <a href="./llms.txt">LLMs</a>
+  <a href="./USAGE.md">Usage</a>
+  <span> · </span>
+  <a href="./FAQ.md">FAQ</a>
+  <span> · </span>
+  <a href="#benchmarks">Benchmarks</a>
 </p>
 
 <br />
@@ -35,28 +35,19 @@
 curl -fsSL https://dist.zolt.sh/install.sh | sh
 ```
 
-## Example
+## Start
 
 ```sh
 zolt init hello
 cd hello
-
-zolt add test org.junit.jupiter:junit-jupiter-api:5.11.4
 zolt test
 zolt package
 ```
 
-This creates a small `zolt.toml`, resolves a reproducible `zolt.lock`, runs the
-test suite, and packages the project.
-
-For the broader command surface, framework examples, workspaces, release flows,
-and migration audit support, see [USAGE.md](./USAGE.md).
+Zolt creates the project, resolves `zolt.lock`, runs its JUnit test, and
+packages it.
 
 ## Model
-
-Most Java builds start with a build-tool installation.
-
-Zolt starts with a project and a single binary.
 
 ```txt
 zolt.toml      project model
@@ -64,34 +55,57 @@ zolt.lock      resolved packages
 zolt           build, test, package, release
 ```
 
-Use it for Java projects that want fast local commands, workspace-aware builds,
-and fewer moving parts between source and artifact.
-
 ## Features
 
-```txt
-single native binary
-fast startup
-Cargo-like project workflow
-reproducible lockfile
-managed Java and GraalVM toolchains
-opt-in Java command shims
-dependency editing and BOM imports
-version aliases, scopes, exclusions, and constraints
-workspace builds
-configured project tasks
-JUnit Platform, Spock/Groovy, suites, shards, and coverage
-typed build/package/test plans
-quality checks and CI contexts
-IDE model export
-Maven and Gradle migration explain
-Spring Boot, Quarkus, Micronaut, Vert.x, OpenAPI, and Protobuf examples
-thin, Spring Boot, WAR, Quarkus, uber, native, and release packaging
-publish dry runs and Maven-compatible uploads
-native release archive/index/verify flows
-installer-managed Zolt self updates
-self-hosted builds
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Projects and workspaces</strong><br>
+      Projects, tasks, aliases, builds, runs, and dependency-ordered workspaces.
+    </td>
+    <td width="50%" valign="top">
+      <strong>Dependencies</strong><br>
+      Editing, BOMs, updates, deterministic resolution, and graph inspection.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Tests and coverage</strong><br>
+      JUnit, Spock, integration tests, selection, sharding, profiling, and JaCoCo.
+    </td>
+    <td width="50%" valign="top">
+      <strong>Packages and releases</strong><br>
+      Thin, uber, WAR, Spring Boot, Quarkus, native images, and Maven publishing.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Toolchains and CI</strong><br>
+      Managed JDKs, build caches, quality gates, SBOMs, and license checks.
+    </td>
+    <td width="50%" valign="top">
+      <strong>Insight and migration</strong><br>
+      Plans, IDE models, JSON output, and Maven or Gradle migration audits.
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <strong><a href="./FEATURES.md">All features</a></strong>
+</p>
+
+## CLI
+
+Human-readable output. Stable JSON. Plans and dry runs. Errors with next steps.
+
+```console
+$ zolt plan --target package
+Status: blocked
+- lockfile [resolve] blocked - Dependency graph is not locked yet.
+  next: Run `zolt resolve` first, then rerun `zolt plan`.
 ```
+
+Use `zolt --list` for the command map or `zolt help <command>` for command help.
 
 ## Benchmarks
 
@@ -99,9 +113,9 @@ Benchmark claims should point to repeatable evidence. See
 [docs/benchmarks](./docs/benchmarks/) for the public harness that compares Zolt,
 Maven, and Gradle on generated multi-module Java workspaces.
 
-## Why not rust?
+## FAQ
 
-No reason. I wanted to self-host to prove it out and support the GraalVM ecosystem.
+Why not Rust, Maven, Gradle, or Bazel? See [FAQ.md](./FAQ.md).
 
 ## Security
 

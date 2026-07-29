@@ -143,6 +143,7 @@ final class DirectDependencyRequestPlanner {
                     PackageId.from(coordinate),
                     coordinate.version().orElseThrow(),
                     scope,
+                    RequestVersionOrigin.DECLARED,
                     retryCommand,
                     snapshotAllowance));
         }
@@ -155,6 +156,7 @@ final class DirectDependencyRequestPlanner {
                     packageId,
                     managedVersion(section, packageId, projectManagedVersions),
                     scope,
+                    RequestVersionOrigin.MANAGED,
                     retryCommand,
                     snapshotAllowance));
         }
@@ -166,6 +168,7 @@ final class DirectDependencyRequestPlanner {
             PackageId packageId,
             String version,
             DependencyScope scope,
+            RequestVersionOrigin versionOrigin,
             String retryCommand,
             SnapshotAllowance snapshotAllowance) {
         validateSupportedVersion(section, packageId, version, retryCommand, snapshotAllowance);
@@ -181,7 +184,8 @@ final class DirectDependencyRequestPlanner {
                     RequestOrigin.DIRECT,
                     artifactDescriptor,
                     List.of(),
-                    optional);
+                    optional,
+                    versionOrigin);
         }
         return new DependencyRequest(
                 packageId,
@@ -192,7 +196,8 @@ final class DirectDependencyRequestPlanner {
                 metadata.exclusions().stream()
                         .map(exclusion -> directExclusion(exclusion, retryCommand))
                         .toList(),
-                optional);
+                optional,
+                versionOrigin);
     }
 
     private static Optional<ArtifactDescriptor> directArtifactDescriptor(

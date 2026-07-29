@@ -47,6 +47,7 @@ final class DependencyRequestPlannerTest {
         assertEquals("1.0.0", request.requestedVersion());
         assertEquals(DependencyScope.COMPILE, request.scope());
         assertEquals(RequestOrigin.DIRECT, request.origin());
+        assertEquals(RequestVersionOrigin.DECLARED, request.versionOrigin());
         assertEquals(List.of(new DependencyExclusion("com.example", "lib")), request.exclusions());
     }
 
@@ -61,6 +62,7 @@ final class DependencyRequestPlannerTest {
         assertEquals("2.0.0", request.requestedVersion());
         assertEquals(DependencyScope.TEST, request.scope());
         assertEquals(RequestOrigin.DIRECT, request.origin());
+        assertEquals(RequestVersionOrigin.MANAGED, request.versionOrigin());
     }
 
     @Test
@@ -116,6 +118,7 @@ final class DependencyRequestPlannerTest {
         assertEquals("1.12.0", request.requestedVersion());
         assertEquals(DependencyScope.TEST, request.scope());
         assertEquals(RequestOrigin.TRANSITIVE, request.origin());
+        assertEquals(RequestVersionOrigin.MANAGED, request.versionOrigin());
     }
 
     private static DependencyRequest onlyRequest(List<DependencyRequest> requests, PackageId packageId) {

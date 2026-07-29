@@ -439,6 +439,8 @@ final class ExplainCommandEmitTomlTest {
             String lock = Files.readString(tempDir.resolve("zolt.lock"));
             assertTrue(lock.contains("org.apiguardian:apiguardian-api:1.1.0"), () -> lock);
             assertFalse(lock.contains("org.apiguardian:apiguardian-api:1.1.2"), () -> lock);
+            assertTrue(lock.contains(
+                    "id = \"org.junit.platform:junit-platform-console\"\nversion = \"1.11.4\""), () -> lock);
         }
     }
 

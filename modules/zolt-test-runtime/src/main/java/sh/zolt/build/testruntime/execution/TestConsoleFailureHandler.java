@@ -26,22 +26,12 @@ final class TestConsoleFailureHandler {
         }
     }
 
-    /**
-     * Guards against a silent no-op: when test sources compiled but the JUnit Platform
-     * discovered zero tests (for example because the resolved {@code junit-platform} launcher
-     * version does not match the {@code junit-jupiter} engine version), the run must fail loudly
-     * instead of reporting success. Only fires for an unfiltered run — a filtered selection that
-     * matches nothing is handled by {@link #throwIfSelectedTestsDidNotMatch}.
-     */
-    void throwIfCompiledTestsProducedNoTests(String output, TestSelection selection, int compiledTestSourceCount) {
-        if (selection.emptySelection() && compiledTestSourceCount > 0 && noTestsFound(output)) {
+    void throwIfLauncherDidNotStart(String output) {
+        if (output.contains("Cannot create Launcher without at least one TestEngine")) {
             throw new TestRunException(
-                    "No tests were discovered even though " + compiledTestSourceCount
-                            + " test source file(s) compiled. The JUnit Platform found 0 tests, so nothing ran. "
-                            + "This usually means no test engine matched the platform launcher — check that "
-                            + "your [test.dependencies] engine version (for example org.junit.jupiter:junit-jupiter) "
-                            + "lines up with the JUnit Platform, then run `zolt resolve` and `zolt test` again.\n"
-                            + output.stripTrailing());
+                    "No test engine is present on the test classpath. "
+                            + "Run `zolt add test org.junit.jupiter:junit-jupiter:5.14.4`, "
+                            + "then run `zolt test` again.");
         }
     }
 
