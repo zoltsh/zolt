@@ -69,6 +69,12 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[0].contains("\"includedMembers\":\"2\""));
         assertTrue(lines[0].contains("\"selectedMembers\":\"2\""));
         assertTrue(lines[0].contains("\"resolvedLockfile\":\"true\""));
+        assertTrue(lines[0].contains("\"workspaceDiscoveryNanos\""));
+        assertTrue(lines[0].contains("\"workspaceSelectionNanos\""));
+        assertTrue(lines[0].contains("\"workspaceResolutionNanos\""));
+        assertTrue(lines[0].contains("\"workspaceLockfileReadNanos\""));
+        assertTrue(lines[0].contains("\"workspaceEdges\":\"1\""));
+        assertTrue(lines[0].contains("\"workspaceLockfilePackages\""));
         assertTrue(lines[1].contains("\"phase\":\"compile workspace members\""));
         assertTrue(lines[1].contains("\"depth\":1"));
         assertTrue(lines[1].contains("\"members\":\"2\""));
@@ -80,6 +86,12 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[1].contains("\"mainSourcesRecompiled\""));
         assertTrue(lines[1].contains("\"mainAbiChangedClasses\""));
         assertTrue(lines[1].contains("\"workspaceAbiInvalidations\""));
+        assertTrue(lines[1].contains("\"workspaceGraphConstructionNanos\""));
+        assertTrue(lines[1].contains("\"workspaceClasspathCalculationNanos\""));
+        assertTrue(lines[1].contains("\"workspacePackageCalculationNanos\":\"0\""));
+        assertTrue(lines[1].contains("\"workspaceMemberExecutionNanos\""));
+        assertTrue(lines[1].contains("\"workspaceClasspathCalculations\":\"2\""));
+        assertTrue(lines[1].contains("\"workspacePackageCalculations\":\"0\""));
         assertTrue(lines[2].contains("\"phase\":\"build workspace\""));
         assertTrue(lines[2].contains("\"depth\":0"));
         assertTrue(lines[2].contains("\"members\":\"2\""));

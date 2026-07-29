@@ -12,11 +12,25 @@ public record WorkspaceBuildResult(
         Optional<ResolveResult> resolveResult,
         List<MemberBuildResult> members,
         int buildWaveCount,
-        int buildMaxWorkers) {
+        int buildMaxWorkers,
+        WorkspaceExecutionContext.Metrics executionMetrics) {
     public WorkspaceBuildResult(
             Optional<ResolveResult> resolveResult,
             List<MemberBuildResult> members) {
-        this(resolveResult, members, defaultWaveCount(members), defaultMaxWorkers(members));
+        this(
+                resolveResult,
+                members,
+                defaultWaveCount(members),
+                defaultMaxWorkers(members),
+                emptyMetrics());
+    }
+
+    public WorkspaceBuildResult(
+            Optional<ResolveResult> resolveResult,
+            List<MemberBuildResult> members,
+            int buildWaveCount,
+            int buildMaxWorkers) {
+        this(resolveResult, members, buildWaveCount, buildMaxWorkers, emptyMetrics());
     }
 
     public WorkspaceBuildResult {
@@ -24,6 +38,7 @@ public record WorkspaceBuildResult(
         members = List.copyOf(members);
         buildWaveCount = Math.max(0, buildWaveCount);
         buildMaxWorkers = Math.max(0, buildMaxWorkers);
+        executionMetrics = executionMetrics == null ? emptyMetrics() : executionMetrics;
     }
 
     public boolean resolvedLockfile() {
@@ -111,6 +126,10 @@ public record WorkspaceBuildResult(
 
     private static int defaultMaxWorkers(List<MemberBuildResult> members) {
         return members == null || members.isEmpty() ? 0 : 1;
+    }
+
+    private static WorkspaceExecutionContext.Metrics emptyMetrics() {
+        return new WorkspaceExecutionContext.Metrics(0L, 0L, 0L, 0L, 0, 0, 0, 0);
     }
 
     public record MemberBuildResult(

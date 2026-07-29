@@ -129,6 +129,20 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_ABI_INVALIDATIONS = "workspaceAbiInvalidations";
     public static final String WORKSPACE_BUILD_MAX_WORKERS = "workspaceBuildMaxWorkers";
     public static final String WORKSPACE_BUILD_WAVES = "workspaceBuildWaves";
+    public static final String WORKSPACE_CLASSPATH_CACHE_HITS = "workspaceClasspathCacheHits";
+    public static final String WORKSPACE_CLASSPATH_CALCULATIONS = "workspaceClasspathCalculations";
+    public static final String WORKSPACE_CLASSPATH_CALCULATION_NANOS = "workspaceClasspathCalculationNanos";
+    public static final String WORKSPACE_GRAPH_CONSTRUCTION_NANOS = "workspaceGraphConstructionNanos";
+    public static final String WORKSPACE_PACKAGE_CACHE_HITS = "workspacePackageCacheHits";
+    public static final String WORKSPACE_PACKAGE_CALCULATIONS = "workspacePackageCalculations";
+    public static final String WORKSPACE_PACKAGE_CALCULATION_NANOS = "workspacePackageCalculationNanos";
+    public static final String WORKSPACE_DISCOVERY_NANOS = "workspaceDiscoveryNanos";
+    public static final String WORKSPACE_SELECTION_NANOS = "workspaceSelectionNanos";
+    public static final String WORKSPACE_RESOLUTION_NANOS = "workspaceResolutionNanos";
+    public static final String WORKSPACE_LOCKFILE_READ_NANOS = "workspaceLockfileReadNanos";
+    public static final String WORKSPACE_EDGES = "workspaceEdges";
+    public static final String WORKSPACE_LOCKFILE_PACKAGES = "workspaceLockfilePackages";
+    public static final String WORKSPACE_MEMBER_EXECUTION_NANOS = "workspaceMemberExecutionNanos";
     public static final String XML_REPORT = "xmlReport";
 
     private CommandAttributeKeys() {

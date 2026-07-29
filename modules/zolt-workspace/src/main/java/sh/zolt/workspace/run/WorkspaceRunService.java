@@ -12,6 +12,7 @@ import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceBuildRequirements;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -92,7 +93,10 @@ public final class WorkspaceRunService {
     }
 
     public WorkspaceBuildResult buildRunInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
-        return workspaceBuildService.build(plan, cacheRoot);
+        return workspaceBuildService.build(
+                plan,
+                cacheRoot,
+                WorkspaceBuildRequirements.runtime());
     }
 
     public WorkspaceRunResult runBuiltMembers(

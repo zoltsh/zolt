@@ -72,7 +72,7 @@ final class TestCompileCommandRunner {
                             CommandBuildAttributes::workspaceBuildPlan);
                     WorkspaceBuildResult buildResult = timings.measure(
                             "build workspace test inputs",
-                            () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
+                            () -> projectWorkspaceTestService.buildTestCompileInputs(plan, cacheRoot),
                             build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
                     return timings.measure(
                             "compile workspace test members",

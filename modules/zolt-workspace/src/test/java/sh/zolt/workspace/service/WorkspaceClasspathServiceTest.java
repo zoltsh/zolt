@@ -124,7 +124,14 @@ final class WorkspaceClasspathServiceTest {
                 tempDir.resolve("cache"),
                 List.of("modules/core", "apps/api"),
                 Set.of("apps/api"));
-
+        WorkspaceExecutionContext context = new WorkspaceExecutionContext(
+                workspace, lockfile, tempDir.resolve("cache"));
+        Map<String, WorkspaceBuildRequirements> requirements = Map.of(
+                "apps/api", WorkspaceBuildRequirements.mainBuild());
+        service.classpathsForMembers(context, List.of("apps/api"), requirements);
+        service.classpathsForMembers(context, List.of("apps/api"), requirements);
+        service.classpathPackagesForMembers(context, List.of("apps/api"));
+        service.classpathPackagesForMembers(context, List.of("apps/api"));
         assertEquals(List.of("apps/api", "apps/worker"), List.copyOf(classpathsByMember.keySet()));
         assertEquals(apiClasspaths, classpathsByMember.get("apps/api"));
         assertEquals(workerClasspaths, classpathsByMember.get("apps/worker"));
@@ -147,6 +154,10 @@ final class WorkspaceClasspathServiceTest {
         assertFalse(workerClasspaths.compile().entries().contains(coreApiJar));
         assertTrue(workerClasspaths.compile().entries().contains(workerHelperJar));
         assertTrue(workerClasspaths.compile().entries().contains(legacyJar));
+        assertEquals(1, context.metrics().classpathCalculations());
+        assertEquals(2, context.metrics().packageCalculations());
+        assertEquals(1, context.metrics().classpathCacheHits());
+        assertEquals(1, context.metrics().packageCacheHits());
     }
 
     @Test

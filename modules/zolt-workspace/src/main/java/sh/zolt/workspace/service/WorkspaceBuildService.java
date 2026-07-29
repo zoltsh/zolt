@@ -18,7 +18,6 @@ import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -136,68 +135,139 @@ public final class WorkspaceBuildService {
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest,
-            boolean includeTestLanes) {
+        boolean includeTestLanes) {
         Path start = startDirectory.toAbsolutePath().normalize();
+        long discoveryStarted = System.nanoTime();
         Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> ResolveException.actionable(
                 "Could not find workspace config.",
                 "Run `zolt build --workspace` from a workspace directory or add zolt.toml with [workspace]."));
+        long discoveryNanos = elapsedSince(discoveryStarted);
+        long selectionStarted = System.nanoTime();
         WorkspaceSelection selection = includeTestLanes
                 ? memberSelector.select(workspace, selectionRequest)
                 : memberSelector.selectMain(workspace, selectionRequest);
+        long selectionNanos = elapsedSince(selectionStarted);
         Path lockfilePath = workspace.root().resolve("zolt.lock");
         Optional<ResolveResult> resolveResult = Optional.empty();
+        long resolutionNanos = 0L;
         if (!Files.isRegularFile(lockfilePath)) {
+            long resolutionStarted = System.nanoTime();
             resolveResult = Optional.of(workspaceResolveService.resolve(
                     start,
                     cacheRoot,
                     false,
                     offline,
                     "zolt build --workspace"));
+            resolutionNanos = elapsedSince(resolutionStarted);
         }
 
+        long lockfileReadStarted = System.nanoTime();
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         WorkspaceGraphLockCapability.requireMemberGraphEvidence(lockfile);
-        return new WorkspaceBuildPlan(workspace, selection, resolveResult, lockfile);
+        long lockfileReadNanos = elapsedSince(lockfileReadStarted);
+        return new WorkspaceBuildPlan(
+                workspace,
+                selection,
+                resolveResult,
+                lockfile,
+                new WorkspaceExecutionContext(workspace, lockfile, cacheRoot),
+                new WorkspacePlanMetrics(
+                        discoveryNanos,
+                        selectionNanos,
+                        resolutionNanos,
+                        lockfileReadNanos,
+                        workspace.members().size(),
+                        workspace.edges().size(),
+                        lockfile.packages().size()));
     }
 
     public WorkspaceBuildResult build(WorkspaceBuildPlan plan, Path cacheRoot) {
-        return build(
-                plan,
-                cacheRoot,
-                new LinkedHashSet<>(plan.selection().includedMembers()));
+        return build(plan, cacheRoot, WorkspaceBuildRequirements.mainBuild());
+    }
+
+    public WorkspaceBuildResult build(
+            WorkspaceBuildPlan plan,
+            Path cacheRoot,
+            WorkspaceBuildRequirements selectedRequirements) {
+        Map<String, WorkspaceBuildRequirements> requirementsByMember = new LinkedHashMap<>();
+        for (String member : plan.selection().includedMembers()) {
+            requirementsByMember.put(
+                    member,
+                    plan.selection().selectedMembers().contains(member)
+                            ? selectedRequirements
+                            : WorkspaceBuildRequirements.mainBuild());
+        }
+        return build(plan, cacheRoot, requirementsByMember);
     }
 
     WorkspaceBuildResult build(
             WorkspaceBuildPlan plan,
             Path cacheRoot,
             Set<String> fullClasspathMembers) {
+        Map<String, WorkspaceBuildRequirements> requirementsByMember = new LinkedHashMap<>();
+        for (String member : plan.selection().includedMembers()) {
+            requirementsByMember.put(
+                    member,
+                    fullClasspathMembers.contains(member)
+                            ? WorkspaceBuildRequirements.testRun()
+                            : WorkspaceBuildRequirements.mainBuild());
+        }
+        return build(plan, cacheRoot, requirementsByMember);
+    }
+
+    private WorkspaceBuildResult build(
+            WorkspaceBuildPlan plan,
+            Path cacheRoot,
+            Map<String, WorkspaceBuildRequirements> requirementsByMember) {
+        WorkspaceExecutionContext context = executionContext(plan, cacheRoot);
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
-        ZoltLockfile lockfile = plan.lockfile();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, ClasspathSet> classpathsByMember = workspaceClasspathService.classpathsForMembers(
-                workspace,
-                lockfile,
-                cacheRoot,
+                context,
                 selection.includedMembers(),
-                fullClasspathMembers);
-        Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember =
-                workspaceClasspathService.classpathPackagesForMembers(
-                        workspace,
-                        lockfile,
-                        cacheRoot,
-                        selection.includedMembers());
+                requirementsByMember);
+        List<String> packageMembers = selection.includedMembers().stream()
+                .filter(member -> requirementsByMember
+                        .getOrDefault(member, WorkspaceBuildRequirements.mainBuild())
+                        .packageInputs())
+                .toList();
+        Map<String, List<ResolvedClasspathPackage>> calculatedPackages =
+                workspaceClasspathService.classpathPackagesForMembers(context, packageMembers);
+        Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember = new LinkedHashMap<>();
+        for (String member : selection.includedMembers()) {
+            classpathPackagesByMember.put(
+                    member,
+                    calculatedPackages.getOrDefault(member, List.of()));
+        }
+        long memberExecutionStarted = System.nanoTime();
         WorkspaceMemberBuildExecutor.Result execution = memberBuildExecutor.build(
                 workspace,
                 selection,
                 membersByPath,
                 classpathsByMember,
                 classpathPackagesByMember);
+        context.addMemberExecutionNanos(elapsedSince(memberExecutionStarted));
         return new WorkspaceBuildResult(
                 plan.resolveResult(),
                 execution.results(),
                 execution.waveCount(),
-                execution.maxWorkers());
+                execution.maxWorkers(),
+                context.metrics());
+    }
+
+    private static WorkspaceExecutionContext executionContext(
+            WorkspaceBuildPlan plan,
+            Path cacheRoot) {
+        Path requestedCacheRoot = cacheRoot.toAbsolutePath().normalize();
+        if (plan.executionContext().cacheRoot().equals(requestedCacheRoot)) {
+            return plan.executionContext();
+        }
+        return new WorkspaceExecutionContext(plan.workspace(), plan.lockfile(), requestedCacheRoot);
+    }
+
+    private static long elapsedSince(long started) {
+        return Math.max(0L, System.nanoTime() - started);
     }
 
     private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {

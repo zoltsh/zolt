@@ -13,6 +13,7 @@ import sh.zolt.resolve.ResolveService;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
+import sh.zolt.workspace.service.WorkspaceBuildRequirements;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
@@ -161,7 +162,10 @@ public final class WorkspacePackageService {
     }
 
     public WorkspaceBuildResult buildPackageInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
-        return workspaceBuildService.build(plan, cacheRoot);
+        return workspaceBuildService.build(
+                plan,
+                cacheRoot,
+                WorkspaceBuildRequirements.packaging());
     }
 
     public WorkspacePackageResult packageBuiltJars(
@@ -190,8 +194,7 @@ public final class WorkspacePackageService {
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
         Map<String, ZoltLockfile> packageLocks =
                 workspaceClasspathService.packageLocksForMembers(
-                        workspace,
-                        plan.lockfile(),
+                        plan.executionContext(),
                         selection.selectedMembers());
         List<WorkspacePackageResult.MemberPackageResult> results = new ArrayList<>();
         for (String memberPath : selection.selectedMembers()) {
