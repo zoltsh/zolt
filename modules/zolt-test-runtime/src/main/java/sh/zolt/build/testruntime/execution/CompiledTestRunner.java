@@ -183,6 +183,9 @@ public final class CompiledTestRunner {
         }
         if (plainJunitWorkerEnabled || testProfileSettings.enabled()) {
             List<Path> workerClasspath = plainJunitWorkerClasspath.get();
+            List<Path> workerTestRuntimeClasspath =
+                    junitLauncherClasspath.workerClasspath(
+                            runnerClasspath);
             if (testWorkerPoolPlan.enabled()
                     || plainJunitWorkerPoolRunner.reusesProcesses()) {
                 PlainJunitWorkerPoolRunResult poolResult = plainJunitWorkerPoolRunner.run(
@@ -190,7 +193,7 @@ public final class CompiledTestRunner {
                         workerClasspath,
                         projectDirectory,
                         config,
-                        runnerClasspath,
+                        workerTestRuntimeClasspath,
                         compileResult.outputDirectory().toAbsolutePath().normalize(),
                         testSelection,
                         testWorkerPoolPlan,
@@ -220,7 +223,7 @@ public final class CompiledTestRunner {
                     jdkStatus.java().orElseThrow(),
                     workerClasspath,
                     projectDirectory,
-                    runnerClasspath,
+                    workerTestRuntimeClasspath,
                     compileResult.outputDirectory().toAbsolutePath().normalize(),
                     testSelection,
                     testJvmArguments,
