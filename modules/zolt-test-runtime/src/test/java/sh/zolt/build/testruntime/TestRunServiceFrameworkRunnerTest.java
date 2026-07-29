@@ -187,6 +187,8 @@ final class TestRunServiceFrameworkRunnerTest {
 
         assertEquals("zolt-junit-worker", result.testRunner());
         assertEquals(4, result.testDiscoveryScanRoots());
+        assertEquals(4, result.testWorkerStarts());
+        assertEquals(4, result.testWorkerRequests());
         assertTrue(result.output().contains("passed com.example.DbOneTest"));
         assertTrue(result.output().contains("passed com.example.DbTwoTest"));
         assertEquals(
@@ -199,29 +201,31 @@ final class TestRunServiceFrameworkRunnerTest {
                         .flatMap(selection -> selection.classSelectors().stream())
                         .sorted()
                         .toList());
-        assertTrue(workerIdsByClass.getOrDefault("com.example.DbOneTest", "").startsWith("wave-1-worker-"));
-        assertTrue(workerIdsByClass.getOrDefault("com.example.DbTwoTest", "").startsWith("wave-2-worker-"));
+        assertEquals(
+                workerIdsByClass.get("com.example.DbOneTest"),
+                workerIdsByClass.get("com.example.DbTwoTest"));
+        assertTrue(workerIdsByClass.values().stream()
+                .allMatch(workerId -> workerId.startsWith("worker-")));
         assertEquals(4, environments.size());
         assertEquals(4, workerJvmArguments.size());
         assertTrue(workerJvmArguments.stream()
                 .map(arguments -> arguments.values().getFirst())
-                .allMatch(argument -> argument.contains("target/coverage/workers/wave-")
-                        && argument.endsWith("/jacoco.exec,append=false")));
+                .allMatch(argument -> argument.contains("target/coverage/workers/worker-")
+                        && argument.endsWith("/jacoco.exec,append=true")));
         assertTrue(environments.stream().allMatch(environment -> environment.containsKey("ZOLT_TEST_WORKER_ID")));
         assertTrue(environments.stream().allMatch(environment -> environment.containsKey("ZOLT_TEST_WORKER_OUTPUT_DIR")));
         assertTrue(environments.stream().allMatch(environment -> environment.containsKey("ZOLT_COVERAGE_EXEC_FILE")));
         assertTrue(reportDirectories.stream().allMatch(Optional::isPresent));
         assertTrue(reportDirectories.stream()
                 .map(Optional::orElseThrow)
-                .allMatch(path -> path.toString().contains("target/test-reports/workers/wave-")));
+                .allMatch(path -> path.toString().contains("target/test-reports/workers/worker-")));
         String expectedWorkerManifest = """
                 {
                   "version": 1,
                   "workers": [
-                    "wave-1-worker-1",
-                    "wave-1-worker-2",
-                    "wave-1-worker-3",
-                    "wave-2-worker-1"
+                    "worker-1",
+                    "worker-2",
+                    "worker-3"
                   ]
                 }
                 """;

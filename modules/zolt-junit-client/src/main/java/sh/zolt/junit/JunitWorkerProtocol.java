@@ -1,6 +1,7 @@
 package sh.zolt.junit;
 
 import sh.zolt.test.TestSelection;
+import sh.zolt.test.TestSelectionCodec;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +45,7 @@ public final class JunitWorkerProtocol {
     private static final String FIELD_VERSION = "v";
     private static final String FIELD_REQUEST_ID = "id";
     private static final String FIELD_TEST_OUTPUT = "out";
+    private static final String FIELD_TEST_RUNTIME_CLASSPATH = "classpath";
     private static final String FIELD_REPORTS = "reports";
     private static final String FIELD_PROFILE = "profile";
     private static final String FIELD_EVENTS = "events";
@@ -76,6 +78,24 @@ public final class JunitWorkerProtocol {
             Optional<Path> reportsDirectory,
             List<String> events,
             Optional<Path> profileDirectory) {
+        return runRequest(
+                requestId,
+                List.of(),
+                testOutputDirectory,
+                testSelection,
+                reportsDirectory,
+                events,
+                profileDirectory);
+    }
+
+    public static String runRequest(
+            String requestId,
+            List<Path> testRuntimeClasspath,
+            Path testOutputDirectory,
+            TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            List<String> events,
+            Optional<Path> profileDirectory) {
         if (testOutputDirectory == null) {
             throw new IllegalArgumentException("JUnit worker test output directory is required.");
         }
@@ -83,6 +103,7 @@ public final class JunitWorkerProtocol {
         frame.put(FIELD_VERSION, Integer.toString(SCHEMA_VERSION));
         frame.put(FIELD_REQUEST_ID, validateRequestId(requestId));
         frame.put(FIELD_TEST_OUTPUT, requireField("JUnit worker test output directory", testOutputDirectory.toString()));
+        frame.put(FIELD_TEST_RUNTIME_CLASSPATH, encodedPaths(testRuntimeClasspath));
         optionalPath(reportsDirectory).ifPresent(path -> frame.put(FIELD_REPORTS, path));
         optionalPath(profileDirectory).ifPresent(path -> frame.put(FIELD_PROFILE, path));
         TestSelectionField.encodeStrings(frame, FIELD_EVENTS, events);
@@ -112,6 +133,7 @@ public final class JunitWorkerProtocol {
                 WorkerCommand.RUN,
                 requestId,
                 frame.require(FIELD_TEST_OUTPUT, "JUnit worker test output directory"),
+                decodedPaths(frame),
                 frame.optional(FIELD_REPORTS),
                 frame.optional(FIELD_PROFILE),
                 TestSelectionField.events(frame, FIELD_EVENTS),
@@ -179,6 +201,21 @@ public final class JunitWorkerProtocol {
         return value == null ? Optional.empty() : value.map(Path::toString).filter(path -> !path.isBlank());
     }
 
+    private static String encodedPaths(List<Path> paths) {
+        if (paths == null || paths.isEmpty()) {
+            return null;
+        }
+        return TestSelectionCodec.encodeStrings(paths.stream()
+                .map(Path::toString)
+                .toList());
+    }
+
+    private static List<String> decodedPaths(Frame frame) {
+        return TestSelectionCodec.decodeStrings(
+                "JUnit worker test runtime classpath",
+                frame.optional(FIELD_TEST_RUNTIME_CLASSPATH).orElse(""));
+    }
+
     public enum WorkerCommand {
         RUN,
         QUIT
@@ -188,14 +225,37 @@ public final class JunitWorkerProtocol {
             WorkerCommand command,
             String requestId,
             String testOutputDirectory,
+            List<String> testRuntimeClasspath,
             Optional<String> reportsDirectory,
             Optional<String> profileDirectory,
             List<String> events,
             TestSelection testSelection) {
         public WorkerRequest {
+            testRuntimeClasspath = testRuntimeClasspath == null
+                    ? List.of()
+                    : List.copyOf(testRuntimeClasspath);
             reportsDirectory = reportsDirectory == null ? Optional.empty() : reportsDirectory;
             profileDirectory = profileDirectory == null ? Optional.empty() : profileDirectory;
             events = events == null ? List.of() : List.copyOf(events);
+        }
+
+        public WorkerRequest(
+                WorkerCommand command,
+                String requestId,
+                String testOutputDirectory,
+                Optional<String> reportsDirectory,
+                Optional<String> profileDirectory,
+                List<String> events,
+                TestSelection testSelection) {
+            this(
+                    command,
+                    requestId,
+                    testOutputDirectory,
+                    List.of(),
+                    reportsDirectory,
+                    profileDirectory,
+                    events,
+                    testSelection);
         }
 
         static WorkerRequest quit(String requestId) {
@@ -203,6 +263,7 @@ public final class JunitWorkerProtocol {
                     WorkerCommand.QUIT,
                     requestId,
                     "",
+                    List.of(),
                     Optional.empty(),
                     Optional.empty(),
                     List.of(),

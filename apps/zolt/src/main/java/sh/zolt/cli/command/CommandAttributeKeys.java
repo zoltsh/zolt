@@ -122,6 +122,8 @@ public final class CommandAttributeKeys {
     public static final String TEST_SLOW_EVIDENCE = "testSlowEvidence";
     public static final String TEST_SLOW_ENTRIES = "testSlowEntries";
     public static final String TEST_SOURCE_FILES = "testSourceFiles";
+    public static final String TEST_WORKER_REQUESTS = "testWorkerRequests";
+    public static final String TEST_WORKER_STARTS = "testWorkerStarts";
     public static final String VERSION_SELECTION_MILLIS = "versionSelectionMillis";
     public static final String VERSION_SELECTION_NANOS = "versionSelectionNanos";
     public static final String WARNINGS = "warnings";

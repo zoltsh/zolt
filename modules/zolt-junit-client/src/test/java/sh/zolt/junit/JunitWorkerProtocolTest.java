@@ -22,6 +22,7 @@ final class JunitWorkerProtocolTest {
         assertEquals(JunitWorkerProtocol.WorkerCommand.RUN, request.command());
         assertEquals("request-1", request.requestId());
         assertEquals("target/test-classes", request.testOutputDirectory());
+        assertEquals(List.of(), request.testRuntimeClasspath());
         assertTrue(request.reportsDirectory().isEmpty());
         assertTrue(request.profileDirectory().isEmpty());
         assertEquals(List.of(), request.events());
@@ -59,6 +60,30 @@ final class JunitWorkerProtocolTest {
                 "includeTags=fast",
                 "excludeTags=slow"), frame);
         assertEquals(selection, JunitWorkerProtocol.parseRequest(frame).testSelection());
+    }
+
+    @Test
+    void roundTripsRequestScopedRuntimeClasspath() {
+        List<Path> classpath = List.of(
+                Path.of("target/test-classes"),
+                Path.of("cache/lib,with-comma.jar"));
+
+        String frame = JunitWorkerProtocol.runRequest(
+                "request-1",
+                classpath,
+                OUTPUT,
+                TestSelection.empty(),
+                Optional.empty(),
+                List.of(),
+                Optional.empty());
+
+        assertTrue(frame.contains(
+                "classpath=target/test-classes,"
+                        + "cache/lib%252Cwith-comma.jar"), frame);
+        assertEquals(
+                classpath.stream().map(Path::toString).toList(),
+                JunitWorkerProtocol.parseRequest(frame)
+                        .testRuntimeClasspath());
     }
 
     @Test
@@ -219,6 +244,7 @@ final class JunitWorkerProtocolTest {
         assertEquals(JunitWorkerProtocol.WorkerCommand.QUIT, request.command());
         assertEquals("quit-1", request.requestId());
         assertEquals("", request.testOutputDirectory());
+        assertEquals(List.of(), request.testRuntimeClasspath());
         assertTrue(request.reportsDirectory().isEmpty());
         assertTrue(request.profileDirectory().isEmpty());
         assertEquals(List.of(), request.events());

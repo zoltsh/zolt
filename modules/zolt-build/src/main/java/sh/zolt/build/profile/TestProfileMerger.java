@@ -24,9 +24,9 @@ public final class TestProfileMerger {
         Path profileRoot = profileDirectory.toAbsolutePath().normalize();
         mergeProfiles(
                 profileRoot,
-                workerIds.stream()
-                        .map(workerId -> profileRoot.resolve("workers").resolve(workerId).resolve("profile.json"))
-                        .toList());
+                TestProfileInputs.workerProfiles(
+                        profileRoot,
+                        workerIds));
     }
 
     public static void mergeProfiles(Path profileDirectory, List<Path> profileJsonFiles) {

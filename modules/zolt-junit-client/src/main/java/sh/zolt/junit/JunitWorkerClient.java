@@ -49,10 +49,27 @@ public final class JunitWorkerClient implements AutoCloseable {
             Optional<Path> reportsDirectory,
             List<String> events,
             Optional<Path> profileDirectory) {
+        return run(
+                List.of(),
+                testOutputDirectory,
+                testSelection,
+                reportsDirectory,
+                events,
+                profileDirectory);
+    }
+
+    public WorkerRunResult run(
+            List<Path> testRuntimeClasspath,
+            Path testOutputDirectory,
+            TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            List<String> events,
+            Optional<Path> profileDirectory) {
         ensureOpen();
         String requestId = nextRequestId();
         writeFrame(JunitWorkerProtocol.runRequest(
                 requestId,
+                testRuntimeClasspath,
                 testOutputDirectory,
                 testSelection,
                 reportsDirectory,

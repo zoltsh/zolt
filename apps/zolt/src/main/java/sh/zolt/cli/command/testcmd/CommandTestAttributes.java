@@ -32,6 +32,10 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_RUNTIME_CLASSPATH_ENTRIES, Integer.toString(result.testRuntimeClasspathEntries()));
         attributes.put(CommandAttributeKeys.TEST_LAUNCHER_CLASSPATH_ENTRIES, Integer.toString(result.testLauncherClasspathEntries()));
         attributes.put(CommandAttributeKeys.TEST_DISCOVERY_SCAN_ROOTS, Integer.toString(result.testDiscoveryScanRoots()));
+        addTestWorkerAttributes(
+                attributes,
+                result.testWorkerStarts(),
+                result.testWorkerRequests());
         addTestSelectionAttributes(attributes, result.testSelection());
         attributes.put(CommandAttributeKeys.TEST_JVM_ARGS, Integer.toString(result.testJvmArguments().values().size()));
         addMainFingerprintAttributes(attributes, result.compileResult().buildResult());
@@ -66,6 +70,10 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_RUNTIME_CLASSPATH_ENTRIES, Integer.toString(result.testRuntimeClasspathEntries()));
         attributes.put(CommandAttributeKeys.TEST_LAUNCHER_CLASSPATH_ENTRIES, Integer.toString(result.testLauncherClasspathEntries()));
         attributes.put(CommandAttributeKeys.TEST_DISCOVERY_SCAN_ROOTS, Integer.toString(result.testDiscoveryScanRoots()));
+        addTestWorkerAttributes(
+                attributes,
+                result.testWorkerStarts(),
+                result.testWorkerRequests());
         addTestSelectionAttributes(attributes, result.testSelection());
         attributes.put(CommandAttributeKeys.TEST_JVM_ARGS, Integer.toString(result.testJvmArguments().values().size()));
         addTestRunnerTimingAttributes(attributes, result);
@@ -89,6 +97,10 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_RUNTIME_CLASSPATH_ENTRIES, Integer.toString(result.testRuntimeClasspathEntryCount()));
         attributes.put(CommandAttributeKeys.TEST_LAUNCHER_CLASSPATH_ENTRIES, Integer.toString(result.testLauncherClasspathEntryCount()));
         attributes.put(CommandAttributeKeys.TEST_DISCOVERY_SCAN_ROOTS, Integer.toString(result.testDiscoveryScanRootCount()));
+        addTestWorkerAttributes(
+                attributes,
+                result.testWorkerStartCount(),
+                result.testWorkerRequestCount());
         addMainFingerprintAttributes(
                 attributes,
                 result.mainFingerprintCheckNanos(),
@@ -159,6 +171,18 @@ public final class CommandTestAttributes {
             attributes.put(CommandAttributeKeys.TEST_RUNNER_REQUEST_MILLIS, Long.toString(result.testRunnerRequestNanos() / 1_000_000L));
             attributes.put(CommandAttributeKeys.TEST_RUNNER_REQUEST_NANOS, Long.toString(result.testRunnerRequestNanos()));
         }
+    }
+
+    private static void addTestWorkerAttributes(
+            Map<String, String> attributes,
+            int starts,
+            int requests) {
+        attributes.put(
+                CommandAttributeKeys.TEST_WORKER_STARTS,
+                Integer.toString(starts));
+        attributes.put(
+                CommandAttributeKeys.TEST_WORKER_REQUESTS,
+                Integer.toString(requests));
     }
 
     private static void addSlowTestEvidenceAttributes(Map<String, String> attributes) {

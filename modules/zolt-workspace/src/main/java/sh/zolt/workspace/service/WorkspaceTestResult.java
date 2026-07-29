@@ -164,6 +164,20 @@ public record WorkspaceTestResult(
                 .sum();
     }
 
+    public int testWorkerStartCount() {
+        return members.stream()
+                .map(MemberTestRunResult::result)
+                .mapToInt(TestRunResult::testWorkerStarts)
+                .sum();
+    }
+
+    public int testWorkerRequestCount() {
+        return members.stream()
+                .map(MemberTestRunResult::result)
+                .mapToInt(TestRunResult::testWorkerRequests)
+                .sum();
+    }
+
     public int testClassSelectorCount() {
         return members.stream()
                 .map(MemberTestRunResult::result)

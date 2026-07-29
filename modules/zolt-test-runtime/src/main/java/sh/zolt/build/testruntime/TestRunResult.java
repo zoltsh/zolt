@@ -148,6 +148,14 @@ public record TestRunResult(
         return metrics.testRunnerRequestNanos();
     }
 
+    public int testWorkerStarts() {
+        return metrics.testWorkerStarts();
+    }
+
+    public int testWorkerRequests() {
+        return metrics.testWorkerRequests();
+    }
+
     public static TestRunMetrics metrics(
             String testRunner,
             int testRuntimeClasspathEntries,
@@ -160,6 +168,26 @@ public record TestRunResult(
                 testRuntimeClasspathEntries,
                 testLauncherClasspathEntries,
                 testDiscoveryScanRoots,
+                testRunnerStartupNanos,
+                testRunnerRequestNanos);
+    }
+
+    public static TestRunMetrics metrics(
+            String testRunner,
+            int testRuntimeClasspathEntries,
+            int testLauncherClasspathEntries,
+            int testDiscoveryScanRoots,
+            int testWorkerStarts,
+            int testWorkerRequests,
+            long testRunnerStartupNanos,
+            long testRunnerRequestNanos) {
+        return new TestRunMetrics(
+                testRunner,
+                testRuntimeClasspathEntries,
+                testLauncherClasspathEntries,
+                testDiscoveryScanRoots,
+                testWorkerStarts,
+                testWorkerRequests,
                 testRunnerStartupNanos,
                 testRunnerRequestNanos);
     }

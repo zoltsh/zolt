@@ -42,6 +42,43 @@ final class TestProfileMergerTest {
     }
 
     @Test
+    void mergesEveryRequestFromReusedWorkerSlots()
+            throws IOException {
+        Path first = tempDir.resolve(
+                "workers/worker-1/requests/request-000001/profile.json");
+        Path second = tempDir.resolve(
+                "workers/worker-1/requests/request-000002/profile.json");
+        writeProfile(
+                first,
+                "com.example.FirstTest",
+                "worker-1",
+                "api",
+                "apps/api",
+                "fast",
+                "");
+        writeProfile(
+                second,
+                "com.example.SecondTest",
+                "worker-1",
+                "api",
+                "apps/api",
+                "fast",
+                "");
+
+        TestProfileMerger.mergeWorkerProfiles(
+                tempDir,
+                List.of("worker-1"));
+
+        String merged = Files.readString(
+                tempDir.resolve("profile.json"));
+        assertTrue(merged.contains("\"testsFound\": 2"));
+        assertTrue(merged.contains(
+                "\"className\": \"com.example.FirstTest\""));
+        assertTrue(merged.contains(
+                "\"className\": \"com.example.SecondTest\""));
+    }
+
+    @Test
     void rejectsUnsupportedProfileSchemaVersion() throws IOException {
         Path profile = tempDir.resolve("profile-input/profile.json");
         writeProfile(profile, "com.example.UnsupportedSchemaTest", "", "api", "apps/api", "fast", "");

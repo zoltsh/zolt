@@ -12,9 +12,12 @@ import sh.zolt.build.testruntime.compile.TestCompileService;
 import sh.zolt.build.testruntime.execution.CompiledTestExecutionRunner;
 import sh.zolt.build.testruntime.execution.CompiledTestRunner;
 import sh.zolt.build.testruntime.execution.CurrentWorkerClasspath;
+import sh.zolt.build.testruntime.execution.PlainJunitRunners;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.framework.FrameworkTestRunner;
+import sh.zolt.build.junit.PlainJunitWorkerPoolRunner;
+import sh.zolt.build.junit.PlainJunitWorkerProcessSessionFactory;
 import sh.zolt.build.junit.PlainJunitWorkerProcessRunner;
 import sh.zolt.build.junit.PlainJunitWorkerRunner;
 import sh.zolt.build.profile.TestProfileSettings;
@@ -62,13 +65,9 @@ public final class TestRunService extends CompiledTestRunService {
             ResolveService resolveService) {
         this(
                 new TestCompileService(compileChecker, resolveService),
-                runChecker,
-                new JavaRunner(),
-                frameworkTestRunner,
-                new CurrentWorkerClasspath()::discover,
-                PlainJunitWorkerProcessRunner::run,
-                Boolean.getBoolean("zolt.junit.worker"),
-                java.io.File.pathSeparator);
+                compiledTestRunInvoker(
+                        runChecker,
+                        frameworkTestRunner));
     }
     TestRunService(
             TestCompileService testCompileService,
@@ -91,6 +90,28 @@ public final class TestRunService extends CompiledTestRunService {
                                         plainJunitWorkerRunner,
                                         plainJunitWorkerEnabled,
                                         pathSeparator))));
+    }
+
+    private static CompiledTestRunInvoker compiledTestRunInvoker(
+            JdkChecker runChecker,
+            FrameworkTestRunner frameworkTestRunner) {
+        PlainJunitWorkerRunner workerRunner =
+                PlainJunitWorkerProcessRunner::run;
+        PlainJunitRunners runners = new PlainJunitRunners(
+                new CurrentWorkerClasspath()::discover,
+                workerRunner,
+                new PlainJunitWorkerPoolRunner(
+                        new PlainJunitWorkerProcessSessionFactory()));
+        return new CompiledTestRunInvoker(
+                new CompiledTestExecutionRunner(
+                        new CompiledTestRunner(
+                                runChecker,
+                                new JavaRunner(),
+                                frameworkTestRunner,
+                                runners,
+                                Boolean.getBoolean(
+                                        "zolt.junit.worker"),
+                                java.io.File.pathSeparator)));
     }
 
     private TestRunService(
