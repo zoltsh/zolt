@@ -102,6 +102,9 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[1].contains("\"workspaceAbiStateCacheHits\""));
         assertTrue(lines[1].contains("\"workspaceToolchainResolutions\""));
         assertTrue(lines[1].contains("\"workspaceToolchainCacheHits\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainLockfileParses\":\"1\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainIdentityCalculations\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainIdentityCacheHits\""));
         assertTrue(lines[1].contains("\"workspaceClasspathCalculations\":\"2\""));
         assertTrue(lines[1].contains("\"workspacePackageCalculations\":\"0\""));
         assertTrue(lines[2].contains("\"phase\":\"build workspace\""));

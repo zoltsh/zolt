@@ -9,13 +9,15 @@ import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.function.Function;
 
 /** Creates a workspace plan from one authoritative config and lockfile snapshot. */
 final class WorkspaceBuildPlanner {
-    private final WorkspaceDiscoveryService discovery;
+    private final Function<Path, Optional<Workspace>> discovery;
     private final WorkspaceResolveService resolve;
     private final ZoltLockfileReader lockfiles;
     private final WorkspaceMemberSelector members;
@@ -33,6 +35,14 @@ final class WorkspaceBuildPlanner {
             WorkspaceResolveService resolve,
             ZoltLockfileReader lockfiles,
             WorkspaceMemberSelector members) {
+        this(discovery::discover, resolve, lockfiles, members);
+    }
+
+    WorkspaceBuildPlanner(
+            Function<Path, Optional<Workspace>> discovery,
+            WorkspaceResolveService resolve,
+            ZoltLockfileReader lockfiles,
+            WorkspaceMemberSelector members) {
         this.discovery = discovery;
         this.resolve = resolve;
         this.lockfiles = lockfiles;
@@ -47,7 +57,7 @@ final class WorkspaceBuildPlanner {
             boolean includeTestLanes) {
         Path start = startDirectory.toAbsolutePath().normalize();
         long discoveryStarted = System.nanoTime();
-        Workspace workspace = discovery.discover(start).orElseThrow(() -> ResolveException.actionable(
+        Workspace workspace = discovery.apply(start).orElseThrow(() -> ResolveException.actionable(
                 "Could not find workspace config.",
                 "Run `zolt build --workspace` from a workspace directory or add zolt.toml with [workspace]."));
         long discoveryNanos = elapsedSince(discoveryStarted);
@@ -62,20 +72,24 @@ final class WorkspaceBuildPlanner {
         if (!Files.isRegularFile(lockfilePath)) {
             long resolutionStarted = System.nanoTime();
             resolveResult = Optional.of(resolve.resolve(
-                    start,
+                    workspace,
                     cacheRoot,
                     false,
                     offline,
                     "zolt build --workspace"));
             resolutionNanos = elapsedSince(resolutionStarted);
+            workspace.inputs().requireCurrent();
         }
 
         long lockfileReadStarted = System.nanoTime();
-        String lockfileContent = readLockfile(lockfilePath);
+        byte[] lockfileBytes = readLockfile(lockfilePath);
+        String lockfileContent = new String(lockfileBytes, StandardCharsets.UTF_8);
+        workspace = workspace.withInputs(
+                workspace.inputs().withContent(lockfilePath, lockfileBytes));
         ZoltLockfile lockfile = lockfiles.read(lockfileContent);
         WorkspaceGraphLockCapability.requireMemberGraphEvidence(lockfile);
         WorkspacePlanInputSnapshot inputSnapshot =
-                WorkspacePlanInputSnapshot.capture(workspace, lockfilePath, lockfileContent);
+                WorkspacePlanInputSnapshot.capture(workspace);
         inputSnapshot.requireCurrent();
         long lockfileReadNanos = elapsedSince(lockfileReadStarted);
         return new WorkspaceBuildPlan(
@@ -98,9 +112,9 @@ final class WorkspaceBuildPlanner {
                         lockfile.packages().size()));
     }
 
-    private static String readLockfile(Path path) {
+    private static byte[] readLockfile(Path path) {
         try {
-            return Files.readString(path);
+            return Files.readAllBytes(path);
         } catch (IOException exception) {
             throw ResolveException.actionable(
                     "Could not read zolt.lock at " + path + " while planning the workspace.",

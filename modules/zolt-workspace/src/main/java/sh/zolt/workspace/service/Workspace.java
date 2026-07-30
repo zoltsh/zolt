@@ -10,11 +10,23 @@ public record Workspace(
         WorkspaceConfig config,
         List<WorkspaceMember> members,
         List<WorkspaceProjectEdge> edges,
-        List<String> buildOrder) {
+        List<String> buildOrder,
+        WorkspaceInputs inputs) {
     public Workspace {
         members = List.copyOf(members);
         edges = List.copyOf(edges);
         buildOrder = List.copyOf(buildOrder);
+        inputs = inputs == null ? WorkspaceInputs.unchecked() : inputs;
+    }
+
+    public Workspace(
+            Path root,
+            Path configPath,
+            WorkspaceConfig config,
+            List<WorkspaceMember> members,
+            List<WorkspaceProjectEdge> edges,
+            List<String> buildOrder) {
+        this(root, configPath, config, members, edges, buildOrder, WorkspaceInputs.unchecked());
     }
 
     public Workspace(
@@ -23,7 +35,7 @@ public record Workspace(
             WorkspaceConfig config,
             List<WorkspaceMember> members,
             List<WorkspaceProjectEdge> edges) {
-        this(root, configPath, config, members, edges, memberPaths(members));
+        this(root, configPath, config, members, edges, memberPaths(members), WorkspaceInputs.unchecked());
     }
 
     public Workspace(
@@ -32,6 +44,17 @@ public record Workspace(
             WorkspaceConfig config,
             List<WorkspaceMember> members) {
         this(root, configPath, config, members, List.of());
+    }
+
+    public Workspace withInputs(WorkspaceInputs workspaceInputs) {
+        return new Workspace(
+                root,
+                configPath,
+                config,
+                members,
+                edges,
+                buildOrder,
+                workspaceInputs);
     }
 
     private static List<String> memberPaths(List<WorkspaceMember> members) {

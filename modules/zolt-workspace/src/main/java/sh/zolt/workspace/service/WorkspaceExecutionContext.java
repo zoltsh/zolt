@@ -179,7 +179,10 @@ public final class WorkspaceExecutionContext {
                 abiIndex.reads(),
                 abiIndex.hits(),
                 toolchainIndex.resolutions(),
-                toolchainIndex.hits());
+                toolchainIndex.hits(),
+                toolchainIndex.lockfileParses(),
+                toolchainIndex.identityCalculations(),
+                toolchainIndex.identityHits());
     }
 
     synchronized void addMemberExecutionNanos(long durationNanos) {
@@ -237,7 +240,10 @@ public final class WorkspaceExecutionContext {
             int abiStateReads,
             int abiStateCacheHits,
             int toolchainResolutions,
-            int toolchainCacheHits) {
+            int toolchainCacheHits,
+            int toolchainLockfileParses,
+            int toolchainIdentityCalculations,
+            int toolchainIdentityCacheHits) {
         public Metrics(
                 long graphConstructionNanos,
                 long classpathCalculationNanos,
@@ -267,81 +273,11 @@ public final class WorkspaceExecutionContext {
                     0,
                     0,
                     0,
-                    0);
-        }
-
-        public Metrics(
-                long graphConstructionNanos,
-                long classpathCalculationNanos,
-                long packageCalculationNanos,
-                long memberExecutionNanos,
-                long schedulerIdleNanos,
-                int classpathCalculations,
-                int packageCalculations,
-                int classpathCacheHits,
-                int packageCacheHits,
-                int readyQueuePeak) {
-            this(
-                    graphConstructionNanos,
-                    classpathCalculationNanos,
-                    packageCalculationNanos,
-                    memberExecutionNanos,
-                    schedulerIdleNanos,
-                    classpathCalculations,
-                    packageCalculations,
-                    classpathCacheHits,
-                    packageCacheHits,
-                    readyQueuePeak,
-                    0L,
-                    0L,
-                    0,
-                    0,
-                    0,
-                    0,
                     0,
                     0,
                     0,
                     0);
         }
 
-        public Metrics(
-                long graphConstructionNanos,
-                long classpathCalculationNanos,
-                long packageCalculationNanos,
-                long memberExecutionNanos,
-                long schedulerIdleNanos,
-                int classpathCalculations,
-                int packageCalculations,
-                int classpathCacheHits,
-                int packageCacheHits,
-                int readyQueuePeak,
-                long fileSnapshotNanos,
-                long bytesHashed,
-                int filesHashed,
-                int membersConsidered,
-                int membersDeclaredClean,
-                int memberPipelineInvocations) {
-            this(
-                    graphConstructionNanos,
-                    classpathCalculationNanos,
-                    packageCalculationNanos,
-                    memberExecutionNanos,
-                    schedulerIdleNanos,
-                    classpathCalculations,
-                    packageCalculations,
-                    classpathCacheHits,
-                    packageCacheHits,
-                    readyQueuePeak,
-                    fileSnapshotNanos,
-                    bytesHashed,
-                    filesHashed,
-                    membersConsidered,
-                    membersDeclaredClean,
-                    memberPipelineInvocations,
-                    0,
-                    0,
-                    0,
-                    0);
-        }
     }
 }

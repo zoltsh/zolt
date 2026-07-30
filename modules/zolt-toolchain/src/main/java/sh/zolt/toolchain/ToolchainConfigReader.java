@@ -15,17 +15,17 @@ public final class ToolchainConfigReader {
     public Optional<JavaToolchainRequest> readJava(Path configPath) {
         Path normalized = configPath.toAbsolutePath().normalize();
         try {
-            TomlParseResult result = Toml.parse(normalized);
-            if (result.hasErrors()) {
-                throw new ZoltConfigException(parseErrorMessage(result, normalized));
-            }
-            return ToolchainSectionCodec.parseJavaToolchain(result, "zolt.toml");
+            return readJava(Toml.parse(normalized), normalized);
         } catch (IOException exception) {
             throw new ZoltConfigException(ActionableError.of(
                     "Could not read zolt.toml at " + normalized + ".",
                     "Check that the file exists and is readable.",
                     exception));
         }
+    }
+
+    public Optional<JavaToolchainRequest> readJava(String content) {
+        return readJava(Toml.parse(content), Path.of("zolt.toml"));
     }
 
     /**
@@ -50,6 +50,15 @@ public final class ToolchainConfigReader {
                     "Check that the file exists and is readable.",
                     exception));
         }
+    }
+
+    private static Optional<JavaToolchainRequest> readJava(
+            TomlParseResult result,
+            Path configPath) {
+        if (result.hasErrors()) {
+            throw new ZoltConfigException(parseErrorMessage(result, configPath));
+        }
+        return ToolchainSectionCodec.parseJavaToolchain(result, "zolt.toml");
     }
 
     private static String parseErrorMessage(TomlParseResult result, Path configPath) {

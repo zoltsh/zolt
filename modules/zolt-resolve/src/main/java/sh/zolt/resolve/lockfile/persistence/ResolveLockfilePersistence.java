@@ -57,9 +57,11 @@ public final class ResolveLockfilePersistence {
             return metrics.withLockfileVerificationNanos(elapsedSince(started));
         }
         long started = System.nanoTime();
-        writeLockfile(lockfilePath, LockfileSidecars.withJavaToolchainBlocksFromExisting(
-                lockfileWriter.write(lockfile),
-                existingLockfileContent(lockfilePath)));
+        updateLockfile(
+                lockfilePath,
+                existing -> LockfileSidecars.withJavaToolchainBlocksFromExisting(
+                        lockfileWriter.write(lockfile),
+                        existing));
         return metrics.withLockfileWriteNanos(elapsedSince(started));
     }
 
@@ -138,25 +140,16 @@ public final class ResolveLockfilePersistence {
         }
     }
 
-    private static void writeLockfile(Path lockfilePath, String content) {
+    private static void updateLockfile(
+            Path lockfilePath,
+            java.util.function.UnaryOperator<String> mutation) {
         try {
-            AtomicLockfileWriter.write(lockfilePath, content);
+            AtomicLockfileWriter.update(lockfilePath, mutation);
         } catch (IOException exception) {
             throw ResolveException.actionable(
                     "Could not write zolt.lock at " + lockfilePath + ".",
                     "Check that the directory exists and is writable.",
                     exception);
-        }
-    }
-
-    private static String existingLockfileContent(Path lockfilePath) {
-        if (!Files.isRegularFile(lockfilePath)) {
-            return "";
-        }
-        try {
-            return Files.readString(lockfilePath);
-        } catch (IOException exception) {
-            return "";
         }
     }
 

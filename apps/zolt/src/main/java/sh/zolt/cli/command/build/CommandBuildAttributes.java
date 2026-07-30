@@ -85,6 +85,15 @@ public final class CommandBuildAttributes {
                 CommandAttributeKeys.WORKSPACE_TOOLCHAIN_CACHE_HITS,
                 Integer.toString(result.executionMetrics().toolchainCacheHits()));
         attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_LOCKFILE_PARSES,
+                Integer.toString(result.executionMetrics().toolchainLockfileParses()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_IDENTITY_CALCULATIONS,
+                Integer.toString(result.executionMetrics().toolchainIdentityCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_IDENTITY_CACHE_HITS,
+                Integer.toString(result.executionMetrics().toolchainIdentityCacheHits()));
+        attributes.put(
                 CommandAttributeKeys.WORKSPACE_CLASSPATH_CALCULATIONS,
                 Integer.toString(result.executionMetrics().classpathCalculations()));
         attributes.put(

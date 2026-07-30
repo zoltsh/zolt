@@ -161,6 +161,11 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_ABI_STATE_CACHE_HITS = "workspaceAbiStateCacheHits";
     public static final String WORKSPACE_TOOLCHAIN_RESOLUTIONS = "workspaceToolchainResolutions";
     public static final String WORKSPACE_TOOLCHAIN_CACHE_HITS = "workspaceToolchainCacheHits";
+    public static final String WORKSPACE_TOOLCHAIN_LOCKFILE_PARSES = "workspaceToolchainLockfileParses";
+    public static final String WORKSPACE_TOOLCHAIN_IDENTITY_CALCULATIONS =
+            "workspaceToolchainIdentityCalculations";
+    public static final String WORKSPACE_TOOLCHAIN_IDENTITY_CACHE_HITS =
+            "workspaceToolchainIdentityCacheHits";
     public static final String XML_REPORT = "xmlReport";
 
     private CommandAttributeKeys() {

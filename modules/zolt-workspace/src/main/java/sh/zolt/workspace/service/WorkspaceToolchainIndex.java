@@ -11,10 +11,13 @@ import java.util.Optional;
 final class WorkspaceToolchainIndex {
     private final Map<Object, Map<String, JdkStatus>> statuses =
             new HashMap<>();
-    private final Map<String, Toolchain> toolchainsByMember =
+    private final Map<Object, Toolchain> toolchainsByKey =
             new HashMap<>();
     private int resolutions;
     private int hits;
+    private int identityCalculations;
+    private int identityHits;
+    private WorkspaceJdkCheckerResolver observedResolver;
 
     JdkChecker checker(
             WorkspaceJdkCheckerResolver resolver,
@@ -59,6 +62,20 @@ final class WorkspaceToolchainIndex {
         return hits;
     }
 
+    synchronized int lockfileParses() {
+        return observedResolver == null
+                ? 0
+                : observedResolver.lockfileParseCount();
+    }
+
+    synchronized int identityCalculations() {
+        return identityCalculations;
+    }
+
+    synchronized int identityHits() {
+        return identityHits;
+    }
+
     private synchronized JdkStatus detect(
             Object cacheKey,
             JdkChecker checker,
@@ -76,28 +93,23 @@ final class WorkspaceToolchainIndex {
         return status;
     }
 
-    private Toolchain toolchain(
+    private synchronized Toolchain toolchain(
             WorkspaceJdkCheckerResolver resolver,
             Workspace workspace,
             WorkspaceMember member) {
-        if (member == null) {
-            return resolve(resolver, workspace, null);
-        }
-        return toolchainsByMember.computeIfAbsent(
-                member.path(),
-                ignored -> resolve(resolver, workspace, member));
-    }
-
-    private static Toolchain resolve(
-            WorkspaceJdkCheckerResolver resolver,
-            Workspace workspace,
-            WorkspaceMember member) {
+        observedResolver = resolver;
         JdkChecker checker = resolver.forMember(workspace, member);
         Object cacheKey = resolver.cacheKey(
                 workspace,
                 member,
                 checker);
-        return new Toolchain(
+        Toolchain cached = toolchainsByKey.get(cacheKey);
+        if (cached != null) {
+            identityHits++;
+            return cached;
+        }
+        identityCalculations++;
+        Toolchain resolved = new Toolchain(
                 checker,
                 cacheKey,
                 resolver.compileIdentity(
@@ -105,6 +117,8 @@ final class WorkspaceToolchainIndex {
                         member,
                         checker,
                         cacheKey));
+        toolchainsByKey.put(cacheKey, resolved);
+        return resolved;
     }
 
     private static String path(Optional<Path> path) {

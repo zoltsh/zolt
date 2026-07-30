@@ -1,16 +1,23 @@
 package sh.zolt.lockfile.toml;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.UnaryOperator;
 
-/** Writes lockfile text through a unique sibling and replaces the target atomically when supported. */
+/**
+ * Serializes lockfile mutations across threads and processes, then replaces through a unique
+ * sibling atomically when supported.
+ */
 public final class AtomicLockfileWriter {
     private static final int MOVE_ATTEMPTS = 8;
     private static final long MOVE_RETRY_MILLIS = 10L;
@@ -21,12 +28,45 @@ public final class AtomicLockfileWriter {
     }
 
     public static void write(Path target, String content) throws IOException {
+        mutate(target, ignored -> content);
+    }
+
+    /**
+     * Runs one cross-process read-modify-write transaction for {@code target}.
+     */
+    public static void update(
+            Path target,
+            UnaryOperator<String> mutation) throws IOException {
+        mutate(target, mutation);
+    }
+
+    private static void mutate(
+            Path target,
+            UnaryOperator<String> mutation) throws IOException {
         Path normalized = target.toAbsolutePath().normalize();
         ReentrantLock targetLock =
                 TARGET_LOCKS.computeIfAbsent(normalized, ignored -> new ReentrantLock());
         targetLock.lock();
         try {
-            writeLocked(normalized, content);
+            Path parent = normalized.getParent();
+            if (parent == null) {
+                throw new IOException("Lockfile path has no parent: " + normalized);
+            }
+            Files.createDirectories(parent);
+            Path mutationLock = parent.resolve(".zolt")
+                    .resolve("lockfile-mutations")
+                    .resolve(normalized.getFileName() + ".lock");
+            Files.createDirectories(mutationLock.getParent());
+            try (FileChannel channel = FileChannel.open(
+                    mutationLock,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.WRITE);
+                    FileLock ignored = channel.lock()) {
+                String current = Files.isRegularFile(normalized)
+                        ? Files.readString(normalized, StandardCharsets.UTF_8)
+                        : "";
+                writeLocked(normalized, mutation.apply(current));
+            }
         } finally {
             targetLock.unlock();
         }

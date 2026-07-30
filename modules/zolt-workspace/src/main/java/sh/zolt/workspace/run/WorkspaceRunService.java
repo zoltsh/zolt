@@ -17,6 +17,7 @@ import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
+import sh.zolt.workspace.service.WorkspaceRunFiles;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
@@ -81,11 +82,17 @@ public final class WorkspaceRunService {
             WorkspaceSelectionRequest selectionRequest,
             List<String> arguments,
             Consumer<String> outputConsumer) {
-        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
-            WorkspaceBuildPlan plan = planRun(startDirectory, cacheRoot, selectionRequest);
-            WorkspaceBuildResult buildResult = buildRunInputs(plan, cacheRoot);
-            return runBuiltMembers(plan, buildResult, arguments, outputConsumer);
-        });
+        WorkspaceRunSnapshot snapshot =
+                WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+                    WorkspaceBuildPlan plan =
+                            planRun(startDirectory, cacheRoot, selectionRequest);
+                    WorkspaceBuildResult buildResult =
+                            buildRunInputs(plan, cacheRoot);
+                    return snapshotRun(plan, buildResult);
+                });
+        try (snapshot) {
+            return runSnapshot(snapshot, arguments, outputConsumer);
+        }
     }
 
     public WorkspaceBuildPlan planRun(
@@ -107,38 +114,75 @@ public final class WorkspaceRunService {
             WorkspaceBuildResult buildResult,
             List<String> arguments,
             Consumer<String> outputConsumer) {
+        try (WorkspaceRunSnapshot snapshot = snapshotRun(plan, buildResult)) {
+            return runSnapshot(snapshot, arguments, outputConsumer);
+        }
+    }
+
+    public WorkspaceRunSnapshot snapshotRun(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult) {
         plan.requireInputsCurrent();
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
 
-        List<WorkspaceRunResult.MemberRunResult> results = new ArrayList<>();
-        for (String memberPath : selection.selectedMembers()) {
-            WorkspaceMember member = membersByPath.get(memberPath);
-            WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
-            String mainClass = member.config().project().main().orElseThrow(() -> new RunException(
-                    "Workspace member `"
-                            + member.path()
-                            + "` has no main class configured. Add [project].main to its zolt.toml or choose an application member."));
-            JdkStatus jdkStatus = jdkCheckers.forMember(workspace, member).detect(member.config().project().java());
-            if (!jdkStatus.ok()) {
-                throw new RunException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
+        WorkspaceRunFiles files = WorkspaceRunFiles.create(workspace.root());
+        try {
+            for (WorkspaceBuildResult.MemberBuildResult memberBuild : buildResult.members()) {
+                files.capture(memberBuild.result().outputDirectory());
             }
-            List<Path> runtimeEntries = new ArrayList<>();
-            runtimeEntries.add(memberBuild.result().outputDirectory());
-            runtimeEntries.addAll(memberBuild.classpaths().runtime().entries());
+            List<WorkspaceRunSnapshot.MemberLaunch> launches = new ArrayList<>();
+            for (String memberPath : selection.selectedMembers()) {
+                WorkspaceMember member = membersByPath.get(memberPath);
+                WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
+                String mainClass = member.config().project().main().orElseThrow(() -> new RunException(
+                        "Workspace member `"
+                                + member.path()
+                                + "` has no main class configured. Add [project].main to its zolt.toml or choose an application member."));
+                JdkStatus jdkStatus = jdkCheckers.forMember(workspace, member).detect(member.config().project().java());
+                if (!jdkStatus.ok()) {
+                    throw new RunException("JDK check failed. " + String.join(" ", jdkStatus.problems()));
+                }
+                List<Path> runtimeEntries = new ArrayList<>();
+                runtimeEntries.add(files.remap(memberBuild.result().outputDirectory()));
+                runtimeEntries.addAll(files.remap(
+                        memberBuild.classpaths().runtime().entries()));
+                launches.add(new WorkspaceRunSnapshot.MemberLaunch(
+                        member.path(),
+                        memberBuild,
+                        jdkStatus.java().orElseThrow(),
+                        new Classpath(runtimeEntries),
+                        mainClass));
+            }
+            return new WorkspaceRunSnapshot(buildResult, files, launches);
+        } catch (RuntimeException exception) {
+            files.close();
+            throw exception;
+        }
+    }
+
+    public WorkspaceRunResult runSnapshot(
+            WorkspaceRunSnapshot snapshot,
+            List<String> arguments,
+            Consumer<String> outputConsumer) {
+        List<WorkspaceRunResult.MemberRunResult> results = new ArrayList<>();
+        for (WorkspaceRunSnapshot.MemberLaunch launch : snapshot.members()) {
             JavaRunResult javaRunResult = javaRunner.run(
-                    jdkStatus.java().orElseThrow(),
-                    new Classpath(runtimeEntries),
-                    mainClass,
+                    launch.java(),
+                    launch.classpath(),
+                    launch.mainClass(),
                     arguments,
                     outputConsumer);
             results.add(new WorkspaceRunResult.MemberRunResult(
-                    member.path(),
-                    new RunResult(memberBuild.result(), javaRunResult)));
+                    launch.member(),
+                    new RunResult(launch.build().result(), javaRunResult)));
         }
-        return new WorkspaceRunResult(buildResult.resolveResult(), buildResult.members(), results);
+        return new WorkspaceRunResult(
+                snapshot.buildResult().resolveResult(),
+                snapshot.buildResult().members(),
+                results);
     }
 
     private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {

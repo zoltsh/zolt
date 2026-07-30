@@ -81,19 +81,26 @@ public final class WorkspaceConfigParser {
 
     public boolean hasWorkspaceSection(Path path) {
         try {
-            TomlParseResult result = Toml.parse(path);
-            if (result.hasErrors()) {
-                throw new WorkspaceConfigException(parseErrorMessage(result, ROOT_CONFIG_FILE));
-            }
-            return result.getTable("workspace") != null;
+            return hasWorkspaceSection(Toml.parse(path));
         } catch (IOException exception) {
             throw new WorkspaceConfigException(
                     "Could not read zolt.toml at " + path + ". Check that the file exists and is readable.");
         }
     }
 
+    public boolean hasWorkspaceSection(String content) {
+        return hasWorkspaceSection(Toml.parse(content));
+    }
+
     public WorkspaceConfig parse(String content) {
         return parse(Toml.parse(content), WORKSPACE_FILE, TOP_LEVEL_SECTIONS);
+    }
+
+    private static boolean hasWorkspaceSection(TomlParseResult result) {
+        if (result.hasErrors()) {
+            throw new WorkspaceConfigException(parseErrorMessage(result, ROOT_CONFIG_FILE));
+        }
+        return result.getTable("workspace") != null;
     }
 
     private WorkspaceConfig parse(

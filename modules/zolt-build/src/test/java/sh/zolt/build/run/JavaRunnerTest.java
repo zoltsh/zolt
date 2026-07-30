@@ -215,14 +215,17 @@ final class JavaRunnerTest {
         CountDownLatch ready = new CountDownLatch(1);
         StringBuilder output = new StringBuilder();
         AtomicReference<Throwable> failure = new AtomicReference<>();
+        String processClasspath = Path.of(
+                        BlockingJavaProcess.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+                .toString();
         Thread caller = Thread.ofPlatform().start(() -> {
             try {
                 cancellation.call(() -> {
                     new JavaRunner().run(
                             javaExecutable(),
-                            new Classpath(List.of(Path.of(System.getProperty("java.class.path")))),
+                            new Classpath(List.of(Path.of(processClasspath))),
                             BlockingJavaProcess.class.getName(),
-                            List.of(javaExecutable().toString(), System.getProperty("java.class.path")),
+                            List.of(javaExecutable().toString(), processClasspath),
                             chunk -> {
                                 synchronized (output) {
                                     output.append(chunk);

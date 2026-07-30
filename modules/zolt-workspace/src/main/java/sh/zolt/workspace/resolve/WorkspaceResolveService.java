@@ -100,6 +100,33 @@ public final class WorkspaceResolveService {
         Path start = startDirectory.toAbsolutePath().normalize();
         Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> new ResolveException(
                 "Could not find workspace config. Run `zolt resolve --workspace` from a workspace directory or add zolt.toml with [workspace]."));
+        return resolveLocked(workspace, cacheRoot, locked, options);
+    }
+
+    public ResolveResult resolve(
+            Workspace workspace,
+            Path cacheRoot,
+            boolean locked,
+            boolean offline,
+            String retryCommand) {
+        return WorkspaceMutationLock.withLock(
+                workspace.root(),
+                () -> {
+                    workspace.inputs().requireCurrent();
+                    return resolveLocked(
+                            workspace,
+                            cacheRoot,
+                            locked,
+                            ResolveOptions.offline(offline)
+                                    .withRetryCommand(retryCommand));
+                });
+    }
+
+    private ResolveResult resolveLocked(
+            Workspace workspace,
+            Path cacheRoot,
+            boolean locked,
+            ResolveOptions options) {
         Path lockfilePath = workspace.root().resolve("zolt.lock");
         if (locked && !Files.isRegularFile(lockfilePath)) {
             throw new ResolveException(
@@ -174,10 +201,13 @@ public final class WorkspaceResolveService {
             verifyLocked(lockfilePath, lockfile);
             metrics = metrics.withLockfileVerificationNanos(elapsedSince(started));
         } else {
+            workspace.inputs().requireCurrent();
             long started = System.nanoTime();
-            writeLockfile(lockfilePath, LockfileSidecars.withJavaToolchainBlocksFromExisting(
-                    lockfileWriter.write(lockfile),
-                    existingLockfileContent(lockfilePath)));
+            updateLockfile(
+                    lockfilePath,
+                    existing -> LockfileSidecars.withJavaToolchainBlocksFromExisting(
+                            lockfileWriter.write(lockfile),
+                            existing));
             metrics = metrics.withLockfileWriteNanos(elapsedSince(started));
         }
         return new ResolveResult(
@@ -234,26 +264,17 @@ public final class WorkspaceResolveService {
         }
     }
 
-    private static void writeLockfile(Path lockfilePath, String content) {
+    private static void updateLockfile(
+            Path lockfilePath,
+            java.util.function.UnaryOperator<String> mutation) {
         try {
-            AtomicLockfileWriter.write(lockfilePath, content);
+            AtomicLockfileWriter.update(lockfilePath, mutation);
         } catch (IOException exception) {
             throw new ResolveException(
                     "Could not write zolt.lock at "
                             + lockfilePath
                             + ". Check that the directory exists and is writable.",
                     exception);
-        }
-    }
-
-    private static String existingLockfileContent(Path lockfilePath) {
-        if (!Files.isRegularFile(lockfilePath)) {
-            return "";
-        }
-        try {
-            return Files.readString(lockfilePath);
-        } catch (IOException exception) {
-            return "";
         }
     }
 

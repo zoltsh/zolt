@@ -5,10 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.RunException;
+import sh.zolt.build.run.JavaRunner;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
+import sh.zolt.resolve.ResolveService;
+import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -166,6 +174,110 @@ final class WorkspaceRunServiceTest {
 
         assertEquals(2, jdkChecker.detectCalls());
         assertEquals(1, jdkChecker.toolchainReads());
+    }
+
+    @Test
+    void releasesWorkspaceLeaseBeforeLaunchAndRunsFromStableClassSnapshot() throws Exception {
+        workspace("""
+                [workspace]
+                name = "lease-free-run"
+                members = ["apps/api"]
+                """);
+        member("apps/api", "api", """
+                main = "com.acme.api.Api"
+                """);
+        source("apps/api/src/main/java/com/acme/api/Api.java", """
+                package com.acme.api;
+
+                public final class Api {
+                    public static void main(String[] args) {
+                        System.out.println("snapshot");
+                    }
+                }
+                """);
+        CountDownLatch launched = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        AtomicReference<List<String>> command = new AtomicReference<>();
+        JavaRunner javaRunner = new JavaRunner(
+                File.pathSeparator,
+                (arguments, output) -> {
+                    command.set(arguments);
+                    launched.countDown();
+                    await(release);
+                    return new JavaRunner.ProcessResult(0, "snapshot\n");
+                });
+        CachingJdkChecker jdkChecker = new CachingJdkChecker();
+        WorkspaceRunService service = new WorkspaceRunService(
+                new WorkspaceBuildService(jdkChecker, new ResolveService()),
+                jdkChecker,
+                javaRunner);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread application = Thread.ofPlatform().start(() -> {
+            try {
+                service.run(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        new WorkspaceSelectionRequest(false, List.of("apps/api")),
+                        List.of(),
+                        ignored -> {
+                        });
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        });
+
+        try {
+            assertTrue(launched.await(10, TimeUnit.SECONDS));
+            CountDownLatch reacquired = new CountDownLatch(1);
+            Thread mutator = Thread.ofPlatform().start(() -> {
+                try (WorkspaceMutationLock ignored =
+                        WorkspaceMutationLock.acquire(tempDir)) {
+                    reacquired.countDown();
+                }
+            });
+            assertTrue(
+                    reacquired.await(2, TimeUnit.SECONDS),
+                    "workspace lease remained held while the application was running");
+            mutator.join();
+
+            Path snapshotClasses = classpathEntries(command.get()).stream()
+                    .filter(path -> path.toString().contains(
+                            ".zolt" + File.separator + "run"))
+                    .findFirst()
+                    .orElseThrow();
+            Path snapshotClass = snapshotClasses.resolve("com/acme/api/Api.class");
+            byte[] stableClass = Files.readAllBytes(snapshotClass);
+            Files.write(
+                    tempDir.resolve("apps/api/target/classes/com/acme/api/Api.class"),
+                    new byte[] {0});
+            assertTrue(stableClass.length > 1);
+            assertTrue(java.util.Arrays.equals(
+                    stableClass,
+                    Files.readAllBytes(snapshotClass)));
+        } finally {
+            release.countDown();
+            application.join(TimeUnit.SECONDS.toMillis(10));
+        }
+        assertTrue(!application.isAlive());
+        assertEquals(null, failure.get());
+    }
+
+    private static List<Path> classpathEntries(List<String> command) {
+        int index = command.indexOf("-classpath");
+        return List.of(command.get(index + 1).split(
+                        java.util.regex.Pattern.quote(File.pathSeparator)))
+                .stream()
+                .map(Path::of)
+                .toList();
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(exception);
+        }
     }
 
     private void workspace(String content) throws IOException {

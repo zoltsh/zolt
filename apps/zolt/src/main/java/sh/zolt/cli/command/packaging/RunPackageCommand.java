@@ -149,14 +149,17 @@ public final class RunPackageCommand implements Runnable {
             Path projectRoot,
             TimingRecorder timings,
             Optional<PackageMode> packageModeOverride) {
-        WorkspaceRunPackageResult result =
-                sh.zolt.workspace.service.WorkspaceMutationLock.withWorkspaceLock(
-                        projectRoot,
-                        () -> {
-                            lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
-                            return timings.measure(
-                                    "run workspace packages",
+        WorkspaceRunPackageResult result = timings.measure(
+                "run workspace packages",
+                () -> {
+                    sh.zolt.workspace.packaging.WorkspaceRunPackageSnapshot snapshot =
+                            sh.zolt.workspace.service.WorkspaceMutationLock.withWorkspaceLock(
+                                    projectRoot,
                                     () -> {
+                                        lockfiles.requireFreshWorkspaceLockfile(
+                                                projectRoot,
+                                                cacheRoot,
+                                                false);
                                         WorkspaceBuildPlan plan = timings.measure(
                                                 "plan workspace run packages",
                                                 () -> workspaceRunPackageService.planRunPackages(
@@ -181,16 +184,20 @@ public final class RunPackageCommand implements Runnable {
                                                         cacheRoot,
                                                         packageModeOverride),
                                                 CommandPackageAttributes::workspacePackage);
-                                        return timings.measure(
-                                                "launch workspace packages",
-                                                () -> workspaceRunPackageService.runPackagedMembers(
-                                                        plan,
-                                                        packageResult,
-                                                        arguments),
-                                                CommandRunPackageAttributes::workspaceRunPackage);
-                                    },
-                                    CommandRunPackageAttributes::workspaceRunPackage);
-                        });
+                                        return workspaceRunPackageService.snapshotRunPackages(
+                                                plan,
+                                                packageResult);
+                                    });
+                    try (snapshot) {
+                        return timings.measure(
+                                "launch workspace packages",
+                                () -> workspaceRunPackageService.runSnapshot(
+                                        snapshot,
+                                        arguments),
+                                CommandRunPackageAttributes::workspaceRunPackage);
+                    }
+                },
+                CommandRunPackageAttributes::workspaceRunPackage);
         CommandHumanOutput humanOutput = CommandHumanOutput.of(spec);
         if (result.resolvedLockfile()) {
             humanOutput.success("Resolved workspace dependencies because zolt.lock was missing");

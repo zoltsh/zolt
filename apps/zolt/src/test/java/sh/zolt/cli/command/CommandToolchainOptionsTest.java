@@ -87,7 +87,14 @@ final class CommandToolchainOptionsTest {
                 tempDir.resolve("zolt.lock"),
                 List.of(changedMatch, unrelated));
 
-        assertNotEquals(original, identity(resolver, workspace, member));
+        assertEquals(original, identity(resolver, workspace, member));
+        assertEquals(1, resolver.lockfileParseCount());
+        WorkspaceJdkCheckerResolver nextCommand =
+                options.workspaceJdkCheckers("build");
+        assertNotEquals(
+                original,
+                identity(nextCommand, workspace, member));
+        assertEquals(1, nextCommand.lockfileParseCount());
     }
 
     private static String identity(

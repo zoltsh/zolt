@@ -36,6 +36,7 @@ import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.run.WorkspaceRunResult;
 import sh.zolt.workspace.run.WorkspaceRunService;
+import sh.zolt.workspace.run.WorkspaceRunSnapshot;
 import java.nio.file.Path;
 import java.util.List;
 import picocli.CommandLine.Command;
@@ -119,38 +120,48 @@ public final class RunCommand implements Runnable {
             if (workspace) {
                 WorkspaceRunService projectWorkspaceRunService =
                         workspaceRunService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("run"));
-                WorkspaceRunResult result = WorkspaceMutationLock.withWorkspaceLock(
-                        projectRoot,
+                WorkspaceRunResult result = timings.measure(
+                        "run workspace",
                         () -> {
-                            lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
-                            return timings.measure(
-                                    "run workspace",
-                                    () -> {
-                                        WorkspaceBuildPlan plan = timings.measure(
-                                                "plan workspace run",
-                                                () -> projectWorkspaceRunService.planRun(
+                            WorkspaceRunSnapshot snapshot =
+                                    WorkspaceMutationLock.withWorkspaceLock(
+                                            projectRoot,
+                                            () -> {
+                                                lockfiles.requireFreshWorkspaceLockfile(
                                                         projectRoot,
                                                         cacheRoot,
-                                                        CommandWorkspaceSelections.from(
-                                                                all,
-                                                                members,
-                                                                memberGroups)),
-                                                CommandBuildAttributes::workspaceBuildPlan);
-                                        WorkspaceBuildResult buildResult = timings.measure(
-                                                "build workspace run inputs",
-                                                () -> projectWorkspaceRunService.buildRunInputs(plan, cacheRoot),
-                                                CommandBuildAttributes::workspaceBuild);
-                                        return timings.measure(
-                                                "launch workspace members",
-                                                () -> projectWorkspaceRunService.runBuiltMembers(
+                                                        false);
+                                                WorkspaceBuildPlan plan = timings.measure(
+                                                        "plan workspace run",
+                                                        () -> projectWorkspaceRunService.planRun(
+                                                                projectRoot,
+                                                                cacheRoot,
+                                                                CommandWorkspaceSelections.from(
+                                                                        all,
+                                                                        members,
+                                                                        memberGroups)),
+                                                        CommandBuildAttributes::workspaceBuildPlan);
+                                                WorkspaceBuildResult buildResult = timings.measure(
+                                                        "build workspace run inputs",
+                                                        () -> projectWorkspaceRunService.buildRunInputs(
+                                                                plan,
+                                                                cacheRoot),
+                                                        CommandBuildAttributes::workspaceBuild);
+                                                return projectWorkspaceRunService.snapshotRun(
                                                         plan,
-                                                        buildResult,
-                                                        arguments,
-                                                        output -> CommandOutput.printAndFlush(spec, output)),
-                                                CommandRunAttributes::workspaceRun);
-                                    },
-                                    CommandRunAttributes::workspaceRun);
-                        });
+                                                        buildResult);
+                                            });
+                            try (snapshot) {
+                                return timings.measure(
+                                        "launch workspace members",
+                                        () -> projectWorkspaceRunService.runSnapshot(
+                                                snapshot,
+                                                arguments,
+                                                output -> CommandOutput.printAndFlush(spec, output)),
+                                        CommandRunAttributes::workspaceRun);
+                            }
+                        },
+                        CommandRunAttributes::workspaceRun);
                 CommandHumanOutput output = CommandHumanOutput.of(spec);
                 if (result.resolvedLockfile()) {
                     output.success("Resolved workspace dependencies because zolt.lock was missing");

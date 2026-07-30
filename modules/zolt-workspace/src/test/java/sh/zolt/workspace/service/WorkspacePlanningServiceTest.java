@@ -6,12 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveException;
+import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -105,6 +108,94 @@ final class WorkspacePlanningServiceTest {
 
         assertTrue(exception.getMessage().contains("changed after planning"));
         assertFalse(Files.exists(tempDir.resolve(".zolt/workspace-state-v1")));
+    }
+
+    @Test
+    void planningNeverBlessesWorkspaceParsedFromDifferentConfigBytes() throws Exception {
+        writeWorkspaceWithApiDependency();
+        writeLockfile();
+        CountDownLatch discovered = new CountDownLatch(1);
+        CountDownLatch changed = new CountDownLatch(1);
+        WorkspaceDiscoveryService discovery = new WorkspaceDiscoveryService();
+        WorkspaceBuildPlanner planner = new WorkspaceBuildPlanner(
+                start -> {
+                    var workspace = discovery.discover(start);
+                    discovered.countDown();
+                    await(changed);
+                    return workspace;
+                },
+                new WorkspaceResolveService(),
+                new ZoltLockfileReader(),
+                new WorkspaceMemberSelector());
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread planning = Thread.ofPlatform().start(() -> {
+            try {
+                planner.plan(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        true,
+                        WorkspaceSelectionRequest.defaults(),
+                        false);
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        });
+
+        discovered.await();
+        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+                [workspace]
+                name = "replacement"
+                members = ["apps/worker"]
+                """);
+        changed.countDown();
+        planning.join();
+
+        assertTrue(failure.get() instanceof BuildException);
+        assertTrue(failure.get().getMessage().contains("changed after planning"));
+    }
+
+    @Test
+    void missingLockResolveNeverMixesCapturedWorkspaceWithNewerMemberList() throws Exception {
+        writeWorkspaceWithApiDependency();
+        WorkspaceDiscoveryService discovery = new WorkspaceDiscoveryService();
+        WorkspaceBuildPlanner planner = new WorkspaceBuildPlanner(
+                start -> {
+                    var captured = discovery.discover(start);
+                    try {
+                        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+                                [workspace]
+                                name = "replacement"
+                                members = ["apps/worker"]
+                                """);
+                    } catch (IOException exception) {
+                        throw new IllegalStateException(exception);
+                    }
+                    return captured;
+                },
+                new WorkspaceResolveService(),
+                new ZoltLockfileReader(),
+                new WorkspaceMemberSelector());
+
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> planner.plan(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        true,
+                        WorkspaceSelectionRequest.defaults(),
+                        false));
+
+        assertTrue(exception.getMessage().contains("changed after planning"));
+        assertFalse(Files.exists(tempDir.resolve("zolt.lock")));
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while coordinating workspace planning test.", exception);
+        }
     }
 
     private void writeWorkspaceWithApiDependency() throws IOException {

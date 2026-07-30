@@ -10,13 +10,15 @@ import sh.zolt.toolchain.TestRuntimeToolchain;
 import sh.zolt.toolchain.TestRuntimeToolchainResolver;
 import sh.zolt.toolchain.ToolchainConfigReader;
 import sh.zolt.toolchain.lock.LockedJavaToolchain;
-import sh.zolt.toolchain.lock.ToolchainLockfileService;
+import sh.zolt.toolchain.lock.WorkspaceToolchainLockIndex;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceTestRunServiceResolver;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import picocli.CommandLine.Option;
 
@@ -71,16 +73,29 @@ public final class CommandToolchainOptions {
     public WorkspaceJdkCheckerResolver workspaceJdkCheckers(String commandName) {
         WorkspaceToolchainServices services = workspaceToolchainServices();
         return new WorkspaceJdkCheckerResolver() {
+            private final Map<Path, WorkspaceToolchainLockIndex> lockIndexes =
+                    new HashMap<>();
+            private final Map<Path, WorkspaceToolchainKey> memberKeys =
+                    new HashMap<>();
+
             @Override
             public JdkChecker forMember(
                     sh.zolt.workspace.service.Workspace workspace,
                     sh.zolt.workspace.service.WorkspaceMember member) {
-                return jdkChecker(
+                WorkspaceToolchainKey key = key(workspace, member);
+                return new CommandJavaToolchainJdkChecker(
                         member.directory(),
                         workspace.root(),
                         member.config(),
+                        services.toolchains(),
+                        services.platform(),
+                        services.store(),
                         commandName,
-                        services);
+                        key.request(),
+                        key.pinned(),
+                        lockIndex(workspace).find(
+                                key.request(),
+                                key.platform()));
             }
 
             @Override
@@ -88,7 +103,7 @@ public final class CommandToolchainOptions {
                     sh.zolt.workspace.service.Workspace workspace,
                     sh.zolt.workspace.service.WorkspaceMember member,
                     JdkChecker checker) {
-                return workspaceToolchainKey(workspace.root(), member, services);
+                return key(workspace, member);
             }
 
             @Override
@@ -103,9 +118,40 @@ public final class CommandToolchainOptions {
                         + "|platform="
                         + key.platform().id()
                         + "|store="
-                        + key.store().root().toAbsolutePath().normalize()
+                        + key.storeRoot()
                         + "|"
-                        + lockedToolchainIdentity(workspace.root(), key);
+                        + lockedToolchainIdentity(
+                                lockIndex(workspace),
+                                key);
+            }
+
+            @Override
+            public synchronized int lockfileParseCount() {
+                return lockIndexes.values().stream()
+                        .mapToInt(WorkspaceToolchainLockIndex::parseCount)
+                        .sum();
+            }
+
+            private synchronized WorkspaceToolchainLockIndex lockIndex(
+                    sh.zolt.workspace.service.Workspace workspace) {
+                return lockIndexes.computeIfAbsent(
+                        workspace.root().toAbsolutePath().normalize(),
+                        ignored -> workspace.inputs()
+                                .content(workspace.root().resolve("zolt.lock"))
+                                .map(WorkspaceToolchainLockIndex::new)
+                                .orElseGet(() -> new WorkspaceToolchainLockIndex(
+                                        workspace.root().resolve("zolt.lock"))));
+            }
+
+            private synchronized WorkspaceToolchainKey key(
+                    sh.zolt.workspace.service.Workspace workspace,
+                    sh.zolt.workspace.service.WorkspaceMember member) {
+                return memberKeys.computeIfAbsent(
+                        member.directory().toAbsolutePath().normalize(),
+                        ignored -> workspaceToolchainKey(
+                                workspace,
+                                member,
+                                services));
             }
         };
     }
@@ -163,17 +209,24 @@ public final class CommandToolchainOptions {
     }
 
     private static WorkspaceToolchainKey workspaceToolchainKey(
-            Path workspaceRoot,
+            sh.zolt.workspace.service.Workspace workspace,
             sh.zolt.workspace.service.WorkspaceMember member,
             WorkspaceToolchainServices services) {
         ToolchainConfigReader reader = new ToolchainConfigReader();
+        Path memberConfig = member.directory().resolve("zolt.toml");
         Optional<JavaToolchainRequest> memberRequest =
-                reader.readJava(member.directory().resolve("zolt.toml"));
-        Path workspaceConfig = workspaceRoot.resolve("zolt.toml");
+                workspace.inputs()
+                        .content(memberConfig)
+                        .map(reader::readJava)
+                        .orElseGet(() -> reader.readJava(memberConfig));
+        Path workspaceConfig = workspace.root().resolve("zolt.toml");
         Optional<JavaToolchainRequest> workspaceRequest = memberRequest.isPresent()
                         || !Files.isRegularFile(workspaceConfig)
                 ? Optional.empty()
-                : reader.readJava(workspaceConfig);
+                : workspace.inputs()
+                        .content(workspaceConfig)
+                        .map(reader::readJava)
+                        .orElseGet(() -> reader.readJava(workspaceConfig));
         JavaToolchainRequest request = memberRequest
                 .or(() -> workspaceRequest)
                 .orElseGet(() -> JavaToolchainRequest.projectDefault(
@@ -181,17 +234,16 @@ public final class CommandToolchainOptions {
         return new WorkspaceToolchainKey(
                 request,
                 services.platform(),
-                services.store());
+                services.store().root().toAbsolutePath().normalize(),
+                memberRequest.isPresent() || workspaceRequest.isPresent());
     }
 
     private static String lockedToolchainIdentity(
-            Path workspaceRoot,
+            WorkspaceToolchainLockIndex lockIndex,
             WorkspaceToolchainKey key) {
-        Optional<LockedJavaToolchain> locked = new ToolchainLockfileService()
-                .findJava(
-                        workspaceRoot.resolve("zolt.lock"),
-                        key.request(),
-                        key.platform());
+        Optional<LockedJavaToolchain> locked = lockIndex.find(
+                key.request(),
+                key.platform());
         if (locked.isEmpty()) {
             return "toolchainLock=none";
         }
@@ -230,6 +282,7 @@ public final class CommandToolchainOptions {
     private record WorkspaceToolchainKey(
             JavaToolchainRequest request,
             HostPlatform platform,
-            ToolchainStore store) {
+            Path storeRoot,
+            boolean pinned) {
     }
 }

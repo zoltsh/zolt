@@ -3,6 +3,7 @@ package sh.zolt.toolchain;
 import sh.zolt.error.ActionableException;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
+import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import java.nio.file.Path;
@@ -113,6 +114,25 @@ public final class JavaToolchainExecutionService {
             String unresolvedSummary,
             String unresolvedRemediation) {
         JavaToolchainStatus status = statusService.status(request, requestSource, lockfile, platform, store);
+        return environment(status, unresolvedSummary, unresolvedRemediation);
+    }
+
+    public JavaToolchainEnvironment environment(
+            JavaToolchainRequest request,
+            String requestSource,
+            boolean projectPinned,
+            Optional<LockedJavaToolchain> locked,
+            HostPlatform platform,
+            ToolchainStore store,
+            String unresolvedSummary,
+            String unresolvedRemediation) {
+        JavaToolchainStatus status = statusService.status(
+                request,
+                requestSource,
+                projectPinned,
+                locked,
+                platform,
+                store);
         return environment(status, unresolvedSummary, unresolvedRemediation);
     }
 

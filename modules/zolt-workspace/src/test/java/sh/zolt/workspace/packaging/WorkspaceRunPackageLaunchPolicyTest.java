@@ -77,6 +77,8 @@ final class WorkspaceRunPackageLaunchPolicyTest {
                         + (mode == PackageMode.SPRING_BOOT_WAR
                                 ? ".war"
                                 : ".jar"));
+        Files.createDirectories(archive.getParent());
+        Files.writeString(archive, "packaged application");
         PackageResult packageResult = new PackageResult(
                 buildResult,
                 mode,
@@ -106,15 +108,15 @@ final class WorkspaceRunPackageLaunchPolicyTest {
 
         assertEquals(1, commands.size());
         assertEquals(
-                List.of(
-                        Path.of(System.getProperty("java.home"))
-                                .resolve("bin")
-                                .resolve(executable("java"))
-                                .toString(),
-                        "-jar",
-                        archive.toString(),
-                        "argument"),
-                commands.getFirst());
+                Path.of(System.getProperty("java.home"))
+                        .resolve("bin")
+                        .resolve(executable("java"))
+                        .toString(),
+                commands.getFirst().get(0));
+        assertEquals("-jar", commands.getFirst().get(1));
+        assertTrue(commands.getFirst().get(2).contains(
+                ".zolt" + java.io.File.separator + "run"));
+        assertEquals("argument", commands.getFirst().get(3));
         assertTrue(commands.getFirst().stream().noneMatch(
                 value -> value.contains("deliberately-missing")));
     }

@@ -31,7 +31,21 @@ public final class ToolchainLockfileService {
             return List.of();
         }
         try {
-            TomlParseResult result = Toml.parse(lockfile);
+            return readJava(Files.readString(lockfile));
+        } catch (IOException exception) {
+            throw new ActionableException(
+                    "Could not read zolt.lock at " + lockfile + ".",
+                    "Check that the file exists and is readable.");
+        } catch (TomlInvalidTypeException exception) {
+            throw new ActionableException(
+                    "Invalid Java toolchain metadata in zolt.lock.",
+                    "Run `zolt toolchain sync` to rewrite Java toolchain lock metadata.");
+        }
+    }
+
+    public List<LockedJavaToolchain> readJava(String content) {
+        try {
+            TomlParseResult result = Toml.parse(content);
             if (result.hasErrors()) {
                 TomlParseError error = result.errors().getFirst();
                 throw new ActionableException(
@@ -53,10 +67,6 @@ public final class ToolchainLockfileService {
                 locked.add(readJavaToolchain(table));
             }
             return List.copyOf(locked);
-        } catch (IOException exception) {
-            throw new ActionableException(
-                    "Could not read zolt.lock at " + lockfile + ".",
-                    "Check that the file exists and is readable.");
         } catch (TomlInvalidTypeException exception) {
             throw new ActionableException(
                     "Invalid Java toolchain metadata in zolt.lock.",
@@ -83,14 +93,15 @@ public final class ToolchainLockfileService {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            String base = Files.isRegularFile(lockfile)
-                    ? Files.readString(lockfile)
-                    : "version = " + ZoltLockfile.CURRENT_VERSION + "\n\n";
-            String content = removeJavaLocks(base);
-            for (LockedJavaToolchain java : ordered(locked)) {
-                content = appendJavaLock(content, java);
-            }
-            AtomicLockfileWriter.write(lockfile, content);
+            AtomicLockfileWriter.update(lockfile, existing -> {
+                String content = removeJavaLocks(existing.isBlank()
+                        ? "version = " + ZoltLockfile.CURRENT_VERSION + "\n\n"
+                        : existing);
+                for (LockedJavaToolchain java : ordered(locked)) {
+                    content = appendJavaLock(content, java);
+                }
+                return content;
+            });
         } catch (IOException exception) {
             throw new ActionableException(
                     "Could not write Java toolchain metadata to " + lockfile + ".",

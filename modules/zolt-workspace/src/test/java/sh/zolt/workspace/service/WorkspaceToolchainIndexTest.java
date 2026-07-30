@@ -64,6 +64,55 @@ final class WorkspaceToolchainIndexTest {
         assertEquals(1, index.hits());
     }
 
+    @Test
+    void calculatesOneIdentityForTwoHundredMembersSharingSemanticToolchainKey() {
+        AtomicInteger identityCalculations = new AtomicInteger();
+        JdkChecker checker = WorkspaceToolchainIndexTest::status;
+        WorkspaceJdkCheckerResolver resolver = new WorkspaceJdkCheckerResolver() {
+            @Override
+            public JdkChecker forMember(
+                    Workspace workspace,
+                    WorkspaceMember member) {
+                return checker;
+            }
+
+            @Override
+            public Object cacheKey(
+                    Workspace workspace,
+                    WorkspaceMember member,
+                    JdkChecker ignored) {
+                return "java-21|linux-x64|shared-store";
+            }
+
+            @Override
+            public String compileIdentity(
+                    Workspace workspace,
+                    WorkspaceMember member,
+                    JdkChecker ignored,
+                    Object cacheKey) {
+                identityCalculations.incrementAndGet();
+                return cacheKey.toString();
+            }
+
+            @Override
+            public int lockfileParseCount() {
+                return 1;
+            }
+        };
+        WorkspaceToolchainIndex index = new WorkspaceToolchainIndex();
+
+        for (int member = 0; member < 200; member++) {
+            index.checker(resolver, null, null).detect("21");
+        }
+
+        assertEquals(1, identityCalculations.get());
+        assertEquals(1, index.identityCalculations());
+        assertEquals(199, index.identityHits());
+        assertEquals(1, index.lockfileParses());
+        assertEquals(1, index.resolutions());
+        assertEquals(199, index.hits());
+    }
+
     private static JdkStatus status(String requiredVersion) {
         return new JdkStatus(
                 Optional.empty(),

@@ -27,6 +27,10 @@ public interface WorkspaceJdkCheckerResolver {
                 + member.config().compilerSettings();
     }
 
+    default int lockfileParseCount() {
+        return 0;
+    }
+
     static WorkspaceJdkCheckerResolver fixed(JdkChecker jdkChecker) {
         Objects.requireNonNull(jdkChecker, "jdkChecker");
         return (workspace, member) -> jdkChecker;

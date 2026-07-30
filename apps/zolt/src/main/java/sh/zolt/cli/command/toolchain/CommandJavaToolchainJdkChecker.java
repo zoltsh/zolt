@@ -3,9 +3,11 @@ package sh.zolt.cli.command.toolchain;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toolchain.JavaToolchainEnvironment;
 import sh.zolt.toolchain.JavaToolchainExecutionService;
 import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
+import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import java.nio.file.Path;
@@ -19,6 +21,9 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
     private final HostPlatform platform;
     private final ToolchainStore store;
     private final String commandName;
+    private final Optional<JavaToolchainRequest> capturedRequest;
+    private final Optional<LockedJavaToolchain> capturedLock;
+    private final boolean capturedRequestPinned;
 
     public static CommandJavaToolchainJdkChecker forCommand(
             Path projectRoot,
@@ -71,18 +76,59 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
         this.platform = platform;
         this.store = store;
         this.commandName = commandName;
+        this.capturedRequest = Optional.empty();
+        this.capturedLock = Optional.empty();
+        this.capturedRequestPinned = false;
+    }
+
+    public CommandJavaToolchainJdkChecker(
+            Path projectRoot,
+            Path lockRoot,
+            ProjectConfig config,
+            JavaToolchainExecutionService toolchains,
+            HostPlatform platform,
+            ToolchainStore store,
+            String commandName,
+            JavaToolchainRequest capturedRequest,
+            boolean capturedRequestPinned,
+            Optional<LockedJavaToolchain> capturedLock) {
+        this.projectRoot = projectRoot;
+        this.lockRoot = lockRoot;
+        this.config = config;
+        this.toolchains = toolchains;
+        this.platform = platform;
+        this.store = store;
+        this.commandName = commandName;
+        this.capturedRequest = Optional.of(capturedRequest);
+        this.capturedLock = capturedLock == null ? Optional.empty() : capturedLock;
+        this.capturedRequestPinned = capturedRequestPinned;
     }
 
     @Override
     public JdkStatus detect(String requiredVersion) {
-        JavaToolchainEnvironment environment = toolchains.environment(
-                projectRoot,
-                lockRoot,
-                config,
-                platform,
-                store,
-                "Java toolchain is not ready for " + commandName,
-                "Run `zolt toolchain status` for details, then `zolt toolchain sync`, or choose a project with a usable Java toolchain.");
+        String summary = "Java toolchain is not ready for " + commandName;
+        String remediation =
+                "Run `zolt toolchain status` for details, then `zolt toolchain sync`, or choose a project with a usable Java toolchain.";
+        JavaToolchainEnvironment environment = capturedRequest
+                .map(request -> toolchains.environment(
+                        request,
+                        capturedRequestPinned
+                                ? "[toolchain.java]"
+                                : "[project].java",
+                        capturedRequestPinned,
+                        capturedLock,
+                        platform,
+                        store,
+                        summary,
+                        remediation))
+                .orElseGet(() -> toolchains.environment(
+                        projectRoot,
+                        lockRoot,
+                        config,
+                        platform,
+                        store,
+                        summary,
+                        remediation));
         ResolvedJavaToolchain resolved = environment.resolved();
         return new JdkStatus(
                 Optional.of(environment.javaHome()),
