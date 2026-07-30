@@ -247,6 +247,16 @@ public final class WorkspaceBuildService {
                                     WorkspaceBuildRequirements.mainBuild()),
                             membersByPath.get(member).config()));
         }
+        Map<String, String> toolchainIdentitiesByMember =
+                new LinkedHashMap<>();
+        for (String member : selection.includedMembers()) {
+            toolchainIdentitiesByMember.put(
+                    member,
+                    context.toolchainIndex().compileIdentity(
+                            memberBuildExecutor.jdkCheckers(),
+                            workspace,
+                            membersByPath.get(member)));
+        }
         Map<String, ClasspathSet> classpathsByMember = workspaceClasspathService.classpathsForMembers(
                 context,
                 selection.includedMembers(),
@@ -270,7 +280,8 @@ public final class WorkspaceBuildService {
                 membersByPath,
                 classpathsByMember,
                 classpathPackagesByMember,
-                resolvedRequirements);
+                resolvedRequirements,
+                toolchainIdentitiesByMember);
         long memberExecutionStarted = System.nanoTime();
         WorkspaceMemberBuildExecutor.Result execution = memberBuildExecutor.build(
                 context,
@@ -294,6 +305,7 @@ public final class WorkspaceBuildService {
                 classpathsByMember,
                 classpathPackagesByMember,
                 resolvedRequirements,
+                toolchainIdentitiesByMember,
                 dirtyPlan);
         return new WorkspaceBuildResult(
                 plan.resolveResult(),

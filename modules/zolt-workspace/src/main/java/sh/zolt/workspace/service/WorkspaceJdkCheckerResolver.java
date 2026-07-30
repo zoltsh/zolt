@@ -14,6 +14,19 @@ public interface WorkspaceJdkCheckerResolver {
         return checker;
     }
 
+    default String compileIdentity(
+            Workspace workspace,
+            WorkspaceMember member,
+            JdkChecker checker,
+            Object cacheKey) {
+        if (member == null) {
+            return "unspecified-workspace-toolchain";
+        }
+        return member.config().project().java()
+                + "|"
+                + member.config().compilerSettings();
+    }
+
     static WorkspaceJdkCheckerResolver fixed(JdkChecker jdkChecker) {
         Objects.requireNonNull(jdkChecker, "jdkChecker");
         return (workspace, member) -> jdkChecker;

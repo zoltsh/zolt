@@ -87,6 +87,32 @@ final class WorkspaceBuildServiceCleanFinalizationTest {
         assertEquals(2, detections.get());
     }
 
+    @Test
+    void toolchainConfigurationChangeInvokesCanonicalMemberPipeline()
+            throws IOException {
+        prepareWorkspace("""
+
+                [toolchain.java]
+                version = "%s"
+                distribution = "temurin"
+                """.formatted(currentJavaMajorVersion()));
+        WorkspaceBuildService service =
+                new WorkspaceBuildService(new ResolveService(), provenanceSource());
+        service.build(tempDir, cacheRoot(), false);
+        Path config = tempDir.resolve("apps/api/zolt.toml");
+        Files.writeString(
+                config,
+                Files.readString(config).replace(
+                        "distribution = \"temurin\"",
+                        "distribution = \"graalvm-community\""));
+
+        WorkspaceBuildResult rebuilt =
+                service.build(tempDir, cacheRoot(), false);
+
+        assertEquals(1, rebuilt.executionMetrics().memberPipelineInvocations());
+        assertEquals(0, rebuilt.mainCompilationSkippedCount());
+    }
+
     private void prepareMetadataWorkspace() throws IOException {
         prepareWorkspace("""
 

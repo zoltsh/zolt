@@ -88,6 +88,21 @@ public final class CommandToolchainOptions {
                     JdkChecker checker) {
                 return workspaceToolchainKey(workspace.root(), member, services);
             }
+
+            @Override
+            public String compileIdentity(
+                    sh.zolt.workspace.service.Workspace workspace,
+                    sh.zolt.workspace.service.WorkspaceMember member,
+                    JdkChecker checker,
+                    Object cacheKey) {
+                WorkspaceToolchainKey key =
+                        (WorkspaceToolchainKey) cacheKey;
+                return key.request()
+                        + "|platform="
+                        + key.platform().id()
+                        + "|store="
+                        + key.store().root().toAbsolutePath().normalize();
+            }
         };
     }
 

@@ -27,7 +27,8 @@ final class WorkspaceDirtyPlanner {
             Map<String, WorkspaceMember> membersByPath,
             Map<String, ClasspathSet> classpathsByMember,
             Map<String, List<ResolvedClasspathPackage>> packagesByMember,
-            Map<String, WorkspaceBuildRequirements> requirementsByMember) {
+            Map<String, WorkspaceBuildRequirements> requirementsByMember,
+            Map<String, String> toolchainIdentitiesByMember) {
         WorkspaceState previous = stateStore.read(context.workspace().root());
         long started = System.nanoTime();
         Map<String, WorkspaceDirtyPlan.MemberPlan> plans = new LinkedHashMap<>();
@@ -42,6 +43,7 @@ final class WorkspaceDirtyPlanner {
                     requirementsByMember.getOrDefault(
                             memberPath,
                             WorkspaceBuildRequirements.mainBuild()),
+                    toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
                     prior);
             List<String> reasons = dirtyReasons(
                     context.fileSnapshot(),
@@ -72,6 +74,7 @@ final class WorkspaceDirtyPlanner {
             Map<String, ClasspathSet> classpathsByMember,
             Map<String, List<ResolvedClasspathPackage>> packagesByMember,
             Map<String, WorkspaceBuildRequirements> requirementsByMember,
+            Map<String, String> toolchainIdentitiesByMember,
             WorkspaceDirtyPlan plan) {
         Map<String, WorkspaceMemberState> current =
                 new LinkedHashMap<>(plan.previousState().members());
@@ -95,6 +98,7 @@ final class WorkspaceDirtyPlanner {
                             requirementsByMember.getOrDefault(
                                     memberPath,
                                     WorkspaceBuildRequirements.mainBuild()),
+                            toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
                             plan.previousState().member(memberPath)));
         }
         stateStore.write(context.workspace().root(), new WorkspaceState(current));
@@ -106,6 +110,7 @@ final class WorkspaceDirtyPlanner {
             ClasspathSet classpaths,
             List<ResolvedClasspathPackage> packages,
             WorkspaceBuildRequirements requirements,
+            String resolvedToolchainIdentity,
             Optional<WorkspaceMemberState> previous) {
         WorkspaceFileSnapshot snapshot = context.fileSnapshot();
         var build = member.config().build();
@@ -115,7 +120,17 @@ final class WorkspaceDirtyPlanner {
         String toolchainDigest = WorkspaceHash.text(
                 member.config().project().java()
                         + "|"
-                        + member.config().compilerSettings());
+                        + member.config().compilerSettings()
+                        + "|"
+                        + resolvedToolchainIdentity
+                        + "|memberConfig="
+                        + snapshot.pathHash(member.directory().resolve("zolt.toml"))
+                        + "|workspaceConfig="
+                        + snapshot.pathHash(context.workspace().configPath())
+                        + "|inheritedToolchainConfig="
+                        + snapshot.pathHash(context.workspace().root().resolve("zolt.toml"))
+                        + "|toolchainLock="
+                        + snapshot.pathHash(context.workspace().root().resolve("zolt.lock")));
         String generatedDigest = generatedInputs(snapshot, member, build.generatedMainSources());
         String compileClasspathDigest =
                 classpathDigest(context, snapshot, classpaths.compile());

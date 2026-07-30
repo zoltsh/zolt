@@ -45,6 +45,10 @@ final class WorkspaceMemberBuildExecutor {
         return new WorkspaceMemberBuildExecutor(buildService, jdkCheckers, batchPlanner, buildCacheService);
     }
 
+    WorkspaceJdkCheckerResolver jdkCheckers() {
+        return jdkCheckers;
+    }
+
     Result build(
             WorkspaceExecutionContext context,
             Workspace workspace,
