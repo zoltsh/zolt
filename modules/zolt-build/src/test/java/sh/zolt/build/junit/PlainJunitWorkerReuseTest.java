@@ -183,7 +183,7 @@ final class PlainJunitWorkerReuseTest {
                 List.of(secondProject.resolve("target/classes")));
 
         assertEquals(2, opens.get());
-        assertEquals(0, closes.get());
+        assertEquals(1, closes.get());
         assertEquals(1, first.workerStarts());
         assertEquals(1, second.workerStarts());
         assertEquals(

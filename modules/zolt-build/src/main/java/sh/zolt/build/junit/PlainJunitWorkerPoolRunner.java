@@ -69,6 +69,7 @@ public final class PlainJunitWorkerPoolRunner implements AutoCloseable {
             Optional<Path> reportsDirectory,
             List<String> events,
             Optional<Path> profileDirectory) {
+        retireOtherProjects(projectDirectory);
         if (persistent && workerPoolPlan.empty()) {
             return runPersistentRequest(
                     javaExecutable,
@@ -264,6 +265,20 @@ public final class PlainJunitWorkerPoolRunner implements AutoCloseable {
                         workerClasspath,
                         workerJvmArguments,
                         workerEnvironment));
+    }
+
+    private void retireOtherProjects(Path projectDirectory) {
+        if (!persistent || persistentSlots.isEmpty()) {
+            return;
+        }
+        Path currentProject = projectDirectory.toAbsolutePath().normalize();
+        List<PlainJunitWorkerSlot> retired = persistentSlots.entrySet().stream()
+                .filter(entry -> !entry.getKey().projectDirectory().equals(currentProject))
+                .map(Map.Entry::getValue)
+                .toList();
+        persistentSlots.entrySet().removeIf(
+                entry -> !entry.getKey().projectDirectory().equals(currentProject));
+        PlainJunitWorkerPoolSupport.closeSlots(retired, null);
     }
 
     private static Map<String, String> reusableEnvironment(
