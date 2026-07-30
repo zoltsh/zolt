@@ -3,6 +3,8 @@ package sh.zolt.build.packaging;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.packaging.PackageArtifact;
 import sh.zolt.build.PackageException;
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.build.packageplan.PackagePlanOutputs;
 import sh.zolt.classpath.ClasspathSet;
@@ -179,14 +181,17 @@ public final class PackageSupplementalArtifactAssembler {
                     .directory(projectDirectory.toFile())
                     .redirectErrorStream(true)
                     .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                throw new PackageException(
-                        "javadoc failed with exit code "
-                                + exitCode
-                                + ". Fix Javadoc errors or disable [package].javadoc, then retry.\n"
-                                + output.stripTrailing());
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int exitCode = process.waitFor();
+                if (exitCode != 0) {
+                    throw new PackageException(
+                            "javadoc failed with exit code "
+                                    + exitCode
+                                    + ". Fix Javadoc errors or disable [package].javadoc, then retry.\n"
+                                    + output.stripTrailing());
+                }
             }
         } catch (IOException exception) {
             throw new PackageException(

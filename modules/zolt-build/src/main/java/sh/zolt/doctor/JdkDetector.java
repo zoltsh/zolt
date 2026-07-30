@@ -1,5 +1,7 @@
 package sh.zolt.doctor;
 
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -176,9 +178,12 @@ public final class JdkDetector implements JdkChecker {
             Process process = new ProcessBuilder(java.toString(), "-version")
                     .redirectErrorStream(true)
                     .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            return exitCode == 0 ? Optional.of(output) : Optional.empty();
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int exitCode = process.waitFor();
+                return exitCode == 0 ? Optional.of(output) : Optional.empty();
+            }
         } catch (IOException exception) {
             return Optional.empty();
         } catch (InterruptedException exception) {

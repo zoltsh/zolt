@@ -1,5 +1,7 @@
 package sh.zolt.quarkus.annotation.launcher;
 
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.quarkus.QuarkusAugmentationException;
 import sh.zolt.quarkus.testworker.QuarkusTestWorkerLauncher;
 import java.io.IOException;
@@ -110,9 +112,12 @@ public final class QuarkusAnnotationJvmRunner {
             Process process = new ProcessBuilder(command)
                     .redirectErrorStream(true)
                     .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            return new Result(exitCode, output);
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int exitCode = process.waitFor();
+                return new Result(exitCode, output);
+            }
         } catch (IOException exception) {
             throw new QuarkusAugmentationException(
                     "Could not run Quarkus annotation JVM runner. "

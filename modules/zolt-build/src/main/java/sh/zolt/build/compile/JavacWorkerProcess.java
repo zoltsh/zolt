@@ -1,5 +1,7 @@
 package sh.zolt.build.compile;
 
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -33,10 +35,21 @@ final class JavacWorkerProcess implements AutoCloseable {
         return new JavacWorkerProcess(process);
     }
 
-    JavacRunner.ProcessResult compile(int kind, List<String> arguments) throws IOException {
-        JavacWorkerWire.writeRequest(requests, kind, arguments);
-        requests.flush();
-        return JavacWorkerWire.readResponse(responses);
+    JavacRunner.ProcessResult compile(int kind, List<String> arguments)
+            throws IOException, InterruptedException {
+        try (BuildCancellation.Registration ignored =
+                ProcessCancellation.register(process)) {
+            JavacWorkerWire.writeRequest(requests, kind, arguments);
+            requests.flush();
+            try {
+                return JavacWorkerWire.readResponse(responses);
+            } catch (IOException exception) {
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("javac worker request was cancelled");
+                }
+                throw exception;
+            }
+        }
     }
 
     boolean isAlive() {

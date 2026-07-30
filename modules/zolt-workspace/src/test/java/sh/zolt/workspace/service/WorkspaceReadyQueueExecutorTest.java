@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.cancel.BuildCancellation;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
@@ -121,6 +122,41 @@ final class WorkspaceReadyQueueExecutorTest {
         assertFalse(caller.isAlive(), "Ready-queue caller did not stop.");
         assertTrue(failure.get() instanceof BuildException);
         assertEquals("boom", failure.get().getMessage());
+    }
+
+    @Test
+    void cancelsRegisteredSiblingResourceBeforeWaitingForShutdown() throws Exception {
+        List<String> members =
+                List.of("modules/failing", "modules/sibling");
+        WorkspaceBuildBatchPlanner.Plan plan =
+                new WorkspaceBuildBatchPlanner().plan(
+                        workspace(members, List.of()),
+                        members);
+        CountDownLatch siblingRegistered = new CountDownLatch(1);
+        CountDownLatch siblingReleased = new CountDownLatch(1);
+
+        BuildException failure = org.junit.jupiter.api.Assertions.assertThrows(
+                BuildException.class,
+                () -> new WorkspaceReadyQueueExecutor().execute(
+                        plan,
+                        2,
+                        (member, invalidated) -> {
+                            if ("modules/failing".equals(member)) {
+                                await(siblingRegistered);
+                                throw new BuildException("boom");
+                            }
+                            try (BuildCancellation.Registration ignored =
+                                    BuildCancellation.onCancel(siblingReleased::countDown)) {
+                                siblingRegistered.countDown();
+                                await(siblingReleased);
+                                return new WorkspaceReadyQueueExecutor.TaskResult<>(
+                                        member,
+                                        false);
+                            }
+                        }));
+
+        assertEquals("boom", failure.getMessage());
+        assertEquals(0L, siblingReleased.getCount());
     }
 
     private static void await(CountDownLatch latch) {

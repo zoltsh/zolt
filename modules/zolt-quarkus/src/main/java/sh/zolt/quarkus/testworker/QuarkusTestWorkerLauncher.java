@@ -1,5 +1,7 @@
 package sh.zolt.quarkus.testworker;
 
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.quarkus.QuarkusAugmentationException;
 import sh.zolt.quarkus.testworker.descriptor.QuarkusTestRunnerDescriptor;
 import java.io.IOException;
@@ -106,9 +108,12 @@ public final class QuarkusTestWorkerLauncher {
             Process process = new ProcessBuilder(command)
                     .redirectErrorStream(true)
                     .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            return new ProcessResult(exitCode, output);
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int exitCode = process.waitFor();
+                return new ProcessResult(exitCode, output);
+            }
         } catch (IOException exception) {
             throw new QuarkusAugmentationException(
                     "Could not run Quarkus test worker. Check that the configured JDK is installed and readable.",

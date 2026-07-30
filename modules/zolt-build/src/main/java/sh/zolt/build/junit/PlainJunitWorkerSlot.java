@@ -1,5 +1,6 @@
 package sh.zolt.build.junit;
 
+import sh.zolt.cancel.BuildCancellation;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.runtime.TestRunException;
@@ -98,14 +99,18 @@ final class PlainJunitWorkerSlot implements AutoCloseable {
         PlainJunitWorkerSession active = session(
                 projectDirectory,
                 testRuntimeClasspath);
-        PlainJunitWorkerRunResult result = active.run(
-                projectDirectory,
-                testRuntimeClasspath,
-                testOutputDirectory,
-                testSelection,
-                reportsDirectory,
-                events,
-                requestProfileDirectory);
+        PlainJunitWorkerRunResult result;
+        try (BuildCancellation.Registration ignored =
+                BuildCancellation.onCancel(active::abort)) {
+            result = active.run(
+                    projectDirectory,
+                    testRuntimeClasspath,
+                    testOutputDirectory,
+                    testSelection,
+                    reportsDirectory,
+                    events,
+                    requestProfileDirectory);
+        }
         observeStarts(active);
         startupNanos += Math.max(0L, result.startupNanos());
         requestsSinceStart++;

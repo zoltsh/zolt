@@ -1,11 +1,13 @@
 package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.cancel.BuildCancellation;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
@@ -30,6 +32,7 @@ final class WorkspaceReadyQueueExecutor {
         Map<String, Integer> remaining = new LinkedHashMap<>(plan.dependencyCounts());
         PriorityQueue<String> ready = plan.readyMembers();
         Set<String> invalidated = new LinkedHashSet<>();
+        Set<BuildCancellation> cancellations = ConcurrentHashMap.newKeySet();
         Map<String, T> results = new LinkedHashMap<>();
         long taskNanos = 0L;
         long windowStarted = System.nanoTime();
@@ -40,8 +43,16 @@ final class WorkspaceReadyQueueExecutor {
                 while (running < maxWorkers && !ready.isEmpty()) {
                     String member = ready.remove();
                     boolean dependencyInvalidated = invalidated.contains(member);
-                    completions.submit(
-                            () -> run(member, dependencyInvalidated, task));
+                    BuildCancellation cancellation = new BuildCancellation();
+                    cancellations.add(cancellation);
+                    completions.submit(() -> {
+                        try {
+                            return cancellation.call(
+                                    () -> run(member, dependencyInvalidated, task));
+                        } finally {
+                            cancellations.remove(cancellation);
+                        }
+                    });
                     running++;
                 }
                 if (running == 0) {
@@ -65,6 +76,7 @@ final class WorkspaceReadyQueueExecutor {
                 readyQueuePeak = Math.max(readyQueuePeak, ready.size());
             }
         } finally {
+            cancellations.forEach(BuildCancellation::cancel);
             stop(executor);
         }
         long windowNanos = Math.max(0L, System.nanoTime() - windowStarted);

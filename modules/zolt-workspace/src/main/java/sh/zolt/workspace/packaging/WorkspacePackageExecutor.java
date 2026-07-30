@@ -1,9 +1,12 @@
 package sh.zolt.workspace.packaging;
 
 import sh.zolt.build.PackageException;
+import sh.zolt.cancel.BuildCancellation;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
@@ -40,11 +43,20 @@ final class WorkspacePackageExecutor {
         ExecutorService executor = Executors.newFixedThreadPool(workers);
         ExecutorCompletionService<Completed<T>> completions =
                 new ExecutorCompletionService<>(executor);
+        Set<BuildCancellation> cancellations = ConcurrentHashMap.newKeySet();
         try {
             for (int index = 0; index < tasks.size(); index++) {
                 int resultIndex = index;
                 Callable<T> task = tasks.get(index);
-                completions.submit(() -> new Completed<>(resultIndex, task.call()));
+                BuildCancellation cancellation = new BuildCancellation();
+                cancellations.add(cancellation);
+                completions.submit(() -> {
+                    try {
+                        return cancellation.call(() -> call(resultIndex, task));
+                    } finally {
+                        cancellations.remove(cancellation);
+                    }
+                });
             }
             List<T> ordered = new ArrayList<>(java.util.Collections.nCopies(tasks.size(), null));
             for (int completed = 0; completed < tasks.size(); completed++) {
@@ -53,7 +65,18 @@ final class WorkspacePackageExecutor {
             }
             return new Result<>(ordered, workers);
         } finally {
+            cancellations.forEach(BuildCancellation::cancel);
             stop(executor, shutdownWaitMillis);
+        }
+    }
+
+    private static <T> Completed<T> call(int index, Callable<T> task) {
+        try {
+            return new Completed<>(index, task.call());
+        } catch (RuntimeException | Error failure) {
+            throw failure;
+        } catch (Exception exception) {
+            throw new PackageException("Workspace member packaging failed.", exception);
         }
     }
 

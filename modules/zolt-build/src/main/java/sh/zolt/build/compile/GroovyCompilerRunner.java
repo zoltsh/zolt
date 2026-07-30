@@ -1,6 +1,8 @@
 package sh.zolt.build.compile;
 
 import sh.zolt.build.GroovyCompileException;
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.classpath.Classpath;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -103,9 +105,12 @@ public final class GroovyCompilerRunner {
             Process process = new ProcessBuilder(command)
                     .redirectErrorStream(true)
                     .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            return new ProcessResult(exitCode, output);
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int exitCode = process.waitFor();
+                return new ProcessResult(exitCode, output);
+            }
         } catch (IOException exception) {
             throw new GroovyCompileException(
                     "Could not run the Groovy compiler. Check that the configured JDK is installed and readable.",
