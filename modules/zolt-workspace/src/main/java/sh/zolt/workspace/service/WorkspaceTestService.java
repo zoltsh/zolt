@@ -276,17 +276,15 @@ public final class WorkspaceTestService {
         } finally {
             WorkspaceTestExecutionSupport.closeTestWorkers(usedServices);
         }
-        WorkspaceTestExecutionSupport.mergeProfiles(
-                workspaceProfileDirectory,
-                results);
+        WorkspaceTestExecutionSupport.mergeProfiles(workspaceProfileDirectory, results);
         return new WorkspaceTestResult(
                 buildResult.resolveResult(),
                 buildResult.members(),
                 results,
                 workspace.members().size(),
-                workspaceProfileDirectory);
+                workspaceProfileDirectory,
+                WorkspaceTestToolchainMetrics.combine(buildResult.executionMetrics(), testRunServices.toolchainMetrics()));
     }
-
     public WorkspaceTestResult runIntegrationTests(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
@@ -345,6 +343,8 @@ public final class WorkspaceTestService {
                 buildResult.resolveResult(),
                 buildResult.members(),
                 results,
-                workspace.members().size());
+                workspace.members().size(),
+                Optional.empty(),
+                WorkspaceTestToolchainMetrics.combine(buildResult.executionMetrics(), testRunServices.toolchainMetrics()));
     }
 }

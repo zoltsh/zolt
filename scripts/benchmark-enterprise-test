@@ -49,6 +49,8 @@ for topology in chain wide layered; do
 
   grep -F '[annotationProcessors]' "$output/fixtures/zolt/modules/platform/zolt.toml" >/dev/null \
     || fail "$topology Zolt fixture is missing annotation processor coverage"
+  grep -F '[toolchain.java.test]' "$output/fixtures/zolt/zolt.toml" >/dev/null \
+    || fail "$topology Zolt fixture is missing test runtime toolchain coverage"
   grep -F '<annotationProcessorPaths>' "$output/fixtures/maven/modules/platform/pom.xml" >/dev/null \
     || fail "$topology Maven fixture is missing annotation processor coverage"
   grep -F "annotationProcessor 'org.projectlombok:lombok:" "$output/fixtures/gradle/build.gradle" >/dev/null \
@@ -123,6 +125,12 @@ if by_id["gradle-daemon"].root == by_id["gradle-parallel-configuration-cache"].r
     raise SystemExit("Gradle default and tuned modes share project output")
 if "--compile-only" not in by_id["zolt"].test_compile:
     raise SystemExit("Zolt test compile workflow does not use --compile-only")
+for command_name, command in (
+    ("test compile", by_id["zolt"].test_compile),
+    ("test run", by_id["zolt"].test_run),
+):
+    if "--timings" not in command or command[-2:] != ["--timings-format", "json"]:
+        raise SystemExit(f"Zolt {command_name} workflow does not capture JSON timings")
 for identifier in ("maven", "maven-parallel"):
     if by_id[identifier].test_compile[-1] != "test-compile":
         raise SystemExit(f"{identifier} test compile workflow does not use test-compile")
@@ -164,6 +172,61 @@ if "benchmark command 1/1 started: no-op-build / probe / sample 1" not in progre
     raise SystemExit("enterprise runner does not report command start progress")
 if "benchmark command 1/1 finished: no-op-build / probe / sample 1" not in progress:
     raise SystemExit("enterprise runner does not report command completion progress")
+
+timing_log = progress_root / "toolchain-timings.log"
+timing_log.write_text(
+    "\n".join(
+        [
+            "ordinary command output",
+            json.dumps(
+                {
+                    "phase": "compile workspace test members",
+                    "attributes": {
+                        "workspaceToolchainLockfileParses": "1",
+                        "workspaceToolchainIdentityCalculations": "1",
+                        "workspaceToolchainIdentityCacheHits": "21",
+                        "workspaceTestRuntimeToolchainIdentityCalculations": "0",
+                        "workspaceTestRuntimeToolchainIdentityCacheHits": "0",
+                    },
+                }
+            ),
+        ]
+    )
+    + "\n",
+    encoding="utf-8",
+)
+metrics = module["workspace_toolchain_metrics"](timing_log)
+if metrics != {
+    "workspaceToolchainLockfileParses": 1,
+    "workspaceToolchainIdentityCalculations": 1,
+    "workspaceToolchainIdentityCacheHits": 21,
+    "workspaceTestRuntimeToolchainIdentityCalculations": 0,
+    "workspaceTestRuntimeToolchainIdentityCacheHits": 0,
+}:
+    raise SystemExit(f"enterprise runner did not extract toolchain timings: {metrics}")
+
+progress_runner.samples = [
+    {
+        "tool": "zolt",
+        "workflow": "test-compile-build",
+        "sample": 1,
+        "workspaceToolchainMetrics": metrics,
+    },
+    {
+        "tool": "zolt",
+        "workflow": "test-run",
+        "sample": 1,
+        "workspaceToolchainMetrics": {
+            **metrics,
+            "workspaceTestRuntimeToolchainIdentityCalculations": 1,
+            "workspaceTestRuntimeToolchainIdentityCacheHits": 10,
+        },
+    },
+]
+progress_runner.verify_workspace_toolchain_metrics("test-compile-build")
+progress_runner.verify_workspace_toolchain_metrics("test-run")
+if not all(check["passed"] for check in progress_runner.correctness["checks"]):
+    raise SystemExit("enterprise runner rejected valid workspace toolchain metrics")
 
 progress_runner.correctness["checks"] = [
     {"name": "probe-correctness", "passed": False},

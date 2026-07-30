@@ -181,9 +181,12 @@ public final class IntegrationTestCommand implements Runnable {
             TestJvmArguments testJvmArguments,
             TestReportSettings reportSettings,
             List<String> requestedTestEvents) {
+        CommandToolchainOptions.WorkspaceCommandToolchains workspaceToolchains =
+                toolchainOptions.workspaceIntegrationTestToolchains(
+                        testRunServiceFactory);
         WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
-                toolchainOptions.workspaceJdkCheckers("integration-test"),
-                toolchainOptions.workspaceIntegrationTestRunServices(testRunServiceFactory));
+                workspaceToolchains.mainCheckers(),
+                workspaceToolchains.testRunServices());
         WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
                 projectRoot,
                 () -> {

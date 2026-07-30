@@ -116,6 +116,7 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_EXCLUDED_TAGS, Integer.toString(result.testExcludedTagCount()));
         addSlowTestEvidenceAttributes(attributes);
         attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
+        addWorkspaceToolchainAttributes(attributes, result.toolchainMetrics());
         return attributes;
     }
 
@@ -159,7 +160,28 @@ public final class CommandTestAttributes {
                 CommandAttributeKeys.TEST_FINGERPRINT_WRITE_NANOS,
                 Long.toString(result.testFingerprintWriteNanos()));
         attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
+        addWorkspaceToolchainAttributes(attributes, result.toolchainMetrics());
         return attributes;
+    }
+
+    private static void addWorkspaceToolchainAttributes(
+            Map<String, String> attributes,
+            sh.zolt.workspace.service.WorkspaceTestToolchainMetrics metrics) {
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_LOCKFILE_PARSES,
+                Integer.toString(metrics.lockfileParses()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_IDENTITY_CALCULATIONS,
+                Integer.toString(metrics.mainIdentityCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_IDENTITY_CACHE_HITS,
+                Integer.toString(metrics.mainIdentityCacheHits()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TEST_RUNTIME_TOOLCHAIN_IDENTITY_CALCULATIONS,
+                Integer.toString(metrics.testRuntimeIdentityCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TEST_RUNTIME_TOOLCHAIN_IDENTITY_CACHE_HITS,
+                Integer.toString(metrics.testRuntimeIdentityCacheHits()));
     }
 
     private static void addTestRunnerTimingAttributes(Map<String, String> attributes, TestRunResult result) {

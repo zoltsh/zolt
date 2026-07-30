@@ -122,6 +122,14 @@ public final class WorkspaceRunService {
     public WorkspaceRunSnapshot snapshotRun(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult) {
+        return WorkspaceMutationLock.withLock(
+                plan.workspace().root(),
+                () -> snapshotRunLocked(plan, buildResult));
+    }
+
+    private WorkspaceRunSnapshot snapshotRunLocked(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult) {
         plan.requireInputsCurrent();
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();

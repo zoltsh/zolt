@@ -55,6 +55,13 @@ WORKFLOW_LABELS = {
     "package": "Package",
 }
 WORKFLOW_ORDER = tuple(WORKFLOW_LABELS)
+WORKSPACE_TOOLCHAIN_METRIC_KEYS = (
+    "workspaceToolchainLockfileParses",
+    "workspaceToolchainIdentityCalculations",
+    "workspaceToolchainIdentityCacheHits",
+    "workspaceTestRuntimeToolchainIdentityCalculations",
+    "workspaceTestRuntimeToolchainIdentityCacheHits",
+)
 
 
 def now() -> str:
@@ -85,6 +92,25 @@ def tool_exists(command: str | None) -> bool:
     if "/" in command:
         return pathlib.Path(command).is_file() and os.access(command, os.X_OK)
     return shutil.which(command) is not None
+
+
+def workspace_toolchain_metrics(log_path: pathlib.Path) -> dict[str, int]:
+    metrics: dict[str, int] = {}
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        attributes = event.get("attributes")
+        if not isinstance(attributes, dict):
+            continue
+        for key in WORKSPACE_TOOLCHAIN_METRIC_KEYS:
+            value = attributes.get(key)
+            if value is not None:
+                metrics[key] = int(value)
+    return metrics
 
 
 @dataclass
@@ -212,6 +238,18 @@ class Runner:
             "finishedAt": now(),
             "log": str(log_path.relative_to(ROOT)),
         }
+        if tool.identifier == "zolt" and workflow in {
+            "test-compile-build",
+            "test-run",
+        }:
+            metrics = workspace_toolchain_metrics(log_path)
+            missing = sorted(set(WORKSPACE_TOOLCHAIN_METRIC_KEYS) - set(metrics))
+            if missing:
+                fail(
+                    f"Zolt {workflow} sample {sample} omitted workspace toolchain "
+                    f"metrics: {', '.join(missing)}"
+                )
+            row["workspaceToolchainMetrics"] = metrics
         if timed:
             self.samples.append(row)
             with self.samples_path.open("a", encoding="utf-8") as stream:
@@ -438,6 +476,46 @@ class Runner:
                 },
             )
 
+    def verify_workspace_toolchain_metrics(self, workflow: str) -> None:
+        rows = [
+            row
+            for row in self.samples
+            if row.get("tool") == "zolt" and row.get("workflow") == workflow
+        ]
+        runtime_calculations = 0 if workflow == "test-compile-build" else 1
+        passed = len(rows) == self.repeated_samples
+        evidence = []
+        for row in rows:
+            metrics = row.get("workspaceToolchainMetrics")
+            if not isinstance(metrics, dict):
+                passed = False
+                continue
+            evidence.append(
+                {
+                    "sample": row.get("sample"),
+                    "metrics": metrics,
+                }
+            )
+            passed = passed and (
+                metrics.get("workspaceToolchainLockfileParses") == 1
+                and metrics.get("workspaceToolchainIdentityCalculations") == 1
+                and metrics.get(
+                    "workspaceTestRuntimeToolchainIdentityCalculations"
+                )
+                == runtime_calculations
+            )
+        self.add_check(
+            f"zolt-{workflow}-workspace-toolchain-metrics",
+            passed,
+            {
+                "expectedSamples": self.repeated_samples,
+                "expectedLockfileParses": 1,
+                "expectedMainIdentityCalculations": 1,
+                "expectedTestRuntimeIdentityCalculations": runtime_calculations,
+                "samples": evidence,
+            },
+        )
+
     def verify_packages(self) -> None:
         package_sets = {
             tool.identifier: packaged_entry_map(tool, self.metadata)
@@ -518,6 +596,8 @@ class Runner:
                     self.verify_fanout()
                 if workflow == "test-compile-build" and sample == 1:
                     self.verify_test_outputs()
+            if workflow in {"test-compile-build", "test-run"}:
+                self.verify_workspace_toolchain_metrics(workflow)
             if workflow == "dependency-setup":
                 self.stop_gradle_daemons()
             if workflow == "package":
@@ -1007,6 +1087,9 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
                 "test",
                 *zolt_all_members,
                 "--compile-only",
+                "--timings",
+                "--timings-format",
+                "json",
             ],
             [
                 zolt,
@@ -1014,6 +1097,9 @@ def build_tools(args: argparse.Namespace, work_dir: pathlib.Path) -> list[Tool]:
                 *zolt_all_members,
                 "--include-tag",
                 "benchmark",
+                "--timings",
+                "--timings-format",
+                "json",
             ],
             [zolt, "package", *zolt_all_members],
         ),

@@ -513,6 +513,18 @@ def generate_zolt(root: pathlib.Path, workload: Workload, topology: str) -> None
         lines.append(
             f'"org.springframework.boot:spring-boot-dependencies" = "{SPRING_BOOT}"'
         )
+    lines.extend(
+        [
+            "",
+            "[toolchain.java]",
+            'version = "21"',
+            "features = []",
+            'policy = "prefer-managed"',
+            "",
+            "[toolchain.java.test]",
+            'version = "21"',
+        ]
+    )
     write(root / "zolt.toml", "\n".join(lines))
     write(
         root / "modules/platform/zolt.toml",

@@ -55,9 +55,13 @@ final class TestCompileCommandRunner {
             List<String> memberGroups,
             TimingRecorder timings,
             ProgressWriter progress) {
+        CommandToolchainOptions.WorkspaceCommandToolchains workspaceToolchains =
+                toolchainOptions.workspaceTestToolchains(
+                        testRunServiceFactory,
+                        "test");
         WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
-                toolchainOptions.workspaceJdkCheckers("test"),
-                toolchainOptions.workspaceTestRunServices(testRunServiceFactory, "test"));
+                workspaceToolchains.mainCheckers(),
+                workspaceToolchains.testRunServices());
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         WorkspaceTestCompileResult result = WorkspaceMutationLock.withWorkspaceLock(
                 projectRoot,

@@ -36,20 +36,17 @@ public final class ToolchainConfigReader {
     public Optional<JavaToolchainRequest> readJavaTest(Path configPath) {
         Path normalized = configPath.toAbsolutePath().normalize();
         try {
-            TomlParseResult result = Toml.parse(normalized);
-            if (result.hasErrors()) {
-                throw new ZoltConfigException(parseErrorMessage(result, normalized));
-            }
-            return ToolchainSectionCodec.parseJavaTestToolchain(
-                    result,
-                    "zolt.toml",
-                    ToolchainSectionCodec.parseJavaToolchain(result, "zolt.toml").orElse(null));
+            return readJavaTest(Toml.parse(normalized), normalized);
         } catch (IOException exception) {
             throw new ZoltConfigException(ActionableError.of(
                     "Could not read zolt.toml at " + normalized + ".",
                     "Check that the file exists and is readable.",
                     exception));
         }
+    }
+
+    public Optional<JavaToolchainRequest> readJavaTest(String content) {
+        return readJavaTest(Toml.parse(content), Path.of("zolt.toml"));
     }
 
     private static Optional<JavaToolchainRequest> readJava(
@@ -59,6 +56,20 @@ public final class ToolchainConfigReader {
             throw new ZoltConfigException(parseErrorMessage(result, configPath));
         }
         return ToolchainSectionCodec.parseJavaToolchain(result, "zolt.toml");
+    }
+
+    private static Optional<JavaToolchainRequest> readJavaTest(
+            TomlParseResult result,
+            Path configPath) {
+        if (result.hasErrors()) {
+            throw new ZoltConfigException(parseErrorMessage(result, configPath));
+        }
+        JavaToolchainRequest main =
+                ToolchainSectionCodec.parseJavaToolchain(result, "zolt.toml").orElse(null);
+        return ToolchainSectionCodec.parseJavaTestToolchain(
+                result,
+                "zolt.toml",
+                main);
     }
 
     private static String parseErrorMessage(TomlParseResult result, Path configPath) {

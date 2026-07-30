@@ -49,8 +49,7 @@ final class CommandToolchainOptionsTest {
                 """.formatted(locked.request().version(), locked.request().version()));
         ToolchainLockfileService lockfiles = new ToolchainLockfileService();
         lockfiles.writeJava(tempDir.resolve("zolt.lock"), locked);
-        Workspace workspace =
-                new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        Workspace workspace = capturedWorkspace();
         WorkspaceMember member = workspace.members().getFirst();
         CommandToolchainOptions options = new CommandToolchainOptions();
         new CommandLine(options).parseArgs(
@@ -91,10 +90,24 @@ final class CommandToolchainOptionsTest {
         assertEquals(1, resolver.lockfileParseCount());
         WorkspaceJdkCheckerResolver nextCommand =
                 options.workspaceJdkCheckers("build");
+        Workspace nextWorkspace = capturedWorkspace();
         assertNotEquals(
                 original,
-                identity(nextCommand, workspace, member));
+                identity(
+                        nextCommand,
+                        nextWorkspace,
+                        nextWorkspace.members().getFirst()));
         assertEquals(1, nextCommand.lockfileParseCount());
+    }
+
+    private Workspace capturedWorkspace() throws IOException {
+        Workspace discovered =
+                new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        Path lockfile = tempDir.resolve("zolt.lock");
+        return discovered.withInputs(
+                discovered.inputs().withContent(
+                        lockfile,
+                        Files.readAllBytes(lockfile)));
     }
 
     private static String identity(

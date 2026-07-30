@@ -90,6 +90,33 @@ final class TestRuntimeToolchainResolverTest {
     }
 
     @Test
+    void capturedResolutionPreservesExactRuntimeValidation()
+            throws IOException {
+        Path project = writeProject(
+                "captured-mismatch",
+                "17",
+                "17",
+                "allow-system",
+                "17");
+        JavaToolchainRequest request =
+                new ToolchainConfigReader().readJavaTest(
+                        project.resolve("zolt.toml")).orElseThrow();
+        Path java = fakeJava("21");
+        TestRuntimeToolchain resolved = resolver(
+                ignored -> ambient(request, "21", java))
+                .resolveCaptured(
+                        request,
+                        Optional.empty(),
+                        parse(project),
+                        HostPlatform.parse("linux-x64"),
+                        store());
+
+        ActionableException exception =
+                assertThrows(ActionableException.class, resolved::requireJava);
+        assertTrue(exception.getMessage().contains("resolved Java 21"));
+    }
+
+    @Test
     void requireManagedTestRuntimeWithoutLockIsNotReady() throws IOException {
         Path project = writeProject("managed-missing", "17", "17", "require-managed", "17");
         TestRuntimeToolchainResolver resolver = resolver(request -> {

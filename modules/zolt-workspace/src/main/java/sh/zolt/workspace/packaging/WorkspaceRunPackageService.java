@@ -175,6 +175,14 @@ public final class WorkspaceRunPackageService {
     public WorkspaceRunPackageSnapshot snapshotRunPackages(
             WorkspaceBuildPlan plan,
             WorkspacePackageResult packageResult) {
+        return WorkspaceMutationLock.withLock(
+                plan.workspace().root(),
+                () -> snapshotRunPackagesLocked(plan, packageResult));
+    }
+
+    private WorkspaceRunPackageSnapshot snapshotRunPackagesLocked(
+            WorkspaceBuildPlan plan,
+            WorkspacePackageResult packageResult) {
         plan.requireInputsCurrent();
         Workspace workspace = plan.workspace();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);

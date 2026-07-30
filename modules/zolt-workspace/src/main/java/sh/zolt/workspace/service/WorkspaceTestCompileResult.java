@@ -12,13 +12,32 @@ public record WorkspaceTestCompileResult(
         List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
         List<MemberTestCompileResult> members,
         int totalMemberCount,
-        int maxWorkers) {
+        int maxWorkers,
+        WorkspaceTestToolchainMetrics toolchainMetrics) {
     public WorkspaceTestCompileResult {
         resolveResult = resolveResult == null ? Optional.empty() : resolveResult;
         builtMembers = List.copyOf(builtMembers);
         members = List.copyOf(members);
         totalMemberCount = Math.max(totalMemberCount, members.size());
         maxWorkers = Math.max(0, maxWorkers);
+        toolchainMetrics = toolchainMetrics == null
+                ? WorkspaceTestToolchainMetrics.empty()
+                : toolchainMetrics;
+    }
+
+    public WorkspaceTestCompileResult(
+            Optional<ResolveResult> resolveResult,
+            List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
+            List<MemberTestCompileResult> members,
+            int totalMemberCount,
+            int maxWorkers) {
+        this(
+                resolveResult,
+                builtMembers,
+                members,
+                totalMemberCount,
+                maxWorkers,
+                WorkspaceTestToolchainMetrics.empty());
     }
 
     public boolean resolvedLockfile() {

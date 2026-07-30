@@ -45,7 +45,10 @@ final class WorkspaceTestCompileExecutor {
                     buildResult.members(),
                     results,
                     workspace.members().size(),
-                    concurrency);
+                    concurrency,
+                    WorkspaceTestToolchainMetrics.combine(
+                            buildResult.executionMetrics(),
+                            testRunServices.toolchainMetrics()));
         }
     }
 

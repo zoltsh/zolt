@@ -24,6 +24,7 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
     private final Optional<JavaToolchainRequest> capturedRequest;
     private final Optional<LockedJavaToolchain> capturedLock;
     private final boolean capturedRequestPinned;
+    private final String capturedRequestSource;
 
     public static CommandJavaToolchainJdkChecker forCommand(
             Path projectRoot,
@@ -79,6 +80,7 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
         this.capturedRequest = Optional.empty();
         this.capturedLock = Optional.empty();
         this.capturedRequestPinned = false;
+        this.capturedRequestSource = "";
     }
 
     public CommandJavaToolchainJdkChecker(
@@ -92,6 +94,32 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
             JavaToolchainRequest capturedRequest,
             boolean capturedRequestPinned,
             Optional<LockedJavaToolchain> capturedLock) {
+        this(
+                projectRoot,
+                lockRoot,
+                config,
+                toolchains,
+                platform,
+                store,
+                commandName,
+                new CapturedToolchain(
+                        capturedRequest,
+                        capturedRequestPinned,
+                        capturedRequestPinned
+                                ? "[toolchain.java]"
+                                : "[project].java",
+                        capturedLock));
+    }
+
+    public CommandJavaToolchainJdkChecker(
+            Path projectRoot,
+            Path lockRoot,
+            ProjectConfig config,
+            JavaToolchainExecutionService toolchains,
+            HostPlatform platform,
+            ToolchainStore store,
+            String commandName,
+            CapturedToolchain captured) {
         this.projectRoot = projectRoot;
         this.lockRoot = lockRoot;
         this.config = config;
@@ -99,9 +127,10 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
         this.platform = platform;
         this.store = store;
         this.commandName = commandName;
-        this.capturedRequest = Optional.of(capturedRequest);
-        this.capturedLock = capturedLock == null ? Optional.empty() : capturedLock;
-        this.capturedRequestPinned = capturedRequestPinned;
+        this.capturedRequest = Optional.of(captured.request());
+        this.capturedLock = captured.locked();
+        this.capturedRequestPinned = captured.pinned();
+        this.capturedRequestSource = captured.source();
     }
 
     @Override
@@ -112,9 +141,7 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
         JavaToolchainEnvironment environment = capturedRequest
                 .map(request -> toolchains.environment(
                         request,
-                        capturedRequestPinned
-                                ? "[toolchain.java]"
-                                : "[project].java",
+                        capturedRequestSource,
                         capturedRequestPinned,
                         capturedLock,
                         platform,
@@ -146,5 +173,23 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
 
     private static Path absolute(Path path) {
         return path.toAbsolutePath().normalize();
+    }
+
+    public record CapturedToolchain(
+            JavaToolchainRequest request,
+            boolean pinned,
+            String source,
+            Optional<LockedJavaToolchain> locked) {
+        public CapturedToolchain {
+            if (request == null) {
+                throw new IllegalArgumentException(
+                        "Captured Java toolchain request is required.");
+            }
+            if (source == null || source.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Captured Java toolchain source is required.");
+            }
+            locked = locked == null ? Optional.empty() : locked;
+        }
     }
 }

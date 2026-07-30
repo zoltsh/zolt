@@ -1,6 +1,7 @@
 package sh.zolt.workspace.run;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,6 +10,7 @@ import sh.zolt.build.run.JavaRunner;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.resolve.ResolveService;
+import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
@@ -174,6 +176,63 @@ final class WorkspaceRunServiceTest {
 
         assertEquals(2, jdkChecker.detectCalls());
         assertEquals(1, jdkChecker.toolchainReads());
+    }
+
+    @Test
+    void stagedSnapshotWaitsForWorkspaceLease() throws Exception {
+        workspace("""
+                [workspace]
+                name = "staged-run"
+                members = ["apps/api"]
+                """);
+        member("apps/api", "api", """
+                main = "com.acme.api.Api"
+                """);
+        source("apps/api/src/main/java/com/acme/api/Api.java", """
+                package com.acme.api;
+
+                public final class Api {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        WorkspaceBuildPlan plan = service.planRun(
+                tempDir,
+                tempDir.resolve("cache"),
+                WorkspaceSelectionRequest.defaults());
+        WorkspaceBuildResult buildResult =
+                service.buildRunInputs(plan, tempDir.resolve("cache"));
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch completed = new CountDownLatch(1);
+        AtomicReference<WorkspaceRunSnapshot> snapshot =
+                new AtomicReference<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread worker;
+
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(tempDir)) {
+            worker = Thread.ofPlatform().start(() -> {
+                started.countDown();
+                try {
+                    snapshot.set(service.snapshotRun(plan, buildResult));
+                } catch (Throwable throwable) {
+                    failure.set(throwable);
+                } finally {
+                    completed.countDown();
+                }
+            });
+            assertTrue(started.await(2, TimeUnit.SECONDS));
+            assertFalse(
+                    completed.await(200, TimeUnit.MILLISECONDS),
+                    "public staged snapshot did not wait for the workspace lease");
+        }
+
+        assertTrue(completed.await(10, TimeUnit.SECONDS));
+        worker.join();
+        assertEquals(null, failure.get());
+        try (WorkspaceRunSnapshot ignored = snapshot.get()) {
+            assertTrue(ignored.members().size() == 1);
+        }
     }
 
     @Test
