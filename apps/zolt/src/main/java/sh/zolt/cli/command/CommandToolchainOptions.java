@@ -9,6 +9,8 @@ import sh.zolt.toolchain.JavaToolchainExecutionService;
 import sh.zolt.toolchain.TestRuntimeToolchain;
 import sh.zolt.toolchain.TestRuntimeToolchainResolver;
 import sh.zolt.toolchain.ToolchainConfigReader;
+import sh.zolt.toolchain.lock.LockedJavaToolchain;
+import sh.zolt.toolchain.lock.ToolchainLockfileService;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
@@ -101,7 +103,9 @@ public final class CommandToolchainOptions {
                         + "|platform="
                         + key.platform().id()
                         + "|store="
-                        + key.store().root().toAbsolutePath().normalize();
+                        + key.store().root().toAbsolutePath().normalize()
+                        + "|"
+                        + lockedToolchainIdentity(workspace.root(), key);
             }
         };
     }
@@ -178,6 +182,43 @@ public final class CommandToolchainOptions {
                 request,
                 services.platform(),
                 services.store());
+    }
+
+    private static String lockedToolchainIdentity(
+            Path workspaceRoot,
+            WorkspaceToolchainKey key) {
+        Optional<LockedJavaToolchain> locked = new ToolchainLockfileService()
+                .findJava(
+                        workspaceRoot.resolve("zolt.lock"),
+                        key.request(),
+                        key.platform());
+        if (locked.isEmpty()) {
+            return "toolchainLock=none";
+        }
+        LockedJavaToolchain value = locked.orElseThrow();
+        String features = value.request().features().stream()
+                .map(feature -> feature.id())
+                .sorted()
+                .collect(java.util.stream.Collectors.joining(","));
+        return String.join(
+                "|",
+                "toolchainLock.id=" + value.id(),
+                "toolchainLock.request.version=" + value.request().version(),
+                "toolchainLock.request.distribution="
+                        + value.request().distribution().map(distribution -> distribution.id()).orElse("ambient"),
+                "toolchainLock.request.features=" + features,
+                "toolchainLock.request.policy=" + value.request().policy().id(),
+                "toolchainLock.platform=" + value.platform().id(),
+                "toolchainLock.resolved.version=" + value.resolvedVersion(),
+                "toolchainLock.resolved.distribution=" + value.resolvedDistribution().id(),
+                "toolchainLock.artifact.catalog=" + value.catalog(),
+                "toolchainLock.artifact.uri=" + value.artifactUri(),
+                "toolchainLock.artifact.sha256=" + value.artifactSha256(),
+                "toolchainLock.layout.javaHome=" + value.layout().javaHome(),
+                "toolchainLock.layout.java=" + value.layout().java(),
+                "toolchainLock.layout.javac=" + value.layout().javac(),
+                "toolchainLock.layout.jar=" + value.layout().jar(),
+                "toolchainLock.layout.nativeImage=" + value.layout().nativeImage());
     }
 
     private record WorkspaceToolchainServices(

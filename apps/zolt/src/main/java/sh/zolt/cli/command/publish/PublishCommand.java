@@ -256,23 +256,33 @@ public final class PublishCommand implements Callable<Integer> {
                     "--resume-members selects members exactly; do not combine it with --all, --member, or --members.");
             return 1;
         }
-        ProgressWriter progress = CommandProgress.human(spec);
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, offline, "zolt publish --workspace");
-        WorkspaceSelectionRequest selection =
-                CommandWorkspaceSelections.from(all, members, memberGroups, resumeMembers);
-        Optional<Duration> waitTimeout =
-                wait ? Optional.of(Duration.ofSeconds(waitTimeoutSeconds)) : Optional.empty();
-        WorkspacePublishService.Options options =
-                new WorkspacePublishService.Options(dryRun, central, allowMixedVersions, sbom, waitTimeout);
-        progress.start(dryRun ? "Preparing workspace publish" : "Publishing workspace family");
-        WorkspacePublishReport report = workspacePublishService.publish(
-                projectRoot, cacheRoot, selection, options, sbomGenerator.memberGenerator(sbom, ZoltCli.version()));
-        CommandOutput.printAndFlush(spec, formatWorkspaceReport(report));
-        if (!report.ok()) {
-            return 1;
-        }
-        progress.result(report.uploaded() ? "Published workspace family" : "Prepared workspace publish");
-        return 0;
+        return sh.zolt.workspace.service.WorkspaceMutationLock.withWorkspaceLock(projectRoot, () -> {
+            ProgressWriter progress = CommandProgress.human(spec);
+            lockfiles.requireFreshWorkspaceLockfile(
+                    projectRoot,
+                    cacheRoot,
+                    offline,
+                    "zolt publish --workspace");
+            WorkspaceSelectionRequest selection =
+                    CommandWorkspaceSelections.from(all, members, memberGroups, resumeMembers);
+            Optional<Duration> waitTimeout =
+                    wait ? Optional.of(Duration.ofSeconds(waitTimeoutSeconds)) : Optional.empty();
+            WorkspacePublishService.Options options =
+                    new WorkspacePublishService.Options(dryRun, central, allowMixedVersions, sbom, waitTimeout);
+            progress.start(dryRun ? "Preparing workspace publish" : "Publishing workspace family");
+            WorkspacePublishReport report = workspacePublishService.publish(
+                    projectRoot,
+                    cacheRoot,
+                    selection,
+                    options,
+                    sbomGenerator.memberGenerator(sbom, ZoltCli.version()));
+            CommandOutput.printAndFlush(spec, formatWorkspaceReport(report));
+            if (!report.ok()) {
+                return 1;
+            }
+            progress.result(report.uploaded() ? "Published workspace family" : "Prepared workspace publish");
+            return 0;
+        });
     }
 
     private static String formatWorkspaceReport(WorkspacePublishReport report) {

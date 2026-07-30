@@ -58,31 +58,33 @@ final class TestCompileCommandRunner {
         WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
                 toolchainOptions.workspaceJdkCheckers("test"),
                 toolchainOptions.workspaceTestRunServices(testRunServiceFactory, "test"));
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
-        progress.start("Compiling workspace tests");
         CommandHumanOutput output = CommandHumanOutput.of(spec);
-        WorkspaceTestCompileResult result = timings.measure(
-                "compile workspace tests",
+        WorkspaceTestCompileResult result = WorkspaceMutationLock.withWorkspaceLock(
+                projectRoot,
                 () -> {
-                    WorkspaceBuildPlan plan = timings.measure(
-                            "plan workspace tests",
-                            () -> projectWorkspaceTestService.planTests(
-                                    projectRoot,
-                                    cacheRoot,
-                                    CommandWorkspaceSelections.from(all, members, memberGroups)),
-                            CommandBuildAttributes::workspaceBuildPlan);
-                    return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
-                        WorkspaceBuildResult buildResult = timings.measure(
-                                "build workspace test inputs",
-                                () -> projectWorkspaceTestService.buildTestCompileInputs(plan, cacheRoot),
-                                build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
-                        return timings.measure(
-                                "compile workspace test members",
-                                () -> projectWorkspaceTestService.compileTests(plan, buildResult),
-                                CommandTestAttributes::workspaceTestCompile);
-                    });
-                },
-                CommandTestAttributes::workspaceTestCompile);
+                    lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                    progress.start("Compiling workspace tests");
+                    return timings.measure(
+                            "compile workspace tests",
+                            () -> {
+                                WorkspaceBuildPlan plan = timings.measure(
+                                        "plan workspace tests",
+                                        () -> projectWorkspaceTestService.planTests(
+                                                projectRoot,
+                                                cacheRoot,
+                                                CommandWorkspaceSelections.from(all, members, memberGroups)),
+                                        CommandBuildAttributes::workspaceBuildPlan);
+                                WorkspaceBuildResult buildResult = timings.measure(
+                                        "build workspace test inputs",
+                                        () -> projectWorkspaceTestService.buildTestCompileInputs(plan, cacheRoot),
+                                        build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
+                                return timings.measure(
+                                        "compile workspace test members",
+                                        () -> projectWorkspaceTestService.compileTests(plan, buildResult),
+                                        CommandTestAttributes::workspaceTestCompile);
+                            },
+                            CommandTestAttributes::workspaceTestCompile);
+                });
         if (result.resolvedLockfile()) {
             output.detail("Resolved workspace dependencies because zolt.lock was missing");
         }

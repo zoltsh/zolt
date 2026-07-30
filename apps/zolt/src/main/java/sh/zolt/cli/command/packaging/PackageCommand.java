@@ -212,22 +212,22 @@ public final class PackageCommand implements Runnable {
                     "Package --plan is currently single-project.",
                     "Run it from the member project you want to inspect.");
         }
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
         ProgressWriter progress = CommandProgress.human(spec);
-        progress.start("Packaging workspace");
         WorkspacePackageService projectWorkspacePackageService =
                 workspacePackageService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("package"));
-        WorkspacePackageResult result = timings.measure(
-                "package workspace",
-                () -> {
-                    WorkspaceBuildPlan plan = timings.measure(
-                            "plan workspace packages",
-                            () -> projectWorkspacePackageService.planPackages(
-                                    projectRoot,
-                                    cacheRoot,
-                                    CommandWorkspaceSelections.from(all, members, memberGroups)),
-                            CommandBuildAttributes::workspaceBuildPlan);
-                    return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+        WorkspacePackageResult result = WorkspaceMutationLock.withWorkspaceLock(projectRoot, () -> {
+            lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+            progress.start("Packaging workspace");
+            return timings.measure(
+                    "package workspace",
+                    () -> {
+                        WorkspaceBuildPlan plan = timings.measure(
+                                "plan workspace packages",
+                                () -> projectWorkspacePackageService.planPackages(
+                                        projectRoot,
+                                        cacheRoot,
+                                        CommandWorkspaceSelections.from(all, members, memberGroups)),
+                                CommandBuildAttributes::workspaceBuildPlan);
                         WorkspaceBuildResult buildResult = timings.measure(
                                 "build workspace package inputs",
                                 () -> projectWorkspacePackageService.buildPackageInputs(plan, cacheRoot),
@@ -240,9 +240,9 @@ public final class PackageCommand implements Runnable {
                                         cacheRoot,
                                         packageModeOverride),
                                 CommandPackageAttributes::workspacePackage);
-                    });
-                },
-                CommandPackageAttributes::workspacePackage);
+                    },
+                    CommandPackageAttributes::workspacePackage);
+        });
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         if (result.resolvedLockfile()) {
             output.success("Resolved workspace dependencies because zolt.lock was missing");

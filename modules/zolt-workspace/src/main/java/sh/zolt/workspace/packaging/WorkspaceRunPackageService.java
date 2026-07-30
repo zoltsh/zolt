@@ -114,8 +114,8 @@ public final class WorkspaceRunPackageService {
             WorkspaceSelectionRequest selectionRequest,
             List<String> arguments,
             Optional<PackageMode> packageModeOverride) {
-        WorkspaceBuildPlan plan = planRunPackages(startDirectory, cacheRoot, selectionRequest);
-        return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = planRunPackages(startDirectory, cacheRoot, selectionRequest);
             WorkspaceBuildResult buildResult = buildRunPackageInputs(plan, cacheRoot);
             WorkspacePackageResult packageResult =
                     packageRunPackageInputs(
@@ -143,6 +143,7 @@ public final class WorkspaceRunPackageService {
             WorkspaceBuildResult buildResult,
             Path cacheRoot,
             Optional<PackageMode> packageModeOverride) {
+        plan.requireInputsCurrent();
         requireRunnableModes(plan, packageModeOverride);
         return workspacePackageService.packageBuiltJars(
                 plan,
@@ -155,6 +156,7 @@ public final class WorkspaceRunPackageService {
             WorkspaceBuildPlan plan,
             WorkspacePackageResult packageResult,
             List<String> arguments) {
+        plan.requireInputsCurrent();
         Workspace workspace = plan.workspace();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(packageResult);

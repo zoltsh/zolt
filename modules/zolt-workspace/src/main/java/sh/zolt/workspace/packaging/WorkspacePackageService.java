@@ -153,9 +153,10 @@ public final class WorkspacePackageService {
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest,
             Optional<PackageMode> packageModeOverride) {
-        WorkspaceBuildPlan plan = planPackages(startDirectory, cacheRoot, selectionRequest);
-        return WorkspaceMutationLock.withLock(plan.workspace().root(), () ->
-                packageBuiltJars(plan, buildPackageInputs(plan, cacheRoot), cacheRoot, packageModeOverride));
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = planPackages(startDirectory, cacheRoot, selectionRequest);
+            return packageBuiltJars(plan, buildPackageInputs(plan, cacheRoot), cacheRoot, packageModeOverride);
+        });
     }
 
     public WorkspaceBuildPlan planPackages(
@@ -166,10 +167,7 @@ public final class WorkspacePackageService {
     }
 
     public WorkspaceBuildResult buildPackageInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
-        return workspaceBuildService.build(
-                plan,
-                cacheRoot,
-                WorkspaceBuildRequirements.mainBuild());
+        return workspaceBuildService.build(plan, cacheRoot, WorkspaceBuildRequirements.mainBuild());
     }
 
     public WorkspacePackageResult packageBuiltJars(
@@ -207,7 +205,7 @@ public final class WorkspacePackageService {
             WorkspaceBuildResult buildResult,
             Optional<Path> cacheRoot,
             Optional<PackageMode> packageModeOverride) {
-        Workspace workspace = plan.workspace();
+        Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);

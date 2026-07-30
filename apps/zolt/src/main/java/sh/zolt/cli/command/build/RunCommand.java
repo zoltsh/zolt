@@ -119,33 +119,38 @@ public final class RunCommand implements Runnable {
             if (workspace) {
                 WorkspaceRunService projectWorkspaceRunService =
                         workspaceRunService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("run"));
-                lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
-                WorkspaceRunResult result = timings.measure(
-                        "run workspace",
+                WorkspaceRunResult result = WorkspaceMutationLock.withWorkspaceLock(
+                        projectRoot,
                         () -> {
-                            WorkspaceBuildPlan plan = timings.measure(
-                                    "plan workspace run",
-                                    () -> projectWorkspaceRunService.planRun(
-                                            projectRoot,
-                                            cacheRoot,
-                                            CommandWorkspaceSelections.from(all, members, memberGroups)),
-                                    CommandBuildAttributes::workspaceBuildPlan);
-                            return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
-                                WorkspaceBuildResult buildResult = timings.measure(
-                                        "build workspace run inputs",
-                                        () -> projectWorkspaceRunService.buildRunInputs(plan, cacheRoot),
-                                        CommandBuildAttributes::workspaceBuild);
-                                return timings.measure(
-                                        "launch workspace members",
-                                        () -> projectWorkspaceRunService.runBuiltMembers(
-                                                plan,
-                                                buildResult,
-                                                arguments,
-                                                output -> CommandOutput.printAndFlush(spec, output)),
-                                        CommandRunAttributes::workspaceRun);
-                            });
-                        },
-                        CommandRunAttributes::workspaceRun);
+                            lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                            return timings.measure(
+                                    "run workspace",
+                                    () -> {
+                                        WorkspaceBuildPlan plan = timings.measure(
+                                                "plan workspace run",
+                                                () -> projectWorkspaceRunService.planRun(
+                                                        projectRoot,
+                                                        cacheRoot,
+                                                        CommandWorkspaceSelections.from(
+                                                                all,
+                                                                members,
+                                                                memberGroups)),
+                                                CommandBuildAttributes::workspaceBuildPlan);
+                                        WorkspaceBuildResult buildResult = timings.measure(
+                                                "build workspace run inputs",
+                                                () -> projectWorkspaceRunService.buildRunInputs(plan, cacheRoot),
+                                                CommandBuildAttributes::workspaceBuild);
+                                        return timings.measure(
+                                                "launch workspace members",
+                                                () -> projectWorkspaceRunService.runBuiltMembers(
+                                                        plan,
+                                                        buildResult,
+                                                        arguments,
+                                                        output -> CommandOutput.printAndFlush(spec, output)),
+                                                CommandRunAttributes::workspaceRun);
+                                    },
+                                    CommandRunAttributes::workspaceRun);
+                        });
                 CommandHumanOutput output = CommandHumanOutput.of(spec);
                 if (result.resolvedLockfile()) {
                     output.success("Resolved workspace dependencies because zolt.lock was missing");

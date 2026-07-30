@@ -58,6 +58,14 @@ public final class WorkspaceDiscoveryService {
         return Optional.empty();
     }
 
+    /**
+     * Finds only the workspace root. Callers may use this non-authoritative lookup to choose the
+     * mutation lock, then perform full discovery again while holding that lock.
+     */
+    public Optional<Path> discoverRoot(Path startDirectory) {
+        return WorkspaceRootLocator.find(startDirectory, this);
+    }
+
     public Workspace load(Path workspaceRoot) {
         Path root = workspaceRoot.toAbsolutePath().normalize();
         Path configPath = workspaceConfigPath(root)
@@ -84,7 +92,7 @@ public final class WorkspaceDiscoveryService {
         return workspaceParser.parse(configPath);
     }
 
-    private Optional<Path> workspaceConfigPath(Path root) {
+    Optional<Path> workspaceConfigPath(Path root) {
         Path legacyConfig = root.resolve(WorkspaceConfigParser.WORKSPACE_FILE).normalize();
         Path rootConfig = root.resolve(WorkspaceConfigParser.ROOT_CONFIG_FILE).normalize();
         boolean hasLegacyConfig = Files.isRegularFile(legacyConfig);

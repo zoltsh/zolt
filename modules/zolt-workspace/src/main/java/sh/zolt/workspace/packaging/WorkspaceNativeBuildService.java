@@ -100,8 +100,8 @@ public final class WorkspaceNativeBuildService {
             WorkspaceSelectionRequest selectionRequest,
             NativeImageExecutableResolver nativeImageExecutableResolver,
             Runnable progress) {
-        WorkspaceBuildPlan plan = planNative(startDirectory, cacheRoot, selectionRequest);
-        return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = planNative(startDirectory, cacheRoot, selectionRequest);
             WorkspaceBuildResult buildResult = buildNativeInputs(plan, cacheRoot);
             WorkspacePackageResult packageResult = packageNativeInputs(plan, buildResult);
             return buildNativeImages(plan, packageResult, nativeImageExecutableResolver, progress);
@@ -153,6 +153,7 @@ public final class WorkspaceNativeBuildService {
             WorkspacePackageResult packageResult,
             NativeImageExecutableResolver nativeImageExecutableResolver,
             Runnable progress) {
+        plan.requireInputsCurrent();
         Map<String, WorkspaceMember> membersByPath = membersByPath(plan.workspace());
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(packageResult);
         List<WorkspaceNativeBuildResult.MemberNativeBuildResult> results = new ArrayList<>();

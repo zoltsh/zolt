@@ -88,9 +88,11 @@ public final class WorkspaceTestService {
             WorkspaceSelectionRequest selectionRequest,
             TestSelection testSelection,
             TestJvmArguments jvmArguments) {
-        WorkspaceBuildPlan plan = planTests(startDirectory, cacheRoot, selectionRequest);
-        return WorkspaceMutationLock.withLock(plan.workspace().root(), () ->
-                runTests(plan, buildTestInputs(plan, cacheRoot), cacheRoot, testSelection, jvmArguments));
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = planTests(startDirectory, cacheRoot, selectionRequest);
+            return runTests(plan, buildTestInputs(plan, cacheRoot), cacheRoot,
+                    testSelection, jvmArguments);
+        });
     }
 
     public WorkspaceBuildPlan planTests(
@@ -120,7 +122,7 @@ public final class WorkspaceTestService {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
             return new WorkspaceTestCompileExecutor(testRunServices)
-                    .compile(plan, buildResult);
+                    .compile(plan.requireInputsCurrent(), buildResult);
         }
     }
 
@@ -248,7 +250,7 @@ public final class WorkspaceTestService {
         Optional<Path> workspaceProfileDirectory = testProfileSettings
                 .forShard(suiteName, shard)
                 .absoluteProfileDirectory(plan.workspace().root());
-        Workspace workspace = plan.workspace();
+        Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = WorkspaceTestExecutionSupport.membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
@@ -316,7 +318,7 @@ public final class WorkspaceTestService {
             List<String> cliEvents) {
         TestJvmArguments testJvmArguments = jvmArguments == null ? TestJvmArguments.empty() : jvmArguments;
         TestReportSettings testReportSettings = reportSettings == null ? TestReportSettings.disabled() : reportSettings;
-        Workspace workspace = plan.workspace();
+        Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = WorkspaceTestExecutionSupport.membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
@@ -345,5 +347,4 @@ public final class WorkspaceTestService {
                 results,
                 workspace.members().size());
     }
-
 }

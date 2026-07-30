@@ -81,8 +81,8 @@ public final class WorkspaceRunService {
             WorkspaceSelectionRequest selectionRequest,
             List<String> arguments,
             Consumer<String> outputConsumer) {
-        WorkspaceBuildPlan plan = planRun(startDirectory, cacheRoot, selectionRequest);
-        return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = planRun(startDirectory, cacheRoot, selectionRequest);
             WorkspaceBuildResult buildResult = buildRunInputs(plan, cacheRoot);
             return runBuiltMembers(plan, buildResult, arguments, outputConsumer);
         });
@@ -107,6 +107,7 @@ public final class WorkspaceRunService {
             WorkspaceBuildResult buildResult,
             List<String> arguments,
             Consumer<String> outputConsumer) {
+        plan.requireInputsCurrent();
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);

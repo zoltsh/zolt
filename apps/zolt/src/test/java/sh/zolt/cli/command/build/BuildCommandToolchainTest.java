@@ -4,9 +4,11 @@ import static sh.zolt.cli.CliTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.cli.toolchain.ManagedJavaToolchainTestFixture;
 import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.lock.ToolchainLockfileService;
+import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -154,6 +156,97 @@ final class BuildCommandToolchainTest {
     }
 
     @Test
+    void workspaceCompileIdentityUsesOnlyTheMatchingToolchainLockRecord()
+            throws IOException {
+        Path workspaceDir = tempDir.resolve("toolchain-identity-workspace");
+        Path memberDir = workspaceDir.resolve("apps/api");
+        LockedJavaToolchain locked = ManagedJavaToolchainTestFixture.locked();
+        Files.createDirectories(memberDir);
+        Files.writeString(workspaceDir.resolve("zolt.toml"), """
+                [workspace]
+                name = "toolchain-identity-workspace"
+                members = ["apps/api"]
+                defaultMembers = ["apps/api"]
+                """);
+        Files.writeString(memberDir.resolve("zolt.toml"), """
+                [project]
+                name = "api"
+                version = "0.1.0"
+                group = "com.example"
+                java = "%s"
+
+                [toolchain.java]
+                version = "%s"
+                distribution = "temurin"
+                features = []
+                policy = "require-managed"
+                """.formatted(locked.request().version(), locked.request().version()));
+        Path source =
+                memberDir.resolve("src/main/java/com/example/Api.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                package com.example;
+
+                public final class Api {
+                }
+                """);
+        ToolchainLockfileService lockfiles = new ToolchainLockfileService();
+        lockfiles.writeJava(workspaceDir.resolve("zolt.lock"), locked);
+        ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
+        Path javacMarker = workspaceDir.resolve("javac-marker.txt");
+        ManagedJavaToolchainTestFixture.installManagedToolchain(
+                store,
+                locked,
+                javacMarker);
+
+        CommandResult cold = buildWorkspace(workspaceDir);
+        assertEquals(0, cold.exitCode(), cold.stderr());
+        assertPipelineInvocations(cold, 1);
+        int coldCompiles = Files.readAllLines(javacMarker).size();
+        CommandResult warm = buildWorkspace(workspaceDir);
+        assertEquals(0, warm.exitCode(), warm.stderr());
+        assertPipelineInvocations(warm, 0);
+        assertEquals(coldCompiles, Files.readAllLines(javacMarker).size());
+
+        LockedJavaToolchain unrelated = new LockedJavaToolchain(
+                "unrelated-windows-toolchain",
+                locked.request(),
+                HostPlatform.parse("windows-x64"),
+                locked.resolvedVersion(),
+                locked.resolvedDistribution(),
+                "test:unrelated",
+                locked.layout());
+        lockfiles.writeJava(
+                workspaceDir.resolve("zolt.lock"),
+                java.util.List.of(locked, unrelated));
+        CommandResult unrelatedChange = buildWorkspace(workspaceDir);
+        assertEquals(
+                0,
+                unrelatedChange.exitCode(),
+                unrelatedChange.stderr());
+        assertPipelineInvocations(unrelatedChange, 0);
+        assertEquals(coldCompiles, Files.readAllLines(javacMarker).size());
+
+        LockedJavaToolchain changedMatch = new LockedJavaToolchain(
+                locked.id(),
+                locked.request(),
+                locked.platform(),
+                locked.resolvedVersion(),
+                locked.resolvedDistribution(),
+                locked.catalog(),
+                "https://example.invalid/jdk.tar.gz",
+                "a".repeat(64),
+                locked.layout());
+        lockfiles.writeJava(
+                workspaceDir.resolve("zolt.lock"),
+                java.util.List.of(changedMatch, unrelated));
+        CommandResult matchingChange = buildWorkspace(workspaceDir);
+
+        assertEquals(0, matchingChange.exitCode(), matchingChange.stderr());
+        assertPipelineInvocations(matchingChange, 1);
+    }
+
+    @Test
     void buildFailsClearlyWhenStrictManagedToolchainIsMissing() throws IOException {
         Path projectDir = ManagedJavaToolchainTestFixture.writeProject(tempDir, "missing-build-demo");
 
@@ -169,5 +262,28 @@ final class BuildCommandToolchainTest {
         assertTrue(result.stderr().contains("zolt toolchain status"));
         assertTrue(result.stderr().contains("zolt toolchain sync"));
         assertTrue(Files.notExists(projectDir.resolve("target/classes/com/example/Main.class")));
+    }
+
+    private CommandResult buildWorkspace(Path workspaceDir) {
+        return execute(
+                "build",
+                "--workspace",
+                "--directory", workspaceDir.toString(),
+                "--cache-root", tempDir.resolve("cache").toString(),
+                "--timings",
+                "--timings-format", "json",
+                "--toolchain-target", "linux-x64",
+                "--toolchain-install-root", tempDir.resolve("toolchains").toString());
+    }
+
+    private static void assertPipelineInvocations(
+            CommandResult result,
+            int expected) {
+        assertTrue(
+                result.stderr().contains(
+                        "\"workspaceMemberPipelineInvocations\":\""
+                                + expected
+                                + "\""),
+                result.stderr());
     }
 }

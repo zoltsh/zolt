@@ -59,4 +59,46 @@ final class PackageCommandToolchainTest {
         assertTrue(Files.notExists(projectDir.resolve("target/classes/com/example/Main.class")));
         assertTrue(Files.notExists(projectDir.resolve("target/missing-package-demo-0.1.0.jar")));
     }
+
+    @Test
+    void workspacePackageDoesNotResolveCompilerToolchainForBomMember() throws IOException {
+        Path workspaceDir = tempDir.resolve("bom-workspace");
+        Path bomDir = workspaceDir.resolve("platform-bom");
+        Files.createDirectories(bomDir);
+        Files.writeString(workspaceDir.resolve("zolt.toml"), """
+                [workspace]
+                name = "bom-workspace"
+                members = ["platform-bom"]
+                defaultMembers = ["platform-bom"]
+                """);
+        Files.writeString(bomDir.resolve("zolt.toml"), """
+                [project]
+                name = "platform-bom"
+                version = "1.0.0"
+                group = "com.example"
+                java = "21"
+
+                [toolchain.java]
+                version = "21"
+                distribution = "temurin"
+                features = []
+                policy = "require-managed"
+
+                [bom]
+                members = true
+                """);
+
+        var result = execute(
+                "package",
+                "--workspace",
+                "--directory", workspaceDir.toString(),
+                "--cache-root", tempDir.resolve("cache").toString(),
+                "--toolchain-target", "linux-x64",
+                "--toolchain-install-root", tempDir.resolve("missing-toolchains").toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(Files.exists(
+                bomDir.resolve("target/publish/platform-bom-1.0.0.pom")));
+        assertTrue(result.stdout().contains("platform-bom-1.0.0.pom"), result.stdout());
+    }
 }

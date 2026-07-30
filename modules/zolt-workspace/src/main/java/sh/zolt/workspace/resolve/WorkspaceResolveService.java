@@ -7,6 +7,7 @@ import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.toml.LockfileReadException;
+import sh.zolt.lockfile.toml.AtomicLockfileWriter;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.lockfile.toml.LockfileSidecars;
@@ -20,6 +21,7 @@ import sh.zolt.resolve.ResolveService;
 import sh.zolt.resolve.metrics.ResolveMetrics;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -85,6 +87,16 @@ public final class WorkspaceResolveService {
     }
 
     public ResolveResult resolve(Path startDirectory, Path cacheRoot, boolean locked, ResolveOptions options) {
+        return WorkspaceMutationLock.withWorkspaceLock(
+                startDirectory,
+                () -> resolveLocked(startDirectory, cacheRoot, locked, options));
+    }
+
+    private ResolveResult resolveLocked(
+            Path startDirectory,
+            Path cacheRoot,
+            boolean locked,
+            ResolveOptions options) {
         Path start = startDirectory.toAbsolutePath().normalize();
         Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> new ResolveException(
                 "Could not find workspace config. Run `zolt resolve --workspace` from a workspace directory or add zolt.toml with [workspace]."));
@@ -224,7 +236,7 @@ public final class WorkspaceResolveService {
 
     private static void writeLockfile(Path lockfilePath, String content) {
         try {
-            Files.writeString(lockfilePath, content);
+            AtomicLockfileWriter.write(lockfilePath, content);
         } catch (IOException exception) {
             throw new ResolveException(
                     "Could not write zolt.lock at "

@@ -2,6 +2,7 @@ package sh.zolt.toolchain.lock;
 
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.lockfile.toml.AtomicLockfileWriter;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
@@ -89,7 +90,7 @@ public final class ToolchainLockfileService {
             for (LockedJavaToolchain java : ordered(locked)) {
                 content = appendJavaLock(content, java);
             }
-            Files.writeString(lockfile, content);
+            AtomicLockfileWriter.write(lockfile, content);
         } catch (IOException exception) {
             throw new ActionableException(
                     "Could not write Java toolchain metadata to " + lockfile + ".",

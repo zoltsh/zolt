@@ -66,11 +66,13 @@ public final class WorkspaceCoverageService {
             TestShardSpec shard) {
         CoverageReportSettings settings = reportSettings == null ? CoverageReportSettings.defaults() : reportSettings;
         settings = settings.forShard(suiteName, shard);
-        ResolveResult resolveResult = workspaceResolver.resolveWithCoverageTooling(startDirectory, cacheRoot);
-        WorkspaceBuildPlan plan = workspaceTests.planTests(startDirectory, cacheRoot, selectionRequest);
         CoverageReportSettings finalSettings = settings;
-        return WorkspaceMutationLock.withLock(plan.workspace().root(), () ->
-                runCoverageLocked(
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            ResolveResult resolveResult =
+                    workspaceResolver.resolveWithCoverageTooling(startDirectory, cacheRoot);
+            WorkspaceBuildPlan plan =
+                    workspaceTests.planTests(startDirectory, cacheRoot, selectionRequest);
+            return runCoverageLocked(
                     plan,
                     cacheRoot,
                     testSelection,
@@ -78,7 +80,8 @@ public final class WorkspaceCoverageService {
                     cliEvents,
                     suiteName,
                     shard,
-                    resolveResult));
+                    resolveResult);
+        });
     }
 
     private WorkspaceCoverageResult runCoverageLocked(
@@ -90,6 +93,7 @@ public final class WorkspaceCoverageService {
             String suiteName,
             TestShardSpec shard,
             ResolveResult resolveResult) {
+        plan.requireInputsCurrent();
         WorkspaceBuildResult buildResult = workspaceTests.buildTestInputs(plan, cacheRoot);
         Workspace workspace = plan.workspace();
         Path workspaceRoot = workspace.root().toAbsolutePath().normalize();

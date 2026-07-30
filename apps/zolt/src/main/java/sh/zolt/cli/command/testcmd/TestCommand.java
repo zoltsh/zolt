@@ -205,29 +205,31 @@ public final class TestCommand implements Runnable {
         WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
                 toolchainOptions.workspaceJdkCheckers("test"),
                 toolchainOptions.workspaceTestRunServices(testRunServiceFactory, "test"));
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
-        progress.start("Testing workspace");
         CommandHumanOutput output = CommandHumanOutput.of(spec);
-        WorkspaceTestResult result = timings.measure(
-                "test workspace",
+        WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
+                projectRoot,
                 () -> {
-                    WorkspaceBuildPlan plan = timings.measure(
-                            "plan workspace tests",
-                            () -> projectWorkspaceTestService.planTests(
-                                    projectRoot,
-                                    cacheRoot,
-                                    CommandWorkspaceSelections.from(all, members, memberGroups)),
-                            CommandBuildAttributes::workspaceBuildPlan);
-                    return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
-                        WorkspaceBuildResult buildResult = timings.measure(
-                                "build workspace test inputs",
-                                () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
-                                build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
-                        return timings.measure(
-                                "run workspace test members",
-                                () -> projectWorkspaceTestService.runTests(
-                                        plan,
-                                        buildResult,
+                    lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                    progress.start("Testing workspace");
+                    return timings.measure(
+                            "test workspace",
+                            () -> {
+                                WorkspaceBuildPlan plan = timings.measure(
+                                        "plan workspace tests",
+                                        () -> projectWorkspaceTestService.planTests(
+                                                projectRoot,
+                                                cacheRoot,
+                                                CommandWorkspaceSelections.from(all, members, memberGroups)),
+                                        CommandBuildAttributes::workspaceBuildPlan);
+                                WorkspaceBuildResult buildResult = timings.measure(
+                                        "build workspace test inputs",
+                                        () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
+                                        build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
+                                return timings.measure(
+                                        "run workspace test members",
+                                        () -> projectWorkspaceTestService.runTests(
+                                                plan,
+                                                buildResult,
                                         cacheRoot,
                                         request.testSelection(),
                                         request.testJvmArguments(),
@@ -235,11 +237,11 @@ public final class TestCommand implements Runnable {
                                         request.requestedTestEvents(),
                                         request.suiteName(),
                                         request.shard(),
-                                        request.profileSettings()),
-                                CommandTestAttributes::workspaceTest);
-                    });
-                },
-                CommandTestAttributes::workspaceTest);
+                                                request.profileSettings()),
+                                        CommandTestAttributes::workspaceTest);
+                            },
+                            CommandTestAttributes::workspaceTest);
+                });
         if (result.resolvedLockfile()) {
             output.detail("Resolved workspace dependencies because zolt.lock was missing");
         }

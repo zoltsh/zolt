@@ -5,11 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import sh.zolt.build.BuildException;
 import sh.zolt.resolve.ResolveException;
+import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -67,6 +70,41 @@ final class WorkspacePlanningServiceTest {
                 "Could not find workspace config. Run `zolt build --workspace` from a workspace directory or add zolt.toml with [workspace].",
                 exception.getMessage());
         assertTrue(exception.actionableError().remediation().contains("Run `zolt build --workspace`"));
+    }
+
+    @Test
+    void detachedBuildPlanRefusesLockCommittedByLaterWorkspaceResolve() throws Exception {
+        writeWorkspaceWithApiDependency();
+        writeLockfile();
+        WorkspaceBuildService service = new WorkspaceBuildService();
+        WorkspaceBuildPlan plan = service.planBuild(
+                tempDir,
+                tempDir.resolve("cache"),
+                true,
+                WorkspaceSelectionRequest.defaults());
+        String plannedLockfile = Files.readString(tempDir.resolve("zolt.lock"));
+        AtomicReference<Throwable> resolveFailure = new AtomicReference<>();
+        Thread resolver = Thread.ofPlatform().start(() -> {
+            try {
+                new WorkspaceResolveService().resolve(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        false,
+                        true);
+            } catch (Throwable throwable) {
+                resolveFailure.set(throwable);
+            }
+        });
+        resolver.join();
+
+        assertEquals(null, resolveFailure.get());
+        assertFalse(plannedLockfile.equals(Files.readString(tempDir.resolve("zolt.lock"))));
+        BuildException exception = assertThrows(
+                BuildException.class,
+                () -> service.build(plan, tempDir.resolve("cache")));
+
+        assertTrue(exception.getMessage().contains("changed after planning"));
+        assertFalse(Files.exists(tempDir.resolve(".zolt/workspace-state-v1")));
     }
 
     private void writeWorkspaceWithApiDependency() throws IOException {

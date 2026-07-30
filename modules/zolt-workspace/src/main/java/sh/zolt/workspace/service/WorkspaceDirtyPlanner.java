@@ -128,9 +128,7 @@ final class WorkspaceDirtyPlanner {
                         + "|workspaceConfig="
                         + snapshot.pathHash(context.workspace().configPath())
                         + "|inheritedToolchainConfig="
-                        + snapshot.pathHash(context.workspace().root().resolve("zolt.toml"))
-                        + "|toolchainLock="
-                        + snapshot.pathHash(context.workspace().root().resolve("zolt.lock")));
+                        + snapshot.pathHash(context.workspace().root().resolve("zolt.toml")));
         String generatedDigest = generatedInputs(snapshot, member, build.generatedMainSources());
         String compileClasspathDigest =
                 classpathDigest(context, snapshot, classpaths.compile());

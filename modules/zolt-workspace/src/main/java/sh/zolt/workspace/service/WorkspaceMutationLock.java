@@ -1,6 +1,7 @@
 package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -18,6 +19,7 @@ import java.util.function.Supplier;
  */
 public final class WorkspaceMutationLock implements AutoCloseable {
     private static final String FILE_NAME = "workspace-mutation.lock";
+    private static final int ROOT_CONFIRMATION_ATTEMPTS = 3;
     private static final ConcurrentHashMap<Path, ReentrantLock> PROCESS_LOCKS =
             new ConcurrentHashMap<>();
     private static final ThreadLocal<Map<Path, HeldLock>> HELD_LOCKS =
@@ -70,6 +72,41 @@ public final class WorkspaceMutationLock implements AutoCloseable {
         try (WorkspaceMutationLock ignored = acquire(workspaceRoot)) {
             return action.get();
         }
+    }
+
+    /**
+     * Locates the root only to choose a lock, then confirms it under the lease before running the
+     * authoritative discovery and planning supplied by {@code action}.
+     */
+    public static <T> T withWorkspaceLock(
+            Path startDirectory,
+            Supplier<T> action) {
+        WorkspaceDiscoveryService discovery = new WorkspaceDiscoveryService();
+        for (int attempt = 0; attempt < ROOT_CONFIRMATION_ATTEMPTS; attempt++) {
+            var discoveredRoot = discovery.discoverRoot(startDirectory);
+            if (discoveredRoot.isEmpty()) {
+                return action.get();
+            }
+            Path root = discoveredRoot.orElseThrow();
+            try (WorkspaceMutationLock ignored = acquire(root)) {
+                if (discovery.discoverRoot(startDirectory)
+                        .filter(root::equals)
+                        .isPresent()) {
+                    return action.get();
+                }
+            }
+        }
+        throw new BuildException(
+                "Workspace root changed repeatedly while acquiring its mutation lock. Retry the command.");
+    }
+
+    public static <T> T withLockIfWorkspace(
+            Path startDirectory,
+            Supplier<T> action) {
+        if (new WorkspaceDiscoveryService().discoverRoot(startDirectory).isEmpty()) {
+            return action.get();
+        }
+        return withWorkspaceLock(startDirectory, action);
     }
 
     static Path path(Path workspaceRoot) {

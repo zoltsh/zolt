@@ -20,6 +20,7 @@ import sh.zolt.toolchain.ToolchainSyncResult;
 import sh.zolt.toolchain.ToolchainSyncService;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
@@ -221,7 +222,9 @@ public final class ToolchainCommand implements Runnable {
                 Path projectRoot = projectDirectory.path();
                 ToolchainSyncResult result = global
                         ? syncGlobal()
-                        : syncProject(projectRoot);
+                        : WorkspaceMutationLock.withLockIfWorkspace(
+                                projectRoot,
+                                () -> syncProject(projectRoot));
                 print(result);
                 return 0;
             } catch (ActionableException | UserGlobalConfigException | ZoltConfigException exception) {

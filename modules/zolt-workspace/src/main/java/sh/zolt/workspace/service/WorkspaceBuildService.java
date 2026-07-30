@@ -6,29 +6,18 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
-import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.WorkspaceGraphLockCapability;
-import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.provenance.BuildProvenanceSource;
-import sh.zolt.resolve.ResolveException;
-import sh.zolt.resolve.ResolveResult;
+import sh.zolt.project.PackageMode;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
-import sh.zolt.workspace.resolve.WorkspaceResolveService;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 public final class WorkspaceBuildService {
-    private final WorkspaceDiscoveryService workspaceDiscoveryService;
-    private final WorkspaceResolveService workspaceResolveService;
-    private final ZoltLockfileReader lockfileReader;
+    private final WorkspaceBuildPlanner buildPlanner;
     private final WorkspaceClasspathService workspaceClasspathService;
-    private final WorkspaceMemberSelector memberSelector;
     private final WorkspaceMemberBuildExecutor memberBuildExecutor;
     private final WorkspaceDirtyPlanner dirtyPlanner = new WorkspaceDirtyPlanner();
 
@@ -57,11 +46,8 @@ public final class WorkspaceBuildService {
             ResolveService resolveService,
             BuildProvenanceSource provenanceSource) {
         this(
-                new WorkspaceDiscoveryService(),
-                new WorkspaceResolveService(resolveService),
-                new ZoltLockfileReader(),
+                new WorkspaceBuildPlanner(resolveService),
                 new WorkspaceClasspathService(),
-                new WorkspaceMemberSelector(),
                 new WorkspaceMemberBuildExecutor(
                         new BuildService(jdkDetector, resolveService, provenanceSource),
                         WorkspaceJdkCheckerResolver.fixed(jdkDetector),
@@ -69,37 +55,25 @@ public final class WorkspaceBuildService {
     }
 
     WorkspaceBuildService(
-            WorkspaceDiscoveryService workspaceDiscoveryService,
-            WorkspaceResolveService workspaceResolveService,
-            ZoltLockfileReader lockfileReader,
+            WorkspaceBuildPlanner buildPlanner,
             WorkspaceClasspathService workspaceClasspathService,
-            WorkspaceMemberSelector memberSelector,
             WorkspaceMemberBuildExecutor memberBuildExecutor) {
-        this.workspaceDiscoveryService = workspaceDiscoveryService;
-        this.workspaceResolveService = workspaceResolveService;
-        this.lockfileReader = lockfileReader;
+        this.buildPlanner = buildPlanner;
         this.workspaceClasspathService = workspaceClasspathService;
-        this.memberSelector = memberSelector;
         this.memberBuildExecutor = memberBuildExecutor;
     }
 
     public WorkspaceBuildService withJdkCheckers(WorkspaceJdkCheckerResolver jdkCheckers) {
         return new WorkspaceBuildService(
-                workspaceDiscoveryService,
-                workspaceResolveService,
-                lockfileReader,
+                buildPlanner,
                 workspaceClasspathService,
-                memberSelector,
                 memberBuildExecutor.withJdkCheckers(jdkCheckers));
     }
 
     public WorkspaceBuildService withBuildCache(BuildCacheService buildCacheService) {
         return new WorkspaceBuildService(
-                workspaceDiscoveryService,
-                workspaceResolveService,
-                lockfileReader,
+                buildPlanner,
                 workspaceClasspathService,
-                memberSelector,
                 memberBuildExecutor.withBuildCache(buildCacheService));
     }
 
@@ -112,7 +86,16 @@ public final class WorkspaceBuildService {
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest) {
-        return build(planBuild(startDirectory, cacheRoot, offline, selectionRequest), cacheRoot);
+        return WorkspaceMutationLock.withWorkspaceLock(
+                startDirectory,
+                () -> build(
+                        planBuildLocked(
+                                startDirectory,
+                                cacheRoot,
+                                offline,
+                                selectionRequest,
+                                false),
+                        cacheRoot));
     }
 
     public WorkspaceBuildPlan planBuild(
@@ -120,7 +103,14 @@ public final class WorkspaceBuildService {
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest) {
-        return planBuild(startDirectory, cacheRoot, offline, selectionRequest, false);
+        return WorkspaceMutationLock.withWorkspaceLock(
+                startDirectory,
+                () -> planBuildLocked(
+                        startDirectory,
+                        cacheRoot,
+                        offline,
+                        selectionRequest,
+                        false));
     }
 
     WorkspaceBuildPlan planTestBuild(
@@ -128,58 +118,28 @@ public final class WorkspaceBuildService {
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest) {
-        return planBuild(startDirectory, cacheRoot, offline, selectionRequest, true);
+        return WorkspaceMutationLock.withWorkspaceLock(
+                startDirectory,
+                () -> planBuildLocked(
+                        startDirectory,
+                        cacheRoot,
+                        offline,
+                        selectionRequest,
+                        true));
     }
 
-    private WorkspaceBuildPlan planBuild(
+    private WorkspaceBuildPlan planBuildLocked(
             Path startDirectory,
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest,
-        boolean includeTestLanes) {
-        Path start = startDirectory.toAbsolutePath().normalize();
-        long discoveryStarted = System.nanoTime();
-        Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> ResolveException.actionable(
-                "Could not find workspace config.",
-                "Run `zolt build --workspace` from a workspace directory or add zolt.toml with [workspace]."));
-        long discoveryNanos = elapsedSince(discoveryStarted);
-        long selectionStarted = System.nanoTime();
-        WorkspaceSelection selection = includeTestLanes
-                ? memberSelector.select(workspace, selectionRequest)
-                : memberSelector.selectMain(workspace, selectionRequest);
-        long selectionNanos = elapsedSince(selectionStarted);
-        Path lockfilePath = workspace.root().resolve("zolt.lock");
-        Optional<ResolveResult> resolveResult = Optional.empty();
-        long resolutionNanos = 0L;
-        if (!Files.isRegularFile(lockfilePath)) {
-            long resolutionStarted = System.nanoTime();
-            resolveResult = Optional.of(workspaceResolveService.resolve(
-                    start,
-                    cacheRoot,
-                    false,
-                    offline,
-                    "zolt build --workspace"));
-            resolutionNanos = elapsedSince(resolutionStarted);
-        }
-
-        long lockfileReadStarted = System.nanoTime();
-        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
-        WorkspaceGraphLockCapability.requireMemberGraphEvidence(lockfile);
-        long lockfileReadNanos = elapsedSince(lockfileReadStarted);
-        return new WorkspaceBuildPlan(
-                workspace,
-                selection,
-                resolveResult,
-                lockfile,
-                new WorkspaceExecutionContext(workspace, lockfile, cacheRoot),
-                new WorkspacePlanMetrics(
-                        discoveryNanos,
-                        selectionNanos,
-                        resolutionNanos,
-                        lockfileReadNanos,
-                        workspace.members().size(),
-                        workspace.edges().size(),
-                        lockfile.packages().size()));
+            boolean includeTestLanes) {
+        return buildPlanner.plan(
+                startDirectory,
+                cacheRoot,
+                offline,
+                selectionRequest,
+                includeTestLanes);
     }
 
     public WorkspaceBuildResult build(WorkspaceBuildPlan plan, Path cacheRoot) {
@@ -230,7 +190,8 @@ public final class WorkspaceBuildService {
             WorkspaceBuildPlan plan,
             Path cacheRoot,
             Map<String, WorkspaceBuildRequirements> requirementsByMember) {
-        WorkspaceExecutionContext context = executionContext(plan, cacheRoot);
+        WorkspaceExecutionContext context =
+                executionContext(plan.requireInputsCurrent(), cacheRoot);
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
@@ -250,12 +211,15 @@ public final class WorkspaceBuildService {
         Map<String, String> toolchainIdentitiesByMember =
                 new LinkedHashMap<>();
         for (String member : selection.includedMembers()) {
+            WorkspaceMember workspaceMember = membersByPath.get(member);
             toolchainIdentitiesByMember.put(
                     member,
-                    context.toolchainIndex().compileIdentity(
-                            memberBuildExecutor.jdkCheckers(),
-                            workspace,
-                            membersByPath.get(member)));
+                    workspaceMember.config().packageSettings().mode() == PackageMode.BOM
+                            ? "not-applicable:bom"
+                            : context.toolchainIndex().compileIdentity(
+                                    memberBuildExecutor.jdkCheckers(),
+                                    workspace,
+                                    workspaceMember));
         }
         Map<String, ClasspathSet> classpathsByMember = workspaceClasspathService.classpathsForMembers(
                 context,
@@ -322,7 +286,8 @@ public final class WorkspaceBuildService {
         if (plan.executionContext().cacheRoot().equals(requestedCacheRoot)) {
             return plan.executionContext();
         }
-        return new WorkspaceExecutionContext(plan.workspace(), plan.lockfile(), requestedCacheRoot);
+        return new WorkspaceExecutionContext(
+                plan.workspace(), plan.lockfile(), requestedCacheRoot);
     }
 
     private static long elapsedSince(long started) {
