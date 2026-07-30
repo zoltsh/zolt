@@ -154,8 +154,8 @@ public final class WorkspacePackageService {
             WorkspaceSelectionRequest selectionRequest,
             Optional<PackageMode> packageModeOverride) {
         WorkspaceBuildPlan plan = planPackages(startDirectory, cacheRoot, selectionRequest);
-        WorkspaceBuildResult buildResult = buildPackageInputs(plan, cacheRoot);
-        return packageBuiltJars(plan, buildResult, cacheRoot, packageModeOverride);
+        return WorkspaceMutationLock.withLock(plan.workspace().root(), () ->
+                packageBuiltJars(plan, buildPackageInputs(plan, cacheRoot), cacheRoot, packageModeOverride));
     }
 
     public WorkspaceBuildPlan planPackages(

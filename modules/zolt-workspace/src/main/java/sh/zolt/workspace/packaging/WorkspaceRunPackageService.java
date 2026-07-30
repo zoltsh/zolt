@@ -18,6 +18,7 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -114,14 +115,16 @@ public final class WorkspaceRunPackageService {
             List<String> arguments,
             Optional<PackageMode> packageModeOverride) {
         WorkspaceBuildPlan plan = planRunPackages(startDirectory, cacheRoot, selectionRequest);
-        WorkspaceBuildResult buildResult = buildRunPackageInputs(plan, cacheRoot);
-        WorkspacePackageResult packageResult =
-                packageRunPackageInputs(
-                        plan,
-                        buildResult,
-                        cacheRoot,
-                        packageModeOverride);
-        return runPackagedMembers(plan, packageResult, arguments);
+        return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+            WorkspaceBuildResult buildResult = buildRunPackageInputs(plan, cacheRoot);
+            WorkspacePackageResult packageResult =
+                    packageRunPackageInputs(
+                            plan,
+                            buildResult,
+                            cacheRoot,
+                            packageModeOverride);
+            return runPackagedMembers(plan, packageResult, arguments);
+        });
     }
 
     public WorkspaceBuildPlan planRunPackages(

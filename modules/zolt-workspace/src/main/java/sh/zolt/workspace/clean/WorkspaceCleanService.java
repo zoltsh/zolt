@@ -7,6 +7,7 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMemberSelector;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
@@ -38,6 +39,15 @@ public final class WorkspaceCleanService {
         Path start = startDirectory.toAbsolutePath().normalize();
         Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> new WorkspaceConfigException(
                 "Could not find workspace config. Run `zolt clean --workspace` from a workspace directory or add zolt.toml with [workspace]."));
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(workspace.root())) {
+            return cleanLocked(workspace, selectionRequest);
+        }
+    }
+
+    private WorkspaceCleanResult cleanLocked(
+            Workspace workspace,
+            WorkspaceSelectionRequest selectionRequest) {
         WorkspaceSelection selection = memberSelector.select(workspace, selectionRequest);
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         List<WorkspaceCleanResult.MemberCleanResult> results = new ArrayList<>();

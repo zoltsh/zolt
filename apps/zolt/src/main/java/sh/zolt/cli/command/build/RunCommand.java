@@ -32,6 +32,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.run.WorkspaceRunResult;
 import sh.zolt.workspace.run.WorkspaceRunService;
@@ -129,18 +130,20 @@ public final class RunCommand implements Runnable {
                                             cacheRoot,
                                             CommandWorkspaceSelections.from(all, members, memberGroups)),
                                     CommandBuildAttributes::workspaceBuildPlan);
-                            WorkspaceBuildResult buildResult = timings.measure(
-                                    "build workspace run inputs",
-                                    () -> projectWorkspaceRunService.buildRunInputs(plan, cacheRoot),
-                                    CommandBuildAttributes::workspaceBuild);
-                            return timings.measure(
-                                    "launch workspace members",
-                                    () -> projectWorkspaceRunService.runBuiltMembers(
-                                            plan,
-                                            buildResult,
-                                            arguments,
-                                            output -> CommandOutput.printAndFlush(spec, output)),
-                                    CommandRunAttributes::workspaceRun);
+                            return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+                                WorkspaceBuildResult buildResult = timings.measure(
+                                        "build workspace run inputs",
+                                        () -> projectWorkspaceRunService.buildRunInputs(plan, cacheRoot),
+                                        CommandBuildAttributes::workspaceBuild);
+                                return timings.measure(
+                                        "launch workspace members",
+                                        () -> projectWorkspaceRunService.runBuiltMembers(
+                                                plan,
+                                                buildResult,
+                                                arguments,
+                                                output -> CommandOutput.printAndFlush(spec, output)),
+                                        CommandRunAttributes::workspaceRun);
+                            });
                         },
                         CommandRunAttributes::workspaceRun);
                 CommandHumanOutput output = CommandHumanOutput.of(spec);

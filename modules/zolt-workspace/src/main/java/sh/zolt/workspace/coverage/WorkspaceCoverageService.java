@@ -13,6 +13,7 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.service.WorkspaceTestResult;
@@ -67,6 +68,28 @@ public final class WorkspaceCoverageService {
         settings = settings.forShard(suiteName, shard);
         ResolveResult resolveResult = workspaceResolver.resolveWithCoverageTooling(startDirectory, cacheRoot);
         WorkspaceBuildPlan plan = workspaceTests.planTests(startDirectory, cacheRoot, selectionRequest);
+        CoverageReportSettings finalSettings = settings;
+        return WorkspaceMutationLock.withLock(plan.workspace().root(), () ->
+                runCoverageLocked(
+                    plan,
+                    cacheRoot,
+                    testSelection,
+                    finalSettings,
+                    cliEvents,
+                    suiteName,
+                    shard,
+                    resolveResult));
+    }
+
+    private WorkspaceCoverageResult runCoverageLocked(
+            WorkspaceBuildPlan plan,
+            Path cacheRoot,
+            TestSelection testSelection,
+            CoverageReportSettings settings,
+            List<String> cliEvents,
+            String suiteName,
+            TestShardSpec shard,
+            ResolveResult resolveResult) {
         WorkspaceBuildResult buildResult = workspaceTests.buildTestInputs(plan, cacheRoot);
         Workspace workspace = plan.workspace();
         Path workspaceRoot = workspace.root().toAbsolutePath().normalize();

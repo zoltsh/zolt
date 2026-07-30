@@ -17,6 +17,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceTestCompileResult;
 import sh.zolt.workspace.service.WorkspaceTestService;
 import java.nio.file.Path;
@@ -70,14 +71,16 @@ final class TestCompileCommandRunner {
                                     cacheRoot,
                                     CommandWorkspaceSelections.from(all, members, memberGroups)),
                             CommandBuildAttributes::workspaceBuildPlan);
-                    WorkspaceBuildResult buildResult = timings.measure(
-                            "build workspace test inputs",
-                            () -> projectWorkspaceTestService.buildTestCompileInputs(plan, cacheRoot),
-                            build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
-                    return timings.measure(
-                            "compile workspace test members",
-                            () -> projectWorkspaceTestService.compileTests(plan, buildResult),
-                            CommandTestAttributes::workspaceTestCompile);
+                    return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+                        WorkspaceBuildResult buildResult = timings.measure(
+                                "build workspace test inputs",
+                                () -> projectWorkspaceTestService.buildTestCompileInputs(plan, cacheRoot),
+                                build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
+                        return timings.measure(
+                                "compile workspace test members",
+                                () -> projectWorkspaceTestService.compileTests(plan, buildResult),
+                                CommandTestAttributes::workspaceTestCompile);
+                    });
                 },
                 CommandTestAttributes::workspaceTestCompile);
         if (result.resolvedLockfile()) {

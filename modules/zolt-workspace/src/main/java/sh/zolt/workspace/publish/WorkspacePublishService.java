@@ -13,6 +13,7 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
@@ -185,8 +186,6 @@ public final class WorkspacePublishService {
             WorkspaceMemberSbomGenerator sbomGenerator) {
         WorkspaceBuildPlan plan = workspaceBuildService.planBuild(startDirectory, cacheRoot, false, selectionRequest);
         Workspace workspace = plan.workspace();
-        WorkspaceSelection selection = plan.selection();
-        ZoltLockfile aggregatedLock = plan.lockfile();
         boolean resumeMode = selectionRequest.exact();
 
         // A `--resume-members` publish is backed by a durable transaction manifest, not a trusted hidden
@@ -218,10 +217,31 @@ public final class WorkspacePublishService {
                     false,
                     WorkspaceSelectionRequest.exact(resumeState.orElseThrow().familyMembers()));
             workspace = plan.workspace();
-            selection = plan.selection();
-            aggregatedLock = plan.lockfile();
         }
 
+        WorkspaceBuildPlan lockedPlan = plan;
+        return WorkspaceMutationLock.withLock(workspace.root(), () -> publishLocked(
+                lockedPlan.workspace(),
+                lockedPlan.selection(),
+                lockedPlan.lockfile(),
+                cacheRoot,
+                selectionRequest,
+                options,
+                sbomGenerator,
+                statePath,
+                resumeState));
+    }
+
+    private WorkspacePublishReport publishLocked(
+            Workspace workspace,
+            WorkspaceSelection selection,
+            ZoltLockfile aggregatedLock,
+            Path cacheRoot,
+            WorkspaceSelectionRequest selectionRequest,
+            Options options,
+            WorkspaceMemberSbomGenerator sbomGenerator,
+            Path statePath,
+            Optional<ResumeState> resumeState) {
         List<WorkspaceMember> publishable =
                 WorkspacePublishSelection.publishable(workspace, selection, publishSettingsReader);
         Set<String> publishSet = new LinkedHashSet<>();

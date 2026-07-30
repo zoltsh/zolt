@@ -32,6 +32,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.packaging.WorkspacePackageResult;
 import sh.zolt.workspace.packaging.WorkspacePackageService;
@@ -226,18 +227,20 @@ public final class PackageCommand implements Runnable {
                                     cacheRoot,
                                     CommandWorkspaceSelections.from(all, members, memberGroups)),
                             CommandBuildAttributes::workspaceBuildPlan);
-                    WorkspaceBuildResult buildResult = timings.measure(
-                            "build workspace package inputs",
-                            () -> projectWorkspacePackageService.buildPackageInputs(plan, cacheRoot),
-                            CommandBuildAttributes::workspaceBuild);
-                    return timings.measure(
-                            "assemble workspace packages",
-                            () -> projectWorkspacePackageService.packageBuiltJars(
-                                    plan,
-                                    buildResult,
-                                    cacheRoot,
-                                    packageModeOverride),
-                            CommandPackageAttributes::workspacePackage);
+                    return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+                        WorkspaceBuildResult buildResult = timings.measure(
+                                "build workspace package inputs",
+                                () -> projectWorkspacePackageService.buildPackageInputs(plan, cacheRoot),
+                                CommandBuildAttributes::workspaceBuild);
+                        return timings.measure(
+                                "assemble workspace packages",
+                                () -> projectWorkspacePackageService.packageBuiltJars(
+                                        plan,
+                                        buildResult,
+                                        cacheRoot,
+                                        packageModeOverride),
+                                CommandPackageAttributes::workspacePackage);
+                    });
                 },
                 CommandPackageAttributes::workspacePackage);
         CommandHumanOutput output = CommandHumanOutput.of(spec);
@@ -322,7 +325,6 @@ public final class PackageCommand implements Runnable {
         output.provenance(CommandBuildProvenance.read(projectRoot));
         progress.result("Packaged " + result.jarPath());
     }
-
     private void runSingleProjectBomPackage(Path projectRoot, ProjectConfig config) {
         if (planOnly) {
             CommandOutput.printAndFlush(spec, "Package mode: bom\nArtifact: "

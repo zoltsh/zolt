@@ -34,6 +34,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import sh.zolt.workspace.service.WorkspaceTestService;
@@ -217,24 +218,26 @@ public final class TestCommand implements Runnable {
                                     cacheRoot,
                                     CommandWorkspaceSelections.from(all, members, memberGroups)),
                             CommandBuildAttributes::workspaceBuildPlan);
-                    WorkspaceBuildResult buildResult = timings.measure(
-                            "build workspace test inputs",
-                            () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
-                            build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
-                    return timings.measure(
-                            "run workspace test members",
-                            () -> projectWorkspaceTestService.runTests(
-                                    plan,
-                                    buildResult,
-                                    cacheRoot,
-                                    request.testSelection(),
-                                    request.testJvmArguments(),
-                                    request.reportSettings(),
-                                    request.requestedTestEvents(),
-                                    request.suiteName(),
-                                    request.shard(),
-                                    request.profileSettings()),
-                            CommandTestAttributes::workspaceTest);
+                    return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+                        WorkspaceBuildResult buildResult = timings.measure(
+                                "build workspace test inputs",
+                                () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
+                                build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
+                        return timings.measure(
+                                "run workspace test members",
+                                () -> projectWorkspaceTestService.runTests(
+                                        plan,
+                                        buildResult,
+                                        cacheRoot,
+                                        request.testSelection(),
+                                        request.testJvmArguments(),
+                                        request.reportSettings(),
+                                        request.requestedTestEvents(),
+                                        request.suiteName(),
+                                        request.shard(),
+                                        request.profileSettings()),
+                                CommandTestAttributes::workspaceTest);
+                    });
                 },
                 CommandTestAttributes::workspaceTest);
         if (result.resolvedLockfile()) {

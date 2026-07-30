@@ -46,6 +46,34 @@ final class WorkspaceMutationLockTest {
         }
     }
 
+    @Test
+    void nestedLeaseKeepsProcessLockUntilOutermostClose() throws Exception {
+        Process process;
+        try (WorkspaceMutationLock outer =
+                WorkspaceMutationLock.acquire(tempDir)) {
+            try (WorkspaceMutationLock ignored =
+                    WorkspaceMutationLock.acquire(tempDir)) {
+                process = startProbe();
+                try (BufferedReader output = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    assertEquals("ready", output.readLine());
+                }
+            }
+            assertThrows(
+                    TimeoutException.class,
+                    () -> process.onExit().get(
+                            Duration.ofMillis(250).toMillis(),
+                            TimeUnit.MILLISECONDS));
+        }
+        try {
+            assertEquals(0, process.waitFor());
+        } finally {
+            if (process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+    }
+
     private Process startProbe() throws IOException, URISyntaxException {
         Path java = Path.of(
                 System.getProperty("java.home"),

@@ -15,6 +15,7 @@ import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -100,9 +101,11 @@ public final class WorkspaceNativeBuildService {
             NativeImageExecutableResolver nativeImageExecutableResolver,
             Runnable progress) {
         WorkspaceBuildPlan plan = planNative(startDirectory, cacheRoot, selectionRequest);
-        WorkspaceBuildResult buildResult = buildNativeInputs(plan, cacheRoot);
-        WorkspacePackageResult packageResult = packageNativeInputs(plan, buildResult);
-        return buildNativeImages(plan, packageResult, nativeImageExecutableResolver, progress);
+        return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+            WorkspaceBuildResult buildResult = buildNativeInputs(plan, cacheRoot);
+            WorkspacePackageResult packageResult = packageNativeInputs(plan, buildResult);
+            return buildNativeImages(plan, packageResult, nativeImageExecutableResolver, progress);
+        });
     }
 
     public WorkspaceBuildPlan planNative(

@@ -89,8 +89,8 @@ public final class WorkspaceTestService {
             TestSelection testSelection,
             TestJvmArguments jvmArguments) {
         WorkspaceBuildPlan plan = planTests(startDirectory, cacheRoot, selectionRequest);
-        WorkspaceBuildResult buildResult = buildTestInputs(plan, cacheRoot);
-        return runTests(plan, buildResult, cacheRoot, testSelection, jvmArguments);
+        return WorkspaceMutationLock.withLock(plan.workspace().root(), () ->
+                runTests(plan, buildTestInputs(plan, cacheRoot), cacheRoot, testSelection, jvmArguments));
     }
 
     public WorkspaceBuildPlan planTests(

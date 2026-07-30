@@ -16,6 +16,7 @@ import sh.zolt.workspace.service.WorkspaceBuildRequirements;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
@@ -81,8 +82,10 @@ public final class WorkspaceRunService {
             List<String> arguments,
             Consumer<String> outputConsumer) {
         WorkspaceBuildPlan plan = planRun(startDirectory, cacheRoot, selectionRequest);
-        WorkspaceBuildResult buildResult = buildRunInputs(plan, cacheRoot);
-        return runBuiltMembers(plan, buildResult, arguments, outputConsumer);
+        return WorkspaceMutationLock.withLock(plan.workspace().root(), () -> {
+            WorkspaceBuildResult buildResult = buildRunInputs(plan, cacheRoot);
+            return runBuiltMembers(plan, buildResult, arguments, outputConsumer);
+        });
     }
 
     public WorkspaceBuildPlan planRun(
