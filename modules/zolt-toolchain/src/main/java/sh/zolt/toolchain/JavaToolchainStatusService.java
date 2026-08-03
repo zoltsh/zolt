@@ -115,6 +115,24 @@ public final class JavaToolchainStatusService {
                 effectiveStore);
     }
 
+    public JavaToolchainStatus status(
+            JavaToolchainRequest request,
+            String requestSource,
+            boolean projectPinned,
+            Optional<LockedJavaToolchain> locked,
+            HostPlatform platform,
+            ToolchainStore store) {
+        HostPlatform effectivePlatform = platform == null ? HostPlatform.current() : platform;
+        ToolchainStore effectiveStore = store == null ? ToolchainStore.defaults() : store;
+        ResolvedJavaToolchain resolved = resolve(
+                locked,
+                request,
+                projectPinned,
+                effectivePlatform,
+                effectiveStore);
+        return new JavaToolchainStatus(request, requestSource, resolved);
+    }
+
     private JavaToolchainStatus status(
             JavaToolchainRequest request,
             String requestSource,
@@ -137,6 +155,20 @@ public final class JavaToolchainStatusService {
             boolean projectPinned,
             HostPlatform platform,
             ToolchainStore store) {
+        return resolve(
+                lockfiles.findJava(lockfile, request, platform),
+                request,
+                projectPinned,
+                platform,
+                store);
+    }
+
+    private ResolvedJavaToolchain resolve(
+            Optional<LockedJavaToolchain> locked,
+            JavaToolchainRequest request,
+            boolean projectPinned,
+            HostPlatform platform,
+            ToolchainStore store) {
         if (!projectPinned) {
             return ambientProbe.resolve(request);
         }
@@ -145,18 +177,17 @@ public final class JavaToolchainStatusService {
             if (ambient.ok()) {
                 return ambient;
             }
-            return managedOrAmbient(lockfile, request, platform, store, ambient);
+            return managedOrAmbient(locked, request, platform, store, ambient);
         }
-        return managedOrAmbient(lockfile, request, platform, store, null);
+        return managedOrAmbient(locked, request, platform, store, null);
     }
 
     private ResolvedJavaToolchain managedOrAmbient(
-            Path lockfile,
+            Optional<LockedJavaToolchain> locked,
             JavaToolchainRequest request,
             HostPlatform platform,
             ToolchainStore store,
             ResolvedJavaToolchain attemptedAmbient) {
-        Optional<LockedJavaToolchain> locked = lockfiles.findJava(lockfile, request, platform);
         if (locked.isEmpty()) {
             String note = "Java toolchain lock metadata is missing for " + platform.id()
                     + "; run `zolt toolchain sync`.";

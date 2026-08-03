@@ -13,13 +13,32 @@ public record WorkspaceTestResult(
         List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
         List<MemberTestRunResult> members,
         int totalMemberCount,
-        Optional<Path> profileDirectory) {
+        Optional<Path> profileDirectory,
+        WorkspaceTestToolchainMetrics toolchainMetrics) {
     public WorkspaceTestResult {
         resolveResult = resolveResult == null ? Optional.empty() : resolveResult;
         builtMembers = List.copyOf(builtMembers);
         members = List.copyOf(members);
         totalMemberCount = Math.max(totalMemberCount, members.size());
         profileDirectory = profileDirectory == null ? Optional.empty() : profileDirectory;
+        toolchainMetrics = toolchainMetrics == null
+                ? WorkspaceTestToolchainMetrics.empty()
+                : toolchainMetrics;
+    }
+
+    public WorkspaceTestResult(
+            Optional<ResolveResult> resolveResult,
+            List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
+            List<MemberTestRunResult> members,
+            int totalMemberCount,
+            Optional<Path> profileDirectory) {
+        this(
+                resolveResult,
+                builtMembers,
+                members,
+                totalMemberCount,
+                profileDirectory,
+                WorkspaceTestToolchainMetrics.empty());
     }
 
     public WorkspaceTestResult(
@@ -27,14 +46,26 @@ public record WorkspaceTestResult(
             List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
             List<MemberTestRunResult> members,
             int totalMemberCount) {
-        this(resolveResult, builtMembers, members, totalMemberCount, Optional.empty());
+        this(
+                resolveResult,
+                builtMembers,
+                members,
+                totalMemberCount,
+                Optional.empty(),
+                WorkspaceTestToolchainMetrics.empty());
     }
 
     public WorkspaceTestResult(
             Optional<ResolveResult> resolveResult,
             List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
             List<MemberTestRunResult> members) {
-        this(resolveResult, builtMembers, members, members.size(), Optional.empty());
+        this(
+                resolveResult,
+                builtMembers,
+                members,
+                members.size(),
+                Optional.empty(),
+                WorkspaceTestToolchainMetrics.empty());
     }
 
     public boolean resolvedLockfile() {
@@ -161,6 +192,20 @@ public record WorkspaceTestResult(
         return members.stream()
                 .map(MemberTestRunResult::result)
                 .mapToInt(TestRunResult::testDiscoveryScanRoots)
+                .sum();
+    }
+
+    public int testWorkerStartCount() {
+        return members.stream()
+                .map(MemberTestRunResult::result)
+                .mapToInt(TestRunResult::testWorkerStarts)
+                .sum();
+    }
+
+    public int testWorkerRequestCount() {
+        return members.stream()
+                .map(MemberTestRunResult::result)
+                .mapToInt(TestRunResult::testWorkerRequests)
                 .sum();
     }
 

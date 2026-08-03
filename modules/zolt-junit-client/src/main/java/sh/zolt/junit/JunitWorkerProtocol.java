@@ -1,6 +1,7 @@
 package sh.zolt.junit;
 
 import sh.zolt.test.TestSelection;
+import sh.zolt.test.TestSelectionCodec;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -43,11 +44,14 @@ public final class JunitWorkerProtocol {
 
     private static final String FIELD_VERSION = "v";
     private static final String FIELD_REQUEST_ID = "id";
+    private static final String FIELD_PROJECT_DIRECTORY = "cwd";
     private static final String FIELD_TEST_OUTPUT = "out";
+    private static final String FIELD_TEST_RUNTIME_CLASSPATH = "classpath";
     private static final String FIELD_REPORTS = "reports";
     private static final String FIELD_PROFILE = "profile";
     private static final String FIELD_EVENTS = "events";
     private static final String FIELD_EXIT_CODE = "exit";
+    private static final String FIELD_RETIRE_WORKER = "retire";
 
     private JunitWorkerProtocol() {
     }
@@ -76,13 +80,55 @@ public final class JunitWorkerProtocol {
             Optional<Path> reportsDirectory,
             List<String> events,
             Optional<Path> profileDirectory) {
+        return runRequest(
+                requestId,
+                List.of(),
+                testOutputDirectory,
+                testSelection,
+                reportsDirectory,
+                events,
+                profileDirectory);
+    }
+
+    public static String runRequest(
+            String requestId,
+            List<Path> testRuntimeClasspath,
+            Path testOutputDirectory,
+            TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            List<String> events,
+            Optional<Path> profileDirectory) {
+        return runRequest(
+                requestId,
+                null,
+                testRuntimeClasspath,
+                testOutputDirectory,
+                testSelection,
+                reportsDirectory,
+                events,
+                profileDirectory);
+    }
+
+    public static String runRequest(
+            String requestId,
+            Path projectDirectory,
+            List<Path> testRuntimeClasspath,
+            Path testOutputDirectory,
+            TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            List<String> events,
+            Optional<Path> profileDirectory) {
         if (testOutputDirectory == null) {
             throw new IllegalArgumentException("JUnit worker test output directory is required.");
         }
         Frame frame = Frame.command(RUN);
         frame.put(FIELD_VERSION, Integer.toString(SCHEMA_VERSION));
         frame.put(FIELD_REQUEST_ID, validateRequestId(requestId));
+        if (projectDirectory != null) {
+            frame.put(FIELD_PROJECT_DIRECTORY, projectDirectory.toString());
+        }
         frame.put(FIELD_TEST_OUTPUT, requireField("JUnit worker test output directory", testOutputDirectory.toString()));
+        frame.put(FIELD_TEST_RUNTIME_CLASSPATH, encodedPaths(testRuntimeClasspath));
         optionalPath(reportsDirectory).ifPresent(path -> frame.put(FIELD_REPORTS, path));
         optionalPath(profileDirectory).ifPresent(path -> frame.put(FIELD_PROFILE, path));
         TestSelectionField.encodeStrings(frame, FIELD_EVENTS, events);
@@ -111,7 +157,9 @@ public final class JunitWorkerProtocol {
         return new WorkerRequest(
                 WorkerCommand.RUN,
                 requestId,
+                frame.optional(FIELD_PROJECT_DIRECTORY),
                 frame.require(FIELD_TEST_OUTPUT, "JUnit worker test output directory"),
+                decodedPaths(frame),
                 frame.optional(FIELD_REPORTS),
                 frame.optional(FIELD_PROFILE),
                 TestSelectionField.events(frame, FIELD_EVENTS),
@@ -119,9 +167,19 @@ public final class JunitWorkerProtocol {
     }
 
     public static String result(String requestId, int exitCode) {
+        return result(requestId, exitCode, false);
+    }
+
+    public static String result(
+            String requestId,
+            int exitCode,
+            boolean retireWorker) {
         Frame frame = Frame.command(RESULT_PREFIX);
         frame.put(FIELD_REQUEST_ID, validateRequestId(requestId));
         frame.put(FIELD_EXIT_CODE, Integer.toString(exitCode));
+        if (retireWorker) {
+            frame.put(FIELD_RETIRE_WORKER, Boolean.TRUE.toString());
+        }
         return frame.render();
     }
 
@@ -134,12 +192,30 @@ public final class JunitWorkerProtocol {
         String requestId = validateRequestId(frame.require(FIELD_REQUEST_ID, "JUnit worker request id"));
         String exitCode = frame.require(FIELD_EXIT_CODE, "JUnit worker result exit code");
         try {
-            return new WorkerResult(requestId, Integer.parseInt(exitCode));
+            return new WorkerResult(
+                    requestId,
+                    Integer.parseInt(exitCode),
+                    retireWorker(frame));
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(
                     "Malformed JUnit worker result exit code `" + exitCode + "`.",
                     exception);
         }
+    }
+
+    private static boolean retireWorker(Frame frame) {
+        Optional<String> retire = frame.optional(FIELD_RETIRE_WORKER);
+        if (retire.isEmpty()) {
+            return false;
+        }
+        if (!Boolean.TRUE.toString().equals(retire.orElseThrow())
+                && !Boolean.FALSE.toString().equals(retire.orElseThrow())) {
+            throw new IllegalArgumentException(
+                    "Malformed JUnit worker retire flag `"
+                            + retire.orElseThrow()
+                            + "`.");
+        }
+        return Boolean.parseBoolean(retire.orElseThrow());
     }
 
     private static void requireSchemaVersion(Frame frame) {
@@ -179,6 +255,21 @@ public final class JunitWorkerProtocol {
         return value == null ? Optional.empty() : value.map(Path::toString).filter(path -> !path.isBlank());
     }
 
+    private static String encodedPaths(List<Path> paths) {
+        if (paths == null || paths.isEmpty()) {
+            return null;
+        }
+        return TestSelectionCodec.encodeStrings(paths.stream()
+                .map(Path::toString)
+                .toList());
+    }
+
+    private static List<String> decodedPaths(Frame frame) {
+        return TestSelectionCodec.decodeStrings(
+                "JUnit worker test runtime classpath",
+                frame.optional(FIELD_TEST_RUNTIME_CLASSPATH).orElse(""));
+    }
+
     public enum WorkerCommand {
         RUN,
         QUIT
@@ -187,22 +278,52 @@ public final class JunitWorkerProtocol {
     public record WorkerRequest(
             WorkerCommand command,
             String requestId,
+            Optional<String> projectDirectory,
             String testOutputDirectory,
+            List<String> testRuntimeClasspath,
             Optional<String> reportsDirectory,
             Optional<String> profileDirectory,
             List<String> events,
             TestSelection testSelection) {
         public WorkerRequest {
+            projectDirectory = projectDirectory == null
+                    ? Optional.empty()
+                    : projectDirectory;
+            testRuntimeClasspath = testRuntimeClasspath == null
+                    ? List.of()
+                    : List.copyOf(testRuntimeClasspath);
             reportsDirectory = reportsDirectory == null ? Optional.empty() : reportsDirectory;
             profileDirectory = profileDirectory == null ? Optional.empty() : profileDirectory;
             events = events == null ? List.of() : List.copyOf(events);
+        }
+
+        public WorkerRequest(
+                WorkerCommand command,
+                String requestId,
+                String testOutputDirectory,
+                Optional<String> reportsDirectory,
+                Optional<String> profileDirectory,
+                List<String> events,
+                TestSelection testSelection) {
+            this(
+                    command,
+                    requestId,
+                    Optional.empty(),
+                    testOutputDirectory,
+                    List.of(),
+                    reportsDirectory,
+                    profileDirectory,
+                    events,
+                    testSelection);
         }
 
         static WorkerRequest quit(String requestId) {
             return new WorkerRequest(
                     WorkerCommand.QUIT,
                     requestId,
+                    Optional.empty(),
                     "",
+                    List.of(),
                     Optional.empty(),
                     Optional.empty(),
                     List.of(),
@@ -210,6 +331,12 @@ public final class JunitWorkerProtocol {
         }
     }
 
-    public record WorkerResult(String requestId, int exitCode) {
+    public record WorkerResult(
+            String requestId,
+            int exitCode,
+            boolean retireWorker) {
+        public WorkerResult(String requestId, int exitCode) {
+            this(requestId, exitCode, false);
+        }
     }
 }

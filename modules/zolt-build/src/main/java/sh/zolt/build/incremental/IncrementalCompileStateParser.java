@@ -48,6 +48,12 @@ final class IncrementalCompileStateParser {
                 fields.compilerSettingsHash = line.substring("compilerSettingsHash=".length());
             } else if (line.startsWith("buildFingerprintSha256=")) {
                 fields.buildFingerprintSha256 = line.substring("buildFingerprintSha256=".length());
+            } else if (line.startsWith("publicAbiDigest=")) {
+                fields.publicAbiDigest = line.substring("publicAbiDigest=".length());
+            } else if (line.startsWith("packagePrivateAbiDigest=")) {
+                fields.packagePrivateAbiDigest = line.substring("packagePrivateAbiDigest=".length());
+            } else if (line.startsWith("outputManifestDigest=")) {
+                fields.outputManifestDigest = line.substring("outputManifestDigest=".length());
             } else if (line.startsWith("processorAttributionComplete=")) {
                 fields.processorAttributionComplete =
                         Boolean.parseBoolean(line.substring("processorAttributionComplete=".length()));
@@ -64,6 +70,9 @@ final class IncrementalCompileStateParser {
                 fields.generatedSourcesDirectory,
                 fields.compilerSettingsHash,
                 fields.buildFingerprintSha256,
+                fields.publicAbiDigest,
+                fields.packagePrivateAbiDigest,
+                fields.outputManifestDigest,
                 fallbackReasons,
                 sourceRoots,
                 generatedSourceRoots,
@@ -169,6 +178,9 @@ final class IncrementalCompileStateParser {
         private Path generatedSourcesDirectory;
         private String compilerSettingsHash;
         private String buildFingerprintSha256;
+        private String publicAbiDigest;
+        private String packagePrivateAbiDigest;
+        private String outputManifestDigest;
         private boolean processorAttributionComplete;
     }
 

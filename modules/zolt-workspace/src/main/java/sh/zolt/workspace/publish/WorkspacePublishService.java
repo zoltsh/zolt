@@ -13,6 +13,7 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
@@ -183,45 +184,65 @@ public final class WorkspacePublishService {
             WorkspaceSelectionRequest selectionRequest,
             Options options,
             WorkspaceMemberSbomGenerator sbomGenerator) {
-        WorkspaceBuildPlan plan = workspaceBuildService.planBuild(startDirectory, cacheRoot, false, selectionRequest);
-        Workspace workspace = plan.workspace();
-        WorkspaceSelection selection = plan.selection();
-        ZoltLockfile aggregatedLock = plan.lockfile();
-        boolean resumeMode = selectionRequest.exact();
-
-        // A `--resume-members` publish is backed by a durable transaction manifest, not a trusted hidden
-        // flag: without matching v4 state we refuse rather than silently treat absent providers as
-        // published, and a manifest from an older Zolt is refused outright rather than guessed at.
-        Path statePath = WorkspacePublishPaths.resumeStatePath(workspace);
-        ResumeState.ReadOutcome outcome = resumeMode ? ResumeState.read(statePath) : ResumeState.ReadOutcome.absent();
-        if (resumeMode && !outcome.present()) {
-            String display = WorkspacePublishPaths.displayPath(workspace, statePath);
-            String message = outcome.legacy()
-                    ? "the publish resume state at " + display + " was written with an older schema and "
-                            + "cannot be trusted to resume this publish. Re-run the full publish: `zolt publish "
-                            + "--workspace`."
-                    : "no publish resume state found at " + display + ". `--resume-members` resumes a previously "
-                            + "interrupted `zolt publish --workspace`; run the full publish instead: `zolt publish "
-                            + "--workspace`.";
-            return new WorkspacePublishReport(
-                    List.of(), List.of(message), List.of(), false, Optional.empty(), Optional.empty(), Optional.empty());
-        }
-        Optional<ResumeState> resumeState = outcome.state();
-        if (resumeState.isPresent()) {
-            // The emitted command names only the failed tail, but the transaction manifest retains the
-            // complete original family. Re-plan that family internally so completed providers are
-            // re-staged from their recorded bytes and re-verified at their recorded targets before any
-            // consumer or BOM can proceed.
-            plan = workspaceBuildService.planBuild(
-                    startDirectory,
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = workspaceBuildService.planBuild(startDirectory, cacheRoot, false, selectionRequest);
+            Workspace workspace = plan.workspace();
+            boolean resumeMode = selectionRequest.exact();
+            // A `--resume-members` publish is backed by a durable transaction manifest, not a trusted hidden
+            // flag: without matching v4 state we refuse rather than silently treat absent providers as
+            // published, and a manifest from an older Zolt is refused outright rather than guessed at.
+            Path statePath = WorkspacePublishPaths.resumeStatePath(workspace);
+            ResumeState.ReadOutcome outcome = resumeMode ? ResumeState.read(statePath) : ResumeState.ReadOutcome.absent();
+            if (resumeMode && !outcome.present()) {
+                String display = WorkspacePublishPaths.displayPath(workspace, statePath);
+                String message = outcome.legacy()
+                        ? "the publish resume state at " + display + " was written with an older schema and "
+                                + "cannot be trusted to resume this publish. Re-run the full publish: `zolt publish "
+                                + "--workspace`."
+                        : "no publish resume state found at " + display + ". `--resume-members` resumes a previously "
+                                + "interrupted `zolt publish --workspace`; run the full publish instead: `zolt publish "
+                                + "--workspace`.";
+                return new WorkspacePublishReport(
+                        List.of(), List.of(message), List.of(), false,
+                        Optional.empty(), Optional.empty(), Optional.empty());
+            }
+            Optional<ResumeState> resumeState = outcome.state();
+            if (resumeState.isPresent()) {
+                // The emitted command names only the failed tail, but the transaction manifest retains the
+                // complete original family. Re-plan that family internally so completed providers are
+                // re-staged from their recorded bytes and re-verified at their recorded targets before any
+                // consumer or BOM can proceed.
+                plan = workspaceBuildService.planBuild(
+                        startDirectory,
+                        cacheRoot,
+                        false,
+                        WorkspaceSelectionRequest.exact(resumeState.orElseThrow().familyMembers()));
+                workspace = plan.workspace();
+            }
+            plan.requireInputsCurrent();
+            return publishLocked(
+                    plan.workspace(),
+                    plan.selection(),
+                    plan.lockfile(),
                     cacheRoot,
-                    false,
-                    WorkspaceSelectionRequest.exact(resumeState.orElseThrow().familyMembers()));
-            workspace = plan.workspace();
-            selection = plan.selection();
-            aggregatedLock = plan.lockfile();
-        }
+                    selectionRequest,
+                    options,
+                    sbomGenerator,
+                    statePath,
+                    resumeState);
+        });
+    }
 
+    private WorkspacePublishReport publishLocked(
+            Workspace workspace,
+            WorkspaceSelection selection,
+            ZoltLockfile aggregatedLock,
+            Path cacheRoot,
+            WorkspaceSelectionRequest selectionRequest,
+            Options options,
+            WorkspaceMemberSbomGenerator sbomGenerator,
+            Path statePath,
+            Optional<ResumeState> resumeState) {
         List<WorkspaceMember> publishable =
                 WorkspacePublishSelection.publishable(workspace, selection, publishSettingsReader);
         Set<String> publishSet = new LinkedHashSet<>();

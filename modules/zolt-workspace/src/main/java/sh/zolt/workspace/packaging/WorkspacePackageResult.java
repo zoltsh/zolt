@@ -9,11 +9,20 @@ import java.util.Optional;
 public record WorkspacePackageResult(
         Optional<ResolveResult> resolveResult,
         List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
-        List<MemberPackageResult> members) {
+        List<MemberPackageResult> members,
+        int maxWorkers) {
     public WorkspacePackageResult {
         resolveResult = resolveResult == null ? Optional.empty() : resolveResult;
         builtMembers = List.copyOf(builtMembers);
         members = List.copyOf(members);
+        maxWorkers = Math.max(0, maxWorkers);
+    }
+
+    public WorkspacePackageResult(
+            Optional<ResolveResult> resolveResult,
+            List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
+            List<MemberPackageResult> members) {
+        this(resolveResult, builtMembers, members, members.isEmpty() ? 0 : 1);
     }
 
     public boolean resolvedLockfile() {
@@ -25,6 +34,17 @@ public record WorkspacePackageResult(
                 .map(MemberPackageResult::result)
                 .mapToInt(PackageResult::entryCount)
                 .sum();
+    }
+
+    public int packagedCount() {
+        return (int) members.stream()
+                .map(MemberPackageResult::result)
+                .filter(result -> !result.packagingReused())
+                .count();
+    }
+
+    public int reusedCount() {
+        return members.size() - packagedCount();
     }
 
     public record MemberPackageResult(

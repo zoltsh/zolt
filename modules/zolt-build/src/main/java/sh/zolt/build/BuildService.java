@@ -1,7 +1,6 @@
 package sh.zolt.build;
 
 import sh.zolt.build.classpath.ClasspathBuilder;
-import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -14,12 +13,6 @@ import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.ExecGeneratedSourceService;
 import sh.zolt.build.generatedsource.OpenApiGeneratedSourceService;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
-import sh.zolt.build.metadata.BuildMetadataGenerator;
-import sh.zolt.build.metadata.BuildMetadataResult;
-import sh.zolt.build.resources.ResourceCopier;
-import sh.zolt.build.resources.ResourceCopyResult;
-import sh.zolt.build.springboot.SpringBootAotGenerationService;
-import sh.zolt.dependency.DependencyScope;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
@@ -44,17 +37,15 @@ public final class BuildService {
     private final ZoltLockfileReader lockfileReader;
     private final ClasspathBuilder classpathBuilder;
     private final SourceDiscoverer sourceDiscoverer;
-    private final ResourceCopier resourceCopier;
-    private final BuildMetadataGenerator buildMetadataGenerator;
     private final BuildFingerprintService buildFingerprintService;
     private final JdkChecker jdkDetector;
     private final OpenApiGeneratedSourceService openApiGeneratedSourceService;
     private final ProtobufGeneratedSourceService protobufGeneratedSourceService;
     private final ExecGeneratedSourceService execGeneratedSourceService;
-    private final SpringBootAotGenerationService springBootAotGenerationService;
     private final IncrementalCompileStateRecorder incrementalCompileStateRecorder;
     private final MainCompileSourceExecutor sourceExecutor;
     private final MainBuildCacheGate mainBuildCacheGate;
+    private final BuildOutputFinalizer outputFinalizer;
 
     public BuildService() {
         this(new JdkDetector());
@@ -89,18 +80,16 @@ public final class BuildService {
         this.lockfileReader = dependencies.lockfileReader();
         this.classpathBuilder = dependencies.classpathBuilder();
         this.sourceDiscoverer = dependencies.sourceDiscoverer();
-        this.resourceCopier = dependencies.resourceCopier();
-        this.buildMetadataGenerator = dependencies.buildMetadataGenerator();
         this.buildFingerprintService = dependencies.buildFingerprintService();
         this.jdkDetector = dependencies.jdkDetector();
         this.openApiGeneratedSourceService = dependencies.openApiGeneratedSourceService();
         this.protobufGeneratedSourceService = dependencies.protobufGeneratedSourceService();
         this.execGeneratedSourceService = dependencies.execGeneratedSourceService();
-        this.springBootAotGenerationService = dependencies.springBootAotGenerationService();
         this.incrementalCompileStateRecorder = dependencies.incrementalCompileStateRecorder();
         this.sourceExecutor = dependencies.sourceExecutor();
         this.mainBuildCacheGate =
                 new MainBuildCacheGate(dependencies.buildCacheService(), dependencies.buildFingerprintService());
+        this.outputFinalizer = new BuildOutputFinalizer(dependencies);
     }
 
     public BuildService withJdkChecker(JdkChecker jdkChecker) {
@@ -185,6 +174,15 @@ public final class BuildService {
         return build(projectDirectory, config, classpaths, Optional.empty(), List.of(), false);
     }
 
+    public int ensureCleanMemberOutputsCurrent(
+            Path projectDirectory,
+            ProjectConfig config,
+            ClasspathSet classpaths) {
+        return outputFinalizer
+                .ensureCleanMemberCurrent(projectDirectory, config, classpaths)
+                .generatedOutputCount();
+    }
+
     private BuildResult build(
             Path projectDirectory,
             ProjectConfig config,
@@ -246,21 +244,17 @@ public final class BuildService {
                 outputDirectory,
                 generatedSourcesDirectory,
                 jdkStatus);
-        // Post-compile exec steps (tool = "project" / inputs under compiled classes) run here, after
-        // compilation produces the classes they read, and before resource copy/packaging consumes their
-        // outputs. Their outputs are fenced by package/test evidence, not the compile fingerprint.
-        execGeneratedSourceService.generateMainPostCompile(projectDirectory, config, classpathPackages, offline);
-        ResourceCopyResult resourceResult = resourceCopier.copyMainResources(projectDirectory, config);
-        BuildMetadataResult metadataResult = buildMetadataGenerator.generate(projectDirectory, config, outputDirectory);
-        springBootAotGenerationService.generate(
+        BuildOutputFinalizer.Result finalization = outputFinalizer.afterCompile(
                 projectDirectory,
                 config,
+                outputDirectory,
                 jdkStatus,
                 classpaths,
-                springBootAotClasspath(config, classpathPackages));
+                classpathPackages,
+                offline);
         long fingerprintWriteNanos = 0L;
         String buildCacheOutcome = "";
-        if (!compileSkipped) {
+        if (!compileSkipped || !fingerprintCheck.reason().isBlank()) {
             long fingerprintWriteStarted = System.nanoTime();
             buildFingerprintService.writeMainCompileFingerprint(
                     projectDirectory,
@@ -271,26 +265,28 @@ public final class BuildService {
                     outputDirectory,
                     generatedSourcesDirectory);
             fingerprintWriteNanos = elapsedSince(fingerprintWriteStarted);
-            if (restored) {
-                incrementalCompileStateRecorder.deleteMainState(outputDirectory);
-                buildCacheOutcome = "restored";
-            } else {
-                incrementalCompileStateRecorder.recordMain(
-                        projectDirectory,
-                        config,
-                        sources,
-                        classpaths,
-                        outputDirectory,
-                        generatedSourcesDirectory,
-                        javacResult.attribution(),
-                        javacResult.compiledSources());
-                buildCacheOutcome = mainBuildCacheGate.store(cacheAttempt, outputDirectory);
+            if (!compileSkipped) {
+                if (restored) {
+                    incrementalCompileStateRecorder.deleteMainState(outputDirectory);
+                    buildCacheOutcome = "restored";
+                } else {
+                    incrementalCompileStateRecorder.recordMain(
+                            projectDirectory,
+                            config,
+                            sources,
+                            classpaths,
+                            outputDirectory,
+                            generatedSourcesDirectory,
+                            javacResult.attribution(),
+                            javacResult.compiledSources());
+                    buildCacheOutcome = mainBuildCacheGate.store(cacheAttempt, outputDirectory);
+                }
             }
         }
         return new BuildResult(
                 resolveResult,
                 javacResult.sourceCount(),
-                resourceResult.resourceCount() + metadataResult.generatedCount(),
+                finalization.generatedOutputCount(),
                 javacResult.outputDirectory(),
                 javacResult.output(),
                 compileSkipped,
@@ -301,18 +297,6 @@ public final class BuildService {
                 fingerprintWriteNanos,
                 restored ? cacheAttempt.restore().classCount() : 0,
                 buildCacheOutcome);
-    }
-
-    private static Classpath springBootAotClasspath(
-            ProjectConfig config,
-            List<ResolvedClasspathPackage> classpathPackages) {
-        if (!config.frameworkSettings().springBoot().nativeEnabled()) {
-            return new Classpath(List.of());
-        }
-        return new Classpath(classpathPackages.stream()
-                .filter(dependency -> dependency.scope() == DependencyScope.TOOL_SPRING_AOT)
-                .map(dependency -> dependency.resolvedPackage().jarPath())
-                .toList());
     }
 
     private static long elapsedSince(long started) {

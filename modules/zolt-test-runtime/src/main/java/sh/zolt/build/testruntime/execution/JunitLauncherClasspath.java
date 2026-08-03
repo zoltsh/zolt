@@ -30,6 +30,17 @@ final class JunitLauncherClasspath {
         return List.copyOf(launcherClasspath);
     }
 
+    List<Path> workerClasspath(List<Path> runnerClasspath) {
+        List<Path> result =
+                new ArrayList<>(launcherClasspath(runnerClasspath));
+        for (Path entry : runnerClasspath) {
+            if (!result.contains(entry)) {
+                result.add(entry);
+            }
+        }
+        return List.copyOf(result);
+    }
+
     List<String> jvmArguments(
             Path projectDirectory,
             List<Path> runnerClasspath,

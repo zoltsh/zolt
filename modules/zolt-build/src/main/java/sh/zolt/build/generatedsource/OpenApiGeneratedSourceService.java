@@ -3,6 +3,8 @@ package sh.zolt.build.generatedsource;
 import static sh.zolt.build.generatedsource.OpenApiGeneratedSourcePaths.outputPath;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.doctor.JdkChecker;
@@ -167,9 +169,12 @@ public final class OpenApiGeneratedSourceService {
                     .directory(directory.toFile())
                     .redirectErrorStream(true)
                     .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            return new ProcessResult(exitCode, output);
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int exitCode = process.waitFor();
+                return new ProcessResult(exitCode, output);
+            }
         } catch (IOException exception) {
             throw new BuildException(
                     "Could not run OpenAPI Generator. Check that the configured JDK can launch Java processes.",

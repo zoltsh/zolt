@@ -1,6 +1,8 @@
 package sh.zolt.build.generatedsource;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.build.generatedsource.ExecGeneratedSourceService.ProcessResult;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -32,22 +34,25 @@ final class ExecSubprocess {
             processBuilder.environment().clear();
             processBuilder.environment().putAll(environment);
             Process process = processBuilder.start();
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            Thread pump = new Thread(() -> pump(process, buffer));
-            pump.setDaemon(true);
-            pump.start();
-            boolean finished = process.waitFor(Math.max(1L, timeout.toSeconds()), TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroy();
-                if (!process.waitFor(DESTROY_GRACE_SECONDS, TimeUnit.SECONDS)) {
-                    process.destroyForcibly();
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                Thread pump = new Thread(() -> pump(process, buffer));
+                pump.setDaemon(true);
+                pump.start();
+                boolean finished = process.waitFor(Math.max(1L, timeout.toSeconds()), TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroy();
+                    if (!process.waitFor(DESTROY_GRACE_SECONDS, TimeUnit.SECONDS)) {
+                        process.destroyForcibly();
+                    }
+                    process.waitFor();
+                    joinQuietly(pump);
+                    return new ProcessResult(-1, buffer.toString(StandardCharsets.UTF_8), true);
                 }
-                process.waitFor();
                 joinQuietly(pump);
-                return new ProcessResult(-1, buffer.toString(StandardCharsets.UTF_8), true);
+                return new ProcessResult(process.exitValue(), buffer.toString(StandardCharsets.UTF_8), false);
             }
-            joinQuietly(pump);
-            return new ProcessResult(process.exitValue(), buffer.toString(StandardCharsets.UTF_8), false);
         } catch (IOException exception) {
             throw new BuildException(
                     "Could not run exec tool. Check that the configured tool can launch processes.", exception);

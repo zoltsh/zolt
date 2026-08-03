@@ -2,8 +2,11 @@ package sh.zolt.workspace.publish;
 
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
+import sh.zolt.build.packageevidence.PackageEvidenceVerification;
+import sh.zolt.build.packageevidence.PackageEvidenceVerifier;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
+import sh.zolt.build.packaging.PackageArchiveWriter;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.PackageMode;
@@ -12,6 +15,7 @@ import sh.zolt.publish.PublishPomGenerator;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -27,6 +31,7 @@ public final class WorkspaceBomPackager {
     private final PublishPomGenerator pomGenerator = new PublishPomGenerator();
     private final PackagePlanService packagePlanService;
     private final PackageEvidenceManifestWriter evidenceManifestWriter;
+    private final PackageEvidenceVerifier evidenceVerifier = new PackageEvidenceVerifier();
 
     public WorkspaceBomPackager() {
         this(new PackagePlanService());
@@ -59,9 +64,18 @@ public final class WorkspaceBomPackager {
         String artifactBase = config.project().name() + "-" + config.project().version();
         Path publishDirectory = projectDirectory.resolve(config.build().outputRoot()).resolve("publish");
         Path pomPath = publishDirectory.resolve(artifactBase + ".pom");
+        PackagePlan plan =
+                packagePlanService.plan(projectDirectory, config, familyLock);
+        Optional<PackageResult> reused = reuse(projectDirectory, buildResult, plan);
+        if (reused.isPresent()) {
+            return reused.orElseThrow();
+        }
         try {
             Files.createDirectories(publishDirectory);
-            Files.writeString(pomPath, pomGenerator.generate(config, familyLock));
+            PackageArchiveWriter.writeStringAtomically(
+                    pomPath,
+                    pomGenerator.generate(config, familyLock),
+                    StandardCharsets.UTF_8);
         } catch (IOException exception) {
             throw new sh.zolt.workspace.WorkspaceConfigException(
                     "Could not write BOM package artifact at " + pomPath + ": " + exception.getMessage());
@@ -79,8 +93,6 @@ public final class WorkspaceBomPackager {
                 "pom",
                 List.of(),
                 List.of());
-        PackagePlan plan =
-                packagePlanService.plan(projectDirectory, config, familyLock);
         Path evidencePath = evidenceManifestWriter.write(
                 projectDirectory,
                 config,
@@ -90,5 +102,41 @@ public final class WorkspaceBomPackager {
         return result.withArtifactsAndEvidence(
                 List.of(),
                 Optional.of(evidencePath));
+    }
+
+    private Optional<PackageResult> reuse(
+            Path projectDirectory,
+            BuildResult buildResult,
+            PackagePlan plan) {
+        Path evidencePath =
+                PackageEvidenceManifestWriter.evidenceManifestPath(plan.archivePath());
+        if (!Files.isRegularFile(evidencePath)) {
+            return Optional.empty();
+        }
+        PackageEvidenceVerification verification =
+                evidenceVerifier.verify(projectDirectory, plan, evidencePath);
+        if (!verification.valid()) {
+            return Optional.empty();
+        }
+        var evidence = verification.manifest().orElseThrow();
+        var main = evidence.artifacts().stream()
+                .filter(artifact -> "main".equals(artifact.classifier()))
+                .findFirst();
+        if (main.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new PackageResult(
+                buildResult,
+                PackageMode.BOM,
+                plan.archivePath(),
+                Optional.empty(),
+                Optional.of(evidencePath),
+                main.orElseThrow().entries(),
+                false,
+                plan.applicationLayout(),
+                List.of(),
+                evidence.uberMergeDecisions(),
+                List.of(),
+                true));
     }
 }

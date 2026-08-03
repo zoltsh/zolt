@@ -23,6 +23,25 @@ public final class CurrentWorkerClasspath {
                 java.io.File.pathSeparator);
     }
 
+    public boolean dedicatedWorkerAvailable() {
+        return dedicatedWorkerAvailable(
+                System.getProperty(PROPERTY, ""),
+                System.getenv(ENVIRONMENT),
+                this::bundledWorkerClasspath,
+                java.io.File.pathSeparator);
+    }
+
+    boolean dedicatedWorkerAvailable(
+            String configuredProperty,
+            String configuredEnvironment,
+            Supplier<List<Path>> bundledWorkerClasspath,
+            String pathSeparator) {
+        return !classpathEntries(configuredProperty, pathSeparator).isEmpty()
+                || !classpathEntries(configuredEnvironment, pathSeparator).isEmpty()
+                || (bundledWorkerClasspath != null
+                        && !bundledWorkerClasspath.get().isEmpty());
+    }
+
     List<Path> discover(String classpath, String pathSeparator) {
         return discover("", "", List::of, classpath, pathSeparator);
     }

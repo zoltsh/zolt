@@ -1,16 +1,23 @@
 package sh.zolt.build.incremental;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class IncrementalCompileStateCodecTest {
     private final IncrementalCompileStateCodec codec = new IncrementalCompileStateCodec();
+
+    @TempDir
+    private Path tempDir;
 
     @Test
     void stateRoundTripsDeterministically() {
@@ -62,6 +69,58 @@ final class IncrementalCompileStateCodecTest {
 
         assertEquals(state, parsed);
         assertEquals(formatted, codec.format(parsed));
+        assertTrue(formatted.contains("publicAbiDigest=" + state.publicAbiDigest()));
+        assertTrue(formatted.contains("packagePrivateAbiDigest=" + state.packagePrivateAbiDigest()));
+        assertTrue(formatted.contains("outputManifestDigest=" + state.outputManifestDigest()));
+    }
+
+    @Test
+    void aggregateDigestsSeparateImplementationAndAbiChanges() {
+        Path project = Path.of("/workspace/demo");
+        IncrementalCompileState original = stateWithClassHashes(
+                project,
+                "class-v1",
+                "public-v1",
+                "package-v1");
+        IncrementalCompileState implementationChange = stateWithClassHashes(
+                project,
+                "class-v2",
+                "public-v1",
+                "package-v1");
+        IncrementalCompileState abiChange = stateWithClassHashes(
+                project,
+                "class-v2",
+                "public-v2",
+                "package-v1");
+
+        assertEquals(original.publicAbiDigest(), implementationChange.publicAbiDigest());
+        assertEquals(original.packagePrivateAbiDigest(), implementationChange.packagePrivateAbiDigest());
+        assertNotEquals(original.outputManifestDigest(), implementationChange.outputManifestDigest());
+        assertNotEquals(original.publicAbiDigest(), abiChange.publicAbiDigest());
+        assertNotEquals(
+                IncrementalCompileSummary.from(original).compileAbiDigest(),
+                IncrementalCompileSummary.from(abiChange).compileAbiDigest());
+    }
+
+    @Test
+    void summaryReaderRejectsStateForAnotherOutputDirectory() throws IOException {
+        Path project = tempDir.resolve("demo").toAbsolutePath().normalize();
+        Path output = project.resolve("target/classes");
+        Path statePath = tempStatePath(output);
+        Path otherOutput = project.resolve("target/other");
+        Path otherStatePath = tempStatePath(otherOutput);
+        Files.createDirectories(statePath.getParent());
+        String state = codec.format(stateWithClassHashes(
+                project,
+                "class-v1",
+                "public-v1",
+                "package-v1"));
+        Files.writeString(statePath, state);
+        Files.createDirectories(otherStatePath.getParent());
+        Files.writeString(otherStatePath, state);
+
+        assertTrue(new IncrementalCompileSummaryReader().readMain(output).isPresent());
+        assertTrue(new IncrementalCompileSummaryReader().readMain(otherOutput).isEmpty());
     }
 
     @Test
@@ -72,5 +131,40 @@ final class IncrementalCompileStateCodecTest {
                 scope=main
                 source\t%%%not-base64%%%
                 """).isEmpty());
+    }
+
+    private static IncrementalCompileState stateWithClassHashes(
+            Path project,
+            String classHash,
+            String abiHash,
+            String packageAbiHash) {
+        return new IncrementalCompileState(
+                "main",
+                project,
+                project.resolve("target/classes"),
+                project.resolve("target/generated/sources/annotations"),
+                "compiler-hash",
+                "fingerprint-hash",
+                List.of(),
+                List.of("src/main/java"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(new IncrementalCompileState.ClassRecord(
+                        "com.example.App",
+                        project.resolve("target/classes/com/example/App.class"),
+                        classHash,
+                        abiHash,
+                        packageAbiHash,
+                        33,
+                        Optional.of("java.lang.Object"),
+                        List.of())),
+                Map.of(),
+                true);
+    }
+
+    private static Path tempStatePath(Path output) {
+        return IncrementalCompileState.mainStatePath(output);
     }
 }

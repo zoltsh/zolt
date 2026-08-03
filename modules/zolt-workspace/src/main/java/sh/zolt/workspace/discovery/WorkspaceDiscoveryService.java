@@ -49,63 +49,62 @@ public final class WorkspaceDiscoveryService {
         }
 
         while (current != null) {
-            Optional<Path> configPath = workspaceConfigPath(current);
-            if (configPath.isPresent()) {
-                return Optional.of(load(current, configPath.orElseThrow()));
+            Optional<Workspace> workspace = loadCaptured(current, false);
+            if (workspace.isPresent()) {
+                return workspace;
             }
             current = current.getParent();
         }
         return Optional.empty();
     }
 
-    public Workspace load(Path workspaceRoot) {
-        Path root = workspaceRoot.toAbsolutePath().normalize();
-        Path configPath = workspaceConfigPath(root)
-                .orElseThrow(() -> new WorkspaceConfigException(
-                        "Could not find workspace config at "
-                                + root
-                                + ". Add zolt.toml with [workspace] or create zolt-workspace.toml."));
-        return load(root, configPath);
+    /**
+     * Finds only the workspace root. Callers may use this non-authoritative lookup to choose the
+     * mutation lock, then perform full discovery again while holding that lock.
+     */
+    public Optional<Path> discoverRoot(Path startDirectory) {
+        return WorkspaceRootLocator.find(startDirectory, this);
     }
 
-    private Workspace load(Path root, Path configPath) {
-        WorkspaceConfig config = workspaceConfig(configPath);
-        List<WorkspaceMember> members = members(root, config);
+    public Workspace load(Path workspaceRoot) {
+        Path root = workspaceRoot.toAbsolutePath().normalize();
+        return loadCaptured(root, true).orElseThrow();
+    }
+
+    private Optional<Workspace> loadCaptured(
+            Path root,
+            boolean required) {
+        WorkspaceInputCapture captured = new WorkspaceInputCapture();
+        Optional<WorkspaceConfigSelection> selection =
+                captured.workspaceConfig(root, workspaceParser, required);
+        if (selection.isEmpty()) {
+            return Optional.empty();
+        }
+        WorkspaceConfigSelection selected = selection.orElseThrow();
+        Path configPath = selected.path();
+        WorkspaceConfig config = selected.parse(workspaceParser);
+        List<WorkspaceMember> members = members(root, config, captured);
         validateDefaultMembers(root, config.defaultMembers(), members);
         List<WorkspaceProjectEdge> edges = workspaceProjectEdges(root, members);
         List<String> buildOrder = buildOrderPlanner.buildOrder(members, edges);
-        return new Workspace(root, configPath, config, members, edges, buildOrder);
+        return Optional.of(new Workspace(
+                root,
+                configPath,
+                config,
+                members,
+                edges,
+                buildOrder,
+                captured.snapshot()));
     }
 
-    private WorkspaceConfig workspaceConfig(Path configPath) {
-        if (WorkspaceConfigParser.ROOT_CONFIG_FILE.equals(configPath.getFileName().toString())) {
-            return workspaceParser.parseRootConfig(configPath);
-        }
-        return workspaceParser.parse(configPath);
+    Optional<Path> workspaceConfigPath(Path root) {
+        return WorkspaceInputCapture.locate(root, workspaceParser);
     }
 
-    private Optional<Path> workspaceConfigPath(Path root) {
-        Path legacyConfig = root.resolve(WorkspaceConfigParser.WORKSPACE_FILE).normalize();
-        Path rootConfig = root.resolve(WorkspaceConfigParser.ROOT_CONFIG_FILE).normalize();
-        boolean hasLegacyConfig = Files.isRegularFile(legacyConfig);
-        boolean hasRootWorkspaceConfig =
-                Files.isRegularFile(rootConfig) && workspaceParser.hasWorkspaceSection(rootConfig);
-        if (hasLegacyConfig && hasRootWorkspaceConfig) {
-            throw new WorkspaceConfigException(
-                    "Ambiguous workspace config at "
-                            + root
-                            + ". Use either zolt.toml with [workspace] or zolt-workspace.toml, not both.");
-        }
-        if (hasRootWorkspaceConfig) {
-            return Optional.of(rootConfig);
-        }
-        if (hasLegacyConfig) {
-            return Optional.of(legacyConfig);
-        }
-        return Optional.empty();
-    }
-
-    private List<WorkspaceMember> members(Path root, WorkspaceConfig config) {
+    private List<WorkspaceMember> members(
+            Path root,
+            WorkspaceConfig config,
+            WorkspaceInputCapture captured) {
         List<WorkspaceMember> members = new ArrayList<>();
         Set<String> memberPaths = new LinkedHashSet<>();
         Map<String, String> coordinates = new LinkedHashMap<>();
@@ -117,7 +116,9 @@ public final class WorkspaceDiscoveryService {
             }
 
             Path projectConfigPath = resolved.directory().resolve("zolt.toml");
-            if (!Files.isRegularFile(projectConfigPath)) {
+            Optional<String> projectContent =
+                    captured.read(projectConfigPath);
+            if (projectContent.isEmpty()) {
                 throw new WorkspaceConfigException(
                         "Workspace member `"
                                 + resolved.path()
@@ -126,7 +127,9 @@ public final class WorkspaceDiscoveryService {
                                 + ".");
             }
 
-            ProjectConfig projectConfig = parseProjectConfig(resolved.path(), projectConfigPath);
+            ProjectConfig projectConfig = parseProjectConfig(
+                    resolved.path(),
+                    projectContent.orElseThrow());
             String coordinate = projectConfig.project().group() + ":" + projectConfig.project().name();
             String existingMember = coordinates.putIfAbsent(coordinate, resolved.path());
             if (existingMember != null) {
@@ -144,9 +147,11 @@ public final class WorkspaceDiscoveryService {
         return List.copyOf(members);
     }
 
-    private ProjectConfig parseProjectConfig(String memberPath, Path projectConfigPath) {
+    private ProjectConfig parseProjectConfig(
+            String memberPath,
+            String content) {
         try {
-            return projectParser.parse(projectConfigPath);
+            return projectParser.parse(content);
         } catch (ZoltConfigException exception) {
             throw new WorkspaceConfigException(
                     "Workspace member `" + memberPath + "` has an invalid zolt.toml. " + exception.getMessage());

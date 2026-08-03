@@ -2,6 +2,7 @@ package sh.zolt.toolchain;
 
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
+import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import java.nio.file.Path;
@@ -47,5 +48,28 @@ public final class TestRuntimeToolchainResolver {
                 effectivePlatform,
                 effectiveStore);
         return Optional.of(new TestRuntimeToolchain(request.orElseThrow(), status, config.project().java()));
+    }
+
+    public TestRuntimeToolchain resolveCaptured(
+            JavaToolchainRequest request,
+            Optional<LockedJavaToolchain> locked,
+            ProjectConfig config,
+            HostPlatform platform,
+            ToolchainStore store) {
+        HostPlatform effectivePlatform =
+                platform == null ? HostPlatform.current() : platform;
+        ToolchainStore effectiveStore =
+                store == null ? ToolchainStore.defaults() : store;
+        JavaToolchainStatus status = statusService.status(
+                request,
+                SOURCE,
+                true,
+                locked,
+                effectivePlatform,
+                effectiveStore);
+        return new TestRuntimeToolchain(
+                request,
+                status,
+                config.project().java());
     }
 }

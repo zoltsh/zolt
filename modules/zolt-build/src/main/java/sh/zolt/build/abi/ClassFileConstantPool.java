@@ -21,13 +21,19 @@ final class ClassFileConstantPool {
             int tag = input.readUnsignedByte();
             switch (tag) {
                 case 1 -> entries[index] = input.readUTF();
-                case 3, 4 -> input.skipBytes(4);
-                case 5, 6 -> {
-                    input.skipBytes(8);
+                case 3 -> entries[index] = new IntegerInfo(input.readInt());
+                case 4 -> entries[index] = new FloatInfo(input.readInt());
+                case 5 -> {
+                    entries[index] = new LongInfo(input.readLong());
+                    index++;
+                }
+                case 6 -> {
+                    entries[index] = new DoubleInfo(input.readLong());
                     index++;
                 }
                 case 7 -> entries[index] = new ClassInfo(input.readUnsignedShort());
-                case 8, 16, 19, 20 -> input.skipBytes(2);
+                case 8 -> entries[index] = new StringInfo(input.readUnsignedShort());
+                case 16, 19, 20 -> input.skipBytes(2);
                 case 9, 10, 11, 12, 17, 18 -> input.skipBytes(4);
                 case 15 -> input.skipBytes(3);
                 default -> throw new BuildException("Unsupported class file constant pool tag `" + tag + "`.");
@@ -50,6 +56,26 @@ final class ClassFileConstantPool {
             return normalizeClassName(utf8(classInfo.nameIndex()));
         }
         throw new BuildException("Invalid class file constant pool class reference `" + index + "`.");
+    }
+
+    String constantValue(int index) {
+        Object entry = entries[index];
+        if (entry instanceof IntegerInfo integerInfo) {
+            return "int:" + integerInfo.value();
+        }
+        if (entry instanceof FloatInfo floatInfo) {
+            return "float-bits:" + Integer.toUnsignedString(floatInfo.bits(), 16);
+        }
+        if (entry instanceof LongInfo longInfo) {
+            return "long:" + longInfo.value();
+        }
+        if (entry instanceof DoubleInfo doubleInfo) {
+            return "double-bits:" + Long.toUnsignedString(doubleInfo.bits(), 16);
+        }
+        if (entry instanceof StringInfo stringInfo) {
+            return "string:" + utf8(stringInfo.utf8Index());
+        }
+        throw new BuildException("Invalid class file constant value reference `" + index + "`.");
     }
 
     List<String> referencedClasses() {
@@ -99,5 +125,20 @@ final class ClassFileConstantPool {
     }
 
     private record ClassInfo(int nameIndex) {
+    }
+
+    private record IntegerInfo(int value) {
+    }
+
+    private record FloatInfo(int bits) {
+    }
+
+    private record LongInfo(long value) {
+    }
+
+    private record DoubleInfo(long bits) {
+    }
+
+    private record StringInfo(int utf8Index) {
     }
 }

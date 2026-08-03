@@ -5,17 +5,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.RunPackageException;
+import sh.zolt.build.run.JavaRunner;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.project.PackageMode;
@@ -157,7 +163,7 @@ final class WorkspaceRunPackageServiceTest {
                 new WorkspaceSelectionRequest(false, List.of("apps/api")),
                 List.of());
 
-        assertEquals(3, jdkChecker.detectCalls());
+        assertEquals(2, jdkChecker.detectCalls());
         assertEquals(1, jdkChecker.toolchainReads());
     }
 
@@ -231,6 +237,91 @@ final class WorkspaceRunPackageServiceTest {
                 "modules/core/target/classes")));
     }
 
+    @Test
+    void releasesWorkspaceLeaseBeforePackagedLaunchAndRunsFromStableJarSnapshot()
+            throws Exception {
+        workspace("""
+                [workspace]
+                name = "lease-free-package"
+                members = ["apps/api"]
+                """);
+        member("apps/api", "api", """
+                main = "com.acme.api.Api"
+                """);
+        source("apps/api/src/main/java/com/acme/api/Api.java", """
+                package com.acme.api;
+
+                public final class Api {
+                    public static void main(String[] args) {
+                        System.out.println("snapshot");
+                    }
+                }
+                """);
+        CountDownLatch launched = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        AtomicReference<List<String>> command = new AtomicReference<>();
+        JavaRunner javaRunner = new JavaRunner(
+                File.pathSeparator,
+                (arguments, output) -> {
+                    command.set(arguments);
+                    launched.countDown();
+                    await(release);
+                    return new JavaRunner.ProcessResult(0, "snapshot\n");
+                });
+        CachingJdkChecker jdkChecker = new CachingJdkChecker();
+        WorkspaceRunPackageService service = new WorkspaceRunPackageService(
+                new WorkspacePackageService(jdkChecker),
+                jdkChecker,
+                javaRunner);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread application = Thread.ofPlatform().start(() -> {
+            try {
+                service.runPackages(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        new WorkspaceSelectionRequest(false, List.of("apps/api")),
+                        List.of());
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        });
+
+        try {
+            assertTrue(launched.await(10, TimeUnit.SECONDS));
+            CountDownLatch reacquired = new CountDownLatch(1);
+            Thread mutator = Thread.ofPlatform().start(() -> {
+                try (WorkspaceMutationLock ignored =
+                        WorkspaceMutationLock.acquire(tempDir)) {
+                    reacquired.countDown();
+                }
+            });
+            assertTrue(
+                    reacquired.await(2, TimeUnit.SECONDS),
+                    "workspace lease remained held while the packaged application was running");
+            mutator.join();
+
+            int classpath = command.get().indexOf("-classpath");
+            Path snapshotJar = Path.of(command.get()
+                            .get(classpath + 1)
+                            .split(java.util.regex.Pattern.quote(File.pathSeparator))[0]);
+            assertTrue(snapshotJar.toString().contains(
+                    ".zolt" + File.separator + "run"));
+            byte[] stableJar = Files.readAllBytes(snapshotJar);
+            Files.write(
+                    tempDir.resolve("apps/api/target/api-0.1.0.jar"),
+                    new byte[] {0});
+            assertTrue(stableJar.length > 1);
+            assertTrue(java.util.Arrays.equals(
+                    stableJar,
+                    Files.readAllBytes(snapshotJar)));
+        } finally {
+            release.countDown();
+            application.join(TimeUnit.SECONDS.toMillis(10));
+        }
+        assertTrue(!application.isAlive());
+        assertEquals(null, failure.get());
+    }
+
     private void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
     }
@@ -278,6 +369,15 @@ final class WorkspaceRunPackageServiceTest {
         return System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win")
                 ? name + ".exe"
                 : name;
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(exception);
+        }
     }
 
     private static final class CachingJdkChecker implements JdkChecker {

@@ -8,17 +8,21 @@ lanes, specialist large-source comparisons, and optional OpenAI summaries over
 the structured result. See [plan.md](./plan.md) for the benchmark architecture.
 The real-project lane manifest lives in [projects.json](./projects.json).
 
-The public entrypoint is `scripts/benchmark-suite`. It runs selected benchmark
-lanes, writes one suite-level summary, and keeps each lane's raw evidence under
-the suite artifact. The generated Java workspace lane uses
-`scripts/benchmark-competitors` underneath. It generates byte-for-byte identical
-Java sources and equivalent dependency graphs for Zolt, Maven, and Gradle, then
-records wall-clock samples for workflows that matter on larger projects:
+The CI entrypoint is `scripts/benchmark-profile`; `scripts/benchmark-suite`
+remains the lower-level runner for local experiments. Profiles validate and
+expand into selected benchmark lanes, while the suite writes one summary and
+keeps each lane's raw evidence under the artifact. The primary enterprise lane
+uses a versioned workload spec
+to generate byte-for-byte identical Java sources and equivalent dependency
+graphs for Zolt, Maven, and Gradle, then records wall-clock samples for:
 
-- first clean build as a single setup lane;
+- dependency setup;
+- first and repeated clean builds;
 - warm no-op build;
-- leaf source change build;
-- root or shared library source change build.
+- leaf and shared-API fanout changes;
+- resource changes;
+- test-source change build and tagged test run;
+- package.
 
 Generated workspaces support three graph shapes:
 
@@ -28,24 +32,36 @@ Generated workspaces support three graph shapes:
 - `chain`: a serial dependency chain retained as a control, not as parallelism
   evidence.
 
-`--classes-per-module` and `--methods-per-class` scale source volume independently
-from module count. Every report records topology, layer width, source-file count,
-and source-line count so unlike workloads are not silently compared.
+The enterprise workload also covers BOMs, dependency scopes, Lombok annotation
+processing, resources, tests, multiple applications, and a Spring Boot app. Every
+report records topology, fanout, source volume, sample counts, strong statistics,
+and correctness evidence so unlike or incorrect workloads are not silently
+compared.
 
 The script writes raw JSON-lines samples, command logs, a JSON summary, and a
 Markdown report under `target/benchmarks/competitors` by default.
 
 ```sh
-scripts/benchmark-suite --topologies wide,layered --modules 40 --repeat 5 --include-gradle-daemon
+scripts/benchmark-suite \
+  --enterprise-workload benchmarks/workloads/enterprise-v1.json \
+  --topologies wide,layered \
+  --clean-repeat 5 \
+  --repeat 7 \
+  --include-gradle-daemon \
+  --include-tuned-modes \
+  --self-host
 ```
 
 Useful variants:
 
 ```sh
 scripts/benchmark-suite --topology wide --modules 100 --repeat 7 --include-gradle-daemon
+scripts/benchmark-suite --topology layered --repeat 7 --include-gradle-daemon --include-tuned-modes
 scripts/benchmark-suite --topology layered --layer-width 8 --modules 100 --repeat 7
 scripts/benchmark-suite --topology chain --modules 40 --repeat 5
 scripts/benchmark-suite --zolt ~/.zolt/bin/zolt
+scripts/benchmark-suite --enterprise-workload benchmarks/workloads/smoke-v1.json --repeat 1 --clean-repeat 1
+scripts/benchmark-suite --skip-generated --self-host --zolt ~/.zolt/bin/zolt
 scripts/benchmark-suite --topology wide --generated-summary target/benchmarks/competitors/generated-java-workspace-wide/summary.json
 scripts/benchmark-suite --real-projects spring-petclinic,apache-commons-cli --repeat 5
 scripts/benchmark-suite --skip-generated --real-project netty --repeat 1 --real-project-sample-timeout 3600
@@ -54,10 +70,16 @@ scripts/benchmark-suite --skip-generated --real-projects spring-petclinic,netty 
 scripts/benchmark-competitors --topology wide --modules 200 --skip-maven --skip-gradle
 ```
 
-The generated-lane script can still be used directly while debugging:
+The generated enterprise lane can still be used directly while debugging:
 
 ```sh
-scripts/benchmark-competitors --topology wide --modules 40 --repeat 5 --include-gradle-daemon
+scripts/benchmark-enterprise \
+  --workload benchmarks/workloads/enterprise-v1.json \
+  --topology layered \
+  --repeat 7 \
+  --clean-repeat 5 \
+  --include-gradle-daemon \
+  --include-tuned-modes
 ```
 
 After a direct generated-lane run, generate a suite-level summary:
@@ -90,37 +112,70 @@ the deterministic summary when the key is absent.
 
 ## GitHub Actions
 
-Use the manual `benchmarks` workflow for public runs. It installs or builds a
-native Zolt binary, runs the suite harness, writes the deterministic compact summary
-into the job summary, optionally appends a model-generated summary, and uploads
-the report, raw samples, JSON summaries, prompt context, and command logs as
-workflow artifacts.
+The manual `benchmarks` workflow has one input: `profile`.
+
+| Profile | Zolt | Work |
+| --- | --- | --- |
+| `smoke` | Ephemeral branch distribution | Small enterprise lane, five one-sample real-project lanes, and one-sample self-host |
+| `candidate` | Ephemeral branch distribution | Publication-scale layered enterprise lane plus five pinned real-project lanes |
+| `publishable` | Resolved zap release | Layered `enterprise-v1` plus five pinned real-project lanes, each with 5 clean and 7 repeated samples |
+| `full` | Resolved zap release | Layered and wide enterprise lanes, five real projects, and self-host |
+
+Run full-scale validation of an unmerged branch with:
+
+```sh
+gh workflow run benchmarks.yml --ref benchmark-improvements -f profile=candidate
+```
+
+Candidate runs use one release-verified ephemeral branch distribution and the
+same six lanes and sample floors as `publishable`. They are complete pre-merge
+validation, but not public performance evidence because the Zolt binary is not
+a main-issued release.
+
+Run the canonical publication profile with:
+
+```sh
+gh workflow run benchmarks.yml --ref main -f profile=publishable
+```
+
+The workflow resolves the selected release channel once, records the exact Zolt
+version in every lane, and then runs profile lanes as parallel matrix jobs. A
+final aggregation job uploads one combined artifact containing every lane's raw
+samples, logs, correctness evidence, deterministic summaries, and profile
+digest. Publication profiles include Maven default, Maven parallel, Gradle
+no-daemon, Gradle daemon, and Gradle parallel/configuration-cache beside Zolt.
+The tuned modes are never substituted for or blended with the defaults. `full`
+keeps the same one-option interface while adding a wide enterprise lane and
+self-host evidence.
+
+The canonical enterprise lane runs 336 timed tool commands plus 36 untimed
+clean commands on the current 200-library, six-tool contract. Expect it to take
+several hours on a GitHub-hosted runner. Its profile grants that lane a six-hour
+CI ceiling while the other lanes retain three hours, and the log reports every
+command's start, completion, duration, and position in the sequence. Artifacts
+retain the evidence and command logs but exclude mutable build, cache, checkout,
+fixture, and workspace trees.
+
+Pushes to `benchmark-improvements` select `smoke` automatically. Both `smoke`
+and `candidate` build and release-verify one ephemeral branch benchmark
+distribution, then share it across the parallel lane jobs. It is never
+published to the zap channel. Smoke results are merge gates; candidate results
+are full-scale pre-merge evidence. Neither is public performance evidence.
+
+Profile definitions are versioned under `benchmarks/profiles/`. Inspect the
+resolved contract or matrix locally with:
+
+```sh
+scripts/benchmark-profile show --profile publishable
+scripts/benchmark-profile matrix --profile candidate
+scripts/benchmark-profile matrix --profile full
+```
 
 To enable model-generated summaries in GitHub Actions, add a repository Actions
 secret named `OPENAI_API_KEY`. Optional repository variables:
 
 - `OPENAI_MODEL`, default `gpt-5.5`;
-- `OPENAI_REASONING_EFFORT`, default `high`;
-- `BENCHMARK_AI_SUMMARY=false` to disable the model step without removing the
-  secret.
-
-Use `zolt_source=release` for publishable comparisons. It installs the selected
-release channel and avoids mixing Zolt build time into the benchmark setup. Use
-`zolt_source=build` only when measuring the checked-out branch's native binary.
-While this work is on the `benchmarks` branch, pushes to that branch build the
-branch's native binary and run a 10-module, 1-repeat `wide` four-way smoke
-benchmark without a model summary, plus one four-way repeat of every configured
-real-project comparison. This makes the five pinned
-adapters a branch merge gate without pretending a single sample is publishable.
-Production-grade generated evidence remains an explicit manual run.
-Manual runs default to 100 modules, 7 repeats, `wide,layered` topologies, all
-five real-project comparisons, and Gradle daemon coverage.
-For a Netty-only validation run, dispatch the workflow with
-`skip_generated=true`, `real_projects=netty`, `repeat=1`, and
-`real_project_sample_timeout=3600`.
-That lane measures the same filtered Netty `common` main-source overlay with
-Zolt, Maven, Gradle no-daemon, and Gradle daemon; native platform modules, the
-rest of the reactor, and tests are explicitly omitted.
+- `OPENAI_REASONING_EFFORT`, default `high`.
 
 The workflow installs a pinned Gradle distribution directly instead of using
 `gradle/actions/setup-gradle`. That keeps the GitHub summary dedicated to the
@@ -161,7 +216,11 @@ scripts/benchmark-netty-compare \
 Validate all benchmark contracts without doing a production-sized run:
 
 ```sh
+scripts/benchmark-statistics-test
 scripts/benchmark-suite-test
+scripts/benchmark-profile-test
+scripts/benchmark-enterprise-test
+scripts/benchmark-self-host-test
 scripts/benchmark-large-source-test
 scripts/benchmark-large-source-report-test
 scripts/benchmark-netty-compare-test
@@ -178,20 +237,28 @@ initial candidate suite.
 `projects.json` is the machine-readable version used by the suite runner.
 
 The real-project runner checks out a pinned commit and generates isolated Zolt,
-Maven, Gradle no-daemon, and Gradle daemon overlays from the same checked-in
-adapter contract:
+Maven default, Maven parallel, Gradle no-daemon, Gradle daemon, and Gradle
+parallel/configuration-cache overlays from the same checked-in adapter contract:
 
 ```sh
-scripts/benchmark-real-project --project spring-petclinic --repeat 5
-scripts/benchmark-real-project --project apache-commons-cli --repeat 5
-scripts/benchmark-real-project --project netty --repeat 3 --sample-timeout 3600
-scripts/benchmark-real-project --project junit-framework --repeat 3
+scripts/benchmark-real-project --project spring-petclinic --repeat 5 --include-tuned-modes
+scripts/benchmark-real-project --project apache-commons-cli --repeat 5 --include-tuned-modes
+scripts/benchmark-real-project --project netty --repeat 3 --sample-timeout 3600 --include-tuned-modes
+scripts/benchmark-real-project --project junit-framework --repeat 3 --include-tuned-modes
 ```
 
 Those runs clone the pinned upstream commit into the benchmark output directory,
-warm dependency caches outside the timed samples, and record clean compile,
-warm no-op, and incremental source-change timings for all four modes. Each result
-includes the adapter scope and omissions. The separate `benchmark-netty-compare`
+warm dependency caches outside the timed samples, and record first clean,
+repeated clean, warm no-op, implementation-change, and public-API-change timings.
+Each change sample must produce a distinct compiled class digest; a comment-only
+or otherwise non-semantic edit fails the lane. The mutation class is seeded and
+compiled outside timing so every measured sample is an edit, not a first-time
+class addition. Tool order rotates by sample; reports include p95, variation,
+confidence intervals, source digests, compiled-class parity, adapter scope, and
+omissions. Apache Commons CLI also runs the pinned checkout's original Maven
+build directly for clean and no-op upstream baselines. That row is labeled
+`Upstream Maven`; it is not conflated with the generated Maven overlay.
+The separate `benchmark-netty-compare`
 runner remains a specialist lane with additional dependency and thin-package
 rows for the same smaller `common` source subset.
 
@@ -207,12 +274,23 @@ When publishing benchmark evidence:
   topology, source volume, and repeat count;
 - keep the first clean build separate from repeated no-op, leaf-change, and
   root-change workflows;
-- compare medians and keep raw samples available;
-- say whether Gradle was measured with or without the daemon;
+- publish the supplied `faster`, `slower`, or `inconclusive` outcome, not a
+  winner inferred only from the lowest median;
+- keep raw samples and paired comparison evidence available;
+- label Maven default versus parallel and Gradle no-daemon versus daemon versus
+  parallel/configuration-cache;
 - avoid claims from machines with missing competitors, failed setup commands, or
   mixed cache states.
 
+The outcome rule is fixed before a run: compare paired duration ratios, require
+at least five paired samples, and compute a deterministic 95% bootstrap
+confidence interval for the median ratio. Zolt is `faster` only when the entire
+interval is below `1 / 1.05`, and `slower` only when it is above `1.05`.
+Everything else is `inconclusive`. First-clean rows have one sample and are
+therefore always inconclusive; their raw timings remain useful context.
+
 The README should stay conservative until this directory contains dated evidence
 from a clean machine. A good public claim is specific: for example, "on this
-machine, for this generated 100-module workspace, Zolt's median warm no-op build
-was N ms versus Maven M ms and Gradle G ms."
+machine and pinned workload, Zolt was faster/slower/inconclusive against the
+fastest comparator under the declared outcome rule; the observed medians were N
+ms and M ms."

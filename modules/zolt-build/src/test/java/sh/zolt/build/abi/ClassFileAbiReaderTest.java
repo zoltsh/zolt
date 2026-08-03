@@ -127,6 +127,30 @@ final class ClassFileAbiReaderTest {
     }
 
     @Test
+    void abiChangesWhenPublicConstantValueChanges() throws IOException {
+        Path source = source("src/main/java/com/example/Api.java", """
+                package com.example;
+
+                public class Api {
+                    public static final String VERSION = "one";
+                }
+                """);
+        String firstAbi = reader.read(compile(source).resolve("com/example/Api.class")).abiHash();
+        Files.writeString(source, """
+                package com.example;
+
+                public class Api {
+                    public static final String VERSION = "two";
+                }
+                """);
+
+        String secondAbi = reader.read(compileTo(source, tempDir.resolve("target/second-classes"))
+                .resolve("com/example/Api.class")).abiHash();
+
+        assertNotEquals(firstAbi, secondAbi);
+    }
+
+    @Test
     void abiChangesWhenCompileVisibleAnnotationChanges() throws IOException {
         Path source = source("src/main/java/com/example/Api.java", """
                 package com.example;

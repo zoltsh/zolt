@@ -1,6 +1,8 @@
 package sh.zolt.build.compile;
 
 import sh.zolt.build.JavacException;
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.build.incremental.GeneratedOutputAttribution;
 import sh.zolt.classpath.Classpath;
 import java.io.ByteArrayOutputStream;
@@ -183,7 +185,10 @@ public final class JavacRunner {
     }
 
     private boolean canRunInProcess(Path javac) {
-        return inProcessRunner != null && runtimeJavac != null && sameExecutable(javac, runtimeJavac);
+        return !BuildCancellation.active()
+                && inProcessRunner != null
+                && runtimeJavac != null
+                && sameExecutable(javac, runtimeJavac);
     }
 
     private static String remediation(String diagnostics) {
@@ -206,9 +211,12 @@ public final class JavacRunner {
             Process process = new ProcessBuilder(command)
                     .redirectErrorStream(true)
                     .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            return new ProcessResult(exitCode, output);
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int exitCode = process.waitFor();
+                return new ProcessResult(exitCode, output);
+            }
         } catch (IOException exception) {
             throw new JavacException(
                     sh.zolt.error.ActionableError.of(

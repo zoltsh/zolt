@@ -210,6 +210,46 @@ final class WorkspacePackageServiceTest {
         }
     }
 
+    @Test
+    void reusesCurrentWorkspacePackagesAndReportsBoundedWorkers() throws IOException {
+        workspace("""
+                [workspace]
+                name = "acme-platform"
+                members = ["modules/alpha", "modules/beta"]
+                """);
+        member("modules/alpha", "alpha", "");
+        member("modules/beta", "beta", "");
+        source("modules/alpha/src/main/java/com/acme/alpha/Alpha.java", """
+                package com.acme.alpha;
+                public final class Alpha {
+                }
+                """);
+        source("modules/beta/src/main/java/com/acme/beta/Beta.java", """
+                package com.acme.beta;
+                public final class Beta {
+                }
+                """);
+        WorkspaceSelectionRequest all = new WorkspaceSelectionRequest(true, List.of());
+
+        WorkspacePackageResult first = service.packageJars(
+                tempDir,
+                tempDir.resolve("cache"),
+                all);
+        WorkspacePackageResult second = service.packageJars(
+                tempDir,
+                tempDir.resolve("cache"),
+                all);
+
+        assertEquals(2, first.packagedCount());
+        assertEquals(0, first.reusedCount());
+        assertEquals(Math.min(2, Runtime.getRuntime().availableProcessors()), first.maxWorkers());
+        assertEquals(0, second.packagedCount());
+        assertEquals(2, second.reusedCount());
+        assertEquals(List.of("modules/alpha", "modules/beta"), second.members().stream()
+                .map(WorkspacePackageResult.MemberPackageResult::member)
+                .toList());
+    }
+
     private void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
     }

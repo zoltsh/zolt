@@ -9,13 +9,11 @@ import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.build.testruntime.compile.TestCompileResultWithClasspaths;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.testruntime.compile.TestCompileService;
-import sh.zolt.build.testruntime.execution.CompiledTestExecutionRunner;
-import sh.zolt.build.testruntime.execution.CompiledTestRunner;
-import sh.zolt.build.testruntime.execution.CurrentWorkerClasspath;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.framework.FrameworkTestRunner;
-import sh.zolt.build.junit.PlainJunitWorkerProcessRunner;
+import sh.zolt.build.junit.PlainJunitWorkerPoolRunner;
+import sh.zolt.build.junit.PlainJunitWorkerProcessSessionFactory;
 import sh.zolt.build.junit.PlainJunitWorkerRunner;
 import sh.zolt.build.profile.TestProfileSettings;
 import sh.zolt.project.ProjectConfig;
@@ -29,6 +27,7 @@ import java.util.function.Supplier;
 
 public final class TestRunService extends CompiledTestRunService {
     private final TestCompileService testCompileService;
+    private final PlainJunitWorkerPoolRunner workerPoolRunner;
 
     public TestRunService() {
         this(new JdkDetector());
@@ -61,14 +60,26 @@ public final class TestRunService extends CompiledTestRunService {
             FrameworkTestRunner frameworkTestRunner,
             ResolveService resolveService) {
         this(
-                new TestCompileService(compileChecker, resolveService),
+                compileChecker,
                 runChecker,
-                new JavaRunner(),
                 frameworkTestRunner,
-                new CurrentWorkerClasspath()::discover,
-                PlainJunitWorkerProcessRunner::run,
-                Boolean.getBoolean("zolt.junit.worker"),
-                java.io.File.pathSeparator);
+                resolveService,
+                new PlainJunitWorkerPoolRunner(
+                        new PlainJunitWorkerProcessSessionFactory()));
+    }
+
+    public TestRunService(
+            JdkChecker compileChecker,
+            JdkChecker runChecker,
+            FrameworkTestRunner frameworkTestRunner,
+            ResolveService resolveService,
+            PlainJunitWorkerPoolRunner workerPoolRunner) {
+        this(
+                new TestCompileService(compileChecker, resolveService),
+                TestRuntimeFactory.create(
+                        runChecker,
+                        frameworkTestRunner,
+                        workerPoolRunner));
     }
     TestRunService(
             TestCompileService testCompileService,
@@ -81,30 +92,44 @@ public final class TestRunService extends CompiledTestRunService {
             String pathSeparator) {
         this(
                 testCompileService,
-                new CompiledTestRunInvoker(
-                        new CompiledTestExecutionRunner(
-                                new CompiledTestRunner(
-                                        jdkDetector,
-                                        javaRunner,
-                                        frameworkTestRunner,
-                                        plainJunitWorkerClasspath,
-                                        plainJunitWorkerRunner,
-                                        plainJunitWorkerEnabled,
-                                        pathSeparator))));
+                TestRuntimeFactory.legacy(
+                        jdkDetector,
+                        javaRunner,
+                        frameworkTestRunner,
+                        plainJunitWorkerClasspath,
+                        plainJunitWorkerRunner,
+                        plainJunitWorkerEnabled,
+                        pathSeparator));
     }
 
     private TestRunService(
             TestCompileService testCompileService,
-            CompiledTestRunInvoker compiledTestRunInvoker) {
+            TestRuntimeFactory.TestRuntime runtime) {
+        this(
+                testCompileService,
+                runtime.invoker(),
+                runtime.workerPoolRunner());
+    }
+
+    private TestRunService(
+            TestCompileService testCompileService,
+            CompiledTestRunInvoker compiledTestRunInvoker,
+            PlainJunitWorkerPoolRunner workerPoolRunner) {
         super(compiledTestRunInvoker);
         this.testCompileService = testCompileService;
+        this.workerPoolRunner = workerPoolRunner;
     }
 
     /** Returns a service that restores the main build and test classes from the build cache. */
     public TestRunService withBuildCache(BuildCacheService buildCacheService) {
         return new TestRunService(
                 testCompileService.withBuildCache(buildCacheService),
-                compiledTestRunInvoker());
+                compiledTestRunInvoker(),
+                workerPoolRunner);
+    }
+
+    public void closeTestWorkers() {
+        workerPoolRunner.close();
     }
 
     public TestRunResult runTests(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
@@ -301,4 +326,5 @@ public final class TestRunService extends CompiledTestRunService {
                 buildResult.buildResult(),
                 buildResult.classpathPackages());
     }
+
 }

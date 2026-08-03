@@ -32,8 +32,6 @@ import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.coverage.WorkspaceCoverageResult;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
-import sh.zolt.workspace.service.Workspace;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +50,7 @@ public final class CoverageCommand implements Runnable {
     private final CoverageService coverageService;
     private final WorkspaceCoverageService workspaceCoverageService;
     private final CommandServiceBundles.CoverageServiceFactory coverageServiceFactory;
-    private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
+    private final CommandServiceBundles.TestRunServiceFactory testRunServiceFactory;
 
     @Option(names = "--workspace", description = "Run coverage for workspace members and write aggregate reports.")
     private boolean workspace;
@@ -129,18 +127,21 @@ public final class CoverageCommand implements Runnable {
                 services.tomlParser(),
                 services.coverageService(),
                 services.workspaceCoverageService(),
-                services.coverageServiceFactory());
+                services.coverageServiceFactory(),
+                services.testRunServiceFactory());
     }
 
     CoverageCommand(
             ZoltTomlParser tomlParser,
             CoverageService coverageService,
             WorkspaceCoverageService workspaceCoverageService,
-            CommandServiceBundles.CoverageServiceFactory coverageServiceFactory) {
+            CommandServiceBundles.CoverageServiceFactory coverageServiceFactory,
+            CommandServiceBundles.TestRunServiceFactory testRunServiceFactory) {
         this.tomlParser = tomlParser;
         this.coverageService = coverageService;
         this.workspaceCoverageService = workspaceCoverageService;
         this.coverageServiceFactory = coverageServiceFactory;
+        this.testRunServiceFactory = testRunServiceFactory;
     }
 
     @Override
@@ -238,9 +239,16 @@ public final class CoverageCommand implements Runnable {
             List<String> requestedTestEvents,
             String suiteName,
             TestShardSpec shard) {
+        CommandToolchainOptions.WorkspaceCommandToolchains workspaceToolchains =
+                toolchainOptions.workspaceCoverageToolchains(
+                        testRunServiceFactory);
+        WorkspaceCoverageService projectWorkspaceCoverageService =
+                workspaceCoverageService.withMemberServices(
+                        workspaceToolchains.mainCheckers(),
+                        workspaceToolchains.testRunServices());
         WorkspaceCoverageResult result = timings.measure(
                 "workspace coverage",
-                () -> workspaceCoverageService.runCoverage(
+                () -> projectWorkspaceCoverageService.runCoverage(
                         projectRoot,
                         cacheRoot,
                         CommandWorkspaceSelections.from(all, members, memberGroups),
@@ -274,10 +282,9 @@ public final class CoverageCommand implements Runnable {
             }
         }
         printCoverageReports(output, "Workspace coverage reports written", result.execFile(), result.xmlReport(), result.htmlDirectory());
-        Path workspaceRoot = workspaceDiscovery.discover(projectRoot).map(Workspace::root).orElse(projectRoot);
         CoverageFloorEnforcement.enforce(
                 spec,
-                tomlParser.parseCoverageFloors(workspaceRoot.resolve("zolt.toml")),
+                result.coverageSettings(),
                 result.xmlReport());
         output.summary(
                 "Coverage passed for " + result.members().size() + " workspace members",

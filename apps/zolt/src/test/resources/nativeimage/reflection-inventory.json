@@ -1,6 +1,6 @@
 [
   {
-    "file": "apps/zolt-junit-worker/src/main/java/sh/zolt/junit/JunitLauncherWorker.java",
+    "file": "apps/zolt-junit-worker/src/main/java/sh/zolt/junit/JunitProgrammaticLauncher.java",
     "disposition": "WORKER_JVM",
     "note": "Reflects over org.junit.platform.* in the forked JUnit worker JVM launched by JunitWorkerProcessLauncher; targets are absent from the native binary."
   },

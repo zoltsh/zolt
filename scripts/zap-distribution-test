@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/zap-distribution-test"
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+if GITHUB_ACTIONS=true \
+  GITHUB_REF=refs/heads/benchmark-improvements \
+  scripts/zap-distribution \
+    --publish \
+    --publish-from "$WORK_DIR/missing" \
+    >"$WORK_DIR/non-main.log" 2>&1; then
+  fail "zap publisher accepted a non-main GitHub Actions ref"
+fi
+
+grep -F 'zap publication is only allowed from main' \
+  "$WORK_DIR/non-main.log" >/dev/null \
+  || fail "non-main publication failure did not explain the boundary"
+
+main_status=0
+GITHUB_ACTIONS=true \
+GITHUB_REF=refs/heads/main \
+scripts/zap-distribution \
+  --publish \
+  --publish-from "$WORK_DIR/missing" \
+  >"$WORK_DIR/main.log" 2>&1 \
+  || main_status=$?
+
+[[ "$main_status" -eq 2 ]] \
+  || fail "main publication probe did not stop at the missing artifact directory"
+grep -F -- '--publish-from directory does not exist' "$WORK_DIR/main.log" >/dev/null \
+  || fail "main publication probe did not pass the ref boundary"
+if grep -F 'zap publication is only allowed from main' "$WORK_DIR/main.log" >/dev/null; then
+  fail "zap publisher rejected the main GitHub Actions ref"
+fi
+
+python3 - <<'PY'
+import pathlib
+
+ci = pathlib.Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+dispatch = pathlib.Path(".github/workflows/dispatch-zap.yml").read_text(
+    encoding="utf-8"
+)
+
+if "  zap-publish:\n" in ci or "scripts/zap-distribution --publish" in ci:
+    raise SystemExit("error: source CI still publishes zap artifacts directly")
+
+required_dispatch_contracts = (
+    "  workflow_run:\n",
+    "      - ci\n",
+    "      - completed\n",
+    "github.event.workflow_run.event == 'push'",
+    "github.event.workflow_run.head_branch == 'main'",
+    "github.event.workflow_run.conclusion == 'success'",
+    "check_group 'test ' 5",
+    "check_group 'coverage floors' 1",
+    "check_group 'smoke packaged workflows ' 4",
+    "check_group 'managed Java toolchain dogfood ' 2",
+    "uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
+    "owner: zoltsh",
+    "repositories: releases",
+    "permission-actions: write",
+    "gh workflow run zap-candidate.yml",
+    "--repo zoltsh/releases",
+    "--ref main",
+    'source_repository=${SOURCE_REPOSITORY}',
+    'source_sha=${SOURCE_SHA}',
+    'source_run_id=${SOURCE_RUN_ID}',
+)
+missing = [value for value in required_dispatch_contracts if value not in dispatch]
+if missing:
+    raise SystemExit(
+        "error: zap dispatch handoff is missing: " + ", ".join(repr(value) for value in missing)
+    )
+PY
+
+printf 'zap distribution publication boundary test passed\n'

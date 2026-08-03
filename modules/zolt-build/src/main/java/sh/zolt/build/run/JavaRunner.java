@@ -1,6 +1,8 @@
 package sh.zolt.build.run;
 
 import sh.zolt.build.JavaRunException;
+import sh.zolt.cancel.BuildCancellation;
+import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.classpath.Classpath;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -186,17 +188,20 @@ public final class JavaRunner {
                 processBuilder.environment().putAll(environment);
             }
             Process process = processBuilder.start();
-            StringBuilder output = new StringBuilder();
-            byte[] buffer = new byte[8192];
-            int read = process.getInputStream().read(buffer);
-            while (read >= 0) {
-                String chunk = new String(buffer, 0, read, StandardCharsets.UTF_8);
-                output.append(chunk);
-                outputConsumer.accept(chunk);
-                read = process.getInputStream().read(buffer);
+            try (BuildCancellation.Registration ignored =
+                    ProcessCancellation.register(process)) {
+                StringBuilder output = new StringBuilder();
+                byte[] buffer = new byte[8192];
+                int read = process.getInputStream().read(buffer);
+                while (read >= 0) {
+                    String chunk = new String(buffer, 0, read, StandardCharsets.UTF_8);
+                    output.append(chunk);
+                    outputConsumer.accept(chunk);
+                    read = process.getInputStream().read(buffer);
+                }
+                int exitCode = process.waitFor();
+                return new ProcessResult(exitCode, output.toString());
             }
-            int exitCode = process.waitFor();
-            return new ProcessResult(exitCode, output.toString());
         } catch (IOException exception) {
             throw new JavaRunException(
                     "Could not run java. Check that the configured JDK is installed and readable.",

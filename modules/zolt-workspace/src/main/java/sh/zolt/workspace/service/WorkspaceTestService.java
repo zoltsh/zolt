@@ -1,10 +1,8 @@
 package sh.zolt.workspace.service;
 
-import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.build.testruntime.TestRunService;
-import sh.zolt.build.profile.TestProfileMerger;
 import sh.zolt.build.profile.TestProfileSettings;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
@@ -14,8 +12,6 @@ import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.test.TestSelection;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,9 +88,11 @@ public final class WorkspaceTestService {
             WorkspaceSelectionRequest selectionRequest,
             TestSelection testSelection,
             TestJvmArguments jvmArguments) {
-        WorkspaceBuildPlan plan = planTests(startDirectory, cacheRoot, selectionRequest);
-        WorkspaceBuildResult buildResult = buildTestInputs(plan, cacheRoot);
-        return runTests(plan, buildResult, cacheRoot, testSelection, jvmArguments);
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = planTests(startDirectory, cacheRoot, selectionRequest);
+            return runTests(plan, buildTestInputs(plan, cacheRoot), cacheRoot,
+                    testSelection, jvmArguments);
+        });
     }
 
     public WorkspaceBuildPlan planTests(
@@ -108,7 +106,24 @@ public final class WorkspaceTestService {
         return workspaceBuildService.build(
                 plan,
                 cacheRoot,
-                new LinkedHashSet<>(plan.selection().selectedMembers()));
+                WorkspaceBuildRequirements.testRun());
+    }
+
+    public WorkspaceBuildResult buildTestCompileInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
+        return workspaceBuildService.build(
+                plan,
+                cacheRoot,
+                WorkspaceBuildRequirements.testCompile());
+    }
+
+    public WorkspaceTestCompileResult compileTests(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult) {
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return new WorkspaceTestCompileExecutor(testRunServices)
+                    .compile(plan.requireInputsCurrent(), buildResult);
+        }
     }
 
     public WorkspaceTestResult runTests(
@@ -202,55 +217,96 @@ public final class WorkspaceTestService {
             String suiteName,
             TestShardSpec shard,
             TestProfileSettings profileSettings) {
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return runTestsLocked(
+                    plan,
+                    buildResult,
+                    cacheRoot,
+                    testSelection,
+                    jvmArguments,
+                    reportSettings,
+                    cliEvents,
+                    suiteName,
+                    shard,
+                    profileSettings);
+        }
+    }
+
+    private WorkspaceTestResult runTestsLocked(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Path cacheRoot,
+            TestSelection testSelection,
+            TestJvmArguments jvmArguments,
+            TestReportSettings reportSettings,
+            List<String> cliEvents,
+            String suiteName,
+            TestShardSpec shard,
+            TestProfileSettings profileSettings) {
         TestJvmArguments testJvmArguments = jvmArguments == null ? TestJvmArguments.empty() : jvmArguments;
         TestReportSettings testReportSettings = reportSettings == null ? TestReportSettings.disabled() : reportSettings;
         TestProfileSettings testProfileSettings = profileSettings == null ? TestProfileSettings.disabled() : profileSettings;
         Optional<Path> workspaceProfileDirectory = testProfileSettings
                 .forShard(suiteName, shard)
                 .absoluteProfileDirectory(plan.workspace().root());
-        Workspace workspace = plan.workspace();
+        Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
-        Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
-        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
-        List<WorkspaceTestResult.MemberTestRunResult> results = new ArrayList<>();
-        for (String memberPath : selection.selectedMembers()) {
-            WorkspaceMember member = membersByPath.get(memberPath);
-            WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
-            TestRunService testRunService = testRunServices.forMember(workspace, member);
-            results.add(new WorkspaceTestResult.MemberTestRunResult(
-                    member.path(),
-                    testRunService.runCompiledTests(
-                            member.directory(),
-                            member.config(),
-                            memberBuild.classpaths(),
-                            testRunService.compileTests(
-                                    member.directory(),
-                                    member.config(),
-                                    testInputs(memberBuild)),
-                            testSelection,
-                            testJvmArguments,
-                            testReportSettings.forWorkspaceMember(member.path()),
-                            cliEvents,
-                            suiteName,
-                            shard,
-                            testProfileSettings.forWorkspaceMember(member.path()))));
+        Map<String, WorkspaceMember> membersByPath = WorkspaceTestExecutionSupport.membersByPath(workspace);
+        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
+                WorkspaceTestExecutionSupport.buildsByPath(buildResult);
+        List<TestRunService> usedServices = new ArrayList<>();
+        var tasks = WorkspaceTestTasks.unit(
+                workspace,
+                selection.selectedMembers(),
+                membersByPath,
+                buildsByPath,
+                testRunServices,
+                usedServices,
+                testSelection,
+                testJvmArguments,
+                testReportSettings,
+                cliEvents,
+                suiteName,
+                shard,
+                testProfileSettings);
+        List<WorkspaceTestResult.MemberTestRunResult> results;
+        try {
+            results = new WorkspaceTestExecutor().execute(tasks);
+        } finally {
+            WorkspaceTestExecutionSupport.closeTestWorkers(usedServices);
         }
-        workspaceProfileDirectory.ifPresent(directory -> TestProfileMerger.mergeProfiles(
-                directory,
-                results.stream()
-                        .map(WorkspaceTestResult.MemberTestRunResult::result)
-                        .map(result -> result.profileDirectory().map(path -> path.resolve("profile.json")))
-                        .flatMap(Optional::stream)
-                        .toList()));
+        WorkspaceTestExecutionSupport.mergeProfiles(workspaceProfileDirectory, results);
         return new WorkspaceTestResult(
                 buildResult.resolveResult(),
                 buildResult.members(),
                 results,
                 workspace.members().size(),
-                workspaceProfileDirectory);
+                workspaceProfileDirectory,
+                WorkspaceTestToolchainMetrics.combine(buildResult.executionMetrics(), testRunServices.toolchainMetrics()));
+    }
+    public WorkspaceTestResult runIntegrationTests(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Path cacheRoot,
+            TestSelection testSelection,
+            TestJvmArguments jvmArguments,
+            TestReportSettings reportSettings,
+            List<String> cliEvents) {
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return runIntegrationTestsLocked(
+                    plan,
+                    buildResult,
+                    cacheRoot,
+                    testSelection,
+                    jvmArguments,
+                    reportSettings,
+                    cliEvents);
+        }
     }
 
-    public WorkspaceTestResult runIntegrationTests(
+    private WorkspaceTestResult runIntegrationTestsLocked(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
             Path cacheRoot,
@@ -260,58 +316,35 @@ public final class WorkspaceTestService {
             List<String> cliEvents) {
         TestJvmArguments testJvmArguments = jvmArguments == null ? TestJvmArguments.empty() : jvmArguments;
         TestReportSettings testReportSettings = reportSettings == null ? TestReportSettings.disabled() : reportSettings;
-        Workspace workspace = plan.workspace();
+        Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
-        Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
-        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
-        List<WorkspaceTestResult.MemberTestRunResult> results = new ArrayList<>();
-        for (String memberPath : selection.selectedMembers()) {
-            WorkspaceMember member = membersByPath.get(memberPath);
-            WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
-            sh.zolt.project.ProjectConfig integrationConfig = member.config()
-                    .withBuildSettings(member.config().build().asIntegrationTestBuild());
-            TestRunService testRunService = testRunServices.forMember(workspace, member);
-            results.add(new WorkspaceTestResult.MemberTestRunResult(
-                    member.path(),
-                    testRunService.runTests(
-                            member.directory(),
-                            integrationConfig,
-                            testInputs(memberBuild),
-                            testSelection,
-                            testJvmArguments,
-                            testReportSettings.forWorkspaceMember(member.path()),
-                            cliEvents,
-                            "all",
-                            null)));
+        Map<String, WorkspaceMember> membersByPath = WorkspaceTestExecutionSupport.membersByPath(workspace);
+        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
+                WorkspaceTestExecutionSupport.buildsByPath(buildResult);
+        List<TestRunService> usedServices = new ArrayList<>();
+        var tasks = WorkspaceTestTasks.integration(
+                workspace,
+                selection.selectedMembers(),
+                membersByPath,
+                buildsByPath,
+                testRunServices,
+                usedServices,
+                testSelection,
+                testJvmArguments,
+                testReportSettings,
+                cliEvents);
+        List<WorkspaceTestResult.MemberTestRunResult> results;
+        try {
+            results = new WorkspaceTestExecutor().execute(tasks);
+        } finally {
+            WorkspaceTestExecutionSupport.closeTestWorkers(usedServices);
         }
         return new WorkspaceTestResult(
                 buildResult.resolveResult(),
                 buildResult.members(),
                 results,
-                workspace.members().size());
-    }
-
-    private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {
-        Map<String, WorkspaceMember> members = new LinkedHashMap<>();
-        for (WorkspaceMember member : workspace.members()) {
-            members.put(member.path(), member);
-        }
-        return members;
-    }
-
-    private static BuildResultWithClasspaths testInputs(
-            WorkspaceBuildResult.MemberBuildResult memberBuild) {
-        return new BuildResultWithClasspaths(
-                memberBuild.result(),
-                memberBuild.classpaths(),
-                memberBuild.classpathPackages());
-    }
-
-    private static Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath(WorkspaceBuildResult result) {
-        Map<String, WorkspaceBuildResult.MemberBuildResult> builds = new LinkedHashMap<>();
-        for (WorkspaceBuildResult.MemberBuildResult member : result.members()) {
-            builds.put(member.member(), member);
-        }
-        return builds;
+                workspace.members().size(),
+                Optional.empty(),
+                WorkspaceTestToolchainMetrics.combine(buildResult.executionMetrics(), testRunServices.toolchainMetrics()));
     }
 }

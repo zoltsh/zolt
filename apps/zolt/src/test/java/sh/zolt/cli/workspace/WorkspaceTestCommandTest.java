@@ -4,6 +4,7 @@ import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 import static sh.zolt.cli.CliTestSupport.writeFakeConsoleJar;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
@@ -32,7 +33,9 @@ final class WorkspaceTestCommandTest {
                 name = "workspace"
                 members = ["apps/api", "modules/core"]
                 """);
-        Files.writeString(coreDir.resolve("zolt.toml"), memberConfig("core"));
+        Files.writeString(
+                coreDir.resolve("zolt.toml"),
+                memberConfig("core") + testToolchain());
         Path coreSource = coreDir.resolve("src/main/java/com/example/core/Core.java");
         Files.createDirectories(coreSource.getParent());
         Files.writeString(coreSource, """
@@ -47,7 +50,7 @@ final class WorkspaceTestCommandTest {
                     }
                 }
                 """);
-        Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api") + """
+        Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api") + testToolchain() + """
 
                 [dependencies]
                 "com.example:core" = { workspace = "modules/core" }
@@ -128,6 +131,9 @@ final class WorkspaceTestCommandTest {
         assertTrue(lines[2].contains("\"testCompilationsSkipped\""));
         assertTrue(lines[2].contains("\"testCompilationsExecuted\""));
         assertTrue(lines[2].contains("\"testDiscoveryScanRoots\""));
+        assertTrue(lines[2].contains("\"workspaceToolchainLockfileParses\":\"1\""));
+        assertTrue(lines[2].contains("\"workspaceToolchainIdentityCalculations\":\"1\""));
+        assertTrue(lines[2].contains("\"workspaceTestRuntimeToolchainIdentityCalculations\":\"1\""));
         assertTrue(lines[3].contains("\"phase\":\"test workspace\""));
         assertTrue(lines[3].contains("\"depth\":0"));
         assertTrue(lines[3].contains("\"members\":\"2\""));
@@ -143,6 +149,44 @@ final class WorkspaceTestCommandTest {
         assertTrue(Files.exists(coreDir.resolve("target/classes/com/example/core/Core.class")));
         assertTrue(Files.exists(apiDir.resolve("target/classes/com/example/api/Api.class")));
         assertTrue(Files.exists(apiDir.resolve("target/test-classes/com/example/api/ApiTest.class")));
+
+        CommandResult compileOnly = execute(
+                "test",
+                "--workspace",
+                "--all",
+                "--compile-only",
+                "--timings",
+                "--timings-format", "json",
+                "--cwd", apiDir.toString(),
+                "--cache-root", cacheRoot.toString());
+
+        assertEquals(0, compileOnly.exitCode());
+        assertTrue(compileOnly.stdout().contains("Tests compiled in modules/core"));
+        assertTrue(compileOnly.stdout().contains("Tests compiled in apps/api"));
+        assertTrue(compileOnly.stdout().contains("Compiled tests for 2 workspace members"));
+        assertFalse(compileOnly.stdout().contains("fake console"));
+        String[] compileLines = compileOnly.stderr().lines().toArray(String[]::new);
+        assertEquals(4, compileLines.length);
+        assertTrue(compileLines[2].contains("\"phase\":\"compile workspace test members\""));
+        assertTrue(compileLines[2].contains("\"workspaceBuildMaxWorkers\":\"2\""));
+        assertTrue(compileLines[2].contains("\"workspaceToolchainLockfileParses\":\"1\""));
+        assertTrue(compileLines[2].contains("\"workspaceToolchainIdentityCalculations\":\"1\""));
+        assertTrue(compileLines[2].contains("\"workspaceTestRuntimeToolchainIdentityCalculations\":\"0\""));
+        assertTrue(compileLines[3].contains("\"phase\":\"compile workspace tests\""));
     }
 
+    private static String testToolchain() {
+        return """
+
+                [toolchain.java]
+                version = "%d"
+                features = []
+                policy = "prefer-managed"
+
+                [toolchain.java.test]
+                version = "%d"
+                """.formatted(
+                        Runtime.version().feature(),
+                        Runtime.version().feature());
+    }
 }

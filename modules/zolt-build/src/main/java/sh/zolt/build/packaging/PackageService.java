@@ -6,7 +6,6 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
-import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
@@ -18,8 +17,6 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.lockfile.ZoltLockfile;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -27,11 +24,12 @@ import java.util.Optional;
 public final class PackageService {
     private final BuildService buildService;
     private final SpringBootPackageToolingPreparer packageToolingPreparer;
-    private final PackagePlanService packagePlanService;
+    private final PackagePlanResolver packagePlanResolver;
     private final PackageEvidenceManifestWriter evidenceManifestWriter;
     private final PackagePrimaryArtifactAssembler primaryArtifactAssembler;
     private final PackageSupplementalArtifactAssembler supplementalArtifactAssembler;
     private final PackageTestCompileGate testCompileGate;
+    private final PackageReuseService reuseService;
 
     public PackageService() {
         this(FrameworkPackageAugmenter.none());
@@ -119,7 +117,8 @@ public final class PackageService {
             PackageEvidenceManifestWriter evidenceManifestWriter) {
         this.buildService = buildService;
         this.packageToolingPreparer = new SpringBootPackageToolingPreparer(resolveService, lockfileReader);
-        this.packagePlanService = packagePlanService == null ? new PackagePlanService() : packagePlanService;
+        this.packagePlanResolver =
+                new PackagePlanResolver(packagePlanService == null ? new PackagePlanService() : packagePlanService);
         this.evidenceManifestWriter = evidenceManifestWriter;
         this.primaryArtifactAssembler = new PackagePrimaryArtifactAssembler(
                 manifestGenerator,
@@ -128,6 +127,7 @@ public final class PackageService {
                 frameworkPackageAugmenter);
         this.supplementalArtifactAssembler = new PackageSupplementalArtifactAssembler(classpathBuilder);
         this.testCompileGate = new PackageTestCompileGate(lockfileReader, classpathBuilder);
+        this.reuseService = new PackageReuseService();
     }
 
     public PackageResult packageJar(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
@@ -301,6 +301,13 @@ public final class PackageService {
             Optional<PackagePlan> suppliedPlan) {
         testCompileGate.requireCurrent(
                 projectDirectory, config, buildResult, cacheRoot, classpathPackages, classpaths);
+        PackagePlan plan = suppliedPlan.orElseGet(() ->
+                packagePlanResolver.plan(projectDirectory, config, cacheRoot));
+        Optional<PackageResult> reused =
+                reuseService.reuse(projectDirectory, config, buildResult, plan);
+        if (reused.isPresent()) {
+            return reused.orElseThrow();
+        }
         PackageResult result = primaryArtifactAssembler.assemble(
                 projectDirectory,
                 config,
@@ -314,33 +321,8 @@ public final class PackageService {
                 buildResult,
                 classpathPackages,
                 classpaths);
-        PackagePlan plan = suppliedPlan.orElseGet(() ->
-                packagePlan(projectDirectory, config, cacheRoot));
         Path evidenceManifest = evidenceManifestWriter.write(projectDirectory, config, plan, result, artifacts);
         return result.withArtifactsAndEvidence(artifacts, Optional.of(evidenceManifest));
-    }
-
-    private PackagePlan packagePlan(
-            Path projectDirectory,
-            ProjectConfig config,
-            Optional<Path> cacheRoot) {
-        Path projectRoot = projectDirectory.toAbsolutePath().normalize();
-        Path artifacts = cacheRoot.orElseGet(LocalArtifactCache::defaultRoot);
-        if (Files.isRegularFile(projectRoot.resolve("zolt.lock"))) {
-            return packagePlanService.plan(
-                    projectRoot,
-                    config,
-                    projectRoot.resolve("zolt.lock"),
-                    artifacts);
-        }
-        return packagePlanService.plan(
-                projectRoot,
-                config,
-                new ZoltLockfile(
-                        ZoltLockfile.CURRENT_VERSION,
-                        List.of(),
-                        List.of()),
-                artifacts);
     }
 
 }

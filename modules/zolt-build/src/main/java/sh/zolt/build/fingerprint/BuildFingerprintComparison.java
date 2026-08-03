@@ -11,6 +11,22 @@ final class BuildFingerprintComparison {
         return BuildFingerprintCheck.miss("fingerprint-mismatch:" + firstChangedComponent(existing, current));
     }
 
+    BuildFingerprintCheck compareForCompilation(String existing, String current) {
+        Map<String, String> existingComponents = components(existing);
+        Map<String, String> currentComponents = components(current);
+        existingComponents.remove("resources");
+        currentComponents.remove("resources");
+        String existingCompile = joined(existingComponents);
+        String currentCompile = joined(currentComponents);
+        if (existingCompile.equals(currentCompile)) {
+            return existing.equals(current)
+                    ? BuildFingerprintCheck.hit()
+                    : BuildFingerprintCheck.hit("fingerprint-mismatch:resources");
+        }
+        return BuildFingerprintCheck.miss(
+                "fingerprint-mismatch:" + firstChangedComponent(existingCompile, currentCompile));
+    }
+
     private static String firstChangedComponent(String existing, String current) {
         Map<String, String> existingComponents = components(existing);
         Map<String, String> currentComponents = components(current);
@@ -46,5 +62,11 @@ final class BuildFingerprintComparison {
         Map<String, String> result = new LinkedHashMap<>();
         values.forEach((name, value) -> result.put(name, value.toString()));
         return result;
+    }
+
+    private static String joined(Map<String, String> components) {
+        StringBuilder content = new StringBuilder();
+        components.values().forEach(content::append);
+        return content.toString();
     }
 }

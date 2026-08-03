@@ -1,8 +1,6 @@
 package sh.zolt.workspace.service;
 
 import sh.zolt.lockfile.LockDependencyEdge;
-import sh.zolt.lockfile.LockDependencyIndex;
-import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.ArrayDeque;
@@ -18,9 +16,8 @@ final class WorkspaceExportedCompileClosure {
 
     static Set<String> compute(
             ZoltLockfile lockfile,
-            Set<String> dependencyClosure) {
-        LockDependencyIndex index = new LockDependencyIndex(lockfile.packages());
-        LockMemberGraphIndex memberGraphs = new LockMemberGraphIndex(lockfile.memberGraphs());
+            Set<String> dependencyClosure,
+            WorkspaceLockIndex lockIndex) {
         Set<String> reached = new LinkedHashSet<>();
         Set<String> visited = new LinkedHashSet<>();
         ArrayDeque<MemberPackage> queue = new ArrayDeque<>();
@@ -40,10 +37,12 @@ final class WorkspaceExportedCompileClosure {
             }
             reached.add(currentRef);
             for (String dependency :
-                    memberGraphs.dependenciesFor(current.member(), current.lockPackage())) {
-                index.resolveGraphEdge(dependency, "zolt resolve --workspace")
+                    lockIndex.memberGraphs().dependenciesFor(
+                            current.member(),
+                            current.lockPackage())) {
+                lockIndex.dependencies().resolveGraphEdge(dependency, "zolt resolve --workspace")
                         .filter(candidate -> candidate.scope().entersMainCompileClasspath())
-                        .filter(candidate -> !memberGraphs.optionalOnlyFor(
+                        .filter(candidate -> !lockIndex.memberGraphs().optionalOnlyFor(
                                 current.member(), candidate))
                         .map(candidate -> new MemberPackage(current.member(), candidate))
                         .filter(candidate -> !visited.contains(

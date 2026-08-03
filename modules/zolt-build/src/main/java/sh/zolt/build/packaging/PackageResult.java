@@ -17,7 +17,8 @@ public record PackageResult(
         String applicationLayout,
         List<PackageArtifact> artifacts,
         List<PackageMergeDecision> mergeDecisions,
-        List<PackageMaterializedInput> materializedInputs) {
+        List<PackageMaterializedInput> materializedInputs,
+        boolean packagingReused) {
     public PackageResult {
         mode = mode == null ? PackageMode.THIN : mode;
         runtimeClasspathPath = runtimeClasspathPath == null ? Optional.empty() : runtimeClasspathPath;
@@ -44,7 +45,8 @@ public record PackageResult(
                 applicationLayout,
                 artifacts,
                 mergeDecisions,
-                materializedInputs);
+                materializedInputs,
+                packagingReused);
     }
 
     public PackageResult withApplicationLayout(String applicationLayout) {
@@ -59,7 +61,8 @@ public record PackageResult(
                 applicationLayout,
                 artifacts,
                 mergeDecisions,
-                materializedInputs);
+                materializedInputs,
+                packagingReused);
     }
 
     public PackageResult withMergeDecisions(List<PackageMergeDecision> mergeDecisions) {
@@ -74,7 +77,8 @@ public record PackageResult(
                 applicationLayout,
                 artifacts,
                 mergeDecisions,
-                materializedInputs);
+                materializedInputs,
+                packagingReused);
     }
 
     public PackageResult withMaterializedInputs(
@@ -90,7 +94,8 @@ public record PackageResult(
                 applicationLayout,
                 artifacts,
                 mergeDecisions,
-                materializedInputs);
+                materializedInputs,
+                packagingReused);
     }
 
     public PackageResult(
@@ -115,7 +120,8 @@ public record PackageResult(
                 applicationLayout,
                 artifacts,
                 mergeDecisions,
-                List.of());
+                List.of(),
+                false);
     }
 
     public PackageResult(
@@ -138,7 +144,8 @@ public record PackageResult(
                 defaultApplicationLayout(mode),
                 artifacts,
                 List.of(),
-                List.of());
+                List.of(),
+                false);
     }
 
     public PackageResult(

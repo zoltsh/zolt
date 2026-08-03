@@ -1,0 +1,967 @@
+#!/usr/bin/env python3
+"""Generate equivalent enterprise Java workspaces for Zolt, Maven, and Gradle."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import pathlib
+import shutil
+import sys
+from dataclasses import dataclass
+from typing import Iterable
+
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+TOOLS = ("zolt", "maven", "gradle")
+TOPOLOGIES = ("chain", "wide", "layered")
+VERSION = "0.1.0"
+GROUP = "bench.enterprise"
+JUNIT_BOM = "5.13.4"
+LOMBOK = "1.18.42"
+SLF4J = "2.0.17"
+JAKARTA_ANNOTATION = "3.0.0"
+SPRING_BOOT = "4.0.6"
+
+
+def fail(message: str) -> None:
+    raise SystemExit(f"error: {message}")
+
+
+def positive(value: object, field: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        fail(f"{field} must be a positive integer")
+    return value
+
+
+def non_negative(value: object, field: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        fail(f"{field} must be a non-negative integer")
+    return value
+
+
+def boolean(value: object, field: str) -> bool:
+    if not isinstance(value, bool):
+        fail(f"{field} must be a boolean")
+    return value
+
+
+@dataclass(frozen=True)
+class Workload:
+    identifier: str
+    description: str
+    modules: int
+    apps: int
+    classes_per_module: int
+    methods_per_class: int
+    tests_per_module: int
+    dependency_fanout: int
+    layer_width: int
+    resources: bool
+    annotation_processors: bool
+    spring_boot_app: bool
+    clean_samples: int
+    repeated_samples: int
+    seed: int
+
+    @classmethod
+    def load(cls, path: pathlib.Path) -> "Workload":
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            fail(f"could not read workload {path}: {exc}")
+        if data.get("schemaVersion") != 1:
+            fail(f"unsupported workload schemaVersion in {path}")
+        identifier = data.get("id")
+        if not isinstance(identifier, str) or not identifier.strip():
+            fail("workload id must be a non-empty string")
+        description = data.get("description")
+        if not isinstance(description, str) or not description.strip():
+            fail("workload description must be a non-empty string")
+        seed = data.get("seed")
+        if not isinstance(seed, int) or isinstance(seed, bool):
+            fail("seed must be an integer")
+        return cls(
+            identifier=identifier,
+            description=description,
+            modules=positive(data.get("modules"), "modules"),
+            apps=positive(data.get("apps"), "apps"),
+            classes_per_module=positive(data.get("classesPerModule"), "classesPerModule"),
+            methods_per_class=positive(data.get("methodsPerClass"), "methodsPerClass"),
+            tests_per_module=non_negative(data.get("testsPerModule"), "testsPerModule"),
+            dependency_fanout=positive(data.get("dependencyFanout"), "dependencyFanout"),
+            layer_width=positive(data.get("layerWidth"), "layerWidth"),
+            resources=boolean(data.get("resources"), "resources"),
+            annotation_processors=boolean(
+                data.get("annotationProcessors"), "annotationProcessors"
+            ),
+            spring_boot_app=boolean(data.get("springBootApp"), "springBootApp"),
+            clean_samples=positive(data.get("cleanSamples"), "cleanSamples"),
+            repeated_samples=positive(data.get("repeatedSamples"), "repeatedSamples"),
+            seed=seed,
+        )
+
+
+def module_name(index: int) -> str:
+    return f"lib{index:03d}"
+
+
+def module_package(index: int) -> str:
+    return f"bench.enterprise.lib{index:03d}"
+
+
+def module_class(index: int) -> str:
+    return f"Lib{index:03d}"
+
+
+def app_name(index: int) -> str:
+    return f"app{index:03d}"
+
+
+def app_package(index: int) -> str:
+    return f"bench.enterprise.app{index:03d}"
+
+
+def graph_dependencies(workload: Workload, topology: str, index: int) -> list[int]:
+    if topology == "wide" or index == 1:
+        return []
+    if topology == "chain":
+        start = max(1, index - workload.dependency_fanout)
+        return list(range(start, index))
+    layer_start = ((index - 1) // workload.layer_width) * workload.layer_width + 1
+    if layer_start == 1:
+        return []
+    previous_start = max(1, layer_start - workload.layer_width)
+    offset = index - layer_start
+    candidates = [
+        previous_start + ((offset - delta) % workload.layer_width)
+        for delta in range(workload.dependency_fanout)
+    ]
+    return sorted({candidate for candidate in candidates if candidate < layer_start})
+
+
+def app_dependencies(workload: Workload, topology: str) -> list[int]:
+    if topology == "wide":
+        return list(range(1, workload.modules + 1))
+    if topology == "chain":
+        start = max(1, workload.modules - workload.dependency_fanout + 1)
+        return list(range(start, workload.modules + 1))
+    start = max(1, workload.modules - workload.layer_width + 1)
+    return list(range(start, workload.modules + 1))
+
+
+def write(path: pathlib.Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text.rstrip() + "\n", encoding="utf-8")
+
+
+def java_path(root: pathlib.Path, member: str, source_set: str, package: str, name: str) -> pathlib.Path:
+    return root / member / "src" / source_set / "java" / pathlib.Path(*package.split(".")) / f"{name}.java"
+
+
+def write_platform_sources(root: pathlib.Path, workload: Workload) -> None:
+    package = "bench.enterprise.platform"
+    write(
+        java_path(root, "modules/platform", "main", package, "PlatformApi"),
+        f"""
+package {package};
+
+public final class PlatformApi {{
+    public static final String API_VERSION = "api-000";
+
+    private PlatformApi() {{
+    }}
+
+    public static String version() {{
+        return API_VERSION;
+    }}
+}}
+""",
+    )
+    descriptor_body = (
+        f"""
+package {package};
+
+import lombok.Getter;
+
+@Getter
+public final class PlatformDescriptor {{
+    private final String name = "enterprise-{workload.seed}";
+}}
+"""
+        if workload.annotation_processors
+        else f"""
+package {package};
+
+public final class PlatformDescriptor {{
+    private final String name = "enterprise-{workload.seed}";
+
+    public String getName() {{
+        return name;
+    }}
+}}
+"""
+    )
+    write(
+        java_path(root, "modules/platform", "main", package, "PlatformDescriptor"),
+        descriptor_body,
+    )
+    write_tests(root, workload, "modules/platform", package, "PlatformApi", "version()")
+    write_resource(root, workload, "modules/platform", "platform")
+
+
+def write_module_sources(
+    root: pathlib.Path, workload: Workload, topology: str, index: int
+) -> None:
+    package = module_package(index)
+    name = module_class(index)
+    dependencies = graph_dependencies(workload, topology, index)
+    imports = ["import bench.enterprise.platform.PlatformApi;"]
+    imports.extend(
+        f"import {module_package(dependency)}.{module_class(dependency)};"
+        for dependency in dependencies
+    )
+    values = ["PlatformApi.API_VERSION", f'"{name}"']
+    values.extend(f"{module_class(dependency)}.value()" for dependency in dependencies)
+    write(
+        java_path(root, f"modules/{module_name(index)}", "main", package, name),
+        f"""
+package {package};
+
+{chr(10).join(imports)}
+
+public final class {name} {{
+    private static final String VALUE =
+        Integer.toHexString(java.util.Objects.hash({", ".join(values)}));
+
+    private {name}() {{
+    }}
+
+    public static String value() {{
+        return VALUE;
+    }}
+}}
+""",
+    )
+    for class_index in range(2, workload.classes_per_module + 1):
+        payload = f"{name}Payload{class_index:04d}"
+        methods = []
+        for method_index in range(1, workload.methods_per_class + 1):
+            value = index * 1_000_000 + class_index * 1_000 + method_index
+            methods.append(
+                f"""    public static int value{method_index:04d}() {{
+        return {value};
+    }}"""
+            )
+        write(
+            java_path(root, f"modules/{module_name(index)}", "main", package, payload),
+            f"""
+package {package};
+
+public final class {payload} {{
+    private {payload}() {{
+    }}
+
+{chr(10).join(methods)}
+}}
+""",
+        )
+    write_tests(
+        root,
+        workload,
+        f"modules/{module_name(index)}",
+        package,
+        name,
+        "value()",
+    )
+    write_resource(root, workload, f"modules/{module_name(index)}", module_name(index))
+
+
+def write_app_sources(
+    root: pathlib.Path, workload: Workload, topology: str, index: int
+) -> None:
+    package = app_package(index)
+    name = f"App{index:03d}"
+    dependencies = app_dependencies(workload, topology)
+    imports = [
+        "import bench.enterprise.platform.PlatformDescriptor;",
+        "import jakarta.annotation.Generated;",
+    ]
+    imports.extend(
+        f"import {module_package(dependency)}.{module_class(dependency)};"
+        for dependency in dependencies
+    )
+    is_spring = workload.spring_boot_app and index == workload.apps
+    if is_spring:
+        imports.extend(
+            [
+                "import org.springframework.boot.SpringApplication;",
+                "import org.springframework.boot.autoconfigure.SpringBootApplication;",
+            ]
+        )
+    annotation = "@SpringBootApplication\n" if is_spring else ""
+    main_body = (
+        f"SpringApplication.run({name}.class, args);"
+        if is_spring
+        else "System.out.println(message());"
+    )
+    values = ["new PlatformDescriptor().getName()"]
+    values.extend(f"{module_class(dependency)}.value()" for dependency in dependencies)
+    write(
+        java_path(root, f"apps/{app_name(index)}", "main", package, name),
+        f"""
+package {package};
+
+{chr(10).join(imports)}
+
+@Generated("zolt-enterprise-benchmark")
+{annotation}public final class {name} {{
+    private {name}() {{
+    }}
+
+    public static void main(String[] args) {{
+        {main_body}
+    }}
+
+    public static String message() {{
+        return String.join(">", {", ".join(values)});
+    }}
+}}
+""",
+    )
+    write_tests(root, workload, f"apps/{app_name(index)}", package, name, "message()")
+    write_resource(root, workload, f"apps/{app_name(index)}", app_name(index))
+
+
+def write_tests(
+    root: pathlib.Path,
+    workload: Workload,
+    member: str,
+    package: str,
+    subject: str,
+    invocation: str,
+) -> None:
+    for test_index in range(1, workload.tests_per_module + 1):
+        name = f"{subject}Benchmark{test_index:03d}Test"
+        write(
+            java_path(root, member, "test", package, name),
+            f"""
+package {package};
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+@Tag("benchmark")
+final class {name} {{
+    @Test
+    void generatedValueIsPresent() {{
+        assertNotNull({subject}.{invocation});
+    }}
+}}
+""",
+        )
+    if workload.tests_per_module:
+        sentinel = f"{subject}CompileSentinelTest"
+        write(
+            java_path(root, member, "test", package, sentinel),
+            f"""
+package {package};
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import org.junit.jupiter.api.Test;
+
+final class {sentinel} {{
+    @Test
+    void compileOnlyLaneStillHasOneSelectedTest() {{
+        assertNotNull({subject}.{invocation});
+    }}
+}}
+""",
+        )
+
+
+def write_resource(root: pathlib.Path, workload: Workload, member: str, name: str) -> None:
+    if not workload.resources:
+        return
+    write(
+        root / member / "src/main/resources/bench-enterprise.properties",
+        f"member={name}\nseed={workload.seed}",
+    )
+
+
+def member_paths(workload: Workload) -> list[str]:
+    paths = ["modules/platform"]
+    paths.extend(f"modules/{module_name(index)}" for index in range(1, workload.modules + 1))
+    paths.extend(f"apps/{app_name(index)}" for index in range(1, workload.apps + 1))
+    return paths
+
+
+def workspace_dependencies(workload: Workload, topology: str, index: int) -> list[str]:
+    dependencies = ["modules/platform"]
+    dependencies.extend(
+        f"modules/{module_name(dependency)}"
+        for dependency in graph_dependencies(workload, topology, index)
+    )
+    return dependencies
+
+
+def zolt_member_config(
+    workload: Workload,
+    topology: str,
+    member: str,
+    index: int | None,
+    kind: str,
+) -> str:
+    name = pathlib.Path(member).name
+    lines = [
+        "[project]",
+        f'name = "{name}"',
+        f'version = "{VERSION}"',
+        f'group = "{GROUP}"',
+        'java = "21"',
+    ]
+    if kind == "app":
+        lines.append(f'main = "{app_package(index or 1)}.App{index or 1:03d}"')
+    dependencies: list[str] = []
+    if kind == "lib":
+        dependencies = workspace_dependencies(workload, topology, index or 1)
+    elif kind == "app":
+        dependencies = ["modules/platform"]
+        dependencies.extend(
+            f"modules/{module_name(dependency)}"
+            for dependency in app_dependencies(workload, topology)
+        )
+    if dependencies or kind == "app":
+        lines.extend(["", "[dependencies]"])
+        for dependency in dependencies:
+            artifact = pathlib.Path(dependency).name
+            lines.append(f'"{GROUP}:{artifact}" = {{ workspace = "{dependency}" }}')
+        if kind == "app":
+            lines.append(f'"org.slf4j:slf4j-api" = "{SLF4J}"')
+            if workload.spring_boot_app and index == workload.apps:
+                lines.append('"org.springframework.boot:spring-boot-starter" = {}')
+    if kind == "platform" and workload.annotation_processors:
+        lines.extend(
+            [
+                "",
+                "[provided.dependencies]",
+                f'"org.projectlombok:lombok" = "{LOMBOK}"',
+                "",
+                "[annotationProcessors]",
+                f'"org.projectlombok:lombok" = "{LOMBOK}"',
+            ]
+        )
+    if kind == "app":
+        lines.extend(
+            [
+                "",
+                "[runtime.dependencies]",
+                f'"org.slf4j:slf4j-simple" = "{SLF4J}"',
+                "",
+                "[provided.dependencies]",
+                f'"jakarta.annotation:jakarta.annotation-api" = "{JAKARTA_ANNOTATION}"',
+            ]
+        )
+    if workload.tests_per_module:
+        lines.extend(
+            [
+                "",
+                "[test.dependencies]",
+                '"org.junit.jupiter:junit-jupiter" = {}',
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "[build]",
+            'source = "src/main/java"',
+            'test = "src/test/java"',
+            'output = "target/classes"',
+            'testOutput = "target/test-classes"',
+        ]
+    )
+    if workload.resources:
+        lines.extend(["", "[resources]", 'main = ["src/main/resources"]'])
+    return "\n".join(lines)
+
+
+def generate_zolt(root: pathlib.Path, workload: Workload, topology: str) -> None:
+    paths = member_paths(workload)
+    lines = [
+        "[workspace]",
+        f'name = "{workload.identifier}-{topology}"',
+        "members = [",
+    ]
+    lines.extend(f'  "{path}",' for path in paths)
+    lines.extend(
+        [
+            "]",
+            f'defaultMembers = ["apps/{app_name(1)}"]',
+            "",
+            "[repositories]",
+            'central = "https://repo.maven.apache.org/maven2"',
+            "",
+            "[platforms]",
+            f'"org.junit:junit-bom" = "{JUNIT_BOM}"',
+        ]
+    )
+    if workload.spring_boot_app:
+        lines.append(
+            f'"org.springframework.boot:spring-boot-dependencies" = "{SPRING_BOOT}"'
+        )
+    lines.extend(
+        [
+            "",
+            "[toolchain.java]",
+            'version = "21"',
+            "features = []",
+            'policy = "prefer-managed"',
+            "",
+            "[toolchain.java.test]",
+            'version = "21"',
+        ]
+    )
+    write(root / "zolt.toml", "\n".join(lines))
+    write(
+        root / "modules/platform/zolt.toml",
+        zolt_member_config(workload, topology, "modules/platform", None, "platform"),
+    )
+    for index in range(1, workload.modules + 1):
+        member = f"modules/{module_name(index)}"
+        write(
+            root / member / "zolt.toml",
+            zolt_member_config(workload, topology, member, index, "lib"),
+        )
+    for index in range(1, workload.apps + 1):
+        member = f"apps/{app_name(index)}"
+        write(
+            root / member / "zolt.toml",
+            zolt_member_config(workload, topology, member, index, "app"),
+        )
+
+
+def maven_dependency(group: str, artifact: str, version: str | None = None, scope: str | None = None) -> list[str]:
+    lines = [
+        "    <dependency>",
+        f"      <groupId>{group}</groupId>",
+        f"      <artifactId>{artifact}</artifactId>",
+    ]
+    if version:
+        lines.append(f"      <version>{version}</version>")
+    if scope:
+        lines.append(f"      <scope>{scope}</scope>")
+    lines.append("    </dependency>")
+    return lines
+
+
+def maven_child(
+    workload: Workload,
+    topology: str,
+    member: str,
+    index: int | None,
+    kind: str,
+) -> str:
+    artifact = pathlib.Path(member).name
+    relative = "../../pom.xml"
+    lines = [
+        '<project xmlns="http://maven.apache.org/POM/4.0.0"',
+        '         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+        '         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">',
+        "  <modelVersion>4.0.0</modelVersion>",
+        "  <parent>",
+        f"    <groupId>{GROUP}</groupId>",
+        "    <artifactId>enterprise-parent</artifactId>",
+        f"    <version>{VERSION}</version>",
+        f"    <relativePath>{relative}</relativePath>",
+        "  </parent>",
+        f"  <artifactId>{artifact}</artifactId>",
+    ]
+    dependencies: list[str] = []
+    if kind == "lib":
+        dependencies = workspace_dependencies(workload, topology, index or 1)
+    elif kind == "app":
+        dependencies = ["modules/platform"]
+        dependencies.extend(
+            f"modules/{module_name(dependency)}"
+            for dependency in app_dependencies(workload, topology)
+        )
+    if dependencies or kind == "app" or workload.tests_per_module:
+        lines.append("  <dependencies>")
+        for dependency in dependencies:
+            lines.extend(maven_dependency(GROUP, pathlib.Path(dependency).name, VERSION))
+        if kind == "app":
+            lines.extend(maven_dependency("org.slf4j", "slf4j-api", SLF4J))
+            lines.extend(maven_dependency("org.slf4j", "slf4j-simple", SLF4J, "runtime"))
+            lines.extend(
+                maven_dependency(
+                    "jakarta.annotation", "jakarta.annotation-api", JAKARTA_ANNOTATION, "provided"
+                )
+            )
+            if workload.spring_boot_app and index == workload.apps:
+                lines.extend(
+                    maven_dependency("org.springframework.boot", "spring-boot-starter")
+                )
+        if kind == "platform" and workload.annotation_processors:
+            lines.extend(maven_dependency("org.projectlombok", "lombok", LOMBOK, "provided"))
+        if workload.tests_per_module:
+            lines.extend(
+                maven_dependency("org.junit.jupiter", "junit-jupiter", None, "test")
+            )
+        lines.append("  </dependencies>")
+    if kind == "platform" and workload.annotation_processors:
+        lines.extend(
+            [
+                "  <build>",
+                "    <plugins>",
+                "      <plugin>",
+                "        <groupId>org.apache.maven.plugins</groupId>",
+                "        <artifactId>maven-compiler-plugin</artifactId>",
+                "        <configuration>",
+                "          <annotationProcessorPaths>",
+                "            <path>",
+                "              <groupId>org.projectlombok</groupId>",
+                "              <artifactId>lombok</artifactId>",
+                f"              <version>{LOMBOK}</version>",
+                "            </path>",
+                "          </annotationProcessorPaths>",
+                "        </configuration>",
+                "      </plugin>",
+                "    </plugins>",
+                "  </build>",
+            ]
+        )
+    lines.append("</project>")
+    return "\n".join(lines)
+
+
+def generate_maven(root: pathlib.Path, workload: Workload, topology: str) -> None:
+    lines = [
+        '<project xmlns="http://maven.apache.org/POM/4.0.0"',
+        '         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+        '         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">',
+        "  <modelVersion>4.0.0</modelVersion>",
+        f"  <groupId>{GROUP}</groupId>",
+        "  <artifactId>enterprise-parent</artifactId>",
+        f"  <version>{VERSION}</version>",
+        "  <packaging>pom</packaging>",
+        "  <properties>",
+        "    <maven.compiler.release>21</maven.compiler.release>",
+        "    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>",
+        "  </properties>",
+        "  <dependencyManagement>",
+        "    <dependencies>",
+        "      <dependency>",
+        "        <groupId>org.junit</groupId>",
+        "        <artifactId>junit-bom</artifactId>",
+        f"        <version>{JUNIT_BOM}</version>",
+        "        <type>pom</type>",
+        "        <scope>import</scope>",
+        "      </dependency>",
+    ]
+    if workload.spring_boot_app:
+        lines.extend(
+            [
+                "      <dependency>",
+                "        <groupId>org.springframework.boot</groupId>",
+                "        <artifactId>spring-boot-dependencies</artifactId>",
+                f"        <version>{SPRING_BOOT}</version>",
+                "        <type>pom</type>",
+                "        <scope>import</scope>",
+                "      </dependency>",
+            ]
+        )
+    lines.extend(
+        [
+            "    </dependencies>",
+            "  </dependencyManagement>",
+            "  <build>",
+            "    <pluginManagement>",
+            "      <plugins>",
+            "        <plugin>",
+            "          <groupId>org.apache.maven.plugins</groupId>",
+            "          <artifactId>maven-compiler-plugin</artifactId>",
+            "          <version>3.14.1</version>",
+            "        </plugin>",
+            "        <plugin>",
+            "          <groupId>org.apache.maven.plugins</groupId>",
+            "          <artifactId>maven-surefire-plugin</artifactId>",
+            "          <version>3.5.4</version>",
+            "        </plugin>",
+            "      </plugins>",
+            "    </pluginManagement>",
+            "  </build>",
+            "  <modules>",
+        ]
+    )
+    lines.extend(f"    <module>{member}</module>" for member in member_paths(workload))
+    lines.extend(["  </modules>", "</project>"])
+    write(root / "pom.xml", "\n".join(lines))
+    write(
+        root / "modules/platform/pom.xml",
+        maven_child(workload, topology, "modules/platform", None, "platform"),
+    )
+    for index in range(1, workload.modules + 1):
+        member = f"modules/{module_name(index)}"
+        write(
+            root / member / "pom.xml",
+            maven_child(workload, topology, member, index, "lib"),
+        )
+    for index in range(1, workload.apps + 1):
+        member = f"apps/{app_name(index)}"
+        write(
+            root / member / "pom.xml",
+            maven_child(workload, topology, member, index, "app"),
+        )
+
+
+def gradle_project_path(member: str) -> str:
+    return ":" + member.replace("/", ":")
+
+
+def generate_gradle(root: pathlib.Path, workload: Workload, topology: str) -> None:
+    settings = [
+        "pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }",
+        "dependencyResolutionManagement {",
+        "    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)",
+        "    repositories { mavenCentral() }",
+        "}",
+        f"rootProject.name = '{workload.identifier}-{topology}'",
+    ]
+    settings.extend(
+        f"include '{gradle_project_path(member)[1:]}'" for member in member_paths(workload)
+    )
+    write(root / "settings.gradle", "\n".join(settings))
+    lines = [
+        "subprojects {",
+        "    apply plugin: 'java-library'",
+        f"    group = '{GROUP}'",
+        f"    version = '{VERSION}'",
+        "    java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }",
+        "    dependencies {",
+        f"        testImplementation platform('org.junit:junit-bom:{JUNIT_BOM}')",
+        "        testImplementation 'org.junit.jupiter:junit-jupiter'",
+        "        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'",
+        "    }",
+        "    tasks.withType(Test).configureEach {",
+        "        useJUnitPlatform {",
+        "            if (project.hasProperty('benchmarkCompileOnly')) { excludeTags 'benchmark' }",
+        "            if (project.hasProperty('benchmarkTestRun')) { includeTags 'benchmark' }",
+        "        }",
+        "        if (project.hasProperty('benchmarkTestRun')) {",
+        "            outputs.upToDateWhen { false }",
+        "        }",
+        "    }",
+        "}",
+        "",
+    ]
+
+    def project_dependencies(member: str, dependencies: Iterable[str], extra: list[str]) -> None:
+        lines.append(f"project('{gradle_project_path(member)}') {{")
+        lines.append("    dependencies {")
+        for dependency in dependencies:
+            lines.append(
+                f"        api project('{gradle_project_path(dependency)}')"
+            )
+        lines.extend(f"        {entry}" for entry in extra)
+        lines.append("    }")
+        lines.append("}")
+        lines.append("")
+
+    platform_extra = []
+    if workload.annotation_processors:
+        platform_extra = [
+            f"compileOnly 'org.projectlombok:lombok:{LOMBOK}'",
+            f"annotationProcessor 'org.projectlombok:lombok:{LOMBOK}'",
+        ]
+    project_dependencies("modules/platform", [], platform_extra)
+    for index in range(1, workload.modules + 1):
+        member = f"modules/{module_name(index)}"
+        project_dependencies(
+            member, workspace_dependencies(workload, topology, index), []
+        )
+    for index in range(1, workload.apps + 1):
+        member = f"apps/{app_name(index)}"
+        dependencies = ["modules/platform"]
+        dependencies.extend(
+            f"modules/{module_name(dependency)}"
+            for dependency in app_dependencies(workload, topology)
+        )
+        extra = [
+            f"implementation 'org.slf4j:slf4j-api:{SLF4J}'",
+            f"runtimeOnly 'org.slf4j:slf4j-simple:{SLF4J}'",
+            f"compileOnly 'jakarta.annotation:jakarta.annotation-api:{JAKARTA_ANNOTATION}'",
+        ]
+        if workload.spring_boot_app and index == workload.apps:
+            extra.extend(
+                [
+                    f"implementation platform('org.springframework.boot:spring-boot-dependencies:{SPRING_BOOT}')",
+                    "implementation 'org.springframework.boot:spring-boot-starter'",
+                ]
+            )
+        project_dependencies(member, dependencies, extra)
+    write(root / "build.gradle", "\n".join(lines))
+
+
+def populate_sources(root: pathlib.Path, workload: Workload, topology: str) -> None:
+    write_platform_sources(root, workload)
+    for index in range(1, workload.modules + 1):
+        write_module_sources(root, workload, topology, index)
+    for index in range(1, workload.apps + 1):
+        write_app_sources(root, workload, topology, index)
+
+
+def source_digest(root: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(root.glob("**/src/**/*")):
+        if not path.is_file():
+            continue
+        digest.update(str(path.relative_to(root)).encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def count(root: pathlib.Path, suffix: str) -> int:
+    return sum(1 for path in root.glob("**/*") if path.is_file() and path.name.endswith(suffix))
+
+
+def lines(root: pathlib.Path, suffix: str) -> int:
+    return sum(
+        len(path.read_text(encoding="utf-8").splitlines())
+        for path in root.glob("**/*")
+        if path.is_file() and path.name.endswith(suffix)
+    )
+
+
+def generate(output: pathlib.Path, workload: Workload, topology: str) -> dict[str, object]:
+    if output in (pathlib.Path("/"), ROOT):
+        fail(f"refusing unsafe output directory: {output}")
+    if output.exists():
+        shutil.rmtree(output)
+    fixtures = output / "fixtures"
+    fixtures.mkdir(parents=True)
+    for tool in TOOLS:
+        tool_root = fixtures / tool
+        populate_sources(tool_root, workload, topology)
+        if tool == "zolt":
+            generate_zolt(tool_root, workload, topology)
+        elif tool == "maven":
+            generate_maven(tool_root, workload, topology)
+        else:
+            generate_gradle(tool_root, workload, topology)
+    digests = {tool: source_digest(fixtures / tool) for tool in TOOLS}
+    if len(set(digests.values())) != 1:
+        fail(f"generated source trees differ: {digests}")
+    zolt_root = fixtures / "zolt"
+    metadata: dict[str, object] = {
+        "schemaVersion": 1,
+        "workload": {
+            "id": workload.identifier,
+            "description": workload.description,
+            "modules": workload.modules,
+            "platformModules": 1,
+            "apps": workload.apps,
+            "classesPerModule": workload.classes_per_module,
+            "methodsPerClass": workload.methods_per_class,
+            "testsPerModule": workload.tests_per_module,
+            "dependencyFanout": workload.dependency_fanout,
+            "layerWidth": workload.layer_width,
+            "topology": topology,
+            "resources": workload.resources,
+            "annotationProcessors": workload.annotation_processors,
+            "springBootApp": workload.spring_boot_app,
+            "cleanSamples": workload.clean_samples,
+            "repeatedSamples": workload.repeated_samples,
+            "seed": workload.seed,
+            "sourceFiles": count(zolt_root, ".java"),
+            "sourceLines": lines(zolt_root, ".java"),
+            "resourceFiles": count(zolt_root, ".properties"),
+        },
+        "members": member_paths(workload),
+        "sourceDigest": next(iter(digests.values())),
+        "toolSourceDigests": digests,
+        "mutations": {
+            "leafSource": (
+                f"modules/{module_name(workload.modules)}/src/main/java/"
+                f"{module_package(workload.modules).replace('.', '/')}/"
+                f"{module_class(workload.modules)}.java"
+            ),
+            "leafToken": module_class(workload.modules),
+            "sharedApiSource": "modules/platform/src/main/java/bench/enterprise/platform/PlatformApi.java",
+            "sharedApiToken": "api-000",
+            "resource": f"apps/{app_name(1)}/src/main/resources/bench-enterprise.properties",
+            "testSource": (
+                f"apps/{app_name(1)}/src/test/java/{app_package(1).replace('.', '/')}/"
+                "App001Benchmark001Test.java"
+            ),
+            "testToken": "generatedValueIsPresent",
+        },
+        "correctness": {
+            "expectedMainSourceFiles": sum(
+                1
+                for path in zolt_root.glob("**/src/main/java/**/*.java")
+                if path.is_file()
+            ),
+            "expectedTestSourceFiles": sum(
+                1
+                for path in zolt_root.glob("**/src/test/java/**/*.java")
+                if path.is_file()
+            ),
+            "expectedResourceFiles": sum(
+                1
+                for path in zolt_root.glob("**/src/main/resources/**/*")
+                if path.is_file()
+            ),
+            "expectedFanoutModules": workload.modules,
+            "annotationProcessorProbe": (
+                "modules/platform/target/classes/bench/enterprise/platform/PlatformDescriptor.class"
+                if workload.annotation_processors
+                else None
+            ),
+        },
+    }
+    write(output / "fixture-metadata.json", json.dumps(metadata, indent=2))
+    return metadata
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate byte-for-byte equivalent enterprise Java workspaces."
+    )
+    parser.add_argument(
+        "--workload",
+        type=pathlib.Path,
+        default=ROOT / "benchmarks/workloads/enterprise-v1.json",
+    )
+    parser.add_argument("--topology", choices=TOPOLOGIES, default="layered")
+    parser.add_argument("--output-dir", type=pathlib.Path, required=True)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    workload_path = args.workload
+    if not workload_path.is_absolute():
+        workload_path = (ROOT / workload_path).resolve()
+    output = args.output_dir
+    if not output.is_absolute():
+        output = (ROOT / output).resolve()
+    workload = Workload.load(workload_path)
+    metadata = generate(output, workload, args.topology)
+    summary = metadata["workload"]
+    print(
+        "generated "
+        f"{summary['sourceFiles']} Java files / {summary['sourceLines']} lines "
+        f"across {summary['modules']} libraries + platform + {summary['apps']} apps "
+        f"under {output}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

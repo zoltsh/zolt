@@ -9,6 +9,10 @@ public record BuildFingerprintCheck(boolean current, String reason) {
         return new BuildFingerprintCheck(true, "");
     }
 
+    static BuildFingerprintCheck hit(String reason) {
+        return new BuildFingerprintCheck(true, reason);
+    }
+
     static BuildFingerprintCheck miss(String reason) {
         return new BuildFingerprintCheck(false, reason);
     }

@@ -32,6 +32,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.packaging.WorkspacePackageResult;
 import sh.zolt.workspace.packaging.WorkspacePackageService;
@@ -211,35 +212,37 @@ public final class PackageCommand implements Runnable {
                     "Package --plan is currently single-project.",
                     "Run it from the member project you want to inspect.");
         }
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
         ProgressWriter progress = CommandProgress.human(spec);
-        progress.start("Packaging workspace");
         WorkspacePackageService projectWorkspacePackageService =
                 workspacePackageService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("package"));
-        WorkspacePackageResult result = timings.measure(
-                "package workspace",
-                () -> {
-                    WorkspaceBuildPlan plan = timings.measure(
-                            "plan workspace packages",
-                            () -> projectWorkspacePackageService.planPackages(
-                                    projectRoot,
-                                    cacheRoot,
-                                    CommandWorkspaceSelections.from(all, members, memberGroups)),
-                            CommandBuildAttributes::workspaceBuildPlan);
-                    WorkspaceBuildResult buildResult = timings.measure(
-                            "build workspace package inputs",
-                            () -> projectWorkspacePackageService.buildPackageInputs(plan, cacheRoot),
-                            CommandBuildAttributes::workspaceBuild);
-                    return timings.measure(
-                            "assemble workspace packages",
-                            () -> projectWorkspacePackageService.packageBuiltJars(
-                                    plan,
-                                    buildResult,
-                                    cacheRoot,
-                                    packageModeOverride),
-                            CommandPackageAttributes::workspacePackage);
-                },
-                CommandPackageAttributes::workspacePackage);
+        WorkspacePackageResult result = WorkspaceMutationLock.withWorkspaceLock(projectRoot, () -> {
+            lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+            progress.start("Packaging workspace");
+            return timings.measure(
+                    "package workspace",
+                    () -> {
+                        WorkspaceBuildPlan plan = timings.measure(
+                                "plan workspace packages",
+                                () -> projectWorkspacePackageService.planPackages(
+                                        projectRoot,
+                                        cacheRoot,
+                                        CommandWorkspaceSelections.from(all, members, memberGroups)),
+                                CommandBuildAttributes::workspaceBuildPlan);
+                        WorkspaceBuildResult buildResult = timings.measure(
+                                "build workspace package inputs",
+                                () -> projectWorkspacePackageService.buildPackageInputs(plan, cacheRoot),
+                                CommandBuildAttributes::workspaceBuild);
+                        return timings.measure(
+                                "assemble workspace packages",
+                                () -> projectWorkspacePackageService.packageBuiltJars(
+                                        plan,
+                                        buildResult,
+                                        cacheRoot,
+                                        packageModeOverride),
+                                CommandPackageAttributes::workspacePackage);
+                    },
+                    CommandPackageAttributes::workspacePackage);
+        });
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         if (result.resolvedLockfile()) {
             output.success("Resolved workspace dependencies because zolt.lock was missing");
@@ -247,9 +250,10 @@ public final class PackageCommand implements Runnable {
         for (WorkspacePackageResult.MemberPackageResult member : result.members()) {
             printPackageResult(member.result(), " in " + member.member());
         }
-        output.success("Packaged " + result.members().size() + " workspace members");
+        String workspaceSummary = CommandPackageResultWriter.workspaceSummary(result);
+        output.success(workspaceSummary);
         output.provenance(CommandBuildProvenance.read(projectRoot));
-        progress.result("Packaged " + result.members().size() + " workspace members");
+        progress.result(workspaceSummary);
     }
 
     private void runSingleProjectPackage(
@@ -321,7 +325,6 @@ public final class PackageCommand implements Runnable {
         output.provenance(CommandBuildProvenance.read(projectRoot));
         progress.result("Packaged " + result.jarPath());
     }
-
     private void runSingleProjectBomPackage(Path projectRoot, ProjectConfig config) {
         if (planOnly) {
             CommandOutput.printAndFlush(spec, "Package mode: bom\nArtifact: "

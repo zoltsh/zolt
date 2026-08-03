@@ -149,36 +149,53 @@ public final class RunPackageCommand implements Runnable {
             Path projectRoot,
             TimingRecorder timings,
             Optional<PackageMode> packageModeOverride) {
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
         WorkspaceRunPackageResult result = timings.measure(
                 "run workspace packages",
                 () -> {
-                    WorkspaceBuildPlan plan = timings.measure(
-                            "plan workspace run packages",
-                            () -> workspaceRunPackageService.planRunPackages(
+                    sh.zolt.workspace.packaging.WorkspaceRunPackageSnapshot snapshot =
+                            sh.zolt.workspace.service.WorkspaceMutationLock.withWorkspaceLock(
                                     projectRoot,
-                                    cacheRoot,
-                                    CommandWorkspaceSelections.from(all, members, memberGroups)),
-                            CommandBuildAttributes::workspaceBuildPlan);
-                    WorkspaceBuildResult buildResult = timings.measure(
-                            "build workspace run-package inputs",
-                            () -> workspaceRunPackageService.buildRunPackageInputs(plan, cacheRoot),
-                            CommandBuildAttributes::workspaceBuild);
-                    WorkspacePackageResult packageResult = timings.measure(
-                            "assemble workspace run packages",
-                            () -> workspaceRunPackageService.packageRunPackageInputs(
-                                    plan,
-                                    buildResult,
-                                    cacheRoot,
-                                    packageModeOverride),
-                            CommandPackageAttributes::workspacePackage);
-                    return timings.measure(
-                            "launch workspace packages",
-                            () -> workspaceRunPackageService.runPackagedMembers(
-                                    plan,
-                                    packageResult,
-                                    arguments),
-                            CommandRunPackageAttributes::workspaceRunPackage);
+                                    () -> {
+                                        lockfiles.requireFreshWorkspaceLockfile(
+                                                projectRoot,
+                                                cacheRoot,
+                                                false);
+                                        WorkspaceBuildPlan plan = timings.measure(
+                                                "plan workspace run packages",
+                                                () -> workspaceRunPackageService.planRunPackages(
+                                                        projectRoot,
+                                                        cacheRoot,
+                                                        CommandWorkspaceSelections.from(
+                                                                all,
+                                                                members,
+                                                                memberGroups)),
+                                                CommandBuildAttributes::workspaceBuildPlan);
+                                        WorkspaceBuildResult buildResult = timings.measure(
+                                                "build workspace run-package inputs",
+                                                () -> workspaceRunPackageService.buildRunPackageInputs(
+                                                        plan,
+                                                        cacheRoot),
+                                                CommandBuildAttributes::workspaceBuild);
+                                        WorkspacePackageResult packageResult = timings.measure(
+                                                "assemble workspace run packages",
+                                                () -> workspaceRunPackageService.packageRunPackageInputs(
+                                                        plan,
+                                                        buildResult,
+                                                        cacheRoot,
+                                                        packageModeOverride),
+                                                CommandPackageAttributes::workspacePackage);
+                                        return workspaceRunPackageService.snapshotRunPackages(
+                                                plan,
+                                                packageResult);
+                                    });
+                    try (snapshot) {
+                        return timings.measure(
+                                "launch workspace packages",
+                                () -> workspaceRunPackageService.runSnapshot(
+                                        snapshot,
+                                        arguments),
+                                CommandRunPackageAttributes::workspaceRunPackage);
+                    }
                 },
                 CommandRunPackageAttributes::workspaceRunPackage);
         CommandHumanOutput humanOutput = CommandHumanOutput.of(spec);

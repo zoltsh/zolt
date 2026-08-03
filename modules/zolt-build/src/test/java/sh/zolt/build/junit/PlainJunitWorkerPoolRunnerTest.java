@@ -63,26 +63,32 @@ final class PlainJunitWorkerPoolRunnerTest {
                 Optional.of(profileRoot));
 
         assertEquals(2, result.workerRequests());
+        assertEquals(2, result.workerStarts());
         assertEquals(Set.of(
-                profileRoot.resolve("workers/wave-1-worker-1"),
-                profileRoot.resolve("workers/wave-1-worker-2")), profileDirectories.stream()
+                profileRoot.resolve(
+                        "workers/worker-1/requests/request-000001"),
+                profileRoot.resolve(
+                        "workers/worker-2/requests/request-000001")),
+                profileDirectories.stream()
                         .flatMap(Optional::stream)
                         .collect(Collectors.toSet()));
-        assertTrue(Files.exists(profileRoot.resolve("workers/wave-1-worker-1/profile.json")));
-        assertTrue(Files.exists(profileRoot.resolve("workers/wave-1-worker-2/profile.json")));
+        assertTrue(Files.exists(profileRoot.resolve(
+                "workers/worker-1/requests/request-000001/profile.json")));
+        assertTrue(Files.exists(profileRoot.resolve(
+                "workers/worker-2/requests/request-000001/profile.json")));
         String merged = Files.readString(profileRoot.resolve("profile.json"));
         assertTrue(merged.contains("\"testsFound\": 2"));
         assertTrue(merged.contains("\"testsSucceeded\": 2"));
         assertTrue(merged.contains("\"className\": \"com.example.AlphaTest\""));
         assertTrue(merged.contains("\"className\": \"com.example.BetaTest\""));
-        assertTrue(merged.contains("\"workerId\": \"wave-1-worker-1\""));
-        assertTrue(merged.contains("\"workerId\": \"wave-1-worker-2\""));
+        assertTrue(merged.contains("\"workerId\": \"worker-1\""));
+        assertTrue(merged.contains("\"workerId\": \"worker-2\""));
         assertTrue(merged.contains("\"project\": \"demo\""));
         assertTrue(merged.contains("\"member\": \"apps/demo\""));
         assertTrue(merged.contains("\"suite\": \"fast\""));
         assertTrue(merged.contains("\"shard\": \"1/2\""));
-        assertTrue(result.output().contains("ok wave-1-worker-1"));
-        assertTrue(result.output().contains("ok wave-1-worker-2"));
+        assertTrue(result.output().contains("ok worker-1"));
+        assertTrue(result.output().contains("ok worker-2"));
     }
 
     @Test
@@ -130,19 +136,27 @@ final class PlainJunitWorkerPoolRunnerTest {
                 Optional.empty());
 
         Path workerExec = execFile.getParent()
-                .resolve("workers/wave-1-worker-1")
+                .resolve("workers/worker-1")
                 .resolve(execFile.getFileName())
                 .toAbsolutePath()
                 .normalize();
         assertEquals(1, workerJvmArguments.size());
-        assertEquals(List.of(jacocoArg.replace(execFile.toString(), workerExec.toString())), workerJvmArguments.getFirst().values());
+        assertEquals(
+                List.of(jacocoArg
+                        .replace(
+                                execFile.toString(),
+                                workerExec.toString())
+                        .replace(
+                                "append=false",
+                                "append=true")),
+                workerJvmArguments.getFirst().values());
         assertEquals("1", workerEnvironments.getFirst().get("EXISTING"));
-        assertEquals("wave-1-worker-1", workerEnvironments.getFirst().get("ZOLT_TEST_WORKER_ID"));
+        assertEquals("worker-1", workerEnvironments.getFirst().get("ZOLT_TEST_WORKER_ID"));
         assertEquals(workerExec.toString(), workerEnvironments.getFirst().get("ZOLT_COVERAGE_EXEC_FILE"));
         assertEquals(
-                tempDir.resolve("target/test-workers/wave-1-worker-1").toAbsolutePath().normalize().toString(),
+                tempDir.resolve("target/test-workers/worker-1").toAbsolutePath().normalize().toString(),
                 workerEnvironments.getFirst().get("ZOLT_TEST_WORKER_OUTPUT_DIR"));
-        assertEquals(Optional.of(reports.resolve("workers/wave-1-worker-1")), workerReports.getFirst());
+        assertEquals(Optional.of(reports.resolve("workers/worker-1")), workerReports.getFirst());
         assertTrue(workerSelections.getFirst().classSelectors().isEmpty());
         assertEquals(
                 List.of(new TestSelection.MethodSelector("com.example.AlphaTest", "runs")),
@@ -289,7 +303,7 @@ final class PlainJunitWorkerPoolRunnerTest {
                 {
                   "version": 1,
                   "workers": [
-                    "wave-1-worker-1"
+                    "worker-1"
                   ]
                 }
                 """;

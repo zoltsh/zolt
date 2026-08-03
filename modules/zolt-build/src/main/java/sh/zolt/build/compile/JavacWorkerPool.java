@@ -1,5 +1,6 @@
 package sh.zolt.build.compile;
 
+import sh.zolt.cancel.BuildCancellation;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -22,13 +23,15 @@ final class JavacWorkerPool {
         PoolKey key = new PoolKey(
                 javac.toAbsolutePath().normalize(),
                 workerJar.orElseThrow().toAbsolutePath().normalize());
-        Optional<JavacRunner.ProcessResult> persistentResult = JavacWorkerDaemon.compile(
-                key.javac(),
-                key.workerJar(),
-                kind,
-                arguments);
-        if (persistentResult.isPresent()) {
-            return persistentResult;
+        if (!BuildCancellation.active()) {
+            Optional<JavacRunner.ProcessResult> persistentResult = JavacWorkerDaemon.compile(
+                    key.javac(),
+                    key.workerJar(),
+                    kind,
+                    arguments);
+            if (persistentResult.isPresent()) {
+                return persistentResult;
+            }
         }
         return POOLS.computeIfAbsent(key, WorkerPool::new).compile(kind, arguments);
     }
@@ -65,8 +68,11 @@ final class JavacWorkerPool {
                 JavacRunner.ProcessResult result = worker.compile(kind, arguments);
                 release(worker);
                 return Optional.of(result);
-            } catch (IOException exception) {
+            } catch (IOException | InterruptedException exception) {
                 discard(worker);
+                if (exception instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
                 disable();
                 return Optional.empty();
             }

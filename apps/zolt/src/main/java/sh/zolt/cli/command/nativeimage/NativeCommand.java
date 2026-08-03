@@ -35,6 +35,7 @@ import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.packaging.WorkspaceNativeBuildResult;
 import sh.zolt.workspace.packaging.WorkspaceNativeBuildService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.nio.file.Path;
 import java.util.List;
 import picocli.CommandLine.Command;
@@ -117,14 +118,18 @@ public final class NativeCommand implements Runnable {
             if (workspace) {
                 WorkspaceNativeBuildService projectWorkspaceNativeBuildService =
                         workspaceNativeBuildService.withJdkCheckers(workspaceJdkCheckers());
-                lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
-                progress.start("Building workspace native images");
-                WorkspaceNativeBuildResult result = projectWorkspaceNativeBuildService.buildNative(
+                WorkspaceNativeBuildResult result = WorkspaceMutationLock.withWorkspaceLock(
                         projectRoot,
-                        cacheRoot,
-                        CommandWorkspaceSelections.from(all, members, memberGroups),
-                        workspaceNativeImageResolver(),
-                        nativeImageProgress(progress));
+                        () -> {
+                            lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                            progress.start("Building workspace native images");
+                            return projectWorkspaceNativeBuildService.buildNative(
+                                    projectRoot,
+                                    cacheRoot,
+                                    CommandWorkspaceSelections.from(all, members, memberGroups),
+                                    workspaceNativeImageResolver(),
+                                    nativeImageProgress(progress));
+                        });
                 CommandHumanOutput output = CommandHumanOutput.of(spec);
                 if (result.resolvedLockfile()) {
                     output.success("Resolved workspace dependencies because zolt.lock was missing");

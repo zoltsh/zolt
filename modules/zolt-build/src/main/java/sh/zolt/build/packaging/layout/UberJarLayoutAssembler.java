@@ -62,6 +62,7 @@ public final class UberJarLayoutAssembler {
                 }
                 entryCount += writer.writeMergedEntries();
                 mergeDecisions.addAll(writer.decisions());
+                archive.commit();
             }
             return new PackageResult(
                     buildResult,

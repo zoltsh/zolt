@@ -35,6 +35,7 @@ import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildService;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import java.nio.file.Path;
 import java.util.List;
@@ -125,25 +126,36 @@ public final class BuildCommand implements Runnable {
             if (workspace) {
                 WorkspaceBuildService projectWorkspaceBuildService = buildCache.applyTo(
                         workspaceBuildService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("build")));
-                lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, offline, "zolt build --workspace");
-                progress.start("Building workspace");
-                WorkspaceBuildResult result = timings.measure(
-                        "build workspace",
+                WorkspaceBuildResult result = WorkspaceMutationLock.withWorkspaceLock(
+                        projectRoot,
                         () -> {
-                            WorkspaceBuildPlan plan = timings.measure(
-                                    "plan workspace build",
-                                    () -> projectWorkspaceBuildService.planBuild(
-                                            projectRoot,
-                                            cacheRoot,
-                                            offline,
-                                            CommandWorkspaceSelections.from(all, members, memberGroups)),
-                                    CommandBuildAttributes::workspaceBuildPlan);
+                            lockfiles.requireFreshWorkspaceLockfile(
+                                    projectRoot,
+                                    cacheRoot,
+                                    offline,
+                                    "zolt build --workspace");
+                            progress.start("Building workspace");
                             return timings.measure(
-                                    "compile workspace members",
-                                    () -> projectWorkspaceBuildService.build(plan, cacheRoot),
+                                    "build workspace",
+                                    () -> {
+                                        WorkspaceBuildPlan plan = timings.measure(
+                                                "plan workspace build",
+                                                () -> projectWorkspaceBuildService.planBuild(
+                                                        projectRoot,
+                                                        cacheRoot,
+                                                        offline,
+                                                        CommandWorkspaceSelections.from(
+                                                                all,
+                                                                members,
+                                                                memberGroups)),
+                                                CommandBuildAttributes::workspaceBuildPlan);
+                                        return timings.measure(
+                                                "compile workspace members",
+                                                () -> projectWorkspaceBuildService.build(plan, cacheRoot),
+                                                CommandBuildAttributes::workspaceBuild);
+                                    },
                                     CommandBuildAttributes::workspaceBuild);
-                        },
-                        CommandBuildAttributes::workspaceBuild);
+                        });
                 if (result.resolvedLockfile()) {
                     output.detail("Resolved workspace dependencies because zolt.lock was missing");
                 }

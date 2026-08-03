@@ -112,8 +112,7 @@ final class BuildFingerprintFileHasherTest {
         String hash = hasher.classpathHash(output, null, null);
 
         assertEquals(
-                "abi:" + hasher.hashText("com.example.Alpha|abi-alpha|package-alpha\n"
-                        + "com.example.Beta|abi-beta|package-beta\n"),
+                "abi:" + hasher.hashText("public-digest|package-digest"),
                 hash);
     }
 
@@ -128,43 +127,20 @@ final class BuildFingerprintFileHasherTest {
 
     private String incrementalState(Path outputDirectory) {
         Path project = tempDir.toAbsolutePath().normalize();
-        return "version=4\n"
+        return "version=5\n"
                 + "scope=main\n"
                 + encodedLine("projectDirectory", project.toString())
                 + encodedLine("outputDirectory", outputDirectory.toAbsolutePath().normalize().toString())
                 + encodedLine("generatedSourcesDirectory", project.resolve("target/generated/sources/annotations").toString())
                 + "compilerSettingsHash=compiler-hash\n"
                 + "buildFingerprintSha256=fingerprint-hash\n"
-                + classRecord("com.example.Beta", "class-beta", "abi-beta", "package-beta")
-                + classRecord("com.example.Alpha", "class-alpha", "abi-alpha", "package-alpha");
-    }
-
-    private String classRecord(String binaryName, String classHash, String abiHash, String packageAbiHash) {
-        Path outputPath = tempDir.resolve("target/classes")
-                .resolve(binaryName.replace('.', '/') + ".class")
-                .toAbsolutePath()
-                .normalize();
-        return encodedRecord(
-                "class",
-                binaryName,
-                outputPath.toString(),
-                classHash,
-                abiHash,
-                packageAbiHash,
-                "33",
-                "java.lang.Object");
+                + "publicAbiDigest=public-digest\n"
+                + "packagePrivateAbiDigest=package-digest\n"
+                + "outputManifestDigest=output-digest\n";
     }
 
     private static String encodedLine(String name, String value) {
         return name + "=" + encode(value) + "\n";
-    }
-
-    private static String encodedRecord(String name, String... values) {
-        StringBuilder line = new StringBuilder(name);
-        for (String value : values) {
-            line.append('\t').append(encode(value));
-        }
-        return line.append('\n').toString();
     }
 
     private static String encode(String value) {

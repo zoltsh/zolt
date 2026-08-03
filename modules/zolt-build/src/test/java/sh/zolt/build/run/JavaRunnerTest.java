@@ -6,11 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.JavaRunException;
+import sh.zolt.cancel.BuildCancellation;
 import sh.zolt.classpath.Classpath;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 final class JavaRunnerTest {
@@ -203,5 +207,100 @@ final class JavaRunnerTest {
                 List.of());
 
         assertFalse(result.signalled());
+    }
+
+    @Test
+    void cancellationTerminatesJavaProcessAndDescendants() throws Exception {
+        BuildCancellation cancellation = new BuildCancellation();
+        CountDownLatch ready = new CountDownLatch(1);
+        StringBuilder output = new StringBuilder();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        String processClasspath = Path.of(
+                        BlockingJavaProcess.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+                .toString();
+        Thread caller = Thread.ofPlatform().start(() -> {
+            try {
+                cancellation.call(() -> {
+                    new JavaRunner().run(
+                            javaExecutable(),
+                            new Classpath(List.of(Path.of(processClasspath))),
+                            BlockingJavaProcess.class.getName(),
+                            List.of(javaExecutable().toString(), processClasspath),
+                            chunk -> {
+                                synchronized (output) {
+                                    output.append(chunk);
+                                    if (output.indexOf("\n") >= 0) {
+                                        ready.countDown();
+                                    }
+                                }
+                            });
+                    return null;
+                });
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        });
+
+        assertTrue(ready.await(5, TimeUnit.SECONDS), "Java child did not become ready.");
+        long[] processIds;
+        synchronized (output) {
+            String[] values = output.toString().strip().split(",", -1);
+            processIds = new long[] {
+                    Long.parseLong(values[0]),
+                    Long.parseLong(values[1])
+            };
+        }
+
+        cancellation.cancel();
+        caller.join(TimeUnit.SECONDS.toMillis(5));
+
+        assertFalse(caller.isAlive(), "JavaRunner remained blocked after cancellation.");
+        for (long processId : processIds) {
+            assertTrue(
+                    ProcessHandle.of(processId)
+                            .map(process -> !process.isAlive())
+                            .orElse(true),
+                    "Cancelled Java process is still alive: " + processId);
+        }
+        if (failure.get() != null) {
+            assertTrue(
+                    failure.get() instanceof JavaRunException,
+                    "Unexpected cancellation failure: " + failure.get());
+        }
+    }
+
+    private static Path javaExecutable() {
+        String executable = System.getProperty("os.name", "")
+                        .toLowerCase()
+                        .contains("win")
+                ? "java.exe"
+                : "java";
+        return Path.of(System.getProperty("java.home"), "bin", executable);
+    }
+
+    public static final class BlockingJavaProcess {
+        private BlockingJavaProcess() {
+        }
+
+        public static void main(String[] arguments) throws Exception {
+            Process descendant = new ProcessBuilder(
+                    arguments[0],
+                    "-classpath",
+                    arguments[1],
+                    BlockingDescendant.class.getName())
+                    .start();
+            System.out.println(ProcessHandle.current().pid() + "," + descendant.pid());
+            System.out.flush();
+            new CountDownLatch(1).await();
+        }
+    }
+
+    public static final class BlockingDescendant {
+        private BlockingDescendant() {
+        }
+
+        public static void main(String[] arguments) throws InterruptedException {
+            new CountDownLatch(1).await();
+        }
     }
 }

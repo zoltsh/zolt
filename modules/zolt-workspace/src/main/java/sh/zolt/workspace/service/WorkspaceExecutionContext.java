@@ -1,0 +1,283 @@
+package sh.zolt.workspace.service;
+
+import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.classpath.ResolvedClasspathPackage;
+import sh.zolt.lockfile.ZoltLockfile;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
+
+public final class WorkspaceExecutionContext {
+    private final Workspace workspace;
+    private final ZoltLockfile lockfile;
+    private final Path cacheRoot;
+    private final WorkspaceClasspathMemberGraph memberGraph;
+    private final WorkspaceFileSnapshot fileSnapshot;
+    private final WorkspaceAbiIndex abiIndex;
+    private final WorkspaceToolchainIndex toolchainIndex;
+    private final WorkspaceLockIndex lockIndex;
+    private final long graphConstructionNanos;
+    private final Map<ClasspathKey, ClasspathSet> classpaths =
+            new ConcurrentHashMap<>();
+    private final Map<String, List<ResolvedClasspathPackage>> classpathPackages =
+            new ConcurrentHashMap<>();
+    private final Map<String, ZoltLockfile> packageLocks =
+            new ConcurrentHashMap<>();
+    private long classpathCalculationNanos;
+    private long packageCalculationNanos;
+    private long memberExecutionNanos;
+    private long schedulerIdleNanos;
+    private long fileSnapshotNanos;
+    private long bytesHashed;
+    private int classpathCacheHits;
+    private int packageCacheHits;
+    private int readyQueuePeak;
+    private int filesHashed;
+    private int membersConsidered;
+    private int membersDeclaredClean;
+    private int memberPipelineInvocations;
+
+    public WorkspaceExecutionContext(
+            Workspace workspace,
+            ZoltLockfile lockfile,
+            Path cacheRoot) {
+        this.workspace = workspace;
+        this.lockfile = lockfile;
+        this.cacheRoot = cacheRoot.toAbsolutePath().normalize();
+        long started = System.nanoTime();
+        this.memberGraph = new WorkspaceClasspathMemberGraph(workspace);
+        this.fileSnapshot = new WorkspaceFileSnapshot();
+        this.abiIndex = new WorkspaceAbiIndex();
+        this.toolchainIndex = new WorkspaceToolchainIndex();
+        this.lockIndex = new WorkspaceLockIndex(lockfile);
+        this.graphConstructionNanos = elapsedSince(started);
+    }
+
+    public Workspace workspace() {
+        return workspace;
+    }
+    public ZoltLockfile lockfile() {
+        return lockfile;
+    }
+    public Path cacheRoot() {
+        return cacheRoot;
+    }
+    WorkspaceClasspathMemberGraph memberGraph() {
+        return memberGraph;
+    }
+    WorkspaceFileSnapshot fileSnapshot() {
+        return fileSnapshot;
+    }
+    WorkspaceAbiIndex abiIndex() {
+        return abiIndex;
+    }
+    WorkspaceToolchainIndex toolchainIndex() {
+        return toolchainIndex;
+    }
+    WorkspaceLockIndex lockIndex() {
+        return lockIndex;
+    }
+
+    ClasspathSet classpaths(
+            String member,
+            WorkspaceBuildRequirements requirements,
+            Supplier<ClasspathSet> calculation) {
+        ClasspathKey key = new ClasspathKey(
+                member,
+                requirements.withPackageInputs(false));
+        ClasspathSet cached = classpaths.get(key);
+        if (cached != null) {
+            recordClasspathCacheHit();
+            return cached;
+        }
+        long started = System.nanoTime();
+        ClasspathSet value = calculation.get();
+        ClasspathSet existing = classpaths.putIfAbsent(key, value);
+        if (existing != null) {
+            recordClasspathCacheHit();
+            return existing;
+        }
+        recordClasspathCalculation(elapsedSince(started));
+        return value;
+    }
+
+    List<ResolvedClasspathPackage> classpathPackages(
+            String member,
+            Supplier<List<ResolvedClasspathPackage>> calculation) {
+        List<ResolvedClasspathPackage> cached = classpathPackages.get(member);
+        if (cached != null) {
+            recordPackageCacheHit();
+            return cached;
+        }
+        long started = System.nanoTime();
+        List<ResolvedClasspathPackage> value = List.copyOf(calculation.get());
+        List<ResolvedClasspathPackage> existing =
+                classpathPackages.putIfAbsent(member, value);
+        if (existing != null) {
+            recordPackageCacheHit();
+            return existing;
+        }
+        recordPackageCalculation(elapsedSince(started));
+        return value;
+    }
+
+    ZoltLockfile packageLock(
+            String member,
+            Supplier<ZoltLockfile> calculation) {
+        ZoltLockfile cached = packageLocks.get(member);
+        if (cached != null) {
+            recordPackageCacheHit();
+            return cached;
+        }
+        long started = System.nanoTime();
+        ZoltLockfile value = calculation.get();
+        ZoltLockfile existing = packageLocks.putIfAbsent(member, value);
+        if (existing != null) {
+            recordPackageCacheHit();
+            return existing;
+        }
+        recordPackageCalculation(elapsedSince(started));
+        return value;
+    }
+
+    private synchronized void recordClasspathCalculation(long durationNanos) {
+        classpathCalculationNanos += durationNanos;
+    }
+
+    private synchronized void recordPackageCalculation(long durationNanos) {
+        packageCalculationNanos += durationNanos;
+    }
+
+    private synchronized void recordClasspathCacheHit() {
+        classpathCacheHits++;
+    }
+
+    private synchronized void recordPackageCacheHit() {
+        packageCacheHits++;
+    }
+
+    public synchronized Metrics metrics() {
+        return new Metrics(
+                graphConstructionNanos,
+                classpathCalculationNanos,
+                packageCalculationNanos,
+                memberExecutionNanos,
+                schedulerIdleNanos,
+                classpaths.size(),
+                classpathPackages.size() + packageLocks.size(),
+                classpathCacheHits,
+                packageCacheHits,
+                readyQueuePeak,
+                fileSnapshotNanos,
+                bytesHashed,
+                filesHashed,
+                membersConsidered,
+                membersDeclaredClean,
+                memberPipelineInvocations,
+                abiIndex.reads(),
+                abiIndex.hits(),
+                toolchainIndex.resolutions(),
+                toolchainIndex.hits(),
+                toolchainIndex.lockfileParses(),
+                toolchainIndex.identityCalculations(),
+                toolchainIndex.identityHits());
+    }
+
+    synchronized void addMemberExecutionNanos(long durationNanos) {
+        memberExecutionNanos += Math.max(0L, durationNanos);
+    }
+
+    synchronized void addSchedulerMetrics(long idleNanos, int queuePeak) {
+        schedulerIdleNanos += Math.max(0L, idleNanos);
+        readyQueuePeak = Math.max(readyQueuePeak, queuePeak);
+    }
+
+    synchronized void addFileSnapshotMetrics(
+            long durationNanos,
+            long hashedBytes,
+            int hashedFiles) {
+        fileSnapshotNanos += Math.max(0L, durationNanos);
+        bytesHashed = Math.max(bytesHashed, hashedBytes);
+        filesHashed = Math.max(filesHashed, hashedFiles);
+    }
+
+    synchronized void addDirtyPlanMetrics(
+            int considered,
+            int pipelineInvocations) {
+        membersConsidered += Math.max(0, considered);
+        memberPipelineInvocations += Math.max(0, pipelineInvocations);
+        membersDeclaredClean += Math.max(0, considered - pipelineInvocations);
+    }
+
+    private static long elapsedSince(long started) {
+        return Math.max(0L, System.nanoTime() - started);
+    }
+
+    private record ClasspathKey(
+            String member,
+            WorkspaceBuildRequirements requirements) {
+    }
+
+    public record Metrics(
+            long graphConstructionNanos,
+            long classpathCalculationNanos,
+            long packageCalculationNanos,
+            long memberExecutionNanos,
+            long schedulerIdleNanos,
+            int classpathCalculations,
+            int packageCalculations,
+            int classpathCacheHits,
+            int packageCacheHits,
+            int readyQueuePeak,
+            long fileSnapshotNanos,
+            long bytesHashed,
+            int filesHashed,
+            int membersConsidered,
+            int membersDeclaredClean,
+            int memberPipelineInvocations,
+            int abiStateReads,
+            int abiStateCacheHits,
+            int toolchainResolutions,
+            int toolchainCacheHits,
+            int toolchainLockfileParses,
+            int toolchainIdentityCalculations,
+            int toolchainIdentityCacheHits) {
+        public Metrics(
+                long graphConstructionNanos,
+                long classpathCalculationNanos,
+                long packageCalculationNanos,
+                long memberExecutionNanos,
+                int classpathCalculations,
+                int packageCalculations,
+                int classpathCacheHits,
+                int packageCacheHits) {
+            this(
+                    graphConstructionNanos,
+                    classpathCalculationNanos,
+                    packageCalculationNanos,
+                    memberExecutionNanos,
+                    0L,
+                    classpathCalculations,
+                    packageCalculations,
+                    classpathCacheHits,
+                    packageCacheHits,
+                    0,
+                    0L,
+                    0L,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0);
+        }
+
+    }
+}

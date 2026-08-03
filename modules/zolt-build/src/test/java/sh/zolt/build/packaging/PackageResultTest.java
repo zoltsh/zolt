@@ -71,6 +71,28 @@ final class PackageResultTest {
                 () -> withMergeDecisions.mergeDecisions().add(mergeDecision()));
     }
 
+    @Test
+    void withMethodsPreserveReuseStatus() {
+        PackageResult reused = new PackageResult(
+                buildResult(),
+                PackageMode.THIN,
+                ARCHIVE,
+                Optional.empty(),
+                Optional.empty(),
+                3,
+                true,
+                "archive root",
+                List.of(),
+                List.of(),
+                List.of(),
+                true);
+
+        assertTrue(reused.withArtifactsAndEvidence(List.of(), Optional.empty()).packagingReused());
+        assertTrue(reused.withApplicationLayout("classes").packagingReused());
+        assertTrue(reused.withMergeDecisions(List.of()).packagingReused());
+        assertTrue(reused.withMaterializedInputs(List.of()).packagingReused());
+    }
+
     private static PackageResult resultFor(PackageMode mode, String applicationLayout) {
         return new PackageResult(
                 buildResult(),

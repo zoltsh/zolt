@@ -99,7 +99,7 @@ final class BuildServiceFingerprintInvalidationTest {
     }
 
     @Test
-    void resourceChangeInvalidatesMainBuildFingerprintButStillCopiesResource() throws IOException {
+    void resourceChangeCopiesResourceWithoutWakingJavac() throws IOException {
         writeLockfile("version = 1\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
@@ -116,7 +116,7 @@ final class BuildServiceFingerprintInvalidationTest {
 
         BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
 
-        assertFalse(result.mainCompilationSkipped());
+        assertTrue(result.mainCompilationSkipped());
         assertEquals("message=changed\n", Files.readString(projectDir.resolve("target/classes/application.properties")));
     }
 

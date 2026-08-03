@@ -36,6 +36,75 @@ public final class CommandBuildAttributes {
         attributes.put(CommandAttributeKeys.SOURCE_FILES, Integer.toString(result.sourceCount()));
         attributes.put(CommandAttributeKeys.WORKSPACE_BUILD_WAVES, Integer.toString(result.buildWaveCount()));
         attributes.put(CommandAttributeKeys.WORKSPACE_BUILD_MAX_WORKERS, Integer.toString(result.buildMaxWorkers()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_GRAPH_CONSTRUCTION_NANOS,
+                Long.toString(result.executionMetrics().graphConstructionNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_CLASSPATH_CALCULATION_NANOS,
+                Long.toString(result.executionMetrics().classpathCalculationNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_PACKAGE_CALCULATION_NANOS,
+                Long.toString(result.executionMetrics().packageCalculationNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBER_EXECUTION_NANOS,
+                Long.toString(result.executionMetrics().memberExecutionNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_SCHEDULER_IDLE_NANOS,
+                Long.toString(result.executionMetrics().schedulerIdleNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_READY_QUEUE_PEAK,
+                Integer.toString(result.executionMetrics().readyQueuePeak()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_FILE_SNAPSHOT_NANOS,
+                Long.toString(result.executionMetrics().fileSnapshotNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_BYTES_HASHED,
+                Long.toString(result.executionMetrics().bytesHashed()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_FILES_HASHED,
+                Integer.toString(result.executionMetrics().filesHashed()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBERS_CONSIDERED,
+                Integer.toString(result.executionMetrics().membersConsidered()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBERS_DECLARED_CLEAN,
+                Integer.toString(result.executionMetrics().membersDeclaredClean()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBER_PIPELINE_INVOCATIONS,
+                Integer.toString(result.executionMetrics().memberPipelineInvocations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_ABI_STATE_READS,
+                Integer.toString(result.executionMetrics().abiStateReads()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_ABI_STATE_CACHE_HITS,
+                Integer.toString(result.executionMetrics().abiStateCacheHits()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_RESOLUTIONS,
+                Integer.toString(result.executionMetrics().toolchainResolutions()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_CACHE_HITS,
+                Integer.toString(result.executionMetrics().toolchainCacheHits()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_LOCKFILE_PARSES,
+                Integer.toString(result.executionMetrics().toolchainLockfileParses()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_IDENTITY_CALCULATIONS,
+                Integer.toString(result.executionMetrics().toolchainIdentityCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_IDENTITY_CACHE_HITS,
+                Integer.toString(result.executionMetrics().toolchainIdentityCacheHits()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_CLASSPATH_CALCULATIONS,
+                Integer.toString(result.executionMetrics().classpathCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_PACKAGE_CALCULATIONS,
+                Integer.toString(result.executionMetrics().packageCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_CLASSPATH_CACHE_HITS,
+                Integer.toString(result.executionMetrics().classpathCacheHits()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_PACKAGE_CACHE_HITS,
+                Integer.toString(result.executionMetrics().packageCacheHits()));
         attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_SKIPPED, Integer.toString(result.mainCompilationSkippedCount()));
         attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_EXECUTED, Integer.toString(result.mainCompilationExecutedCount()));
         addMainCompileDiagnostics(attributes, result.mainCompileDiagnostics());
@@ -57,10 +126,36 @@ public final class CommandBuildAttributes {
     }
 
     public static Map<String, String> workspaceBuildPlan(WorkspaceBuildPlan plan) {
-        return Map.of(
-                CommandAttributeKeys.INCLUDED_MEMBERS, Integer.toString(plan.selection().includedMembers().size()),
-                CommandAttributeKeys.SELECTED_MEMBERS, Integer.toString(plan.selection().selectedMembers().size()),
-                CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(plan.resolvedLockfile()));
+        Map<String, String> attributes = new LinkedHashMap<>();
+        attributes.put(
+                CommandAttributeKeys.INCLUDED_MEMBERS,
+                Integer.toString(plan.selection().includedMembers().size()));
+        attributes.put(
+                CommandAttributeKeys.SELECTED_MEMBERS,
+                Integer.toString(plan.selection().selectedMembers().size()));
+        attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(plan.resolvedLockfile()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_DISCOVERY_NANOS,
+                Long.toString(plan.metrics().discoveryNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_SELECTION_NANOS,
+                Long.toString(plan.metrics().selectionNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_RESOLUTION_NANOS,
+                Long.toString(plan.metrics().resolutionNanos()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_LOCKFILE_READ_NANOS,
+                Long.toString(plan.metrics().lockfileReadNanos()));
+        attributes.put(
+                CommandAttributeKeys.MEMBERS,
+                Integer.toString(plan.metrics().workspaceMembers()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_EDGES,
+                Integer.toString(plan.metrics().workspaceEdges()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_LOCKFILE_PACKAGES,
+                Integer.toString(plan.metrics().lockfilePackages()));
+        return attributes;
     }
 
     public static Map<String, String> frameworkAugmentation(Optional<FrameworkBuildAugmentationResult> result) {

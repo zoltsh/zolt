@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.cancel.BuildCancellation;
 import sh.zolt.classpath.Classpath;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -90,6 +91,26 @@ final class JavacRunnerInProcessTest {
 
         assertTrue(inProcessArguments.isEmpty());
         assertEquals("managed-javac", externalCommands.getFirst().getFirst());
+    }
+
+    @Test
+    void isolatesConcurrentBuildCompilationFromTheCallingJvm() throws IOException {
+        Path source = source("src/main/java/com/example/Main.java", "final class Main {}\n");
+        List<List<String>> inProcessArguments = new ArrayList<>();
+        List<List<String>> externalCommands = new ArrayList<>();
+        JavacRunner runner = runner(externalCommands, inProcessArguments, Path.of("javac"));
+
+        new BuildCancellation().call(() -> {
+            runner.compile(
+                    Path.of("javac"),
+                    List.of(source),
+                    new Classpath(List.of()),
+                    tempDir.resolve("target/classes"));
+            return null;
+        });
+
+        assertTrue(inProcessArguments.isEmpty());
+        assertEquals("javac", externalCommands.getFirst().getFirst());
     }
 
     @Test

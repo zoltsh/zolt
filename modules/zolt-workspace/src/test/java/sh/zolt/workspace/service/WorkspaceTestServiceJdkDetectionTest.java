@@ -103,7 +103,7 @@ final class WorkspaceTestServiceJdkDetectionTest {
         assertEquals(List.of("apps/api"), result.members().stream()
                 .map(WorkspaceTestResult.MemberTestRunResult::member)
                 .toList());
-        assertEquals(4, jdkChecker.detectCalls());
+        assertEquals(3, jdkChecker.detectCalls());
         assertEquals(1, jdkChecker.toolchainReads());
     }
 

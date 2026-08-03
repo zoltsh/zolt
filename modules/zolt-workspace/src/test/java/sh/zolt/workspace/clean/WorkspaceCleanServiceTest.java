@@ -2,16 +2,21 @@ package sh.zolt.workspace.clean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.CleanException;
 import sh.zolt.workspace.WorkspaceConfigException;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -90,6 +95,55 @@ final class WorkspaceCleanServiceTest {
         assertEquals(1, result.deletedCount());
         assertFalse(Files.exists(tempDir.resolve("zolt.lock")));
         assertFalse(Files.exists(tempDir.resolve("apps/api/target")));
+    }
+
+    @Test
+    void waitsForActiveWorkspaceMutationBeforeDeletingOutputs()
+            throws Exception {
+        workspace("""
+                [workspace]
+                name = "acme-platform"
+                members = ["apps/api"]
+                """);
+        member("apps/api", "api", "");
+        Path output = output("apps/api/target/classes/Api.class");
+        CountDownLatch finished = new CountDownLatch(1);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread clean = Thread.ofPlatform().unstarted(() -> {
+            try {
+                service.clean(tempDir, WorkspaceSelectionRequest.defaults());
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            } finally {
+                finished.countDown();
+            }
+        });
+
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(tempDir)) {
+            clean.start();
+            assertFalse(
+                    finished.await(250, TimeUnit.MILLISECONDS),
+                    "Clean did not wait for the active workspace mutation.");
+            assertTrue(Files.isRegularFile(output));
+        }
+        clean.join(TimeUnit.SECONDS.toMillis(2));
+
+        assertFalse(clean.isAlive());
+        assertNull(failure.get());
+        assertFalse(Files.exists(tempDir.resolve("apps/api/target")));
+    }
+
+    @Test
+    void cleanCannotSlipBetweenBuildAndTestCompilation()
+            throws Exception {
+        assertCleanCannotSlipBetweenCommandPhases();
+    }
+
+    @Test
+    void cleanCannotSlipBetweenBuildAndPackaging()
+            throws Exception {
+        assertCleanCannotSlipBetweenCommandPhases();
     }
 
     @Test
@@ -259,6 +313,67 @@ final class WorkspaceCleanServiceTest {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
     }
 
+    private void assertCleanCannotSlipBetweenCommandPhases()
+            throws Exception {
+        workspace("""
+                [workspace]
+                name = "acme-platform"
+                members = ["apps/api"]
+                """);
+        member("apps/api", "api", "");
+        Path output = output("apps/api/target/classes/Api.class");
+        CountDownLatch betweenPhases = new CountDownLatch(1);
+        CountDownLatch continueCommand = new CountDownLatch(1);
+        CountDownLatch commandFinished = new CountDownLatch(1);
+        AtomicReference<Throwable> commandFailure = new AtomicReference<>();
+        Thread command = Thread.ofPlatform().start(() -> {
+            try (WorkspaceMutationLock commandLease =
+                    WorkspaceMutationLock.acquire(tempDir)) {
+                try (WorkspaceMutationLock ignored =
+                        WorkspaceMutationLock.acquire(tempDir)) {
+                    assertTrue(Files.isRegularFile(output));
+                }
+                betweenPhases.countDown();
+                assertTrue(continueCommand.await(2, TimeUnit.SECONDS));
+                try (WorkspaceMutationLock ignored =
+                        WorkspaceMutationLock.acquire(tempDir)) {
+                    assertTrue(Files.isRegularFile(output));
+                }
+            } catch (Throwable throwable) {
+                commandFailure.set(throwable);
+            } finally {
+                commandFinished.countDown();
+            }
+        });
+        assertTrue(betweenPhases.await(2, TimeUnit.SECONDS));
+
+        CountDownLatch cleanFinished = new CountDownLatch(1);
+        AtomicReference<Throwable> cleanFailure = new AtomicReference<>();
+        Thread clean = Thread.ofPlatform().start(() -> {
+            try {
+                service.clean(tempDir, WorkspaceSelectionRequest.defaults());
+            } catch (Throwable throwable) {
+                cleanFailure.set(throwable);
+            } finally {
+                cleanFinished.countDown();
+            }
+        });
+        assertFalse(
+                cleanFinished.await(250, TimeUnit.MILLISECONDS),
+                "Clean slipped between command phases.");
+        assertTrue(Files.isRegularFile(output));
+
+        continueCommand.countDown();
+        assertTrue(commandFinished.await(2, TimeUnit.SECONDS));
+        assertTrue(cleanFinished.await(2, TimeUnit.SECONDS));
+        command.join(TimeUnit.SECONDS.toMillis(2));
+        clean.join(TimeUnit.SECONDS.toMillis(2));
+
+        assertNull(commandFailure.get());
+        assertNull(cleanFailure.get());
+        assertFalse(Files.exists(tempDir.resolve("apps/api/target")));
+    }
+
     private void member(String path, String name, String extraToml) throws IOException {
         Path directory = tempDir.resolve(path);
         Files.createDirectories(directory);
@@ -286,10 +401,11 @@ final class WorkspaceCleanServiceTest {
                 """.formatted(name, currentJavaMajorVersion(), buildSection));
     }
 
-    private void output(String path) throws IOException {
+    private Path output(String path) throws IOException {
         Path output = tempDir.resolve(path);
         Files.createDirectories(output.getParent());
         Files.writeString(output, "output");
+        return output;
     }
 
     private static String nonTargetBuildSection() {

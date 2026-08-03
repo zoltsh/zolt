@@ -31,6 +31,8 @@ final class TestRuntimeValueObjectsTest {
         assertEquals(0, result.testRuntimeClasspathEntries());
         assertEquals(0, result.testLauncherClasspathEntries());
         assertEquals(0, result.testDiscoveryScanRoots());
+        assertEquals(0, result.testWorkerStarts());
+        assertEquals(0, result.testWorkerRequests());
         assertEquals(-1L, result.testRunnerStartupNanos());
         assertEquals(-1L, result.testRunnerRequestNanos());
         assertTrue(result.testSelection().emptySelection());
@@ -64,8 +66,23 @@ final class TestRuntimeValueObjectsTest {
         assertEquals(1, metrics.testRuntimeClasspathEntries());
         assertEquals(2, metrics.testLauncherClasspathEntries());
         assertEquals(3, metrics.testDiscoveryScanRoots());
+        assertEquals(0, metrics.testWorkerStarts());
+        assertEquals(0, metrics.testWorkerRequests());
         assertEquals(4L, metrics.testRunnerStartupNanos());
         assertEquals(5L, metrics.testRunnerRequestNanos());
+
+        TestRunMetrics workerMetrics =
+                new TestRunMetrics(
+                        "zolt-junit-worker",
+                        1,
+                        2,
+                        3,
+                        4,
+                        12,
+                        5L,
+                        6L);
+        assertEquals(4, workerMetrics.testWorkerStarts());
+        assertEquals(12, workerMetrics.testWorkerRequests());
     }
 
     @Test

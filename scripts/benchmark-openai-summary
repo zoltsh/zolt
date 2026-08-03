@@ -101,11 +101,12 @@ model = sys.argv[4]
 reasoning_effort = sys.argv[5]
 dry_run = sys.argv[6] == "true"
 suite = json.loads(input_path.read_text(encoding="utf-8"))
-prompt_version = "zolt-benchmark-summary-v3"
+prompt_version = "zolt-benchmark-summary-v6"
 
 model_input = {
     "schemaVersion": suite.get("schemaVersion"),
     "suite": suite.get("suite"),
+    "profile": suite.get("profile"),
     "repository": suite.get("repository"),
     "run": suite.get("run"),
     "configuredProjects": suite.get("configuredProjects") or suite.get("plannedProjects"),
@@ -116,7 +117,10 @@ model_input = {
             "kind": lane.get("kind"),
             "status": lane.get("status"),
             "workload": lane.get("workload"),
+            "environment": lane.get("environment"),
             "tools": lane.get("tools"),
+            "correctness": lane.get("correctness"),
+            "outcomeRule": lane.get("outcomeRule"),
             "summary": lane.get("summary"),
             "workflows": lane.get("workflows"),
             "caveats": lane.get("caveats"),
@@ -156,30 +160,48 @@ schema = {
 }
 
 system_prompt = (
-    "You write plain-English benchmark summaries for Zolt, a native Java build "
-    "tool. Use only the supplied suite JSON. Make the summary glanceable: a "
-    "reader should immediately understand what was measured and what the "
-    "results say. Do not use the labels 'evidence grade', 'publishable claims', "
-    "'lane', or 'generated workflow' in the prose. Describe the workload as a "
-    "generated Java workspace with its module count, app count, repeat count, "
-    "tools, and source of Zolt when generated-workspace results are present. "
-    "When real-project comparisons are present, name the project, pinned commit, "
-    "adapter scope, upstream tool, workflows, samples, and both median times. "
-    "Do not describe a named module subset as the full upstream project. When configured "
-    "real-project lanes are present but did not run, mention their run status "
-    "only as current coverage, not as a follow-up. Keep first clean build "
-    "separate from repeated workflows. Mention missing competitors only when "
-    "the supplied workflows are actually missing them. Do not write follow-ups, "
-    "recommendations, next steps, roadmap items, or backlog prose. Be concise "
-    "and concrete."
+    "You write plain-English benchmark briefs for Zolt, a native Java build "
+    "tool. Use only the supplied suite JSON and arithmetic derived from its "
+    "numeric fields. Report evidence, not advocacy. Lead with the verdict. "
+    "If a correctness check failed or a run did not complete, say that first "
+    "and do not present the affected timing as valid performance evidence. "
+    "Otherwise use the supplied faster, slower, and inconclusive outcomes. "
+    "Never hide a meaningful loss; report statistically inconclusive results "
+    "as inconclusive. Do not turn the lowest median into a win when the supplied "
+    "outcome is inconclusive. zoltOutcome is the workflow verdict: faster means "
+    "Zolt cleared every enabled comparator; slower means at least one supplied "
+    "comparisonsVsZolt comparison is slower. Use comparisonsVsZolt and "
+    "zoltReferenceTool for the highlighted pair. Never cherry-pick wins, average unlike workflows, "
+    "or invent a composite score. If Zolt has any valid slower outcome, include "
+    "its largest measured loss by ratio in resultBullets; if Zolt has a faster "
+    "outcome, include its largest measured win by ratio. For each highlighted "
+    "comparison, name the comparator and give both medians. Never call "
+    "fastestMedianTool a winner unless the supplied winner agrees. Express a "
+    "ratio only as 'A took N times as long as B', "
+    "calculated from supplied medians and rounded to at most two decimals. "
+    "Keep first clean build separate from repeated workflows. Do not call a "
+    "one-sample or smoke result a trend or publishable; use the supplied run "
+    "classification as the evidence boundary. For a generated Java workspace, "
+    "name its module count, app count, repeat counts, tools, topology, and Zolt "
+    "source. For a real-project comparison, name the project, pinned commit, "
+    "adapter scope, upstream tool, workflows, sample counts, and both medians. "
+    "Do not describe a module subset as the full upstream project. Mention a "
+    "configured project that did not run only as current coverage. Mention a "
+    "missing competitor only when a measured workflow actually omits it. "
+    "Keep the headline to one sentence, whatRan and bottomLine to at most two "
+    "sentences each, resultBullets to three through six items when that many "
+    "valid results exist, and methodologyNotes and limitations to at most three "
+    "items each. Omit introductions, repeated "
+    "facts, marketing language, recommendations, next steps, and roadmap prose."
 )
 user_prompt = (
-    "Create a concise benchmark brief from this suite-summary.json. Write it "
-    "like: what ran, here's what the results say, and what to keep in mind. "
-    "Put the most important measured outcomes in resultBullets with exact "
-    "numbers and ratios when useful. Keep limitations strictly about the "
-    "current methodology. "
-    "Return only the structured JSON required by the schema.\n\n"
+    "Produce the benchmark brief. bottomLine must directly answer: 'How are "
+    "our benchmarks?' Preserve, in order: correctness or completion failures, "
+    "the largest conclusive Zolt loss, the largest conclusive Zolt win, "
+    "inconclusive results, and the evidence boundary. "
+    "Use exact numbers and sample counts. Keep limitations strictly about the "
+    "current run and methodology. Do not soften the answer. Return only the "
+    "structured JSON required by the schema.\n\n"
     + json.dumps(model_input, indent=2)
 )
 request_payload = {
@@ -268,20 +290,37 @@ workflow_labels = {
     "no-op-build": "Warm no-op",
     "leaf-change-build": "Leaf source change",
     "root-change-build": "Root library change",
+    "implementation-change-build": "Implementation change",
+    "api-change-build": "Public API change",
 }
 workflow_order = [
     "setup-warm-build",
     "no-op-build",
     "leaf-change-build",
     "root-change-build",
+    "implementation-change-build",
+    "api-change-build",
 ]
 tool_labels = {
     "zolt": "Zolt",
-    "maven": "Maven",
+    "maven": "Maven default",
+    "maven-parallel": "Maven parallel",
     "gradle-no-daemon": "Gradle no-daemon",
     "gradle-daemon": "Gradle daemon",
+    "gradle-parallel-configuration-cache": "Gradle tuned",
+    "upstream-maven": "Upstream Maven",
+    "upstream-gradle": "Upstream Gradle",
 }
-tool_order = ["zolt", "maven", "gradle-no-daemon", "gradle-daemon"]
+tool_order = [
+    "zolt",
+    "maven",
+    "maven-parallel",
+    "gradle-no-daemon",
+    "gradle-daemon",
+    "gradle-parallel-configuration-cache",
+    "upstream-maven",
+    "upstream-gradle",
+]
 
 
 def fmt_ms(value):
@@ -310,6 +349,7 @@ def result_table_rows(suite_document):
             winner = workflow.get("winner")
             cells = [
                 workflow_labels[workflow_id],
+                workflow.get("zoltOutcome") or "inconclusive",
                 tool_labels.get(winner, winner or "n/a"),
             ]
             for tool in tool_order:
@@ -337,8 +377,8 @@ if table_rows:
     lines.extend([
         "### Results",
         "",
-        "| Workflow | Winner | Zolt | Maven | Gradle no-daemon | Gradle daemon |",
-        "| --- | --- | ---: | ---: | ---: | ---: |",
+        "| Workflow | Zolt outcome | Conclusive winner | Zolt | Maven default | Maven parallel | Gradle no-daemon | Gradle daemon | Gradle tuned | Upstream Maven | Upstream Gradle |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ])
     lines.extend("| " + " | ".join(row) + " |" for row in table_rows)
     lines.append("")

@@ -2,6 +2,7 @@ package sh.zolt.workspace.packaging;
 
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.packageplan.PackagePlan;
+import sh.zolt.build.packageplan.PackageOutputFingerprintIndex;
 import sh.zolt.build.packaging.PackageService;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
@@ -10,15 +11,16 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
+import sh.zolt.workspace.service.WorkspaceBuildRequirements;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.publish.WorkspaceBomPackager;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
@@ -27,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 
 public final class WorkspacePackageService {
     private final WorkspaceBuildService workspaceBuildService;
@@ -34,6 +37,7 @@ public final class WorkspacePackageService {
     private final PackagePlanService packagePlanService;
     private final WorkspaceClasspathService workspaceClasspathService;
     private final WorkspaceBomPackager bomPackager;
+    private final WorkspacePackageExecutor packageExecutor;
 
     public WorkspacePackageService() {
         this(new JdkDetector());
@@ -125,6 +129,7 @@ public final class WorkspacePackageService {
         this.packagePlanService = packagePlanService;
         this.workspaceClasspathService = workspaceClasspathService;
         this.bomPackager = bomPackager;
+        this.packageExecutor = new WorkspacePackageExecutor();
     }
 
     public WorkspacePackageService withJdkCheckers(WorkspaceJdkCheckerResolver jdkCheckers) {
@@ -148,9 +153,10 @@ public final class WorkspacePackageService {
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest,
             Optional<PackageMode> packageModeOverride) {
-        WorkspaceBuildPlan plan = planPackages(startDirectory, cacheRoot, selectionRequest);
-        WorkspaceBuildResult buildResult = buildPackageInputs(plan, cacheRoot);
-        return packageBuiltJars(plan, buildResult, cacheRoot, packageModeOverride);
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = planPackages(startDirectory, cacheRoot, selectionRequest);
+            return packageBuiltJars(plan, buildPackageInputs(plan, cacheRoot), cacheRoot, packageModeOverride);
+        });
     }
 
     public WorkspaceBuildPlan planPackages(
@@ -161,7 +167,7 @@ public final class WorkspacePackageService {
     }
 
     public WorkspaceBuildResult buildPackageInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
-        return workspaceBuildService.build(plan, cacheRoot);
+        return workspaceBuildService.build(plan, cacheRoot, WorkspaceBuildRequirements.mainBuild());
     }
 
     public WorkspacePackageResult packageBuiltJars(
@@ -184,16 +190,28 @@ public final class WorkspacePackageService {
             WorkspaceBuildResult buildResult,
             Optional<Path> cacheRoot,
             Optional<PackageMode> packageModeOverride) {
-        Workspace workspace = plan.workspace();
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return packageBuiltJarsLocked(
+                    plan,
+                    buildResult,
+                    cacheRoot,
+                    packageModeOverride);
+        }
+    }
+
+    private WorkspacePackageResult packageBuiltJarsLocked(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Optional<Path> cacheRoot,
+            Optional<PackageMode> packageModeOverride) {
+        Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
-        Map<String, ZoltLockfile> packageLocks =
-                workspaceClasspathService.packageLocksForMembers(
-                        workspace,
-                        plan.lockfile(),
-                        selection.selectedMembers());
-        List<WorkspacePackageResult.MemberPackageResult> results = new ArrayList<>();
+        PackageOutputFingerprintIndex outputFingerprints =
+                new PackageOutputFingerprintIndex();
+        List<Callable<PackagedMember>> tasks = new ArrayList<>();
         for (String memberPath : selection.selectedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
             WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
@@ -201,43 +219,110 @@ public final class WorkspacePackageService {
                     .map(mode -> member.config().withPackageSettings(
                             member.config().packageSettings().withMode(mode)))
                     .orElse(member.config());
-            if (memberConfig.packageSettings().mode() == PackageMode.BOM) {
-                // A BOM has no jar; generate its dependencyManagement POM from the family instead.
-                results.add(new WorkspacePackageResult.MemberPackageResult(
-                        member.path(),
-                        bomPackager.packageBom(member, workspace, plan.lockfile(), memberBuild.result())));
-                continue;
-            }
-            PackagePlan packagePlan = cacheRoot
-                    .map(root -> packagePlanService.plan(
-                            member.directory(),
-                            memberConfig,
-                            packageLocks.get(member.path()),
-                            root))
-                    .orElseGet(() -> packagePlanService.plan(
-                            member.directory(),
-                            memberConfig,
-                            packageLocks.get(member.path())));
-            results.add(new WorkspacePackageResult.MemberPackageResult(
-                    member.path(),
-                    cacheRoot
-                            .map(root -> packageService.packageJar(
-                                    member.directory(),
-                                    memberConfig,
-                                    memberBuild.result(),
-                                    root,
-                                    memberBuild.classpaths(),
-                                    memberBuild.classpathPackages(),
-                                    packagePlan))
-                            .orElseGet(() -> packageService.packageJar(
-                                    member.directory(),
-                                    memberConfig,
-                                    memberBuild.result(),
-                                    memberBuild.classpaths(),
-                                    memberBuild.classpathPackages(),
-                                    packagePlan))));
+            tasks.add(() -> packageMember(
+                    workspace,
+                    plan,
+                    member,
+                    memberBuild,
+                    memberConfig,
+                    cacheRoot,
+                    outputFingerprints));
         }
-        return new WorkspacePackageResult(buildResult.resolveResult(), buildResult.members(), results);
+        WorkspacePackageExecutor.Result<PackagedMember> packaged =
+                packageExecutor.execute(tasks);
+        return new WorkspacePackageResult(
+                buildResult.resolveResult(),
+                packageBuildResults(buildResult.members(), packaged.values()),
+                packaged.values().stream()
+                        .map(PackagedMember::result)
+                        .toList(),
+                packaged.maxWorkers());
+    }
+
+    private PackagedMember packageMember(
+            Workspace workspace,
+            WorkspaceBuildPlan plan,
+            WorkspaceMember member,
+            WorkspaceBuildResult.MemberBuildResult memberBuild,
+            ProjectConfig memberConfig,
+            Optional<Path> cacheRoot,
+            PackageOutputFingerprintIndex outputFingerprints) {
+        if (memberConfig.packageSettings().mode() == PackageMode.BOM) {
+            return new PackagedMember(
+                    new WorkspacePackageResult.MemberPackageResult(
+                            member.path(),
+                            bomPackager.packageBom(
+                                    member,
+                                    workspace,
+                                    plan.lockfile(),
+                                    memberBuild.result())),
+                    Optional.empty());
+        }
+        WorkspaceClasspathService.PackageInputs packageInputs =
+                workspaceClasspathService.packageInputsFor(
+                        plan.executionContext(),
+                        member.path(),
+                        memberConfig.packageSettings().tests());
+        PackagePlan packagePlan = cacheRoot
+                .map(root -> packagePlanService.plan(
+                        member.directory(),
+                        memberConfig,
+                        packageInputs.lockfile(),
+                        root,
+                        outputFingerprints))
+                .orElseGet(() -> packagePlanService.plan(
+                        member.directory(),
+                        memberConfig,
+                        packageInputs.lockfile(),
+                        sh.zolt.cache.LocalArtifactCache.defaultRoot(),
+                        outputFingerprints));
+        return new PackagedMember(
+                new WorkspacePackageResult.MemberPackageResult(
+                        member.path(),
+                        cacheRoot
+                                .map(root -> packageService.packageJar(
+                                        member.directory(),
+                                        memberConfig,
+                                        memberBuild.result(),
+                                        root,
+                                        packageInputs.classpaths(),
+                                        packageInputs.packages(),
+                                        packagePlan))
+                                .orElseGet(() -> packageService.packageJar(
+                                        member.directory(),
+                                        memberConfig,
+                                        memberBuild.result(),
+                                        packageInputs.classpaths(),
+                                        packageInputs.packages(),
+                                        packagePlan))),
+                Optional.of(packageInputs));
+    }
+
+    private static List<WorkspaceBuildResult.MemberBuildResult> packageBuildResults(
+            List<WorkspaceBuildResult.MemberBuildResult> buildResults,
+            List<PackagedMember> packagedMembers) {
+        Map<String, WorkspaceClasspathService.PackageInputs> packageInputsByMember =
+                new LinkedHashMap<>();
+        for (PackagedMember packagedMember : packagedMembers) {
+            packagedMember.packageInputs().ifPresent(inputs ->
+                    packageInputsByMember.put(
+                            packagedMember.result().member(),
+                            inputs));
+        }
+        return buildResults.stream()
+                .map(build -> {
+                    WorkspaceClasspathService.PackageInputs packageInputs =
+                            packageInputsByMember.get(build.member());
+                    if (packageInputs == null) {
+                        return build;
+                    }
+                    return new WorkspaceBuildResult.MemberBuildResult(
+                            build.member(),
+                            build.result(),
+                            packageInputs.classpaths(),
+                            packageInputs.packages());
+                })
+                .toList();
     }
 
     private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {
@@ -254,5 +339,10 @@ public final class WorkspacePackageService {
             builds.put(member.member(), member);
         }
         return builds;
+    }
+
+    private record PackagedMember(
+            WorkspacePackageResult.MemberPackageResult result,
+            Optional<WorkspaceClasspathService.PackageInputs> packageInputs) {
     }
 }

@@ -93,7 +93,10 @@ public final class JunitWorkerProcessLauncher {
                 environment == null ? Map.of() : environment);
         return new JunitWorkerProcess(
                 new JunitWorkerClient(worker.output(), worker.input()),
-                () -> worker.processCloser().close());
+                () -> worker.processCloser().close(),
+                testRuntimeClasspath.stream()
+                        .map(path -> path.toAbsolutePath().normalize())
+                        .toList());
     }
 
     List<String> command(
@@ -147,7 +150,17 @@ public final class JunitWorkerProcessLauncher {
             return new StartedWorker(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8),
                     new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8),
-                    () -> closeProcess(process));
+                    new JunitWorkerProcess.ProcessCloser() {
+                        @Override
+                        public void close() {
+                            closeProcess(process);
+                        }
+
+                        @Override
+                        public void abort() {
+                            abortProcess(process);
+                        }
+                    });
         } catch (IOException exception) {
             throw new JunitWorkerClientException(
                     "Could not start JUnit worker. Check that the configured JDK is installed and readable.",
@@ -164,6 +177,20 @@ public final class JunitWorkerProcessLauncher {
             Thread.currentThread().interrupt();
             process.destroyForcibly();
             throw new JunitWorkerClientException("JUnit worker shutdown was interrupted. Try again.", exception);
+        }
+    }
+
+    private static void abortProcess(Process process) {
+        process.destroy();
+        try {
+            if (!process.waitFor(
+                    CLOSE_TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            process.destroyForcibly();
         }
     }
 

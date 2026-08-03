@@ -58,6 +58,28 @@ final class JunitLauncherClasspathTest {
     }
 
     @Test
+    void workerPrioritizesStandalonePlatformOverEngineTransitives() {
+        List<Path> runnerClasspath = List.of(
+                Path.of("target/test-classes"),
+                Path.of("target/classes"),
+                Path.of("cache/junit-platform-commons-1.9.0.jar"),
+                Path.of("cache/junit-platform-console-standalone-1.14.4.jar"),
+                Path.of("cache/junit-platform-engine-1.9.0.jar"),
+                Path.of("cache/spock-core-2.3-groovy-4.0.jar"));
+
+        List<Path> result =
+                launcherClasspath.workerClasspath(runnerClasspath);
+
+        assertEquals(List.of(
+                Path.of("cache/junit-platform-console-standalone-1.14.4.jar"),
+                Path.of("target/test-classes"),
+                Path.of("target/classes"),
+                Path.of("cache/junit-platform-commons-1.9.0.jar"),
+                Path.of("cache/junit-platform-engine-1.9.0.jar"),
+                Path.of("cache/spock-core-2.3-groovy-4.0.jar")), result);
+    }
+
+    @Test
     void detectsMissingConsoleJar() {
         assertFalse(launcherClasspath.hasConsoleJar(List.of(
                 Path.of("target/test-classes"),

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "smoke",
+  "description": "Branch validation with the small enterprise workload and one sample per real-project and self-host workflow.",
+  "publication": false,
+  "aiSummary": false,
+  "zolt": {
+    "source": "build",
+    "channel": "zap"
+  },
+  "lanes": [
+    {
+      "id": "enterprise-layered",
+      "kind": "enterprise",
+      "workload": "benchmarks/workloads/smoke-v1.json",
+      "topology": "layered",
+      "repeat": 1,
+      "cleanRepeat": 1,
+      "sampleTimeout": 900
+    },
+    {
+      "id": "real-spring-petclinic",
+      "kind": "real-project",
+      "project": "spring-petclinic",
+      "repeat": 1,
+      "cleanRepeat": 1,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-apache-commons-cli",
+      "kind": "real-project",
+      "project": "apache-commons-cli",
+      "repeat": 1,
+      "cleanRepeat": 1,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-hikaricp",
+      "kind": "real-project",
+      "project": "hikaricp",
+      "repeat": 1,
+      "cleanRepeat": 1,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-netty",
+      "kind": "real-project",
+      "project": "netty",
+      "repeat": 1,
+      "cleanRepeat": 1,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "real-junit-framework",
+      "kind": "real-project",
+      "project": "junit-framework",
+      "repeat": 1,
+      "cleanRepeat": 1,
+      "sampleTimeout": 1800
+    },
+    {
+      "id": "zolt-self-host",
+      "kind": "self-host",
+      "repeat": 1,
+      "cleanRepeat": 1,
+      "sampleTimeout": 1800
+    }
+  ]
+}

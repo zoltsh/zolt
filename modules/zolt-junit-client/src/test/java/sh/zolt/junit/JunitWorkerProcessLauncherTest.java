@@ -149,7 +149,7 @@ final class JunitWorkerProcessLauncherTest {
         assertEquals(Path.of("/repo"), directories.getFirst());
         assertEquals(Map.of("TZ", "America/Chicago"), environments.getFirst());
         assertEquals("""
-                RUN\tv=1\tid=junit-1\tout=/repo/target/test-classes
+                RUN\tv=1\tid=junit-1\tout=/repo/target/test-classes\tclasspath=/repo/target/test-classes,/cache/junit.jar
                 QUIT\tv=1\tid=junit-2
                 """, input.toString());
         assertTrue(closed.get());

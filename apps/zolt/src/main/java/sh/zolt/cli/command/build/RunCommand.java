@@ -32,9 +32,11 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.run.WorkspaceRunResult;
 import sh.zolt.workspace.run.WorkspaceRunService;
+import sh.zolt.workspace.run.WorkspaceRunSnapshot;
 import java.nio.file.Path;
 import java.util.List;
 import picocli.CommandLine.Command;
@@ -118,29 +120,46 @@ public final class RunCommand implements Runnable {
             if (workspace) {
                 WorkspaceRunService projectWorkspaceRunService =
                         workspaceRunService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("run"));
-                lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
                 WorkspaceRunResult result = timings.measure(
                         "run workspace",
                         () -> {
-                            WorkspaceBuildPlan plan = timings.measure(
-                                    "plan workspace run",
-                                    () -> projectWorkspaceRunService.planRun(
+                            WorkspaceRunSnapshot snapshot =
+                                    WorkspaceMutationLock.withWorkspaceLock(
                                             projectRoot,
-                                            cacheRoot,
-                                            CommandWorkspaceSelections.from(all, members, memberGroups)),
-                                    CommandBuildAttributes::workspaceBuildPlan);
-                            WorkspaceBuildResult buildResult = timings.measure(
-                                    "build workspace run inputs",
-                                    () -> projectWorkspaceRunService.buildRunInputs(plan, cacheRoot),
-                                    CommandBuildAttributes::workspaceBuild);
-                            return timings.measure(
-                                    "launch workspace members",
-                                    () -> projectWorkspaceRunService.runBuiltMembers(
-                                            plan,
-                                            buildResult,
-                                            arguments,
-                                            output -> CommandOutput.printAndFlush(spec, output)),
-                                    CommandRunAttributes::workspaceRun);
+                                            () -> {
+                                                lockfiles.requireFreshWorkspaceLockfile(
+                                                        projectRoot,
+                                                        cacheRoot,
+                                                        false);
+                                                WorkspaceBuildPlan plan = timings.measure(
+                                                        "plan workspace run",
+                                                        () -> projectWorkspaceRunService.planRun(
+                                                                projectRoot,
+                                                                cacheRoot,
+                                                                CommandWorkspaceSelections.from(
+                                                                        all,
+                                                                        members,
+                                                                        memberGroups)),
+                                                        CommandBuildAttributes::workspaceBuildPlan);
+                                                WorkspaceBuildResult buildResult = timings.measure(
+                                                        "build workspace run inputs",
+                                                        () -> projectWorkspaceRunService.buildRunInputs(
+                                                                plan,
+                                                                cacheRoot),
+                                                        CommandBuildAttributes::workspaceBuild);
+                                                return projectWorkspaceRunService.snapshotRun(
+                                                        plan,
+                                                        buildResult);
+                                            });
+                            try (snapshot) {
+                                return timings.measure(
+                                        "launch workspace members",
+                                        () -> projectWorkspaceRunService.runSnapshot(
+                                                snapshot,
+                                                arguments,
+                                                output -> CommandOutput.printAndFlush(spec, output)),
+                                        CommandRunAttributes::workspaceRun);
+                            }
                         },
                         CommandRunAttributes::workspaceRun);
                 CommandHumanOutput output = CommandHumanOutput.of(spec);

@@ -65,6 +65,9 @@ public final class CommandAttributeKeys {
     public static final String OK = "ok";
     public static final String OUTPUT_BYTES = "outputBytes";
     public static final String PACKAGE_MODE = "packageMode";
+    public static final String PACKAGE_REUSED = "packageReused";
+    public static final String PACKAGES_EXECUTED = "packagesExecuted";
+    public static final String PACKAGES_REUSED = "packagesReused";
     public static final String PACKAGE_PRIVATE_ABI_CHANGED_CLASSES_SUFFIX = "PackagePrivateAbiChangedClasses";
     public static final String PASSED = "passed";
     public static final String POM_CACHE_HIT_MILLIS = "pomCacheHitMillis";
@@ -122,6 +125,8 @@ public final class CommandAttributeKeys {
     public static final String TEST_SLOW_EVIDENCE = "testSlowEvidence";
     public static final String TEST_SLOW_ENTRIES = "testSlowEntries";
     public static final String TEST_SOURCE_FILES = "testSourceFiles";
+    public static final String TEST_WORKER_REQUESTS = "testWorkerRequests";
+    public static final String TEST_WORKER_STARTS = "testWorkerStarts";
     public static final String VERSION_SELECTION_MILLIS = "versionSelectionMillis";
     public static final String VERSION_SELECTION_NANOS = "versionSelectionNanos";
     public static final String WARNINGS = "warnings";
@@ -129,6 +134,42 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_ABI_INVALIDATIONS = "workspaceAbiInvalidations";
     public static final String WORKSPACE_BUILD_MAX_WORKERS = "workspaceBuildMaxWorkers";
     public static final String WORKSPACE_BUILD_WAVES = "workspaceBuildWaves";
+    public static final String WORKSPACE_CLASSPATH_CACHE_HITS = "workspaceClasspathCacheHits";
+    public static final String WORKSPACE_CLASSPATH_CALCULATIONS = "workspaceClasspathCalculations";
+    public static final String WORKSPACE_CLASSPATH_CALCULATION_NANOS = "workspaceClasspathCalculationNanos";
+    public static final String WORKSPACE_GRAPH_CONSTRUCTION_NANOS = "workspaceGraphConstructionNanos";
+    public static final String WORKSPACE_PACKAGE_CACHE_HITS = "workspacePackageCacheHits";
+    public static final String WORKSPACE_PACKAGE_CALCULATIONS = "workspacePackageCalculations";
+    public static final String WORKSPACE_PACKAGE_CALCULATION_NANOS = "workspacePackageCalculationNanos";
+    public static final String WORKSPACE_PACKAGE_MAX_WORKERS = "workspacePackageMaxWorkers";
+    public static final String WORKSPACE_DISCOVERY_NANOS = "workspaceDiscoveryNanos";
+    public static final String WORKSPACE_SELECTION_NANOS = "workspaceSelectionNanos";
+    public static final String WORKSPACE_RESOLUTION_NANOS = "workspaceResolutionNanos";
+    public static final String WORKSPACE_LOCKFILE_READ_NANOS = "workspaceLockfileReadNanos";
+    public static final String WORKSPACE_EDGES = "workspaceEdges";
+    public static final String WORKSPACE_LOCKFILE_PACKAGES = "workspaceLockfilePackages";
+    public static final String WORKSPACE_MEMBER_EXECUTION_NANOS = "workspaceMemberExecutionNanos";
+    public static final String WORKSPACE_SCHEDULER_IDLE_NANOS = "workspaceSchedulerIdleNanos";
+    public static final String WORKSPACE_READY_QUEUE_PEAK = "workspaceReadyQueuePeak";
+    public static final String WORKSPACE_FILE_SNAPSHOT_NANOS = "workspaceFileSnapshotNanos";
+    public static final String WORKSPACE_BYTES_HASHED = "workspaceBytesHashed";
+    public static final String WORKSPACE_FILES_HASHED = "workspaceFilesHashed";
+    public static final String WORKSPACE_MEMBERS_CONSIDERED = "workspaceMembersConsidered";
+    public static final String WORKSPACE_MEMBERS_DECLARED_CLEAN = "workspaceMembersDeclaredClean";
+    public static final String WORKSPACE_MEMBER_PIPELINE_INVOCATIONS = "workspaceMemberPipelineInvocations";
+    public static final String WORKSPACE_ABI_STATE_READS = "workspaceAbiStateReads";
+    public static final String WORKSPACE_ABI_STATE_CACHE_HITS = "workspaceAbiStateCacheHits";
+    public static final String WORKSPACE_TOOLCHAIN_RESOLUTIONS = "workspaceToolchainResolutions";
+    public static final String WORKSPACE_TOOLCHAIN_CACHE_HITS = "workspaceToolchainCacheHits";
+    public static final String WORKSPACE_TOOLCHAIN_LOCKFILE_PARSES = "workspaceToolchainLockfileParses";
+    public static final String WORKSPACE_TOOLCHAIN_IDENTITY_CALCULATIONS =
+            "workspaceToolchainIdentityCalculations";
+    public static final String WORKSPACE_TOOLCHAIN_IDENTITY_CACHE_HITS =
+            "workspaceToolchainIdentityCacheHits";
+    public static final String WORKSPACE_TEST_RUNTIME_TOOLCHAIN_IDENTITY_CALCULATIONS =
+            "workspaceTestRuntimeToolchainIdentityCalculations";
+    public static final String WORKSPACE_TEST_RUNTIME_TOOLCHAIN_IDENTITY_CACHE_HITS =
+            "workspaceTestRuntimeToolchainIdentityCacheHits";
     public static final String XML_REPORT = "xmlReport";
 
     private CommandAttributeKeys() {

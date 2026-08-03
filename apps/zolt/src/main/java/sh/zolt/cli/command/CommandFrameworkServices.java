@@ -234,14 +234,36 @@ public final class CommandFrameworkServices {
     }
 
     public static CommandCoverageServices coverageCommandServices() {
-        CommandTestFrameworkServices testFrameworkServices = testFrameworkServices();
+        return coverageCommandServices(resolveService());
+    }
+
+    static CommandCoverageServices coverageCommandServices(
+            ResolveService resolveService) {
+        CommandTestFrameworkServices testFrameworkServices =
+                new CommandTestFrameworkServices(
+                        new QuarkusFrameworkTestRunner(),
+                        resolveService);
+        CommandServiceBundles.TestRunServiceFactory testRunServiceFactory =
+                CommandWorkspaceTestRunServices.persistentFactory(
+                        testFrameworkServices);
         return new CommandCoverageServices(
                 new ZoltTomlParser(),
-                new CoverageService(),
-                new WorkspaceCoverageService(),
+                resolveService,
+                new CoverageService(
+                        testRunService(testFrameworkServices),
+                        new sh.zolt.doctor.JdkDetector(),
+                        resolveService),
+                new WorkspaceCoverageService(
+                        new WorkspaceResolveService(resolveService),
+                        workspaceTestService(testFrameworkServices),
+                        checker -> new CoverageService(
+                                checker,
+                                resolveService)),
                 (compileChecker, runChecker) -> new CoverageService(
                         testRunService(testFrameworkServices, compileChecker, runChecker),
-                        compileChecker));
+                        compileChecker,
+                        resolveService),
+                testRunServiceFactory);
     }
 
     static WorkspaceRunPackageService workspaceRunPackageService() {
@@ -279,7 +301,8 @@ public final class CommandFrameworkServices {
         return new CommandTestServices(
                 testRunService(testFrameworkServices),
                 workspaceTestService(testFrameworkServices),
-                (compileChecker, runChecker) -> testRunService(testFrameworkServices, compileChecker, runChecker));
+                CommandWorkspaceTestRunServices.persistentFactory(
+                        testFrameworkServices));
     }
 
     static TestRunService testRunService(FrameworkTestRunner frameworkTestRunner) {
@@ -300,11 +323,10 @@ public final class CommandFrameworkServices {
             CommandTestFrameworkServices testFrameworkServices,
             JdkChecker compileChecker,
             JdkChecker runChecker) {
-        return new TestRunService(
+        return CommandWorkspaceTestRunServices.once(
+                testFrameworkServices,
                 compileChecker,
-                runChecker,
-                testFrameworkServices.frameworkTestRunner(),
-                testFrameworkServices.resolveService());
+                runChecker);
     }
 
     static TestRunService testRunService() {

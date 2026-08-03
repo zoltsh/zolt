@@ -19,6 +19,11 @@ import java.util.Set;
 final class WorkspaceClasspathMemberGraph {
     private final Map<String, List<WorkspaceProjectEdge>> edgesByMember;
     private final Map<String, List<String>> compileDependenciesByMember;
+    private final Map<String, Set<String>> mainCompileClosures = new LinkedHashMap<>();
+    private final Map<String, Set<String>> runtimeClosures = new LinkedHashMap<>();
+    private final Map<String, Set<String>> testClosures = new LinkedHashMap<>();
+    private final Map<String, Set<String>> exportedClosures = new LinkedHashMap<>();
+    private final Map<String, Set<String>> nonOptionalClosures = new LinkedHashMap<>();
 
     WorkspaceClasspathMemberGraph(Workspace workspace) {
         Map<String, List<WorkspaceProjectEdge>> edges = new LinkedHashMap<>();
@@ -39,59 +44,91 @@ final class WorkspaceClasspathMemberGraph {
         compileDependenciesByMember = immutableLists(compileDependencies);
     }
 
-    Set<String> mainCompile(String memberPath) {
+    synchronized Set<String> mainCompile(String memberPath) {
+        Set<String> cached = mainCompileClosures.get(memberPath);
+        if (cached != null) {
+            return cached;
+        }
         Set<String> visible = new LinkedHashSet<>();
         for (WorkspaceProjectEdge edge : edges(memberPath)) {
             if (isCompile(edge) && visible.add(edge.to())) {
-                includeExportedCompile(edge.to(), visible);
+                visible.addAll(exportedCompile(edge.to()));
             }
         }
-        return Set.copyOf(visible);
+        Set<String> calculated = Set.copyOf(visible);
+        mainCompileClosures.put(memberPath, calculated);
+        return calculated;
     }
 
-    Set<String> mainRuntime(String memberPath) {
+    synchronized Set<String> mainRuntime(String memberPath) {
+        Set<String> cached = runtimeClosures.get(memberPath);
+        if (cached != null) {
+            return cached;
+        }
         Set<String> visible = new LinkedHashSet<>();
         for (WorkspaceProjectEdge edge : edges(memberPath)) {
             if (isCompile(edge) && visible.add(edge.to())) {
-                includeNonOptionalCompileDependencies(edge.to(), visible);
+                visible.addAll(nonOptionalCompile(edge.to()));
             }
         }
-        return Set.copyOf(visible);
+        Set<String> calculated = Set.copyOf(visible);
+        runtimeClosures.put(memberPath, calculated);
+        return calculated;
     }
 
-    Set<String> test(String memberPath) {
+    synchronized Set<String> test(String memberPath) {
+        Set<String> cached = testClosures.get(memberPath);
+        if (cached != null) {
+            return cached;
+        }
         Set<String> visible = new LinkedHashSet<>(mainRuntime(memberPath));
         for (WorkspaceProjectEdge edge : edges(memberPath)) {
             if (edge.scope().equals("test") && visible.add(edge.to())) {
-                includeNonOptionalCompileDependencies(edge.to(), visible);
+                visible.addAll(nonOptionalCompile(edge.to()));
             }
         }
-        return Set.copyOf(visible);
+        Set<String> calculated = Set.copyOf(visible);
+        testClosures.put(memberPath, calculated);
+        return calculated;
     }
 
     Map<String, List<String>> compileDependenciesByMember() {
         return compileDependenciesByMember;
     }
 
-    private void includeExportedCompile(String memberPath, Set<String> visible) {
+    private Set<String> exportedCompile(String memberPath) {
+        Set<String> cached = exportedClosures.get(memberPath);
+        if (cached != null) {
+            return cached;
+        }
+        Set<String> visible = new LinkedHashSet<>();
         for (WorkspaceProjectEdge edge : edges(memberPath)) {
             if (isCompile(edge)
                     && edge.exported()
                     && !edge.optional()
                     && visible.add(edge.to())) {
-                includeExportedCompile(edge.to(), visible);
+                visible.addAll(exportedCompile(edge.to()));
             }
         }
+        Set<String> calculated = Set.copyOf(visible);
+        exportedClosures.put(memberPath, calculated);
+        return calculated;
     }
 
-    private void includeNonOptionalCompileDependencies(
-            String memberPath,
-            Set<String> visible) {
+    private Set<String> nonOptionalCompile(String memberPath) {
+        Set<String> cached = nonOptionalClosures.get(memberPath);
+        if (cached != null) {
+            return cached;
+        }
+        Set<String> visible = new LinkedHashSet<>();
         for (WorkspaceProjectEdge edge : edges(memberPath)) {
             if (isCompile(edge) && !edge.optional() && visible.add(edge.to())) {
-                includeNonOptionalCompileDependencies(edge.to(), visible);
+                visible.addAll(nonOptionalCompile(edge.to()));
             }
         }
+        Set<String> calculated = Set.copyOf(visible);
+        nonOptionalClosures.put(memberPath, calculated);
+        return calculated;
     }
 
     private List<WorkspaceProjectEdge> edges(String memberPath) {

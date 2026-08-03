@@ -61,6 +61,7 @@ final class PackageRuntimeJarMaterializerTest {
         try (PackageArchiveWriter archive =
                 PackageArchiveWriter.open(original.jarPath())) {
             archive.writeEntry("corrupt.class", new byte[] {1, 2, 3});
+            archive.commit();
         }
         assertRegenerated(materializer, config, input, expected);
 

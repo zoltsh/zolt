@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/benchmark-profile-test"
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+expected_profiles=$'candidate\nfull\npublishable\nsmoke'
+[[ "$(scripts/benchmark-profile list)" == "$expected_profiles" ]] \
+  || fail "profile list is unexpected"
+
+scripts/benchmark-profile show --profile smoke >"$WORK_DIR/smoke.json"
+scripts/benchmark-profile show --profile candidate >"$WORK_DIR/candidate.json"
+scripts/benchmark-profile show --profile publishable >"$WORK_DIR/publishable.json"
+scripts/benchmark-profile show --profile full >"$WORK_DIR/full.json"
+
+jq -e '
+  .id == "smoke"
+  and .zolt.source == "build"
+  and .publication == false
+  and (.lanes | length) == 7
+  and (.sha256 | test("^[0-9a-f]{64}$"))
+' "$WORK_DIR/smoke.json" >/dev/null \
+  || fail "smoke profile contract is invalid"
+
+jq -e '
+  .id == "candidate"
+  and .zolt.source == "build"
+  and .publication == false
+  and .aiSummary == true
+  and (.lanes | length) == 6
+  and ([.lanes[] | select(.kind == "real-project")] | length) == 5
+  and ([.lanes[] | select(.kind == "real-project") | .project] | sort)
+    == ["apache-commons-cli", "hikaricp", "junit-framework", "netty", "spring-petclinic"]
+  and .lanes[0].workload == "benchmarks/workloads/enterprise-v1.json"
+  and .lanes[0].topology == "layered"
+  and .lanes[0].repeat == 7
+  and .lanes[0].cleanRepeat == 5
+  and .lanes[0].jobTimeout == 360
+' "$WORK_DIR/candidate.json" >/dev/null \
+  || fail "candidate profile contract is invalid"
+
+jq -e '
+  .id == "publishable"
+  and .zolt.source == "release"
+  and .publication == true
+  and (.lanes | length) == 6
+  and ([.lanes[] | select(.kind == "real-project")] | length) == 5
+  and ([.lanes[] | select(.kind == "real-project") | .project] | sort)
+    == ["apache-commons-cli", "hikaricp", "junit-framework", "netty", "spring-petclinic"]
+  and .lanes[0].workload == "benchmarks/workloads/enterprise-v1.json"
+  and .lanes[0].topology == "layered"
+  and .lanes[0].repeat == 7
+  and .lanes[0].cleanRepeat == 5
+  and .lanes[0].jobTimeout == 360
+' "$WORK_DIR/publishable.json" >/dev/null \
+  || fail "publishable profile contract is invalid"
+
+scripts/benchmark-profile matrix --profile publishable >"$WORK_DIR/publishable-matrix.json"
+jq -e '
+  (.include | length) == 6
+  and ([.include[] | select(.kind == "enterprise" and .timeoutMinutes == 360)] | length) == 1
+  and ([.include[] | select(.kind == "real-project" and .timeoutMinutes == 180)] | length) == 5
+' "$WORK_DIR/publishable-matrix.json" >/dev/null \
+  || fail "publishable profile did not preserve per-lane CI budgets"
+
+scripts/benchmark-profile matrix --profile candidate >"$WORK_DIR/candidate-matrix.json"
+jq -e '
+  (.include | length) == 6
+  and ([.include[] | select(.kind == "enterprise" and .timeoutMinutes == 360)] | length) == 1
+  and ([.include[] | select(.kind == "real-project" and .timeoutMinutes == 180)] | length) == 5
+' "$WORK_DIR/candidate-matrix.json" >/dev/null \
+  || fail "candidate profile did not preserve publication-scale CI budgets"
+
+scripts/benchmark-profile matrix --profile full >"$WORK_DIR/full-matrix.json"
+jq -e '
+  (.include | length) == 8
+  and ([.include[] | select(.kind == "enterprise")] | length) == 2
+  and ([.include[] | select(.kind == "enterprise" and .timeoutMinutes == 360)] | length) == 2
+  and ([.include[] | select(.kind == "real-project")] | length) == 5
+  and ([.include[] | select(.kind == "self-host")] | length) == 1
+  and ([.include[] | select(.kind != "enterprise" and .timeoutMinutes == 180)] | length) == 6
+  and ([.include[].id] | unique | length) == 8
+' "$WORK_DIR/full-matrix.json" >/dev/null \
+  || fail "full profile did not expand to the expected parallel lane matrix"
+
+scripts/benchmark-profile command \
+  --profile candidate \
+  --lane enterprise-layered \
+  --zolt /tmp/zolt \
+  --work-dir "$WORK_DIR/candidate-run" \
+  --artifact-name profile-test \
+  >"$WORK_DIR/candidate-command.json"
+jq -e '
+  index("--enterprise-workload") != null
+  and index("benchmarks/workloads/enterprise-v1.json") != null
+  and index("--include-gradle-daemon") != null
+  and index("--include-tuned-modes") != null
+  and index("--topology") != null
+  and index("layered") != null
+' "$WORK_DIR/candidate-command.json" >/dev/null \
+  || fail "candidate profile command is incomplete"
+
+scripts/benchmark-profile command \
+  --profile publishable \
+  --lane enterprise-layered \
+  --zolt /tmp/zolt \
+  --resolved-zolt-version 0.1.0-zap.test \
+  --work-dir "$WORK_DIR/publishable-run" \
+  --artifact-name profile-test \
+  >"$WORK_DIR/publishable-command.json"
+jq -e '
+  index("--enterprise-workload") != null
+  and index("benchmarks/workloads/enterprise-v1.json") != null
+  and index("--include-gradle-daemon") != null
+  and index("--include-tuned-modes") != null
+  and index("--topology") != null
+  and index("layered") != null
+' "$WORK_DIR/publishable-command.json" >/dev/null \
+  || fail "publishable profile command is incomplete"
+
+if scripts/benchmark-profile command \
+  --profile publishable \
+  --lane enterprise-layered \
+  --zolt /tmp/zolt \
+  --work-dir "$WORK_DIR/missing-version" \
+  --artifact-name profile-test \
+  >/dev/null 2>&1; then
+  fail "release profile accepted a missing resolved Zolt version"
+fi
+
+scripts/benchmark-profile command \
+  --profile full \
+  --lane real-netty \
+  --zolt /tmp/zolt \
+  --resolved-zolt-version 0.1.0-zap.test \
+  --work-dir "$WORK_DIR/netty-run" \
+  --artifact-name profile-test \
+  >"$WORK_DIR/netty-command.json"
+jq -e '
+  index("--skip-generated") != null
+  and index("--real-project") != null
+  and index("netty") != null
+  and index("--real-project-sample-timeout") != null
+  and index("--include-tuned-modes") != null
+' "$WORK_DIR/netty-command.json" >/dev/null \
+  || fail "real-project profile command is incomplete"
+
+python3 - "$WORK_DIR/lane-one.json" "$WORK_DIR/lane-two.json" <<'PY'
+import json
+import pathlib
+import sys
+
+for index, value in enumerate(sys.argv[1:], start=1):
+    path = pathlib.Path(value)
+    status = "complete" if index == 1 else "failed"
+    path.write_text(json.dumps({
+        "schemaVersion": 1,
+        "repository": {"name": "zsumz/zolt", "commit": "test"},
+        "lanes": [{
+            "id": f"test-{index}",
+            "name": f"Test {index}",
+            "kind": "zolt-self-host",
+            "status": status,
+            "summary": {
+                "classification": "Zolt self-host validation",
+                "failure": None if status == "complete" else {
+                    "error": "intentional lane failure"
+                },
+            },
+            "workflows": [],
+        }],
+    }) + "\n", encoding="utf-8")
+PY
+
+profile_sha="$(jq -r .sha256 "$WORK_DIR/full.json")"
+BENCHMARK_PROFILE_ID=full \
+BENCHMARK_PROFILE_SHA256="$profile_sha" \
+scripts/benchmark-suite \
+  --skip-generated \
+  --lane-summary "$WORK_DIR/lane-one.json" \
+  --lane-summary "$WORK_DIR/lane-two.json" \
+  --work-dir "$WORK_DIR/aggregate" \
+  --artifact-name profile-test \
+  >/dev/null
+
+jq -e --arg sha "$profile_sha" '
+  .profile.id == "full"
+  and .profile.sha256 == $sha
+  and .run.laneCount == 2
+  and .run.completedLaneCount == 1
+  and ([.lanes[].id] | sort) == ["test-1", "test-2"]
+  and any(.lanes[];
+    .id == "test-2"
+    and .status == "failed"
+    and .summary.failure.error == "intentional lane failure"
+  )
+' "$WORK_DIR/aggregate/suite-summary.json" >/dev/null \
+  || fail "precomputed lane aggregation lost profile or lane metadata"
+
+grep -F '| Test 2 | intentional lane failure |' \
+  "$WORK_DIR/aggregate/summary-brief.md" >/dev/null \
+  || fail "aggregate brief did not retain the failed lane reason"
+
+# These are literal shell fragments in the workflow.
+# shellcheck disable=SC2016
+if ! grep -F 'lane_status=0' .github/workflows/benchmarks.yml >/dev/null \
+  || ! grep -F '|| lane_status=$?' .github/workflows/benchmarks.yml >/dev/null \
+  || ! grep -F 'exit "$lane_status"' .github/workflows/benchmarks.yml >/dev/null; then
+  fail "benchmark workflow does not preserve failed lane summaries"
+fi
+
+if grep -n 'branch zap' \
+  .github/workflows/benchmarks.yml \
+  docs/benchmarks/README.md \
+  docs/benchmarks/plan.md >/dev/null; then
+  fail "ephemeral benchmark distribution is presented as a published branch zap"
+fi
+
+grep -F 'name: build branch benchmark distribution' \
+  .github/workflows/benchmarks.yml >/dev/null \
+  || fail "benchmark workflow does not clearly label the ephemeral branch distribution"
+
+grep -F '          - candidate' .github/workflows/benchmarks.yml >/dev/null \
+  || fail "benchmark workflow does not expose the candidate profile"
+
+# This is a literal shell fragment in the suite runner.
+# shellcheck disable=SC2016
+grep -F 'if ! scripts/benchmark-enterprise "${enterprise_args[@]}"; then' \
+  scripts/benchmark-suite >/dev/null \
+  || fail "benchmark suite does not preserve failed enterprise evidence"
+
+# This is a literal GitHub expression in the workflow.
+# shellcheck disable=SC2016
+grep -F 'timeout-minutes: ${{ matrix.timeoutMinutes }}' \
+  .github/workflows/benchmarks.yml >/dev/null \
+  || fail "benchmark workflow does not apply the profile lane timeout"
+
+for volatile_dir in cache caches checkout fixtures projects workspace; do
+  # This is a literal GitHub expression in the workflow.
+  # shellcheck disable=SC2016
+  grep -F '!${{ env.BENCHMARK_DIR }}/**/'"$volatile_dir"'/**' \
+    .github/workflows/benchmarks.yml >/dev/null \
+    || fail "benchmark artifacts include volatile $volatile_dir output"
+done
+
+# This is a literal GitHub expression in the workflow.
+# shellcheck disable=SC2016
+grep -F '!${{ env.BENCHMARK_DIR }}/real-project-cache/**' \
+  .github/workflows/benchmarks.yml >/dev/null \
+  || fail "benchmark artifacts include the shared real-project cache"
+
+printf 'benchmark profile script test passed\n'

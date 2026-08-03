@@ -59,12 +59,33 @@ public final class CompiledTestRunner {
             PlainJunitWorkerRunner plainJunitWorkerRunner,
             boolean plainJunitWorkerEnabled,
             String pathSeparator) {
+        this(
+                jdkDetector,
+                javaRunner,
+                frameworkTestRunner,
+                PlainJunitRunners.legacy(
+                        plainJunitWorkerClasspath,
+                        plainJunitWorkerRunner),
+                plainJunitWorkerEnabled,
+                pathSeparator);
+    }
+
+    public CompiledTestRunner(
+            JdkChecker jdkDetector,
+            JavaRunner javaRunner,
+            FrameworkTestRunner frameworkTestRunner,
+            PlainJunitRunners plainJunitRunners,
+            boolean plainJunitWorkerEnabled,
+            String pathSeparator) {
         this.jdkDetector = jdkDetector;
         this.javaRunner = javaRunner;
         this.frameworkTestRunner = frameworkTestRunner;
-        this.plainJunitWorkerClasspath = plainJunitWorkerClasspath;
-        this.plainJunitWorkerRunner = plainJunitWorkerRunner;
-        this.plainJunitWorkerPoolRunner = new PlainJunitWorkerPoolRunner(plainJunitWorkerRunner);
+        this.plainJunitWorkerClasspath =
+                plainJunitRunners.workerClasspath();
+        this.plainJunitWorkerRunner =
+                plainJunitRunners.workerRunner();
+        this.plainJunitWorkerPoolRunner =
+                plainJunitRunners.workerPoolRunner();
         this.junitConsoleArguments = new JunitConsoleArguments(pathSeparator);
         this.plainJunitWorkerEnabled = plainJunitWorkerEnabled;
     }
@@ -162,13 +183,17 @@ public final class CompiledTestRunner {
         }
         if (plainJunitWorkerEnabled || testProfileSettings.enabled()) {
             List<Path> workerClasspath = plainJunitWorkerClasspath.get();
-            if (testWorkerPoolPlan.enabled() && !testWorkerPoolPlan.empty()) {
+            List<Path> workerTestRuntimeClasspath =
+                    junitLauncherClasspath.workerClasspath(
+                            runnerClasspath);
+            if (testWorkerPoolPlan.enabled()
+                    || plainJunitWorkerPoolRunner.reusesProcesses()) {
                 PlainJunitWorkerPoolRunResult poolResult = plainJunitWorkerPoolRunner.run(
                         jdkStatus.java().orElseThrow(),
                         workerClasspath,
                         projectDirectory,
                         config,
-                        runnerClasspath,
+                        workerTestRuntimeClasspath,
                         compileResult.outputDirectory().toAbsolutePath().normalize(),
                         testSelection,
                         testWorkerPoolPlan,
@@ -185,6 +210,8 @@ public final class CompiledTestRunner {
                                 runnerClasspath.size(),
                                 workerClasspath.size() + runnerClasspath.size(),
                                 poolResult.workerRequests(),
+                                poolResult.workerStarts(),
+                                poolResult.workerRequests(),
                                 poolResult.startupNanos(),
                                 poolResult.requestNanos()),
                         testSelection,
@@ -196,7 +223,7 @@ public final class CompiledTestRunner {
                     jdkStatus.java().orElseThrow(),
                     workerClasspath,
                     projectDirectory,
-                    runnerClasspath,
+                    workerTestRuntimeClasspath,
                     compileResult.outputDirectory().toAbsolutePath().normalize(),
                     testSelection,
                     testJvmArguments,
@@ -204,7 +231,7 @@ public final class CompiledTestRunner {
                     reportsDirectory,
                     testRuntime.events(),
                     profileDirectory);
-            if (result.workerResult().exitCode() != 0) {
+            if (!result.successful(testSelection)) {
                 String summary = profileDirectory
                         .flatMap(directory -> TestProfileSummaryFormatter.format(directory.resolve("profile.json"), testProfileSettings))
                         .map(value -> "\n\n" + value)
@@ -223,6 +250,8 @@ public final class CompiledTestRunner {
                             PLAIN_JUNIT_WORKER_RUNNER,
                             runnerClasspath.size(),
                             workerClasspath.size() + runnerClasspath.size(),
+                            1,
+                            1,
                             1,
                             result.startupNanos(),
                             result.requestNanos()),

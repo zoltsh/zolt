@@ -15,6 +15,7 @@ import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -99,10 +100,12 @@ public final class WorkspaceNativeBuildService {
             WorkspaceSelectionRequest selectionRequest,
             NativeImageExecutableResolver nativeImageExecutableResolver,
             Runnable progress) {
-        WorkspaceBuildPlan plan = planNative(startDirectory, cacheRoot, selectionRequest);
-        WorkspaceBuildResult buildResult = buildNativeInputs(plan, cacheRoot);
-        WorkspacePackageResult packageResult = packageNativeInputs(plan, buildResult);
-        return buildNativeImages(plan, packageResult, nativeImageExecutableResolver, progress);
+        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
+            WorkspaceBuildPlan plan = planNative(startDirectory, cacheRoot, selectionRequest);
+            WorkspaceBuildResult buildResult = buildNativeInputs(plan, cacheRoot);
+            WorkspacePackageResult packageResult = packageNativeInputs(plan, buildResult);
+            return buildNativeImages(plan, packageResult, nativeImageExecutableResolver, progress);
+        });
     }
 
     public WorkspaceBuildPlan planNative(
@@ -150,6 +153,7 @@ public final class WorkspaceNativeBuildService {
             WorkspacePackageResult packageResult,
             NativeImageExecutableResolver nativeImageExecutableResolver,
             Runnable progress) {
+        plan.requireInputsCurrent();
         Map<String, WorkspaceMember> membersByPath = membersByPath(plan.workspace());
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(packageResult);
         List<WorkspaceNativeBuildResult.MemberNativeBuildResult> results = new ArrayList<>();

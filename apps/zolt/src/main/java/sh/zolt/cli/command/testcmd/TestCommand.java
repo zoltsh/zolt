@@ -34,6 +34,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import sh.zolt.workspace.service.WorkspaceTestService;
@@ -91,6 +92,9 @@ public final class TestCommand implements Runnable {
 
     @Option(names = "--reports-dir", description = "Write JUnit XML reports to a project-relative directory.")
     private Path reportsDir;
+
+    @Option(names = "--compile-only", description = "Compile test sources without running tests.")
+    private boolean compileOnly;
 
     @Mixin
     private CommandTestProfileOptions profileOptions = new CommandTestProfileOptions();
@@ -158,10 +162,20 @@ public final class TestCommand implements Runnable {
                     suiteName,
                     TestShardSpec.parse(shardValue));
             if (workspace) {
-                runWorkspaceTests(projectRoot, timings, CommandProgress.human(spec), request);
+                if (compileOnly) {
+                    compileRunner().compileWorkspace(
+                            projectRoot, cacheRoot, all, members, memberGroups, timings, CommandProgress.human(spec));
+                } else {
+                    runWorkspaceTests(projectRoot, timings, CommandProgress.human(spec), request);
+                }
                 return;
             }
-            runSingleProjectTests(projectRoot, timings, CommandProgress.human(spec), request);
+            if (compileOnly) {
+                compileRunner().compileSingle(
+                        projectRoot, cacheRoot, noBuildCache, timings, CommandProgress.human(spec));
+            } else {
+                runSingleProjectTests(projectRoot, timings, CommandProgress.human(spec), request);
+            }
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
@@ -188,42 +202,47 @@ public final class TestCommand implements Runnable {
             TimingRecorder timings,
             ProgressWriter progress,
             TestCommandRequest request) {
+        var workspaceToolchains = toolchainOptions.workspaceTestToolchains(testRunServiceFactory, "test");
         WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
-                toolchainOptions.workspaceJdkCheckers("test"),
-                toolchainOptions.workspaceTestRunServices(testRunServiceFactory, "test"));
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
-        progress.start("Testing workspace");
+                workspaceToolchains.mainCheckers(),
+                workspaceToolchains.testRunServices());
         CommandHumanOutput output = CommandHumanOutput.of(spec);
-        WorkspaceTestResult result = timings.measure(
-                "test workspace",
+        WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
+                projectRoot,
                 () -> {
-                    WorkspaceBuildPlan plan = timings.measure(
-                            "plan workspace tests",
-                            () -> projectWorkspaceTestService.planTests(
-                                    projectRoot,
-                                    cacheRoot,
-                                    CommandWorkspaceSelections.from(all, members, memberGroups)),
-                            CommandBuildAttributes::workspaceBuildPlan);
-                    WorkspaceBuildResult buildResult = timings.measure(
-                            "build workspace test inputs",
-                            () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
-                            build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
+                    lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                    progress.start("Testing workspace");
                     return timings.measure(
-                            "run workspace test members",
-                            () -> projectWorkspaceTestService.runTests(
-                                    plan,
-                                    buildResult,
-                                    cacheRoot,
-                                    request.testSelection(),
-                                    request.testJvmArguments(),
-                                    request.reportSettings(),
-                                    request.requestedTestEvents(),
-                                    request.suiteName(),
-                                    request.shard(),
-                                    request.profileSettings()),
+                            "test workspace",
+                            () -> {
+                                WorkspaceBuildPlan plan = timings.measure(
+                                        "plan workspace tests",
+                                        () -> projectWorkspaceTestService.planTests(
+                                                projectRoot,
+                                                cacheRoot,
+                                                CommandWorkspaceSelections.from(all, members, memberGroups)),
+                                        CommandBuildAttributes::workspaceBuildPlan);
+                                WorkspaceBuildResult buildResult = timings.measure(
+                                        "build workspace test inputs",
+                                        () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
+                                        build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
+                                return timings.measure(
+                                        "run workspace test members",
+                                        () -> projectWorkspaceTestService.runTests(
+                                                plan,
+                                                buildResult,
+                                        cacheRoot,
+                                        request.testSelection(),
+                                        request.testJvmArguments(),
+                                        request.reportSettings(),
+                                        request.requestedTestEvents(),
+                                        request.suiteName(),
+                                        request.shard(),
+                                                request.profileSettings()),
+                                        CommandTestAttributes::workspaceTest);
+                            },
                             CommandTestAttributes::workspaceTest);
-                },
-                CommandTestAttributes::workspaceTest);
+                });
         if (result.resolvedLockfile()) {
             output.detail("Resolved workspace dependencies because zolt.lock was missing");
         }
@@ -322,5 +341,10 @@ public final class TestCommand implements Runnable {
         CommandTestProfileOutput.print(output, result, request.profileSettings());
         output.provenance(CommandBuildProvenance.read(projectRoot));
         progress.result("Tested project");
+    }
+
+    private TestCompileCommandRunner compileRunner() {
+        return new TestCompileCommandRunner(
+                tomlParser, workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec);
     }
 }

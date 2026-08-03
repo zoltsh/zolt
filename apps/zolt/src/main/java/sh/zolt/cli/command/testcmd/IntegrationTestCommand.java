@@ -30,6 +30,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import sh.zolt.workspace.service.WorkspaceTestService;
@@ -180,37 +181,44 @@ public final class IntegrationTestCommand implements Runnable {
             TestJvmArguments testJvmArguments,
             TestReportSettings reportSettings,
             List<String> requestedTestEvents) {
+        CommandToolchainOptions.WorkspaceCommandToolchains workspaceToolchains =
+                toolchainOptions.workspaceIntegrationTestToolchains(
+                        testRunServiceFactory);
         WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
-                toolchainOptions.workspaceJdkCheckers("integration-test"),
-                toolchainOptions.workspaceIntegrationTestRunServices(testRunServiceFactory));
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
-        WorkspaceTestResult result = timings.measure(
-                "integration-test workspace",
+                workspaceToolchains.mainCheckers(),
+                workspaceToolchains.testRunServices());
+        WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
+                projectRoot,
                 () -> {
-                    WorkspaceBuildPlan plan = timings.measure(
-                            "plan workspace integration tests",
-                            () -> projectWorkspaceTestService.planTests(
-                                    projectRoot,
-                                    cacheRoot,
-                                    CommandWorkspaceSelections.from(all, members, memberGroups)),
-                            CommandBuildAttributes::workspaceBuildPlan);
-                    WorkspaceBuildResult buildResult = timings.measure(
-                            "build workspace integration-test inputs",
-                            () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
-                            build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
+                    lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
                     return timings.measure(
-                            "run workspace integration-test members",
-                            () -> projectWorkspaceTestService.runIntegrationTests(
-                                    plan,
-                                    buildResult,
-                                    cacheRoot,
-                                    testSelection,
-                                    testJvmArguments,
-                                    reportSettings,
-                                    requestedTestEvents),
+                            "integration-test workspace",
+                            () -> {
+                                WorkspaceBuildPlan plan = timings.measure(
+                                        "plan workspace integration tests",
+                                        () -> projectWorkspaceTestService.planTests(
+                                                projectRoot,
+                                                cacheRoot,
+                                                CommandWorkspaceSelections.from(all, members, memberGroups)),
+                                        CommandBuildAttributes::workspaceBuildPlan);
+                                WorkspaceBuildResult buildResult = timings.measure(
+                                        "build workspace integration-test inputs",
+                                        () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
+                                        build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
+                                return timings.measure(
+                                        "run workspace integration-test members",
+                                        () -> projectWorkspaceTestService.runIntegrationTests(
+                                                plan,
+                                                buildResult,
+                                                cacheRoot,
+                                                testSelection,
+                                                testJvmArguments,
+                                                reportSettings,
+                                                requestedTestEvents),
+                                        CommandTestAttributes::workspaceTest);
+                            },
                             CommandTestAttributes::workspaceTest);
-                },
-                CommandTestAttributes::workspaceTest);
+                });
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         for (WorkspaceTestResult.MemberTestRunResult member : result.members()) {
             CommandOutput.printAndFlush(spec, member.result().output());

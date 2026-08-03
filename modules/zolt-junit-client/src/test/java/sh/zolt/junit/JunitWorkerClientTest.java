@@ -1,6 +1,7 @@
 package sh.zolt.junit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,6 +42,21 @@ final class JunitWorkerClientTest {
         assertEquals("RUN\tv=1\tid=junit-1\tout=target/test-classes\n", input.toString());
         assertEquals("Tests found: 1\nTests succeeded: 1\n", result.output());
         assertEquals(0, result.exitCode());
+        assertFalse(result.retireWorker());
+    }
+
+    @Test
+    void reportsWhenTheWorkerMustRetireAfterARequest() {
+        StringWriter input = new StringWriter();
+        JunitWorkerClient client = new JunitWorkerClient(
+                new StringReader(
+                        "ZOLT_WORKER_RESULT\tid=junit-1\texit=0\tretire=true\n"),
+                input);
+
+        JunitWorkerClient.WorkerRunResult result =
+                client.run(Path.of("target/test-classes"));
+
+        assertTrue(result.retireWorker());
     }
 
     @Test
@@ -101,6 +117,35 @@ final class JunitWorkerClientTest {
                 """, input.toString());
         assertEquals("Tests found: 1\n", result.output());
         assertEquals(0, result.exitCode());
+    }
+
+    @Test
+    void sendsAnAbsoluteProjectDirectoryForDynamicRequests() {
+        StringWriter input = new StringWriter();
+        JunitWorkerClient client = new JunitWorkerClient(
+                new StringReader(
+                        "ZOLT_WORKER_RESULT\tid=junit-1\texit=0\n"),
+                input);
+        Path projectDirectory = Path.of("modules/demo");
+
+        client.run(
+                projectDirectory,
+                List.of(Path.of("target/classes")),
+                Path.of("target/test-classes"),
+                TestSelection.empty(),
+                Optional.empty(),
+                List.of(),
+                Optional.empty());
+
+        JunitWorkerProtocol.WorkerRequest request =
+                JunitWorkerProtocol.parseRequest(
+                        input.toString().strip());
+        assertEquals(
+                Optional.of(projectDirectory
+                        .toAbsolutePath()
+                        .normalize()
+                        .toString()),
+                request.projectDirectory());
     }
 
     @Test

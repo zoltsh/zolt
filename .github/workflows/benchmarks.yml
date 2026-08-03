@@ -3,125 +3,105 @@ name: benchmarks
 on:
   push:
     branches:
-      - benchmarks
+      - benchmark-improvements
   workflow_dispatch:
     inputs:
-      modules:
-        description: Number of generated library modules before the app.
+      profile:
+        description: Benchmark profile.
         required: true
-        default: "100"
-        type: string
-      topologies:
-        description: "Comma-separated generated graph shapes: chain, wide, layered."
-        required: true
-        default: "wide,layered"
-        type: string
-      layer_width:
-        description: Parallel members per layered wave.
-        required: true
-        default: "8"
-        type: string
-      classes_per_module:
-        description: Generated Java classes per library module.
-        required: true
-        default: "1"
-        type: string
-      methods_per_class:
-        description: Methods per generated payload class.
-        required: true
-        default: "1"
-        type: string
-      repeat:
-        description: Timed samples per workflow.
-        required: true
-        default: "7"
-        type: string
-      zolt_source:
-        description: Native Zolt binary source.
-        required: true
-        default: release
+        default: publishable
         type: choice
         options:
-          - release
-          - build
-      release_channel:
-        description: Release channel used when zolt_source is release.
-        required: true
-        default: zap
-        type: choice
-        options:
-          - zap
-          - stable
-          - nightly
-      release_version:
-        description: Optional exact release version. Empty uses the channel latest.
-        required: false
-        default: ""
-        type: string
-      skip_generated:
-        description: Skip the generated Java workspace lane.
-        required: true
-        default: false
-        type: boolean
-      real_projects:
-        description: Comma-separated comparison-ready real-project ids to run.
-        required: false
-        default: "spring-petclinic,apache-commons-cli,hikaricp,netty,junit-framework"
-        type: string
-      real_project_dry_run:
-        description: Validate selected real-project lanes without cloning or timing.
-        required: true
-        default: false
-        type: boolean
-      real_project_sample_timeout:
-        description: Per-command timeout for selected real-project lanes, in seconds.
-        required: true
-        default: "1800"
-        type: string
-      openai_reasoning_effort:
-        description: Reasoning effort for optional OpenAI benchmark summary.
-        required: true
-        default: high
-        type: choice
-        options:
-          - low
-          - medium
-          - high
-          - xhigh
+          - smoke
+          - candidate
+          - publishable
+          - full
 
 permissions:
   contents: read
 
 jobs:
-  benchmark:
-    name: benchmark suite (${{ matrix.zolt_source }})
+  plan:
+    name: validate and plan benchmark
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BENCHMARK_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || 'smoke' }}
+    outputs:
+      profile: ${{ steps.profile.outputs.profile }}
+      profile_sha256: ${{ steps.profile.outputs.profile_sha256 }}
+      matrix: ${{ steps.profile.outputs.matrix }}
+      lane_count: ${{ steps.profile.outputs.lane_count }}
+      zolt_source: ${{ steps.profile.outputs.zolt_source }}
+      release_channel: ${{ steps.profile.outputs.release_channel }}
+      release_version: ${{ steps.release.outputs.version }}
+      ai_summary: ${{ steps.profile.outputs.ai_summary }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Resolve benchmark profile
+        id: profile
+        run: |
+          mkdir -p target/benchmark-plan
+          scripts/benchmark-profile show \
+            --profile "$BENCHMARK_PROFILE" \
+            > target/benchmark-plan/profile.json
+          matrix="$(scripts/benchmark-profile matrix --profile "$BENCHMARK_PROFILE")"
+          {
+            printf 'profile=%s\n' "$BENCHMARK_PROFILE"
+            printf 'profile_sha256=%s\n' \
+              "$(jq -r .sha256 target/benchmark-plan/profile.json)"
+            printf 'matrix=%s\n' "$matrix"
+            printf 'lane_count=%s\n' \
+              "$(jq -r '.include | length' <<<"$matrix")"
+            printf 'zolt_source=%s\n' \
+              "$(jq -r .zolt.source target/benchmark-plan/profile.json)"
+            printf 'release_channel=%s\n' \
+              "$(jq -r .zolt.channel target/benchmark-plan/profile.json)"
+            printf 'ai_summary=%s\n' \
+              "$(jq -r .aiSummary target/benchmark-plan/profile.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate benchmark contracts
+        run: |
+          scripts/benchmark-statistics-test
+          scripts/benchmark-profile-test
+          scripts/benchmark-suite-test
+          scripts/benchmark-openai-summary-test
+          scripts/benchmark-enterprise-test
+          scripts/benchmark-self-host-test
+          scripts/benchmark-large-source-test
+          scripts/benchmark-large-source-report-test
+          scripts/benchmark-netty-compare-test
+          scripts/benchmark-real-project-test
+          scripts/zap-distribution-test
+
+      - name: Resolve released Zolt once
+        id: release
+        if: steps.profile.outputs.zolt_source == 'release'
+        run: |
+          export ZOLT_INSTALL_ROOT="$GITHUB_WORKSPACE/target/benchmark-plan/zolt-install"
+          export ZOLT_INSTALL_CHANNEL="${{ steps.profile.outputs.release_channel }}"
+          export ZOLT_INSTALL_TARGET=linux-x64
+          scripts/install-zolt
+          zolt_version="$("$ZOLT_INSTALL_ROOT/bin/zolt" --version)"
+          printf 'version=%s\n' "$zolt_version" >> "$GITHUB_OUTPUT"
+          printf 'Resolved benchmark release: %s\n' "$zolt_version"
+
+  build-zolt:
+    name: build branch benchmark distribution
+    needs: plan
+    if: needs.plan.outputs.zolt_source == 'build'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        zolt_source: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.zolt_source) || '["build","release"]') }}
-
-    env:
-      BENCHMARK_DIR: target/benchmarks/competitors
-      BENCHMARK_MODULES: ${{ github.event_name == 'workflow_dispatch' && inputs.modules || '10' }}
-      BENCHMARK_TOPOLOGIES: ${{ github.event_name == 'workflow_dispatch' && inputs.topologies || 'wide' }}
-      BENCHMARK_LAYER_WIDTH: ${{ github.event_name == 'workflow_dispatch' && inputs.layer_width || '8' }}
-      BENCHMARK_CLASSES_PER_MODULE: ${{ github.event_name == 'workflow_dispatch' && inputs.classes_per_module || '1' }}
-      BENCHMARK_METHODS_PER_CLASS: ${{ github.event_name == 'workflow_dispatch' && inputs.methods_per_class || '1' }}
-      BENCHMARK_REPEAT: ${{ github.event_name == 'workflow_dispatch' && inputs.repeat || '1' }}
-      BENCHMARK_ZOLT_SOURCE: ${{ matrix.zolt_source }}
-      BENCHMARK_RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.release_channel || 'zap' }}
-      BENCHMARK_RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.release_version || '' }}
-      BENCHMARK_INCLUDE_GRADLE_DAEMON: "true"
-      BENCHMARK_SKIP_GENERATED: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_generated || false }}
-      BENCHMARK_REAL_PROJECTS: ${{ github.event_name == 'workflow_dispatch' && inputs.real_projects || 'spring-petclinic,apache-commons-cli,hikaricp,netty,junit-framework' }}
-      BENCHMARK_REAL_PROJECT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.real_project_dry_run || false }}
-      BENCHMARK_REAL_PROJECT_SAMPLE_TIMEOUT: ${{ github.event_name == 'workflow_dispatch' && inputs.real_project_sample_timeout || '1800' }}
-      BENCHMARK_GRADLE_VERSION: "9.6.1"
-      BENCHMARK_AI_SUMMARY: ${{ github.event_name != 'workflow_dispatch' && 'false' || vars.BENCHMARK_AI_SUMMARY || 'true' }}
-      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.5' }}
-      OPENAI_REASONING_EFFORT: ${{ github.event_name == 'workflow_dispatch' && inputs.openai_reasoning_effort || vars.OPENAI_REASONING_EFFORT || 'high' }}
 
     steps:
       - name: Check out repository
@@ -129,35 +109,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Java
-        if: env.BENCHMARK_ZOLT_SOURCE == 'release'
-        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
-        with:
-          distribution: temurin
-          java-version: "21"
-
       - name: Set up GraalVM
-        if: env.BENCHMARK_ZOLT_SOURCE == 'build'
         uses: graalvm/setup-graalvm@bef4b0e916c7dd079bf60fb95d49139f67e32c5f
         with:
           distribution: graalvm
           java-version: "21"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Gradle
-        run: |
-          gradle_root="$RUNNER_TEMP/gradle"
-          gradle_zip="$RUNNER_TEMP/gradle-${BENCHMARK_GRADLE_VERSION}-bin.zip"
-          mkdir -p "$gradle_root"
-          curl -fsSL "https://services.gradle.org/distributions/gradle-${BENCHMARK_GRADLE_VERSION}-bin.zip" -o "$gradle_zip"
-          unzip -q "$gradle_zip" -d "$gradle_root"
-          printf '%s/gradle-%s/bin\n' "$gradle_root" "$BENCHMARK_GRADLE_VERSION" >> "$GITHUB_PATH"
-
-      - name: Prefer configured JDK tools
-        run: printf '%s/bin\n' "$JAVA_HOME" >> "$GITHUB_PATH"
-
       - name: Cache Zolt artifacts
-        if: env.BENCHMARK_ZOLT_SOURCE == 'build'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .zolt/cache
@@ -167,7 +126,6 @@ jobs:
             zolt-cache-${{ runner.os }}-
 
       - name: Cache Zolt managed toolchains
-        if: env.BENCHMARK_ZOLT_SOURCE == 'build'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/.zolt/toolchains
@@ -176,114 +134,254 @@ jobs:
             zolt-toolchains-${{ runner.os }}-${{ runner.arch }}-
             zolt-toolchains-${{ runner.os }}-
 
-      - name: Bootstrap sync Zolt-managed Java
-        if: env.BENCHMARK_ZOLT_SOURCE == 'build'
-        run: scripts/bootstrap-zolt-jvm --no-progress toolchain sync
-
-      - name: Show benchmark tool versions
+      - name: Build and verify native Zolt
         run: |
-          export PATH="$JAVA_HOME/bin:$PATH"
-          java --version
-          javac -version
-          mvn --version
-          gradle --version
-
-      - name: Validate benchmark harnesses
-        run: |
-          scripts/benchmark-suite-test
-          scripts/benchmark-large-source-test
-          scripts/benchmark-large-source-report-test
-          scripts/benchmark-netty-compare-test
-          scripts/benchmark-real-project-test
-
-      - name: Install released native Zolt
-        if: env.BENCHMARK_ZOLT_SOURCE == 'release'
-        run: |
-          export PATH="$JAVA_HOME/bin:$PATH"
-          export ZOLT_INSTALL_ROOT="$GITHUB_WORKSPACE/target/benchmarks/zolt-install"
-          export ZOLT_INSTALL_CHANNEL="$BENCHMARK_RELEASE_CHANNEL"
-          export ZOLT_INSTALL_TARGET=linux-x64
-          if [[ -n "$BENCHMARK_RELEASE_VERSION" ]]; then
-            export ZOLT_INSTALL_VERSION="$BENCHMARK_RELEASE_VERSION"
-          fi
-          scripts/install-zolt
-          printf 'ZOLT_BENCH_ZOLT=%s/bin/zolt\n' "$ZOLT_INSTALL_ROOT" >> "$GITHUB_ENV"
-          zolt_version="$("$ZOLT_INSTALL_ROOT/bin/zolt" --version)"
-          printf 'ZOLT_BENCH_VERSION=%s\n' "$zolt_version" >> "$GITHUB_ENV"
-          printf '%s\n' "$zolt_version"
-
-      - name: Build and install native Zolt
-        if: env.BENCHMARK_ZOLT_SOURCE == 'build'
-        run: |
-          export PATH="$JAVA_HOME/bin:$PATH"
+          scripts/bootstrap-zolt-jvm --no-progress toolchain sync
           scripts/zap-distribution --target linux-x64
           shopt -s nullglob
           archives=(apps/zolt/target/release/zap/*/zolt-*-linux-x64.tar.gz)
           shopt -u nullglob
           if [[ "${#archives[@]}" -ne 1 ]]; then
-            printf 'error: expected exactly one built Zolt archive, found %s\n' "${#archives[@]}" >&2
+            printf 'error: expected exactly one built Zolt archive, found %s\n' \
+              "${#archives[@]}" >&2
             exit 1
           fi
-          install_root="$GITHUB_WORKSPACE/target/benchmarks/zolt-build-install"
+          mkdir -p target/benchmark-zolt-build
+          cp "${archives[0]}" target/benchmark-zolt-build/zolt-build.tar.gz
+
+      - name: Upload branch benchmark distribution
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: zolt-benchmark-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/benchmark-zolt-build/zolt-build.tar.gz
+          if-no-files-found: error
+
+  benchmark:
+    name: benchmark (${{ needs.plan.outputs.profile }} / ${{ matrix.id }})
+    needs:
+      - plan
+      - build-zolt
+    if: >-
+      always() &&
+      needs.plan.result == 'success' &&
+      (needs.build-zolt.result == 'success' || needs.build-zolt.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      BENCHMARK_PROFILE_ID: ${{ needs.plan.outputs.profile }}
+      BENCHMARK_PROFILE_SHA256: ${{ needs.plan.outputs.profile_sha256 }}
+      BENCHMARK_ZOLT_SOURCE: ${{ needs.plan.outputs.zolt_source }}
+      BENCHMARK_RELEASE_CHANNEL: ${{ needs.plan.outputs.release_channel }}
+      BENCHMARK_RELEASE_VERSION: ${{ needs.plan.outputs.release_version }}
+      BENCHMARK_LANE_ID: ${{ matrix.id }}
+      BENCHMARK_DIR: target/benchmarks/shards/${{ matrix.id }}
+      BENCHMARK_GRADLE_VERSION: "9.6.1"
+      BENCHMARK_ARTIFACT_NAME: zolt-benchmark-${{ needs.plan.outputs.profile }}-${{ matrix.id }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Gradle
+        run: |
+          gradle_root="$RUNNER_TEMP/gradle"
+          gradle_zip="$RUNNER_TEMP/gradle-${BENCHMARK_GRADLE_VERSION}-bin.zip"
+          mkdir -p "$gradle_root"
+          curl -fsSL \
+            "https://services.gradle.org/distributions/gradle-${BENCHMARK_GRADLE_VERSION}-bin.zip" \
+            -o "$gradle_zip"
+          unzip -q "$gradle_zip" -d "$gradle_root"
+          printf '%s/gradle-%s/bin\n' \
+            "$gradle_root" "$BENCHMARK_GRADLE_VERSION" >> "$GITHUB_PATH"
+
+      - name: Prefer configured JDK tools
+        run: printf '%s/bin\n' "$JAVA_HOME" >> "$GITHUB_PATH"
+
+      - name: Download branch benchmark distribution
+        if: env.BENCHMARK_ZOLT_SOURCE == 'build'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: zolt-benchmark-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/benchmark-zolt-build
+
+      - name: Install branch benchmark distribution
+        if: env.BENCHMARK_ZOLT_SOURCE == 'build'
+        run: |
+          install_root="$GITHUB_WORKSPACE/target/benchmarks/zolt-install"
           mkdir -p "$install_root"
-          tar -xzf "${archives[0]}" --strip-components=1 -C "$install_root"
+          tar -xzf target/benchmark-zolt-build/zolt-build.tar.gz \
+            --strip-components=1 \
+            -C "$install_root"
           test -x "$install_root/bin/zolt"
           test -f "$install_root/libexec/zolt-javac-worker.jar"
-          printf 'ZOLT_BENCH_ZOLT=%s/bin/zolt\n' "$install_root" >> "$GITHUB_ENV"
           zolt_version="$("$install_root/bin/zolt" --version)"
+          printf 'ZOLT_BENCH_ZOLT=%s/bin/zolt\n' "$install_root" >> "$GITHUB_ENV"
           printf 'ZOLT_BENCH_VERSION=%s\n' "$zolt_version" >> "$GITHUB_ENV"
-          printf '%s\n' "$zolt_version"
 
-      - name: Run benchmark
+      - name: Install released zap
+        if: env.BENCHMARK_ZOLT_SOURCE == 'release'
         run: |
-          export PATH="$JAVA_HOME/bin:$PATH"
-          topology_label="${BENCHMARK_TOPOLOGIES//,/+}"
-          artifact_name="zolt-benchmark-native-${BENCHMARK_ZOLT_SOURCE}-${topology_label}-${BENCHMARK_MODULES}-modules-${BENCHMARK_REPEAT}-repeats"
-          args=(
-            --modules "$BENCHMARK_MODULES"
-            --repeat "$BENCHMARK_REPEAT"
-            --topologies "$BENCHMARK_TOPOLOGIES"
-            --layer-width "$BENCHMARK_LAYER_WIDTH"
-            --classes-per-module "$BENCHMARK_CLASSES_PER_MODULE"
-            --methods-per-class "$BENCHMARK_METHODS_PER_CLASS"
-            --work-dir "$BENCHMARK_DIR"
-            --zolt "$ZOLT_BENCH_ZOLT"
-            --project-manifest docs/benchmarks/projects.json
-            --real-project-sample-timeout "$BENCHMARK_REAL_PROJECT_SAMPLE_TIMEOUT"
-            --artifact-name "$artifact_name"
-          )
-          if [[ "$BENCHMARK_INCLUDE_GRADLE_DAEMON" == "true" ]]; then
-            args+=(--include-gradle-daemon)
-          fi
-          if [[ "$BENCHMARK_SKIP_GENERATED" == "true" ]]; then
-            args+=(--skip-generated)
-          fi
-          if [[ -n "$BENCHMARK_REAL_PROJECTS" ]]; then
-            args+=(--real-projects "$BENCHMARK_REAL_PROJECTS")
-          fi
-          if [[ "$BENCHMARK_REAL_PROJECT_DRY_RUN" == "true" ]]; then
-            args+=(--real-project-dry-run)
-          fi
-          scripts/benchmark-suite "${args[@]}"
+          export ZOLT_INSTALL_ROOT="$GITHUB_WORKSPACE/target/benchmarks/zolt-install"
+          export ZOLT_INSTALL_CHANNEL="$BENCHMARK_RELEASE_CHANNEL"
+          export ZOLT_INSTALL_TARGET=linux-x64
+          export ZOLT_INSTALL_VERSION="$BENCHMARK_RELEASE_VERSION"
+          scripts/install-zolt
+          zolt_version="$("$ZOLT_INSTALL_ROOT/bin/zolt" --version)"
+          {
+            printf 'ZOLT_BENCH_ZOLT=%s/bin/zolt\n' "$ZOLT_INSTALL_ROOT"
+            printf 'ZOLT_BENCH_VERSION=%s\n' "$zolt_version"
+            printf 'BENCHMARK_RELEASE_VERSION=%s\n' "$zolt_version"
+          } >> "$GITHUB_ENV"
 
-      - name: Prepare benchmark summary files
+      - name: Show benchmark tool versions
+        run: |
+          java --version
+          javac -version
+          mvn --version
+          gradle --version
+          "$ZOLT_BENCH_ZOLT" --version
+
+      - name: Run profile lane
+        run: |
+          artifact_name="zolt-benchmark-${BENCHMARK_PROFILE_ID}-${BENCHMARK_LANE_ID}-${ZOLT_BENCH_VERSION}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          printf 'BENCHMARK_ARTIFACT_NAME=%s\n' "$artifact_name" >> "$GITHUB_ENV"
+          lane_status=0
+          scripts/benchmark-profile run \
+            --profile "$BENCHMARK_PROFILE_ID" \
+            --lane "$BENCHMARK_LANE_ID" \
+            --zolt "$ZOLT_BENCH_ZOLT" \
+            --resolved-zolt-version "${BENCHMARK_RELEASE_VERSION:-$ZOLT_BENCH_VERSION}" \
+            --work-dir "$BENCHMARK_DIR" \
+            --artifact-name "$artifact_name" \
+            || lane_status=$?
+          mkdir -p target/benchmark-shard-summaries
+          if [[ -f "$BENCHMARK_DIR/suite-summary.json" ]]; then
+            cp "$BENCHMARK_DIR/suite-summary.json" \
+              "target/benchmark-shard-summaries/${BENCHMARK_LANE_ID}.json"
+          else
+            printf 'error: benchmark lane did not produce suite-summary.json\n' >&2
+            lane_status=1
+          fi
+          exit "$lane_status"
+
+      - name: Write lane summary
         if: always()
         run: |
-          if [[ -f "$BENCHMARK_DIR/suite-summary.json" ]]; then
-            printf 'Benchmark suite summary prepared: %s/suite-summary.json\n' "$BENCHMARK_DIR"
-          else
-            printf 'Benchmark suite summary was not generated; skipping summary files.\n'
+          # Literal backticks below are Markdown output.
+          # shellcheck disable=SC2016
+          {
+            printf '# Zolt Benchmark\n\n'
+            printf '| Field | Value |\n'
+            printf '| --- | --- |\n'
+            printf '| Profile | `%s` |\n' "$BENCHMARK_PROFILE_ID"
+            printf '| Lane | `%s` |\n' "$BENCHMARK_LANE_ID"
+            printf '| Zolt source | `%s` |\n' "$BENCHMARK_ZOLT_SOURCE"
+            printf '| Zolt version | `%s` |\n' "${ZOLT_BENCH_VERSION:-unavailable}"
+            printf '\n'
+            if [[ -f "$BENCHMARK_DIR/summary-brief.md" ]]; then
+              cat "$BENCHMARK_DIR/summary-brief.md"
+            else
+              printf 'This lane did not produce a suite summary. Inspect its logs.\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload lane artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ env.BENCHMARK_ARTIFACT_NAME }}
+          path: |
+            ${{ env.BENCHMARK_DIR }}/**
+            target/benchmark-shard-summaries/${{ matrix.id }}.json
+            benchmarks/profiles/${{ needs.plan.outputs.profile }}.json
+            benchmarks/workloads/**
+            benchmarks/adapters/**
+            docs/benchmarks/projects.json
+            !${{ env.BENCHMARK_DIR }}/**/cache/**
+            !${{ env.BENCHMARK_DIR }}/**/caches/**
+            !${{ env.BENCHMARK_DIR }}/**/checkout/**
+            !${{ env.BENCHMARK_DIR }}/**/fixtures/**
+            !${{ env.BENCHMARK_DIR }}/**/projects/**
+            !${{ env.BENCHMARK_DIR }}/**/workspace/**
+            !${{ env.BENCHMARK_DIR }}/real-project-cache/**
+            !target/benchmarks/shards/*/real-projects/*/checkout/**
+          if-no-files-found: warn
+
+  aggregate:
+    name: aggregate benchmark evidence
+    needs:
+      - plan
+      - benchmark
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BENCHMARK_PROFILE_ID: ${{ needs.plan.outputs.profile }}
+      BENCHMARK_PROFILE_SHA256: ${{ needs.plan.outputs.profile_sha256 }}
+      BENCHMARK_ZOLT_SOURCE: ${{ needs.plan.outputs.zolt_source }}
+      BENCHMARK_RELEASE_CHANNEL: ${{ needs.plan.outputs.release_channel }}
+      BENCHMARK_AI_SUMMARY: ${{ needs.plan.outputs.ai_summary }}
+      BENCHMARK_DIR: target/benchmarks/combined
+      BENCHMARK_ARTIFACT_NAME: zolt-benchmark-${{ needs.plan.outputs.profile }}-combined-${{ github.run_id }}-${{ github.run_attempt }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.5' }}
+      OPENAI_REASONING_EFFORT: ${{ vars.OPENAI_REASONING_EFFORT || 'high' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download lane artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: zolt-benchmark-${{ needs.plan.outputs.profile }}-*
+          path: target/downloaded-benchmark-shards
+          merge-multiple: true
+
+      - name: Aggregate lane summaries
+        run: |
+          mapfile -t summaries < <(
+            find target/downloaded-benchmark-shards \
+              -type f \
+              -path '*/benchmark-shard-summaries/*.json' \
+              | sort
+          )
+          if [[ "${#summaries[@]}" -eq 0 ]]; then
+            printf 'error: no benchmark lane summaries were downloaded\n' >&2
+            exit 1
+          fi
+          args=(
+            --skip-generated
+            --work-dir "$BENCHMARK_DIR"
+            --artifact-name "$BENCHMARK_ARTIFACT_NAME"
+          )
+          for summary in "${summaries[@]}"; do
+            args+=(--lane-summary "$summary")
+          done
+          scripts/benchmark-suite "${args[@]}"
+          actual_lane_count="${#summaries[@]}"
+          expected_lane_count="${{ needs.plan.outputs.lane_count }}"
+          if [[ "$actual_lane_count" != "$expected_lane_count" ]]; then
+            printf 'error: aggregated %s of %s expected benchmark lanes\n' \
+              "$actual_lane_count" "$expected_lane_count" >&2
+            exit 1
           fi
 
       - name: Prepare model benchmark summary
-        if: always()
+        if: always() && env.BENCHMARK_AI_SUMMARY == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          if [[ "$BENCHMARK_AI_SUMMARY" == "false" ]]; then
-            printf 'Model summary disabled by BENCHMARK_AI_SUMMARY=false.\n'
-            exit 0
-          fi
           if [[ ! -f "$BENCHMARK_DIR/suite-summary.json" ]]; then
             printf 'Suite summary was not generated; skipping model summary.\n'
             exit 0
@@ -299,87 +397,29 @@ jobs:
             --model "$OPENAI_MODEL" \
             --reasoning-effort "$OPENAI_REASONING_EFFORT"
 
-      - name: Write job summary
+      - name: Write combined summary
         if: always()
         run: |
-          run_class="Exploratory benchmark"
-          if [[ -f "$BENCHMARK_DIR/suite-summary.json" ]]; then
-            run_class="$(
-              python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("run", {}).get("classification") or "Exploratory benchmark")' \
-                "$BENCHMARK_DIR/suite-summary.json"
-            )"
-          elif [[ "$BENCHMARK_MODULES" =~ ^[0-9]+$ && "$BENCHMARK_REPEAT" =~ ^[0-9]+$ ]]; then
-            if (( BENCHMARK_MODULES < 20 || BENCHMARK_REPEAT < 3 )); then
-              run_class="Smoke validation"
-            elif (( BENCHMARK_MODULES >= 40 && BENCHMARK_REPEAT >= 5 )) && [[ "$BENCHMARK_INCLUDE_GRADLE_DAEMON" == "true" ]]; then
-              run_class="Production-grade generated evidence"
-            fi
-          fi
-          # Literal dollar signs and backticks below are Markdown output.
-          # shellcheck disable=SC2016
           {
-            printf '# Zolt Native Benchmark\n\n'
-            printf '## GitHub Run\n\n'
-            printf '| Field | Value |\n'
-            printf '| --- | --- |\n'
-            printf '| Run type | `%s` |\n' "$run_class"
-            printf '| Ref | `%s` |\n' "${GITHUB_REF_NAME}"
-            printf '| Commit | `%s` |\n' "${GITHUB_SHA}"
-            printf '| Zolt source | `%s` |\n' "$BENCHMARK_ZOLT_SOURCE"
-            printf '| Zolt version | `%s` |\n' "${ZOLT_BENCH_VERSION:-unavailable}"
-            if [[ "$BENCHMARK_ZOLT_SOURCE" == "release" ]]; then
-              printf '| Release channel | `%s` |\n' "$BENCHMARK_RELEASE_CHANNEL"
-              if [[ -n "$BENCHMARK_RELEASE_VERSION" ]]; then
-                printf '| Release version | `%s` |\n' "$BENCHMARK_RELEASE_VERSION"
-              else
-                printf '| Release version | `channel latest` |\n'
-              fi
-            fi
-            printf '| Generated topologies | `%s` |\n' "$BENCHMARK_TOPOLOGIES"
-            printf '| Layer width | `%s` |\n' "$BENCHMARK_LAYER_WIDTH"
-            printf '| Modules before app | `%s` |\n' "$BENCHMARK_MODULES"
-            printf '| Classes per module | `%s` |\n' "$BENCHMARK_CLASSES_PER_MODULE"
-            printf '| Methods per payload class | `%s` |\n' "$BENCHMARK_METHODS_PER_CLASS"
-            printf '| Samples per repeated workflow | `%s` |\n' "$BENCHMARK_REPEAT"
-            printf '| First clean build samples | `1` |\n'
-            printf '| Gradle daemon included | `%s` |\n' "$BENCHMARK_INCLUDE_GRADLE_DAEMON"
-            printf '| Generated lane skipped | `%s` |\n' "$BENCHMARK_SKIP_GENERATED"
-            if [[ -n "$BENCHMARK_REAL_PROJECTS" ]]; then
-              printf '| Real projects | `%s` |\n' "$BENCHMARK_REAL_PROJECTS"
-              printf '| Real-project dry run | `%s` |\n' "$BENCHMARK_REAL_PROJECT_DRY_RUN"
-              printf '| Real-project command timeout | `%s seconds` |\n' "$BENCHMARK_REAL_PROJECT_SAMPLE_TIMEOUT"
-            fi
-            printf '\n'
+            printf '# Zolt Benchmark Profile: %s\n\n' "$BENCHMARK_PROFILE_ID"
             if [[ -f "$BENCHMARK_DIR/summary-brief.md" ]]; then
               cat "$BENCHMARK_DIR/summary-brief.md"
-              printf '\n'
               if [[ -f "$BENCHMARK_DIR/summary-ai.md" ]]; then
                 printf '\n'
                 cat "$BENCHMARK_DIR/summary-ai.md"
-                printf '\n'
               fi
-            elif [[ -f "$BENCHMARK_DIR/report.md" ]]; then
-              sed '1,2d' "$BENCHMARK_DIR/report.md"
             else
-              printf 'Benchmark report was not generated. Check the job logs and uploaded artifacts.\n'
+              printf 'The combined benchmark summary was not generated.\n'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload benchmark artifacts
+      - name: Upload combined benchmark artifact
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: zolt-benchmark-native-${{ env.BENCHMARK_ZOLT_SOURCE }}-${{ env.BENCHMARK_TOPOLOGIES }}-${{ env.BENCHMARK_MODULES }}-modules-${{ env.BENCHMARK_REPEAT }}-repeats
+          name: ${{ env.BENCHMARK_ARTIFACT_NAME }}
           path: |
-            target/benchmarks/competitors/summary-brief.md
-            target/benchmarks/competitors/suite-summary.json
-            target/benchmarks/competitors/llm-summary.md
-            target/benchmarks/competitors/summary-ai.json
-            target/benchmarks/competitors/summary-ai.md
-            target/benchmarks/competitors/summary-ai-request.json
-            target/benchmarks/competitors/generated-java-workspace-*/**
-            target/benchmarks/competitors/real-projects/**
-            !target/benchmarks/competitors/real-projects/*/checkout/**
-            benchmarks/adapters/**
-            docs/benchmarks/projects.json
+            target/benchmarks/combined/**
+            target/downloaded-benchmark-shards/**
+            benchmarks/profiles/${{ needs.plan.outputs.profile }}.json
           if-no-files-found: warn

@@ -61,6 +61,7 @@ public final class SpringBootJarLayoutAssembler {
                             BOOT_LIB_PREFIX + PackageRuntimeJars.nestedJarName(runtimeJar),
                             PackageRuntimeJars.read(runtimeJar));
                 }
+                archive.commit();
             }
             return new PackageResult(
                     buildResult,

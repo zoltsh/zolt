@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "enterprise-smoke-v1",
+  "description": "Small correctness and harness-validation profile for pull requests.",
+  "modules": 8,
+  "apps": 2,
+  "classesPerModule": 2,
+  "methodsPerClass": 2,
+  "testsPerModule": 1,
+  "dependencyFanout": 2,
+  "layerWidth": 4,
+  "resources": true,
+  "annotationProcessors": true,
+  "springBootApp": true,
+  "cleanSamples": 1,
+  "repeatedSamples": 1,
+  "seed": 20260727
+}

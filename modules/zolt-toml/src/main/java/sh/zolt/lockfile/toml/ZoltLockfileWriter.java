@@ -9,7 +9,6 @@ import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
@@ -19,7 +18,7 @@ public final class ZoltLockfileWriter {
 
     public void write(Path path, ZoltLockfile lockfile) {
         try {
-            Files.writeString(path, write(lockfile));
+            AtomicLockfileWriter.write(path, write(lockfile));
         } catch (IOException exception) {
             throw new LockfileWriteException(
                     "Could not write zolt.lock at " + path + ". Check that the directory exists and is writable.",

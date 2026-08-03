@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/benchmark-openai-summary-test"
+INPUT="$WORK_DIR/suite-summary.json"
+OUTPUT_JSON="$WORK_DIR/output/summary-ai.json"
+REQUEST="$WORK_DIR/output/summary-ai-request.json"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+cat >"$INPUT" <<'JSON'
+{
+  "schemaVersion": 1,
+  "suite": {
+    "name": "zolt-benchmark-suite",
+    "mode": "multi-lane"
+  },
+  "profile": {
+    "id": "publishable",
+    "sha256": "fixture-profile-digest"
+  },
+  "run": {
+    "classification": "Publishable enterprise generated evidence",
+    "laneCount": 1,
+    "completedLaneCount": 1
+  },
+  "lanes": [
+    {
+      "id": "enterprise-layered",
+      "name": "Enterprise layered workspace",
+      "kind": "enterprise-generated",
+      "status": "complete",
+      "workload": {
+        "moduleCount": 200,
+        "appModules": 2,
+        "repeatCount": 7,
+        "cleanRepeatCount": 5,
+        "topology": "layered"
+      },
+      "environment": {
+        "zoltSource": "release",
+        "releaseVersion": "zolt 1.2.3"
+      },
+      "tools": {
+        "zolt": "zolt 1.2.3",
+        "gradle-daemon": "Gradle 9.6.1"
+      },
+      "correctness": {
+        "status": "passed",
+        "checks": [
+          {
+            "name": "compiled-output-parity",
+            "passed": true
+          }
+        ]
+      },
+      "outcomeRule": {
+        "id": "paired-bootstrap-median-ratio-v1",
+        "minimumSamples": 5,
+        "minimumEffectRatio": 1.05
+      },
+      "summary": {
+        "classification": "Publishable enterprise generated evidence"
+      },
+      "workflows": [
+        {
+          "id": "no-op-build",
+          "kind": "repeated",
+          "winner": "zolt",
+          "zoltOutcome": "faster",
+          "tools": {
+            "zolt": {
+              "samples": 7,
+              "medianMillis": 100
+            },
+            "gradle-daemon": {
+              "samples": 7,
+              "medianMillis": 150
+            }
+          }
+        },
+        {
+          "id": "test-run",
+          "kind": "repeated",
+          "winner": "gradle-daemon",
+          "zoltOutcome": "slower",
+          "tools": {
+            "zolt": {
+              "samples": 7,
+              "medianMillis": 240
+            },
+            "gradle-daemon": {
+              "samples": 7,
+              "medianMillis": 120
+            }
+          }
+        }
+      ],
+      "caveats": []
+    }
+  ],
+  "configuredProjects": []
+}
+JSON
+
+scripts/benchmark-openai-summary \
+  --input "$INPUT" \
+  --output-json "$OUTPUT_JSON" \
+  --dry-run >/dev/null
+
+[[ -f "$REQUEST" ]] || fail "dry run did not write the request"
+[[ ! -e "$OUTPUT_JSON" ]] || fail "dry run unexpectedly wrote a model response"
+
+jq -e '
+  . as $document
+  | .request.input[0].content[0].text as $system
+  | (
+      .request.input[1].content[0].text
+      | split("\n\n")
+      | last
+      | fromjson
+    ) as $input
+  | $document.promptVersion == "zolt-benchmark-summary-v6"
+    and $document.request.text.verbosity == "low"
+    and ($system | contains("Report evidence, not advocacy."))
+    and ($system | contains("Never hide a meaningful loss"))
+    and ($system | contains("report statistically inconclusive results as inconclusive"))
+    and ($system | contains("zoltOutcome is the workflow verdict"))
+    and ($system | contains("Never call fastestMedianTool a winner unless the supplied winner agrees"))
+    and ($system | contains("do not present the affected timing as valid performance evidence"))
+    and ($system | contains("invent a composite score"))
+    and ($system | contains("Do not call a one-sample or smoke result a trend or publishable"))
+    and ($input.profile.id == "publishable")
+    and ($input.lanes[0].environment.releaseVersion == "zolt 1.2.3")
+    and ($input.lanes[0].correctness.status == "passed")
+    and ($input.lanes[0].outcomeRule.id == "paired-bootstrap-median-ratio-v1")
+' "$REQUEST" >/dev/null \
+  || fail "OpenAI request does not enforce the direct benchmark-summary contract"
+
+printf 'benchmark OpenAI summary script test passed\n'

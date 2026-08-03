@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "enterprise-v1",
+  "description": "Publishable deterministic Java 21 workspace with realistic source volume and build features.",
+  "modules": 200,
+  "apps": 2,
+  "classesPerModule": 8,
+  "methodsPerClass": 4,
+  "testsPerModule": 2,
+  "dependencyFanout": 3,
+  "layerWidth": 12,
+  "resources": true,
+  "annotationProcessors": true,
+  "springBootApp": true,
+  "cleanSamples": 5,
+  "repeatedSamples": 7,
+  "seed": 20260727
+}

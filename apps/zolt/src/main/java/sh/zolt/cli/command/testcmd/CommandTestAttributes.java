@@ -6,6 +6,7 @@ import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.cli.command.CommandAttributeKeys;
 import sh.zolt.test.TestSelection;
+import sh.zolt.workspace.service.WorkspaceTestCompileResult;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,6 +32,10 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_RUNTIME_CLASSPATH_ENTRIES, Integer.toString(result.testRuntimeClasspathEntries()));
         attributes.put(CommandAttributeKeys.TEST_LAUNCHER_CLASSPATH_ENTRIES, Integer.toString(result.testLauncherClasspathEntries()));
         attributes.put(CommandAttributeKeys.TEST_DISCOVERY_SCAN_ROOTS, Integer.toString(result.testDiscoveryScanRoots()));
+        addTestWorkerAttributes(
+                attributes,
+                result.testWorkerStarts(),
+                result.testWorkerRequests());
         addTestSelectionAttributes(attributes, result.testSelection());
         attributes.put(CommandAttributeKeys.TEST_JVM_ARGS, Integer.toString(result.testJvmArguments().values().size()));
         addMainFingerprintAttributes(attributes, result.compileResult().buildResult());
@@ -65,6 +70,10 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_RUNTIME_CLASSPATH_ENTRIES, Integer.toString(result.testRuntimeClasspathEntries()));
         attributes.put(CommandAttributeKeys.TEST_LAUNCHER_CLASSPATH_ENTRIES, Integer.toString(result.testLauncherClasspathEntries()));
         attributes.put(CommandAttributeKeys.TEST_DISCOVERY_SCAN_ROOTS, Integer.toString(result.testDiscoveryScanRoots()));
+        addTestWorkerAttributes(
+                attributes,
+                result.testWorkerStarts(),
+                result.testWorkerRequests());
         addTestSelectionAttributes(attributes, result.testSelection());
         attributes.put(CommandAttributeKeys.TEST_JVM_ARGS, Integer.toString(result.testJvmArguments().values().size()));
         addTestRunnerTimingAttributes(attributes, result);
@@ -88,6 +97,10 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_RUNTIME_CLASSPATH_ENTRIES, Integer.toString(result.testRuntimeClasspathEntryCount()));
         attributes.put(CommandAttributeKeys.TEST_LAUNCHER_CLASSPATH_ENTRIES, Integer.toString(result.testLauncherClasspathEntryCount()));
         attributes.put(CommandAttributeKeys.TEST_DISCOVERY_SCAN_ROOTS, Integer.toString(result.testDiscoveryScanRootCount()));
+        addTestWorkerAttributes(
+                attributes,
+                result.testWorkerStartCount(),
+                result.testWorkerRequestCount());
         addMainFingerprintAttributes(
                 attributes,
                 result.mainFingerprintCheckNanos(),
@@ -103,7 +116,72 @@ public final class CommandTestAttributes {
         attributes.put(CommandAttributeKeys.TEST_EXCLUDED_TAGS, Integer.toString(result.testExcludedTagCount()));
         addSlowTestEvidenceAttributes(attributes);
         attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
+        addWorkspaceToolchainAttributes(attributes, result.toolchainMetrics());
         return attributes;
+    }
+
+    public static Map<String, String> workspaceTestCompile(WorkspaceTestCompileResult result) {
+        Map<String, String> attributes = new LinkedHashMap<>();
+        attributes.put(CommandAttributeKeys.MEMBERS, Integer.toString(result.members().size()));
+        attributes.put(CommandAttributeKeys.INCLUDED_MEMBERS, Integer.toString(result.includedMemberCount()));
+        attributes.put(CommandAttributeKeys.SELECTED_MEMBERS, Integer.toString(result.selectedMemberCount()));
+        attributes.put(CommandAttributeKeys.DEPENDENCY_MEMBERS, Integer.toString(result.dependencyMemberCount()));
+        attributes.put(CommandAttributeKeys.MAIN_SOURCE_FILES, Integer.toString(result.mainSourceCount()));
+        attributes.put(CommandAttributeKeys.TEST_SOURCE_FILES, Integer.toString(result.testSourceCount()));
+        attributes.put(
+                CommandAttributeKeys.MAIN_COMPILATIONS_SKIPPED,
+                Integer.toString(result.mainCompilationSkippedCount()));
+        attributes.put(
+                CommandAttributeKeys.MAIN_COMPILATIONS_EXECUTED,
+                Integer.toString(result.mainCompilationExecutedCount()));
+        attributes.put(
+                CommandAttributeKeys.TEST_COMPILATIONS_SKIPPED,
+                Integer.toString(result.testCompilationSkippedCount()));
+        attributes.put(
+                CommandAttributeKeys.TEST_COMPILATIONS_EXECUTED,
+                Integer.toString(result.testCompilationExecutedCount()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_BUILD_MAX_WORKERS,
+                Integer.toString(result.maxWorkers()));
+        addMainFingerprintAttributes(
+                attributes,
+                result.mainFingerprintCheckNanos(),
+                result.mainFingerprintWriteNanos());
+        attributes.put(
+                CommandAttributeKeys.TEST_FINGERPRINT_CHECK_MILLIS,
+                Long.toString(result.testFingerprintCheckNanos() / 1_000_000L));
+        attributes.put(
+                CommandAttributeKeys.TEST_FINGERPRINT_CHECK_NANOS,
+                Long.toString(result.testFingerprintCheckNanos()));
+        attributes.put(
+                CommandAttributeKeys.TEST_FINGERPRINT_WRITE_MILLIS,
+                Long.toString(result.testFingerprintWriteNanos() / 1_000_000L));
+        attributes.put(
+                CommandAttributeKeys.TEST_FINGERPRINT_WRITE_NANOS,
+                Long.toString(result.testFingerprintWriteNanos()));
+        attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
+        addWorkspaceToolchainAttributes(attributes, result.toolchainMetrics());
+        return attributes;
+    }
+
+    private static void addWorkspaceToolchainAttributes(
+            Map<String, String> attributes,
+            sh.zolt.workspace.service.WorkspaceTestToolchainMetrics metrics) {
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_LOCKFILE_PARSES,
+                Integer.toString(metrics.lockfileParses()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_IDENTITY_CALCULATIONS,
+                Integer.toString(metrics.mainIdentityCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TOOLCHAIN_IDENTITY_CACHE_HITS,
+                Integer.toString(metrics.mainIdentityCacheHits()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TEST_RUNTIME_TOOLCHAIN_IDENTITY_CALCULATIONS,
+                Integer.toString(metrics.testRuntimeIdentityCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TEST_RUNTIME_TOOLCHAIN_IDENTITY_CACHE_HITS,
+                Integer.toString(metrics.testRuntimeIdentityCacheHits()));
     }
 
     private static void addTestRunnerTimingAttributes(Map<String, String> attributes, TestRunResult result) {
@@ -115,6 +193,18 @@ public final class CommandTestAttributes {
             attributes.put(CommandAttributeKeys.TEST_RUNNER_REQUEST_MILLIS, Long.toString(result.testRunnerRequestNanos() / 1_000_000L));
             attributes.put(CommandAttributeKeys.TEST_RUNNER_REQUEST_NANOS, Long.toString(result.testRunnerRequestNanos()));
         }
+    }
+
+    private static void addTestWorkerAttributes(
+            Map<String, String> attributes,
+            int starts,
+            int requests) {
+        attributes.put(
+                CommandAttributeKeys.TEST_WORKER_STARTS,
+                Integer.toString(starts));
+        attributes.put(
+                CommandAttributeKeys.TEST_WORKER_REQUESTS,
+                Integer.toString(requests));
     }
 
     private static void addSlowTestEvidenceAttributes(Map<String, String> attributes) {

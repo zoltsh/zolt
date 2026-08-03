@@ -13,6 +13,7 @@ import sh.zolt.cli.WorkspaceCommandFixture.WorkspaceApplicationFixture;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -68,17 +69,44 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[0].contains("\"includedMembers\":\"2\""));
         assertTrue(lines[0].contains("\"selectedMembers\":\"2\""));
         assertTrue(lines[0].contains("\"resolvedLockfile\":\"true\""));
+        assertTrue(lines[0].contains("\"workspaceDiscoveryNanos\""));
+        assertTrue(lines[0].contains("\"workspaceSelectionNanos\""));
+        assertTrue(lines[0].contains("\"workspaceResolutionNanos\""));
+        assertTrue(lines[0].contains("\"workspaceLockfileReadNanos\""));
+        assertTrue(lines[0].contains("\"workspaceEdges\":\"1\""));
+        assertTrue(lines[0].contains("\"workspaceLockfilePackages\""));
         assertTrue(lines[1].contains("\"phase\":\"compile workspace members\""));
         assertTrue(lines[1].contains("\"depth\":1"));
         assertTrue(lines[1].contains("\"members\":\"2\""));
         assertTrue(lines[1].contains("\"sourceFiles\":\"2\""));
         assertTrue(lines[1].contains("\"workspaceBuildWaves\":\"2\""));
+        assertTrue(lines[1].contains("\"workspaceSchedulerIdleNanos\":"));
+        assertTrue(lines[1].contains("\"workspaceReadyQueuePeak\":\"1\""));
         assertTrue(lines[1].contains(expectedMaxWorkers));
         assertTrue(lines[1].contains("\"mainCompilationsSkipped\":\"0\""));
         assertTrue(lines[1].contains("\"mainCompilationsExecuted\":\"2\""));
         assertTrue(lines[1].contains("\"mainSourcesRecompiled\""));
         assertTrue(lines[1].contains("\"mainAbiChangedClasses\""));
         assertTrue(lines[1].contains("\"workspaceAbiInvalidations\""));
+        assertTrue(lines[1].contains("\"workspaceGraphConstructionNanos\""));
+        assertTrue(lines[1].contains("\"workspaceClasspathCalculationNanos\""));
+        assertTrue(lines[1].contains("\"workspacePackageCalculationNanos\":\"0\""));
+        assertTrue(lines[1].contains("\"workspaceMemberExecutionNanos\""));
+        assertTrue(lines[1].contains("\"workspaceFileSnapshotNanos\""));
+        assertTrue(lines[1].contains("\"workspaceBytesHashed\""));
+        assertTrue(lines[1].contains("\"workspaceFilesHashed\""));
+        assertTrue(lines[1].contains("\"workspaceMembersConsidered\":\"2\""));
+        assertTrue(lines[1].contains("\"workspaceMembersDeclaredClean\":\"0\""));
+        assertTrue(lines[1].contains("\"workspaceMemberPipelineInvocations\":\"2\""));
+        assertTrue(lines[1].contains("\"workspaceAbiStateReads\""));
+        assertTrue(lines[1].contains("\"workspaceAbiStateCacheHits\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainResolutions\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainCacheHits\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainLockfileParses\":\"1\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainIdentityCalculations\""));
+        assertTrue(lines[1].contains("\"workspaceToolchainIdentityCacheHits\""));
+        assertTrue(lines[1].contains("\"workspaceClasspathCalculations\":\"2\""));
+        assertTrue(lines[1].contains("\"workspacePackageCalculations\":\"0\""));
         assertTrue(lines[2].contains("\"phase\":\"build workspace\""));
         assertTrue(lines[2].contains("\"depth\":0"));
         assertTrue(lines[2].contains("\"members\":\"2\""));
@@ -117,6 +145,58 @@ final class WorkspaceBuildCommandTest {
         assertFalse(second.stdout().contains("Compiled 1 main source files in modules/core"));
         assertFalse(second.stdout().contains("Compiled 1 main source files in apps/api"));
         assertFalse(second.stdout().contains("Compiled 2 workspace main source files"));
+    }
+
+    @Test
+    void buildWorkspaceRecompilesConsumersWhenDependencyConstantChanges() throws IOException {
+        WorkspaceApplicationFixture fixture = WorkspaceCommandFixture.create(tempDir, "workspace");
+        Path coreSource = fixture.coreDir().resolve("src/main/java/com/example/core/Core.java");
+        Path apiSource = fixture.apiDir().resolve("src/main/java/com/example/api/Api.java");
+        Files.writeString(coreSource, """
+                package com.example.core;
+
+                public final class Core {
+                    public static final String MESSAGE = "one";
+
+                    private Core() {
+                    }
+                }
+                """);
+        Files.writeString(apiSource, """
+                package com.example.api;
+
+                import com.example.core.Core;
+
+                public final class Api {
+                    public static String message() {
+                        return Core.MESSAGE;
+                    }
+                }
+                """);
+        Path cacheRoot = tempDir.resolve("cache");
+        CommandResult first = execute(
+                "build",
+                "--workspace",
+                "--all",
+                "--cwd", fixture.apiDir().toString(),
+                "--cache-root", cacheRoot.toString());
+        Path apiClass = fixture.apiDir().resolve("target/classes/com/example/api/Api.class");
+        byte[] firstApiClass = Files.readAllBytes(apiClass);
+        Files.writeString(coreSource, Files.readString(coreSource).replace("\"one\"", "\"two\""));
+
+        CommandResult second = execute(
+                "build",
+                "--workspace",
+                "--all",
+                "--cwd", fixture.apiDir().toString(),
+                "--cache-root", cacheRoot.toString());
+
+        assertEquals(0, first.exitCode());
+        assertEquals(0, second.exitCode());
+        assertTrue(second.stdout().contains("Compiled 1 main source files in modules/core"));
+        assertTrue(second.stdout().contains("Compiled 1 main source files in apps/api"));
+        assertFalse(second.stdout().contains("Skipped main compilation in apps/api; inputs are unchanged"));
+        assertFalse(Arrays.equals(firstApiClass, Files.readAllBytes(apiClass)));
     }
 
     @Test

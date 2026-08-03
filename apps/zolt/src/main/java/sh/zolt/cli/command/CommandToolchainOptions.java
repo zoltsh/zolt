@@ -64,57 +64,38 @@ public final class CommandToolchainOptions {
     }
 
     public WorkspaceJdkCheckerResolver workspaceJdkCheckers(String commandName) {
-        WorkspaceToolchainServices services = workspaceToolchainServices();
-        return (workspace, member) -> jdkChecker(
-                member.directory(),
-                workspace.root(),
-                member.config(),
-                commandName,
-                services);
+        return workspaceContext(commandName).mainCheckers();
     }
 
-    public WorkspaceTestRunServiceResolver workspaceTestRunServices(
+    public WorkspaceCommandToolchains workspaceTestToolchains(
             CommandServiceBundles.TestRunServiceFactory factory,
             String commandName) {
-        WorkspaceToolchainServices services = workspaceToolchainServices();
-        return (workspace, member) -> {
-            CommandJavaToolchainJdkChecker compileChecker = jdkChecker(
-                    member.directory(), workspace.root(), member.config(), commandName, services);
-            return factory.create(
-                    compileChecker,
-                    testRuntimeRunChecker(
-                            member.directory(), workspace.root(), member.config(), compileChecker, services));
-        };
+        WorkspaceCommandToolchainContext context =
+                workspaceContext(commandName);
+        return new WorkspaceCommandToolchains(
+                context.mainCheckers(),
+                context.testRunServices(factory));
     }
 
-    public WorkspaceTestRunServiceResolver workspaceIntegrationTestRunServices(
+    public WorkspaceCommandToolchains workspaceIntegrationTestToolchains(
             CommandServiceBundles.TestRunServiceFactory factory) {
-        WorkspaceToolchainServices services = workspaceToolchainServices();
-        return (workspace, member) -> {
-            ProjectConfig integrationConfig =
-                    member.config().withBuildSettings(member.config().build().asIntegrationTestBuild());
-            CommandJavaToolchainJdkChecker compileChecker = jdkChecker(
-                    member.directory(), workspace.root(), integrationConfig, "integration-test", services);
-            return factory.create(
-                    compileChecker,
-                    testRuntimeRunChecker(
-                            member.directory(), workspace.root(), integrationConfig, compileChecker, services));
-        };
+        WorkspaceCommandToolchainContext context =
+                workspaceContext("integration-test");
+        return new WorkspaceCommandToolchains(
+                context.mainCheckers(),
+                context.testRunServices(factory));
     }
 
-    private CommandJavaToolchainJdkChecker jdkChecker(
-            Path projectRoot,
-            Path lockRoot,
-            ProjectConfig config,
-            String commandName,
-            WorkspaceToolchainServices services) {
-        return new CommandJavaToolchainJdkChecker(
-                projectRoot,
-                lockRoot,
-                config,
-                services.toolchains(),
-                services.platform(),
-                services.store(),
+    public WorkspaceCommandToolchains workspaceCoverageToolchains(
+            CommandServiceBundles.TestRunServiceFactory factory) {
+        return workspaceTestToolchains(factory, "coverage");
+    }
+
+    private WorkspaceCommandToolchainContext workspaceContext(
+            String commandName) {
+        return new WorkspaceCommandToolchainContext(
+                toolchainTarget,
+                toolchainInstallRoot,
                 commandName);
     }
 
@@ -129,5 +110,10 @@ public final class CommandToolchainOptions {
             JavaToolchainExecutionService toolchains,
             HostPlatform platform,
             ToolchainStore store) {
+    }
+
+    public record WorkspaceCommandToolchains(
+            WorkspaceJdkCheckerResolver mainCheckers,
+            WorkspaceTestRunServiceResolver testRunServices) {
     }
 }

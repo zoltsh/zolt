@@ -66,6 +66,30 @@ final class CurrentWorkerClasspathTest {
     }
 
     @Test
+    void detectsOnlyDedicatedWorkerSourcesAsAvailable() {
+        assertTrue(currentWorkerClasspath.dedicatedWorkerAvailable(
+                "lib/property-worker.jar",
+                "",
+                List::of,
+                ":"));
+        assertTrue(currentWorkerClasspath.dedicatedWorkerAvailable(
+                "",
+                "lib/env-worker.jar",
+                List::of,
+                ":"));
+        assertTrue(currentWorkerClasspath.dedicatedWorkerAvailable(
+                "",
+                "",
+                () -> List.of(Path.of("lib/bundled-worker.jar")),
+                ":"));
+        assertTrue(!currentWorkerClasspath.dedicatedWorkerAvailable(
+                "",
+                "",
+                List::of,
+                ":"));
+    }
+
+    @Test
     void emptyClasspathIsActionable() {
         TestRunException exception = assertThrows(
                 TestRunException.class,

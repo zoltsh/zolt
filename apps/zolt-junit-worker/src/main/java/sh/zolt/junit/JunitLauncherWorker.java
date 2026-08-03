@@ -7,16 +7,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.lang.reflect.Array;
-import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class JunitLauncherWorker {
     public static final String MAIN_CLASS = "sh.zolt.junit.JunitLauncherWorker";
@@ -46,7 +45,6 @@ public final class JunitLauncherWorker {
             err.println("error: JUnit launcher worker server requires stdin.");
             return 2;
         }
-        ProgrammaticLauncher launcher = new ProgrammaticLauncher(out);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -59,16 +57,27 @@ public final class JunitLauncherWorker {
                     out.flush();
                     return 0;
                 }
+                Set<Long> threadsBefore = liveNonDaemonThreadIds();
                 int exitCode = runRequest(
-                        launcher,
+                        request.projectDirectory(),
+                        request.testRuntimeClasspath(),
                         request.testOutputDirectory(),
                         request.testSelection(),
                         request.reportsDirectory(),
                         request.profileDirectory(),
                         request.events(),
+                        out,
                         err);
-                out.println(JunitWorkerProtocol.result(request.requestId(), exitCode));
+                boolean retireWorker =
+                        hasNewLiveNonDaemonThreads(threadsBefore);
+                out.println(JunitWorkerProtocol.result(
+                        request.requestId(),
+                        exitCode,
+                        retireWorker));
                 out.flush();
+                if (retireWorker) {
+                    return exitCode;
+                }
             }
             return 0;
         } catch (IOException exception) {
@@ -83,240 +92,173 @@ public final class JunitLauncherWorker {
 
     private int runOnce(String testOutputDirectory, PrintStream out, PrintStream err) {
         return runRequest(
-                new ProgrammaticLauncher(out),
+                Optional.empty(),
+                List.of(),
                 testOutputDirectory,
                 TestSelection.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 List.of(),
+                out,
                 err);
     }
 
     private int runRequest(
-            ProgrammaticLauncher launcher,
+            Optional<String> projectDirectory,
+            List<String> testRuntimeClasspath,
             String testOutputDirectory,
             TestSelection testSelection,
             Optional<String> reportsDirectory,
             Optional<String> profileDirectory,
             List<String> events,
+            PrintStream out,
+            PrintStream err) {
+        ClassLoader original = Thread.currentThread().getContextClassLoader();
+        String originalUserDirectory = System.getProperty("user.dir");
+        Path requestDirectory = requestDirectory(projectDirectory);
+        try (URLClassLoader requestLoader = requestClassLoader(
+                requestDirectory,
+                testRuntimeClasspath,
+                original)) {
+            System.setProperty(
+                    "user.dir",
+                    requestDirectory.toString());
+            Thread.currentThread().setContextClassLoader(requestLoader);
+            JunitProgrammaticLauncher launcher =
+                    new JunitProgrammaticLauncher(out, requestLoader);
+            return execute(
+                    launcher,
+                    resolveRequestPath(
+                            requestDirectory,
+                            testOutputDirectory),
+                    testSelection,
+                    resolveRequestPath(
+                            requestDirectory,
+                            reportsDirectory),
+                    resolveRequestPath(
+                            requestDirectory,
+                            profileDirectory),
+                    events,
+                    err);
+        } catch (IOException exception) {
+            err.println("error: Could not close JUnit request classloader.");
+            err.println(WorkerFailureDiagnostic.causeLine(exception));
+            return 1;
+        } finally {
+            Thread.currentThread().setContextClassLoader(original);
+            if (originalUserDirectory == null) {
+                System.clearProperty("user.dir");
+            } else {
+                System.setProperty("user.dir", originalUserDirectory);
+            }
+        }
+    }
+
+    private int execute(
+            JunitProgrammaticLauncher launcher,
+            Path testOutputDirectory,
+            TestSelection testSelection,
+            Optional<Path> reportsDirectory,
+            Optional<Path> profileDirectory,
+            List<String> events,
             PrintStream err) {
         try {
             return launcher.execute(
-                    Path.of(testOutputDirectory),
+                    testOutputDirectory,
                     testSelection,
-                    reportsDirectory.map(Path::of),
-                    profileDirectory.map(Path::of),
+                    reportsDirectory,
+                    profileDirectory,
                     events);
         } catch (ReflectiveOperationException | IOException | LinkageError exception) {
             err.println("error: Could not run tests through Zolt's JUnit launcher worker. "
                     + "Check that JUnit Platform Launcher and test engines are on the worker classpath.");
-            err.println(WorkerFailureDiagnostic.causeLine(exception));
+            err.println(WorkerFailureDiagnostic.causeLine(
+                    diagnosticCause(exception)));
             return 1;
         }
     }
 
-    private static final class ProgrammaticLauncher {
-        private final PrintStream out;
-
-        private ProgrammaticLauncher(PrintStream out) {
-            this.out = out;
+    private static Throwable diagnosticCause(Throwable failure) {
+        Throwable current = failure;
+        int depth = 0;
+        while (current.getCause() != null
+                && current.getCause() != current
+                && depth < 16) {
+            current = current.getCause();
+            depth++;
         }
+        return current;
+    }
 
-        private int execute(
-                Path testOutputDirectory,
-                TestSelection testSelection,
-                Optional<Path> reportsDirectory,
-                Optional<Path> profileDirectory,
-                List<String> events) throws ReflectiveOperationException, IOException {
-            Class<?> listenerClass = Class.forName("org.junit.platform.launcher.listeners.SummaryGeneratingListener");
-            Object listener = listenerClass.getDeclaredConstructor().newInstance();
-            Object request = discoveryRequest(testOutputDirectory.toAbsolutePath().normalize(), testSelection);
-            Object session = openSession();
-            Class<?> sessionInterface = Class.forName("org.junit.platform.launcher.LauncherSession");
-            JunitTestProfileCollector profileCollector = profileDirectory == null || profileDirectory.isEmpty()
-                    ? null
-                    : new JunitTestProfileCollector(profileDirectory.orElseThrow());
-            try {
-                Object launcher = sessionInterface.getMethod("getLauncher").invoke(session);
-                Class<?> launcherInterface = Class.forName("org.junit.platform.launcher.Launcher");
-                Class<?> requestInterface = Class.forName("org.junit.platform.launcher.LauncherDiscoveryRequest");
-                Class<?> listenerInterface = Class.forName("org.junit.platform.launcher.TestExecutionListener");
-                List<Object> testExecutionListeners = new ArrayList<>();
-                testExecutionListeners.add(listener);
-                if (reportsDirectory != null && reportsDirectory.isPresent()) {
-                    testExecutionListeners.add(reportListener(reportsDirectory.orElseThrow()));
-                }
-                if (profileCollector != null) {
-                    testExecutionListeners.add(profileCollector.listener(listenerInterface));
-                }
-                Method execute = launcherInterface.getMethod(
-                        "execute",
-                        requestInterface,
-                        Array.newInstance(listenerInterface, 0).getClass());
-                Object listeners = Array.newInstance(listenerInterface, testExecutionListeners.size());
-                for (int index = 0; index < testExecutionListeners.size(); index++) {
-                    Array.set(listeners, index, testExecutionListeners.get(index));
-                }
-                execute.invoke(launcher, request, listeners);
-            } finally {
-                try {
-                    sessionInterface.getMethod("close").invoke(session);
-                } finally {
-                    if (profileCollector != null) {
-                        profileCollector.write();
-                    }
-                }
-            }
-            return summarize(listenerClass, listener);
+    private static URLClassLoader requestClassLoader(
+            Path requestDirectory,
+            List<String> classpath,
+            ClassLoader fallback) {
+        if (classpath == null || classpath.isEmpty()) {
+            return new URLClassLoader(new URL[0], fallback);
         }
+        URL[] urls = classpath.stream()
+                .map(path -> resolveRequestPath(
+                        requestDirectory,
+                        path))
+                .map(JunitLauncherWorker::url)
+                .toArray(URL[]::new);
+        return new URLClassLoader(urls, ClassLoader.getPlatformClassLoader());
+    }
 
-        private Object openSession() throws ReflectiveOperationException {
-            Class<?> launcherFactoryClass = Class.forName("org.junit.platform.launcher.core.LauncherFactory");
-            try {
-                Class<?> launcherConfigClass = Class.forName("org.junit.platform.launcher.core.LauncherConfig");
-                Object builder = launcherConfigClass.getMethod("builder").invoke(null);
-                // Keep plain JUnit worker runs isolated from framework launcher listeners on Zolt's own classpath.
-                disableAutoRegistration(builder, "enableLauncherSessionListenerAutoRegistration");
-                disableAutoRegistration(builder, "enableLauncherDiscoveryListenerAutoRegistration");
-                disableAutoRegistration(builder, "enableTestExecutionListenerAutoRegistration");
-                disableAutoRegistration(builder, "enablePostDiscoveryFilterAutoRegistration");
-                Method build = builder.getClass().getMethod("build");
-                build.setAccessible(true);
-                Object launcherConfig = build.invoke(builder);
-                return launcherFactoryClass
-                        .getMethod("openSession", launcherConfigClass)
-                        .invoke(null, launcherConfig);
-            } catch (ClassNotFoundException | NoSuchMethodException exception) {
-                return launcherFactoryClass.getMethod("openSession").invoke(null);
-            }
+    private static Path requestDirectory(
+            Optional<String> projectDirectory) {
+        return projectDirectory
+                .filter(directory -> !directory.isBlank())
+                .map(Path::of)
+                .map(path -> path.toAbsolutePath().normalize())
+                .orElseGet(() -> Path.of("")
+                        .toAbsolutePath()
+                        .normalize());
+    }
+
+    private static Path resolveRequestPath(
+            Path requestDirectory,
+            String value) {
+        Path path = Path.of(value);
+        if (path.isAbsolute()) {
+            return path.normalize();
         }
+        return requestDirectory.resolve(path).normalize();
+    }
 
-        private static void disableAutoRegistration(Object builder, String methodName)
-                throws ReflectiveOperationException {
-            Method method = builder.getClass().getMethod(methodName, boolean.class);
-            method.setAccessible(true);
-            method.invoke(builder, false);
-        }
+    private static Optional<Path> resolveRequestPath(
+            Path requestDirectory,
+            Optional<String> value) {
+        return value.map(path ->
+                resolveRequestPath(requestDirectory, path));
+    }
 
-        private Object reportListener(Path reportsDirectory) throws ReflectiveOperationException, IOException {
-            Path normalizedDirectory = reportsDirectory.toAbsolutePath().normalize();
-            Files.createDirectories(normalizedDirectory);
-            Class<?> reportListenerClass = Class.forName(
-                    "org.junit.platform.reporting.legacy.xml.LegacyXmlReportGeneratingListener");
-            return reportListenerClass
-                    .getConstructor(Path.class, PrintWriter.class)
-                    .newInstance(normalizedDirectory, new PrintWriter(out, true));
-        }
-
-        private static Object discoveryRequest(Path testOutputDirectory, TestSelection testSelection)
-                throws ReflectiveOperationException {
-            TestSelection selection = testSelection == null ? TestSelection.empty() : testSelection;
-            Class<?> selectorsClass = Class.forName("org.junit.platform.engine.discovery.DiscoverySelectors");
-            Object selectors = selectors(selection, selectorsClass, testOutputDirectory);
-
-            Class<?> builderClass = Class.forName("org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder");
-            Object builder = builderClass.getMethod("request").invoke(null);
-            builderClass.getMethod("selectors", List.class).invoke(builder, selectors);
-            applyFilters(builderClass, builder, selection);
-            return builderClass.getMethod("build").invoke(builder);
-        }
-
-        private static Object selectors(
-                TestSelection selection,
-                Class<?> selectorsClass,
-                Path testOutputDirectory) throws ReflectiveOperationException {
-            boolean hasClassOrMethodSelectors =
-                    !selection.classSelectors().isEmpty() || !selection.methodSelectors().isEmpty();
-            if (!hasClassOrMethodSelectors) {
-                return selectorsClass
-                        .getMethod("selectClasspathRoots", Set.class)
-                        .invoke(null, Set.of(testOutputDirectory));
-            }
-            List<Object> selectors = new ArrayList<>();
-            Method selectClass = selectorsClass.getMethod("selectClass", String.class);
-            Method selectMethod = selectorsClass.getMethod("selectMethod", String.class);
-            for (String classSelector : selection.classSelectors()) {
-                selectors.add(selectClass.invoke(null, classSelector));
-            }
-            for (TestSelection.MethodSelector methodSelector : selection.methodSelectors()) {
-                selectors.add(selectMethod.invoke(null, methodSelector.className() + "#" + methodSelector.methodName()));
-            }
-            return selectors;
-        }
-
-        private static void applyFilters(Class<?> builderClass, Object builder, TestSelection selection)
-                throws ReflectiveOperationException {
-            List<Object> filters = new ArrayList<>();
-            addClassNameFilters(filters, selection);
-            addTagFilters(filters, selection);
-            if (filters.isEmpty()) {
-                return;
-            }
-            Class<?> filterInterface = Class.forName("org.junit.platform.engine.Filter");
-            Object filterArray = Array.newInstance(filterInterface, filters.size());
-            for (int index = 0; index < filters.size(); index++) {
-                Array.set(filterArray, index, filters.get(index));
-            }
-            builderClass
-                    .getMethod("filters", filterArray.getClass())
-                    .invoke(builder, filterArray);
-        }
-
-        private static void addClassNameFilters(List<Object> filters, TestSelection selection)
-                throws ReflectiveOperationException {
-            Class<?> classNameFilterClass = Class.forName("org.junit.platform.engine.discovery.ClassNameFilter");
-            List<String> patterns = selection.classNameRegexPatterns();
-            if (patterns.isEmpty()
-                    && selection.classSelectors().isEmpty()
-                    && selection.methodSelectors().isEmpty()) {
-                patterns = TestSelection.defaultScanClassNamePatterns();
-            }
-            if (patterns.isEmpty()) {
-                return;
-            }
-            Object classNameFilter = classNameFilterClass
-                    .getMethod("includeClassNamePatterns", String[].class)
-                    .invoke(null, (Object) patterns.toArray(String[]::new));
-            filters.add(classNameFilter);
-        }
-
-        private static void addTagFilters(List<Object> filters, TestSelection selection)
-                throws ReflectiveOperationException {
-            Class<?> tagFilterClass = Class.forName("org.junit.platform.launcher.TagFilter");
-            if (!selection.includedTags().isEmpty()) {
-                filters.add(tagFilterClass
-                        .getMethod("includeTags", String[].class)
-                        .invoke(null, (Object) selection.includedTags().toArray(String[]::new)));
-            }
-            if (!selection.excludedTags().isEmpty()) {
-                filters.add(tagFilterClass
-                        .getMethod("excludeTags", String[].class)
-                        .invoke(null, (Object) selection.excludedTags().toArray(String[]::new)));
-            }
-        }
-
-        private int summarize(Class<?> listenerClass, Object listener) throws ReflectiveOperationException {
-            Object summary = listenerClass.getMethod("getSummary").invoke(listener);
-            Class<?> summaryClass = Class.forName("org.junit.platform.launcher.listeners.TestExecutionSummary");
-            long found = (long) summaryClass.getMethod("getTestsFoundCount").invoke(summary);
-            long succeeded = (long) summaryClass.getMethod("getTestsSucceededCount").invoke(summary);
-            long failed = (long) summaryClass.getMethod("getTestsFailedCount").invoke(summary);
-            long aborted = (long) summaryClass.getMethod("getTestsAbortedCount").invoke(summary);
-            long totalFailures = (long) summaryClass.getMethod("getTotalFailureCount").invoke(summary);
-            out.println("Tests found: " + found);
-            out.println("Tests succeeded: " + succeeded);
-            out.println("Tests failed: " + failed);
-            if (totalFailures > 0) {
-                out.println();
-                summaryClass
-                        .getMethod("printFailuresTo", PrintWriter.class)
-                        .invoke(summary, new PrintWriter(out, true));
-            }
-            if (found == 0) {
-                return 2;
-            }
-            return failed == 0 && aborted == 0 ? 0 : 1;
+    private static URL url(Path path) {
+        try {
+            return path.toUri().toURL();
+        } catch (MalformedURLException exception) {
+            throw new IllegalArgumentException(
+                    "Invalid JUnit worker classpath entry `" + path + "`.",
+                    exception);
         }
     }
 
+    static Set<Long> liveNonDaemonThreadIds() {
+        Thread current = Thread.currentThread();
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(Thread::isAlive)
+                .filter(thread -> !thread.isDaemon())
+                .filter(thread -> thread != current)
+                .map(Thread::threadId)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    static boolean hasNewLiveNonDaemonThreads(Set<Long> threadsBefore) {
+        Set<Long> baseline = threadsBefore == null
+                ? Set.of()
+                : Set.copyOf(threadsBefore);
+        return liveNonDaemonThreadIds().stream()
+                .anyMatch(threadId -> !baseline.contains(threadId));
+    }
 }

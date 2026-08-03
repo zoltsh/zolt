@@ -1,6 +1,7 @@
 package sh.zolt.junit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.test.TestSelection;
@@ -22,6 +23,7 @@ final class JunitWorkerProtocolTest {
         assertEquals(JunitWorkerProtocol.WorkerCommand.RUN, request.command());
         assertEquals("request-1", request.requestId());
         assertEquals("target/test-classes", request.testOutputDirectory());
+        assertEquals(List.of(), request.testRuntimeClasspath());
         assertTrue(request.reportsDirectory().isEmpty());
         assertTrue(request.profileDirectory().isEmpty());
         assertEquals(List.of(), request.events());
@@ -59,6 +61,50 @@ final class JunitWorkerProtocolTest {
                 "includeTags=fast",
                 "excludeTags=slow"), frame);
         assertEquals(selection, JunitWorkerProtocol.parseRequest(frame).testSelection());
+    }
+
+    @Test
+    void roundTripsRequestScopedRuntimeClasspath() {
+        List<Path> classpath = List.of(
+                Path.of("target/test-classes"),
+                Path.of("cache/lib,with-comma.jar"));
+
+        String frame = JunitWorkerProtocol.runRequest(
+                "request-1",
+                classpath,
+                OUTPUT,
+                TestSelection.empty(),
+                Optional.empty(),
+                List.of(),
+                Optional.empty());
+
+        assertTrue(frame.contains(
+                "classpath=target/test-classes,"
+                        + "cache/lib%252Cwith-comma.jar"), frame);
+        assertEquals(
+                classpath.stream().map(Path::toString).toList(),
+                JunitWorkerProtocol.parseRequest(frame)
+                        .testRuntimeClasspath());
+    }
+
+    @Test
+    void roundTripsRequestScopedProjectDirectory() {
+        Path projectDirectory = Path.of("modules/demo");
+
+        String frame = JunitWorkerProtocol.runRequest(
+                "request-1",
+                projectDirectory,
+                List.of(Path.of("target/test-classes")),
+                OUTPUT,
+                TestSelection.empty(),
+                Optional.empty(),
+                List.of(),
+                Optional.empty());
+
+        assertTrue(frame.contains("cwd=modules/demo"), frame);
+        assertEquals(
+                Optional.of(projectDirectory.toString()),
+                JunitWorkerProtocol.parseRequest(frame).projectDirectory());
     }
 
     @Test
@@ -219,6 +265,7 @@ final class JunitWorkerProtocolTest {
         assertEquals(JunitWorkerProtocol.WorkerCommand.QUIT, request.command());
         assertEquals("quit-1", request.requestId());
         assertEquals("", request.testOutputDirectory());
+        assertEquals(List.of(), request.testRuntimeClasspath());
         assertTrue(request.reportsDirectory().isEmpty());
         assertTrue(request.profileDirectory().isEmpty());
         assertEquals(List.of(), request.events());
@@ -234,6 +281,23 @@ final class JunitWorkerProtocolTest {
         assertEquals("ZOLT_WORKER_RESULT\tid=request-1\texit=2", frame);
         assertEquals("request-1", result.requestId());
         assertEquals(2, result.exitCode());
+        assertFalse(result.retireWorker());
+    }
+
+    @Test
+    void formatsAndParsesWorkerRetirementResults() {
+        String frame = JunitWorkerProtocol.result(
+                "request-1",
+                0,
+                true);
+
+        JunitWorkerProtocol.WorkerResult result =
+                JunitWorkerProtocol.parseResult(frame);
+
+        assertEquals(
+                "ZOLT_WORKER_RESULT\tid=request-1\texit=0\tretire=true",
+                frame);
+        assertTrue(result.retireWorker());
     }
 
     @Test

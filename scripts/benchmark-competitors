@@ -1048,17 +1048,17 @@ measure_zolt() {
   local project_dir
   project_dir="$(fixture_root zolt)"
   run_logged zolt setup 0 "$project_dir" "$ZOLT_BIN" resolve --workspace --cache-root "$CACHE_ROOT"
-  run_logged zolt setup-warm-build 0 "$project_dir" "$ZOLT_BIN" build --workspace --all --offline --cache-root "$CACHE_ROOT"
+  run_logged zolt setup-warm-build 0 "$project_dir" "$ZOLT_BIN" build --workspace --all --offline --cache-root "$CACHE_ROOT" --no-build-cache
   for iteration in $(seq 1 "$REPEAT_COUNT"); do
-    run_logged zolt no-op-build "$iteration" "$project_dir" "$ZOLT_BIN" build --workspace --all --offline --cache-root "$CACHE_ROOT"
+    run_logged zolt no-op-build "$iteration" "$project_dir" "$ZOLT_BIN" build --workspace --all --offline --cache-root "$CACHE_ROOT" --no-build-cache
   done
   for iteration in $(seq 1 "$REPEAT_COUNT"); do
     append_comment "$(zolt_leaf_source)" "zolt leaf $iteration"
-    run_logged zolt leaf-change-build "$iteration" "$project_dir" "$ZOLT_BIN" build --workspace --all --offline --cache-root "$CACHE_ROOT"
+    run_logged zolt leaf-change-build "$iteration" "$project_dir" "$ZOLT_BIN" build --workspace --all --offline --cache-root "$CACHE_ROOT" --no-build-cache
   done
   for iteration in $(seq 1 "$REPEAT_COUNT"); do
     append_comment "$(zolt_root_source)" "zolt root $iteration"
-    run_logged zolt root-change-build "$iteration" "$project_dir" "$ZOLT_BIN" build --workspace --all --offline --cache-root "$CACHE_ROOT"
+    run_logged zolt root-change-build "$iteration" "$project_dir" "$ZOLT_BIN" build --workspace --all --offline --cache-root "$CACHE_ROOT" --no-build-cache
   done
 }
 
