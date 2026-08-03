@@ -1,9 +1,12 @@
 package sh.zolt.cli.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.doctor.JdkChecker;
+import sh.zolt.error.ActionableException;
 import sh.zolt.framework.FrameworkTestRunner;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
@@ -185,6 +188,60 @@ final class WorkspaceCommandToolchainContextTest {
         assertEquals(true, mutated.get());
     }
 
+    @Test
+    void testRuntimeReleaseValidationIsIndependentOfMemberOrder()
+            throws IOException {
+        Path root = tempDir.resolve("mixed-release-workspace");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "mixed-release-workspace"
+                members = ["modules/java-8", "modules/java-999"]
+
+                [toolchain.java]
+                version = "%s"
+                features = []
+                policy = "prefer-managed"
+
+                [toolchain.java.test]
+                version = "%s"
+                """.formatted(currentJavaVersion(), currentJavaVersion()));
+        writeMember(
+                root.resolve("modules/java-8"),
+                "java-8",
+                "8",
+                "");
+        writeMember(
+                root.resolve("modules/java-999"),
+                "java-999",
+                "999",
+                "");
+        Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
+        Workspace workspace = capturedWorkspace(root);
+
+        RuntimeFailure lowerFirst = runtimeFailure(
+                workspace,
+                "modules/java-8",
+                "modules/java-999");
+        RuntimeFailure higherFirst = runtimeFailure(
+                workspace,
+                null,
+                "modules/java-999");
+
+        assertEquals(higherFirst.message(), lowerFirst.message());
+        assertTrue(lowerFirst.message().contains(
+                "Test runtime Java " + currentJavaVersion()
+                        + " is older than the compiled [project].java release 999"));
+        assertTrue(lowerFirst.message().contains(
+                "UnsupportedClassVersionError"));
+        assertEquals(
+                new WorkspaceTestToolchainMetrics(1, 0, 0, 1, 1),
+                lowerFirst.metrics());
+        assertEquals(
+                new WorkspaceTestToolchainMetrics(1, 0, 0, 1, 0),
+                higherFirst.metrics());
+    }
+
     private CommandToolchainOptions options() {
         CommandToolchainOptions options = new CommandToolchainOptions();
         new CommandLine(options).parseArgs(
@@ -218,6 +275,18 @@ final class WorkspaceCommandToolchainContextTest {
             Path directory,
             String name,
             String extra) throws IOException {
+        writeMember(
+                directory,
+                name,
+                currentJavaVersion(),
+                extra);
+    }
+
+    private static void writeMember(
+            Path directory,
+            String name,
+            String release,
+            String extra) throws IOException {
         Files.createDirectories(directory);
         Files.writeString(directory.resolve("zolt.toml"), """
                 [project]
@@ -226,7 +295,54 @@ final class WorkspaceCommandToolchainContextTest {
                 group = "com.example"
                 java = "%s"
                 %s
-                """.formatted(name, currentJavaVersion(), extra));
+                """.formatted(name, release, extra));
+    }
+
+    private RuntimeFailure runtimeFailure(
+            Workspace workspace,
+            String successfulMember,
+            String failingMember) {
+        List<JdkChecker> runtimeCheckers = new ArrayList<>();
+        CommandToolchainOptions.WorkspaceCommandToolchains toolchains =
+                options().workspaceTestToolchains(
+                        (compileChecker, runtimeChecker) -> {
+                            runtimeCheckers.add(runtimeChecker);
+                            return testRunService(
+                                    compileChecker,
+                                    runtimeChecker);
+                        },
+                        "test");
+        if (successfulMember != null) {
+            runtimeChecker(
+                    toolchains,
+                    workspace,
+                    successfulMember,
+                    runtimeCheckers).detect("8");
+        }
+        JdkChecker failingChecker = runtimeChecker(
+                toolchains,
+                workspace,
+                failingMember,
+                runtimeCheckers);
+        ActionableException failure = assertThrows(
+                ActionableException.class,
+                () -> failingChecker.detect("999"));
+        return new RuntimeFailure(
+                failure.getMessage(),
+                toolchains.testRunServices().toolchainMetrics());
+    }
+
+    private static JdkChecker runtimeChecker(
+            CommandToolchainOptions.WorkspaceCommandToolchains toolchains,
+            Workspace workspace,
+            String memberPath,
+            List<JdkChecker> runtimeCheckers) {
+        var member = workspace.members().stream()
+                .filter(candidate -> candidate.path().equals(memberPath))
+                .findFirst()
+                .orElseThrow();
+        toolchains.testRunServices().forMember(workspace, member);
+        return runtimeCheckers.getLast();
     }
 
     private static void writeSource(
@@ -255,5 +371,10 @@ final class WorkspaceCommandToolchainContextTest {
         return parts.length >= 2 && "1".equals(parts[0])
                 ? parts[1]
                 : parts[0];
+    }
+
+    private record RuntimeFailure(
+            String message,
+            WorkspaceTestToolchainMetrics metrics) {
     }
 }

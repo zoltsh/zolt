@@ -41,12 +41,14 @@ public final class CommandServiceBundles {
             ZoltTomlParser tomlParser,
             CoverageService coverageService,
             WorkspaceCoverageService workspaceCoverageService,
-            CoverageServiceFactory coverageServiceFactory) {
+            CoverageServiceFactory coverageServiceFactory,
+            TestRunServiceFactory testRunServiceFactory) {
         public CommandCoverageServices {
             Objects.requireNonNull(tomlParser, "tomlParser");
             Objects.requireNonNull(coverageService, "coverageService");
             Objects.requireNonNull(workspaceCoverageService, "workspaceCoverageService");
             Objects.requireNonNull(coverageServiceFactory, "coverageServiceFactory");
+            Objects.requireNonNull(testRunServiceFactory, "testRunServiceFactory");
         }
     }
 

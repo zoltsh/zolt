@@ -52,6 +52,7 @@ public final class CoverageCommand implements Runnable {
     private final CoverageService coverageService;
     private final WorkspaceCoverageService workspaceCoverageService;
     private final CommandServiceBundles.CoverageServiceFactory coverageServiceFactory;
+    private final CommandServiceBundles.TestRunServiceFactory testRunServiceFactory;
     private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
 
     @Option(names = "--workspace", description = "Run coverage for workspace members and write aggregate reports.")
@@ -129,18 +130,21 @@ public final class CoverageCommand implements Runnable {
                 services.tomlParser(),
                 services.coverageService(),
                 services.workspaceCoverageService(),
-                services.coverageServiceFactory());
+                services.coverageServiceFactory(),
+                services.testRunServiceFactory());
     }
 
     CoverageCommand(
             ZoltTomlParser tomlParser,
             CoverageService coverageService,
             WorkspaceCoverageService workspaceCoverageService,
-            CommandServiceBundles.CoverageServiceFactory coverageServiceFactory) {
+            CommandServiceBundles.CoverageServiceFactory coverageServiceFactory,
+            CommandServiceBundles.TestRunServiceFactory testRunServiceFactory) {
         this.tomlParser = tomlParser;
         this.coverageService = coverageService;
         this.workspaceCoverageService = workspaceCoverageService;
         this.coverageServiceFactory = coverageServiceFactory;
+        this.testRunServiceFactory = testRunServiceFactory;
     }
 
     @Override
@@ -238,9 +242,16 @@ public final class CoverageCommand implements Runnable {
             List<String> requestedTestEvents,
             String suiteName,
             TestShardSpec shard) {
+        CommandToolchainOptions.WorkspaceCommandToolchains workspaceToolchains =
+                toolchainOptions.workspaceCoverageToolchains(
+                        testRunServiceFactory);
+        WorkspaceCoverageService projectWorkspaceCoverageService =
+                workspaceCoverageService.withMemberServices(
+                        workspaceToolchains.mainCheckers(),
+                        workspaceToolchains.testRunServices());
         WorkspaceCoverageResult result = timings.measure(
                 "workspace coverage",
-                () -> workspaceCoverageService.runCoverage(
+                () -> projectWorkspaceCoverageService.runCoverage(
                         projectRoot,
                         cacheRoot,
                         CommandWorkspaceSelections.from(all, members, memberGroups),

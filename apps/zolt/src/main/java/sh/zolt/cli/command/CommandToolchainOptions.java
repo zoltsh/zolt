@@ -86,6 +86,11 @@ public final class CommandToolchainOptions {
                 context.testRunServices(factory));
     }
 
+    public WorkspaceCommandToolchains workspaceCoverageToolchains(
+            CommandServiceBundles.TestRunServiceFactory factory) {
+        return workspaceTestToolchains(factory, "coverage");
+    }
+
     private WorkspaceCommandToolchainContext workspaceContext(
             String commandName) {
         return new WorkspaceCommandToolchainContext(

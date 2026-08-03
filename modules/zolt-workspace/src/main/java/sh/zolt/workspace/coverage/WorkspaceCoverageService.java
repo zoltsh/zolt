@@ -2,7 +2,6 @@ package sh.zolt.workspace.coverage;
 
 import sh.zolt.build.CoverageException;
 import sh.zolt.build.coverage.CoverageReportSettings;
-import sh.zolt.build.coverage.CoverageService;
 import sh.zolt.build.coverage.CoverageTooling;
 import sh.zolt.build.run.JavaRunResult;
 import sh.zolt.test.runtime.TestJvmArguments;
@@ -14,8 +13,9 @@ import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
-import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
+import sh.zolt.workspace.service.WorkspaceTestRunServiceResolver;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import sh.zolt.workspace.service.WorkspaceTestService;
 import java.io.IOException;
@@ -31,18 +31,62 @@ public final class WorkspaceCoverageService {
     private final CoverageWorkspaceResolver workspaceResolver;
     private final CoverageWorkspaceTests workspaceTests;
     private final CoverageReporter coverageReporter;
+    private final WorkspaceTestService configurableWorkspaceTests;
 
     public WorkspaceCoverageService() {
-        this(defaultResolver(), defaultWorkspaceTests(), defaultCoverageReporter());
+        this(new WorkspaceTestService());
+    }
+
+    public WorkspaceCoverageService(
+            WorkspaceTestService workspaceTestService) {
+        this(
+                WorkspaceCoverageDefaults.resolver(),
+                workspaceTestService,
+                WorkspaceCoverageDefaults.reporter());
+    }
+
+    private WorkspaceCoverageService(
+            CoverageWorkspaceResolver workspaceResolver,
+            WorkspaceTestService workspaceTestService,
+            CoverageReporter coverageReporter) {
+        this(
+                workspaceResolver,
+                WorkspaceCoverageDefaults.tests(workspaceTestService),
+                coverageReporter,
+                workspaceTestService);
     }
 
     WorkspaceCoverageService(
             CoverageWorkspaceResolver workspaceResolver,
             CoverageWorkspaceTests workspaceTests,
             CoverageReporter coverageReporter) {
+        this(workspaceResolver, workspaceTests, coverageReporter, null);
+    }
+
+    private WorkspaceCoverageService(
+            CoverageWorkspaceResolver workspaceResolver,
+            CoverageWorkspaceTests workspaceTests,
+            CoverageReporter coverageReporter,
+            WorkspaceTestService configurableWorkspaceTests) {
         this.workspaceResolver = workspaceResolver;
         this.workspaceTests = workspaceTests;
         this.coverageReporter = coverageReporter;
+        this.configurableWorkspaceTests = configurableWorkspaceTests;
+    }
+
+    public WorkspaceCoverageService withMemberServices(
+            WorkspaceJdkCheckerResolver jdkCheckers,
+            WorkspaceTestRunServiceResolver testRunServices) {
+        if (configurableWorkspaceTests == null) {
+            throw new IllegalStateException(
+                    "This workspace coverage service does not own a configurable WorkspaceTestService.");
+        }
+        return new WorkspaceCoverageService(
+                workspaceResolver,
+                configurableWorkspaceTests.withMemberServices(
+                        jdkCheckers,
+                        testRunServices),
+                coverageReporter);
     }
 
     public WorkspaceCoverageResult runCoverage(
@@ -112,6 +156,11 @@ public final class WorkspaceCoverageService {
                 suiteName,
                 shard);
         List<WorkspaceMember> reportMembers = reportMembers(workspace, buildResult);
+        coverageReporter.mergeWorkerExecFilesIfPresent(
+                workspaceRoot,
+                reportMembers.getFirst().config(),
+                execFile,
+                tooling.cliClasspath());
         List<Path> classfileRoots = reportMembers.stream()
                 .map(member -> member.directory().resolve(member.config().build().output()).toAbsolutePath().normalize())
                 .toList();
@@ -138,7 +187,9 @@ public final class WorkspaceCoverageService {
                 settings.absoluteXmlReport(workspaceRoot),
                 settings.absoluteHtmlDirectory(workspaceRoot),
                 classfileRoots.size(),
-                sourceRoots.size());
+                sourceRoots.size(),
+                testResult.totalMemberCount(),
+                testResult.toolchainMetrics());
     }
 
     private static List<WorkspaceMember> reportMembers(Workspace workspace, WorkspaceBuildResult buildResult) {
@@ -166,6 +217,7 @@ public final class WorkspaceCoverageService {
                 Files.createDirectories(parent);
             }
             Files.deleteIfExists(execFile);
+            deleteWorkerExecFiles(execFile);
         } catch (IOException exception) {
             throw new CoverageException(
                     "Could not prepare workspace coverage execution data at "
@@ -175,84 +227,28 @@ public final class WorkspaceCoverageService {
         }
     }
 
-    private static CoverageWorkspaceResolver defaultResolver() {
-        WorkspaceResolveService service = new WorkspaceResolveService();
-        return service::resolveWithCoverageTooling;
-    }
-
-    private static CoverageWorkspaceTests defaultWorkspaceTests() {
-        WorkspaceTestService service = new WorkspaceTestService();
-        return new CoverageWorkspaceTests() {
-            @Override
-            public WorkspaceBuildPlan planTests(
-                    Path startDirectory,
-                    Path cacheRoot,
-                    WorkspaceSelectionRequest selectionRequest) {
-                return service.planTests(startDirectory, cacheRoot, selectionRequest);
-            }
-
-            @Override
-            public WorkspaceBuildResult buildTestInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
-                return service.buildTestInputs(plan, cacheRoot);
-            }
-
-            @Override
-            public WorkspaceTestResult runTests(
-                    WorkspaceBuildPlan plan,
-                    WorkspaceBuildResult buildResult,
-                    Path cacheRoot,
-                    TestSelection testSelection,
-                    TestJvmArguments jvmArguments,
-                    sh.zolt.build.testruntime.TestReportSettings reportSettings,
-                    List<String> cliEvents,
-                    String suiteName,
-                    TestShardSpec shard) {
-                return service.runTests(
-                        plan,
-                        buildResult,
-                        cacheRoot,
-                        testSelection,
-                        jvmArguments,
-                        reportSettings,
-                        cliEvents,
-                        suiteName,
-                        shard);
-            }
-        };
-    }
-
-    private static CoverageReporter defaultCoverageReporter() {
-        CoverageService service = new CoverageService();
-        return new CoverageReporter() {
-            @Override
-            public CoverageTooling lockedCoverageTooling(Path lockfileDirectory, Path cacheRoot) {
-                return service.lockedCoverageTooling(lockfileDirectory, cacheRoot);
-            }
-
-            @Override
-            public TestJvmArguments coverageJvmArguments(Path agentJar, Path execFile, boolean append) {
-                return service.coverageJvmArguments(agentJar, execFile, append);
-            }
-
-            @Override
-            public JavaRunResult runReport(
-                    Path projectRoot,
-                    sh.zolt.project.ProjectConfig config,
-                    CoverageReportSettings settings,
-                    Path execFile,
-                    List<Path> cliClasspath,
-                    List<Path> classfileRoots,
-                    List<Path> sourceRoots) {
-                return service.runReport(
-                        projectRoot,
-                        config,
-                        settings,
-                        execFile,
-                        cliClasspath,
-                        classfileRoots,
-                        sourceRoots);
-            }
-        };
+    private static void deleteWorkerExecFiles(Path execFile)
+            throws IOException {
+        Path parent = execFile.getParent();
+        if (parent == null) {
+            return;
+        }
+        Path workersDirectory = parent.resolve("workers");
+        if (!Files.isDirectory(workersDirectory)) {
+            return;
+        }
+        List<Path> workerExecFiles;
+        try (java.util.stream.Stream<Path> paths =
+                Files.walk(workersDirectory)) {
+            workerExecFiles = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().equals(
+                            execFile.getFileName()))
+                    .toList();
+        }
+        for (Path workerExecFile : workerExecFiles) {
+            Files.deleteIfExists(workerExecFile);
+        }
     }
 
     @FunctionalInterface
@@ -284,6 +280,13 @@ public final class WorkspaceCoverageService {
         CoverageTooling lockedCoverageTooling(Path lockfileDirectory, Path cacheRoot);
 
         TestJvmArguments coverageJvmArguments(Path agentJar, Path execFile, boolean append);
+
+        default void mergeWorkerExecFilesIfPresent(
+                Path projectRoot,
+                sh.zolt.project.ProjectConfig config,
+                Path execFile,
+                List<Path> cliClasspath) {
+        }
 
         JavaRunResult runReport(
                 Path projectRoot,

@@ -1,6 +1,7 @@
 package sh.zolt.workspace.coverage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.BuildResult;
@@ -29,6 +30,7 @@ import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.service.WorkspaceTestResult;
+import sh.zolt.workspace.service.WorkspaceTestToolchainMetrics;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -81,6 +84,11 @@ final class WorkspaceCoverageServiceTest {
         List<Path> reportSourceRoots = new ArrayList<>();
         Path agentJar = tempDir.resolve("org.jacoco.agent-0.8.14-runtime.jar");
         Path cliJar = tempDir.resolve("org.jacoco.cli-0.8.14.jar");
+        Path staleWorkerExec = workspaceRoot.resolve(
+                "target/coverage/workers/worker-1/jacoco.exec");
+        Files.createDirectories(staleWorkerExec.getParent());
+        Files.writeString(staleWorkerExec, "stale\n");
+        AtomicBoolean workerExecsMerged = new AtomicBoolean();
         WorkspaceCoverageService service = new WorkspaceCoverageService(
                 (startDirectory, cacheRoot) -> new ResolveResult(2, 0, 0, workspaceRoot.resolve("zolt.lock")),
                 new WorkspaceCoverageService.CoverageWorkspaceTests() {
@@ -115,6 +123,7 @@ final class WorkspaceCoverageServiceTest {
                         assertEquals(buildResult, requestedBuildResult);
                         assertEquals("all", suiteName);
                         assertEquals(null, shard);
+                        assertFalse(Files.exists(staleWorkerExec));
                         assertEquals(Optional.of(Path.of("target/coverage/test-reports")), reportSettings.reportsDirectory());
                         testJvmArguments.add(jvmArguments);
                         return new WorkspaceTestResult(
@@ -128,7 +137,15 @@ final class WorkspaceCoverageServiceTest {
                                                 TestRunResult.metrics("junit-console", 1, 1, 1, -1L, -1L),
                                                 testSelection,
                                                 jvmArguments,
-                                                Optional.of(apiDir.resolve("target/coverage/test-reports/apps/api"))))));
+                                                Optional.of(apiDir.resolve("target/coverage/test-reports/apps/api"))))),
+                                2,
+                                Optional.empty(),
+                                new WorkspaceTestToolchainMetrics(
+                                        1,
+                                        1,
+                                        1,
+                                        1,
+                                        0));
                     }
                 },
                 new WorkspaceCoverageService.CoverageReporter() {
@@ -147,6 +164,22 @@ final class WorkspaceCoverageServiceTest {
                     }
 
                     @Override
+                    public void mergeWorkerExecFilesIfPresent(
+                            Path projectRoot,
+                            ProjectConfig config,
+                            Path execFile,
+                            List<Path> cliClasspath) {
+                        assertEquals(workspaceRoot, projectRoot);
+                        assertEquals(coreConfig, config);
+                        assertEquals(
+                                workspaceRoot.resolve(
+                                        "target/coverage/jacoco.exec"),
+                                execFile);
+                        assertEquals(List.of(cliJar), cliClasspath);
+                        workerExecsMerged.set(true);
+                    }
+
+                    @Override
                     public JavaRunResult runReport(
                             Path projectRoot,
                             ProjectConfig config,
@@ -155,6 +188,7 @@ final class WorkspaceCoverageServiceTest {
                             List<Path> cliClasspath,
                             List<Path> classfileRoots,
                             List<Path> sourceRoots) {
+                        assertTrue(workerExecsMerged.get());
                         assertEquals(workspaceRoot, projectRoot);
                         assertEquals(coreConfig, config);
                         assertEquals(workspaceRoot.resolve("target/coverage/jacoco.exec"), execFile);
@@ -178,6 +212,14 @@ final class WorkspaceCoverageServiceTest {
         assertEquals(Optional.of(workspaceRoot.resolve("target/coverage/html")), result.htmlDirectory());
         assertEquals(1, result.members().size());
         assertEquals("apps/api", result.members().getFirst().member());
+        assertEquals(2, result.totalMemberCount());
+        assertEquals(
+                new WorkspaceTestToolchainMetrics(1, 1, 1, 1, 0),
+                result.toolchainMetrics());
+        assertEquals(
+                result.toolchainMetrics(),
+                result.testResult().toolchainMetrics());
+        assertTrue(workerExecsMerged.get());
         assertEquals("aggregate report\n", result.reportOutput());
         assertEquals(1, testJvmArguments.size());
         assertTrue(testJvmArguments.getFirst().values().getFirst().contains("append=true"));

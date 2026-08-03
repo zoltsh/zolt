@@ -270,7 +270,7 @@ public final class CoverageService {
         }
     }
 
-    private void mergeWorkerExecFilesIfPresent(
+    public void mergeWorkerExecFilesIfPresent(
             Path projectRoot,
             ProjectConfig config,
             Path execFile,

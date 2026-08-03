@@ -26,21 +26,31 @@ final class CommandServiceBundlesTest {
                         null,
                         services.coverageService(),
                         services.workspaceCoverageService(),
-                        services.coverageServiceFactory()),
+                        services.coverageServiceFactory(),
+                        services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
                         services.tomlParser(),
                         null,
                         services.workspaceCoverageService(),
-                        services.coverageServiceFactory()),
+                        services.coverageServiceFactory(),
+                        services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
                         services.tomlParser(),
                         services.coverageService(),
                         null,
-                        services.coverageServiceFactory()),
+                        services.coverageServiceFactory(),
+                        services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
                         services.tomlParser(),
                         services.coverageService(),
                         services.workspaceCoverageService(),
+                        null,
+                        services.testRunServiceFactory()),
+                () -> new CommandCoverageServices(
+                        services.tomlParser(),
+                        services.coverageService(),
+                        services.workspaceCoverageService(),
+                        services.coverageServiceFactory(),
                         null));
     }
 

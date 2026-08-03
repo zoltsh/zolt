@@ -7,6 +7,7 @@ import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toolchain.JavaToolchainExecutionService;
+import sh.zolt.toolchain.TestRuntimeToolchain;
 import sh.zolt.toolchain.TestRuntimeToolchainResolver;
 import sh.zolt.toolchain.ToolchainConfigReader;
 import sh.zolt.toolchain.lock.LockedJavaToolchain;
@@ -33,7 +34,7 @@ final class WorkspaceCommandToolchainState {
             new HashMap<>();
     private final Map<WorkspaceToolchainKey, JdkChecker> mainCheckers =
             new HashMap<>();
-    private final Map<WorkspaceToolchainKey, JdkChecker> testCheckers =
+    private final Map<WorkspaceToolchainKey, TestRuntimeToolchain> testToolchains =
             new HashMap<>();
     private int testIdentityCalculations;
     private int testIdentityHits;
@@ -97,22 +98,25 @@ final class WorkspaceCommandToolchainState {
         }
         WorkspaceToolchainKey key =
                 key(workspace, request.orElseThrow(), true);
-        JdkChecker cached = testCheckers.get(key);
-        if (cached != null) {
+        TestRuntimeToolchain resolved = testToolchains.get(key);
+        if (resolved != null) {
             testIdentityHits++;
-            return cached;
+        } else {
+            testIdentityCalculations++;
+            JavaToolchainRequest testRequest = request.orElseThrow();
+            resolved = new TestRuntimeToolchainResolver().resolveCaptured(
+                    testRequest,
+                    lockIndex.find(testRequest, platform),
+                    member.config(),
+                    platform,
+                    store);
+            testToolchains.put(key, resolved);
         }
-        testIdentityCalculations++;
-        JavaToolchainRequest testRequest = request.orElseThrow();
-        JdkChecker resolved = TestRuntimeJdkChecker.of(
-                new TestRuntimeToolchainResolver().resolveCaptured(
-                        testRequest,
-                        lockIndex.find(testRequest, platform),
-                        member.config(),
-                        platform,
-                        store));
-        testCheckers.put(key, resolved);
-        return resolved;
+        TestRuntimeToolchain memberToolchain = new TestRuntimeToolchain(
+                resolved.request(),
+                resolved.status(),
+                member.config().project().java());
+        return TestRuntimeJdkChecker.of(memberToolchain);
     }
 
     int lockfileParseCount() {
@@ -170,7 +174,7 @@ final class WorkspaceCommandToolchainState {
                     memberContent);
         }
         Optional<String> workspaceContent = workspace.inputs()
-                .content(workspace.root().resolve("zolt.toml"));
+                .content(workspace.configPath());
         Optional<JavaToolchainRequest> workspaceRequest =
                 workspaceContent.flatMap(reader::readJava);
         if (workspaceRequest.isPresent()) {
