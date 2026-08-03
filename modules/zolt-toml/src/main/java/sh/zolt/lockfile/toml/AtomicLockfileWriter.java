@@ -40,7 +40,16 @@ public final class AtomicLockfileWriter {
         mutate(target, mutation);
     }
 
-    private static void mutate(
+    /**
+     * Runs one cross-process read-modify-write transaction and returns the exact committed content.
+     */
+    public static String updateAndReturn(
+            Path target,
+            UnaryOperator<String> mutation) throws IOException {
+        return mutate(target, mutation);
+    }
+
+    private static String mutate(
             Path target,
             UnaryOperator<String> mutation) throws IOException {
         Path normalized = target.toAbsolutePath().normalize();
@@ -65,7 +74,9 @@ public final class AtomicLockfileWriter {
                 String current = Files.isRegularFile(normalized)
                         ? Files.readString(normalized, StandardCharsets.UTF_8)
                         : "";
-                writeLocked(normalized, mutation.apply(current));
+                String committed = mutation.apply(current);
+                writeLocked(normalized, committed);
+                return committed;
             }
         } finally {
             targetLock.unlock();

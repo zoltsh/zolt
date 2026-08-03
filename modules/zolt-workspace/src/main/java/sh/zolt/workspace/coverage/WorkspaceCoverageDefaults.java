@@ -44,7 +44,7 @@ final class WorkspaceCoverageDefaults {
 
     static CoverageWorkspaceResolver resolver(
             WorkspaceResolveService service) {
-        return service::resolveWithCoverageTooling;
+        return service::resolveCoverageSnapshot;
     }
 
     static CoverageWorkspaceTests tests(WorkspaceTestService service) {

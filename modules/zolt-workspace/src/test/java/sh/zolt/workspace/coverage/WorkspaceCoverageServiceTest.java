@@ -23,6 +23,7 @@ import sh.zolt.resolve.ResolveResult;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.resolve.WorkspaceResolveSnapshot;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.WorkspaceConfig;
@@ -97,11 +98,7 @@ final class WorkspaceCoverageServiceTest {
                 startDirectory -> workspace,
                 (requestedWorkspace, cacheRoot) -> {
                     assertEquals(workspace, requestedWorkspace);
-                    return new ResolveResult(
-                            2,
-                            0,
-                            0,
-                            workspaceRoot.resolve("zolt.lock"));
+                    return resolveSnapshot(workspace, 2);
                 },
                 new WorkspaceCoverageService.CoverageWorkspaceTests() {
                     @Override
@@ -277,11 +274,8 @@ final class WorkspaceCoverageServiceTest {
         Path cliJar = tempDir.resolve("org.jacoco.cli-0.8.14.jar");
         WorkspaceCoverageService service = new WorkspaceCoverageService(
                 startDirectory -> workspace,
-                (requestedWorkspace, cacheRoot) -> new ResolveResult(
-                        1,
-                        0,
-                        0,
-                        workspaceRoot.resolve("zolt.lock")),
+                (requestedWorkspace, cacheRoot) ->
+                        resolveSnapshot(workspace, 1),
                 new WorkspaceCoverageService.CoverageWorkspaceTests() {
                     @Override
                     public WorkspaceBuildPlan planTests(
@@ -408,16 +402,36 @@ final class WorkspaceCoverageServiceTest {
                 name = "workspace"
                 members = []
                 """;
+        String lockfileContent = "version = 1\n";
+        Path lockfilePath = workspace.root().resolve("zolt.lock");
         try {
             Files.writeString(workspace.configPath(), content);
+            Files.writeString(lockfilePath, lockfileContent);
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
         return workspace.withInputs(WorkspaceInputs.captured(
                 Map.of(
                         workspace.configPath(),
-                        content.getBytes(StandardCharsets.UTF_8)),
+                        content.getBytes(StandardCharsets.UTF_8),
+                        lockfilePath,
+                        lockfileContent.getBytes(StandardCharsets.UTF_8)),
                 Set.of()));
+    }
+
+    private static WorkspaceResolveSnapshot resolveSnapshot(
+            Workspace workspace,
+            int packageCount) {
+        Path lockfilePath = workspace.root().resolve("zolt.lock");
+        return new WorkspaceResolveSnapshot(
+                new ResolveResult(
+                        packageCount,
+                        0,
+                        0,
+                        lockfilePath),
+                workspace.inputs().contentBytes(lockfilePath)
+                        .orElseThrow(),
+                new ZoltLockfile(1, List.of(), List.of()));
     }
 
     private static ProjectConfig config(String name) {

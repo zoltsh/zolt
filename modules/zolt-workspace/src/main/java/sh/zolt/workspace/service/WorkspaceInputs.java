@@ -46,6 +46,13 @@ public final class WorkspaceInputs {
                 : Optional.of(new String(content, StandardCharsets.UTF_8));
     }
 
+    public Optional<byte[]> contentBytes(Path path) {
+        byte[] content = files.get(normalize(path));
+        return content == null
+                ? Optional.empty()
+                : Optional.of(content.clone());
+    }
+
     public WorkspaceInputs withContent(
             Path path,
             byte[] content) {

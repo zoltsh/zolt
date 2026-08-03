@@ -79,6 +79,19 @@ final class AtomicLockfileWriterTest {
                 Files.readString(lockfile));
     }
 
+    @Test
+    void updateReturnsTheExactContentCommittedByTheTransaction() throws Exception {
+        Path lockfile = tempDir.resolve("zolt.lock");
+        Files.writeString(lockfile, "version = 5\n");
+
+        String committed = AtomicLockfileWriter.updateAndReturn(
+                lockfile,
+                current -> current + "# coverage tooling\n");
+
+        assertEquals("version = 5\n# coverage tooling\n", committed);
+        assertEquals(committed, Files.readString(lockfile));
+    }
+
     private static Thread writer(
             CountDownLatch start,
             Path lockfile,

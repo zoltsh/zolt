@@ -1,16 +1,10 @@
 package sh.zolt.workspace.resolve;
 
-import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
-import sh.zolt.lockfile.LockfileFreshnessSummary;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
-import sh.zolt.lockfile.toml.LockfileReadException;
-import sh.zolt.lockfile.toml.AtomicLockfileWriter;
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.toml.ZoltLockfileReader;
-import sh.zolt.lockfile.toml.LockfileSidecars;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
@@ -23,7 +17,6 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -36,8 +29,7 @@ import java.util.Set;
 public final class WorkspaceResolveService {
     private final WorkspaceDiscoveryService workspaceDiscoveryService;
     private final ResolveService resolveService;
-    private final ZoltLockfileReader lockfileReader;
-    private final ZoltLockfileWriter lockfileWriter;
+    private final WorkspaceResolveLockfilePersistence lockfilePersistence;
     private final WorkspacePolicyMerger policyMerger;
     private final WorkspaceLockfileAggregator lockfileAggregator;
 
@@ -63,8 +55,8 @@ public final class WorkspaceResolveService {
             WorkspacePolicyMerger policyMerger) {
         this.workspaceDiscoveryService = workspaceDiscoveryService;
         this.resolveService = resolveService;
-        this.lockfileReader = new ZoltLockfileReader();
-        this.lockfileWriter = lockfileWriter;
+        this.lockfilePersistence =
+                new WorkspaceResolveLockfilePersistence(lockfileWriter);
         this.policyMerger = policyMerger;
         this.lockfileAggregator = new WorkspaceLockfileAggregator();
     }
@@ -88,11 +80,18 @@ public final class WorkspaceResolveService {
 
     /** Resolves coverage tooling from one already-captured workspace configuration snapshot. */
     public ResolveResult resolveWithCoverageTooling(Workspace workspace, Path cacheRoot) {
+        return resolveCoverageSnapshot(workspace, cacheRoot).result();
+    }
+
+    /** Resolves coverage tooling and captures the exact lockfile bytes committed atomically. */
+    public WorkspaceResolveSnapshot resolveCoverageSnapshot(
+            Workspace workspace,
+            Path cacheRoot) {
         return WorkspaceMutationLock.withLock(
                 workspace.root(),
                 () -> {
                     workspace.inputs().requireCurrent();
-                    return resolveLocked(
+                    return resolveSnapshotLocked(
                             workspace, cacheRoot, false,
                             ResolveOptions.defaults()
                                     .withCoverageTooling());
@@ -140,6 +139,18 @@ public final class WorkspaceResolveService {
             Path cacheRoot,
             boolean locked,
             ResolveOptions options) {
+        return resolveSnapshotLocked(
+                workspace,
+                cacheRoot,
+                locked,
+                options).result();
+    }
+
+    private WorkspaceResolveSnapshot resolveSnapshotLocked(
+            Workspace workspace,
+            Path cacheRoot,
+            boolean locked,
+            ResolveOptions options) {
         Path lockfilePath = workspace.root().resolve("zolt.lock");
         if (locked && !Files.isRegularFile(lockfilePath)) {
             throw new ResolveException(
@@ -147,7 +158,7 @@ public final class WorkspaceResolveService {
                             + lockfilePath
                             + ". Run `zolt resolve --workspace` to create it, then retry `zolt resolve --workspace --locked`.");
         }
-        options = prepareOptions(lockfilePath, options)
+        options = lockfilePersistence.prepare(lockfilePath, options)
                 .withWorkspaceMemberCoordinates(workspaceMemberCoordinates(workspace));
 
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
@@ -209,94 +220,34 @@ public final class WorkspaceResolveService {
                                         mediation.conflicts(),
                                         shadowConflicts)),
                         merged(mediation.policyEffects(), shadowPolicyEffects));
+        if (!locked) {
+            workspace.inputs().requireCurrent();
+        }
+        long started = System.nanoTime();
+        WorkspaceResolveLockfilePersistence.CommittedLockfile committed =
+                lockfilePersistence.persist(
+                        lockfilePath,
+                        lockfile,
+                        locked);
         if (locked) {
-            long started = System.nanoTime();
-            verifyLocked(lockfilePath, lockfile);
             metrics = metrics.withLockfileVerificationNanos(elapsedSince(started));
         } else {
-            workspace.inputs().requireCurrent();
-            long started = System.nanoTime();
-            updateLockfile(
-                    lockfilePath,
-                    existing -> LockfileSidecars.withJavaToolchainBlocksFromExisting(
-                            lockfileWriter.write(lockfile),
-                            existing));
             metrics = metrics.withLockfileWriteNanos(elapsedSince(started));
         }
-        return new ResolveResult(
+        ResolveResult result = new ResolveResult(
                 lockfile.packages().size(),
                 downloadCount,
                 lockfile.conflicts().size(),
                 lockfilePath,
                 metrics);
+        return new WorkspaceResolveSnapshot(
+                result,
+                committed.bytes(),
+                committed.lockfile());
     }
 
     private static long elapsedSince(long started) {
         return Math.max(0L, System.nanoTime() - started);
-    }
-
-    private ResolveOptions prepareOptions(Path lockfilePath, ResolveOptions options) {
-        if (!options.includeCoverageTooling() && existingLockfileHasCoverageTooling(lockfilePath)) {
-            return options.withCoverageTooling();
-        }
-        return options;
-    }
-
-    private boolean existingLockfileHasCoverageTooling(Path lockfilePath) {
-        if (!Files.isRegularFile(lockfilePath)) {
-            return false;
-        }
-        try {
-            return lockfileReader.read(lockfilePath).packages().stream()
-                    .anyMatch(lockPackage -> lockPackage.scope() == DependencyScope.TOOL_COVERAGE);
-        } catch (LockfileReadException exception) {
-            return false;
-        }
-    }
-
-    private void verifyLocked(Path lockfilePath, ZoltLockfile candidate) {
-        String existing;
-        try {
-            existing = Files.readString(lockfilePath);
-        } catch (IOException exception) {
-            throw new ResolveException(
-                    "Could not read zolt.lock at "
-                            + lockfilePath
-                            + " for locked workspace resolve. Check that the file exists and is readable.",
-                    exception);
-        }
-
-        String expected = lockfileWriter.write(candidate);
-        if (!LockfileSidecars.canonicalDependencyLockfile(existing)
-                .equals(LockfileSidecars.canonicalDependencyLockfile(expected))) {
-            String changedInputs = changedInputs(existing, candidate);
-            throw new ResolveException(
-                    "Workspace zolt.lock is out of date."
-                            + changedInputs
-                            + " Run `zolt resolve --workspace` to refresh it, then retry `zolt resolve --workspace --locked`.");
-        }
-    }
-
-    private static void updateLockfile(
-            Path lockfilePath,
-            java.util.function.UnaryOperator<String> mutation) {
-        try {
-            AtomicLockfileWriter.update(lockfilePath, mutation);
-        } catch (IOException exception) {
-            throw new ResolveException(
-                    "Could not write zolt.lock at "
-                            + lockfilePath
-                            + ". Check that the directory exists and is writable.",
-                    exception);
-        }
-    }
-
-    private static String changedInputs(String existing, ZoltLockfile candidate) {
-        try {
-            return LockfileFreshnessSummary.changedInputs(new ZoltLockfileReader().read(existing), candidate);
-        } catch (LockfileReadException exception) {
-            return "";
-        }
     }
 
     private static Set<PackageId> workspaceMemberCoordinates(Workspace workspace) {

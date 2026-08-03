@@ -23,6 +23,7 @@ import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.workspace.resolve.WorkspaceResolveSnapshot;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -55,10 +56,11 @@ final class WorkspaceCoverageSnapshotTest {
         Path memberDir = root.resolve("apps/api");
         Path configPath = root.resolve("zolt.toml");
         Path lockfilePath = root.resolve("zolt.lock");
+        String lockAContent = "version = 1\n";
         Files.createDirectories(memberDir);
         Files.writeString(configPath, workspaceConfig(80));
         Files.writeString(memberDir.resolve("zolt.toml"), memberToml());
-        Files.writeString(lockfilePath, "version = 1\n");
+        Files.writeString(lockfilePath, lockAContent);
 
         ProjectConfig memberConfig = projectConfig();
         Workspace workspace = new Workspace(
@@ -80,6 +82,9 @@ final class WorkspaceCoverageSnapshotTest {
                         Map.of(
                                 configPath,
                                 workspaceConfig(80).getBytes(
+                                        StandardCharsets.UTF_8),
+                                lockfilePath,
+                                lockAContent.getBytes(
                                         StandardCharsets.UTF_8)),
                         Set.of()));
         ZoltLockfile lockA = new ZoltLockfile(1, List.of(), List.of());
@@ -95,11 +100,16 @@ final class WorkspaceCoverageSnapshotTest {
         CountDownLatch resume = new CountDownLatch(1);
         WorkspaceCoverageService service = new WorkspaceCoverageService(
                 start -> workspace,
-                (captured, cacheRoot) -> new ResolveResult(
-                        0,
-                        0,
-                        0,
-                        lockfilePath),
+                (captured, cacheRoot) ->
+                        new WorkspaceResolveSnapshot(
+                                new ResolveResult(
+                                        0,
+                                        0,
+                                        0,
+                                        lockfilePath),
+                                lockAContent.getBytes(
+                                        StandardCharsets.UTF_8),
+                                lockA),
                 tests(plan, buildResult),
                 reporter(lockA, toolingRequested, resume));
 

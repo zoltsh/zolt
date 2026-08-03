@@ -1,5 +1,6 @@
 package sh.zolt.workspace.coverage;
 
+import sh.zolt.build.BuildException;
 import sh.zolt.build.coverage.CoverageReportSettings;
 import sh.zolt.build.coverage.CoverageService;
 import sh.zolt.build.coverage.CoverageTooling;
@@ -8,11 +9,11 @@ import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.resolve.ResolveResult;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
+import sh.zolt.workspace.resolve.WorkspaceResolveSnapshot;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -170,8 +171,8 @@ public final class WorkspaceCoverageService {
             TestShardSpec shard) {
         Workspace resolveWorkspace =
                 workspaceDiscovery.discover(startDirectory);
-        ResolveResult resolveResult =
-                workspaceResolver.resolveWithCoverageTooling(
+        WorkspaceResolveSnapshot resolveSnapshot =
+                workspaceResolver.resolveCoverageSnapshot(
                         resolveWorkspace,
                         cacheRoot);
         WorkspaceBuildPlan plan = workspaceTests.planTests(
@@ -180,6 +181,7 @@ public final class WorkspaceCoverageService {
                 selectionRequest);
         resolveWorkspace.inputs().requireCurrent();
         plan.requireInputsCurrent();
+        requireResolvedLockfile(plan, resolveSnapshot);
         return new WorkspaceCoverageRunner(
                 workspaceTests,
                 coverageReporters,
@@ -191,7 +193,23 @@ public final class WorkspaceCoverageService {
                 cliEvents,
                 suiteName,
                 shard,
-                resolveResult);
+                resolveSnapshot.result());
+    }
+
+    private static void requireResolvedLockfile(
+            WorkspaceBuildPlan plan,
+            WorkspaceResolveSnapshot resolveSnapshot) {
+        Path lockfilePath = resolveSnapshot.result().lockfilePath();
+        byte[] planned = plan.workspace().inputs()
+                .contentBytes(lockfilePath)
+                .orElseThrow(() -> new BuildException(
+                        "Workspace coverage plan did not capture "
+                                + lockfilePath + "."));
+        if (!resolveSnapshot.matchesCommittedLockfile(planned)) {
+            throw new BuildException(
+                    "Workspace zolt.lock changed after coverage resolution and before planning. "
+                            + "Retry the coverage command under one input snapshot.");
+        }
     }
 
     @FunctionalInterface
@@ -201,7 +219,7 @@ public final class WorkspaceCoverageService {
 
     @FunctionalInterface
     interface CoverageWorkspaceResolver {
-        ResolveResult resolveWithCoverageTooling(
+        WorkspaceResolveSnapshot resolveCoverageSnapshot(
                 Workspace workspace,
                 Path cacheRoot);
     }
