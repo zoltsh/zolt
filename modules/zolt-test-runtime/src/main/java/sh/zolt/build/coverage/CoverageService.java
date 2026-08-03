@@ -10,11 +10,7 @@ import sh.zolt.doctor.JdkStatus;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.dependency.DependencyScope;
-import sh.zolt.dependency.PackageId;
 import sh.zolt.classpath.Classpath;
-import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
-import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.build.testruntime.TestRunResult;
@@ -29,15 +25,12 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 public final class CoverageService {
     private static final String JACOCO_CLI_MAIN_CLASS = "org.jacoco.cli.internal.Main";
-    private static final PackageId JACOCO_AGENT_PACKAGE = new PackageId("org.jacoco", "org.jacoco.agent");
-    private static final PackageId JACOCO_CLI_PACKAGE = new PackageId("org.jacoco", "org.jacoco.cli");
 
     private final CoverageTestRunner testRunner;
-    private final ZoltLockfileReader lockfileReader;
+    private final CoverageToolingLock toolingLock;
     private final JdkChecker jdkDetector;
     private final JavaRunner javaRunner;
     private final CoverageToolingResolver toolingResolver;
@@ -51,14 +44,26 @@ public final class CoverageService {
                 new ResolveService()::resolveWithCoverageTooling);
     }
 
-    /** Coverage whose instrumented worker runs via {@code testRunService} (carrying any test-runtime toolchain) while jacoco reports run on {@code jdkDetector}. */
-    public CoverageService(TestRunService testRunService, JdkChecker jdkDetector) {
+    /** Coverage using one command-scoped resolver for tests and coverage tooling. */
+    public CoverageService(
+            TestRunService testRunService,
+            JdkChecker jdkDetector,
+            ResolveService resolveService) {
         this(
                 testRunService::runTests,
                 new ZoltLockfileReader(),
                 jdkDetector,
                 new JavaRunner(),
-                new ResolveService()::resolveWithCoverageTooling);
+                resolveService::resolveWithCoverageTooling);
+    }
+
+    /** Coverage/report services using a supplied JDK and resolver. */
+    public CoverageService(
+            JdkChecker jdkDetector,
+            ResolveService resolveService) {
+        this(new TestRunService(jdkDetector, sh.zolt.framework.FrameworkTestRunner.none(), resolveService),
+                jdkDetector,
+                resolveService);
     }
 
     CoverageService(
@@ -68,7 +73,7 @@ public final class CoverageService {
             JavaRunner javaRunner,
             CoverageToolingResolver toolingResolver) {
         this.testRunner = testRunner;
-        this.lockfileReader = lockfileReader;
+        this.toolingLock = new CoverageToolingLock(lockfileReader);
         this.jdkDetector = jdkDetector;
         this.javaRunner = javaRunner;
         this.toolingResolver = toolingResolver;
@@ -125,23 +130,14 @@ public final class CoverageService {
     }
 
     public CoverageTooling lockedCoverageTooling(Path lockfileDirectory, Path cacheRoot) {
-        Path lockfileRoot = lockfileDirectory.toAbsolutePath().normalize();
-        List<ResolvedClasspathPackage> coveragePackages = coveragePackages(lockfileRoot, cacheRoot);
-        Path agentJar = coverageArtifact(coveragePackages, JACOCO_AGENT_PACKAGE)
-                .orElseThrow(() -> missingTool("org.jacoco:org.jacoco.agent"));
-        if (!agentJar.getFileName().toString().contains("-runtime")) {
-            throw new CoverageException(
-                    "Coverage requires locked Jacoco runtime agent artifact `org.jacoco:org.jacoco.agent:runtime`. "
-                            + "Run `zolt resolve` to refresh coverage tooling.");
-        }
-        List<Path> cliClasspath = coveragePackages.stream()
-                .map(dependency -> dependency.resolvedPackage().jarPath().toAbsolutePath().normalize())
-                .sorted(Comparator.comparing(Path::toString))
-                .toList();
-        if (coverageArtifact(coveragePackages, JACOCO_CLI_PACKAGE).isEmpty()) {
-            throw missingTool("org.jacoco:org.jacoco.cli");
-        }
-        return new CoverageTooling(agentJar, cliClasspath);
+        return toolingLock.read(lockfileDirectory, cacheRoot);
+    }
+
+    /** Resolves JaCoCo artifacts from the exact lockfile captured by the caller's plan. */
+    public CoverageTooling lockedCoverageTooling(
+            ZoltLockfile lockfile,
+            Path cacheRoot) {
+        return toolingLock.read(lockfile, cacheRoot);
     }
 
     public TestJvmArguments coverageJvmArguments(Path agentJar, Path execFile, boolean append) {
@@ -302,31 +298,6 @@ public final class CoverageService {
                     "Could not inspect split coverage execution data under " + workersDirectory + ".",
                     exception);
         }
-    }
-
-    private List<ResolvedClasspathPackage> coveragePackages(Path projectDirectory, Path cacheRoot) {
-        ZoltLockfile lockfile = lockfileReader.read(projectDirectory.resolve("zolt.lock"));
-        List<ResolvedClasspathPackage> packages = LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot).stream()
-                .filter(dependency -> dependency.scope() == DependencyScope.TOOL_COVERAGE)
-                .toList();
-        if (packages.isEmpty()) {
-            throw new CoverageException(
-                    "Coverage requires locked tooling in scope `tool-coverage`. Run `zolt resolve` to refresh Jacoco tooling, then run `zolt coverage` again.");
-        }
-        return packages;
-    }
-
-    private static Optional<Path> coverageArtifact(List<ResolvedClasspathPackage> packages, PackageId packageId) {
-        return packages.stream()
-                .filter(dependency -> dependency.resolvedPackage().packageId().equals(packageId))
-                .map(dependency -> dependency.resolvedPackage().jarPath())
-                .findFirst();
-    }
-
-    private static CoverageException missingTool(String coordinate) {
-        return new CoverageException(
-                "Coverage requires locked tooling artifact `" + coordinate + "` in scope `tool-coverage`. "
-                        + "Run `zolt resolve` to refresh Jacoco tooling, then run `zolt coverage` again.");
     }
 
     private static void createParent(Path path) {

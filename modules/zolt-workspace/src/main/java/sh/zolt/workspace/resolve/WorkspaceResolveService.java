@@ -86,6 +86,19 @@ public final class WorkspaceResolveService {
         return resolve(startDirectory, cacheRoot, false, ResolveOptions.defaults().withCoverageTooling());
     }
 
+    /** Resolves coverage tooling from one already-captured workspace configuration snapshot. */
+    public ResolveResult resolveWithCoverageTooling(Workspace workspace, Path cacheRoot) {
+        return WorkspaceMutationLock.withLock(
+                workspace.root(),
+                () -> {
+                    workspace.inputs().requireCurrent();
+                    return resolveLocked(
+                            workspace, cacheRoot, false,
+                            ResolveOptions.defaults()
+                                    .withCoverageTooling());
+                });
+    }
+
     public ResolveResult resolve(Path startDirectory, Path cacheRoot, boolean locked, ResolveOptions options) {
         return WorkspaceMutationLock.withWorkspaceLock(
                 startDirectory,

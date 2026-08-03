@@ -1,6 +1,7 @@
 package sh.zolt.cli.command;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import sh.zolt.cli.command.CommandServiceBundles.CommandBuildServices;
 import sh.zolt.cli.command.CommandServiceBundles.CommandCoverageServices;
@@ -19,6 +20,7 @@ import sh.zolt.cli.command.CommandServiceClusters.CommandConfigEditServices;
 import sh.zolt.cli.command.CommandServiceClusters.CommandPackageFrameworkServices;
 import sh.zolt.cli.command.CommandServiceClusters.CommandRunFrameworkServices;
 import sh.zolt.cli.command.CommandServiceClusters.CommandTestFrameworkServices;
+import sh.zolt.resolve.ResolveService;
 import org.junit.jupiter.api.Test;
 
 final class CommandFrameworkServicesTest {
@@ -27,8 +29,20 @@ final class CommandFrameworkServicesTest {
         CommandCoverageServices services = CommandFrameworkServices.coverageCommandServices();
 
         assertNotNull(services.tomlParser());
+        assertNotNull(services.resolveService());
         assertNotNull(services.coverageService());
         assertNotNull(services.workspaceCoverageService());
+    }
+
+    @Test
+    void coverageCommandsShareTheSuppliedCommandResolver() {
+        ResolveService resolveService = new ResolveService();
+
+        CommandCoverageServices services =
+                CommandFrameworkServices.coverageCommandServices(
+                        resolveService);
+
+        assertSame(resolveService, services.resolveService());
     }
 
     @Test

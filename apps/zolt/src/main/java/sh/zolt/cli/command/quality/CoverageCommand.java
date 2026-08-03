@@ -32,8 +32,6 @@ import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.coverage.WorkspaceCoverageResult;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
-import sh.zolt.workspace.service.Workspace;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +51,6 @@ public final class CoverageCommand implements Runnable {
     private final WorkspaceCoverageService workspaceCoverageService;
     private final CommandServiceBundles.CoverageServiceFactory coverageServiceFactory;
     private final CommandServiceBundles.TestRunServiceFactory testRunServiceFactory;
-    private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
 
     @Option(names = "--workspace", description = "Run coverage for workspace members and write aggregate reports.")
     private boolean workspace;
@@ -285,10 +282,9 @@ public final class CoverageCommand implements Runnable {
             }
         }
         printCoverageReports(output, "Workspace coverage reports written", result.execFile(), result.xmlReport(), result.htmlDirectory());
-        Path workspaceRoot = workspaceDiscovery.discover(projectRoot).map(Workspace::root).orElse(projectRoot);
         CoverageFloorEnforcement.enforce(
                 spec,
-                tomlParser.parseCoverageFloors(workspaceRoot.resolve("zolt.toml")),
+                result.coverageSettings(),
                 result.xmlReport());
         output.summary(
                 "Coverage passed for " + result.members().size() + " workspace members",

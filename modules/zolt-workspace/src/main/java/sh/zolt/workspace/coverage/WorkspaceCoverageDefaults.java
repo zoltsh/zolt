@@ -5,28 +5,45 @@ import sh.zolt.build.coverage.CoverageService;
 import sh.zolt.build.coverage.CoverageTooling;
 import sh.zolt.build.run.JavaRunResult;
 import sh.zolt.build.testruntime.TestReportSettings;
+import sh.zolt.doctor.JdkChecker;
+import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageReporter;
+import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageReporterFactory;
+import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageWorkspaceDiscovery;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageWorkspaceResolver;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageWorkspaceTests;
+import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
+import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
+import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import sh.zolt.workspace.service.WorkspaceTestService;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
 
 final class WorkspaceCoverageDefaults {
     private WorkspaceCoverageDefaults() {
     }
 
-    static CoverageWorkspaceResolver resolver() {
-        WorkspaceResolveService service = new WorkspaceResolveService();
+    static CoverageWorkspaceDiscovery discovery() {
+        WorkspaceDiscoveryService service = new WorkspaceDiscoveryService();
+        return start -> service.discover(start).orElseThrow(() ->
+                new sh.zolt.workspace.WorkspaceConfigException(
+                        "Could not find workspace config for coverage."));
+    }
+
+    static CoverageWorkspaceResolver resolver(
+            WorkspaceResolveService service) {
         return service::resolveWithCoverageTooling;
     }
 
@@ -75,15 +92,26 @@ final class WorkspaceCoverageDefaults {
         };
     }
 
-    static CoverageReporter reporter() {
-        CoverageService service = new CoverageService();
+    static CoverageReporterFactory reporterFactory(
+            Function<JdkChecker, CoverageService> services) {
+        Objects.requireNonNull(services, "services");
+        return (
+                Workspace workspace,
+                WorkspaceMember reportMember,
+                WorkspaceJdkCheckerResolver jdkCheckers) -> reporter(
+                        services.apply(jdkCheckers.forMember(
+                                workspace,
+                                reportMember)));
+    }
+
+    static CoverageReporter reporter(CoverageService service) {
         return new CoverageReporter() {
             @Override
             public CoverageTooling lockedCoverageTooling(
-                    Path lockfileDirectory,
+                    ZoltLockfile lockfile,
                     Path cacheRoot) {
                 return service.lockedCoverageTooling(
-                        lockfileDirectory,
+                        lockfile,
                         cacheRoot);
             }
 

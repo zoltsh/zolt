@@ -234,18 +234,35 @@ public final class CommandFrameworkServices {
     }
 
     public static CommandCoverageServices coverageCommandServices() {
-        CommandTestFrameworkServices testFrameworkServices = testFrameworkServices();
+        return coverageCommandServices(resolveService());
+    }
+
+    static CommandCoverageServices coverageCommandServices(
+            ResolveService resolveService) {
+        CommandTestFrameworkServices testFrameworkServices =
+                new CommandTestFrameworkServices(
+                        new QuarkusFrameworkTestRunner(),
+                        resolveService);
         CommandServiceBundles.TestRunServiceFactory testRunServiceFactory =
                 CommandWorkspaceTestRunServices.persistentFactory(
                         testFrameworkServices);
         return new CommandCoverageServices(
                 new ZoltTomlParser(),
-                new CoverageService(),
+                resolveService,
+                new CoverageService(
+                        testRunService(testFrameworkServices),
+                        new sh.zolt.doctor.JdkDetector(),
+                        resolveService),
                 new WorkspaceCoverageService(
-                        workspaceTestService(testFrameworkServices)),
+                        new WorkspaceResolveService(resolveService),
+                        workspaceTestService(testFrameworkServices),
+                        checker -> new CoverageService(
+                                checker,
+                                resolveService)),
                 (compileChecker, runChecker) -> new CoverageService(
                         testRunService(testFrameworkServices, compileChecker, runChecker),
-                        compileChecker),
+                        compileChecker,
+                        resolveService),
                 testRunServiceFactory);
     }
 

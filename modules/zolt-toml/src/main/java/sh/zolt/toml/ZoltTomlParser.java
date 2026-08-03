@@ -82,15 +82,19 @@ public final class ZoltTomlParser {
         if (!Files.exists(path)) {
             return CoverageSettings.none();
         }
-        TomlParseResult result;
         try {
-            result = Toml.parse(path);
+            return parseCoverageFloors(Files.readString(path));
         } catch (IOException exception) {
             throw new ZoltConfigException(ActionableError.of(
                     "Could not read zolt.toml at " + path + ".",
                     "Check that the file exists and is readable.",
                     exception));
         }
+    }
+
+    /** Parses coverage floors from already-captured configuration bytes. */
+    public CoverageSettings parseCoverageFloors(String content) {
+        TomlParseResult result = Toml.parse(content);
         if (result.hasErrors()) {
             throw new ZoltConfigException(parseErrorMessage(result));
         }

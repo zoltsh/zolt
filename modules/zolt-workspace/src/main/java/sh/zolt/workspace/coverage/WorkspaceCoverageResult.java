@@ -1,6 +1,7 @@
 package sh.zolt.workspace.coverage;
 
 import sh.zolt.build.testruntime.TestRunResult;
+import sh.zolt.project.CoverageSettings;
 import sh.zolt.resolve.ResolveResult;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceTestResult;
@@ -20,7 +21,8 @@ public record WorkspaceCoverageResult(
         int classfileRootCount,
         int sourceRootCount,
         int totalMemberCount,
-        WorkspaceTestToolchainMetrics toolchainMetrics) {
+        WorkspaceTestToolchainMetrics toolchainMetrics,
+        CoverageSettings coverageSettings) {
     public WorkspaceCoverageResult {
         resolveResult = resolveResult == null ? Optional.empty() : resolveResult;
         builtMembers = List.copyOf(builtMembers);
@@ -31,6 +33,9 @@ public record WorkspaceCoverageResult(
         toolchainMetrics = toolchainMetrics == null
                 ? WorkspaceTestToolchainMetrics.empty()
                 : toolchainMetrics;
+        coverageSettings = coverageSettings == null
+                ? CoverageSettings.none()
+                : coverageSettings;
     }
 
     public WorkspaceCoverageResult(
@@ -54,7 +59,8 @@ public record WorkspaceCoverageResult(
                 classfileRootCount,
                 sourceRootCount,
                 members.size(),
-                WorkspaceTestToolchainMetrics.empty());
+                WorkspaceTestToolchainMetrics.empty(),
+                CoverageSettings.none());
     }
 
     public boolean resolvedLockfile() {

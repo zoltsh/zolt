@@ -26,18 +26,22 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.workspace.service.WorkspaceInputs;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import sh.zolt.workspace.service.WorkspaceTestToolchainMetrics;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -55,7 +59,7 @@ final class WorkspaceCoverageServiceTest {
         Files.createDirectories(coreDir.resolve("src/main/java"));
         ProjectConfig apiConfig = config("api");
         ProjectConfig coreConfig = config("core");
-        Workspace workspace = new Workspace(
+        Workspace workspace = capturedWorkspace(new Workspace(
                 workspaceRoot,
                 workspaceRoot.resolve("zolt-workspace.toml"),
                 new WorkspaceConfig(
@@ -68,7 +72,7 @@ final class WorkspaceCoverageServiceTest {
                         new WorkspaceMember("modules/core", coreDir, coreConfig),
                         new WorkspaceMember("apps/api", apiDir, apiConfig)),
                 List.of(),
-                List.of("modules/core", "apps/api"));
+                List.of("modules/core", "apps/api")));
         WorkspaceBuildPlan plan = new WorkspaceBuildPlan(
                 workspace,
                 new WorkspaceSelection(List.of("modules/core", "apps/api"), List.of("apps/api")),
@@ -90,7 +94,15 @@ final class WorkspaceCoverageServiceTest {
         Files.writeString(staleWorkerExec, "stale\n");
         AtomicBoolean workerExecsMerged = new AtomicBoolean();
         WorkspaceCoverageService service = new WorkspaceCoverageService(
-                (startDirectory, cacheRoot) -> new ResolveResult(2, 0, 0, workspaceRoot.resolve("zolt.lock")),
+                startDirectory -> workspace,
+                (requestedWorkspace, cacheRoot) -> {
+                    assertEquals(workspace, requestedWorkspace);
+                    return new ResolveResult(
+                            2,
+                            0,
+                            0,
+                            workspaceRoot.resolve("zolt.lock"));
+                },
                 new WorkspaceCoverageService.CoverageWorkspaceTests() {
                     @Override
                     public WorkspaceBuildPlan planTests(
@@ -150,8 +162,10 @@ final class WorkspaceCoverageServiceTest {
                 },
                 new WorkspaceCoverageService.CoverageReporter() {
                     @Override
-                    public CoverageTooling lockedCoverageTooling(Path lockfileDirectory, Path cacheRoot) {
-                        assertEquals(workspaceRoot, lockfileDirectory);
+                    public CoverageTooling lockedCoverageTooling(
+                            ZoltLockfile lockfile,
+                            Path cacheRoot) {
+                        assertEquals(plan.lockfile(), lockfile);
                         return new CoverageTooling(agentJar, List.of(cliJar));
                     }
 
@@ -170,7 +184,7 @@ final class WorkspaceCoverageServiceTest {
                             Path execFile,
                             List<Path> cliClasspath) {
                         assertEquals(workspaceRoot, projectRoot);
-                        assertEquals(coreConfig, config);
+                        assertEquals(apiConfig, config);
                         assertEquals(
                                 workspaceRoot.resolve(
                                         "target/coverage/jacoco.exec"),
@@ -190,7 +204,7 @@ final class WorkspaceCoverageServiceTest {
                             List<Path> sourceRoots) {
                         assertTrue(workerExecsMerged.get());
                         assertEquals(workspaceRoot, projectRoot);
-                        assertEquals(coreConfig, config);
+                        assertEquals(apiConfig, config);
                         assertEquals(workspaceRoot.resolve("target/coverage/jacoco.exec"), execFile);
                         assertEquals(List.of(cliJar), cliClasspath);
                         reportClassfileRoots.addAll(classfileRoots);
@@ -237,7 +251,7 @@ final class WorkspaceCoverageServiceTest {
         Path apiDir = workspaceRoot.resolve("apps/api");
         Files.createDirectories(apiDir.resolve("src/main/java"));
         ProjectConfig apiConfig = config("api");
-        Workspace workspace = new Workspace(
+        Workspace workspace = capturedWorkspace(new Workspace(
                 workspaceRoot,
                 workspaceRoot.resolve("zolt-workspace.toml"),
                 new WorkspaceConfig(
@@ -248,7 +262,7 @@ final class WorkspaceCoverageServiceTest {
                         Map.of()),
                 List.of(new WorkspaceMember("apps/api", apiDir, apiConfig)),
                 List.of(),
-                List.of("apps/api"));
+                List.of("apps/api")));
         WorkspaceBuildPlan plan = new WorkspaceBuildPlan(
                 workspace,
                 new WorkspaceSelection(List.of("apps/api"), List.of("apps/api")),
@@ -262,7 +276,12 @@ final class WorkspaceCoverageServiceTest {
         Path agentJar = tempDir.resolve("org.jacoco.agent-0.8.14-runtime.jar");
         Path cliJar = tempDir.resolve("org.jacoco.cli-0.8.14.jar");
         WorkspaceCoverageService service = new WorkspaceCoverageService(
-                (startDirectory, cacheRoot) -> new ResolveResult(1, 0, 0, workspaceRoot.resolve("zolt.lock")),
+                startDirectory -> workspace,
+                (requestedWorkspace, cacheRoot) -> new ResolveResult(
+                        1,
+                        0,
+                        0,
+                        workspaceRoot.resolve("zolt.lock")),
                 new WorkspaceCoverageService.CoverageWorkspaceTests() {
                     @Override
                     public WorkspaceBuildPlan planTests(
@@ -307,7 +326,9 @@ final class WorkspaceCoverageServiceTest {
                 },
                 new WorkspaceCoverageService.CoverageReporter() {
                     @Override
-                    public CoverageTooling lockedCoverageTooling(Path lockfileDirectory, Path cacheRoot) {
+                    public CoverageTooling lockedCoverageTooling(
+                            ZoltLockfile lockfile,
+                            Path cacheRoot) {
                         return new CoverageTooling(agentJar, List.of(cliJar));
                     }
 
@@ -379,6 +400,24 @@ final class WorkspaceCoverageServiceTest {
     private static ClasspathSet emptyClasspaths() {
         Classpath empty = new Classpath(List.of());
         return new ClasspathSet(empty, empty, empty, empty, empty, empty);
+    }
+
+    private static Workspace capturedWorkspace(Workspace workspace) {
+        String content = """
+                [workspace]
+                name = "workspace"
+                members = []
+                """;
+        try {
+            Files.writeString(workspace.configPath(), content);
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+        return workspace.withInputs(WorkspaceInputs.captured(
+                Map.of(
+                        workspace.configPath(),
+                        content.getBytes(StandardCharsets.UTF_8)),
+                Set.of()));
     }
 
     private static ProjectConfig config(String name) {

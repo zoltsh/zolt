@@ -24,6 +24,7 @@ final class CommandServiceBundlesTest {
         assertRejectsNullCollaborators(
                 () -> new CommandCoverageServices(
                         null,
+                        services.resolveService(),
                         services.coverageService(),
                         services.workspaceCoverageService(),
                         services.coverageServiceFactory(),
@@ -31,23 +32,34 @@ final class CommandServiceBundlesTest {
                 () -> new CommandCoverageServices(
                         services.tomlParser(),
                         null,
+                        services.coverageService(),
                         services.workspaceCoverageService(),
                         services.coverageServiceFactory(),
                         services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
                         services.tomlParser(),
+                        services.resolveService(),
+                        null,
+                        services.workspaceCoverageService(),
+                        services.coverageServiceFactory(),
+                        services.testRunServiceFactory()),
+                () -> new CommandCoverageServices(
+                        services.tomlParser(),
+                        services.resolveService(),
                         services.coverageService(),
                         null,
                         services.coverageServiceFactory(),
                         services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
                         services.tomlParser(),
+                        services.resolveService(),
                         services.coverageService(),
                         services.workspaceCoverageService(),
                         null,
                         services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
                         services.tomlParser(),
+                        services.resolveService(),
                         services.coverageService(),
                         services.workspaceCoverageService(),
                         services.coverageServiceFactory(),
