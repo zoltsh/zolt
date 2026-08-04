@@ -3,16 +3,24 @@ package sh.zolt.release.channel;
 import sh.zolt.release.ReleaseTarget;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 final class ReleaseChannelManifestConstraints {
-    private static final Pattern STABLE_VERSION = Pattern.compile("\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z][0-9A-Za-z._-]*)?");
-    private static final Pattern DEV_VERSION = Pattern.compile("[0-9A-Za-z._-]+-(nightly|zap)\\.[0-9]{8}\\.[0-9A-Fa-f]{7,40}");
+    private static final String CORE_VERSION =
+            "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)";
+    private static final Pattern STABLE_VERSION = Pattern.compile(CORE_VERSION);
+    private static final Pattern PREVIEW_VERSION =
+            Pattern.compile(CORE_VERSION + "-(alpha|beta|rc)\\.(?:0|[1-9][0-9]*)");
+    private static final Pattern ZAP_VERSION =
+            Pattern.compile(CORE_VERSION + "-zap\\.[0-9]{8}\\.[0-9a-f]{12}");
+    private static final Pattern COMMIT = Pattern.compile("[0-9a-f]{40}");
     private static final Pattern ARCHIVE_FILENAME = Pattern.compile("[A-Za-z0-9._-]+");
     private static final Pattern SHA256 = Pattern.compile("[0-9A-Fa-f]{64}");
     private static final Pattern SIGNATURE_KIND = Pattern.compile("[A-Za-z0-9._-]+");
-    private static final Set<String> SUPPORTED_CHANNELS = Set.of("stable", "nightly", "zap");
+    private static final Set<String> SUPPORTED_CHANNELS = Set.of("stable", "preview", "zap");
 
     private ReleaseChannelManifestConstraints() {
     }
@@ -20,19 +28,48 @@ final class ReleaseChannelManifestConstraints {
     static void validateChannel(String channel) {
         if (!SUPPORTED_CHANNELS.contains(channel)) {
             throw new ReleaseChannelManifestException(
-                    "Release channel manifest channel must be one of stable, nightly, zap; got `" + channel + "`.");
+                    "Release channel manifest channel must be one of stable, preview, zap; got `" + channel + "`.");
         }
     }
 
-    static void validateVersion(String version) {
+    static void validateVersion(String channel, String version) {
         validateSafeSegment("version", version);
-        if (STABLE_VERSION.matcher(version).matches() || DEV_VERSION.matcher(version).matches()) {
+        Pattern expected = switch (channel) {
+            case "stable" -> STABLE_VERSION;
+            case "preview" -> PREVIEW_VERSION;
+            case "zap" -> ZAP_VERSION;
+            default -> throw new ReleaseChannelManifestException(
+                    "Release channel manifest channel must be validated before its version.");
+        };
+        if (expected.matcher(version).matches()) {
             return;
         }
         throw new ReleaseChannelManifestException(
-                "Release channel manifest version must look like 0.1.0, <base>-nightly.YYYYMMDD.<commit>, or <base>-zap.YYYYMMDD.<commit>; got `"
+                "Release channel manifest version `"
                         + version
+                        + "` is not valid for channel `"
+                        + channel
                         + "`.");
+    }
+
+    static void validateCommit(String commit) {
+        if (!COMMIT.matcher(commit).matches()) {
+            throw new ReleaseChannelManifestException(
+                    "Release channel manifest commit must be exactly 40 lowercase hexadecimal characters.");
+        }
+    }
+
+    static void validateCreatedAt(String createdAt) {
+        if (!createdAt.endsWith("Z")) {
+            throw new ReleaseChannelManifestException(
+                    "Release channel manifest createdAt must be a UTC instant ending in Z.");
+        }
+        try {
+            Instant.parse(createdAt);
+        } catch (DateTimeParseException exception) {
+            throw new ReleaseChannelManifestException(
+                    "Release channel manifest createdAt must be a UTC instant.", exception);
+        }
     }
 
     static void validateArchiveFilename(ReleaseTarget target, String archive) {
@@ -43,6 +80,30 @@ final class ReleaseChannelManifestConstraints {
                             + target.id()
                             + "` archive must be a filename using letters, digits, dots, underscores, and hyphens.");
         }
+    }
+
+    static void validateReleaseLocation(
+            String channel, String version, ReleaseChannelArtifact artifact) {
+        String expectedArchive = "zolt-" + version + "-" + artifact.target().id()
+                + artifact.target().archiveExtension();
+        if (!expectedArchive.equals(artifact.archive())) {
+            throw new ReleaseChannelManifestException(
+                    "Release channel artifact `"
+                            + artifact.target().id()
+                            + "` archive must be `"
+                            + expectedArchive
+                            + "`.");
+        }
+        String origin = "https://github.com/zoltsh/releases/releases/download/"
+                + releaseTag(channel, version)
+                + "/";
+        requireExactUrl("archiveUrl", artifact.archiveUrl(), origin + expectedArchive);
+        artifact.checksumUrl().ifPresent(value ->
+                requireExactUrl("checksumUrl", value, origin + expectedArchive + ".sha256"));
+        artifact.signature().ifPresent(signature -> requireExactUrl(
+                "signature.url",
+                signature.url(),
+                origin + expectedArchive + "." + signature.kind()));
     }
 
     static void validateUrl(String field, String value, boolean allowFileUrls) {
@@ -56,6 +117,10 @@ final class ReleaseChannelManifestConstraints {
         if (uri.getUserInfo() != null) {
             throw new ReleaseChannelManifestException(
                     "Release channel manifest " + field + " must not include URL credentials.");
+        }
+        if (uri.getQuery() != null || uri.getFragment() != null) {
+            throw new ReleaseChannelManifestException(
+                    "Release channel manifest " + field + " must not include a query or fragment.");
         }
         if (allowFileUrls && "file".equalsIgnoreCase(uri.getScheme())) {
             return;
@@ -79,6 +144,27 @@ final class ReleaseChannelManifestConstraints {
                     "Release channel signature kind must use letters, digits, dots, underscores, and hyphens.");
         }
         validateUrl("signature.url", signature.url(), allowFileUrls);
+    }
+
+    private static String releaseTag(String channel, String version) {
+        return switch (channel) {
+            case "stable" -> "zolt-v" + version;
+            case "preview" -> "zolt-preview-v" + version;
+            case "zap" -> "zolt-zap-" + version;
+            default -> throw new ReleaseChannelManifestException(
+                    "Release channel manifest has unsupported channel `" + channel + "`.");
+        };
+    }
+
+    private static void requireExactUrl(String field, String actual, String expected) {
+        if (!expected.equals(actual)) {
+            throw new ReleaseChannelManifestException(
+                    "Release channel manifest "
+                            + field
+                            + " must be the matching immutable zoltsh/releases asset `"
+                            + expected
+                            + "`.");
+        }
     }
 
     private static void validateSafeSegment(String field, String value) {

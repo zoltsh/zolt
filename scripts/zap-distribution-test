@@ -13,35 +13,11 @@ fail() {
   exit 1
 }
 
-if GITHUB_ACTIONS=true \
-  GITHUB_REF=refs/heads/benchmark-improvements \
-  scripts/zap-distribution \
-    --publish \
-    --publish-from "$WORK_DIR/missing" \
-    >"$WORK_DIR/non-main.log" 2>&1; then
-  fail "zap publisher accepted a non-main GitHub Actions ref"
+if scripts/zap-distribution --publish >"$WORK_DIR/legacy-publish.log" 2>&1; then
+  fail "zap candidate builder still accepts direct publication"
 fi
-
-grep -F 'zap publication is only allowed from main' \
-  "$WORK_DIR/non-main.log" >/dev/null \
-  || fail "non-main publication failure did not explain the boundary"
-
-main_status=0
-GITHUB_ACTIONS=true \
-GITHUB_REF=refs/heads/main \
-scripts/zap-distribution \
-  --publish \
-  --publish-from "$WORK_DIR/missing" \
-  >"$WORK_DIR/main.log" 2>&1 \
-  || main_status=$?
-
-[[ "$main_status" -eq 2 ]] \
-  || fail "main publication probe did not stop at the missing artifact directory"
-grep -F -- '--publish-from directory does not exist' "$WORK_DIR/main.log" >/dev/null \
-  || fail "main publication probe did not pass the ref boundary"
-if grep -F 'zap publication is only allowed from main' "$WORK_DIR/main.log" >/dev/null; then
-  fail "zap publisher rejected the main GitHub Actions ref"
-fi
+grep -F 'unknown argument --publish' "$WORK_DIR/legacy-publish.log" >/dev/null \
+  || fail "removed direct-publication flag did not fail clearly"
 
 python3 - <<'PY'
 import pathlib
@@ -50,9 +26,25 @@ ci = pathlib.Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
 dispatch = pathlib.Path(".github/workflows/dispatch-zap.yml").read_text(
     encoding="utf-8"
 )
+builder = pathlib.Path("scripts/zap-distribution").read_text(encoding="utf-8")
 
 if "  zap-publish:\n" in ci or "scripts/zap-distribution --publish" in ci:
     raise SystemExit("error: source CI still publishes zap artifacts directly")
+for forbidden in ("DO_SPACES_", "aws s3", "s3://", "publish_install_script"):
+    if forbidden in builder:
+        raise SystemExit(
+            f"error: zap candidate builder retains legacy publication authority: {forbidden}"
+        )
+required_builder_contracts = (
+    "https://github.com/zoltsh/releases/releases/download/${RELEASE_TAG}",
+    "Build and verify one zap-channel native Zolt candidate",
+)
+missing_builder = [value for value in required_builder_contracts if value not in builder]
+if missing_builder:
+    raise SystemExit(
+        "error: zap candidate builder is missing immutable release contracts: "
+        + ", ".join(repr(value) for value in missing_builder)
+    )
 
 required_dispatch_contracts = (
     "  workflow_run:\n",
@@ -83,4 +75,4 @@ if missing:
     )
 PY
 
-printf 'zap distribution publication boundary test passed\n'
+printf 'zap candidate and dispatch authority boundary test passed\n'

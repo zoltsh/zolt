@@ -38,8 +38,14 @@ public final class ReleaseChannelManifestValidator {
         String commit = ReleaseJsonFields.stringRequired(json, "commit", "release channel manifest");
         String createdAt = ReleaseJsonFields.stringRequired(json, "createdAt", "release channel manifest");
         ReleaseChannelManifestConstraints.validateChannel(channel);
-        ReleaseChannelManifestConstraints.validateVersion(version);
+        ReleaseChannelManifestConstraints.validateVersion(channel, version);
+        ReleaseChannelManifestConstraints.validateCommit(commit);
+        ReleaseChannelManifestConstraints.validateCreatedAt(createdAt);
         List<ReleaseChannelArtifact> artifacts = artifacts(json, allowFileUrls);
+        if (!allowFileUrls) {
+            artifacts.forEach(artifact ->
+                    ReleaseChannelManifestConstraints.validateReleaseLocation(channel, version, artifact));
+        }
         return new ReleaseChannelManifest(schemaVersion, channel, version, commit, createdAt, artifacts);
     }
 

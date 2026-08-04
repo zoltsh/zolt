@@ -238,13 +238,13 @@ public final class SelfCommand implements Runnable {
 
     @Command(name = "channel", description = "Show or change the native release channel.")
     public static final class ChannelCommand extends NativeSelfOptions implements Callable<Integer> {
-        private static final Set<String> SUPPORTED_CHANNELS = Set.of("stable", "nightly", "zap");
+        private static final Set<String> SUPPORTED_CHANNELS = Set.of("stable", "preview", "zap");
 
         @Parameters(
                 index = "0",
                 arity = "0..1",
                 paramLabel = "<CHANNEL>",
-                description = "Channel to write: stable, nightly, or zap.")
+                description = "Channel to write: stable, preview, or zap.")
         private String channel;
 
         @Option(names = "--origin", hidden = true)
@@ -296,7 +296,7 @@ public final class SelfCommand implements Runnable {
         private static String normalizeChannel(String value) {
             String normalized = value.strip();
             if (!SUPPORTED_CHANNELS.contains(normalized)) {
-                throw new IllegalArgumentException("Native Zolt channel must be one of stable, nightly, zap.");
+                throw new IllegalArgumentException("Native Zolt channel must be one of stable, preview, zap.");
             }
             return normalized;
         }

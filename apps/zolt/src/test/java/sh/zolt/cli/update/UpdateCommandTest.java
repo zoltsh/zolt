@@ -71,10 +71,10 @@ final class UpdateCommandTest {
     void updateUsesInstalledChannelUrlWhenNoChannelUrlIsProvided() throws IOException {
         InstalledFixture installed = install("0.1.0");
         Path channel = writeChannel(
-                "nightly",
-                "0.1.0-nightly.20260628.0123456",
+                "preview",
+                "0.1.0-alpha.2",
                 "linux-x64",
-                archive("0.1.0-nightly.20260628.0123456", "linux-x64", "0.1.0-nightly.20260628.0123456"),
+                archive("0.1.0-alpha.2", "linux-x64", "0.1.0-alpha.2"),
                 "sidecar");
         Files.writeString(installed.installRoot().resolve("channel-url"), channel.toUri().toString());
 
@@ -87,10 +87,10 @@ final class UpdateCommandTest {
                 "--work-dir", tempDir.resolve("update-work").toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("✔ Updated native Zolt to 0.1.0-nightly.20260628.0123456"));
-        assertTrue(result.stdout().contains("nightly channel"));
+        assertTrue(result.stdout().contains("✔ Updated native Zolt to 0.1.0-alpha.2"));
+        assertTrue(result.stdout().contains("preview channel"));
         assertEquals(
-                "../versions/0.1.0-nightly.20260628.0123456/bin/zolt",
+                "../versions/0.1.0-alpha.2/bin/zolt",
                 Files.readSymbolicLink(installed.binLink()).toString());
     }
 
@@ -173,7 +173,7 @@ final class UpdateCommandTest {
     void selfInstallDownloadsVersionWithoutSwitchingCurrentSymlink() throws IOException {
         InstalledFixture installed = install("0.1.0");
         Path archive = archive("0.1.1", "linux-x64", "0.1.1");
-        Path index = writeReleaseIndex("zap", "0.1.1", "linux-x64", archive, "sidecar");
+        Path index = writeReleaseIndex("stable", "0.1.1", "linux-x64", archive, "sidecar");
 
         CommandResult result = execute(
                 "self",
@@ -187,7 +187,7 @@ final class UpdateCommandTest {
 
         assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("✔ Installed native Zolt 0.1.1"));
-        assertTrue(result.stdout().contains("zap channel"));
+        assertTrue(result.stdout().contains("stable channel"));
         assertTrue(result.stdout().contains("linux-x64"));
         assertTrue(result.stdout().contains("Run `zolt self use 0.1.1`"));
         assertTrue(Files.isExecutable(installed.installRoot().resolve("versions/0.1.1/bin/zolt")));
@@ -236,13 +236,13 @@ final class UpdateCommandTest {
     }
 
     @Test
-    void updateAvailableNoticeUsesInstalledNightlyChannelUrl() throws IOException {
-        InstalledFixture installed = install("0.1.0-nightly.20260627.abcdef1");
+    void updateAvailableNoticeUsesInstalledPreviewChannelUrl() throws IOException {
+        InstalledFixture installed = install("0.1.0-alpha.1");
         Path channel = writeChannel(
-                "nightly",
-                "0.1.0-nightly.20260628.0123456",
+                "preview",
+                "0.1.0-alpha.2",
                 "linux-x64",
-                archive("0.1.0-nightly.20260628.0123456", "linux-x64", "0.1.0-nightly.20260628.0123456"),
+                archive("0.1.0-alpha.2", "linux-x64", "0.1.0-alpha.2"),
                 "sidecar");
         Files.writeString(installed.installRoot().resolve("channel-url"), channel.toUri().toString());
 
@@ -257,7 +257,7 @@ final class UpdateCommandTest {
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stderr().contains(
-                "A newer Zolt is available on nightly: 0.1.0-nightly.20260627.abcdef1 -> 0.1.0-nightly.20260628.0123456. Run `zolt self update` to download and verify it."));
+                "A newer Zolt is available on preview: 0.1.0-alpha.1 -> 0.1.0-alpha.2. Run `zolt self update` to download and verify it."));
     }
 
     @Test
@@ -356,7 +356,7 @@ final class UpdateCommandTest {
                   "schemaVersion": 1,
                   "channel": "%s",
                   "version": "%s",
-                  "commit": "0123456789abcdef",
+                  "commit": "0123456789abcdef0123456789abcdef01234567",
                   "createdAt": "2026-06-28T00:00:00Z",
                   "artifacts": [
                     {
@@ -386,7 +386,7 @@ final class UpdateCommandTest {
                   "versions": [
                     {
                       "version": "%s",
-                      "commit": "0123456789abcdef",
+                      "commit": "0123456789abcdef0123456789abcdef01234567",
                       "createdAt": "2026-07-07T00:00:00Z",
                       "artifacts": [
                         {

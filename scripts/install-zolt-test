@@ -49,8 +49,31 @@ cat >"$fake_curl" <<'FAKE_CURL'
 set -eu
 url=""
 output=""
+proto_https=false
+proto_redir_https=false
+tls12=false
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --proto)
+            if [ "$2" != '=https' ]; then
+                printf 'installer did not constrain curl to HTTPS\n' >&2
+                exit 2
+            fi
+            proto_https=true
+            shift 2
+            ;;
+        --proto-redir)
+            if [ "$2" != '=https' ]; then
+                printf 'installer did not constrain curl redirects to HTTPS\n' >&2
+                exit 2
+            fi
+            proto_redir_https=true
+            shift 2
+            ;;
+        --tlsv1.2)
+            tls12=true
+            shift
+            ;;
         -o)
             output="$2"
             shift 2
@@ -69,6 +92,10 @@ case "$url" in
         source_path="${url#file://}"
         ;;
     https://github.com/zoltsh/releases/releases/download/*/*)
+        if [ "$proto_https" != true ] || [ "$proto_redir_https" != true ] || [ "$tls12" != true ]; then
+            printf 'installer HTTPS download did not enforce protocol and TLS restrictions\n' >&2
+            exit 22
+        fi
         source_path="$ZOLT_INSTALL_TEST_ASSET_ROOT/${url##*/}"
         ;;
     *)
@@ -123,7 +150,20 @@ for target in "${targets[@]}"; do
     [[ "$(cat "$install_root/versions/$version/TARGET")" == "$target" ]]
     [[ "$("$install_root/bin/zolt" --version)" == "$version" ]]
     [[ "$(readlink "$install_root/bin/zolt")" == "../versions/$version/bin/zolt" ]]
+    [[ "$(cat "$install_root/channel-url")" == "https://dist.zolt.sh/channels/zap.json" ]]
 done
+
+cp "$manifest" "$temporary/channel-zap.json"
+immutable_root="$temporary/install-immutable-snapshot"
+ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+ZOLT_INSTALL_CURL="$fake_curl" \
+ZOLT_INSTALL_ROOT="$immutable_root" \
+ZOLT_INSTALL_CHANNEL_URL="$release_origin/channel-zap.json" \
+ZOLT_INSTALL_VERSION="$version" \
+ZOLT_INSTALL_TARGET="linux-x64" \
+    scripts/install-zolt >/dev/null
+[[ "$("$immutable_root/bin/zolt" --version)" == "$version" ]]
+[[ "$(cat "$immutable_root/channel-url")" == "https://dist.zolt.sh/channels/zap.json" ]]
 
 local_manifest="$temporary/channel-local.json"
 sed "s|$release_origin/|file://$temporary/|g" "$manifest" >"$local_manifest"
@@ -188,6 +228,61 @@ ZOLT_INSTALL_CHANNEL_URL="file://$stable_manifest" \
 ZOLT_INSTALL_TARGET="$stable_target" \
     scripts/install-zolt >/dev/null
 [[ "$("$stable_root/bin/zolt" --version)" == "$stable_version" ]]
+[[ "$(cat "$stable_root/channel-url")" == "https://dist.zolt.sh/channels/stable.json" ]]
+
+preview_version="0.2.0-rc.1"
+preview_target="linux-x64"
+preview_archive="zolt-$preview_version-$preview_target.tar.gz"
+preview_archive_root="$temporary/archive-preview/zolt-$preview_version-$preview_target"
+mkdir -p "$preview_archive_root/bin"
+printf '%s\n' "$preview_version" >"$preview_archive_root/VERSION"
+cat >"$preview_archive_root/bin/zolt" <<FAKE_PREVIEW_ZOLT
+#!/bin/sh
+if [ "\${1:-}" = "--version" ]; then
+    printf '%s\n' "$preview_version"
+    exit 0
+fi
+if [ "\${1:-}" = "init" ]; then
+    exit 0
+fi
+exit 2
+FAKE_PREVIEW_ZOLT
+chmod +x "$preview_archive_root/bin/zolt"
+tar -czf "$temporary/$preview_archive" \
+    -C "$(dirname "$preview_archive_root")" \
+    "$(basename "$preview_archive_root")"
+preview_digest="$(sha256_file "$temporary/$preview_archive")"
+printf '%s  %s\n' "$preview_digest" "$preview_archive" \
+    >"$temporary/$preview_archive.sha256"
+preview_manifest="$temporary/channel-preview.json"
+cat >"$preview_manifest" <<PREVIEW_MANIFEST
+{
+  "schemaVersion" : 1,
+  "channel" : "preview",
+  "version" : "$preview_version",
+  "commit" : "0123456789abcdef0123456789abcdef01234567",
+  "createdAt" : "2026-08-03T00:00:00Z",
+  "artifacts" : [ {
+    "target" : "$preview_target",
+    "archive" : "$preview_archive",
+    "archiveUrl" : "https://github.com/zoltsh/releases/releases/download/zolt-preview-v$preview_version/$preview_archive",
+    "checksumUrl" : "https://github.com/zoltsh/releases/releases/download/zolt-preview-v$preview_version/$preview_archive.sha256",
+    "sha256" : "$preview_digest",
+    "format" : "tar.gz",
+    "binaryName" : "zolt"
+  } ]
+}
+PREVIEW_MANIFEST
+preview_root="$temporary/install-preview"
+ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+ZOLT_INSTALL_CURL="$fake_curl" \
+ZOLT_INSTALL_ROOT="$preview_root" \
+ZOLT_INSTALL_CHANNEL="preview" \
+ZOLT_INSTALL_CHANNEL_URL="file://$preview_manifest" \
+ZOLT_INSTALL_TARGET="$preview_target" \
+    scripts/install-zolt >/dev/null
+[[ "$("$preview_root/bin/zolt" --version)" == "$preview_version" ]]
+[[ "$(cat "$preview_root/channel-url")" == "https://dist.zolt.sh/channels/preview.json" ]]
 
 expect_install_failure() {
     local label="$1"
@@ -251,4 +346,35 @@ expect_install_failure \
     "$mismatched_channel_manifest" \
     'does not match requested channel zap'
 
-printf 'installer selected and origin-pinned production artifacts correctly\n'
+mismatched_channel_version_manifest="$temporary/channel-mismatched-channel-version.json"
+sed 's/"channel" : "zap"/"channel" : "stable"/' \
+    "$manifest" >"$mismatched_channel_version_manifest"
+if output="$(
+    ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+    ZOLT_INSTALL_CURL="$fake_curl" \
+    ZOLT_INSTALL_ROOT="$temporary/rejected-channel-version" \
+    ZOLT_INSTALL_CHANNEL="stable" \
+    ZOLT_INSTALL_CHANNEL_URL="file://$mismatched_channel_version_manifest" \
+    ZOLT_INSTALL_TARGET="linux-x64" \
+        scripts/install-zolt 2>&1
+)"; then
+    printf 'error: installer accepted a zap version on stable\n' >&2
+    exit 1
+fi
+grep -F 'is not valid for channel stable' <<<"$output" >/dev/null
+
+if output="$(
+    ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+    ZOLT_INSTALL_CURL="$fake_curl" \
+    ZOLT_INSTALL_ROOT="$temporary/rejected-update-channel-url" \
+    ZOLT_INSTALL_CHANNEL_URL="file://$manifest" \
+    ZOLT_INSTALL_UPDATE_CHANNEL_URL='https://dist.zolt.sh/channels/zap.json?stale=1' \
+    ZOLT_INSTALL_TARGET="linux-x64" \
+        scripts/install-zolt 2>&1
+)"; then
+    printf 'error: installer accepted a native update URL with a query\n' >&2
+    exit 1
+fi
+grep -F 'must not include a query or fragment' <<<"$output" >/dev/null
+
+printf 'installer selected immutable stable, preview, and zap artifacts correctly\n'

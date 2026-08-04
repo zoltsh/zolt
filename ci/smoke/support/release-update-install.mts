@@ -8,6 +8,8 @@ export async function installFromChannel(
   installRoot: string,
   channelUrl: string,
   target: string,
+  version?: string,
+  updateChannelUrl?: string,
 ): Promise<void> {
   await mkdir(installRoot, { recursive: true });
   await t.cmd(installScript, [], {
@@ -15,6 +17,8 @@ export async function installFromChannel(
       ZOLT_INSTALL_ROOT: installRoot,
       ZOLT_INSTALL_CHANNEL_URL: channelUrl,
       ZOLT_INSTALL_TARGET: target,
+      ...(version === undefined ? {} : { ZOLT_INSTALL_VERSION: version }),
+      ...(updateChannelUrl === undefined ? {} : { ZOLT_INSTALL_UPDATE_CHANNEL_URL: updateChannelUrl }),
     },
     timeout: "5m",
   });

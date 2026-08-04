@@ -30,7 +30,7 @@ final class NativeReleaseIndexServiceTest {
         assertEquals("zap", result.channel());
         assertEquals("0.1.0-zap.20260707.333333333333", result.releases().getFirst().version());
         assertEquals("2026-07-07T00:00:00Z", result.releases().getFirst().createdAt());
-        assertEquals("0123456789abcdef", result.releases().getFirst().commit());
+        assertEquals("0123456789abcdef0123456789abcdef01234567", result.releases().getFirst().commit());
         assertEquals(List.of(ReleaseTarget.LINUX_X64), result.releases().getFirst().targets());
     }
 
@@ -81,14 +81,14 @@ final class NativeReleaseIndexServiceTest {
                   "versions": [
                     {
                       "version": "0.1.0-zap.20260707.333333333333",
-                      "commit": "0123456789abcdef",
+                      "commit": "0123456789abcdef0123456789abcdef01234567",
                       "createdAt": "2026-07-07T00:00:00Z",
                       "artifacts": [
                         {
                           "target": "linux-x64",
                           "archive": "zolt-0.1.0-zap.20260707.333333333333-linux-x64.tar.gz",
-                          "archiveUrl": "https://dist.zolt.sh/artifacts/zap/0.1.0-zap.20260707.333333333333/zolt-0.1.0-zap.20260707.333333333333-linux-x64.tar.gz",
-                          "checksumUrl": "https://dist.zolt.sh/artifacts/zap/0.1.0-zap.20260707.333333333333/zolt-0.1.0-zap.20260707.333333333333-linux-x64.tar.gz.sha256",
+                          "archiveUrl": "https://github.com/zoltsh/releases/releases/download/zolt-zap-0.1.0-zap.20260707.333333333333/zolt-0.1.0-zap.20260707.333333333333-linux-x64.tar.gz",
+                          "checksumUrl": "https://github.com/zoltsh/releases/releases/download/zolt-zap-0.1.0-zap.20260707.333333333333/zolt-0.1.0-zap.20260707.333333333333-linux-x64.tar.gz.sha256",
                           "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                           "format": "tar.gz",
                           "binaryName": "zolt"

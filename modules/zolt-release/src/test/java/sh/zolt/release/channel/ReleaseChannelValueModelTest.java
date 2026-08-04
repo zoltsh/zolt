@@ -15,7 +15,7 @@ final class ReleaseChannelValueModelTest {
         ReleaseChannelArtifact artifact = new ReleaseChannelArtifact(
                 ReleaseTarget.LINUX_X64,
                 "zolt-0.1.0-linux-x64.tar.gz",
-                "https://dist.zolt.sh/artifacts/stable/0.1.0/zolt-0.1.0-linux-x64.tar.gz",
+                "https://github.com/zoltsh/releases/releases/download/zolt-v0.1.0/zolt-0.1.0-linux-x64.tar.gz",
                 null,
                 null,
                 "tar.gz",
@@ -72,8 +72,8 @@ final class ReleaseChannelValueModelTest {
         return new ReleaseChannelArtifact(
                 target,
                 "zolt-0.1.0-" + target.id() + target.archiveExtension(),
-                "https://dist.zolt.sh/artifacts/stable/0.1.0/zolt-0.1.0-" + target.id() + target.archiveExtension(),
-                java.util.Optional.of("https://dist.zolt.sh/artifacts/stable/0.1.0/zolt-0.1.0-" + target.id()
+                "https://github.com/zoltsh/releases/releases/download/zolt-v0.1.0/zolt-0.1.0-" + target.id() + target.archiveExtension(),
+                java.util.Optional.of("https://github.com/zoltsh/releases/releases/download/zolt-v0.1.0/zolt-0.1.0-" + target.id()
                         + target.archiveExtension() + ".sha256"),
                 java.util.Optional.empty(),
                 target.archiveExtension().substring(1),

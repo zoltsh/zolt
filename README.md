@@ -32,11 +32,14 @@
 ## Install
 
 ```sh
-curl -fsSL https://dist.zolt.sh/install.sh | sh
+curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
+  https://github.com/zoltsh/releases/releases/download/zolt-zap-0.1.0-zap.20260804.89fc63944134/install.sh \
+  | sh
 ```
 
-The installer accepts only the matching immutable `zoltsh/releases` GitHub asset and
-verifies its SHA-256 checksum before installation.
+The installer itself is pinned to an immutable GitHub Release. It accepts only the
+matching immutable `zoltsh/releases` archive and checksum assets, verifies SHA-256,
+and records the signed moving channel used by `zolt self update`.
 
 ## Start
 

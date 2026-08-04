@@ -84,8 +84,8 @@ final class NativeUpdateNoticeServiceTest extends NativeUpdateNoticeServiceTestC
                 now,
                 tempDir.resolve("numeric-state")));
 
-        InstalledFixture qualifiedVersion = install("0.1.0-beta");
-        Path qualifiedChannel = writeChannel("stable", "0.1.0-rc");
+        InstalledFixture qualifiedVersion = install("0.1.0-beta.1");
+        Path qualifiedChannel = writeChannel("preview", "0.1.0-rc.1");
         Optional<NativeUpdateNotice> qualifiedNotice = service.check(request(
                 qualifiedVersion,
                 qualifiedChannel.toUri(),
@@ -95,6 +95,6 @@ final class NativeUpdateNoticeServiceTest extends NativeUpdateNoticeServiceTestC
         assertTrue(numericNotice.isPresent());
         assertEquals("0.1.1", numericNotice.orElseThrow().availableVersion());
         assertTrue(qualifiedNotice.isPresent());
-        assertEquals("0.1.0-rc", qualifiedNotice.orElseThrow().availableVersion());
+        assertEquals("0.1.0-rc.1", qualifiedNotice.orElseThrow().availableVersion());
     }
 }

@@ -156,7 +156,7 @@ abstract class NativeUpdateServiceTestCase {
                   "schemaVersion": 1,
                   "channel": "%s",
                   "version": "%s",
-                  "commit": "0123456789abcdef",
+                  "commit": "0123456789abcdef0123456789abcdef01234567",
                   "createdAt": "2026-06-28T00:00:00Z",
                   "artifacts": [
                     {

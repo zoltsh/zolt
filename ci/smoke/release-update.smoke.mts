@@ -1,4 +1,6 @@
 import { expect, smoke, type SmokeContext } from "smoque";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import {
   downloadExecutable,
@@ -25,7 +27,10 @@ smoke.suite("zolt published release update smoke", { tags: ["release", "release-
   const expectedVersion = requiredReleaseEnv("ZOLT_RELEASE_UPDATE_EXPECTED_VERSION");
   const previousChannelPath = requiredReleaseEnv("ZOLT_RELEASE_UPDATE_PREVIOUS_CHANNEL");
   const currentChannelUrl = process.env.ZOLT_RELEASE_UPDATE_CHANNEL_URL ?? `${origin}/channels/zap.json`;
-  const installScriptUrl = process.env.ZOLT_RELEASE_UPDATE_INSTALL_SCRIPT_URL ?? `${origin}/install.sh`;
+  const releaseOrigin = `https://github.com/zoltsh/releases/releases/download/zolt-zap-${expectedVersion}`;
+  const installScriptUrl = process.env.ZOLT_RELEASE_UPDATE_INSTALL_SCRIPT_URL ?? `${releaseOrigin}/install.sh`;
+  const snapshotChannelUrl = process.env.ZOLT_RELEASE_UPDATE_SNAPSHOT_CHANNEL_URL
+    ?? `${releaseOrigin}/channel-zap.json`;
   const installScript = work.path("install-zolt");
 
   let previousManifest: ChannelManifest | undefined;
@@ -50,9 +55,19 @@ smoke.suite("zolt published release update smoke", { tags: ["release", "release-
   await t.step("install previous public zap build", async () => {
     const previous = requireManifest(previousManifest, "previous zap channel");
     if (previous.version === expectedVersion) {
-      await installFromChannel(t, installScript, currentInstallRoot, currentChannelUrl, target);
+      await installFromChannel(
+        t,
+        installScript,
+        currentInstallRoot,
+        snapshotChannelUrl,
+        target,
+        expectedVersion,
+        currentChannelUrl,
+      );
       const currentVersion = await runInstalledZolt(t, currentInstallRoot, ["--version"]);
       expect.value(currentVersion.stdout.trim()).toBe(expectedVersion);
+      expect.value((await readFile(join(currentInstallRoot, "channel-url"), "utf8")).trim())
+        .toBe(currentChannelUrl);
       return;
     }
 
@@ -71,7 +86,15 @@ smoke.suite("zolt published release update smoke", { tags: ["release", "release-
 
     const selfHelp = await runInstalledZolt(t, installRoot, ["self", "--help"], { check: false });
     if (selfHelp.exitCode !== 0) {
-      await installFromChannel(t, installScript, currentInstallRoot, currentChannelUrl, target);
+      await installFromChannel(
+        t,
+        installScript,
+        currentInstallRoot,
+        snapshotChannelUrl,
+        target,
+        expectedVersion,
+        currentChannelUrl,
+      );
       const currentVersion = await runInstalledZolt(t, currentInstallRoot, ["--version"]);
       expect.value(currentVersion.stdout.trim()).toBe(expectedVersion);
       const versions = await runInstalledZoltSelf(t, currentInstallRoot, ["versions"]);
@@ -82,7 +105,15 @@ smoke.suite("zolt published release update smoke", { tags: ["release", "release-
     await writeChannelUrl(installRoot, currentChannelUrl);
     const update = await runInstalledZoltSelf(t, installRoot, ["update"], { check: false });
     if (update.exitCode !== 0 && nativeHttpsProtocolDisabled(update)) {
-      await installFromChannel(t, installScript, currentInstallRoot, currentChannelUrl, target);
+      await installFromChannel(
+        t,
+        installScript,
+        currentInstallRoot,
+        snapshotChannelUrl,
+        target,
+        expectedVersion,
+        currentChannelUrl,
+      );
       const currentVersion = await runInstalledZolt(t, currentInstallRoot, ["--version"]);
       expect.value(currentVersion.stdout.trim()).toBe(expectedVersion);
       const versions = await runInstalledZoltSelf(t, currentInstallRoot, ["versions"]);

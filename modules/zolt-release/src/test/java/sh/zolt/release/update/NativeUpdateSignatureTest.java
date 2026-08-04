@@ -142,7 +142,7 @@ final class NativeUpdateSignatureTest extends NativeUpdateServiceTestCase {
                   "schemaVersion": 1,
                   "channel": "stable",
                   "version": "0.1.1",
-                  "commit": "0123456789abcdef",
+                  "commit": "0123456789abcdef0123456789abcdef01234567",
                   "createdAt": "2026-06-28T00:00:00Z",
                   "artifacts": [
                     {
@@ -159,7 +159,9 @@ final class NativeUpdateSignatureTest extends NativeUpdateServiceTestCase {
     }
 
     private static URI archiveUri(Path archive) {
-        return URI.create("https://dist.example.test/artifacts/stable/0.1.1/" + archive.getFileName());
+        return URI.create(
+                "https://github.com/zoltsh/releases/releases/download/zolt-v0.1.1/"
+                        + archive.getFileName());
     }
 
     private static URI signatureUri() {

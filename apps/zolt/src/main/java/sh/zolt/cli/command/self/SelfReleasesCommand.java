@@ -24,11 +24,11 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "releases", description = "List remote native Zolt releases.")
 public final class SelfReleasesCommand extends SelfCommand.NativeSelfOptions implements Callable<Integer> {
-    private static final Set<String> SUPPORTED_CHANNELS = Set.of("stable", "nightly", "zap");
+    private static final Set<String> SUPPORTED_CHANNELS = Set.of("stable", "preview", "zap");
 
     private final NativeReleaseIndexService releaseIndexService;
 
-    @Option(names = "--channel", description = "Release channel to list: stable, nightly, or zap.")
+    @Option(names = "--channel", description = "Release channel to list: stable, preview, or zap.")
     private String channel;
 
     @Option(names = "--origin", hidden = true)
@@ -84,7 +84,7 @@ public final class SelfReleasesCommand extends SelfCommand.NativeSelfOptions imp
     private static String normalizeChannel(String value) {
         String normalized = value.strip();
         if (!SUPPORTED_CHANNELS.contains(normalized)) {
-            throw new IllegalArgumentException("Native Zolt channel must be one of stable, nightly, zap.");
+            throw new IllegalArgumentException("Native Zolt channel must be one of stable, preview, zap.");
         }
         return normalized;
     }

@@ -87,19 +87,28 @@ abstract class NativeUpdateNoticeServiceTestCase {
 
     protected Path writeChannel(String channel, String version) throws IOException {
         Path path = tempDir.resolve(channel + "-" + version + ".json");
+        String releaseTag = switch (channel) {
+            case "stable" -> "zolt-v" + version;
+            case "preview" -> "zolt-preview-v" + version;
+            case "zap" -> "zolt-zap-" + version;
+            default -> throw new IllegalArgumentException(channel);
+        };
+        String origin = "https://github.com/zoltsh/releases/releases/download/"
+                + releaseTag
+                + "/";
         Files.writeString(path, """
                 {
                   "schemaVersion": 1,
                   "channel": "%s",
                   "version": "%s",
-                  "commit": "0123456789abcdef",
+                  "commit": "0123456789abcdef0123456789abcdef01234567",
                   "createdAt": "2026-06-28T00:00:00Z",
                   "artifacts": [
                     {
                       "target": "linux-x64",
                       "archive": "zolt-%s-linux-x64.tar.gz",
-                      "archiveUrl": "https://dist.zolt.sh/artifacts/%s/%s/zolt-%s-linux-x64.tar.gz",
-                      "checksumUrl": "https://dist.zolt.sh/artifacts/%s/%s/zolt-%s-linux-x64.tar.gz.sha256",
+                      "archiveUrl": "%szolt-%s-linux-x64.tar.gz",
+                      "checksumUrl": "%szolt-%s-linux-x64.tar.gz.sha256",
                       "format": "tar.gz",
                       "binaryName": "zolt"
                     }
@@ -109,11 +118,9 @@ abstract class NativeUpdateNoticeServiceTestCase {
                         channel,
                         version,
                         version,
-                        channel,
+                        origin,
                         version,
-                        version,
-                        channel,
-                        version,
+                        origin,
                         version));
         return path;
     }

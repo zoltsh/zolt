@@ -103,7 +103,7 @@ public final class ZoltCli implements Runnable {
 
     /**
      * Effective {@code zolt --version} string: the validated {@code ZOLT_VERSION_OVERRIDE} when set,
-     * otherwise the compiled-in {@link #VERSION}. A nightly build exports the computed nightly string
+     * otherwise the compiled-in {@link #VERSION}. A moving-channel build exports the computed version
      * into the override so the binary's {@code --version} output agrees with the stamped archives.
      */
     public static String version() {

@@ -18,7 +18,7 @@ final class NativeVersionInstallServiceTest extends NativeUpdateServiceTestCase 
     void installsSelectedVersionWithoutSwitchingCurrentSymlink() throws IOException {
         InstalledFixture installed = install("0.1.0");
         Path archive = archive("0.1.1", "linux-x64", "0.1.1");
-        Path index = writeReleaseIndex("zap", "0.1.1", "linux-x64", archive, "sidecar");
+        Path index = writeReleaseIndex("stable", "0.1.1", "linux-x64", archive, "sidecar");
 
         NativeVersionInstallResult result = installService.install(new NativeVersionInstallRequest(
                 installed.installRoot(),
@@ -29,7 +29,7 @@ final class NativeVersionInstallServiceTest extends NativeUpdateServiceTestCase 
                 tempDir.resolve("install-work")));
 
         assertTrue(result.installed());
-        assertEquals("zap", result.channel());
+        assertEquals("stable", result.channel());
         assertEquals("0.1.1", result.version());
         assertEquals(ReleaseTarget.LINUX_X64, result.target());
         assertTrue(Files.isExecutable(installed.installRoot().resolve("versions/0.1.1/bin/zolt")));
@@ -42,7 +42,7 @@ final class NativeVersionInstallServiceTest extends NativeUpdateServiceTestCase 
         InstalledFixture installed = install("0.1.0");
         writeFakeZolt(installed.installRoot().resolve("versions/0.1.1/bin/zolt"), "0.1.1");
         Path index = writeReleaseIndex(
-                "zap",
+                "stable",
                 "0.1.1",
                 "linux-x64",
                 tempDir.resolve("missing/zolt-0.1.1-linux-x64.tar.gz"),
@@ -66,7 +66,7 @@ final class NativeVersionInstallServiceTest extends NativeUpdateServiceTestCase 
     void missingRequestedVersionFailsWithoutChangingCurrentSymlink() throws IOException {
         InstalledFixture installed = install("0.1.0");
         Path archive = archive("0.1.1", "linux-x64", "0.1.1");
-        Path index = writeReleaseIndex("zap", "0.1.1", "linux-x64", archive, "sidecar");
+        Path index = writeReleaseIndex("stable", "0.1.1", "linux-x64", archive, "sidecar");
 
         NativeUpdateException exception = assertThrows(
                 NativeUpdateException.class,
@@ -100,7 +100,7 @@ final class NativeVersionInstallServiceTest extends NativeUpdateServiceTestCase 
                   "versions": [
                     {
                       "version": "%s",
-                      "commit": "0123456789abcdef",
+                      "commit": "0123456789abcdef0123456789abcdef01234567",
                       "createdAt": "2026-07-07T00:00:00Z",
                       "artifacts": [
                         {

@@ -116,25 +116,25 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
     }
 
     @Test
-    void stampsOverriddenNightlyVersionAcrossArchiveNameVersionFileAndManifest() throws IOException {
+    void stampsOverriddenPreviewVersionAcrossArchiveNameVersionFileAndManifest() throws IOException {
         writeProjectFiles();
         Path binary = writeBinary("target/native/zolt");
-        String nightly = "0.1.0-nightly.20260628.0123456789ab";
+        String preview = "0.1.0-alpha.1";
 
         ReleaseArchiveResult result = service.assemble(
                 projectDir,
-                config().withVersion(nightly),
+                config().withVersion(preview),
                 ReleaseTarget.LINUX_X64,
                 binary,
                 Path.of("dist"));
 
         assertEquals(
-                projectDir.resolve("dist/zolt-" + nightly + "-linux-x64.tar.gz"),
+                projectDir.resolve("dist/zolt-" + preview + "-linux-x64.tar.gz"),
                 result.archivePath());
-        assertEquals("zolt-" + nightly + "-linux-x64", result.rootDirectory());
-        assertTrue(tarEntries(result.archivePath()).contains("zolt-" + nightly + "-linux-x64/VERSION"));
-        assertEquals(nightly + "\n", versionFileContent(result.archivePath(), "zolt-" + nightly + "-linux-x64"));
-        assertTrue(Files.readString(result.manifestPath()).contains("\"version\": \"" + nightly + "\""));
+        assertEquals("zolt-" + preview + "-linux-x64", result.rootDirectory());
+        assertTrue(tarEntries(result.archivePath()).contains("zolt-" + preview + "-linux-x64/VERSION"));
+        assertEquals(preview + "\n", versionFileContent(result.archivePath(), "zolt-" + preview + "-linux-x64"));
+        assertTrue(Files.readString(result.manifestPath()).contains("\"version\": \"" + preview + "\""));
     }
 
     @Test

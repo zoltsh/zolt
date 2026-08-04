@@ -67,6 +67,8 @@ public final class NativeUpdateNoticeService {
             ReleaseChannelManifest manifest = validateManifest(
                     request.channelUri(),
                     new String(manifestBytes, StandardCharsets.UTF_8));
+            ReleaseChannelUriPolicy.requireChannelDocument(
+                    request.channelUri(), "channels", manifest.channel());
             writeCache(request, manifest.version(), manifest.channel());
             if (isNewer(installed.version(), manifest.version())) {
                 return Optional.of(new NativeUpdateNotice(

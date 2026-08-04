@@ -55,7 +55,11 @@ public final class NativeReleaseIndexService {
                     MAX_RELEASE_INDEX_BYTES,
                     "release index manifest");
             verifyIndexSignature(request, indexBytes);
-            return validateIndex(request, new String(indexBytes, StandardCharsets.UTF_8));
+            ReleaseIndexManifest index =
+                    validateIndex(request, new String(indexBytes, StandardCharsets.UTF_8));
+            ReleaseChannelUriPolicy.requireChannelDocument(
+                    request.releaseIndexUri(), "releases", index.channel());
+            return index;
         } catch (IOException exception) {
             throw new NativeUpdateException("Could not read native Zolt release index: " + exception.getMessage(), exception);
         }

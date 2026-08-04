@@ -30,29 +30,18 @@ default_target() {
 
 CHANNEL="${ZOLT_RELEASE_CHANNEL:-zap}"
 TARGET="${ZOLT_RELEASE_TARGET:-$(default_target)}"
-ORIGIN="${ZOLT_DISTRIBUTION_ORIGIN:-https://dist.zolt.sh}"
-SIGNING_KEY_ID="${ZOLT_RELEASE_SIGNING_KEY_ID:-zolt-release-2026}"
-PUBLISH=0
-PUBLISH_FROM=""
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/zap-distribution [--publish] [--target <target>] [--origin <url>]
-       scripts/zap-distribution --publish --publish-from <artifact-root> [--origin <url>]
+Usage: scripts/zap-distribution [--target <target>]
 
-Build, verify, and optionally publish a zap-channel native Zolt distribution.
-With --publish-from, publish already-built target artifacts and write a combined channel manifest.
-Publication is refused unless the current branch (or GitHub Actions ref) is main.
+Build and verify one zap-channel native Zolt candidate. The trusted
+zoltsh/releases controller publishes immutable GitHub Release assets and signed
+moving metadata after it independently validates all target candidates.
 
 Environment:
   ZOLT_RELEASE_VERSION        Override computed version.
   ZOLT_RELEASE_TARGET         Release target. Default: current host target.
-  ZOLT_DISTRIBUTION_ORIGIN    Public HTTPS origin. Default: https://dist.zolt.sh.
-  DO_SPACES_BUCKET            Bucket name used with --publish.
-  DO_SPACES_ENDPOINT          S3-compatible endpoint used with --publish.
-  ZOLT_RELEASE_ED25519_PRIVATE_KEY
-                              PEM Ed25519 private key used to sign release manifests with --publish.
-  ZOLT_RELEASE_SIGNING_KEY_ID Signing key id. Default: zolt-release-2026.
   ZOLT_RELEASE_INDEX_LIMIT    Maximum versions to keep in releases/<channel>.json. Default: 200.
 USAGE
 }
@@ -94,106 +83,10 @@ target_binary_name() {
   esac
 }
 
-target_from_archive() {
-  local archive
-  archive="$1"
-  case "$archive" in
-    zolt-*-linux-x64.tar.gz)
-      printf 'linux-x64'
-      ;;
-    zolt-*-linux-arm64.tar.gz)
-      printf 'linux-arm64'
-      ;;
-    zolt-*-macos-x64.tar.gz)
-      printf 'macos-x64'
-      ;;
-    zolt-*-macos-arm64.tar.gz)
-      printf 'macos-arm64'
-      ;;
-    zolt-*-windows-x64.zip)
-      printf 'windows-x64'
-      ;;
-    *)
-      printf 'error: could not infer release target from archive %s\n' "$archive" >&2
-      exit 1
-      ;;
-  esac
-}
-
-version_from_archive() {
-  local archive
-  local target
-  local extension
-  archive="$1"
-  target="$(target_from_archive "$archive")"
-  extension="$(target_archive_extension "$target")"
-  archive="${archive#zolt-}"
-  archive="${archive%-${target}${extension}}"
-  printf '%s' "$archive"
-}
-
-archive_content_type() {
-  case "$(target_archive_extension "$1")" in
-    .tar.gz)
-      printf 'application/gzip'
-      ;;
-    .zip)
-      printf 'application/zip'
-      ;;
-  esac
-}
-
-json_string() {
-  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-
-release_signing_private_key() {
-  printf '%s' "${ZOLT_RELEASE_ED25519_PRIVATE_KEY:-${ZOLT_RELEASE_SIGNING_KEY:-}}"
-}
-
-current_publish_ref() {
-  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    printf '%s' "${GITHUB_REF:-}"
-    return
-  fi
-  git symbolic-ref --quiet --short HEAD 2>/dev/null || true
-}
-
-require_main_publish_ref() {
-  local current_ref
-  local expected_ref
-
-  current_ref="$(current_publish_ref)"
-  expected_ref="main"
-  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    expected_ref="refs/heads/main"
-  fi
-  if [[ "$current_ref" != "$expected_ref" ]]; then
-    if [[ -z "$current_ref" ]]; then
-      current_ref="<detached-or-unknown>"
-    fi
-    printf 'error: zap publication is only allowed from main; current ref is %s\n' \
-      "$current_ref" >&2
-    exit 2
-  fi
-}
-
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --publish)
-      PUBLISH=1
-      shift
-      ;;
     --target)
       TARGET="${2:?missing value for --target}"
-      shift 2
-      ;;
-    --publish-from)
-      PUBLISH_FROM="${2:?missing value for --publish-from}"
-      shift 2
-      ;;
-    --origin)
-      ORIGIN="${2:?missing value for --origin}"
       shift 2
       ;;
     --help | -h)
@@ -208,20 +101,10 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-if [[ "$PUBLISH" -eq 1 ]]; then
-  require_main_publish_ref
-fi
-
 if [[ "$CHANNEL" != "zap" ]]; then
-  printf 'error: scripts/zap-distribution only publishes the zap channel; got %s\n' "$CHANNEL" >&2
+  printf 'error: scripts/zap-distribution only builds the zap channel; got %s\n' "$CHANNEL" >&2
   exit 2
 fi
-
-if [[ "$ORIGIN" != https://* ]]; then
-  printf 'error: ZOLT_DISTRIBUTION_ORIGIN must be an HTTPS URL\n' >&2
-  exit 2
-fi
-ORIGIN="${ORIGIN%/}"
 
 BASE_VERSION="$(
   awk -F '"' '/^version = / { print $2; exit }' apps/zolt/zolt.toml | sed 's/-SNAPSHOT$//'
@@ -237,8 +120,6 @@ STAMP="$(date -u +%Y%m%d)"
 CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 VERSION="${ZOLT_RELEASE_VERSION:-${BASE_VERSION}-${CHANNEL}.${STAMP}.${SHORT_COMMIT}}"
 export ZOLT_VERSION_OVERRIDE="$VERSION"
-BUILDER_JDK_VERSION="$(java -version 2>&1 | awk -F '"' '/version/ { print $2; exit }')"
-BUILDER_JDK_VENDOR="$(java -XshowSettings:properties -version 2>&1 | awk -F '= ' '/java.vendor =/ { print $2; exit }')"
 
 APP_DIR="$ROOT/apps/zolt"
 OUTPUT_DIR="target/release/${CHANNEL}/${VERSION}"
@@ -248,14 +129,15 @@ RELEASE_INDEX_LIMIT="${ZOLT_RELEASE_INDEX_LIMIT:-200}"
 ARCHIVE_EXTENSION="$(target_archive_extension "$TARGET")"
 FORMAT="$(target_format "$TARGET")"
 BINARY_NAME="$(target_binary_name "$TARGET")"
-INSTALL_SCRIPT_PATH="$ROOT/scripts/install-zolt"
 ARCHIVE_NAME="zolt-${VERSION}-${TARGET}${ARCHIVE_EXTENSION}"
 ARCHIVE_PATH="${APP_DIR}/${OUTPUT_DIR}/${ARCHIVE_NAME}"
 CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
 RELEASE_MANIFEST_PATH="${APP_DIR}/${OUTPUT_DIR}/release-manifest.json"
 CHANNEL_MANIFEST_PATH="${APP_DIR}/${CHANNEL_DIR}/${CHANNEL}.json"
 RELEASE_INDEX_PATH="${APP_DIR}/${RELEASES_DIR}/${CHANNEL}.json"
-ARCHIVE_URL="${ORIGIN}/artifacts/${CHANNEL}/${VERSION}/${ARCHIVE_NAME}"
+RELEASE_TAG="zolt-zap-${VERSION}"
+RELEASE_ORIGIN="https://github.com/zoltsh/releases/releases/download/${RELEASE_TAG}"
+ARCHIVE_URL="${RELEASE_ORIGIN}/${ARCHIVE_NAME}"
 CHECKSUM_URL="${ARCHIVE_URL}.sha256"
 APP_LOCKFILE="${APP_DIR}/zolt.lock"
 APP_LOCKFILE_WAS_PRESENT=0
@@ -270,302 +152,20 @@ cleanup_app_lockfile() {
 }
 trap cleanup_app_lockfile EXIT
 
-require_publish_environment() {
-  if [[ -z "${DO_SPACES_BUCKET:-}" || -z "${DO_SPACES_ENDPOINT:-}" ]]; then
-    printf 'error: --publish requires DO_SPACES_BUCKET and DO_SPACES_ENDPOINT\n' >&2
-    exit 2
-  fi
-  if [[ -z "$(release_signing_private_key)" ]]; then
-    printf 'error: --publish requires ZOLT_RELEASE_ED25519_PRIVATE_KEY\n' >&2
-    exit 2
-  fi
-  if ! command -v aws >/dev/null 2>&1; then
-    printf 'error: --publish requires aws CLI on PATH\n' >&2
-    exit 2
-  fi
-  if ! command -v openssl >/dev/null 2>&1; then
-    printf 'error: --publish requires openssl on PATH to sign channel manifests\n' >&2
-    exit 2
-  fi
-  require_javac_21
-}
-
-require_javac_21() {
-  local javac_version
-  local javac_major
-
-  if ! command -v javac >/dev/null 2>&1; then
-    printf 'error: publishing requires JDK 21 or newer on PATH because release indexes are built by Zolt\n' >&2
-    exit 2
-  fi
-  javac_version="$(javac -version 2>&1 | awk '{ print $2 }')"
-  javac_major="${javac_version%%.*}"
-  if [[ "$javac_major" == "1" ]]; then
-    javac_major="$(printf '%s' "$javac_version" | cut -d. -f2)"
-  fi
-  javac_major="${javac_major%%[!0-9]*}"
-  if [[ -z "$javac_major" || "$javac_major" -lt 21 ]]; then
-    printf 'error: publishing requires JDK 21 or newer on PATH; found javac %s\n' "$javac_version" >&2
-    exit 2
-  fi
-}
-
-sign_manifest() {
-  local manifest_path
-  local private_key_path
-  local signature
-  local signature_path
-
-  manifest_path="$1"
-  signature_path="${manifest_path}.sig"
-  private_key_path="$(mktemp)"
-  chmod 600 "$private_key_path"
-  printf '%s\n' "$(release_signing_private_key)" > "$private_key_path"
-  if ! signature="$(openssl pkeyutl -sign -rawin -inkey "$private_key_path" -in "$manifest_path" | openssl base64 -A)"; then
-    rm -f "$private_key_path"
-    printf 'error: could not sign manifest %s\n' "$manifest_path" >&2
-    exit 1
-  fi
-  rm -f "$private_key_path"
-
-  cat > "$signature_path" <<EOF
-version: zolt-ed25519-v1
-keyId: ${SIGNING_KEY_ID}
-signature: ${signature}
-EOF
-}
-
-publish_signed_manifest() {
-  local manifest_path
-  local manifest_uri
-
-  manifest_path="$1"
-  manifest_uri="$2"
-  sign_manifest "$manifest_path"
-  aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "${manifest_path}.sig" "${manifest_uri}.sig" \
-    --acl public-read \
-    --cache-control "no-cache" \
-    --content-type "text/plain"
-  aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "$manifest_path" "$manifest_uri" \
-    --acl public-read \
-    --cache-control "no-cache" \
-    --content-type "application/json"
-}
-
 prepare_release_index() {
   local channel_manifest_path
   local release_index_path
-  local previous_index_uri
-  local previous_index_path
 
   channel_manifest_path="$1"
   release_index_path="$2"
-  previous_index_uri="${3:-}"
-  previous_index_path="${release_index_path%.json}.previous.json"
 
   mkdir -p "$(dirname "$release_index_path")"
-  rm -f "$previous_index_path"
-  if [[ -n "$previous_index_uri" ]]; then
-    if ! aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "$previous_index_uri" "$previous_index_path" >/dev/null 2>&1; then
-      rm -f "$previous_index_path"
-    fi
-  fi
 
   scripts/bootstrap-zolt-jvm --no-progress release-index \
     --channel-manifest "$channel_manifest_path" \
-    --previous "$previous_index_path" \
     --output "$release_index_path" \
     --limit "$RELEASE_INDEX_LIMIT"
 }
-
-publish_install_script() {
-  local install_script_uri
-
-  if [[ ! -f "$INSTALL_SCRIPT_PATH" ]]; then
-    printf 'error: install script is missing: %s\n' "$INSTALL_SCRIPT_PATH" >&2
-    exit 1
-  fi
-
-  install_script_uri="s3://${DO_SPACES_BUCKET}/install.sh"
-  aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "$INSTALL_SCRIPT_PATH" "$install_script_uri" \
-    --acl public-read \
-    --cache-control "no-cache" \
-    --content-type "text/x-shellscript"
-}
-
-publish_combined_artifacts() {
-  local artifact_root
-  local publish_output_dir
-  local combined_release_manifest
-  local combined_channel_manifest
-  local combined_release_index
-  local archive
-  local archive_name
-  local checksum_path
-  local sha256
-  local target
-  local version
-  local format
-  local binary_name
-  local artifact_uri
-  local channel_uri
-  local release_index_uri
-  local release_entries
-  local channel_entries
-  local targets_seen
-  local first_entry
-  local content_type
-
-  artifact_root="$1"
-  if [[ ! -d "$artifact_root" ]]; then
-    printf 'error: --publish-from directory does not exist: %s\n' "$artifact_root" >&2
-    exit 2
-  fi
-  require_publish_environment
-
-  release_entries=""
-  channel_entries=""
-  targets_seen=""
-  first_entry=1
-
-  while IFS= read -r archive; do
-    archive_name="$(basename "$archive")"
-    target="$(target_from_archive "$archive_name")"
-    version="$(version_from_archive "$archive_name")"
-    if [[ "$version" != "$VERSION" ]]; then
-      printf 'error: archive %s has version %s but expected %s\n' "$archive_name" "$version" "$VERSION" >&2
-      exit 1
-    fi
-    if [[ " $targets_seen " == *" $target "* ]]; then
-      printf 'error: duplicate zap artifact for target %s\n' "$target" >&2
-      exit 1
-    fi
-    targets_seen="${targets_seen} ${target}"
-
-    checksum_path="${archive}.sha256"
-    if [[ ! -f "$checksum_path" ]]; then
-      printf 'error: missing checksum sidecar for %s\n' "$archive" >&2
-      exit 1
-    fi
-    sha256="$(awk '{ print $1; exit }' "$checksum_path")"
-    if [[ ! "$sha256" =~ ^[0-9a-f]{64}$ ]]; then
-      printf 'error: invalid SHA-256 in %s\n' "$checksum_path" >&2
-      exit 1
-    fi
-
-    format="$(target_format "$target")"
-    binary_name="$(target_binary_name "$target")"
-    if [[ "$first_entry" -eq 0 ]]; then
-      release_entries="${release_entries},
-"
-      channel_entries="${channel_entries},
-"
-    fi
-    first_entry=0
-
-    release_entries="${release_entries}    {
-      \"archive\": \"$(json_string "$archive_name")\",
-      \"target\": \"$(json_string "$target")\",
-      \"version\": \"$(json_string "$VERSION")\",
-      \"format\": \"$(json_string "$format")\",
-      \"sha256\": \"$(json_string "$sha256")\"
-    }"
-    channel_entries="${channel_entries}    {
-      \"target\": \"$(json_string "$target")\",
-      \"archive\": \"$(json_string "$archive_name")\",
-      \"archiveUrl\": \"$(json_string "${ORIGIN}/artifacts/${CHANNEL}/${VERSION}/${archive_name}")\",
-      \"checksumUrl\": \"$(json_string "${ORIGIN}/artifacts/${CHANNEL}/${VERSION}/${archive_name}.sha256")\",
-      \"sha256\": \"$(json_string "$sha256")\",
-      \"format\": \"$(json_string "$format")\",
-      \"binaryName\": \"$(json_string "$binary_name")\"
-    }"
-  done < <(find "$artifact_root" -type f \( -name "zolt-${VERSION}-*.tar.gz" -o -name "zolt-${VERSION}-*.zip" \) | sort)
-
-  if [[ -z "$release_entries" ]]; then
-    printf 'error: no zap archives found under %s for version %s\n' "$artifact_root" "$VERSION" >&2
-    exit 1
-  fi
-
-  publish_output_dir="${APP_DIR}/${OUTPUT_DIR}"
-  mkdir -p "$publish_output_dir" "${APP_DIR}/${CHANNEL_DIR}"
-  combined_release_manifest="${publish_output_dir}/release-manifest.json"
-  combined_channel_manifest="${APP_DIR}/${CHANNEL_DIR}/${CHANNEL}.json"
-  combined_release_index="${APP_DIR}/${RELEASES_DIR}/${CHANNEL}.json"
-
-  cat > "$combined_release_manifest" <<EOF
-{
-  "name": "zolt",
-  "version": "${VERSION}",
-  "builder": {
-    "name": "zolt",
-    "version": "${VERSION}",
-    "jdkVersion": "$(json_string "$BUILDER_JDK_VERSION")",
-    "jdkVendor": "$(json_string "$BUILDER_JDK_VENDOR")",
-    "builtAt": "${CREATED_AT}",
-    "commit": "${COMMIT}",
-    "resolutionFingerprint": null
-  },
-  "archives": [
-${release_entries}
-  ]
-}
-EOF
-
-  cat > "$combined_channel_manifest" <<EOF
-{
-  "schemaVersion": 1,
-  "channel": "${CHANNEL}",
-  "version": "${VERSION}",
-  "commit": "${COMMIT}",
-  "createdAt": "${CREATED_AT}",
-  "artifacts": [
-${channel_entries}
-  ]
-}
-EOF
-
-  artifact_uri="s3://${DO_SPACES_BUCKET}/artifacts/${CHANNEL}/${VERSION}"
-  channel_uri="s3://${DO_SPACES_BUCKET}/channels/${CHANNEL}.json"
-  release_index_uri="s3://${DO_SPACES_BUCKET}/releases/${CHANNEL}.json"
-
-  while IFS= read -r archive; do
-    archive_name="$(basename "$archive")"
-    target="$(target_from_archive "$archive_name")"
-    content_type="$(archive_content_type "$target")"
-    aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "$archive" "${artifact_uri}/${archive_name}" \
-      --acl public-read \
-      --cache-control "public, max-age=31536000, immutable" \
-      --content-type "$content_type"
-    aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "${archive}.sha256" "${artifact_uri}/${archive_name}.sha256" \
-      --acl public-read \
-      --cache-control "public, max-age=31536000, immutable" \
-      --content-type "text/plain"
-  done < <(find "$artifact_root" -type f \( -name "zolt-${VERSION}-*.tar.gz" -o -name "zolt-${VERSION}-*.zip" \) | sort)
-
-  aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "$combined_release_manifest" "${artifact_uri}/release-manifest.json" \
-    --acl public-read \
-    --cache-control "public, max-age=31536000, immutable" \
-    --content-type "application/json"
-  prepare_release_index "$combined_channel_manifest" "$combined_release_index" "$release_index_uri"
-  publish_signed_manifest "$combined_release_index" "$release_index_uri"
-  publish_signed_manifest "$combined_channel_manifest" "$channel_uri"
-  publish_install_script
-
-  printf 'Published %s, %s, %s, and s3://%s/install.sh\n' "$artifact_uri" "$release_index_uri" "$channel_uri" "$DO_SPACES_BUCKET"
-  printf 'ZOLT_ZAP_VERSION=%s\n' "$VERSION"
-  printf 'ZOLT_ZAP_RELEASE_MANIFEST=%s\n' "$combined_release_manifest"
-  printf 'ZOLT_ZAP_CHANNEL_MANIFEST=%s\n' "$combined_channel_manifest"
-  printf 'ZOLT_ZAP_RELEASE_INDEX=%s\n' "$combined_release_index"
-}
-
-if [[ -n "$PUBLISH_FROM" ]]; then
-  if [[ "$PUBLISH" -ne 1 ]]; then
-    printf 'error: --publish-from requires --publish\n' >&2
-    exit 2
-  fi
-  publish_combined_artifacts "$PUBLISH_FROM"
-  exit 0
-fi
 
 printf 'Building %s distribution %s for %s\n' "$CHANNEL" "$VERSION" "$TARGET"
 
@@ -636,33 +236,6 @@ EOF
 
 printf 'Wrote %s\n' "$CHANNEL_MANIFEST_PATH"
 prepare_release_index "$CHANNEL_MANIFEST_PATH" "$RELEASE_INDEX_PATH"
-
-if [[ "$PUBLISH" -eq 1 ]]; then
-  require_publish_environment
-
-  ARTIFACT_URI="s3://${DO_SPACES_BUCKET}/artifacts/${CHANNEL}/${VERSION}"
-  CHANNEL_URI="s3://${DO_SPACES_BUCKET}/channels/${CHANNEL}.json"
-  RELEASE_INDEX_URI="s3://${DO_SPACES_BUCKET}/releases/${CHANNEL}.json"
-
-  aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "$ARCHIVE_PATH" "${ARTIFACT_URI}/${ARCHIVE_NAME}" \
-    --acl public-read \
-    --cache-control "public, max-age=31536000, immutable" \
-    --content-type "$(archive_content_type "$TARGET")"
-  aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "$CHECKSUM_PATH" "${ARTIFACT_URI}/${ARCHIVE_NAME}.sha256" \
-    --acl public-read \
-    --cache-control "public, max-age=31536000, immutable" \
-    --content-type "text/plain"
-  aws --endpoint-url "$DO_SPACES_ENDPOINT" s3 cp "$RELEASE_MANIFEST_PATH" "${ARTIFACT_URI}/release-manifest.json" \
-    --acl public-read \
-    --cache-control "public, max-age=31536000, immutable" \
-    --content-type "application/json"
-  prepare_release_index "$CHANNEL_MANIFEST_PATH" "$RELEASE_INDEX_PATH" "$RELEASE_INDEX_URI"
-  publish_signed_manifest "$RELEASE_INDEX_PATH" "$RELEASE_INDEX_URI"
-  publish_signed_manifest "$CHANNEL_MANIFEST_PATH" "$CHANNEL_URI"
-  publish_install_script
-
-  printf 'Published %s, %s, %s, and s3://%s/install.sh\n' "$ARTIFACT_URI" "$RELEASE_INDEX_URI" "$CHANNEL_URI" "$DO_SPACES_BUCKET"
-fi
 
 printf 'ZOLT_ZAP_VERSION=%s\n' "$VERSION"
 printf 'ZOLT_ZAP_ARCHIVE=%s\n' "$ARCHIVE_PATH"

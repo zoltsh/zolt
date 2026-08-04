@@ -1701,7 +1701,7 @@ The `examples/` directory is deliberately broad. It includes:
 
 ## Platforms
 
-Zolt ships only through the rolling `zap` nightly channel, which publishes native
+Zolt ships only through the automatic `zap` channel, which publishes native
 binaries for:
 
 - `linux-x64`

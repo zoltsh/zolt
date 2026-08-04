@@ -53,6 +53,8 @@ public final class NativeUpdateService {
             ReleaseChannelManifest manifest = validateManifest(
                     request.channelUri(),
                     new String(manifestBytes, StandardCharsets.UTF_8));
+            ReleaseChannelUriPolicy.requireChannelDocument(
+                    request.channelUri(), "channels", manifest.channel());
             ReleaseChannelArtifact artifact = manifest.artifactFor(request.target());
             if (installed.version().equals(manifest.version())) {
                 return new NativeUpdateResult(

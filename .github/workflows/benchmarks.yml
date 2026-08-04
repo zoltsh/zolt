@@ -237,6 +237,17 @@ jobs:
           export ZOLT_INSTALL_CHANNEL="$BENCHMARK_RELEASE_CHANNEL"
           export ZOLT_INSTALL_TARGET=linux-x64
           export ZOLT_INSTALL_VERSION="$BENCHMARK_RELEASE_VERSION"
+          case "$BENCHMARK_RELEASE_CHANNEL" in
+            stable) release_tag="zolt-v$BENCHMARK_RELEASE_VERSION" ;;
+            preview) release_tag="zolt-preview-v$BENCHMARK_RELEASE_VERSION" ;;
+            zap) release_tag="zolt-zap-$BENCHMARK_RELEASE_VERSION" ;;
+            *)
+              printf 'error: unsupported benchmark release channel: %s\n' \
+                "$BENCHMARK_RELEASE_CHANNEL" >&2
+              exit 1
+              ;;
+          esac
+          export ZOLT_INSTALL_CHANNEL_URL="https://github.com/zoltsh/releases/releases/download/$release_tag/channel-$BENCHMARK_RELEASE_CHANNEL.json"
           scripts/install-zolt
           zolt_version="$("$ZOLT_INSTALL_ROOT/bin/zolt" --version)"
           {

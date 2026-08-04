@@ -14,6 +14,9 @@ final class ReleaseChannelUriPolicy {
         if (uri.getUserInfo() != null) {
             throw invalid("must not include URL credentials.");
         }
+        if (uri.getQuery() != null || uri.getFragment() != null) {
+            throw invalid("must not include a query or fragment.");
+        }
         if ("file".equalsIgnoreCase(scheme)) {
             validateLocalFile(uri, allowLocalFile);
             return;
@@ -25,6 +28,30 @@ final class ReleaseChannelUriPolicy {
 
     static boolean isLocalFile(URI uri) {
         return "file".equalsIgnoreCase(uri.getScheme());
+    }
+
+    static void requireChannelDocument(
+            URI uri, String collection, String channel) {
+        if (isLocalFile(uri)) {
+            return;
+        }
+        String movingSuffix = "/" + collection + "/" + channel + ".json";
+        String snapshotSuffix = switch (collection) {
+            case "channels" -> "/channel-" + channel + ".json";
+            case "releases" -> "/release-index-" + channel + ".json";
+            default -> throw invalid("uses an unsupported release document collection.");
+        };
+        String path = uri.getPath();
+        if (path == null
+                || (!path.endsWith(movingSuffix) && !path.endsWith(snapshotSuffix))) {
+            throw invalid("must end with `"
+                    + movingSuffix
+                    + "` or `"
+                    + snapshotSuffix
+                    + "` for channel `"
+                    + channel
+                    + "`.");
+        }
     }
 
     private static void validateLocalFile(URI uri, boolean allowLocalFile) {

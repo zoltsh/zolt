@@ -71,14 +71,14 @@ final class ReleaseIndexManifestValidatorTest {
         return """
                 {
                   "version": "%s",
-                  "commit": "0123456789abcdef",
+                  "commit": "0123456789abcdef0123456789abcdef01234567",
                   "createdAt": "2026-07-06T20:00:00Z",
                   "artifacts": [
                     {
                       "target": "linux-x64",
                       "archive": "zolt-%s-linux-x64.tar.gz",
-                      "archiveUrl": "https://dist.zolt.sh/artifacts/zap/%s/zolt-%s-linux-x64.tar.gz",
-                      "checksumUrl": "https://dist.zolt.sh/artifacts/zap/%s/zolt-%s-linux-x64.tar.gz.sha256",
+                      "archiveUrl": "https://github.com/zoltsh/releases/releases/download/zolt-zap-%s/zolt-%s-linux-x64.tar.gz",
+                      "checksumUrl": "https://github.com/zoltsh/releases/releases/download/zolt-zap-%s/zolt-%s-linux-x64.tar.gz.sha256",
                       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                       "format": "tar.gz",
                       "binaryName": "zolt"

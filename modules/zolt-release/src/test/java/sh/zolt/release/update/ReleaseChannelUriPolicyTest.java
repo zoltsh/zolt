@@ -12,6 +12,20 @@ final class ReleaseChannelUriPolicyTest {
     void acceptsHttpsWithHostAndLocalFileWhenExplicitlyAllowed() {
         ReleaseChannelUriPolicy.validate(URI.create("https://dist.zolt.sh/channels/zap.json"), false);
         ReleaseChannelUriPolicy.validate(URI.create("file:///tmp/zolt-channel.json"), true);
+        ReleaseChannelUriPolicy.requireChannelDocument(
+                URI.create("https://dist.zolt.sh/channels/zap.json"), "channels", "zap");
+        ReleaseChannelUriPolicy.requireChannelDocument(
+                URI.create("https://mirror.example.test/zolt/releases/preview.json"),
+                "releases",
+                "preview");
+        ReleaseChannelUriPolicy.requireChannelDocument(
+                URI.create("https://github.com/zoltsh/releases/releases/download/zolt-zap-1/channel-zap.json"),
+                "channels",
+                "zap");
+        ReleaseChannelUriPolicy.requireChannelDocument(
+                URI.create("https://github.com/zoltsh/releases/releases/download/zolt-zap-1/release-index-zap.json"),
+                "releases",
+                "zap");
 
         assertTrue(ReleaseChannelUriPolicy.isLocalFile(URI.create("file:///tmp/zolt-channel.json")));
         assertFalse(ReleaseChannelUriPolicy.isLocalFile(URI.create("https://dist.zolt.sh/channels/zap.json")));
@@ -23,6 +37,20 @@ final class ReleaseChannelUriPolicyTest {
         assertInvalid("https://user:pass@dist.zolt.sh/channels/zap.json", "must not include URL credentials");
         assertInvalid("http://dist.zolt.sh/channels/zap.json", "must be an HTTPS URL with a host");
         assertInvalid("https:///channels/zap.json", "must be an HTTPS URL with a host");
+        assertInvalid("https://dist.zolt.sh/channels/zap.json?old=true", "must not include a query");
+        assertInvalid("https://dist.zolt.sh/channels/zap.json#fragment", "must not include a query");
+    }
+
+    @Test
+    void rejectsChannelDocumentsThatDoNotMatchTheirSignedChannel() {
+        NativeUpdateException exception = assertThrows(
+                NativeUpdateException.class,
+                () -> ReleaseChannelUriPolicy.requireChannelDocument(
+                        URI.create("https://dist.zolt.sh/channels/stable.json"),
+                        "channels",
+                        "zap"));
+
+        assertTrue(exception.getMessage().contains("/channels/zap.json"));
     }
 
     @Test

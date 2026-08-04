@@ -26,32 +26,12 @@ public final class ReleaseDistributionUrlLayout {
         return origin;
     }
 
-    public String installScriptUrl() {
-        return origin + "/install.sh";
-    }
-
     public String channelManifestUrl(String channel) {
         return origin + "/channels/" + safePathSegment(channel, "channel") + ".json";
     }
 
     public String releaseIndexUrl(String channel) {
         return origin + "/releases/" + safePathSegment(channel, "channel") + ".json";
-    }
-
-    public String archiveUrl(String channel, String version, String archive) {
-        return artifactBase(channel, version) + "/" + safePathSegment(archive, "archive");
-    }
-
-    public String checksumUrl(String channel, String version, String archive) {
-        return archiveUrl(channel, version, archive) + ".sha256";
-    }
-
-    public String signatureUrl(String channel, String version, String archive, String extension) {
-        return archiveUrl(channel, version, archive) + safeSignatureExtension(extension);
-    }
-
-    private String artifactBase(String channel, String version) {
-        return origin + "/artifacts/" + safePathSegment(channel, "channel") + "/" + safePathSegment(version, "version");
     }
 
     private static String safePathSegment(String value, String label) {
@@ -65,11 +45,4 @@ public final class ReleaseDistributionUrlLayout {
         return normalized;
     }
 
-    private static String safeSignatureExtension(String extension) {
-        String normalized = Objects.requireNonNull(extension, "extension").strip();
-        if (normalized.isEmpty() || !normalized.startsWith(".") || normalized.contains("/") || normalized.contains("\\")) {
-            throw new ReleaseChannelManifestException("Release distribution signature extension must start with `.` and stay within one URL path segment.");
-        }
-        return normalized;
-    }
 }

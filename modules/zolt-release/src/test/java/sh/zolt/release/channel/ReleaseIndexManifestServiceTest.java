@@ -46,19 +46,19 @@ final class ReleaseIndexManifestServiceTest {
     @Test
     void mergeRejectsMismatchedChannels() {
         ReleaseChannelManifest current = channel("0.1.0-zap.20260707.333333333333");
-        ReleaseIndexManifest nightlyIndex = new ReleaseIndexManifest(
+        ReleaseIndexManifest previewIndex = new ReleaseIndexManifest(
                 1,
-                "nightly",
+                "preview",
                 "2026-07-06T20:00:00Z",
                 indexValidator.validate(ReleaseIndexManifestValidatorTest.indexJson(
                         ReleaseIndexManifestValidatorTest.versionJson("0.1.0-zap.20260706.222222222222"))).versions());
 
         ReleaseChannelManifestException exception = assertThrows(
                 ReleaseChannelManifestException.class,
-                () -> service.merge(current, Optional.of(nightlyIndex), 10));
+                () -> service.merge(current, Optional.of(previewIndex), 10));
 
         assertEquals(
-                "Release index channel `nightly` does not match release channel `zap`.",
+                "Release index channel `preview` does not match release channel `zap`.",
                 exception.getMessage());
     }
 
@@ -79,14 +79,14 @@ final class ReleaseIndexManifestServiceTest {
                   "schemaVersion": 1,
                   "channel": "zap",
                   "version": "%s",
-                  "commit": "0123456789abcdef",
+                  "commit": "0123456789abcdef0123456789abcdef01234567",
                   "createdAt": "2026-07-07T00:00:00Z",
                   "artifacts": [
                     {
                       "target": "linux-x64",
                       "archive": "zolt-%s-linux-x64.tar.gz",
-                      "archiveUrl": "https://dist.zolt.sh/artifacts/zap/%s/zolt-%s-linux-x64.tar.gz",
-                      "checksumUrl": "https://dist.zolt.sh/artifacts/zap/%s/zolt-%s-linux-x64.tar.gz.sha256",
+                      "archiveUrl": "https://github.com/zoltsh/releases/releases/download/zolt-zap-%s/zolt-%s-linux-x64.tar.gz",
+                      "checksumUrl": "https://github.com/zoltsh/releases/releases/download/zolt-zap-%s/zolt-%s-linux-x64.tar.gz.sha256",
                       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                       "format": "tar.gz",
                       "binaryName": "zolt"

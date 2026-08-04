@@ -4,6 +4,7 @@ set -eu
 INSTALL_ROOT="${ZOLT_INSTALL_ROOT:-$HOME/.zolt}"
 CHANNEL="${ZOLT_INSTALL_CHANNEL:-zap}"
 CHANNEL_URL="${ZOLT_INSTALL_CHANNEL_URL:-https://dist.zolt.sh/channels/$CHANNEL.json}"
+UPDATE_CHANNEL_URL="${ZOLT_INSTALL_UPDATE_CHANNEL_URL:-https://dist.zolt.sh/channels/$CHANNEL.json}"
 REQUESTED_VERSION="${ZOLT_INSTALL_VERSION:-}"
 REQUESTED_TARGET="${ZOLT_INSTALL_TARGET:-}"
 CURL="${ZOLT_INSTALL_CURL:-curl}"
@@ -51,7 +52,20 @@ detect_target() {
 download() {
   url="$1"
   output="$2"
-  "$CURL" -fsSL "$url" -o "$output"
+  case "$url" in
+    file://*)
+      "$CURL" -fsSL "$url" -o "$output"
+      ;;
+    *)
+      "$CURL" \
+        --proto '=https' \
+        --proto-redir '=https' \
+        --tlsv1.2 \
+        -fsSL \
+        "$url" \
+        -o "$output"
+      ;;
+  esac
 }
 
 json_string() {
@@ -146,10 +160,10 @@ validate_channel() {
   label="$1"
   value="$2"
   case "$value" in
-    stable|nightly|zap)
+    stable|preview|zap)
       ;;
     *)
-      fail "$label must be stable, nightly, or zap."
+      fail "$label must be stable, preview, or zap."
       ;;
   esac
 }
@@ -158,8 +172,28 @@ validate_version() {
   label="$1"
   value="$2"
   validate_safe_segment "$label" "$value"
-  if ! printf '%s\n' "$value" | grep -Eq '^([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z._-]*)?|[0-9A-Za-z._-]+-(nightly|zap)\.[0-9]{8}\.[0-9A-Fa-f]{7,40})$'; then
-    fail "$label must look like 0.1.0, <base>-nightly.YYYYMMDD.<commit>, or <base>-zap.YYYYMMDD.<commit>."
+  core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+  if ! printf '%s\n' "$value" | grep -Eq "^($core|$core-(alpha|beta|rc)\.(0|[1-9][0-9]*)|$core-zap\.[0-9]{8}\.[0-9a-f]{12})$"; then
+    fail "$label must be a stable, preview, or zap version."
+  fi
+}
+
+validate_channel_version() {
+  channel="$1"
+  version="$2"
+  case "$channel" in
+    stable)
+      pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+      ;;
+    preview)
+      pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(alpha|beta|rc)\.(0|[1-9][0-9]*)$'
+      ;;
+    zap)
+      pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-zap\.[0-9]{8}\.[0-9a-f]{12}$'
+      ;;
+  esac
+  if ! printf '%s\n' "$version" | grep -Eq "$pattern"; then
+    fail "release channel manifest version $version is not valid for channel $channel."
   fi
 }
 
@@ -194,9 +228,18 @@ validate_url() {
       ;;
     https://*)
       rest="${value#https://}"
-      case "$rest" in
-        ""|*@*)
+      authority="${rest%%/*}"
+      case "$authority" in
+        "")
+          fail "$label must be an HTTPS URL with a host."
+          ;;
+        *@*)
           fail "$label must not include URL credentials."
+          ;;
+      esac
+      case "$value" in
+        *\?*|*\#*)
+          fail "$label must not include a query or fragment."
           ;;
       esac
       ;;
@@ -213,8 +256,8 @@ release_tag_for_channel() {
     stable)
       printf 'zolt-v%s\n' "$version"
       ;;
-    nightly)
-      printf 'zolt-nightly-%s\n' "$version"
+    preview)
+      printf 'zolt-preview-v%s\n' "$version"
       ;;
     zap)
       printf 'zolt-zap-%s\n' "$version"
@@ -296,8 +339,8 @@ validate_tar_entries() {
   while IFS= read -r entry; do
     validate_tar_entry_path "$entry"
   done <"$entries"
-  if ! tar -tvzf "$archive" | awk 'substr($1, 1, 1) == "l" || substr($1, 1, 1) == "h" { bad = 1 } END { exit bad }'; then
-    fail "native Zolt archive must not contain symbolic or hard link entries."
+  if ! tar -tvzf "$archive" | awk 'substr($1, 1, 1) != "-" && substr($1, 1, 1) != "d" { bad = 1 } END { exit bad }'; then
+    fail "native Zolt archive must contain only regular files and directories."
   fi
 }
 
@@ -324,6 +367,7 @@ case "$CHANNEL_URL" in
     ;;
 esac
 validate_url "release channel URL" "$CHANNEL_URL"
+validate_url "native update channel URL" "$UPDATE_CHANNEL_URL"
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/zolt-install.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT INT TERM
@@ -345,6 +389,7 @@ if [ -z "$version" ]; then
   fail "release channel manifest is missing version."
 fi
 validate_version "release channel manifest version" "$version"
+validate_channel_version "$channel" "$version"
 if [ -n "$REQUESTED_VERSION" ] && [ "$REQUESTED_VERSION" != "$version" ]; then
   fail "requested Zolt version $REQUESTED_VERSION is not available on channel ${channel:-unknown}; found $version."
 fi
@@ -360,7 +405,6 @@ checksum_url="$(printf '%s\n' "$artifact" | json_string checksumUrl || true)"
 expected_sha256="$(printf '%s\n' "$artifact" | json_string sha256 || true)"
 format="$(printf '%s\n' "$artifact" | json_string format)"
 binary_name="$(printf '%s\n' "$artifact" | json_string binaryName)"
-signature_url="$(printf '%s\n' "$artifact" | json_string url || true)"
 
 validate_archive_name "release channel artifact $selected_target archive" "$archive"
 expected_archive="zolt-$version-$selected_target.tar.gz"
@@ -390,10 +434,6 @@ if [ -n "$checksum_url" ]; then
     "$version" \
     "$archive.sha256"
 fi
-if [ -n "$signature_url" ]; then
-  validate_url "release channel artifact $selected_target signatureUrl" "$signature_url"
-fi
-
 archive_path="$work_dir/$archive"
 require_under_root "$work_dir" "$archive_path" "native archive download path"
 download "$archive_url" "$archive_path"
@@ -446,7 +486,7 @@ require_under_root "$bin_dir" "$bin_dir/zolt" "native bin symlink"
 safe_rm_rf "$bin_dir" "$bin_dir/zolt" "native bin symlink"
 ln -s "../versions/$version/bin/zolt" "$bin_dir/zolt"
 printf '%s\n' "${channel:-$CHANNEL}" >"$install_root/channel"
-printf '%s\n' "$CHANNEL_URL" >"$install_root/channel-url"
+printf '%s\n' "$UPDATE_CHANNEL_URL" >"$install_root/channel-url"
 
 info "Installed native Zolt $version for $selected_target from channel ${channel:-unknown}."
 info "Add $bin_dir to PATH to run zolt."

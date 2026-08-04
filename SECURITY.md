@@ -5,14 +5,15 @@
 Zolt is pre-1.0. Security fixes are handled on the latest published release and
 the current `main` branch.
 
-Older snapshots, nightly builds, and prerelease artifacts may be replaced rather
-than patched in place.
+Published GitHub Releases are immutable and are never replaced. Unsupported older
+releases remain available as exact historical artifacts; security fixes ship in a new
+release.
 
 | Version | Security support |
 | --- | --- |
 | Latest published release | Yes |
 | Current `main` branch | Yes |
-| Older snapshots, nightly builds, and prerelease artifacts | No |
+| Older snapshots and prerelease releases | No |
 
 ## Reporting a Vulnerability
 

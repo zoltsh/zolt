@@ -24,14 +24,14 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "install", description = "Install a native Zolt version without switching to it.")
 public final class SelfInstallCommand extends SelfCommand.NativeSelfOptions implements Callable<Integer> {
-    private static final Set<String> SUPPORTED_CHANNELS = Set.of("stable", "nightly", "zap");
+    private static final Set<String> SUPPORTED_CHANNELS = Set.of("stable", "preview", "zap");
 
     private final NativeVersionInstallService installService;
 
     @Parameters(index = "0", paramLabel = "<VERSION>", description = "Remote version to install.")
     private String version;
 
-    @Option(names = "--channel", description = "Release channel to use: stable, nightly, or zap.")
+    @Option(names = "--channel", description = "Release channel to use: stable, preview, or zap.")
     private String channel;
 
     @Option(names = "--target", hidden = true)
@@ -106,7 +106,7 @@ public final class SelfInstallCommand extends SelfCommand.NativeSelfOptions impl
     private static String normalizeChannel(String value) {
         String normalized = value.strip();
         if (!SUPPORTED_CHANNELS.contains(normalized)) {
-            throw new IllegalArgumentException("Native Zolt channel must be one of stable, nightly, zap.");
+            throw new IllegalArgumentException("Native Zolt channel must be one of stable, preview, zap.");
         }
         return normalized;
     }
