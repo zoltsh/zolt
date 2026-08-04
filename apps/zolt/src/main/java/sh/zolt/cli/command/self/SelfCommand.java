@@ -3,7 +3,6 @@ package sh.zolt.cli.command.self;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.update.NativeInstallCommandSupport;
-import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.release.archive.ReleaseArchiveException;
 import sh.zolt.release.channel.ReleaseChannelManifestException;
 import sh.zolt.release.channel.ReleaseDistributionUrlLayout;
@@ -53,13 +52,13 @@ public final class SelfCommand implements Runnable {
 
     public static class NativeSelfOptions {
         @Option(names = "--install-root", hidden = true)
-        private Path installRoot = UserGlobalDirectory.root();
+        private Path installRoot;
 
         @Option(names = "--current-executable", hidden = true)
         private Path currentExecutable;
 
         Path installRoot() {
-            return installRoot;
+            return NativeInstallCommandSupport.effectiveInstallRoot(installRoot, currentExecutable());
         }
 
         Path currentExecutable() {
@@ -67,11 +66,11 @@ public final class SelfCommand implements Runnable {
         }
 
         NativeVersionListRequest listRequest() {
-            return new NativeVersionListRequest(installRoot, currentExecutable());
+            return new NativeVersionListRequest(installRoot(), currentExecutable());
         }
 
         NativeVersionSwitchRequest switchRequest(String version) {
-            return new NativeVersionSwitchRequest(installRoot, currentExecutable(), version);
+            return new NativeVersionSwitchRequest(installRoot(), currentExecutable(), version);
         }
     }
 
@@ -80,7 +79,7 @@ public final class SelfCommand implements Runnable {
         private final NativeUpdateService nativeUpdateService;
 
         @Option(names = "--install-root", hidden = true)
-        private Path installRoot = UserGlobalDirectory.root();
+        private Path installRoot;
 
         @Option(names = "--channel-url", hidden = true)
         private String channelUrl;

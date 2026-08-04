@@ -196,14 +196,13 @@ final class UpdateCommandTest {
     }
 
     @Test
-    void successfulCommandPrintsUpdateAvailableNoticeWhenForced() throws IOException {
+    void successfulCommandInfersCustomInstallRootForForcedUpdateNotice() throws IOException {
         InstalledFixture installed = install("0.1.0");
         Path channel = writeChannel("0.1.1", "linux-x64", archive("0.1.1", "linux-x64", "0.1.1"), "sidecar");
 
         CommandResult result = execute(
                 "--update-check", "always",
                 "--internal-enable-update-notices",
-                "--update-check-install-root", installed.installRoot().toString(),
                 "--update-check-current-executable", installed.binLink().toString(),
                 "--update-check-channel-url", channel.toUri().toString(),
                 "--update-check-target", "linux-x64",

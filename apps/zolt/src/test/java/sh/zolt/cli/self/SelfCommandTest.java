@@ -35,6 +35,20 @@ final class SelfCommandTest {
     }
 
     @Test
+    void versionsInfersCustomInstallRootFromCurrentExecutable() throws IOException {
+        InstalledFixture installed = install("0.1.0");
+
+        CommandResult result = execute(
+                "self",
+                "versions",
+                "--current-executable", installed.binLink().toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("current 0.1.0"));
+        assertTrue(result.stdout().contains("* 0.1.0 current"));
+    }
+
+    @Test
     void useSwitchesToInstalledVersion() throws IOException {
         InstalledFixture installed = install("0.1.0");
         writeFakeZolt(installed.installRoot().resolve("versions/0.1.1/bin/zolt"), "0.1.1");

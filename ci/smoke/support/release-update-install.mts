@@ -43,7 +43,7 @@ export async function runInstalledZoltSelf(
   args: string[],
   options: CommandOptions = {},
 ): Promise<CommandResult> {
-  return await runInstalledZolt(t, installRoot, ["self", ...args, "--install-root", installRoot], options);
+  return await runInstalledZolt(t, installRoot, ["self", ...args], options);
 }
 
 export function nativeHttpsProtocolDisabled(result: CommandResult): boolean {

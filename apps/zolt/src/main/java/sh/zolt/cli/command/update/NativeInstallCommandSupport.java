@@ -1,12 +1,14 @@
 package sh.zolt.cli.command.update;
 
 import sh.zolt.cli.CommandHumanOutput;
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.release.ReleaseTarget;
 import sh.zolt.release.channel.ReleaseDistributionUrlLayout;
 import sh.zolt.release.update.NativeUpdateException;
 import sh.zolt.release.update.NativeUpdateRequest;
 import sh.zolt.release.update.NativeUpdateResult;
 import sh.zolt.release.update.NativeUpdateService;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,10 +27,12 @@ public final class NativeInstallCommandSupport {
             String target,
             Path workDirectory) {
         ReleaseTarget releaseTarget = target == null ? ReleaseTarget.current() : ReleaseTarget.fromId(target);
+        Path executable = effectiveCurrentExecutable(currentExecutable);
+        Path root = effectiveInstallRoot(installRoot, executable);
         return nativeUpdateService.update(new NativeUpdateRequest(
-                installRoot,
-                effectiveCurrentExecutable(currentExecutable),
-                URI.create(effectiveChannelUrl(installRoot, channelUrl)),
+                root,
+                executable,
+                URI.create(effectiveChannelUrl(root, channelUrl)),
                 releaseTarget,
                 workDirectory));
     }
@@ -43,6 +47,37 @@ public final class NativeInstallCommandSupport {
                 .map(Path::of)
                 .orElseThrow(() -> new NativeUpdateException(
                         "Installer-managed native Zolt operations could not determine the current executable. Reinstall with the native installer."));
+    }
+
+    public static Path effectiveInstallRoot(Path installRoot, Path currentExecutable) {
+        if (installRoot != null) {
+            return installRoot;
+        }
+        Path executable = effectiveCurrentExecutable(currentExecutable).toAbsolutePath().normalize();
+        try {
+            executable = executable.toRealPath();
+        } catch (IOException exception) {
+            return UserGlobalDirectory.root();
+        }
+        Path binDirectory = executable.getParent();
+        Path versionDirectory = binDirectory == null ? null : binDirectory.getParent();
+        Path versionsDirectory = versionDirectory == null ? null : versionDirectory.getParent();
+        Path root = versionsDirectory == null ? null : versionsDirectory.getParent();
+        if (root == null
+                || !executable.getFileName().toString().equals("zolt")
+                || !binDirectory.getFileName().toString().equals("bin")
+                || !versionsDirectory.getFileName().toString().equals("versions")) {
+            return UserGlobalDirectory.root();
+        }
+        Path binLink = root.resolve("bin").resolve("zolt");
+        if (!Files.isSymbolicLink(binLink)) {
+            return UserGlobalDirectory.root();
+        }
+        try {
+            return binLink.toRealPath().equals(executable) ? root : UserGlobalDirectory.root();
+        } catch (IOException exception) {
+            return UserGlobalDirectory.root();
+        }
     }
 
     public static String effectiveChannelUrl(Path installRoot, String channelUrl) {

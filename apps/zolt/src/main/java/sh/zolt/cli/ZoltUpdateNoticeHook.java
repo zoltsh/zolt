@@ -1,8 +1,7 @@
 package sh.zolt.cli;
 
-import sh.zolt.home.UserGlobalDirectory;
+import sh.zolt.cli.command.update.NativeInstallCommandSupport;
 import sh.zolt.release.ReleaseTarget;
-import sh.zolt.release.channel.ReleaseDistributionUrlLayout;
 import sh.zolt.release.update.NativeUpdateNotice;
 import sh.zolt.release.update.NativeUpdateNoticeRequest;
 import sh.zolt.release.update.NativeUpdateNoticeService;
@@ -20,7 +19,7 @@ final class ZoltUpdateNoticeHook {
     private String updateCheck = "never";
 
     @Option(names = "--update-check-install-root", scope = CommandLine.ScopeType.INHERIT, hidden = true)
-    private Path updateCheckInstallRoot = UserGlobalDirectory.root();
+    private Path updateCheckInstallRoot;
 
     @Option(names = "--update-check-channel-url", scope = CommandLine.ScopeType.INHERIT, hidden = true)
     private String updateCheckChannelUrl;
@@ -60,14 +59,17 @@ final class ZoltUpdateNoticeHook {
             return;
         }
         try {
+            Path installRoot = NativeInstallCommandSupport.effectiveInstallRoot(
+                    updateCheckInstallRoot, currentExecutable);
             ReleaseTarget target = updateCheckTarget == null ? ReleaseTarget.current() : ReleaseTarget.fromId(updateCheckTarget);
             NativeUpdateNoticeService service = new NativeUpdateNoticeService();
             service.check(new NativeUpdateNoticeRequest(
-                            updateCheckInstallRoot,
+                            installRoot,
                             currentExecutable,
-                            URI.create(effectiveUpdateCheckChannelUrl()),
+                            URI.create(NativeInstallCommandSupport.effectiveChannelUrl(
+                                    installRoot, updateCheckChannelUrl)),
                             target,
-                            updateCheckStateDirectory == null ? updateCheckInstallRoot.resolve("state") : updateCheckStateDirectory,
+                            updateCheckStateDirectory == null ? installRoot.resolve("state") : updateCheckStateDirectory,
                             Instant.now(),
                             Duration.ofSeconds(Math.max(0, updateCheckIntervalSeconds)),
                             updateCheckDisabled(),
@@ -111,24 +113,6 @@ final class ZoltUpdateNoticeHook {
                 .command()
                 .map(Path::of)
                 .orElse(null);
-    }
-
-    private String effectiveUpdateCheckChannelUrl() {
-        if (updateCheckChannelUrl != null && !updateCheckChannelUrl.isBlank()) {
-            return updateCheckChannelUrl;
-        }
-        Path installedChannelUrl = updateCheckInstallRoot.resolve("channel-url");
-        if (java.nio.file.Files.isRegularFile(installedChannelUrl)) {
-            try {
-                String value = java.nio.file.Files.readString(installedChannelUrl).strip();
-                if (!value.isBlank()) {
-                    return value;
-                }
-            } catch (java.io.IOException exception) {
-                // Fall back to stable; update notices are best-effort.
-            }
-        }
-        return new ReleaseDistributionUrlLayout().channelManifestUrl("stable");
     }
 
     private String updateCheckMode() {
