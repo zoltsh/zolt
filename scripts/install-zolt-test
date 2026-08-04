@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+temporary="$(mktemp -d)"
+trap 'rm -rf "$temporary"' EXIT
+version="0.1.0-zap.20260803.0123456789ab"
+targets=(linux-arm64 linux-x64 macos-arm64 macos-x64)
+
+sha256_file() {
+    local path="$1"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$path" | awk '{ print $1 }'
+    else
+        shasum -a 256 "$path" | awk '{ print $1 }'
+    fi
+}
+
+for target in "${targets[@]}"; do
+    archive_root="$temporary/archive-$target/zolt-$version-$target"
+    mkdir -p "$archive_root/bin"
+    printf '%s\n' "$version" >"$archive_root/VERSION"
+    printf '%s\n' "$target" >"$archive_root/TARGET"
+    cat >"$archive_root/bin/zolt" <<FAKE_ZOLT
+#!/bin/sh
+if [ "\${1:-}" = "--version" ]; then
+    printf '%s\n' "$version"
+    exit 0
+fi
+if [ "\${1:-}" = "init" ]; then
+    exit 0
+fi
+exit 2
+FAKE_ZOLT
+    chmod +x "$archive_root/bin/zolt"
+    archive="$temporary/zolt-$version-$target.tar.gz"
+    tar -czf "$archive" -C "$(dirname "$archive_root")" "$(basename "$archive_root")"
+    digest="$(sha256_file "$archive")"
+    printf '%s  %s\n' "$digest" "$(basename "$archive")" >"$archive.sha256"
+done
+
+manifest="$temporary/channel.json"
+{
+    printf '{\n'
+    printf '  "schemaVersion" : 1,\n'
+    printf '  "channel" : "zap",\n'
+    printf '  "version" : "%s",\n' "$version"
+    printf '  "commit" : "0123456789abcdef0123456789abcdef01234567",\n'
+    printf '  "createdAt" : "2026-08-03T00:00:00Z",\n'
+    printf '  "artifacts" : [ '
+    first=true
+    for target in "${targets[@]}"; do
+        archive="zolt-$version-$target.tar.gz"
+        digest="$(sha256_file "$temporary/$archive")"
+        if [[ "$first" == true ]]; then
+            printf '{\n'
+            first=false
+        else
+            printf '  }, {\n'
+        fi
+        printf '    "target" : "%s",\n' "$target"
+        printf '    "archive" : "%s",\n' "$archive"
+        printf '    "archiveUrl" : "file://%s/%s",\n' "$temporary" "$archive"
+        printf '    "checksumUrl" : "file://%s/%s.sha256",\n' "$temporary" "$archive"
+        printf '    "sha256" : "%s",\n' "$digest"
+        printf '    "format" : "tar.gz",\n'
+        printf '    "binaryName" : "zolt"\n'
+    done
+    printf '  } ]\n'
+    printf '}\n'
+} >"$manifest"
+
+grep -F '  }, {' "$manifest" >/dev/null
+for target in "${targets[@]}"; do
+    install_root="$temporary/install-$target"
+    ZOLT_INSTALL_ROOT="$install_root" \
+    ZOLT_INSTALL_CHANNEL_URL="file://$manifest" \
+    ZOLT_INSTALL_TARGET="$target" \
+        scripts/install-zolt >/dev/null
+    [[ "$(cat "$install_root/versions/$version/TARGET")" == "$target" ]]
+    [[ "$("$install_root/bin/zolt" --version)" == "$version" ]]
+    [[ "$(readlink "$install_root/bin/zolt")" == "../versions/$version/bin/zolt" ]]
+done
+
+printf 'installer selected all production-formatted target artifacts correctly\n'
