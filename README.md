@@ -35,6 +35,9 @@
 curl -fsSL https://dist.zolt.sh/install.sh | sh
 ```
 
+The installer accepts only the matching immutable `zoltsh/releases` GitHub asset and
+verifies its SHA-256 checksum before installation.
+
 ## Start
 
 ```sh

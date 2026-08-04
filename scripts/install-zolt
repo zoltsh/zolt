@@ -206,6 +206,42 @@ validate_url() {
   esac
 }
 
+release_tag_for_channel() {
+  channel="$1"
+  version="$2"
+  case "$channel" in
+    stable)
+      printf 'zolt-v%s\n' "$version"
+      ;;
+    nightly)
+      printf 'zolt-nightly-%s\n' "$version"
+      ;;
+    zap)
+      printf 'zolt-zap-%s\n' "$version"
+      ;;
+  esac
+}
+
+validate_release_asset_url() {
+  label="$1"
+  value="$2"
+  channel="$3"
+  version="$4"
+  asset="$5"
+  case "$value" in
+    file://*)
+      if [ "${allow_file_urls:-false}" = "true" ]; then
+        return
+      fi
+      ;;
+  esac
+  release_tag="$(release_tag_for_channel "$channel" "$version")"
+  expected="https://github.com/zoltsh/releases/releases/download/$release_tag/$asset"
+  if [ "$value" != "$expected" ]; then
+    fail "$label must be the matching immutable zoltsh/releases asset $expected."
+  fi
+}
+
 validate_sha256() {
   label="$1"
   value="$2"
@@ -302,6 +338,9 @@ if [ "$schema_version" != "1" ]; then
   fail "unsupported release channel manifest schemaVersion ${schema_version:-missing}; expected 1."
 fi
 validate_channel "release channel manifest channel" "$channel"
+if [ "$channel" != "$CHANNEL" ]; then
+  fail "release channel manifest channel $channel does not match requested channel $CHANNEL."
+fi
 if [ -z "$version" ]; then
   fail "release channel manifest is missing version."
 fi
@@ -324,6 +363,10 @@ binary_name="$(printf '%s\n' "$artifact" | json_string binaryName)"
 signature_url="$(printf '%s\n' "$artifact" | json_string url || true)"
 
 validate_archive_name "release channel artifact $selected_target archive" "$archive"
+expected_archive="zolt-$version-$selected_target.tar.gz"
+if [ "$archive" != "$expected_archive" ]; then
+  fail "release channel artifact $selected_target archive must be $expected_archive."
+fi
 if [ "$format" != "tar.gz" ]; then
   fail "release channel artifact $selected_target has format $format; expected tar.gz."
 fi
@@ -332,8 +375,20 @@ if [ "$binary_name" != "zolt" ]; then
   fail "release channel artifact $selected_target has binaryName $binary_name; expected zolt."
 fi
 validate_url "release channel artifact $selected_target archiveUrl" "$archive_url"
+validate_release_asset_url \
+  "release channel artifact $selected_target archiveUrl" \
+  "$archive_url" \
+  "$channel" \
+  "$version" \
+  "$archive"
 if [ -n "$checksum_url" ]; then
   validate_url "release channel artifact $selected_target checksumUrl" "$checksum_url"
+  validate_release_asset_url \
+    "release channel artifact $selected_target checksumUrl" \
+    "$checksum_url" \
+    "$channel" \
+    "$version" \
+    "$archive.sha256"
 fi
 if [ -n "$signature_url" ]; then
   validate_url "release channel artifact $selected_target signatureUrl" "$signature_url"

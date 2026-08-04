@@ -8,6 +8,8 @@ temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 version="0.1.0-zap.20260803.0123456789ab"
 targets=(linux-arm64 linux-x64 macos-arm64 macos-x64)
+release_tag="zolt-zap-$version"
+release_origin="https://github.com/zoltsh/releases/releases/download/$release_tag"
 
 sha256_file() {
     local path="$1"
@@ -41,6 +43,43 @@ FAKE_ZOLT
     printf '%s  %s\n' "$digest" "$(basename "$archive")" >"$archive.sha256"
 done
 
+fake_curl="$temporary/curl"
+cat >"$fake_curl" <<'FAKE_CURL'
+#!/bin/sh
+set -eu
+url=""
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -o)
+            output="$2"
+            shift 2
+            ;;
+        -*)
+            shift
+            ;;
+        *)
+            url="$1"
+            shift
+            ;;
+    esac
+done
+case "$url" in
+    file://*)
+        source_path="${url#file://}"
+        ;;
+    https://github.com/zoltsh/releases/releases/download/*/*)
+        source_path="$ZOLT_INSTALL_TEST_ASSET_ROOT/${url##*/}"
+        ;;
+    *)
+        printf 'unexpected test download URL: %s\n' "$url" >&2
+        exit 22
+        ;;
+esac
+cp "$source_path" "$output"
+FAKE_CURL
+chmod +x "$fake_curl"
+
 manifest="$temporary/channel.json"
 {
     printf '{\n'
@@ -62,8 +101,8 @@ manifest="$temporary/channel.json"
         fi
         printf '    "target" : "%s",\n' "$target"
         printf '    "archive" : "%s",\n' "$archive"
-        printf '    "archiveUrl" : "file://%s/%s",\n' "$temporary" "$archive"
-        printf '    "checksumUrl" : "file://%s/%s.sha256",\n' "$temporary" "$archive"
+        printf '    "archiveUrl" : "%s/%s",\n' "$release_origin" "$archive"
+        printf '    "checksumUrl" : "%s/%s.sha256",\n' "$release_origin" "$archive"
         printf '    "sha256" : "%s",\n' "$digest"
         printf '    "format" : "tar.gz",\n'
         printf '    "binaryName" : "zolt"\n'
@@ -75,6 +114,8 @@ manifest="$temporary/channel.json"
 grep -F '  }, {' "$manifest" >/dev/null
 for target in "${targets[@]}"; do
     install_root="$temporary/install-$target"
+    ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+    ZOLT_INSTALL_CURL="$fake_curl" \
     ZOLT_INSTALL_ROOT="$install_root" \
     ZOLT_INSTALL_CHANNEL_URL="file://$manifest" \
     ZOLT_INSTALL_TARGET="$target" \
@@ -84,4 +125,130 @@ for target in "${targets[@]}"; do
     [[ "$(readlink "$install_root/bin/zolt")" == "../versions/$version/bin/zolt" ]]
 done
 
-printf 'installer selected all production-formatted target artifacts correctly\n'
+local_manifest="$temporary/channel-local.json"
+sed "s|$release_origin/|file://$temporary/|g" "$manifest" >"$local_manifest"
+local_root="$temporary/install-local"
+ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+ZOLT_INSTALL_CURL="$fake_curl" \
+ZOLT_INSTALL_ROOT="$local_root" \
+ZOLT_INSTALL_CHANNEL_URL="file://$local_manifest" \
+ZOLT_INSTALL_TARGET="linux-x64" \
+    scripts/install-zolt >/dev/null
+[[ "$("$local_root/bin/zolt" --version)" == "$version" ]]
+
+stable_version="0.1.0"
+stable_target="linux-x64"
+stable_archive="zolt-$stable_version-$stable_target.tar.gz"
+stable_archive_root="$temporary/archive-stable/zolt-$stable_version-$stable_target"
+mkdir -p "$stable_archive_root/bin"
+printf '%s\n' "$stable_version" >"$stable_archive_root/VERSION"
+cat >"$stable_archive_root/bin/zolt" <<FAKE_STABLE_ZOLT
+#!/bin/sh
+if [ "\${1:-}" = "--version" ]; then
+    printf '%s\n' "$stable_version"
+    exit 0
+fi
+if [ "\${1:-}" = "init" ]; then
+    exit 0
+fi
+exit 2
+FAKE_STABLE_ZOLT
+chmod +x "$stable_archive_root/bin/zolt"
+tar -czf "$temporary/$stable_archive" \
+    -C "$(dirname "$stable_archive_root")" \
+    "$(basename "$stable_archive_root")"
+stable_digest="$(sha256_file "$temporary/$stable_archive")"
+printf '%s  %s\n' "$stable_digest" "$stable_archive" \
+    >"$temporary/$stable_archive.sha256"
+stable_manifest="$temporary/channel-stable.json"
+cat >"$stable_manifest" <<STABLE_MANIFEST
+{
+  "schemaVersion" : 1,
+  "channel" : "stable",
+  "version" : "$stable_version",
+  "commit" : "0123456789abcdef0123456789abcdef01234567",
+  "createdAt" : "2026-08-03T00:00:00Z",
+  "artifacts" : [ {
+    "target" : "$stable_target",
+    "archive" : "$stable_archive",
+    "archiveUrl" : "https://github.com/zoltsh/releases/releases/download/zolt-v$stable_version/$stable_archive",
+    "checksumUrl" : "https://github.com/zoltsh/releases/releases/download/zolt-v$stable_version/$stable_archive.sha256",
+    "sha256" : "$stable_digest",
+    "format" : "tar.gz",
+    "binaryName" : "zolt"
+  } ]
+}
+STABLE_MANIFEST
+stable_root="$temporary/install-stable"
+ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+ZOLT_INSTALL_CURL="$fake_curl" \
+ZOLT_INSTALL_ROOT="$stable_root" \
+ZOLT_INSTALL_CHANNEL="stable" \
+ZOLT_INSTALL_CHANNEL_URL="file://$stable_manifest" \
+ZOLT_INSTALL_TARGET="$stable_target" \
+    scripts/install-zolt >/dev/null
+[[ "$("$stable_root/bin/zolt" --version)" == "$stable_version" ]]
+
+expect_install_failure() {
+    local label="$1"
+    local rejected_manifest="$2"
+    local expected_message="$3"
+    local output
+    if output="$(
+        ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+        ZOLT_INSTALL_CURL="$fake_curl" \
+        ZOLT_INSTALL_ROOT="$temporary/rejected-$label" \
+        ZOLT_INSTALL_CHANNEL_URL="file://$rejected_manifest" \
+        ZOLT_INSTALL_TARGET="linux-x64" \
+            scripts/install-zolt 2>&1
+    )"; then
+        printf 'error: installer accepted rejected %s manifest\n' "$label" >&2
+        exit 1
+    fi
+    if ! grep -F "$expected_message" <<<"$output" >/dev/null; then
+        printf 'error: installer rejected %s manifest for the wrong reason\n%s\n' "$label" "$output" >&2
+        exit 1
+    fi
+}
+
+alternate_host_manifest="$temporary/channel-alternate-host.json"
+sed "s|$release_origin/|https://downloads.example.invalid/|g" \
+    "$manifest" >"$alternate_host_manifest"
+expect_install_failure \
+    alternate-host \
+    "$alternate_host_manifest" \
+    'must be the matching immutable zoltsh/releases asset'
+
+mismatched_tag_manifest="$temporary/channel-mismatched-tag.json"
+sed "s|$release_origin/|$release_origin-other/|g" \
+    "$manifest" >"$mismatched_tag_manifest"
+expect_install_failure \
+    mismatched-tag \
+    "$mismatched_tag_manifest" \
+    'must be the matching immutable zoltsh/releases asset'
+
+mismatched_archive_manifest="$temporary/channel-mismatched-archive.json"
+sed "s|zolt-$version-linux-x64.tar.gz|zolt-$version-linux-x64-other.tar.gz|g" \
+    "$manifest" >"$mismatched_archive_manifest"
+expect_install_failure \
+    mismatched-archive \
+    "$mismatched_archive_manifest" \
+    "archive must be zolt-$version-linux-x64.tar.gz"
+
+mismatched_checksum_manifest="$temporary/channel-mismatched-checksum.json"
+sed '/"checksumUrl"/ s|https://github.com/zoltsh/releases|https://downloads.example.invalid|' \
+    "$manifest" >"$mismatched_checksum_manifest"
+expect_install_failure \
+    mismatched-checksum \
+    "$mismatched_checksum_manifest" \
+    'checksumUrl must be the matching immutable zoltsh/releases asset'
+
+mismatched_channel_manifest="$temporary/channel-mismatched-channel.json"
+sed 's/"channel" : "zap"/"channel" : "stable"/' \
+    "$manifest" >"$mismatched_channel_manifest"
+expect_install_failure \
+    mismatched-channel \
+    "$mismatched_channel_manifest" \
+    'does not match requested channel zap'
+
+printf 'installer selected and origin-pinned production artifacts correctly\n'
