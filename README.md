@@ -32,22 +32,14 @@
 ## Install
 
 ```sh
-version='0.1.0-zap.20260804.c72838dc828e'
-release="https://github.com/zoltsh/releases/releases/download/zolt-zap-$version"
 curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
-  "$release/install.sh" |
-  ZOLT_INSTALL_CHANNEL=zap \
-  ZOLT_INSTALL_VERSION="$version" \
-  ZOLT_INSTALL_CHANNEL_URL="$release/channel-zap.json" \
-  ZOLT_INSTALL_UPDATE_CHANNEL_URL=https://dist.zolt.sh/channels/zap.json \
-  sh
+  https://dist.zolt.sh/install.sh | sh
 ```
 
-The installer, channel snapshot, and requested version are pinned to the same
-immutable GitHub Release. The installer accepts only the matching archive and
-checksum assets in that release, verifies SHA-256, and records the signed moving
-channel used by `zolt self update`. This protocol anchor only needs to move when the
-installer contract changes.
+The stable URL serves a reviewed bootstrap that pins an immutable GitHub-hosted
+installer and its SHA-256. That installer resolves the current zap release, accepts
+only exact `zoltsh/releases` archive and checksum URLs, verifies the archive, and
+records the signed channel used by `zolt self update`.
 
 ## Start
 
