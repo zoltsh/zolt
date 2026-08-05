@@ -79,7 +79,8 @@ final class WorkspaceMemberBuildExecutor {
         long schedulerIdleNanos = 0L;
         int readyQueuePeak = 0;
         if (!admitted.isEmpty()) {
-            WorkspaceBuildBatchPlanner.Plan admittedPlan = batchPlanner.plan(workspace, admitted);
+            WorkspaceBuildBatchPlanner.Plan admittedPlan =
+                    batchPlanner.plan(workspace, admitted, member -> sourceCount(dirtyPlan, member));
             concurrency = workspaceBuildConcurrency(admitted.size());
             WorkspaceReadyQueueExecutor.Result<ScheduledMember> execution =
                     new WorkspaceReadyQueueExecutor().execute(
@@ -251,6 +252,17 @@ final class WorkspaceMemberBuildExecutor {
                 .refreshMain(output)
                 .map(IncrementalCompileSummary::compileAbiDigest)
                 .orElse("");
+    }
+
+    /**
+     * The scheduler's duration estimate. Source count is a proxy, not a measurement: nothing in the
+     * persisted workspace state records how long a member took, so this is the best signal available
+     * without adding a new state field. It only ever breaks ties between members whose critical paths
+     * are the same length.
+     */
+    private static int sourceCount(WorkspaceDirtyPlan dirtyPlan, String member) {
+        WorkspaceDirtyPlan.MemberPlan plan = dirtyPlan.member(member);
+        return plan == null ? 0 : plan.sourceCount();
     }
 
     private static int workspaceBuildConcurrency(int memberCount) {

@@ -69,6 +69,65 @@ final class WorkspaceBuildBatchPlannerTest {
                 List.of("modules/core", "modules/util")), batches);
     }
 
+    @Test
+    void readyMembersStartTheLongestDependencyPathFirst() {
+        List<String> members = List.of(
+                "modules/small", "modules/platform", "modules/layer1", "modules/layer2");
+        Workspace workspace = workspace(
+                members,
+                List.of(
+                        new WorkspaceProjectEdge(
+                                "modules/layer1", "modules/platform", "compile", "com.acme:platform"),
+                        new WorkspaceProjectEdge(
+                                "modules/layer2", "modules/layer1", "compile", "com.acme:layer1")));
+
+        WorkspaceBuildBatchPlanner.Plan plan = planner.plan(workspace, members);
+
+        assertEquals(
+                List.of("modules/platform", "modules/small"),
+                drain(plan),
+                "the hub every later wave waits on must start before an unrelated leaf");
+        assertEquals(3, plan.criticalPathLengths().get("modules/platform"));
+        assertEquals(1, plan.criticalPathLengths().get("modules/small"));
+    }
+
+    @Test
+    void equalPathsAreOrderedByEstimatedDurationThenDeclarationOrder() {
+        List<String> members = List.of("modules/a", "modules/b", "modules/c");
+        Workspace workspace = workspace(members, List.of());
+        Map<String, Integer> sourceCounts = Map.of("modules/a", 3, "modules/b", 90, "modules/c", 3);
+
+        WorkspaceBuildBatchPlanner.Plan plan =
+                planner.plan(workspace, members, member -> sourceCounts.get(member));
+
+        assertEquals(List.of("modules/b", "modules/a", "modules/c"), drain(plan));
+    }
+
+    @Test
+    void estimatesAreOnlyATieBreakerNotAnOverride() {
+        List<String> members = List.of("modules/tiny-hub", "modules/big-leaf");
+        Workspace workspace = workspace(
+                members,
+                List.of(new WorkspaceProjectEdge(
+                        "modules/big-leaf", "modules/tiny-hub", "compile", "com.acme:tiny-hub")));
+
+        WorkspaceBuildBatchPlanner.Plan plan = planner.plan(
+                workspace,
+                List.of("modules/tiny-hub"),
+                member -> 1);
+
+        assertEquals(List.of("modules/tiny-hub"), drain(plan));
+    }
+
+    private static List<String> drain(WorkspaceBuildBatchPlanner.Plan plan) {
+        java.util.PriorityQueue<String> ready = plan.readyMembers();
+        List<String> order = new java.util.ArrayList<>();
+        while (!ready.isEmpty()) {
+            order.add(ready.remove());
+        }
+        return order;
+    }
+
     private static Workspace workspace(List<String> members, List<WorkspaceProjectEdge> edges) {
         List<WorkspaceMember> workspaceMembers = members.stream()
                 .map(member -> new WorkspaceMember(
