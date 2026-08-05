@@ -1316,11 +1316,13 @@ identical bytes would teach the next command nothing and would drag the fence
 forward over every input edited since — so the file is left alone, and its
 timestamp keeps meaning what it says.
 
-**The residual, and the switch that removes it.** Metadata comparison cannot see
-an edit that keeps a file's size *and* gives it a modification time older than the
-one recorded. That does not arise from editing; it takes a deliberate timestamp
-rewrite or a restore that back-dates files. It is the same residual git's index
-carries. Set `ZOLT_WORKSPACE_PARANOID=1` to remove it: every tracked input is read
+**The residual, and the switch that removes it.** Comparison demands an input's
+modification time *equal* the one recorded, so it cannot see an edit that keeps the
+file's size, keeps its file key (editing in place reuses the inode), *and* forges the
+modification time back to exactly the recorded value; an older or a newer time is
+caught. That does not arise from editing; it takes a deliberate timestamp rewrite or a
+cache restore that reproduces the recorded timestamp exactly. It is the same residual
+git's index carries. Set `ZOLT_WORKSPACE_PARANOID=1` to remove it: every tracked input is read
 and hashed, and recorded metadata is refreshed but never believed. CI runners that
 restore caches with rewritten timestamps are the intended user.
 
