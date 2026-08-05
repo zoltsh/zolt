@@ -422,4 +422,59 @@ expect_install_failure \
     "but the release channel manifest pins $linux_digest" \
     "$disagreeing_assets"
 
+unreachable_curl="$temporary/curl-unreachable"
+cat >"$unreachable_curl" <<'UNREACHABLE_CURL'
+#!/bin/sh
+printf 'curl: (56) The requested URL returned error: 404\n' >&2
+exit 56
+UNREACHABLE_CURL
+chmod +x "$unreachable_curl"
+unreachable_status=0
+unreachable_output="$(
+    ZOLT_INSTALL_CURL="$unreachable_curl" \
+    ZOLT_INSTALL_ROOT="$temporary/rejected-unreachable" \
+    ZOLT_INSTALL_CHANNEL_URL="https://dist.zolt.sh/channels/missing.json" \
+    ZOLT_INSTALL_TARGET="linux-x64" \
+        scripts/install-zolt 2>&1
+)" || unreachable_status=$?
+if [[ "$unreachable_status" != 1 ]]; then
+    printf 'error: unreachable channel URL exited %s instead of the installer status 1\n%s\n' \
+        "$unreachable_status" "$unreachable_output" >&2
+    exit 1
+fi
+if ! grep -F 'error: could not download the release channel manifest' \
+    <<<"$unreachable_output" >/dev/null; then
+    printf 'error: unreachable channel URL did not report a branded error\n%s\n' \
+        "$unreachable_output" >&2
+    exit 1
+fi
+if grep -F 'curl: (' <<<"$unreachable_output" >/dev/null; then
+    printf 'error: unreachable channel URL leaked raw curl output\n%s\n' \
+        "$unreachable_output" >&2
+    exit 1
+fi
+
+unsupported_status=0
+unsupported_output="$(
+    ZOLT_INSTALL_CURL="$unreachable_curl" \
+    ZOLT_INSTALL_ROOT="$temporary/rejected-windows" \
+    ZOLT_INSTALL_TARGET="windows-x64" \
+        scripts/install-zolt 2>&1
+)" || unsupported_status=$?
+if [[ "$unsupported_status" != 1 ]]; then
+    printf 'error: unsupported target exited %s instead of the installer status 1\n%s\n' \
+        "$unsupported_status" "$unsupported_output" >&2
+    exit 1
+fi
+if ! grep -F 'the Zolt installer supports macOS and Linux' <<<"$unsupported_output" >/dev/null; then
+    printf 'error: unsupported target did not report the user-facing message\n%s\n' \
+        "$unsupported_output" >&2
+    exit 1
+fi
+if grep -F 'scripts/' <<<"$unsupported_output" >/dev/null; then
+    printf 'error: unsupported target message leaked an internal script path\n%s\n' \
+        "$unsupported_output" >&2
+    exit 1
+fi
+
 printf 'installer selected immutable stable, preview, and zap artifacts with origin and checksum pins correctly\n'

@@ -52,9 +52,11 @@ detect_target() {
 download() {
   url="$1"
   output="$2"
+  label="$3"
+  download_status=0
   case "$url" in
     file://*)
-      "$CURL" -fsSL "$url" -o "$output"
+      "$CURL" -fsSL "$url" -o "$output" 2>/dev/null || download_status=$?
       ;;
     *)
       "$CURL" \
@@ -63,9 +65,12 @@ download() {
         --tlsv1.2 \
         -fsSL \
         "$url" \
-        -o "$output"
+        -o "$output" 2>/dev/null || download_status=$?
       ;;
   esac
+  if [ "$download_status" -ne 0 ]; then
+    fail "could not download $label from $url (curl exit $download_status)."
+  fi
 }
 
 json_string() {
@@ -353,7 +358,7 @@ case "$selected_target" in
   linux-x64|linux-arm64|macos-x64|macos-arm64)
     ;;
   windows-x64)
-    fail "scripts/install-zolt is the Unix installer and cannot install windows-x64."
+    fail "the Zolt installer supports macOS and Linux and cannot install windows-x64."
     ;;
   *)
     fail "unsupported target $selected_target. Supported Unix targets: macos-arm64, macos-x64, linux-arm64, linux-x64."
@@ -373,7 +378,7 @@ work_dir="$(mktemp -d "${TMPDIR:-/tmp}/zolt-install.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT INT TERM
 
 manifest="$work_dir/channel.json"
-download "$CHANNEL_URL" "$manifest"
+download "$CHANNEL_URL" "$manifest" "the release channel manifest"
 
 schema_version="$(json_number schemaVersion <"$manifest" || true)"
 channel="$(json_string channel <"$manifest" || true)"
@@ -436,7 +441,7 @@ if [ -n "$checksum_url" ]; then
 fi
 archive_path="$work_dir/$archive"
 require_under_root "$work_dir" "$archive_path" "native archive download path"
-download "$archive_url" "$archive_path"
+download "$archive_url" "$archive_path" "the native Zolt archive"
 if [ -z "$expected_sha256" ] && [ -z "$checksum_url" ]; then
   fail "release channel artifact $selected_target must include checksumUrl or sha256."
 fi
@@ -446,7 +451,7 @@ fi
 if [ -n "$checksum_url" ]; then
   checksum_path="$work_dir/$archive.sha256"
   require_under_root "$work_dir" "$checksum_path" "native checksum download path"
-  download "$checksum_url" "$checksum_path"
+  download "$checksum_url" "$checksum_path" "the native Zolt archive checksum"
   published_sha256="$(awk '{ print $1; exit }' "$checksum_path")"
   validate_sha256 "release channel artifact $selected_target published sha256" "$published_sha256"
   if [ -z "$expected_sha256" ]; then
