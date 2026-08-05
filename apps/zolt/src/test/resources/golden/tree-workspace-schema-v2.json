@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "command": "tree",
+  "mode": "workspace",
+  "lockVersion": 5,
+  "workspace": {
+    "name": "demo-workspace",
+    "members": ["apps/api", "modules/core"]
+  },
+  "packages": [
+    {
+      "id": "com.example:core",
+      "version": "0.1.0",
+      "coordinate": "com.example:core:0.1.0",
+      "scope": "compile",
+      "direct": true,
+      "members": ["apps/api"],
+      "dependencies": ["org.example:shared:1.0.0:jar:compile"]
+    },
+    {
+      "id": "org.example:agent",
+      "version": "0.9.0",
+      "coordinate": "org.example:agent:0.9.0:jar|runtime",
+      "variant": "jar|runtime",
+      "scope": "tool-coverage",
+      "direct": false,
+      "members": ["apps/api", "modules/core"],
+      "dependencies": []
+    },
+    {
+      "id": "org.example:bundle",
+      "version": "3.0.0",
+      "coordinate": "org.example:bundle:3.0.0:zip",
+      "variant": "zip",
+      "scope": "runtime",
+      "direct": true,
+      "members": ["apps/api"],
+      "dependencies": []
+    },
+    {
+      "id": "org.example:extra",
+      "version": "2.0.0",
+      "coordinate": "org.example:extra:2.0.0",
+      "scope": "compile",
+      "direct": false,
+      "members": ["apps/api"],
+      "dependencies": []
+    },
+    {
+      "id": "org.example:shared",
+      "version": "1.0.0",
+      "coordinate": "org.example:shared:1.0.0",
+      "scope": "compile",
+      "direct": true,
+      "members": ["apps/api", "modules/core"],
+      "dependencies": ["org.example:extra:2.0.0:jar:compile"]
+    },
+    {
+      "id": "org.example:shared",
+      "version": "1.0.0",
+      "coordinate": "org.example:shared:1.0.0",
+      "scope": "test",
+      "direct": true,
+      "members": ["modules/core"],
+      "dependencies": []
+    }
+  ],
+  "roots": ["com.example:core:0.1.0", "org.example:bundle:3.0.0:zip", "org.example:shared:1.0.0"]
+}

@@ -29,6 +29,8 @@ final class CliInsightHelpSectionSurfaceTest {
                 "--help",
                 "--version",
                 "--directory",
+                "Workspace Selection:",
+                "--workspace",
                 "Output:",
                 "--format");
     }
@@ -40,9 +42,11 @@ final class CliInsightHelpSectionSurfaceTest {
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;32mWorkspace Selection:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mOutput:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36mzolt tree\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--directory\u001B[0m\u001B[36m <DIRECTORY>\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--workspace\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--format\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32m--"));
         assertFalse(result.stdout().contains("\u001B[33m"));

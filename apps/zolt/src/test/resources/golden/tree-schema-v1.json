@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "command": "tree",
+  "project": {
+    "group": "com.example",
+    "name": "demo",
+    "version": "0.1.0",
+    "coordinate": "com.example:demo:0.1.0"
+  },
+  "packages": [
+    {
+      "id": "com.example:app",
+      "version": "1.0.0",
+      "coordinate": "com.example:app:1.0.0",
+      "scope": "compile",
+      "direct": true,
+      "dependencies": ["com.example:lib:2.0.0:jar:compile", "org.example:agent:0.9.0:jar|runtime:compile"],
+      "policies": ["managed-version: com.example:app -> 1.0.0 from com.example:platform:1.0.0"]
+    },
+    {
+      "id": "com.example:lib",
+      "version": "2.0.0",
+      "coordinate": "com.example:lib:2.0.0",
+      "scope": "compile",
+      "direct": false,
+      "dependencies": [],
+      "policies": []
+    },
+    {
+      "id": "org.example:agent",
+      "version": "0.9.0",
+      "coordinate": "org.example:agent:0.9.0:jar|runtime",
+      "variant": "jar|runtime",
+      "scope": "compile",
+      "direct": false,
+      "dependencies": [],
+      "policies": []
+    }
+  ],
+  "roots": ["com.example:app:1.0.0"],
+  "conflicts": [
+    {
+      "id": "com.example:lib",
+      "selected": "2.0.0",
+      "requested": ["1.0.0", "2.0.0"],
+      "reason": "newest version wins"
+    }
+  ],
+  "policyEffects": [
+    {
+      "kind": "global-exclusion",
+      "id": "commons-logging:commons-logging",
+      "requested": "1.2",
+      "source": "com.example:app:1.0.0",
+      "policy": "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+    }
+  ]
+}
