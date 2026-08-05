@@ -1156,6 +1156,26 @@ graphs. If repositories serve
 different artifact or POM bytes for the same selected identity, workspace resolve
 fails instead of choosing whichever member happened to resolve first.
 
+Workspace commands gate on a current root lock before doing anything else. That
+gate is a digest, not a resolve: `zolt resolve --workspace` records an optional
+`workspaceResolutionInputFingerprint` in the root lock covering the lock schema
+version, the exact bytes of every workspace and member config (including
+configs that were absent when captured), the sorted member paths and their
+group/artifact/version, each member's effective resolution configuration after
+workspace repository and platform policy merging, and the workspace dependency
+edges with their scopes. A command computes that digest from the workspace it
+just discovered and continues immediately when it matches. When it does not
+match -- a changed input, or a lock written before the annotation existed -- the
+full locked workspace resolve runs and fails with the same actionable stale-lock
+error as before. The digest is deliberately coarse: a comment-only config edit
+re-verifies rather than risk a missed change.
+
+The annotation does not change the lock schema. It stays `version = 5`, older
+Zolt versions ignore the unknown key when reading, and it is excluded from the
+bytes `--locked` compares so a lock predating it still verifies unchanged. A
+locked verification never writes it; the next ordinary `zolt resolve --workspace`
+does.
+
 `zolt tree --workspace` projects those same facts without resolving: it reads the
 root `zolt.lock` and the discovered workspace config, renders one tree section per
 member in the text view, and emits `schemaVersion 2` under `--format json`. Schema
