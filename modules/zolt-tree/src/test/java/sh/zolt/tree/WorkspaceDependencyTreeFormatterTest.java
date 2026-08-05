@@ -102,7 +102,7 @@ final class WorkspaceDependencyTreeFormatterTest extends WorkspaceTreeTestSuppor
     void rendersAMemberWithNoDirectDependenciesAsAHeadingOnly() {
         String output = formatter.format(
                 WORKSPACE_NAME,
-                List.of("apps/api", "modules/empty"),
+                List.of("apps/api", "modules/core", "modules/empty"),
                 workspaceLockfile());
 
         assertTrue(output.endsWith("modules/empty\n"), output);

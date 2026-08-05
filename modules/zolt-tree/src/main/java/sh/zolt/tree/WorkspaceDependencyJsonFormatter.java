@@ -21,6 +21,11 @@ import java.util.TreeSet;
  * workspace and is emitted only for {@code --workspace}. Both share this package's coordinate, variant,
  * and dependency-edge spellings, so one consumer-side edge parser reads either version.
  *
+ * <p>Schema 2 projects the lock in full: every {@code sh.zolt.dependency.DependencyScope} the lock
+ * records is emitted, each occurrence carrying its own {@code scope} and each dependency edge carrying
+ * the scope of the occurrence it names. {@code roots} lists coordinates ({@code id:version[:variant]}),
+ * not edges, because a direct declaration is a coordinate the members share.
+ *
  * <p>Every array is sorted and deduplicated, so repeated runs over one lock are byte-identical
  * regardless of member iteration order.
  */
@@ -28,7 +33,7 @@ public final class WorkspaceDependencyJsonFormatter {
     private static final int SCHEMA_VERSION = 2;
 
     public String tree(String workspaceName, List<String> memberPaths, ZoltLockfile lockfile) {
-        WorkspaceTreeProjection projection = WorkspaceTreeProjection.of(lockfile);
+        WorkspaceTreeProjection projection = WorkspaceTreeProjection.of(lockfile, memberPaths);
         StringBuilder json = new StringBuilder();
         json.append("{\n");
         intField(json, 1, "schemaVersion", SCHEMA_VERSION, true);

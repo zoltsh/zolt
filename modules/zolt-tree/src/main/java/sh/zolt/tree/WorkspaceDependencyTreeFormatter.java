@@ -13,7 +13,7 @@ import java.util.TreeSet;
  */
 public final class WorkspaceDependencyTreeFormatter {
     public String format(String workspaceName, List<String> memberPaths, ZoltLockfile lockfile) {
-        WorkspaceTreeProjection projection = WorkspaceTreeProjection.of(lockfile);
+        WorkspaceTreeProjection projection = WorkspaceTreeProjection.of(lockfile, memberPaths);
         List<String> members = List.copyOf(new TreeSet<>(memberPaths));
 
         StringBuilder output = new StringBuilder();

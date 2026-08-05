@@ -1,11 +1,15 @@
 package sh.zolt.tree;
 
+import sh.zolt.lockfile.LockDependencyEdge;
+import sh.zolt.lockfile.LockDependencyGraphException;
 import sh.zolt.lockfile.LockDependencyIndex;
 import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 
 /**
@@ -15,13 +19,20 @@ import java.util.TreeSet;
  * <p><strong>Occurrence identity.</strong> One projected package per lock entry, which is exactly the
  * lock's edge identity {@code (packageId, version, variant, scope)}. Scopes and variants are never
  * merged, so a coordinate present in both {@code compile} and {@code test} stays two occurrences the
- * way the lock records it.
+ * way the lock records it. The lock may not list one such identity twice, and may not attribute a
+ * package to a path the workspace does not declare as a member; both fail closed here rather than
+ * emitting a projection a consumer cannot key.
  *
- * <p><strong>Edges.</strong> A member-qualified lock records a per-member graph view of a collapsed
- * package identity, so the workspace-level child set of an occurrence is the union over the members
- * that consume it (plus the entry's own collapsed list, which is the fallback view). Every edge is
- * resolved through {@link LockDependencyIndex#resolveGraphEdge} up front, so a projection that builds
- * successfully cannot contain an edge that fails to name one of its own packages.
+ * <p><strong>Edges.</strong> Every edge is resolved through
+ * {@link LockDependencyIndex#resolveGraphEdge} and then re-encoded from the occurrence it resolved to,
+ * so a projected edge always spells the full {@code groupId:artifactId:version:variant:scope} identity
+ * of a listed package — never the historical scope-less form a lock may still record. A projection that
+ * builds successfully cannot contain an edge that fails to name one of its own packages.
+ *
+ * <p><strong>Child sourcing.</strong> A member-qualified lock records a per-member graph view of a
+ * collapsed package identity. The workspace-level child set is the union over the member contexts that
+ * consume the occurrence, sourced exactly the way {@code sh.zolt.sbom.WorkspaceSbomAssembler} sources
+ * its own graph, so the tree and the SBOM describe the same relationships for one lock.
  */
 final class WorkspaceTreeProjection {
     static final String REGENERATE_COMMAND = "zolt resolve --workspace";
@@ -39,7 +50,9 @@ final class WorkspaceTreeProjection {
         this.packages = packages;
     }
 
-    static WorkspaceTreeProjection of(ZoltLockfile lockfile) {
+    static WorkspaceTreeProjection of(ZoltLockfile lockfile, List<String> memberPaths) {
+        requireDistinctOccurrences(lockfile);
+        requireDeclaredMembers(lockfile, memberPaths);
         LockDependencyIndex index = new LockDependencyIndex(lockfile.packages());
         LockMemberGraphIndex memberGraphs =
                 new LockMemberGraphIndex(lockfile.memberGraphs(), lockfile.packages());
@@ -71,11 +84,14 @@ final class WorkspaceTreeProjection {
         return List.copyOf(new TreeSet<>(lockPackage.members()));
     }
 
-    /** The workspace-level child edges of an occurrence: the union across the members that use it. */
+    /**
+     * The workspace-level child edges of an occurrence: the union across its member contexts, each in
+     * the canonical spelling that names the child occurrence exactly.
+     */
     List<String> dependencies(LockPackage lockPackage) {
-        TreeSet<String> edges = new TreeSet<>(lockPackage.dependencies());
-        for (String member : lockPackage.members()) {
-            edges.addAll(memberGraphs.dependenciesFor(member, lockPackage));
+        TreeSet<String> edges = new TreeSet<>();
+        for (String edge : recordedEdges(lockPackage)) {
+            edges.add(canonical(edge));
         }
         return List.copyOf(edges);
     }
@@ -111,5 +127,68 @@ final class WorkspaceTreeProjection {
                 return memberGraphs.policiesFor(member, lockPackage);
             }
         };
+    }
+
+    /**
+     * The raw child edges the lock records for an occurrence, sourced exactly as
+     * {@code WorkspaceSbomAssembler} sources them: a first-party entry uses its collapsed list, an
+     * unattributed entry uses its collapsed list, and every attributed entry unions its per-member
+     * graph views (each of which falls back to the collapsed list when the lock records no graph for
+     * that member). Any looser sourcing would make the tree and the SBOM disagree about the same lock.
+     */
+    private Set<String> recordedEdges(LockPackage lockPackage) {
+        if (lockPackage.workspace().isPresent() || lockPackage.members().isEmpty()) {
+            return new LinkedHashSet<>(lockPackage.dependencies());
+        }
+        Set<String> edges = new LinkedHashSet<>();
+        for (String member : lockPackage.members()) {
+            edges.addAll(memberGraphs.dependenciesFor(member, lockPackage));
+        }
+        return edges;
+    }
+
+    /**
+     * The canonical spelling of one recorded edge: the full identity of the occurrence it resolves to.
+     * A lock may still record a legacy bare-GAV or variant-only edge; emitting that string verbatim
+     * would hand a consumer an edge matching no listed occurrence.
+     */
+    private String canonical(String edge) {
+        return index.resolveGraphEdge(edge, REGENERATE_COMMAND)
+                .map(target -> LockDependencyEdge.of(target).encode())
+                .orElseThrow();
+    }
+
+    private static void requireDistinctOccurrences(ZoltLockfile lockfile) {
+        Set<String> seen = new LinkedHashSet<>();
+        for (LockPackage lockPackage : lockfile.packages()) {
+            String identity = LockDependencyEdge.of(lockPackage).encode();
+            if (!seen.add(identity)) {
+                throw new LockDependencyGraphException(
+                        "Workspace zolt.lock lists the package occurrence `"
+                                + identity
+                                + "` more than once, so its projected packages cannot be told apart. Run `"
+                                + REGENERATE_COMMAND
+                                + "` to regenerate zolt.lock with one entry per package, version, variant,"
+                                + " and scope.");
+            }
+        }
+    }
+
+    private static void requireDeclaredMembers(ZoltLockfile lockfile, List<String> memberPaths) {
+        Set<String> declared = Set.copyOf(memberPaths);
+        Set<String> undeclared = new TreeSet<>();
+        for (LockPackage lockPackage : lockfile.packages()) {
+            lockPackage.members().stream()
+                    .filter(member -> !declared.contains(member))
+                    .forEach(undeclared::add);
+        }
+        if (!undeclared.isEmpty()) {
+            throw new LockDependencyGraphException(
+                    "Workspace zolt.lock attributes packages to "
+                            + undeclared
+                            + ", which the workspace does not declare as members. Run `"
+                            + REGENERATE_COMMAND
+                            + "` to regenerate zolt.lock against the current workspace configuration.");
+        }
     }
 }

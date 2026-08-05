@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.DependencyScope;
-import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.List;
 import java.util.stream.Stream;
@@ -182,21 +181,5 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                         Stream.of(DependencyScope.values())
                                 .anyMatch(known -> known.lockfileName().equals(scope)),
                         "unknown scope " + scope));
-    }
-
-    private static List<String> edges(String output) {
-        return output.lines()
-                .filter(line -> line.contains("\"dependencies\": ["))
-                .map(line -> line.substring(line.indexOf('[') + 1, line.lastIndexOf(']')))
-                .flatMap(list -> Stream.of(list.split(", ")))
-                .filter(token -> !token.isBlank())
-                .map(token -> token.replace("\"", ""))
-                .toList();
-    }
-
-    private static List<String> identities(ZoltLockfile lockfile) {
-        return lockfile.packages().stream()
-                .map(lockPackage -> LockDependencyEdge.of(lockPackage).encode())
-                .toList();
     }
 }
