@@ -3,6 +3,8 @@ package sh.zolt.workspace.service;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.testruntime.TestRunService;
+import sh.zolt.build.testruntime.compile.TestCompileResult;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,17 +30,27 @@ final class WorkspaceTestCompileExecutor {
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
         Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
         int concurrency = workspaceTestConcurrency(selection.selectedMembers().size());
+        Map<String, WorkspaceTestCompileResult.MemberTestCompileResult> current = new LinkedHashMap<>();
         Map<String, Future<WorkspaceTestCompileResult.MemberTestCompileResult>> futures = new LinkedHashMap<>();
         try (ExecutorService executor = Executors.newFixedThreadPool(concurrency)) {
             for (String memberPath : selection.selectedMembers()) {
+                WorkspaceMember member = membersByPath.get(memberPath);
+                if (!buildResult.membersRequiringTestCompile().contains(memberPath)) {
+                    current.put(
+                            memberPath,
+                            currentTestClasses(plan, member, buildsByPath.get(memberPath)));
+                    continue;
+                }
                 futures.put(memberPath, executor.submit(compileTestMember(
                         workspace,
-                        membersByPath.get(memberPath),
+                        member,
                         buildsByPath.get(memberPath))));
             }
             List<WorkspaceTestCompileResult.MemberTestCompileResult> results = new ArrayList<>();
             for (String memberPath : selection.selectedMembers()) {
-                results.add(getTestCompileResult(futures.get(memberPath)));
+                results.add(current.containsKey(memberPath)
+                        ? current.get(memberPath)
+                        : getTestCompileResult(futures.get(memberPath)));
             }
             return new WorkspaceTestCompileResult(
                     buildResult.resolveResult(),
@@ -50,6 +62,32 @@ final class WorkspaceTestCompileExecutor {
                             buildResult.executionMetrics(),
                             testRunServices.toolchainMetrics()));
         }
+    }
+
+    /**
+     * The member's test classes are already current, and saying so costs one recorded state read —
+     * where compiling would first have had to project the member's whole test classpath out of the
+     * root lock just to reach the same conclusion.
+     */
+    private static WorkspaceTestCompileResult.MemberTestCompileResult currentTestClasses(
+            WorkspaceBuildPlan plan,
+            WorkspaceMember member,
+            WorkspaceBuildResult.MemberBuildResult memberBuild) {
+        var build = member.config().build();
+        Path testOutput = member.directory().resolve(build.testOutput()).toAbsolutePath().normalize();
+        int testSourceCount = plan.executionContext()
+                .fileSnapshot()
+                .javaSources(member.directory(), build.testSources())
+                .fileCount();
+        return new WorkspaceTestCompileResult.MemberTestCompileResult(
+                member.path(),
+                new TestCompileResult(
+                        memberBuild.result(),
+                        testSourceCount,
+                        0,
+                        testOutput,
+                        "",
+                        true));
     }
 
     private Callable<WorkspaceTestCompileResult.MemberTestCompileResult> compileTestMember(

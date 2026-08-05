@@ -11,6 +11,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.resolve.ResolveService;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -242,7 +243,26 @@ public final class WorkspaceBuildService {
                 execution.results(),
                 execution.waveCount(),
                 execution.maxWorkers(),
-                context.metrics());
+                context.metrics(),
+                testCompileRequired(selection, dirtyPlan, execution.executedMembers()));
+    }
+
+    /**
+     * Test classes are stale when stage 0 saw their own inputs move, and also whenever the member's
+     * main output was rewritten in this build — including members a dependency ABI change dragged in
+     * after stage 0 had already decided.
+     */
+    private static Set<String> testCompileRequired(
+            WorkspaceSelection selection,
+            WorkspaceDirtyPlan dirtyPlan,
+            Set<String> executedMembers) {
+        Set<String> required = new LinkedHashSet<>(executedMembers);
+        for (String member : selection.includedMembers()) {
+            if (dirtyPlan.member(member).testCompileRequired()) {
+                required.add(member);
+            }
+        }
+        return required;
     }
 
     private WorkspaceMemberClasspaths onDemandClasspaths(

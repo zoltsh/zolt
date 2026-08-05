@@ -5,16 +5,24 @@ import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.resolve.ResolveResult;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
+/**
+ * @param membersRequiringTestCompile members whose test classes are not known to be current, from
+ *     the same stage-0 evidence the main lane used. {@code null} means "every member", which is
+ *     what a result built outside the workspace build path must assume.
+ */
 public record WorkspaceBuildResult(
         Optional<ResolveResult> resolveResult,
         List<MemberBuildResult> members,
         int buildWaveCount,
         int buildMaxWorkers,
-        WorkspaceExecutionContext.Metrics executionMetrics) {
+        WorkspaceExecutionContext.Metrics executionMetrics,
+        Set<String> membersRequiringTestCompile) {
     public WorkspaceBuildResult(
             Optional<ResolveResult> resolveResult,
             List<MemberBuildResult> members) {
@@ -34,12 +42,30 @@ public record WorkspaceBuildResult(
         this(resolveResult, members, buildWaveCount, buildMaxWorkers, emptyMetrics());
     }
 
+    public WorkspaceBuildResult(
+            Optional<ResolveResult> resolveResult,
+            List<MemberBuildResult> members,
+            int buildWaveCount,
+            int buildMaxWorkers,
+            WorkspaceExecutionContext.Metrics executionMetrics) {
+        this(resolveResult, members, buildWaveCount, buildMaxWorkers, executionMetrics, null);
+    }
+
     public WorkspaceBuildResult {
         resolveResult = resolveResult == null ? Optional.empty() : resolveResult;
         members = List.copyOf(members);
         buildWaveCount = Math.max(0, buildWaveCount);
         buildMaxWorkers = Math.max(0, buildMaxWorkers);
         executionMetrics = executionMetrics == null ? emptyMetrics() : executionMetrics;
+        membersRequiringTestCompile = membersRequiringTestCompile == null
+                ? everyMember(members)
+                : Set.copyOf(membersRequiringTestCompile);
+    }
+
+    private static Set<String> everyMember(List<MemberBuildResult> members) {
+        Set<String> names = new LinkedHashSet<>();
+        members.forEach(member -> names.add(member.member()));
+        return Set.copyOf(names);
     }
 
     public boolean resolvedLockfile() {
