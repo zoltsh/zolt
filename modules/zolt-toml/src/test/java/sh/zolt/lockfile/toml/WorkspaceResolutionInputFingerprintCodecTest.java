@@ -17,6 +17,18 @@ import org.junit.jupiter.api.Test;
 final class WorkspaceResolutionInputFingerprintCodecTest {
     private static final String FINGERPRINT =
             "sha256:164c737c8e49586cfe07a1a43cb26de94a794e3bb100c4c80c359e428e4693db";
+    private static final String LOCK_WITH_PACKAGE = """
+            version = 5
+            projectResolutionFingerprint = "sha256:abc"
+
+            [[package]]
+            id = "org.slf4j:slf4j-api"
+            version = "2.0.17"
+            source = "maven-central"
+            scope = "compile"
+            direct = true
+            dependencies = []
+            """;
 
     private final ZoltLockfileWriter writer = new ZoltLockfileWriter();
     private final ZoltLockfileReader reader = new ZoltLockfileReader();
@@ -93,6 +105,45 @@ final class WorkspaceResolutionInputFingerprintCodecTest {
         assertFalse(LockfileSidecars.canonicalDependencyLockfile(content).contains("toolchain.java"));
         assertFalse(LockfileSidecars.canonicalDependencyLockfile(content)
                 .contains("workspaceResolutionInputFingerprint"));
+    }
+
+    /**
+     * A lock upgraded in place after a locked verification must land on the bytes an ordinary
+     * resolve would have written, or the two paths would disagree about the same lock.
+     */
+    @Test
+    void recordsTheFingerprintExactlyWhereTheWriterPutsIt() {
+        ZoltLockfile bare = reader.read(LOCK_WITH_PACKAGE);
+
+        assertEquals(
+                writer.write(bare.withWorkspaceResolutionInputFingerprint(
+                        Optional.of(FINGERPRINT))),
+                LockfileSidecars.withWorkspaceResolutionInputFingerprint(
+                        writer.write(bare), FINGERPRINT));
+    }
+
+    @Test
+    void replacesAFingerprintTheLockAlreadyRecords() {
+        ZoltLockfile stale = reader.read(LOCK_WITH_PACKAGE)
+                .withWorkspaceResolutionInputFingerprint(Optional.of("sha256:stale"));
+
+        assertEquals(
+                writer.write(stale.withWorkspaceResolutionInputFingerprint(
+                        Optional.of(FINGERPRINT))),
+                LockfileSidecars.withWorkspaceResolutionInputFingerprint(
+                        writer.write(stale), FINGERPRINT));
+    }
+
+    @Test
+    void leavesJavaToolchainSidecarsWhereTheyAreWhenRecording() {
+        String content = LOCK_WITH_PACKAGE + "\n[[toolchain.java]]\nversion = \"21\"\n";
+
+        String recorded =
+                LockfileSidecars.withWorkspaceResolutionInputFingerprint(content, FINGERPRINT);
+
+        assertTrue(recorded.contains("[[toolchain.java]]"));
+        assertTrue(recorded.indexOf("workspaceResolutionInputFingerprint")
+                < recorded.indexOf("[[package]]"));
     }
 
     private static ZoltLockfile lockfile(Optional<String> workspaceFingerprint) {

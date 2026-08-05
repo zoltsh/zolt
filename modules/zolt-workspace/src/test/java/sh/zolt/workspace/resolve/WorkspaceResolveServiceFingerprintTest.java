@@ -64,19 +64,42 @@ final class WorkspaceResolveServiceFingerprintTest {
     }
 
     @Test
-    void ordinaryResolveRecordsTheFingerprintItsInputsProduce() throws IOException {
+    void ordinaryResolveRecordsTheFingerprintItsInputsAndItsLockProduce() throws IOException {
         writeWorkspace("1.0.0");
 
         ResolveResult result = service.resolve(tempDir, tempDir.resolve("cache"), false, false);
 
+        String committed = Files.readString(result.lockfilePath());
         assertEquals(
                 WorkspaceResolutionInputFingerprint.fingerprint(
-                        new WorkspaceDiscoveryService().load(tempDir)),
-                reader.read(Files.readString(result.lockfilePath()))
-                        .workspaceResolutionInputFingerprint());
-        assertTrue(reader.read(Files.readString(result.lockfilePath()))
-                .workspaceResolutionInputFingerprint()
-                .isPresent());
+                        new WorkspaceDiscoveryService().load(tempDir), committed),
+                reader.read(committed).workspaceResolutionInputFingerprint());
+        assertTrue(reader.read(committed).workspaceResolutionInputFingerprint().isPresent());
+    }
+
+    /** The fingerprint covers the lock that carries it, so it must not perturb its own bytes. */
+    @Test
+    void repeatedResolveOfUnchangedInputsCommitsIdenticalBytes() throws IOException {
+        writeWorkspace("1.0.0");
+        ResolveResult first = service.resolve(tempDir, tempDir.resolve("cache"), false, false);
+        String before = Files.readString(first.lockfilePath());
+
+        service.resolve(tempDir, tempDir.resolve("cache"), false, false);
+
+        assertEquals(before, Files.readString(first.lockfilePath()));
+    }
+
+    @Test
+    void recordedFingerprintChangesWhenTheLockedPackagesAreEdited() throws IOException {
+        writeWorkspace("1.0.0");
+        ResolveResult result = service.resolve(tempDir, tempDir.resolve("cache"), false, false);
+        String committed = Files.readString(result.lockfilePath());
+
+        assertNotEquals(
+                reader.read(committed).workspaceResolutionInputFingerprint(),
+                WorkspaceResolutionInputFingerprint.fingerprint(
+                        new WorkspaceDiscoveryService().load(tempDir),
+                        committed.replace("1.0.0\"", "1.0.1\"")));
     }
 
     @Test

@@ -127,7 +127,12 @@ public final class WorkspaceBuildService {
                 .map(workspace -> WorkspaceMutationLock.withLock(
                         workspace.root(),
                         () -> buildPlanner.plan(
-                                workspace, cacheRoot, offline, selectionRequest, includeTestLanes)))
+                                workspace,
+                                target.discoveryNanos(),
+                                cacheRoot,
+                                offline,
+                                selectionRequest,
+                                includeTestLanes)))
                 .orElseGet(() -> WorkspaceMutationLock.withWorkspaceLock(
                         target.startDirectory(),
                         () -> buildPlanner.plan(

@@ -71,18 +71,10 @@ final class WorkspaceBuildPlanner {
 
     /**
      * Plans against a workspace the caller already discovered, which is how a command that gated on
-     * lock freshness avoids reading and parsing every member config a second time.
+     * lock freshness avoids reading and parsing every member config a second time. The caller passes
+     * what that discovery cost, since discovery still happened and its counter must still report it.
      */
     WorkspaceBuildPlan plan(
-            Workspace discoveredWorkspace,
-            Path cacheRoot,
-            boolean offline,
-            WorkspaceSelectionRequest selectionRequest,
-            boolean includeTestLanes) {
-        return plan(discoveredWorkspace, 0L, cacheRoot, offline, selectionRequest, includeTestLanes);
-    }
-
-    private WorkspaceBuildPlan plan(
             Workspace discovered,
             long discoveryNanos,
             Path cacheRoot,

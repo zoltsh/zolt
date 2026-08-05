@@ -1,6 +1,7 @@
 package sh.zolt.workspace.resolve;
 
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.lockfile.toml.LockfileSidecars;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.fingerprint.ProjectResolutionFingerprint;
@@ -39,7 +40,15 @@ import java.util.TreeMap;
  *       resolution-affecting framework inputs.</li>
  *   <li>{@code edge} — the workspace project edges with their scope, coordinate, exported flag, and
  *       optional flag.</li>
+ *   <li>{@code lockContent} — the digest of the lock's own canonical dependency content, so the
+ *       fingerprint certifies a specific lock rather than only the inputs that derived one. Without
+ *       it a hand-edited {@code [[package]]} block that stayed self-consistent would pass the gate
+ *       the byte comparison used to catch.</li>
  * </ol>
+ *
+ * <p>The lock content enters through {@link LockfileSidecars#canonicalDependencyLockfile}, which
+ * already drops the recorded fingerprint line, so recording the value cannot change the digest that
+ * produced it.
  *
  * <p>Deliberately excluded, because they do not change what a resolve produces: {@code --offline}
  * (it restricts where artifacts may come from, not which are selected), the retry command in error
@@ -47,28 +56,29 @@ import java.util.TreeMap;
  * lock being checked). Repository overlays are excluded because workspace resolve rejects them.
  */
 public final class WorkspaceResolutionInputFingerprint {
-    private static final String SCHEMA = "v1";
+    private static final String SCHEMA = "v2";
 
     private WorkspaceResolutionInputFingerprint() {
     }
 
     /**
-     * Fingerprint of {@code workspace}, merging each member's workspace policy to reach its
-     * effective config. Empty when discovery captured no config bytes, since a digest over missing
-     * evidence must never be recorded or matched.
+     * Fingerprint of {@code workspace} against {@code lockfileContent}, merging each member's
+     * workspace policy to reach its effective config. Empty when discovery captured no config bytes,
+     * since a digest over missing evidence must never be recorded or matched.
      */
-    public static Optional<String> fingerprint(Workspace workspace) {
-        return fingerprint(workspace, effectiveConfigs(workspace));
+    public static Optional<String> fingerprint(Workspace workspace, String lockfileContent) {
+        return fingerprint(workspace, effectiveConfigs(workspace), lockfileContent);
     }
 
     /** Fingerprint reusing effective configs a caller already merged, keyed by member path. */
     public static Optional<String> fingerprint(
             Workspace workspace,
-            Map<String, ProjectConfig> effectiveConfigs) {
+            Map<String, ProjectConfig> effectiveConfigs,
+            String lockfileContent) {
         if (workspace.inputs().isEmpty()) {
             return Optional.empty();
         }
-        List<String> inputs = inputs(workspace, effectiveConfigs);
+        List<String> inputs = inputs(workspace, effectiveConfigs, lockfileContent);
         return Optional.of("sha256:" + sha256(
                 (String.join("\n", inputs) + "\n").getBytes(StandardCharsets.UTF_8)));
     }
@@ -84,7 +94,8 @@ public final class WorkspaceResolutionInputFingerprint {
 
     static List<String> inputs(
             Workspace workspace,
-            Map<String, ProjectConfig> effectiveConfigs) {
+            Map<String, ProjectConfig> effectiveConfigs,
+            String lockfileContent) {
         List<String> inputs = new ArrayList<>();
         line(inputs, "schema", SCHEMA);
         line(inputs, "lockVersion", Integer.toString(ZoltLockfile.CURRENT_VERSION));
@@ -135,7 +146,19 @@ public final class WorkspaceResolutionInputFingerprint {
                         edge.coordinate(),
                         Boolean.toString(edge.exported()),
                         Boolean.toString(edge.optional())));
+        line(inputs, "lockContent", lockContentDigest(lockfileContent));
         return List.copyOf(inputs);
+    }
+
+    /**
+     * Digest of the lock content the fingerprint certifies. Canonicalising first drops the recorded
+     * fingerprint line and the Java toolchain blocks, so the value a resolve computes before writing
+     * equals the value the gate computes after reading the file back.
+     */
+    private static String lockContentDigest(String lockfileContent) {
+        return sha256(LockfileSidecars
+                .canonicalDependencyLockfile(lockfileContent == null ? "" : lockfileContent)
+                .getBytes(StandardCharsets.UTF_8));
     }
 
     private static void line(List<String> inputs, String category, String... values) {

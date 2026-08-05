@@ -152,8 +152,8 @@ public final class CommandLockfiles {
                         () -> workspaceLockFreshnessService.requireFresh(
                                 workingDirectory, cacheRoot, offline, retryCommand),
                         CommandLockfiles::freshnessAttributes)
-                .map(WorkspaceLockFreshness::workspace)
-                .map(WorkspacePlanTarget::of)
+                .map(freshness -> WorkspacePlanTarget.of(
+                        freshness.workspace(), freshness.discoveryNanos()))
                 .orElseGet(() -> WorkspacePlanTarget.at(workingDirectory));
     }
 

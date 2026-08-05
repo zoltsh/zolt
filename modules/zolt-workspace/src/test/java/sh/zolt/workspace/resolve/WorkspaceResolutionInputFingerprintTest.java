@@ -47,6 +47,18 @@ final class WorkspaceResolutionInputFingerprintTest {
             [dependencies]
             "com.example:lib" = { workspace = "lib" }
             """;
+    private static final String LOCK = """
+            version = 5
+            projectResolutionFingerprint = "sha256:abc"
+
+            [[package]]
+            id = "org.slf4j:slf4j-api"
+            version = "2.0.17"
+            source = "maven-central"
+            scope = "compile"
+            direct = true
+            dependencies = []
+            """;
 
     @Test
     void isStableAcrossRepeatedComputation() {
@@ -218,13 +230,55 @@ final class WorkspaceResolutionInputFingerprintTest {
         Workspace workspace = workspace(defaultWorkspaceConfig(), Map.of("lib", LIB, "app", APP))
                 .withInputs(WorkspaceInputs.unchecked());
 
-        assertTrue(WorkspaceResolutionInputFingerprint.fingerprint(workspace).isEmpty());
+        assertTrue(WorkspaceResolutionInputFingerprint.fingerprint(workspace, LOCK).isEmpty());
     }
 
     @Test
     void isPrefixedWithItsDigestAlgorithm() {
         assertTrue(fingerprint(workspace(defaultWorkspaceConfig(), Map.of("lib", LIB)))
                 .startsWith("sha256:"));
+    }
+
+    @Test
+    void changesWhenTheLockItCertifiesChanges() {
+        Workspace workspace = workspace(defaultWorkspaceConfig(), Map.of("lib", LIB, "app", APP));
+
+        assertNotEquals(
+                fingerprint(workspace),
+                WorkspaceResolutionInputFingerprint
+                        .fingerprint(workspace, LOCK.replace("2.0.17", "2.0.16"))
+                        .orElseThrow());
+    }
+
+    /** Otherwise recording the value would change the digest that produced it. */
+    @Test
+    void ignoresTheFingerprintTheLockAlreadyRecords() {
+        Workspace workspace = workspace(defaultWorkspaceConfig(), Map.of("lib", LIB, "app", APP));
+        String recorded = LOCK.replace(
+                "projectResolutionFingerprint = \"sha256:abc\"",
+                "projectResolutionFingerprint = \"sha256:abc\"\n"
+                        + "workspaceResolutionInputFingerprint = \"sha256:whatever\"");
+
+        assertEquals(
+                fingerprint(workspace),
+                WorkspaceResolutionInputFingerprint.fingerprint(workspace, recorded).orElseThrow());
+    }
+
+    /** Toolchain blocks are a sidecar the dependency lock does not own. */
+    @Test
+    void ignoresJavaToolchainBlocksInTheLock() {
+        Workspace workspace = workspace(defaultWorkspaceConfig(), Map.of("lib", LIB, "app", APP));
+        String withToolchain = LOCK + """
+
+                [[toolchain.java]]
+                version = "21"
+                """;
+
+        assertEquals(
+                fingerprint(workspace),
+                WorkspaceResolutionInputFingerprint
+                        .fingerprint(workspace, withToolchain)
+                        .orElseThrow());
     }
 
     private static String defaultWorkspaceConfig() {
@@ -236,7 +290,7 @@ final class WorkspaceResolutionInputFingerprintTest {
     }
 
     private static String fingerprint(Workspace workspace) {
-        return WorkspaceResolutionInputFingerprint.fingerprint(workspace).orElseThrow();
+        return WorkspaceResolutionInputFingerprint.fingerprint(workspace, LOCK).orElseThrow();
     }
 
     private static Workspace relocated(Workspace workspace, Path root) {

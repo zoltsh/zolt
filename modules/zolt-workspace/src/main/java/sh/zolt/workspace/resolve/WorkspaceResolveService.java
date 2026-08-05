@@ -24,11 +24,13 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public final class WorkspaceResolveService {
     private final WorkspaceDiscoveryService workspaceDiscoveryService;
     private final ResolveService resolveService;
+    private final ZoltLockfileWriter lockfileWriter;
     private final WorkspaceResolveLockfilePersistence lockfilePersistence;
     private final WorkspacePolicyMerger policyMerger;
     private final WorkspaceLockfileAggregator lockfileAggregator;
@@ -55,6 +57,7 @@ public final class WorkspaceResolveService {
             WorkspacePolicyMerger policyMerger) {
         this.workspaceDiscoveryService = workspaceDiscoveryService;
         this.resolveService = resolveService;
+        this.lockfileWriter = lockfileWriter;
         this.lockfilePersistence =
                 new WorkspaceResolveLockfilePersistence(lockfileWriter);
         this.policyMerger = policyMerger;
@@ -219,11 +222,11 @@ public final class WorkspaceResolveService {
                                 merged(
                                         mediation.conflicts(),
                                         shadowConflicts)),
-                        merged(mediation.policyEffects(), shadowPolicyEffects),
-                        WorkspaceResolutionInputFingerprint.fingerprint(
-                                workspace, effectiveConfigs));
+                        merged(mediation.policyEffects(), shadowPolicyEffects));
         if (!locked) {
             workspace.inputs().requireCurrent();
+            lockfile = lockfile.withWorkspaceResolutionInputFingerprint(recordedFingerprint(
+                    workspace, effectiveConfigs, lockfile));
         }
         long started = System.nanoTime();
         WorkspaceResolveLockfilePersistence.CommittedLockfile committed =
@@ -246,6 +249,20 @@ public final class WorkspaceResolveService {
                 result,
                 committed.bytes(),
                 committed.lockfile());
+    }
+
+    /**
+     * The fingerprint certifies the lock as well as the inputs, so it is computed over the lock this
+     * resolve is about to commit. Rendering the candidate first is safe and stable: the fingerprint
+     * line is excluded from the canonical content the digest covers, so the value cannot depend on
+     * itself and a repeated resolve of unchanged inputs writes identical bytes.
+     */
+    private Optional<String> recordedFingerprint(
+            Workspace workspace,
+            Map<String, ProjectConfig> effectiveConfigs,
+            ZoltLockfile candidate) {
+        return WorkspaceResolutionInputFingerprint.fingerprint(
+                workspace, effectiveConfigs, lockfileWriter.write(candidate));
     }
 
     private static long elapsedSince(long started) {

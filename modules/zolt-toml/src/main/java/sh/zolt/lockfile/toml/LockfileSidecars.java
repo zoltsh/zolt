@@ -29,6 +29,32 @@ public final class LockfileSidecars {
                 withoutJavaToolchainBlocks(content)).stripTrailing() + "\n";
     }
 
+    /**
+     * Records {@code fingerprint} on {@code content} at the position {@link
+     * sh.zolt.lockfile.toml.ZoltLockfileWriter} writes it — last in the header, before the blank
+     * line that opens the package blocks — so a lock upgraded in place is byte-identical to the one
+     * an ordinary resolve would have written.
+     */
+    public static String withWorkspaceResolutionInputFingerprint(
+            String content,
+            String fingerprint) {
+        String assignment =
+                WORKSPACE_RESOLUTION_INPUT_FINGERPRINT + " = \"" + fingerprint + "\"";
+        StringBuilder output = new StringBuilder();
+        boolean recorded = false;
+        for (String line : safeLines(withoutWorkspaceResolutionInputFingerprint(content))) {
+            if (!recorded && (line.isBlank() || line.startsWith("["))) {
+                output.append(assignment).append('\n');
+                recorded = true;
+            }
+            output.append(line).append('\n');
+        }
+        if (!recorded) {
+            output.append(assignment).append('\n');
+        }
+        return output.toString();
+    }
+
     private static String withoutWorkspaceResolutionInputFingerprint(String content) {
         String prefix = WORKSPACE_RESOLUTION_INPUT_FINGERPRINT + " = ";
         if (content == null || !content.contains(prefix)) {

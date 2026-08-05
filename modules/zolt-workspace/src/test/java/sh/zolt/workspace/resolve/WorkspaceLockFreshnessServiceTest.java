@@ -3,6 +3,7 @@ package sh.zolt.workspace.resolve;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.lockfile.toml.LockfileSidecars;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.service.Workspace;
@@ -46,6 +47,15 @@ final class WorkspaceLockFreshnessServiceTest {
                 freshness.workspace().members().stream().map(m -> m.path()).sorted().toList());
         assertEquals(root.resolve("zolt.lock"), freshness.lockfilePath());
         assertTrue(freshness.lockfile().isPresent());
+    }
+
+    /** Discovery moved here from planning, so this is the only place its cost can be measured. */
+    @Test
+    void reportsWhatTheOneDiscoveryCost(@TempDir Path root) throws IOException {
+        writeWorkspace(root);
+        writeLockfile(root, Optional.of(currentFingerprint(root)));
+
+        assertTrue(requireFresh(root).discoveryNanos() > 0L);
     }
 
     @Test
@@ -132,15 +142,23 @@ final class WorkspaceLockFreshnessServiceTest {
 
     private static String currentFingerprint(Path root) {
         Workspace workspace = new WorkspaceDiscoveryService().load(root);
-        return WorkspaceResolutionInputFingerprint.fingerprint(workspace).orElseThrow();
+        return WorkspaceResolutionInputFingerprint
+                .fingerprint(workspace, lockBody())
+                .orElseThrow();
     }
 
     private static void writeLockfile(Path root, Optional<String> fingerprint) throws IOException {
-        StringBuilder lock = new StringBuilder("version = 5\n");
-        lock.append("projectResolutionFingerprint = \"sha256:abc\"\n");
-        fingerprint.ifPresent(value ->
-                lock.append("workspaceResolutionInputFingerprint = \"").append(value).append("\"\n"));
-        Files.writeString(root.resolve("zolt.lock"), lock.toString());
+        Files.writeString(root.resolve("zolt.lock"), fingerprint
+                .map(value -> LockfileSidecars
+                        .withWorkspaceResolutionInputFingerprint(lockBody(), value))
+                .orElseGet(WorkspaceLockFreshnessServiceTest::lockBody));
+    }
+
+    private static String lockBody() {
+        return """
+                version = 5
+                projectResolutionFingerprint = "sha256:abc"
+                """;
     }
 
     private static void writeWorkspace(Path root) throws IOException {

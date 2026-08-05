@@ -71,7 +71,9 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[1].contains("\"includedMembers\":\"2\""));
         assertTrue(lines[1].contains("\"selectedMembers\":\"2\""));
         assertTrue(lines[1].contains("\"resolvedLockfile\":\"true\""));
-        assertTrue(lines[1].contains("\"workspaceDiscoveryNanos\""));
+        assertTrue(
+                nanos(lines[1], "workspaceDiscoveryNanos") > 0L,
+                "discovery moved into the freshness phase and must still be attributed to its counter");
         assertTrue(lines[1].contains("\"workspaceSelectionNanos\""));
         assertTrue(lines[1].contains("\"workspaceResolutionNanos\""));
         assertTrue(lines[1].contains("\"workspaceLockfileReadNanos\""));
@@ -119,6 +121,12 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[3].contains("\"mainCompilationsExecuted\":\"2\""));
         assertTrue(lines[3].contains("\"mainSourcesRecompiled\""));
         assertTrue(lines[3].contains("\"workspaceAbiInvalidations\""));
+    }
+
+    private static long nanos(String timingLine, String key) {
+        String value = timingLine.substring(
+                timingLine.indexOf("\"" + key + "\":\"") + key.length() + 4);
+        return Long.parseLong(value.substring(0, value.indexOf('"')));
     }
 
     @Test

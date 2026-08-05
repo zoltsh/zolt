@@ -8,12 +8,17 @@ import java.util.Optional;
 /**
  * The workspace, its root lock, and how the lock was found to be current, returned together so a
  * command does not rediscover the workspace to plan the work it just gated.
+ *
+ * <p>{@code discoveryNanos} is what that one discovery actually cost. Planning reuses this snapshot
+ * rather than walking the member configs again, so this is the only place the cost can be measured
+ * and the counter reporting it would otherwise read zero.
  */
 public record WorkspaceLockFreshness(
         Workspace workspace,
         Path lockfilePath,
         Optional<ZoltLockfile> lockfile,
-        Outcome outcome) {
+        Outcome outcome,
+        long discoveryNanos) {
     public enum Outcome {
         /** The recorded resolution-input fingerprint matched, so no resolution work ran. */
         FINGERPRINT_MATCHED("matched"),
@@ -35,6 +40,7 @@ public record WorkspaceLockFreshness(
 
     public WorkspaceLockFreshness {
         lockfile = lockfile == null ? Optional.empty() : lockfile;
+        discoveryNanos = Math.max(0L, discoveryNanos);
     }
 
     public boolean resolutionSkipped() {

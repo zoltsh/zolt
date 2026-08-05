@@ -38,20 +38,6 @@ final class WorkspaceLockfileAggregator {
             List<WorkspaceMemberResolveOutput> memberOutputs,
             List<LockConflict> preservedWorkspaceConflicts,
             List<LockPolicyEffect> preservedWorkspacePolicyEffects) {
-        return aggregate(
-                workspace,
-                memberOutputs,
-                preservedWorkspaceConflicts,
-                preservedWorkspacePolicyEffects,
-                Optional.empty());
-    }
-
-    ZoltLockfile aggregate(
-            Workspace workspace,
-            List<WorkspaceMemberResolveOutput> memberOutputs,
-            List<LockConflict> preservedWorkspaceConflicts,
-            List<LockPolicyEffect> preservedWorkspacePolicyEffects,
-            Optional<String> workspaceResolutionInputFingerprint) {
         boolean transitionalRoot =
                 isTransitionalRootWorkspace(workspace, memberOutputs);
         Map<String, LockPackage> packages = new LinkedHashMap<>();
@@ -127,8 +113,7 @@ final class WorkspaceLockfileAggregator {
                 List.copyOf(conflicts.values()),
                 List.copyOf(policyEffects.values()),
                 WorkspaceMemberGraphFacts.complete(
-                        globalSelection, memberOutputs),
-                workspaceResolutionInputFingerprint);
+                        globalSelection, memberOutputs));
     }
 
     private static boolean isTransitionalRootWorkspace(
