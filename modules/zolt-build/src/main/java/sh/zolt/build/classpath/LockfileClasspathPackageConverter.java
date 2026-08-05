@@ -4,6 +4,7 @@ import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -21,7 +22,18 @@ public final class LockfileClasspathPackageConverter {
     }
 
     public static List<ResolvedClasspathPackage> classpathPackages(ZoltLockfile lockfile, Path cacheRoot) {
-        new ArtifactIntegrityVerifier().verify(lockfile, cacheRoot);
+        return classpathPackages(lockfile, cacheRoot, new VerifiedArtifactIndex());
+    }
+
+    /**
+     * Projects the lock view onto a classpath, verifying its artifacts through {@code artifactIndex}
+     * so artifacts already verified for the command are not read again.
+     */
+    public static List<ResolvedClasspathPackage> classpathPackages(
+            ZoltLockfile lockfile,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex) {
+        new ArtifactIntegrityVerifier(artifactIndex).verify(lockfile, cacheRoot);
         return toClasspathPackages(lockfile, cacheRoot);
     }
 
@@ -29,7 +41,15 @@ public final class LockfileClasspathPackageConverter {
             ZoltLockfile lockfile,
             Path cacheRoot,
             Path workspaceRoot) {
-        new ArtifactIntegrityVerifier().verify(lockfile, cacheRoot);
+        return classpathPackages(lockfile, cacheRoot, workspaceRoot, new VerifiedArtifactIndex());
+    }
+
+    public static List<ResolvedClasspathPackage> classpathPackages(
+            ZoltLockfile lockfile,
+            Path cacheRoot,
+            Path workspaceRoot,
+            VerifiedArtifactIndex artifactIndex) {
+        new ArtifactIntegrityVerifier(artifactIndex).verify(lockfile, cacheRoot);
         return lockfile.packages().stream()
                 .filter(lockPackage -> lockPackage.jar().isPresent()
                         || (lockPackage.workspace().isPresent() && lockPackage.workspaceOutput().isPresent()))

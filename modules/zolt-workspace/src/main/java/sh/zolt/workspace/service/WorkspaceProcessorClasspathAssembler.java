@@ -37,22 +37,22 @@ final class WorkspaceProcessorClasspathAssembler {
      * Returns {@code externalProcessors} (the external/published processor jars resolved for the
      * member) merged with the compiled output and transitive dependencies of every workspace
      * processor member the consumer declares for the given edge scope, all re-scoped onto the
-     * processor lane.
+     * processor lane. Artifacts are verified through the command's shared index, so processor lanes
+     * reuse the digests the compile and test lanes already computed.
      */
     Classpath mergedProcessorClasspath(
-            Workspace workspace,
-            ZoltLockfile lockfile,
-            Path cacheRoot,
+            WorkspaceExecutionContext context,
             String memberPath,
-            Map<String, List<String>> dependenciesByMember,
             String edgeScope,
             DependencyScope targetScope,
             Classpath externalProcessors) {
+        Workspace workspace = context.workspace();
+        ZoltLockfile lockfile = context.lockfile();
         Set<String> processorMembers = processorMemberClosure(
                 workspace,
                 memberPath,
                 edgeScope,
-                dependenciesByMember);
+                context.memberGraph().compileDependenciesByMember());
         if (processorMembers.isEmpty()) {
             return externalProcessors;
         }
@@ -66,8 +66,9 @@ final class WorkspaceProcessorClasspathAssembler {
                 List.of());
         ClasspathSet built = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
                 processorLockfile,
-                cacheRoot,
-                workspace.root()));
+                context.cacheRoot(),
+                workspace.root(),
+                context.artifactIndex()));
         Classpath memberProcessors =
                 targetScope == DependencyScope.TEST_PROCESSOR ? built.testProcessor() : built.processor();
         return mergeClasspaths(externalProcessors, memberProcessors);

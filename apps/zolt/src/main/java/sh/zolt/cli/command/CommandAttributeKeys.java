@@ -8,6 +8,11 @@ public final class CommandAttributeKeys {
     public static final String ARTIFACT_CACHE_MISSES = "artifactCacheMisses";
     public static final String ARTIFACT_DOWNLOAD_MILLIS = "artifactDownloadMillis";
     public static final String ARTIFACT_DOWNLOAD_NANOS = "artifactDownloadNanos";
+    public static final String ARTIFACT_INTEGRITY_BYTES = "artifactIntegrityBytes";
+    public static final String ARTIFACT_INTEGRITY_CACHE_HITS = "artifactIntegrityCacheHits";
+    public static final String ARTIFACT_INTEGRITY_HASHES = "artifactIntegrityHashes";
+    public static final String ARTIFACT_INTEGRITY_NANOS = "artifactIntegrityNanos";
+    public static final String ARTIFACT_INTEGRITY_PATHS = "artifactIntegrityPaths";
     public static final String CHECKS = "checks";
     public static final String CLASSES_DELETED_SUFFIX = "ClassesDeleted";
     public static final String COMPILE_CLASSPATH_ENTRIES = "compileClasspathEntries";

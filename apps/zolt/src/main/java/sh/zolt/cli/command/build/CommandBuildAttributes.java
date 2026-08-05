@@ -2,6 +2,7 @@ package sh.zolt.cli.command.build;
 
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.CompileDiagnostics;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.cli.command.CommandAttributeKeys;
 import sh.zolt.framework.FrameworkBuildAugmentationResult;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
@@ -105,6 +106,7 @@ public final class CommandBuildAttributes {
         attributes.put(
                 CommandAttributeKeys.WORKSPACE_PACKAGE_CACHE_HITS,
                 Integer.toString(result.executionMetrics().packageCacheHits()));
+        addArtifactIntegrityAttributes(attributes, result.executionMetrics().artifactIntegrity());
         attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_SKIPPED, Integer.toString(result.mainCompilationSkippedCount()));
         attributes.put(CommandAttributeKeys.MAIN_COMPILATIONS_EXECUTED, Integer.toString(result.mainCompilationExecutedCount()));
         addMainCompileDiagnostics(attributes, result.mainCompileDiagnostics());
@@ -166,6 +168,21 @@ public final class CommandBuildAttributes {
         return Map.of(
                 CommandAttributeKeys.ENABLED, "true",
                 CommandAttributeKeys.RUNNER_JAR, augmentation.runnerJar().toString());
+    }
+
+    /**
+     * Publishes what the command's shared artifact index actually did. {@code hashes} is the number
+     * of cached artifacts read; {@code cacheHits} is the number of further requests for a path
+     * already hashed — before the index existed each of those was another full re-read.
+     */
+    private static void addArtifactIntegrityAttributes(
+            Map<String, String> attributes,
+            VerifiedArtifactIndex.Metrics metrics) {
+        attributes.put(CommandAttributeKeys.ARTIFACT_INTEGRITY_PATHS, Integer.toString(metrics.paths()));
+        attributes.put(CommandAttributeKeys.ARTIFACT_INTEGRITY_BYTES, Long.toString(metrics.bytes()));
+        attributes.put(CommandAttributeKeys.ARTIFACT_INTEGRITY_HASHES, Integer.toString(metrics.hashes()));
+        attributes.put(CommandAttributeKeys.ARTIFACT_INTEGRITY_CACHE_HITS, Integer.toString(metrics.cacheHits()));
+        attributes.put(CommandAttributeKeys.ARTIFACT_INTEGRITY_NANOS, Long.toString(metrics.nanos()));
     }
 
     private static void addMainCompileDiagnostics(Map<String, String> attributes, CompileDiagnostics diagnostics) {

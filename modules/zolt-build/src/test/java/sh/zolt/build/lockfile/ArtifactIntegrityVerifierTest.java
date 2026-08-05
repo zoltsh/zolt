@@ -200,6 +200,79 @@ final class ArtifactIntegrityVerifierTest {
                 Optional.empty()), cacheRoot));
     }
 
+    @Test
+    void readsSharedArtifactsOnceAcrossTheLockProjectionsOfOneCommand() throws IOException {
+        Path cacheRoot = tempDir.resolve("cache");
+        Path jar = write(cacheRoot.resolve("com/example/demo/1.0.0/demo-1.0.0.jar"), "jar bytes");
+        Path pom = write(cacheRoot.resolve("com/example/demo/1.0.0/demo-1.0.0.pom"), "pom bytes");
+        ZoltLockfile projection = lockfile(
+                relative(cacheRoot, jar),
+                sha256(jar),
+                relative(cacheRoot, pom),
+                sha256(pom),
+                Optional.empty(),
+                Optional.empty());
+        VerifiedArtifactIndex index = new VerifiedArtifactIndex();
+
+        // A command projects the same lockfile once per member and lane; each projection builds its
+        // own verifier, and only the shared index keeps that from re-reading the same files.
+        for (int projection2 = 0; projection2 < 6; projection2++) {
+            new ArtifactIntegrityVerifier(index).verify(projection, cacheRoot);
+        }
+
+        assertEquals(2, index.metrics().hashes());
+        assertEquals(2, index.metrics().paths());
+        assertEquals(10, index.metrics().cacheHits());
+        assertEquals(sha256(jar), VerifiedArtifactHashes.currentHash(jar));
+    }
+
+    @Test
+    void rejectsALockViewExpectingTwoChecksumsForOneFile() throws IOException {
+        Path cacheRoot = tempDir.resolve("cache");
+        Path jar = write(cacheRoot.resolve("com/example/demo/1.0.0/demo-1.0.0.jar"), "jar bytes");
+        // The same file is listed as this package's jar and as its secondary artifact, but with
+        // different checksums. Only one can hold, so neither claim may be waved through.
+        ZoltLockfile conflicting = lockfile(
+                relative(cacheRoot, jar),
+                sha256(jar),
+                Optional.empty(),
+                Optional.empty(),
+                relative(cacheRoot, jar),
+                sha256("some other bytes"));
+
+        LockfileReadException exception = assertThrows(
+                LockfileReadException.class,
+                () -> new ArtifactIntegrityVerifier().verify(conflicting, cacheRoot));
+
+        assertTrue(exception.getMessage().contains("Conflicting integrity expectations"));
+        assertTrue(exception.getMessage().contains(jar.toAbsolutePath().normalize().toString()));
+    }
+
+    @Test
+    void keepsCorruptionFailingClosedWhenTheIndexIsShared() throws IOException {
+        Path cacheRoot = tempDir.resolve("cache");
+        Path jar = write(cacheRoot.resolve("com/example/demo/1.0.0/demo-1.0.0.jar"), "actual jar bytes");
+        ZoltLockfile projection = lockfile(
+                relative(cacheRoot, jar),
+                sha256("expected jar bytes"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+        VerifiedArtifactIndex index = new VerifiedArtifactIndex();
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            LockfileReadException exception = assertThrows(
+                    LockfileReadException.class,
+                    () -> new ArtifactIntegrityVerifier(index).verify(projection, cacheRoot));
+            assertTrue(exception.getMessage().contains(
+                    "Cached jar integrity check failed for com.example:demo:1.0.0"));
+        }
+
+        assertEquals(1, index.metrics().hashes());
+        assertEquals(Optional.empty(), VerifiedArtifactHashes.currentHash(jar));
+    }
+
     private static ZoltLockfile lockfile(
             Optional<String> jar,
             Optional<String> jarSha256,

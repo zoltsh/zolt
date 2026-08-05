@@ -114,7 +114,8 @@ public final class WorkspaceClasspathService {
                             () -> LockfileClasspathPackageConverter.classpathPackages(
                                     packageLockFor(context, memberPath),
                                     context.cacheRoot(),
-                                    context.workspace().root())));
+                                    context.workspace().root(),
+                                    context.artifactIndex())));
         }
         return Collections.unmodifiableMap(packagesByMember);
     }
@@ -151,7 +152,8 @@ public final class WorkspaceClasspathService {
                 () -> LockfileClasspathPackageConverter.classpathPackages(
                         packageLock,
                         context.cacheRoot(),
-                        context.workspace().root()));
+                        context.workspace().root(),
+                        context.artifactIndex()));
         ClasspathSet classpaths = testClasspathRequired
                 ? classpathsFor(
                         context,
@@ -200,42 +202,31 @@ public final class WorkspaceClasspathService {
             WorkspaceExecutionContext context,
             String memberPath,
             WorkspaceBuildRequirements requirements) {
-        Workspace workspace = context.workspace();
-        Path cacheRoot = context.cacheRoot();
-        ClasspathSet compileClasspaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
-                lockFactory.compileLock(context, memberPath),
-                cacheRoot,
-                workspace.root()));
+        ClasspathSet compileClasspaths = classpathBuilder.build(memberClasspathPackages(
+                context,
+                lockFactory.compileLock(context, memberPath)));
         ClasspathSet runtimeClasspaths = requirements.mainRuntimeClasspath()
-                ? classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
-                        lockFactory.runtimeLock(context, memberPath),
-                        cacheRoot,
-                        workspace.root()))
+                ? classpathBuilder.build(memberClasspathPackages(
+                        context,
+                        lockFactory.runtimeLock(context, memberPath)))
                 : emptyClasspaths();
         ClasspathSet testClasspaths = requirements.testCompileClasspath()
-                ? classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
-                        lockFactory.testLock(context, memberPath),
-                        cacheRoot,
-                        workspace.root()))
+                ? classpathBuilder.build(memberClasspathPackages(
+                        context,
+                        lockFactory.testLock(context, memberPath)))
                 : emptyClasspaths();
         Classpath processor = requirements.processorClasspath()
                 ? processorClasspathAssembler.mergedProcessorClasspath(
-                        workspace,
-                        context.lockfile(),
-                        cacheRoot,
+                        context,
                         memberPath,
-                        context.memberGraph().compileDependenciesByMember(),
                         "processor",
                         DependencyScope.PROCESSOR,
                         compileClasspaths.processor())
                 : EMPTY_CLASSPATH;
         Classpath testProcessor = requirements.testProcessorClasspath()
                 ? processorClasspathAssembler.mergedProcessorClasspath(
-                        workspace,
-                        context.lockfile(),
-                        cacheRoot,
+                        context,
                         memberPath,
-                        context.memberGraph().compileDependenciesByMember(),
                         "test-processor",
                         DependencyScope.TEST_PROCESSOR,
                         testClasspaths.testProcessor())
@@ -250,6 +241,16 @@ public final class WorkspaceClasspathService {
                 requirements.mainRuntimeClasspath()
                         ? runtimeClasspaths.quarkusDeployment()
                         : EMPTY_CLASSPATH);
+    }
+
+    private static List<ResolvedClasspathPackage> memberClasspathPackages(
+            WorkspaceExecutionContext context,
+            ZoltLockfile lockView) {
+        return LockfileClasspathPackageConverter.classpathPackages(
+                lockView,
+                context.cacheRoot(),
+                context.workspace().root(),
+                context.artifactIndex());
     }
 
     private static ClasspathSet emptyClasspaths() {

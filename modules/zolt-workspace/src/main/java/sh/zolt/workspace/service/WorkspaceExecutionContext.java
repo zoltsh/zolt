@@ -1,5 +1,6 @@
 package sh.zolt.workspace.service;
 
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -18,6 +19,12 @@ public final class WorkspaceExecutionContext {
     private final WorkspaceAbiIndex abiIndex;
     private final WorkspaceToolchainIndex toolchainIndex;
     private final WorkspaceLockIndex lockIndex;
+    /**
+     * Scoped to this context, and therefore to the command that created it: every lock projection
+     * the command makes verifies an artifact through the same index, so each file is hashed once,
+     * while a later command starts empty and re-reads anything modified in between.
+     */
+    private final VerifiedArtifactIndex artifactIndex = new VerifiedArtifactIndex();
     private final long graphConstructionNanos;
     private final Map<ClasspathKey, ClasspathSet> classpaths =
             new ConcurrentHashMap<>();
@@ -78,6 +85,9 @@ public final class WorkspaceExecutionContext {
     }
     WorkspaceLockIndex lockIndex() {
         return lockIndex;
+    }
+    public VerifiedArtifactIndex artifactIndex() {
+        return artifactIndex;
     }
 
     ClasspathSet classpaths(
@@ -182,7 +192,8 @@ public final class WorkspaceExecutionContext {
                 toolchainIndex.hits(),
                 toolchainIndex.lockfileParses(),
                 toolchainIndex.identityCalculations(),
-                toolchainIndex.identityHits());
+                toolchainIndex.identityHits(),
+                artifactIndex.metrics());
     }
 
     synchronized void addMemberExecutionNanos(long durationNanos) {
@@ -243,7 +254,8 @@ public final class WorkspaceExecutionContext {
             int toolchainCacheHits,
             int toolchainLockfileParses,
             int toolchainIdentityCalculations,
-            int toolchainIdentityCacheHits) {
+            int toolchainIdentityCacheHits,
+            VerifiedArtifactIndex.Metrics artifactIntegrity) {
         public Metrics(
                 long graphConstructionNanos,
                 long classpathCalculationNanos,
@@ -276,7 +288,8 @@ public final class WorkspaceExecutionContext {
                     0,
                     0,
                     0,
-                    0);
+                    0,
+                    VerifiedArtifactIndex.Metrics.empty());
         }
 
     }
