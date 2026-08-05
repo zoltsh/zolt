@@ -4,8 +4,6 @@ import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.ZoltCli;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
-import sh.zolt.doctor.JdkDetector;
-import sh.zolt.doctor.JdkStatus;
 import sh.zolt.doctor.SelfHostingCheckResult;
 import sh.zolt.doctor.SelfHostingCheckService;
 import sh.zolt.error.ActionableException;
@@ -41,7 +39,6 @@ public final class DoctorCommand implements Runnable {
     private static final String ENVIRONMENT_JAVA_BASELINE = "21";
 
     private final ZoltTomlParser tomlParser;
-    private final JdkDetector jdkDetector;
     private final SelfHostingCheckService selfHostingCheckService;
     private final JavaToolchainStatusService toolchainStatusService;
 
@@ -57,18 +54,15 @@ public final class DoctorCommand implements Runnable {
     public DoctorCommand() {
         this(
                 new ZoltTomlParser(),
-                new JdkDetector(),
                 new SelfHostingCheckService(),
                 new JavaToolchainStatusService());
     }
 
     DoctorCommand(
             ZoltTomlParser tomlParser,
-            JdkDetector jdkDetector,
             SelfHostingCheckService selfHostingCheckService,
             JavaToolchainStatusService toolchainStatusService) {
         this.tomlParser = tomlParser;
-        this.jdkDetector = jdkDetector;
         this.selfHostingCheckService = selfHostingCheckService;
         this.toolchainStatusService = toolchainStatusService;
     }
@@ -82,9 +76,7 @@ public final class DoctorCommand implements Runnable {
                 return;
             }
             ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
-            JdkStatus status = jdkDetector.detect(config.project().java());
-            printJdkStatus(status);
-            boolean ok = status.ok();
+            boolean ok = printProjectJdkStatus(projectRoot, config);
             Optional<TestRuntimeToolchain> testRuntime = new TestRuntimeToolchainResolver()
                     .resolve(projectRoot, projectRoot, config, HostPlatform.current(), ToolchainStore.defaults());
             if (testRuntime.isPresent()) {
@@ -131,31 +123,55 @@ public final class DoctorCommand implements Runnable {
      * toolchain outside a project, so this asks for an unpinned resolution with no lock metadata.
      */
     private boolean printEnvironmentToolchainStatus() {
-        CommandHumanOutput output = CommandHumanOutput.of(spec);
-        JavaToolchainStatus status = toolchainStatusService.status(
+        return printJdkStatus(toolchainStatusService.status(
                 JavaToolchainRequest.projectDefault(ENVIRONMENT_JAVA_BASELINE),
                 "environment default",
                 false,
                 Optional.empty(),
                 HostPlatform.current(),
-                ToolchainStore.defaults());
-        ResolvedJavaToolchain resolved = status.resolved();
+                ToolchainStore.defaults()));
+    }
+
+    /**
+     * The in-project JDK check runs through the same probe-backed resolution as the environment check
+     * and as {@code zolt toolchain status}, so doctor honors {@code [toolchain.java]}, the lockfile, and
+     * managed toolchains, and agrees with what {@code zolt build} will actually use. Resolving here
+     * rather than through a {@code JdkChecker} is deliberate: doctor reports an unusable toolchain, so
+     * it must not take the checker's throw-on-unresolvable path.
+     */
+    private boolean printProjectJdkStatus(Path projectRoot, ProjectConfig config) {
+        return printJdkStatus(toolchainStatusService.status(
+                projectRoot,
+                config,
+                HostPlatform.current(),
+                ToolchainStore.defaults()));
+    }
+
+    private boolean printJdkStatus(JavaToolchainStatus status) {
+        CommandHumanOutput output = CommandHumanOutput.of(spec);
         if (status.ok()) {
             output.status("JDK", "ok");
             return true;
         }
+        ResolvedJavaToolchain resolved = status.resolved();
         output.status("JDK status", "error");
         output.context("source", resolved.source().label());
         output.context("JAVA_HOME", resolved.javaHome().map(Path::toString).orElse("not set"));
         output.context("java", resolved.java().map(Path::toString).orElse("missing"));
         output.context("javac", resolved.javac().map(Path::toString).orElse("missing"));
         output.context("jar", resolved.jar().map(Path::toString).orElse("missing"));
-        output.context("version", resolved.runtime().version().orElse("unknown"));
+        output.context("version", runtimeVersion(resolved).orElse("unknown"));
         CommandHumanOutput errors = CommandHumanOutput.errors(spec);
         for (String problem : resolved.problems()) {
             errors.error(problem);
         }
         return false;
+    }
+
+    /** Prefers the Java feature version (21, 25) and falls back to the full runtime version string. */
+    private static Optional<String> runtimeVersion(ResolvedJavaToolchain resolved) {
+        Optional<String> featureVersion = resolved.runtime().featureVersion();
+        return featureVersion.isPresent() ? featureVersion : resolved.runtime().version();
     }
 
     /**
@@ -199,24 +215,6 @@ public final class DoctorCommand implements Runnable {
             candidate = candidate.getParent();
         }
         return candidate != null && Files.isDirectory(candidate) && Files.isWritable(candidate);
-    }
-
-    private void printJdkStatus(JdkStatus status) {
-        CommandHumanOutput output = CommandHumanOutput.of(spec);
-        if (status.ok()) {
-            output.status("JDK", "ok");
-            return;
-        }
-        output.status("JDK status", "error");
-        output.context("JAVA_HOME", status.javaHome().map(Path::toString).orElse("not set"));
-        output.context("java", status.java().map(Path::toString).orElse("missing"));
-        output.context("javac", status.javac().map(Path::toString).orElse("missing"));
-        output.context("jar", status.jar().map(Path::toString).orElse("missing"));
-        output.context("version", status.version().orElse("unknown"));
-        CommandHumanOutput errors = CommandHumanOutput.errors(spec);
-        for (String problem : status.problems()) {
-            errors.error(problem);
-        }
     }
 
     private boolean printTestRuntimeStatus(TestRuntimeToolchain testRuntime) {

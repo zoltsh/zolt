@@ -87,6 +87,86 @@ final class DoctorCommandTest {
         assertTrue(result.stderr().contains("error:"));
     }
 
+    /**
+     * Doctor must resolve the in-project JDK through the same probe-backed service that
+     * {@code zolt toolchain status} and {@code zolt build} use. A shim-installed JDK (jenv, asdf, mise)
+     * with no JAVA_HOME resolves only through that probe, so the two commands must never disagree.
+     */
+    @Test
+    void doctorInProjectJdkVerdictMatchesToolchainStatus() throws IOException {
+        Path projectDir = tempDir.resolve("toolchain-agreement");
+        writeProjectConfig(projectDir);
+
+        CommandResult doctor = execute("--color=never", "doctor", "--directory", projectDir.toString());
+        CommandResult toolchainStatus =
+                execute("--color=never", "toolchain", "status", "--directory", projectDir.toString());
+
+        assertEquals(
+                toolchainStatus.exitCode(),
+                doctor.exitCode(),
+                "doctor must agree with `toolchain status`; doctor said:\n" + doctor.stdout() + doctor.stderr());
+        assertTrue(toolchainStatus.stdout().contains("status: ok"), toolchainStatus.stdout());
+        assertTrue(doctor.stdout().contains("JDK: ok"), doctor.stdout());
+    }
+
+    /**
+     * The pre-probe JDK check only read {@code [project].java} and environment variables, so a
+     * {@code [toolchain.java]} table that cannot possibly resolve was reported as healthy.
+     */
+    @Test
+    void doctorHonorsUnsatisfiableToolchainJavaTable() throws IOException {
+        Path projectDir = tempDir.resolve("toolchain-table");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "%s"
+                main = "com.example.Main"
+
+                [toolchain.java]
+                version = "999"
+                features = []
+                policy = "allow-system"
+
+                [repositories]
+                test = "https://repo.maven.apache.org/maven2"
+
+                [dependencies]
+
+                [test.dependencies]
+
+                [build]
+                source = "src/main/java"
+                test = "src/test/java"
+                output = "target/classes"
+                testOutput = "target/test-classes"
+                """.formatted(currentJavaMajorVersion()));
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", projectDir.toString());
+
+        assertEquals(1, result.exitCode());
+        assertFalse(result.stdout().contains("JDK: ok"), result.stdout());
+        assertTrue(result.stdout().contains("JDK status: error"), result.stdout());
+        assertTrue(result.stderr().contains("Java version mismatch."), result.stderr());
+    }
+
+    /** A resolvable toolchain must never be reported as broken, on any host. */
+    @Test
+    void doctorReportsResolvedJdkPathsWhenSomethingIsWrong() throws IOException {
+        Path projectDir = tempDir.resolve("resolved-paths");
+        writeProjectConfig(projectDir, "999");
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", projectDir.toString());
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stdout().contains("source: "), result.stdout());
+        assertFalse(result.stdout().contains("java: missing"), result.stdout());
+        assertFalse(result.stdout().contains("javac: missing"), result.stdout());
+        assertFalse(result.stdout().contains("jar: missing"), result.stdout());
+    }
+
     @Test
     void doctorReportsJdkStatus() throws IOException {
         Path projectDir = tempDir.resolve("demo");
