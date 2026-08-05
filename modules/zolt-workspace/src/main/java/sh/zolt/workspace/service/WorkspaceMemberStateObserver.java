@@ -2,7 +2,6 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.project.GeneratedSourceStep;
-import sh.zolt.workspace.resolve.WorkspaceMemberLockDigest;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -26,11 +25,14 @@ import java.util.TreeSet;
  *
  * <p>Both are strictly cheaper than projecting a lock view and hashing its artifacts, and together
  * they cover exactly what the classpath digest covered for the purpose of deciding dirtiness.
+ *
+ * <p>The external half is asked of {@link WorkspaceMemberLaneClosure}, the same object the classpath
+ * factory projects lanes from, so a lock edit that moves any lane of a member necessarily moves that
+ * member's key for the lane.
  */
 final class WorkspaceMemberStateObserver {
     private final WorkspaceExecutionContext context;
     private final Map<String, WorkspaceMember> membersByPath;
-    private final WorkspaceMemberLockDigest lockDigest;
     private final String cacheRootDigest;
 
     WorkspaceMemberStateObserver(
@@ -38,13 +40,11 @@ final class WorkspaceMemberStateObserver {
             Map<String, WorkspaceMember> membersByPath) {
         this.context = context;
         this.membersByPath = membersByPath;
-        this.lockDigest = new WorkspaceMemberLockDigest(context.lockfile());
         this.cacheRootDigest = WorkspaceHash.text(context.cacheRoot().toString());
     }
 
-    String resolutionInputDigest(String memberPath, Set<String> visibleMembers) {
-        return WorkspaceHash.text(
-                cacheRootDigest + "|" + lockDigest.forMember(memberPath, visibleMembers));
+    private String resolutionInputDigest(WorkspaceMemberLaneClosure.Lane lane) {
+        return WorkspaceHash.text(cacheRootDigest + "|" + lane.digest());
     }
 
     /**
@@ -85,7 +85,7 @@ final class WorkspaceMemberStateObserver {
                 toolchainDigest,
                 mainSources.digest(),
                 generatedDigest,
-                resolutionInputDigest(member.path(), compileClosure),
+                resolutionInputDigest(context.laneClosure().mainCompile(member.path())),
                 abiDigest(compileClosure)));
         Path mainOutput = member.directory().resolve(build.output()).toAbsolutePath().normalize();
         Optional<IncrementalCompileSummary> mainSummary = context.abiIndex().main(mainOutput);
@@ -137,7 +137,7 @@ final class WorkspaceMemberStateObserver {
                 "|",
                 mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
                 testSources.digest(),
-                resolutionInputDigest(member.path(), testClosure),
+                resolutionInputDigest(context.laneClosure().test(member.path())),
                 abiDigest(testClosure)));
     }
 
@@ -157,7 +157,7 @@ final class WorkspaceMemberStateObserver {
                 member.config().packageSettings().toString(),
                 resourceDigest,
                 mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
-                resolutionInputDigest(member.path(), runtimeClosure),
+                resolutionInputDigest(context.laneClosure().mainRuntime(member.path())),
                 abiDigest(runtimeClosure)));
     }
 

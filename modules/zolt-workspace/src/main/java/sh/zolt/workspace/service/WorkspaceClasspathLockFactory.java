@@ -1,27 +1,30 @@
 package sh.zolt.workspace.service;
 
-import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Projects one member's lane out of the root lock.
+ *
+ * <p>Which packages are on the lane is not decided here: {@link WorkspaceMemberLaneClosure} owns that
+ * rule so stage 0's dirtiness keys and these projections cannot disagree about what moves a lane.
+ * This class turns the closure's answer back into a lock view, in the root lock's own order, and
+ * applies the per-lane narrowing the view needs.
+ */
 final class WorkspaceClasspathLockFactory {
     ZoltLockfile compileLock(
             WorkspaceExecutionContext context,
             String memberPath) {
         ZoltLockfile lockfile = context.lockfile();
-        Set<String> compileMembers = context.memberGraph().mainCompile(memberPath);
         return new ZoltLockfile(
                 lockfile.version(),
-                compileClasspathPackagesFor(
-                        lockfile,
-                        memberPath,
-                        compileMembers,
-                        context.lockIndex()),
+                lanePackages(lockfile, context.laneClosure().mainCompile(memberPath)),
                 List.of());
     }
 
@@ -29,15 +32,12 @@ final class WorkspaceClasspathLockFactory {
             WorkspaceExecutionContext context,
             String memberPath) {
         ZoltLockfile lockfile = context.lockfile();
-        Set<String> runtimeMembers = context.memberGraph().mainRuntime(memberPath);
         return new ZoltLockfile(
                 lockfile.version(),
-                runtimeClasspathPackagesFor(
-                        lockfile,
-                        memberPath,
-                        runtimeMembers,
-                        visibleMembers(memberPath, runtimeMembers),
-                        context.lockIndex()),
+                visibleLanePackages(
+                        context,
+                        context.laneClosure().mainRuntime(memberPath),
+                        visibleMembers(memberPath, context.memberGraph().mainRuntime(memberPath))),
                 List.of());
     }
 
@@ -45,15 +45,12 @@ final class WorkspaceClasspathLockFactory {
             WorkspaceExecutionContext context,
             String memberPath) {
         ZoltLockfile lockfile = context.lockfile();
-        Set<String> testMembers = context.memberGraph().test(memberPath);
         return new ZoltLockfile(
                 lockfile.version(),
-                runtimeClasspathPackagesFor(
-                        lockfile,
-                        memberPath,
-                        testMembers,
-                        visibleMembers(memberPath, testMembers),
-                        context.lockIndex()),
+                visibleLanePackages(
+                        context,
+                        context.laneClosure().test(memberPath),
+                        visibleMembers(memberPath, context.memberGraph().test(memberPath))),
                 List.of());
     }
 
@@ -61,22 +58,20 @@ final class WorkspaceClasspathLockFactory {
             WorkspaceExecutionContext context,
             String memberPath) {
         ZoltLockfile lockfile = context.lockfile();
-        Set<String> runtimeMembers = context.memberGraph().mainRuntime(memberPath);
-        Set<String> visibleMembers = visibleMembers(memberPath, runtimeMembers);
-        List<LockPackage> packages = runtimeClasspathPackagesFor(
-                lockfile,
-                memberPath,
-                runtimeMembers,
-                visibleMembers,
-                context.lockIndex());
+        Set<String> visibleMembers =
+                visibleMembers(memberPath, context.memberGraph().mainRuntime(memberPath));
+        List<LockPackage> packages = visibleLanePackages(
+                context,
+                context.laneClosure().mainRuntime(memberPath),
+                visibleMembers);
         List<LockMemberGraph> graphs = context.lockIndex().visibleGraphs(
                 lockfile.memberGraphs(),
                 visibleMembers,
                 packages);
         return new ZoltLockfile(
                 lockfile.version(),
-                java.util.Optional.empty(),
-                java.util.Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 List.of(),
                 packages,
                 List.of(),
@@ -84,78 +79,43 @@ final class WorkspaceClasspathLockFactory {
                 graphs);
     }
 
-    private static List<LockPackage> compileClasspathPackagesFor(
+    private static List<LockPackage> lanePackages(
             ZoltLockfile lockfile,
-            String memberPath,
-            Set<String> dependencyClosure,
-            WorkspaceLockIndex lockIndex) {
-        Set<String> exportedClosure =
-                WorkspaceExportedCompileClosure.compute(
-                        lockfile,
-                        dependencyClosure,
-                        lockIndex);
+            WorkspaceMemberLaneClosure.Lane lane) {
+        List<LockPackage> packages = lockfile.packages();
         List<LockPackage> filteredPackages = new ArrayList<>();
-        for (LockPackage lockPackage : lockfile.packages()) {
-            if (lockPackage.workspace().isPresent()) {
-                if (dependencyClosure.contains(lockPackage.workspace().orElseThrow())) {
-                    filteredPackages.add(lockPackage);
-                }
-                continue;
-            }
-            if (lockPackage.members().isEmpty()
-                    || lockPackage.members().contains(memberPath)
-                    || exportedClosure.contains(WorkspaceExportedCompileClosure.ref(lockPackage))) {
-                filteredPackages.add(lockPackage);
+        for (int index = 0; index < packages.size(); index++) {
+            if (lane.contains(index)) {
+                filteredPackages.add(packages.get(index));
             }
         }
         return filteredPackages;
     }
 
-    private static List<LockPackage> runtimeClasspathPackagesFor(
-            ZoltLockfile lockfile,
-            String memberPath,
-            Set<String> dependencyClosure,
-            Set<String> visibleMembers,
-            WorkspaceLockIndex lockIndex) {
+    /**
+     * The runtime-family lanes narrow aggregate policy effects to the members that can see the
+     * package. A workspace record names exactly one member and carries no aggregate effects, so it
+     * rides through untouched.
+     */
+    private static List<LockPackage> visibleLanePackages(
+            WorkspaceExecutionContext context,
+            WorkspaceMemberLaneClosure.Lane lane,
+            Set<String> visibleMembers) {
+        List<LockPackage> packages = context.lockfile().packages();
         List<LockPackage> filteredPackages = new ArrayList<>();
-        for (LockPackage lockPackage : lockfile.packages()) {
-            if (lockPackage.workspace().isPresent()) {
-                if (dependencyClosure.contains(lockPackage.workspace().orElseThrow())) {
-                    filteredPackages.add(lockPackage);
-                }
+        for (int index = 0; index < packages.size(); index++) {
+            if (!lane.contains(index)) {
                 continue;
             }
-            if (lockPackage.members().isEmpty()
-                    || lockPackage.members().contains(memberPath)
-                    || (hasNonOptionalContributor(
-                                    lockPackage,
-                                    visibleMembers,
-                                    lockIndex)
-                            && contributesAcrossWorkspaceBoundary(lockPackage.scope()))) {
-                filteredPackages.add(WorkspaceMemberPackageLockView.forVisibleMembers(
-                        lockPackage,
-                        visibleMembers,
-                        lockIndex.memberGraphs()));
-            }
+            LockPackage lockPackage = packages.get(index);
+            filteredPackages.add(lockPackage.workspace().isPresent()
+                    ? lockPackage
+                    : WorkspaceMemberPackageLockView.forVisibleMembers(
+                            lockPackage,
+                            visibleMembers,
+                            context.lockIndex().memberGraphs()));
         }
         return filteredPackages;
-    }
-
-    private static boolean contributesAcrossWorkspaceBoundary(DependencyScope scope) {
-        return scope == DependencyScope.COMPILE || scope == DependencyScope.RUNTIME;
-    }
-
-    private static boolean hasNonOptionalContributor(
-            LockPackage lockPackage,
-            Set<String> visibleMembers,
-            WorkspaceLockIndex lockIndex) {
-        for (String member : lockPackage.members()) {
-            if (visibleMembers.contains(member)
-                    && !lockIndex.memberGraphs().optionalOnlyFor(member, lockPackage)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static Set<String> visibleMembers(

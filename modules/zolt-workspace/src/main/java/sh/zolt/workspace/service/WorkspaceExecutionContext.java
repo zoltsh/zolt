@@ -19,6 +19,7 @@ public final class WorkspaceExecutionContext {
     private final WorkspaceAbiIndex abiIndex;
     private final WorkspaceToolchainIndex toolchainIndex;
     private final WorkspaceLockIndex lockIndex;
+    private WorkspaceMemberLaneClosure laneClosure;
     /**
      * Scoped to this context, and therefore to the command that created it: every lock projection
      * the command makes verifies an artifact through the same index, so each file is hashed once,
@@ -89,6 +90,18 @@ public final class WorkspaceExecutionContext {
     }
     WorkspaceLockIndex lockIndex() {
         return lockIndex;
+    }
+
+    /**
+     * The one lane closure this command uses. Stage 0 asks it whether a member's lanes moved and
+     * stage 1 asks it what to project onto them, so both read the same answer and a lane computed for
+     * either is already cached for the other.
+     */
+    synchronized WorkspaceMemberLaneClosure laneClosure() {
+        if (laneClosure == null) {
+            laneClosure = new WorkspaceMemberLaneClosure(lockfile, lockIndex, memberGraph);
+        }
+        return laneClosure;
     }
     public VerifiedArtifactIndex artifactIndex() {
         return artifactIndex;
