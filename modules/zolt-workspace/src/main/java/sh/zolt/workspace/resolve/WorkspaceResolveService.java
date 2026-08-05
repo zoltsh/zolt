@@ -219,7 +219,9 @@ public final class WorkspaceResolveService {
                                 merged(
                                         mediation.conflicts(),
                                         shadowConflicts)),
-                        merged(mediation.policyEffects(), shadowPolicyEffects));
+                        merged(mediation.policyEffects(), shadowPolicyEffects),
+                        WorkspaceResolutionInputFingerprint.fingerprint(
+                                workspace, effectiveConfigs));
         if (!locked) {
             workspace.inputs().requireCurrent();
         }

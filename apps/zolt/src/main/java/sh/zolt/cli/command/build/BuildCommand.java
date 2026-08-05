@@ -129,11 +129,8 @@ public final class BuildCommand implements Runnable {
                 WorkspaceBuildResult result = WorkspaceMutationLock.withWorkspaceLock(
                         projectRoot,
                         () -> {
-                            lockfiles.requireFreshWorkspaceLockfile(
-                                    projectRoot,
-                                    cacheRoot,
-                                    offline,
-                                    "zolt build --workspace");
+                            var target = lockfiles.requireFreshWorkspaceLockfile(
+                                    timings, projectRoot, cacheRoot, offline, "zolt build --workspace");
                             progress.start("Building workspace");
                             return timings.measure(
                                     "build workspace",
@@ -141,7 +138,7 @@ public final class BuildCommand implements Runnable {
                                         WorkspaceBuildPlan plan = timings.measure(
                                                 "plan workspace build",
                                                 () -> projectWorkspaceBuildService.planBuild(
-                                                        projectRoot,
+                                                        target,
                                                         cacheRoot,
                                                         offline,
                                                         CommandWorkspaceSelections.from(

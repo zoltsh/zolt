@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,7 +23,7 @@ final class WorkspacePackagePlanningTest {
         Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
 
         WorkspaceBuildPlan plan = new WorkspacePackageService().planPackages(
-                tempDir.resolve("apps/api"),
+                WorkspacePlanTarget.at(tempDir.resolve("apps/api")),
                 tempDir.resolve("cache"),
                 new WorkspaceSelectionRequest(false, List.of("apps/api")));
 

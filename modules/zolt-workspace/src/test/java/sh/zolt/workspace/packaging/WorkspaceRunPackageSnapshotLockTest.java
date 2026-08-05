@@ -8,6 +8,7 @@ import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +30,7 @@ final class WorkspaceRunPackageSnapshotLockTest {
                 new WorkspaceRunPackageService();
         Path cacheRoot = tempDir.resolve("cache");
         WorkspaceBuildPlan plan = service.planRunPackages(
-                tempDir,
+                WorkspacePlanTarget.at(tempDir),
                 cacheRoot,
                 WorkspaceSelectionRequest.defaults());
         WorkspaceBuildResult buildResult =

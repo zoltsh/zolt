@@ -216,7 +216,7 @@ public final class PackageCommand implements Runnable {
         WorkspacePackageService projectWorkspacePackageService =
                 workspacePackageService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("package"));
         WorkspacePackageResult result = WorkspaceMutationLock.withWorkspaceLock(projectRoot, () -> {
-            lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+            var target = lockfiles.requireFreshWorkspaceLockfile(timings, projectRoot, cacheRoot, false);
             progress.start("Packaging workspace");
             return timings.measure(
                     "package workspace",
@@ -224,7 +224,7 @@ public final class PackageCommand implements Runnable {
                         WorkspaceBuildPlan plan = timings.measure(
                                 "plan workspace packages",
                                 () -> projectWorkspacePackageService.planPackages(
-                                        projectRoot,
+                                        target,
                                         cacheRoot,
                                         CommandWorkspaceSelections.from(all, members, memberGroups)),
                                 CommandBuildAttributes::workspaceBuildPlan);

@@ -210,7 +210,7 @@ public final class TestCommand implements Runnable {
         WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
                 projectRoot,
                 () -> {
-                    lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                    var target = lockfiles.requireFreshWorkspaceLockfile(timings, projectRoot, cacheRoot, false);
                     progress.start("Testing workspace");
                     return timings.measure(
                             "test workspace",
@@ -218,7 +218,7 @@ public final class TestCommand implements Runnable {
                                 WorkspaceBuildPlan plan = timings.measure(
                                         "plan workspace tests",
                                         () -> projectWorkspaceTestService.planTests(
-                                                projectRoot,
+                                                target,
                                                 cacheRoot,
                                                 CommandWorkspaceSelections.from(all, members, memberGroups)),
                                         CommandBuildAttributes::workspaceBuildPlan);

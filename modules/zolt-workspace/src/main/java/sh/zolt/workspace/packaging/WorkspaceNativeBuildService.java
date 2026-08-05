@@ -16,6 +16,7 @@ import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -112,7 +113,8 @@ public final class WorkspaceNativeBuildService {
             Path startDirectory,
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest) {
-        return workspacePackageService.planPackages(startDirectory, cacheRoot, selectionRequest);
+        return workspacePackageService.planPackages(
+                WorkspacePlanTarget.at(startDirectory), cacheRoot, selectionRequest);
     }
 
     public WorkspaceBuildResult buildNativeInputs(WorkspaceBuildPlan plan, Path cacheRoot) {

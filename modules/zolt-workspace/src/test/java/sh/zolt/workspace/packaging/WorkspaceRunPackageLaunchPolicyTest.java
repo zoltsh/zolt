@@ -14,6 +14,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,7 +47,7 @@ final class WorkspaceRunPackageLaunchPolicyTest {
         member("apps/api", "api");
         Path cache = tempDir.resolve("launch-policy-cache");
         WorkspaceBuildPlan plan = service.planRunPackages(
-                tempDir,
+                WorkspacePlanTarget.at(tempDir),
                 cache,
                 new WorkspaceSelectionRequest(false, List.of("apps/api")));
         Path missingRuntime =
@@ -131,7 +132,7 @@ final class WorkspaceRunPackageLaunchPolicyTest {
                 """);
         member("apps/api", "api");
         WorkspaceBuildPlan plan = service.planRunPackages(
-                tempDir,
+                WorkspacePlanTarget.at(tempDir),
                 tempDir.resolve("quarkus-launch-cache"),
                 new WorkspaceSelectionRequest(false, List.of("apps/api")));
         Classpath empty = new Classpath(List.of());

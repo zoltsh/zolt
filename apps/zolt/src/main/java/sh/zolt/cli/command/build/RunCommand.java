@@ -127,14 +127,12 @@ public final class RunCommand implements Runnable {
                                     WorkspaceMutationLock.withWorkspaceLock(
                                             projectRoot,
                                             () -> {
-                                                lockfiles.requireFreshWorkspaceLockfile(
-                                                        projectRoot,
-                                                        cacheRoot,
-                                                        false);
+                                                var target = lockfiles.requireFreshWorkspaceLockfile(
+                                                        timings, projectRoot, cacheRoot, false);
                                                 WorkspaceBuildPlan plan = timings.measure(
                                                         "plan workspace run",
                                                         () -> projectWorkspaceRunService.planRun(
-                                                                projectRoot,
+                                                                target,
                                                                 cacheRoot,
                                                                 CommandWorkspaceSelections.from(
                                                                         all,

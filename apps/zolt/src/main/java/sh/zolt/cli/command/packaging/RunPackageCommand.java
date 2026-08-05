@@ -156,14 +156,12 @@ public final class RunPackageCommand implements Runnable {
                             sh.zolt.workspace.service.WorkspaceMutationLock.withWorkspaceLock(
                                     projectRoot,
                                     () -> {
-                                        lockfiles.requireFreshWorkspaceLockfile(
-                                                projectRoot,
-                                                cacheRoot,
-                                                false);
+                                        var target = lockfiles.requireFreshWorkspaceLockfile(
+                                                timings, projectRoot, cacheRoot, false);
                                         WorkspaceBuildPlan plan = timings.measure(
                                                 "plan workspace run packages",
                                                 () -> workspaceRunPackageService.planRunPackages(
-                                                        projectRoot,
+                                                        target,
                                                         cacheRoot,
                                                         CommandWorkspaceSelections.from(
                                                                 all,

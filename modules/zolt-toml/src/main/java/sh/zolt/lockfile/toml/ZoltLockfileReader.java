@@ -67,7 +67,9 @@ public final class ZoltLockfileReader {
                     packageCodec.packages(result.getArray("package")),
                     conflicts(result.getArray("conflict")),
                     policyEffects(result.getArray("policy")),
-                    memberGraphs(result.getArray("memberGraph")));
+                    memberGraphs(result.getArray("memberGraph")),
+                    LockfileTomlValues.optionalString(
+                            result, "workspaceResolutionInputFingerprint"));
         } catch (TomlInvalidTypeException exception) {
             throw new LockfileReadException(
                     "Invalid value type in zolt.lock: "

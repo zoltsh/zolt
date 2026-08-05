@@ -5,11 +5,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * Exact workspace planning bytes, including files that were absent when captured.
@@ -94,6 +97,32 @@ public final class WorkspaceInputs {
         files.forEach((path, content) -> values.put(path, WorkspaceHash.bytes(content)));
         missing.forEach(path -> values.put(path, "missing"));
         return Map.copyOf(values);
+    }
+
+    /** True when nothing was captured, so no digest over these inputs can be trusted. */
+    public boolean isEmpty() {
+        return files.isEmpty() && missing.isEmpty();
+    }
+
+    /**
+     * Digest of every captured path, keyed by its slash-separated location relative to {@code root}
+     * so the result does not depend on where the workspace is checked out. Paths outside the root
+     * keep their absolute form. Absent optional paths digest as {@code missing}, which is what makes
+     * "a config file appeared" a change rather than a silent no-op.
+     */
+    public SortedMap<String, String> digestsRelativeTo(Path root) {
+        Path normalizedRoot = normalize(root);
+        TreeMap<String, String> values = new TreeMap<>();
+        digests().forEach((path, digest) -> values.put(relative(normalizedRoot, path), digest));
+        return Collections.unmodifiableSortedMap(values);
+    }
+
+    private static String relative(Path root, Path path) {
+        if (!path.startsWith(root)) {
+            return path.toString().replace('\\', '/');
+        }
+        String relative = root.relativize(path).toString().replace('\\', '/');
+        return relative.isEmpty() ? "." : relative;
     }
 
     private static boolean matches(

@@ -12,6 +12,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildRequirements;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -154,16 +155,17 @@ public final class WorkspacePackageService {
             WorkspaceSelectionRequest selectionRequest,
             Optional<PackageMode> packageModeOverride) {
         return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
-            WorkspaceBuildPlan plan = planPackages(startDirectory, cacheRoot, selectionRequest);
+            WorkspaceBuildPlan plan = planPackages(
+                    WorkspacePlanTarget.at(startDirectory), cacheRoot, selectionRequest);
             return packageBuiltJars(plan, buildPackageInputs(plan, cacheRoot), cacheRoot, packageModeOverride);
         });
     }
 
     public WorkspaceBuildPlan planPackages(
-            Path startDirectory,
+            WorkspacePlanTarget target,
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest) {
-        return workspaceBuildService.planBuild(startDirectory, cacheRoot, false, selectionRequest);
+        return workspaceBuildService.planBuild(target, cacheRoot, false, selectionRequest);
     }
 
     public WorkspaceBuildResult buildPackageInputs(WorkspaceBuildPlan plan, Path cacheRoot) {

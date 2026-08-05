@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.test.TestSelection;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -269,7 +270,7 @@ final class WorkspaceTestServiceTest {
                 members = ["apps/api"]
                 dependencies = []
                 """);
-        WorkspaceBuildPlan plan = service.planTests(tempDir, cacheRoot, WorkspaceSelectionRequest.defaults());
+        WorkspaceBuildPlan plan = service.planTests(WorkspacePlanTarget.at(tempDir), cacheRoot, WorkspaceSelectionRequest.defaults());
         WorkspaceBuildResult buildResult = service.buildTestInputs(plan, cacheRoot);
 
         WorkspaceTestResult result = service.runIntegrationTests(

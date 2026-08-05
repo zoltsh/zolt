@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.testruntime.TestRunService;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -66,7 +67,7 @@ final class WorkspaceTestDependencyVisibilityTest {
 
         Path cacheRoot = tempDir.resolve("cache");
         WorkspaceBuildPlan plan =
-                service.planTests(tempDir.resolve("apps/api"), cacheRoot, WorkspaceSelectionRequest.defaults());
+                service.planTests(WorkspacePlanTarget.at(tempDir.resolve("apps/api")), cacheRoot, WorkspaceSelectionRequest.defaults());
         WorkspaceBuildResult build = service.buildTestInputs(plan, cacheRoot);
         WorkspaceBuildResult.MemberBuildResult app = build.members().stream()
                 .filter(member -> member.member().equals("apps/api"))

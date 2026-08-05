@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.project.PackageMode;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 
 final class WorkspaceRunPackageServiceTest {
     private final WorkspaceRunPackageService service = new WorkspaceRunPackageService();
@@ -204,7 +205,7 @@ final class WorkspaceRunPackageServiceTest {
                 """);
         Path cache = tempDir.resolve("uber-self-contained-cache");
         WorkspaceBuildPlan plan = service.planRunPackages(
-                tempDir,
+                WorkspacePlanTarget.at(tempDir),
                 cache,
                 new WorkspaceSelectionRequest(
                         false,

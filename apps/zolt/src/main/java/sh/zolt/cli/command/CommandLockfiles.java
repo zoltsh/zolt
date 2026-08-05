@@ -9,18 +9,25 @@ import sh.zolt.resolve.fingerprint.ProjectResolutionFingerprint;
 import sh.zolt.cli.command.CommandServiceBundles.CommandResolveServices;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.resolve.WorkspaceLockFreshness;
+import sh.zolt.workspace.resolve.WorkspaceLockFreshnessService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.perf.TimingRecorder;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 public final class CommandLockfiles {
+    public static final String WORKSPACE_FRESHNESS_PHASE = "workspace lock freshness";
+
     private final ResolveService resolveService;
     private final WorkspaceDiscoveryService workspaceDiscoveryService;
-    private final WorkspaceResolveService workspaceResolveService;
+    private final WorkspaceLockFreshnessService workspaceLockFreshnessService;
 
     public CommandLockfiles() {
         this(CommandFrameworkServices.resolveCommandServices());
@@ -39,7 +46,9 @@ public final class CommandLockfiles {
             WorkspaceResolveService workspaceResolveService) {
         this.resolveService = resolveService;
         this.workspaceDiscoveryService = workspaceDiscoveryService;
-        this.workspaceResolveService = workspaceResolveService;
+        this.workspaceLockFreshnessService = new WorkspaceLockFreshnessService(
+                workspaceDiscoveryService,
+                workspaceResolveService);
     }
 
     public void requireFreshLockfile(
@@ -115,15 +124,49 @@ public final class CommandLockfiles {
             Path cacheRoot,
             boolean offline,
             String retryCommand) {
-        Optional<Workspace> workspace = workspaceDiscoveryService.discover(workingDirectory.toAbsolutePath().normalize());
-        if (workspace.isEmpty()) {
-            return;
-        }
-        Path lockfilePath = workspace.orElseThrow().root().resolve("zolt.lock");
-        if (!Files.isRegularFile(lockfilePath) || !looksGeneratedLockfile(lockfilePath)) {
-            return;
-        }
-        workspaceResolveService.resolve(workingDirectory, cacheRoot, true, offline, retryCommand);
+        workspaceLockFreshnessService.requireFresh(workingDirectory, cacheRoot, offline, retryCommand);
+    }
+
+    public WorkspacePlanTarget requireFreshWorkspaceLockfile(
+            TimingRecorder timings,
+            Path workingDirectory,
+            Path cacheRoot,
+            boolean offline) {
+        return requireFreshWorkspaceLockfile(
+                timings, workingDirectory, cacheRoot, offline, "zolt resolve --workspace");
+    }
+
+    /**
+     * Gates the command on a current root lock and hands back the workspace that proved it, so build
+     * planning reuses that snapshot instead of walking every member config again. Recorded as its own
+     * phase: every workspace command pays this before any timed work starts.
+     */
+    public WorkspacePlanTarget requireFreshWorkspaceLockfile(
+            TimingRecorder timings,
+            Path workingDirectory,
+            Path cacheRoot,
+            boolean offline,
+            String retryCommand) {
+        return timings.measure(
+                        WORKSPACE_FRESHNESS_PHASE,
+                        () -> workspaceLockFreshnessService.requireFresh(
+                                workingDirectory, cacheRoot, offline, retryCommand),
+                        CommandLockfiles::freshnessAttributes)
+                .map(WorkspaceLockFreshness::workspace)
+                .map(WorkspacePlanTarget::of)
+                .orElseGet(() -> WorkspacePlanTarget.at(workingDirectory));
+    }
+
+    private static Map<String, String> freshnessAttributes(
+            Optional<WorkspaceLockFreshness> freshness) {
+        return freshness
+                .map(value -> Map.of(
+                        "workspaceLockFreshness", value.outcome().label(),
+                        "workspaceLockResolutionSkipped",
+                                Boolean.toString(value.resolutionSkipped()),
+                        "workspaceMembers",
+                                Integer.toString(value.workspace().members().size())))
+                .orElseGet(() -> Map.of("workspaceLockFreshness", "no-workspace"));
     }
 
     private static boolean looksGeneratedLockfile(Path lockfilePath) {

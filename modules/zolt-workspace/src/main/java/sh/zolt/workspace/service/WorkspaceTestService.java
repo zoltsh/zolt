@@ -89,17 +89,17 @@ public final class WorkspaceTestService {
             TestSelection testSelection,
             TestJvmArguments jvmArguments) {
         return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
-            WorkspaceBuildPlan plan = planTests(startDirectory, cacheRoot, selectionRequest);
+            WorkspaceBuildPlan plan = planTests(WorkspacePlanTarget.at(startDirectory), cacheRoot, selectionRequest);
             return runTests(plan, buildTestInputs(plan, cacheRoot), cacheRoot,
                     testSelection, jvmArguments);
         });
     }
 
     public WorkspaceBuildPlan planTests(
-            Path startDirectory,
+            WorkspacePlanTarget target,
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest) {
-        return workspaceBuildService.planTestBuild(startDirectory, cacheRoot, false, selectionRequest);
+        return workspaceBuildService.planTestBuild(target, cacheRoot, false, selectionRequest);
     }
 
     public WorkspaceBuildResult buildTestInputs(WorkspaceBuildPlan plan, Path cacheRoot) {

@@ -58,20 +58,22 @@ final class WorkspaceRunCommandTest {
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("core:hello"));
         String[] lines = result.stderr().lines().toArray(String[]::new);
-        assertEquals(4, lines.length);
-        assertTrue(lines[0].contains("\"phase\":\"plan workspace run\""));
-        assertTrue(lines[0].contains("\"depth\":1"));
-        assertTrue(lines[0].contains("\"includedMembers\":\"2\""));
-        assertTrue(lines[0].contains("\"selectedMembers\":\"1\""));
-        assertTrue(lines[1].contains("\"phase\":\"build workspace run inputs\""));
+        assertEquals(5, lines.length);
+        assertTrue(lines[0].contains("\"phase\":\"workspace lock freshness\""));
+        assertTrue(lines[0].contains("\"workspaceLockFreshness\""));
+        assertTrue(lines[1].contains("\"phase\":\"plan workspace run\""));
         assertTrue(lines[1].contains("\"depth\":1"));
-        assertTrue(lines[1].contains("\"mainCompilationsExecuted\":\"2\""));
-        assertTrue(lines[2].contains("\"phase\":\"launch workspace members\""));
+        assertTrue(lines[1].contains("\"includedMembers\":\"2\""));
+        assertTrue(lines[1].contains("\"selectedMembers\":\"1\""));
+        assertTrue(lines[2].contains("\"phase\":\"build workspace run inputs\""));
         assertTrue(lines[2].contains("\"depth\":1"));
-        assertTrue(lines[2].contains("\"members\":\"1\""));
-        assertTrue(lines[2].contains("\"outputBytes\""));
-        assertTrue(lines[3].contains("\"phase\":\"run workspace\""));
-        assertTrue(lines[3].contains("\"depth\":0"));
-        assertTrue(lines[3].contains("\"mainCompilationsExecuted\":\"2\""));
+        assertTrue(lines[2].contains("\"mainCompilationsExecuted\":\"2\""));
+        assertTrue(lines[3].contains("\"phase\":\"launch workspace members\""));
+        assertTrue(lines[3].contains("\"depth\":1"));
+        assertTrue(lines[3].contains("\"members\":\"1\""));
+        assertTrue(lines[3].contains("\"outputBytes\""));
+        assertTrue(lines[4].contains("\"phase\":\"run workspace\""));
+        assertTrue(lines[4].contains("\"depth\":0"));
+        assertTrue(lines[4].contains("\"mainCompilationsExecuted\":\"2\""));
     }
 }

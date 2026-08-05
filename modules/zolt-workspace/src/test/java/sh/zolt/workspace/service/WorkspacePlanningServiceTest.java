@@ -10,6 +10,7 @@ import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,7 +50,7 @@ final class WorkspacePlanningServiceTest {
         writeLockfile();
 
         WorkspaceBuildPlan plan = new WorkspaceTestService().planTests(
-                tempDir,
+                WorkspacePlanTarget.at(tempDir),
                 tempDir.resolve("cache"),
                 new WorkspaceSelectionRequest(false, List.of("apps/api")));
 

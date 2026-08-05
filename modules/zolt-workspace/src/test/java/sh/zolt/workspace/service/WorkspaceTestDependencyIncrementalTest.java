@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.testruntime.compile.TestCompileResult;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,7 +60,7 @@ final class WorkspaceTestDependencyIncrementalTest {
             WorkspaceTestService service,
             Path cacheRoot) {
         WorkspaceBuildPlan plan = service.planTests(
-                tempDir,
+                WorkspacePlanTarget.at(tempDir),
                 cacheRoot,
                 WorkspaceSelectionRequest.defaults());
         WorkspaceBuildResult build =

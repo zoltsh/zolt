@@ -1,6 +1,16 @@
 package sh.zolt.lockfile.toml;
 
 public final class LockfileSidecars {
+    /**
+     * Optional root-lock annotation recording the workspace resolution inputs that produced the
+     * lock. It is derived from inputs the rest of the lock already pins, so it stays out of the
+     * canonical dependency lockfile: a lock written before the annotation existed still verifies
+     * under {@code --locked}, and an input edit that changes only the annotation (a comment-only
+     * config edit) does not newly fail a locked verification.
+     */
+    public static final String WORKSPACE_RESOLUTION_INPUT_FINGERPRINT =
+            "workspaceResolutionInputFingerprint";
+
     private LockfileSidecars() {
     }
 
@@ -15,7 +25,23 @@ public final class LockfileSidecars {
     }
 
     public static String canonicalDependencyLockfile(String content) {
-        return withoutJavaToolchainBlocks(content).stripTrailing() + "\n";
+        return withoutWorkspaceResolutionInputFingerprint(
+                withoutJavaToolchainBlocks(content)).stripTrailing() + "\n";
+    }
+
+    private static String withoutWorkspaceResolutionInputFingerprint(String content) {
+        String prefix = WORKSPACE_RESOLUTION_INPUT_FINGERPRINT + " = ";
+        if (content == null || !content.contains(prefix)) {
+            return content;
+        }
+        StringBuilder output = new StringBuilder();
+        for (String line : safeLines(content)) {
+            if (line.startsWith(prefix)) {
+                continue;
+            }
+            output.append(line).append('\n');
+        }
+        return output.toString();
     }
 
     private static String withoutJavaToolchainBlocks(String content) {

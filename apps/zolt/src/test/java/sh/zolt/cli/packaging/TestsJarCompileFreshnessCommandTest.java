@@ -16,6 +16,7 @@ import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -202,7 +203,7 @@ final class TestsJarCompileFreshnessCommandTest {
         WorkspacePackageService packages =
                 new WorkspacePackageService();
         WorkspaceBuildPlan plan = packages.planPackages(
-                workspace,
+                WorkspacePlanTarget.at(workspace),
                 cache,
                 new WorkspaceSelectionRequest(true, List.of()));
         WorkspaceBuildResult build =

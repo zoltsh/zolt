@@ -15,6 +15,7 @@ import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -197,7 +198,7 @@ final class WorkspaceRunServiceTest {
                 }
                 """);
         WorkspaceBuildPlan plan = service.planRun(
-                tempDir,
+                WorkspacePlanTarget.at(tempDir),
                 tempDir.resolve("cache"),
                 WorkspaceSelectionRequest.defaults());
         WorkspaceBuildResult buildResult =

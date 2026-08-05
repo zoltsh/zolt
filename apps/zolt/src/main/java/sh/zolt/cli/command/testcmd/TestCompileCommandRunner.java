@@ -66,7 +66,7 @@ final class TestCompileCommandRunner {
         WorkspaceTestCompileResult result = WorkspaceMutationLock.withWorkspaceLock(
                 projectRoot,
                 () -> {
-                    lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                    var target = lockfiles.requireFreshWorkspaceLockfile(timings, projectRoot, cacheRoot, false);
                     progress.start("Compiling workspace tests");
                     return timings.measure(
                             "compile workspace tests",
@@ -74,7 +74,7 @@ final class TestCompileCommandRunner {
                                 WorkspaceBuildPlan plan = timings.measure(
                                         "plan workspace tests",
                                         () -> projectWorkspaceTestService.planTests(
-                                                projectRoot,
+                                                target,
                                                 cacheRoot,
                                                 CommandWorkspaceSelections.from(all, members, memberGroups)),
                                         CommandBuildAttributes::workspaceBuildPlan);

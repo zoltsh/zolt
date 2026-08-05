@@ -89,12 +89,7 @@ public final class WorkspaceBuildService {
         return WorkspaceMutationLock.withWorkspaceLock(
                 startDirectory,
                 () -> build(
-                        planBuildLocked(
-                                startDirectory,
-                                cacheRoot,
-                                offline,
-                                selectionRequest,
-                                false),
+                        planBuild(startDirectory, cacheRoot, offline, selectionRequest),
                         cacheRoot));
     }
 
@@ -103,43 +98,48 @@ public final class WorkspaceBuildService {
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest) {
-        return WorkspaceMutationLock.withWorkspaceLock(
-                startDirectory,
-                () -> planBuildLocked(
-                        startDirectory,
-                        cacheRoot,
-                        offline,
-                        selectionRequest,
-                        false));
+        return planBuild(WorkspacePlanTarget.at(startDirectory), cacheRoot, offline, selectionRequest);
     }
 
-    WorkspaceBuildPlan planTestBuild(
-            Path startDirectory,
+    public WorkspaceBuildPlan planBuild(
+            WorkspacePlanTarget target,
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest) {
-        return WorkspaceMutationLock.withWorkspaceLock(
-                startDirectory,
-                () -> planBuildLocked(
-                        startDirectory,
-                        cacheRoot,
-                        offline,
-                        selectionRequest,
-                        true));
+        return planLocked(target, cacheRoot, offline, selectionRequest, false);
     }
 
-    private WorkspaceBuildPlan planBuildLocked(
-            Path startDirectory,
+    WorkspaceBuildPlan planTestBuild(
+            WorkspacePlanTarget target,
+            Path cacheRoot,
+            boolean offline,
+            WorkspaceSelectionRequest selectionRequest) {
+        return planLocked(target, cacheRoot, offline, selectionRequest, true);
+    }
+
+    /**
+     * Takes the mutation lock the plan is read under. A discovered workspace already names its root,
+     * so it locks that directly; otherwise the root is located and confirmed under the lease.
+     */
+    private WorkspaceBuildPlan planLocked(
+            WorkspacePlanTarget target,
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest,
             boolean includeTestLanes) {
-        return buildPlanner.plan(
-                startDirectory,
-                cacheRoot,
-                offline,
-                selectionRequest,
-                includeTestLanes);
+        return target.discovered()
+                .map(workspace -> WorkspaceMutationLock.withLock(
+                        workspace.root(),
+                        () -> buildPlanner.plan(
+                                workspace, cacheRoot, offline, selectionRequest, includeTestLanes)))
+                .orElseGet(() -> WorkspaceMutationLock.withWorkspaceLock(
+                        target.startDirectory(),
+                        () -> buildPlanner.plan(
+                                target.startDirectory(),
+                                cacheRoot,
+                                offline,
+                                selectionRequest,
+                                includeTestLanes)));
     }
 
     public WorkspaceBuildResult build(WorkspaceBuildPlan plan, Path cacheRoot) {

@@ -27,6 +27,7 @@ import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import sh.zolt.workspace.service.WorkspaceTestService;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -145,7 +146,7 @@ final class WorkspaceCoverageToolchainContextTest {
                         toolchains.mainCheckers(),
                         toolchains.testRunServices());
         WorkspaceBuildPlan plan = service.planTests(
-                root,
+                WorkspacePlanTarget.at(root),
                 cacheRoot,
                 WorkspaceSelectionRequest.defaults());
         WorkspaceBuildResult buildResult =

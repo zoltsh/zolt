@@ -10,6 +10,7 @@ import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildRequirements;
@@ -85,7 +86,7 @@ public final class WorkspaceRunService {
         WorkspaceRunSnapshot snapshot =
                 WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
                     WorkspaceBuildPlan plan =
-                            planRun(startDirectory, cacheRoot, selectionRequest);
+                            planRun(WorkspacePlanTarget.at(startDirectory), cacheRoot, selectionRequest);
                     WorkspaceBuildResult buildResult =
                             buildRunInputs(plan, cacheRoot);
                     return snapshotRun(plan, buildResult);
@@ -96,10 +97,10 @@ public final class WorkspaceRunService {
     }
 
     public WorkspaceBuildPlan planRun(
-            Path startDirectory,
+            WorkspacePlanTarget target,
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest) {
-        return workspaceBuildService.planBuild(startDirectory, cacheRoot, false, selectionRequest);
+        return workspaceBuildService.planBuild(target, cacheRoot, false, selectionRequest);
     }
 
     public WorkspaceBuildResult buildRunInputs(WorkspaceBuildPlan plan, Path cacheRoot) {

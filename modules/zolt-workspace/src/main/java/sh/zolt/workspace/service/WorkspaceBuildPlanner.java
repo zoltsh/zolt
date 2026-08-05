@@ -60,7 +60,36 @@ final class WorkspaceBuildPlanner {
         Workspace workspace = discovery.apply(start).orElseThrow(() -> ResolveException.actionable(
                 "Could not find workspace config.",
                 "Run `zolt build --workspace` from a workspace directory or add zolt.toml with [workspace]."));
-        long discoveryNanos = elapsedSince(discoveryStarted);
+        return plan(
+                workspace,
+                elapsedSince(discoveryStarted),
+                cacheRoot,
+                offline,
+                selectionRequest,
+                includeTestLanes);
+    }
+
+    /**
+     * Plans against a workspace the caller already discovered, which is how a command that gated on
+     * lock freshness avoids reading and parsing every member config a second time.
+     */
+    WorkspaceBuildPlan plan(
+            Workspace discoveredWorkspace,
+            Path cacheRoot,
+            boolean offline,
+            WorkspaceSelectionRequest selectionRequest,
+            boolean includeTestLanes) {
+        return plan(discoveredWorkspace, 0L, cacheRoot, offline, selectionRequest, includeTestLanes);
+    }
+
+    private WorkspaceBuildPlan plan(
+            Workspace discovered,
+            long discoveryNanos,
+            Path cacheRoot,
+            boolean offline,
+            WorkspaceSelectionRequest selectionRequest,
+            boolean includeTestLanes) {
+        Workspace workspace = discovered;
         long selectionStarted = System.nanoTime();
         WorkspaceSelection selection = includeTestLanes
                 ? members.select(workspace, selectionRequest)

@@ -37,6 +37,8 @@ public final class ZoltLockfileWriter {
             stringArray(output, sortedStrings(lockfile.projectResolutionInputFingerprints()));
             output.append('\n');
         }
+        lockfile.workspaceResolutionInputFingerprint().ifPresent(value ->
+                assignment(output, LockfileSidecars.WORKSPACE_RESOLUTION_INPUT_FINGERPRINT, value));
         output.append('\n');
         for (LockPackage lockPackage : sortedPackages(lockfile.packages())) {
             writePackage(output, lockPackage);

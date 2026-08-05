@@ -23,6 +23,7 @@ import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.service.WorkspaceTestResult;
 import sh.zolt.workspace.service.WorkspaceTestService;
@@ -55,7 +56,7 @@ final class WorkspaceCoverageDefaults {
                     Path cacheRoot,
                     WorkspaceSelectionRequest selectionRequest) {
                 return service.planTests(
-                        startDirectory,
+                        WorkspacePlanTarget.at(startDirectory),
                         cacheRoot,
                         selectionRequest);
             }

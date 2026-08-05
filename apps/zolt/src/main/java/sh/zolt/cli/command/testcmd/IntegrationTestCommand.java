@@ -190,14 +190,14 @@ public final class IntegrationTestCommand implements Runnable {
         WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
                 projectRoot,
                 () -> {
-                    lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                    var target = lockfiles.requireFreshWorkspaceLockfile(timings, projectRoot, cacheRoot, false);
                     return timings.measure(
                             "integration-test workspace",
                             () -> {
                                 WorkspaceBuildPlan plan = timings.measure(
                                         "plan workspace integration tests",
                                         () -> projectWorkspaceTestService.planTests(
-                                                projectRoot,
+                                                target,
                                                 cacheRoot,
                                                 CommandWorkspaceSelections.from(all, members, memberGroups)),
                                         CommandBuildAttributes::workspaceBuildPlan);

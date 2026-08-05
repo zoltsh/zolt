@@ -11,13 +11,39 @@ public record ZoltLockfile(
         List<LockPackage> packages,
         List<LockConflict> conflicts,
         List<LockPolicyEffect> policyEffects,
-        List<LockMemberGraph> memberGraphs) {
+        List<LockMemberGraph> memberGraphs,
+        Optional<String> workspaceResolutionInputFingerprint) {
     /**
      * Version 5 adds optional-boundary and conflict-provenance facts to the member-qualified graph
      * introduced in version 4. Version 3 introduced scope-qualified dependency edges, and version 2
      * introduced variant-qualified edges and conflict identities.
+     *
+     * <p>{@code workspaceResolutionInputFingerprint} is an optional annotation rather than a schema
+     * change: readers that predate it ignore the unknown key, and locks written before it are still
+     * read, verified, and built without it.
      */
     public static final int CURRENT_VERSION = 5;
+
+    public ZoltLockfile(
+            int version,
+            Optional<String> aliasFingerprint,
+            Optional<String> projectResolutionFingerprint,
+            List<String> projectResolutionInputFingerprints,
+            List<LockPackage> packages,
+            List<LockConflict> conflicts,
+            List<LockPolicyEffect> policyEffects,
+            List<LockMemberGraph> memberGraphs) {
+        this(
+                version,
+                aliasFingerprint,
+                projectResolutionFingerprint,
+                projectResolutionInputFingerprints,
+                packages,
+                conflicts,
+                policyEffects,
+                memberGraphs,
+                Optional.empty());
+    }
 
     public ZoltLockfile(
             int version,
@@ -36,6 +62,20 @@ public record ZoltLockfile(
                 conflicts,
                 policyEffects,
                 List.of());
+    }
+
+    public ZoltLockfile withWorkspaceResolutionInputFingerprint(
+            Optional<String> fingerprint) {
+        return new ZoltLockfile(
+                version,
+                aliasFingerprint,
+                projectResolutionFingerprint,
+                projectResolutionInputFingerprints,
+                packages,
+                conflicts,
+                policyEffects,
+                memberGraphs,
+                fingerprint);
     }
 
     public ZoltLockfile(
@@ -92,6 +132,9 @@ public record ZoltLockfile(
         conflicts = List.copyOf(conflicts);
         policyEffects = policyEffects == null ? List.of() : List.copyOf(policyEffects);
         memberGraphs = memberGraphs == null ? List.of() : List.copyOf(memberGraphs);
+        workspaceResolutionInputFingerprint = workspaceResolutionInputFingerprint == null
+                ? Optional.empty()
+                : workspaceResolutionInputFingerprint;
         new LockMemberGraphIndex(memberGraphs, packages);
     }
 }

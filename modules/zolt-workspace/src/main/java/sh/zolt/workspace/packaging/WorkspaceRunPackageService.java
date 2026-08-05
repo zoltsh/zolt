@@ -15,6 +15,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -119,7 +120,7 @@ public final class WorkspaceRunPackageService {
                 WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
                     WorkspaceBuildPlan plan =
                             planRunPackages(
-                                    startDirectory,
+                                    WorkspacePlanTarget.at(startDirectory),
                                     cacheRoot,
                                     selectionRequest);
                     WorkspaceBuildResult buildResult =
@@ -138,10 +139,10 @@ public final class WorkspaceRunPackageService {
     }
 
     public WorkspaceBuildPlan planRunPackages(
-            Path startDirectory,
+            WorkspacePlanTarget target,
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest) {
-        return workspacePackageService.planPackages(startDirectory, cacheRoot, selectionRequest);
+        return workspacePackageService.planPackages(target, cacheRoot, selectionRequest);
     }
 
     public WorkspaceBuildResult buildRunPackageInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
