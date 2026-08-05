@@ -138,7 +138,7 @@ final class WorkspaceBuildServiceIncrementalTest {
 
         assertEquals(1, result.executionMetrics().memberPipelineInvocations());
         assertTrue(result.mainFingerprintCheckNanos() > 0L);
-        assertTrue(Files.readString(state).startsWith("version=2\nchecksum="));
+        assertTrue(Files.readString(state).startsWith("version=3\nchecksum="));
     }
 
     private void workspace(String content) throws IOException {

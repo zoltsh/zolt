@@ -6,6 +6,9 @@ import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
 import sh.zolt.workspace.state.WorkspaceFileSnapshot;
+import sh.zolt.workspace.state.WorkspaceParanoidMode;
+import sh.zolt.workspace.state.WorkspaceState;
+import sh.zolt.workspace.state.WorkspaceStateStore;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -17,10 +20,12 @@ public final class WorkspaceExecutionContext {
     private final ZoltLockfile lockfile;
     private final Path cacheRoot;
     private final WorkspaceClasspathMemberGraph memberGraph;
-    private final WorkspaceFileSnapshot fileSnapshot;
     private final WorkspaceAbiIndex abiIndex;
     private final WorkspaceToolchainIndex toolchainIndex;
     private final WorkspaceLockIndex lockIndex;
+    private final boolean paranoid = WorkspaceParanoidMode.enabled();
+    private WorkspaceState previousState;
+    private WorkspaceFileSnapshot fileSnapshot;
     private WorkspaceMemberLaneClosure laneClosure;
     /**
      * Scoped to this context, and therefore to the command that created it: every lock projection
@@ -45,6 +50,8 @@ public final class WorkspaceExecutionContext {
     private int packageCacheHits;
     private int readyQueuePeak;
     private int filesHashed;
+    private int filesStatted;
+    private int filesReused;
     private int membersConsidered;
     private int membersDeclaredClean;
     private int memberPipelineInvocations;
@@ -62,7 +69,6 @@ public final class WorkspaceExecutionContext {
         this.cacheRoot = cacheRoot.toAbsolutePath().normalize();
         long started = System.nanoTime();
         this.memberGraph = new WorkspaceClasspathMemberGraph(workspace);
-        this.fileSnapshot = new WorkspaceFileSnapshot();
         this.abiIndex = new WorkspaceAbiIndex();
         this.toolchainIndex = new WorkspaceToolchainIndex();
         this.lockIndex = new WorkspaceLockIndex(lockfile);
@@ -81,7 +87,30 @@ public final class WorkspaceExecutionContext {
     WorkspaceClasspathMemberGraph memberGraph() {
         return memberGraph;
     }
-    WorkspaceFileSnapshot fileSnapshot() {
+
+    /**
+     * The state the previous command committed, read once per command. Stage 0 decides dirtiness
+     * from its member rows and the file snapshot reuses its file rows, so both see one consistent
+     * read of one file rather than two reads that could straddle a concurrent write.
+     */
+    synchronized WorkspaceState previousState() {
+        if (previousState == null) {
+            previousState = new WorkspaceStateStore().read(workspace.root());
+        }
+        return previousState;
+    }
+
+    /**
+     * The one file snapshot this command hashes through, built behind the previous command's file
+     * table so an unchanged input is statted rather than read.
+     */
+    synchronized WorkspaceFileSnapshot fileSnapshot() {
+        if (fileSnapshot == null) {
+            fileSnapshot = new WorkspaceFileSnapshot(
+                    workspace.root(),
+                    previousState().files(),
+                    paranoid);
+        }
         return fileSnapshot;
     }
     WorkspaceAbiIndex abiIndex() {
@@ -214,6 +243,8 @@ public final class WorkspaceExecutionContext {
                 fileSnapshotNanos,
                 bytesHashed,
                 filesHashed,
+                filesStatted,
+                filesReused,
                 membersConsidered,
                 membersDeclaredClean,
                 memberPipelineInvocations,
@@ -240,13 +271,17 @@ public final class WorkspaceExecutionContext {
         readyQueuePeak = Math.max(readyQueuePeak, queuePeak);
     }
 
-    synchronized void addFileSnapshotMetrics(
-            long durationNanos,
-            long hashedBytes,
-            int hashedFiles) {
+    /**
+     * The snapshot's running totals, not deltas: {@code statted} counts every input the command
+     * considered, {@code hashed} only the ones whose bytes it had to read, and {@code reused} the
+     * ones a recorded hash answered for. On a warm command the second is zero.
+     */
+    synchronized void addFileSnapshotMetrics(long durationNanos, WorkspaceFileSnapshot snapshot) {
         fileSnapshotNanos += Math.max(0L, durationNanos);
-        bytesHashed = Math.max(bytesHashed, hashedBytes);
-        filesHashed = Math.max(filesHashed, hashedFiles);
+        bytesHashed = Math.max(bytesHashed, snapshot.bytesHashed());
+        filesHashed = Math.max(filesHashed, snapshot.filesHashed());
+        filesStatted = Math.max(filesStatted, snapshot.filesStatted());
+        filesReused = Math.max(filesReused, snapshot.filesReused());
     }
 
     /**
@@ -289,6 +324,8 @@ public final class WorkspaceExecutionContext {
             long fileSnapshotNanos,
             long bytesHashed,
             int filesHashed,
+            int filesStatted,
+            int filesReused,
             int membersConsidered,
             int membersDeclaredClean,
             int memberPipelineInvocations,
@@ -326,6 +363,8 @@ public final class WorkspaceExecutionContext {
                     0,
                     0L,
                     0L,
+                    0,
+                    0,
                     0,
                     0,
                     0,

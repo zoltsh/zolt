@@ -4,6 +4,7 @@ import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.build.testruntime.compile.TestCompileResult;
+import sh.zolt.workspace.state.WorkspaceFileKind;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -77,7 +78,11 @@ final class WorkspaceTestCompileExecutor {
         Path testOutput = member.directory().resolve(build.testOutput()).toAbsolutePath().normalize();
         int testSourceCount = plan.executionContext()
                 .fileSnapshot()
-                .javaSources(member.directory(), build.testSources())
+                .javaSources(
+                        member.path(),
+                        WorkspaceFileKind.TEST_SOURCE,
+                        member.directory(),
+                        build.testSources())
                 .fileCount();
         return new WorkspaceTestCompileResult.MemberTestCompileResult(
                 member.path(),

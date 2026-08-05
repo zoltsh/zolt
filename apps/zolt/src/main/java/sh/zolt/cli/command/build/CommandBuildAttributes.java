@@ -65,6 +65,12 @@ public final class CommandBuildAttributes {
                 CommandAttributeKeys.WORKSPACE_FILES_HASHED,
                 Integer.toString(result.executionMetrics().filesHashed()));
         attributes.put(
+                CommandAttributeKeys.WORKSPACE_FILES_STATTED,
+                Integer.toString(result.executionMetrics().filesStatted()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_FILES_REUSED,
+                Integer.toString(result.executionMetrics().filesReused()));
+        attributes.put(
                 CommandAttributeKeys.WORKSPACE_MEMBERS_CONSIDERED,
                 Integer.toString(result.executionMetrics().membersConsidered()));
         attributes.put(

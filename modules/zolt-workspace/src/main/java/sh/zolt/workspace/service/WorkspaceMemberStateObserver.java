@@ -3,6 +3,7 @@ package sh.zolt.workspace.service;
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
+import sh.zolt.workspace.state.WorkspaceFileKind;
 import sh.zolt.workspace.state.WorkspaceFileSnapshot;
 import sh.zolt.workspace.state.WorkspaceHash;
 import sh.zolt.workspace.state.WorkspaceMemberState;
@@ -78,20 +79,22 @@ final class WorkspaceMemberStateObserver {
             Optional<WorkspaceMemberState> previous) {
         WorkspaceFileSnapshot snapshot = context.fileSnapshot();
         var build = member.config().build();
-        var mainSources = snapshot.javaSources(member.directory(), build.sourceRoots());
-        var resources = snapshot.resources(member.directory(), build.resourceRoots());
+        String path = member.path();
+        var mainSources = snapshot.javaSources(
+                path, WorkspaceFileKind.MAIN_SOURCE, member.directory(), build.sourceRoots());
+        var resources = snapshot.resources(
+                path, WorkspaceFileKind.MAIN_RESOURCE, member.directory(), build.resourceRoots());
         String configDigest = WorkspaceHash.text(member.config().toString());
         String toolchainDigest = toolchainDigest(member, resolvedToolchainIdentity, snapshot);
         String generatedDigest = generatedInputs(snapshot, member, build.generatedMainSources());
-        Set<String> compileClosure = context.memberGraph().mainCompile(member.path());
         String compileKey = WorkspaceHash.text(String.join(
                 "|",
                 configDigest,
                 toolchainDigest,
                 mainSources.digest(),
                 generatedDigest,
-                resolutionInputDigest(context.laneClosure().mainCompile(member.path())),
-                abiDigest(compileClosure)));
+                resolutionInputDigest(context.laneClosure().mainCompile(path)),
+                abiDigest(context.memberGraph().mainCompile(path))));
         Path mainOutput = member.directory().resolve(build.output()).toAbsolutePath().normalize();
         Optional<IncrementalCompileSummary> mainSummary = context.abiIndex().main(mainOutput);
         String mainManifest = mainSummary
@@ -103,7 +106,12 @@ final class WorkspaceMemberStateObserver {
         String testManifest = previous.map(WorkspaceMemberState::testOutputManifestDigest).orElse("");
         if (requirements.testCompileClasspath()) {
             testCompileKey = testCompileKey(member, mainManifest);
-            testResources = snapshot.resources(member.directory(), build.testResourceRoots()).digest();
+            testResources = snapshot.resources(
+                            path,
+                            WorkspaceFileKind.TEST_RESOURCE,
+                            member.directory(),
+                            build.testResourceRoots())
+                    .digest();
             testManifest = context.abiIndex()
                     .test(member.directory().resolve(build.testOutput()).toAbsolutePath().normalize())
                     .map(IncrementalCompileSummary::outputManifestDigest)
@@ -132,19 +140,23 @@ final class WorkspaceMemberStateObserver {
      */
     String testCompileKey(WorkspaceMember member, String mainManifestDigest) {
         var build = member.config().build();
-        var testSources = context.fileSnapshot().javaSources(member.directory(), build.testSources());
-        Set<String> testClosure = context.memberGraph().test(member.path());
+        var testSources = context.fileSnapshot().javaSources(
+                member.path(), WorkspaceFileKind.TEST_SOURCE, member.directory(), build.testSources());
         return WorkspaceHash.text(String.join(
                 "|",
                 mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
                 testSources.digest(),
                 resolutionInputDigest(context.laneClosure().test(member.path())),
-                abiDigest(testClosure)));
+                abiDigest(context.memberGraph().test(member.path()))));
     }
 
     int sourceCount(WorkspaceMember member) {
         return context.fileSnapshot()
-                .javaSources(member.directory(), member.config().build().sourceRoots())
+                .javaSources(
+                        member.path(),
+                        WorkspaceFileKind.MAIN_SOURCE,
+                        member.directory(),
+                        member.config().build().sourceRoots())
                 .fileCount();
     }
 
@@ -159,11 +171,15 @@ final class WorkspaceMemberStateObserver {
                         + "|"
                         + resolvedToolchainIdentity
                         + "|memberConfig="
-                        + snapshot.pathHash(member.directory().resolve("zolt.toml"))
+                        + configHash(snapshot, member.path(), member.directory().resolve("zolt.toml"))
                         + "|workspaceConfig="
-                        + snapshot.pathHash(context.workspace().configPath())
+                        + configHash(snapshot, "", context.workspace().configPath())
                         + "|inheritedToolchainConfig="
-                        + snapshot.pathHash(context.workspace().root().resolve("zolt.toml")));
+                        + configHash(snapshot, "", context.workspace().root().resolve("zolt.toml")));
+    }
+
+    private static String configHash(WorkspaceFileSnapshot snapshot, String member, Path path) {
+        return snapshot.pathHash(member, WorkspaceFileKind.CONFIG, path);
     }
 
     private String abiDigest(Set<String> memberPaths) {
@@ -198,8 +214,13 @@ final class WorkspaceMemberStateObserver {
                 .flatMap(step -> step.inputs().stream())
                 .map(input -> member.directory().resolve(input).normalize())
                 .toList();
-        return WorkspaceHash.text(
-                steps + "|" + snapshot.paths(member.directory(), inputs).digest());
+        return WorkspaceHash.text(steps + "|"
+                + snapshot.paths(
+                                member.path(),
+                                WorkspaceFileKind.GENERATED_INPUT,
+                                member.directory(),
+                                inputs)
+                        .digest());
     }
 
 }

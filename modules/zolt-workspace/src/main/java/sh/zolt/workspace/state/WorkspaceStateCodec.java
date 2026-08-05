@@ -1,21 +1,38 @@
 package sh.zolt.workspace.state;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Reads and writes {@code .zolt/workspace-state-v1}.
+ *
+ * <p>Version 3 adds the per-file table beside the per-member digests. Version 2 states are still
+ * read — their member rows are exactly what version 3 writes — and simply arrive with an empty file
+ * table, which makes the first command after an upgrade hash every input once and then persist a
+ * version 3 state. Nothing recompiles for the migration: the member digests it decides from are
+ * carried across unchanged.
+ *
+ * <p>Anything older, corrupt, or unrecognised parses to empty and is treated as no state at all.
+ */
 public final class WorkspaceStateCodec {
-    private static final String VERSION = "2";
+    private static final String VERSION = "3";
+    private static final List<String> READABLE_VERSIONS = List.of("3", "2");
+    private static final String MEMBER_TAG = "member";
+    /** Version 2 wrote twelve digests per member; version 3 appends two more. */
+    private static final int MINIMUM_MEMBER_FIELDS = 14;
+    private static final int MEMBER_FIELDS = 2 + WorkspaceMemberState.DIGESTS;
+
+    private final WorkspaceFileStateCodec files = new WorkspaceFileStateCodec();
 
     public String format(WorkspaceState state) {
         StringBuilder payload = new StringBuilder();
         state.members().entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> member(payload, entry.getKey(), entry.getValue()));
+        files.format(payload, state.files());
         return "version=" + VERSION + "\n"
                 + "checksum=" + WorkspaceHash.text(payload.toString()) + "\n"
                 + payload;
@@ -25,9 +42,7 @@ public final class WorkspaceStateCodec {
         try {
             int firstBreak = content.indexOf('\n');
             int secondBreak = content.indexOf('\n', firstBreak + 1);
-            if (firstBreak < 0
-                    || secondBreak < 0
-                    || !content.substring(0, firstBreak).equals("version=" + VERSION)) {
+            if (firstBreak < 0 || secondBreak < 0 || !readable(content.substring(0, firstBreak))) {
                 return Optional.empty();
             }
             String checksumLine = content.substring(firstBreak + 1, secondBreak);
@@ -38,83 +53,53 @@ public final class WorkspaceStateCodec {
             if (!checksumLine.substring("checksum=".length()).equals(WorkspaceHash.text(payload))) {
                 return Optional.empty();
             }
-            Map<String, WorkspaceMemberState> members = new LinkedHashMap<>();
-            for (String line : payload.lines().toList()) {
-                List<String> values = fields(line);
-                if (values.size() != 14 || !"member".equals(values.getFirst())) {
-                    return Optional.empty();
-                }
-                String member = decode(values.get(1));
-                WorkspaceMemberState previous = members.put(member, state(values));
-                if (previous != null) {
-                    return Optional.empty();
-                }
-            }
-            return Optional.of(new WorkspaceState(members));
+            return rows(payload);
         } catch (IllegalArgumentException exception) {
             return Optional.empty();
         }
+    }
+
+    private Optional<WorkspaceState> rows(String payload) {
+        Map<String, WorkspaceMemberState> members = new LinkedHashMap<>();
+        Map<String, WorkspaceFileRecord> tracked = new LinkedHashMap<>();
+        for (String line : payload.lines().toList()) {
+            List<String> values = WorkspaceStateFields.fields(line);
+            if (files.isFileRow(values)) {
+                Optional<WorkspaceFileRecord> record = files.parse(values);
+                if (record.isEmpty() || tracked.put(record.orElseThrow().path(), record.orElseThrow()) != null) {
+                    return Optional.empty();
+                }
+                continue;
+            }
+            if (values.size() < MINIMUM_MEMBER_FIELDS
+                    || values.size() > MEMBER_FIELDS
+                    || !MEMBER_TAG.equals(values.getFirst())) {
+                return Optional.empty();
+            }
+            if (members.put(WorkspaceStateFields.decode(values.get(1)), state(values)) != null) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(new WorkspaceState(members, WorkspaceFileStateCodec.state(tracked)));
+    }
+
+    private static boolean readable(String versionLine) {
+        return READABLE_VERSIONS.stream().anyMatch(version -> versionLine.equals("version=" + version));
     }
 
     private static void member(
             StringBuilder payload,
             String member,
             WorkspaceMemberState state) {
-        List<String> values = List.of(
-                member,
-                state.configDigest(),
-                state.toolchainDigest(),
-                state.mainSourceTreeDigest(),
-                state.resourceTreeDigest(),
-                state.generatedInputDigest(),
-                state.mainCompileKey(),
-                state.mainOutputManifestDigest(),
-                state.publicAbiDigest(),
-                state.packagePrivateAbiDigest(),
-                state.testCompileKey(),
-                state.testResourceTreeDigest(),
-                state.testOutputManifestDigest());
-        payload.append("member");
-        values.forEach(value -> payload.append('\t').append(encode(value)));
-        payload.append('\n');
+        List<String> values = new ArrayList<>();
+        values.add(member);
+        values.addAll(state.digests());
+        WorkspaceStateFields.row(payload, MEMBER_TAG, values);
     }
 
     private static WorkspaceMemberState state(List<String> values) {
-        List<String> decoded = values.subList(2, values.size()).stream()
-                .map(WorkspaceStateCodec::decode)
-                .toList();
-        return new WorkspaceMemberState(
-                decoded.get(0),
-                decoded.get(1),
-                decoded.get(2),
-                decoded.get(3),
-                decoded.get(4),
-                decoded.get(5),
-                decoded.get(6),
-                decoded.get(7),
-                decoded.get(8),
-                decoded.get(9),
-                decoded.get(10),
-                decoded.get(11));
-    }
-
-    private static List<String> fields(String line) {
-        List<String> fields = new ArrayList<>();
-        for (String field : line.split("\\t", -1)) {
-            fields.add(field);
-        }
-        return fields;
-    }
-
-    private static String encode(String value) {
-        return Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static String decode(String value) {
-        return new String(
-                Base64.getUrlDecoder().decode(value),
-                StandardCharsets.UTF_8);
+        return WorkspaceMemberState.of(values.subList(2, values.size()).stream()
+                .map(WorkspaceStateFields::decode)
+                .toList());
     }
 }

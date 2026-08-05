@@ -46,7 +46,8 @@ final class WorkspaceStateStoreTest {
         }
 
         WorkspaceState written = store.read(tempDir);
-        assertTrue(written.equals(first) || written.equals(second));
+        assertTrue(written.members().equals(first.members())
+                || written.members().equals(second.members()));
         try (var paths = Files.list(tempDir.resolve(".zolt"))) {
             assertTrue(paths.noneMatch(path -> path.getFileName()
                     .toString()

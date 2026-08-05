@@ -30,7 +30,7 @@ final class WorkspaceDirtyPlanner {
             Map<String, WorkspaceMember> membersByPath,
             Map<String, WorkspaceBuildRequirements> requirementsByMember,
             Map<String, String> toolchainIdentitiesByMember) {
-        WorkspaceState previous = stateStore.read(context.workspace().root());
+        WorkspaceState previous = context.previousState();
         long started = System.nanoTime();
         WorkspaceMemberStateObserver observer =
                 new WorkspaceMemberStateObserver(context, membersByPath);
@@ -67,8 +67,7 @@ final class WorkspaceDirtyPlanner {
         }
         context.addFileSnapshotMetrics(
                 Math.max(0L, System.nanoTime() - started),
-                context.fileSnapshot().bytesHashed(),
-                context.fileSnapshot().filesHashed());
+                context.fileSnapshot());
         return new WorkspaceDirtyPlan(previous, plans);
     }
 
@@ -111,7 +110,9 @@ final class WorkspaceDirtyPlanner {
                             toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
                             plan.previousState().member(memberPath)));
         }
-        stateStore.write(context.workspace().root(), new WorkspaceState(current));
+        stateStore.write(
+                context.workspace().root(),
+                new WorkspaceState(current, context.fileSnapshot().state()));
     }
 
     private List<WorkspaceDirtyReason> reasons(
@@ -133,7 +134,7 @@ final class WorkspaceDirtyPlanner {
             reasons.add(WorkspaceDirtyReason.OUTPUT_MISSING);
         }
         if (!context.fileSnapshot()
-                .resourceOutputsCurrent(member.directory(), member.config().build())) {
+                .resourceOutputsCurrent(member.path(), member.directory(), member.config().build())) {
             reasons.add(WorkspaceDirtyReason.RESOURCE_OUTPUT_MISSING);
         }
         if (hasProcessorInputs || !member.config().build().generatedMainSources().isEmpty()) {
@@ -208,7 +209,8 @@ final class WorkspaceDirtyPlanner {
             reasons.add(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED);
         }
         if (!context.fileSnapshot()
-                .testResourceOutputsCurrent(member.directory(), member.config().build())) {
+                .testResourceOutputsCurrent(
+                        member.path(), member.directory(), member.config().build())) {
             reasons.add(WorkspaceDirtyReason.TEST_RESOURCE_OUTPUT_MISSING);
         }
         Path testOutput = member.directory()

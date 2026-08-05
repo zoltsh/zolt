@@ -159,6 +159,8 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_FILE_SNAPSHOT_NANOS = "workspaceFileSnapshotNanos";
     public static final String WORKSPACE_BYTES_HASHED = "workspaceBytesHashed";
     public static final String WORKSPACE_FILES_HASHED = "workspaceFilesHashed";
+    public static final String WORKSPACE_FILES_STATTED = "workspaceFilesStatted";
+    public static final String WORKSPACE_FILES_REUSED = "workspaceFilesReused";
     public static final String WORKSPACE_MEMBERS_CONSIDERED = "workspaceMembersConsidered";
     public static final String WORKSPACE_MEMBERS_DECLARED_CLEAN = "workspaceMembersDeclaredClean";
     public static final String WORKSPACE_MEMBER_PIPELINE_INVOCATIONS = "workspaceMemberPipelineInvocations";
