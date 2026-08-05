@@ -785,7 +785,7 @@ Everything Zolt keeps per machine rather than per project lives in one tree,
 | `~/.zolt/toolchains` | managed JDKs |
 | `~/.zolt/global-toolchains.lock` | global toolchain lock metadata |
 | `~/.zolt/shims` | opt-in `java`/`javac`/… wrapper scripts |
-| `~/.zolt/run` | runtime state for the persistent javac worker |
+| `~/.zolt/run` | runtime state for the persistent javac broker |
 
 Set `ZOLT_USER_HOME` to move the whole tree at once — the same idea as
 `GRADLE_USER_HOME`, and the supported way to make a CI job or a hermetic
