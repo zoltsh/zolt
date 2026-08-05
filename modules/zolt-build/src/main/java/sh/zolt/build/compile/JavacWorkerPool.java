@@ -1,6 +1,5 @@
 package sh.zolt.build.compile;
 
-import sh.zolt.cancel.BuildCancellation;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -15,6 +14,15 @@ final class JavacWorkerPool {
     private JavacWorkerPool() {
     }
 
+    /**
+     * Prefers the persistent broker and falls back to this command's own workers.
+     *
+     * <p>The broker is safe to use inside a cancellation context — which is to say, for every
+     * workspace member — because it executes each request in a child JVM it can kill. Earlier
+     * persistent workers compiled inside the server process, so a cancelled command could leave a
+     * compile running against its outputs; that is why they were skipped whenever cancellation was
+     * active, and why workspace builds never got a warm compiler at all.
+     */
     static Optional<JavacRunner.ProcessResult> compile(Path javac, int kind, List<String> arguments) {
         Optional<Path> workerJar = JavacWorkerClasspath.discover();
         if (workerJar.isEmpty()) {
@@ -23,15 +31,10 @@ final class JavacWorkerPool {
         PoolKey key = new PoolKey(
                 javac.toAbsolutePath().normalize(),
                 workerJar.orElseThrow().toAbsolutePath().normalize());
-        if (!BuildCancellation.active()) {
-            Optional<JavacRunner.ProcessResult> persistentResult = JavacWorkerDaemon.compile(
-                    key.javac(),
-                    key.workerJar(),
-                    kind,
-                    arguments);
-            if (persistentResult.isPresent()) {
-                return persistentResult;
-            }
+        Optional<JavacRunner.ProcessResult> brokered =
+                JavacBrokerClient.compile(key.javac(), key.workerJar(), kind, arguments);
+        if (brokered.isPresent()) {
+            return brokered;
         }
         return POOLS.computeIfAbsent(key, WorkerPool::new).compile(kind, arguments);
     }
@@ -86,6 +89,7 @@ final class JavacWorkerPool {
                 JavacWorkerProcess worker = idle.pollFirst();
                 if (worker != null) {
                     if (worker.isAlive()) {
+                        JavacWorkerMetrics.recordLocalRequest(false);
                         return worker;
                     }
                     worker.close();
@@ -95,6 +99,7 @@ final class JavacWorkerPool {
                 if (size < maximumSize) {
                     size++;
                     try {
+                        JavacWorkerMetrics.recordLocalRequest(true);
                         return JavacWorkerProcess.start(key.javac(), key.workerJar());
                     } catch (IOException exception) {
                         size--;
