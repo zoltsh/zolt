@@ -1,7 +1,10 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.build.profile.TestProfileMerger;
+import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;

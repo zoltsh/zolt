@@ -86,7 +86,7 @@ public final class WorkspaceExecutionContext {
      * The one file snapshot this command hashes through, built behind the previous command's file
      * table so an unchanged input is statted rather than read.
      */
-    synchronized WorkspaceFileSnapshot fileSnapshot() {
+    public synchronized WorkspaceFileSnapshot fileSnapshot() {
         if (fileSnapshot == null) {
             fileSnapshot = new WorkspaceFileSnapshot(
                     workspace.root(),

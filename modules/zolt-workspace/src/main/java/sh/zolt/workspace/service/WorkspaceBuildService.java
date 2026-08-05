@@ -106,7 +106,7 @@ public final class WorkspaceBuildService {
         return planLocked(target, cacheRoot, offline, selectionRequest, false);
     }
 
-    WorkspaceBuildPlan planTestBuild(
+    public WorkspaceBuildPlan planTestBuild(
             WorkspacePlanTarget target,
             Path cacheRoot,
             boolean offline,

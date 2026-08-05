@@ -31,7 +31,7 @@ import sh.zolt.workspace.service.WorkspaceInputs;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
-import sh.zolt.workspace.service.WorkspaceTestResult;
+import sh.zolt.workspace.test.WorkspaceTestResult;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;

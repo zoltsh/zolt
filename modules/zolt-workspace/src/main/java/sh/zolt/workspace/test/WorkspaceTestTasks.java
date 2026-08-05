@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.profile.TestProfileSettings;
@@ -9,6 +9,9 @@ import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.runtime.TestRunException;
 import sh.zolt.test.shard.TestShardSpec;
+import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMember;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;

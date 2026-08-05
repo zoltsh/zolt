@@ -1,4 +1,6 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
+
+import sh.zolt.workspace.service.WorkspaceExecutionContext;
 
 public record WorkspaceTestToolchainMetrics(
         int lockfileParses,

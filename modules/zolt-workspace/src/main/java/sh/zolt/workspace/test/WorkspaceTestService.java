@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.build.testruntime.TestReportSettings;
@@ -10,6 +10,14 @@ import sh.zolt.framework.FrameworkTestRunner;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.test.TestSelection;
+import sh.zolt.workspace.service.WorkspaceBuildPlan;
+import sh.zolt.workspace.service.WorkspaceBuildRequirements;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceBuildService;
+import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
+import sh.zolt.workspace.service.WorkspaceMutationLock;
+import sh.zolt.workspace.service.WorkspacePlanTarget;
+import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import java.nio.file.Path;
 import java.util.List;
@@ -26,7 +34,7 @@ public final class WorkspaceTestService {
         this(new JdkDetector(), resolveService, frameworkTestRunner);
     }
 
-    WorkspaceTestService(JdkChecker jdkDetector) {
+    public WorkspaceTestService(JdkChecker jdkDetector) {
         this(jdkDetector, new ResolveService(), FrameworkTestRunner.none());
     }
 

@@ -14,6 +14,7 @@ import sh.zolt.resolve.ResolveResult;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.workspace.coverage.WorkspaceCoverageResult;
+import sh.zolt.workspace.test.WorkspaceTestResult;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;

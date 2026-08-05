@@ -1,6 +1,8 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.build.testruntime.TestRunService;
+import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceMember;
 import java.util.Objects;
 
 @FunctionalInterface

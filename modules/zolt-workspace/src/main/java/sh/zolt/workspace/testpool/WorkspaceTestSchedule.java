@@ -19,7 +19,7 @@ import java.util.stream.Stream;
  * ones fill the gaps behind them.
  *
  * <p>Ordering only affects <em>submission</em>. Results are scattered back to their original member
- * positions by {@link WorkspaceTestExecutor}, so reporting order never changes.
+ * positions by {@link sh.zolt.workspace.test.WorkspaceTestExecutor}, so reporting order never changes.
  */
 public final class WorkspaceTestSchedule {
     private WorkspaceTestSchedule() {

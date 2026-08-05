@@ -1,7 +1,8 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.resolve.ResolveResult;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.testpool.WorkspaceTestPoolMetrics;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;

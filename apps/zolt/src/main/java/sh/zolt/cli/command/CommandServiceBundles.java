@@ -24,7 +24,7 @@ import sh.zolt.workspace.publish.WorkspacePublishService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.packaging.WorkspaceRunPackageService;
 import sh.zolt.workspace.run.WorkspaceRunService;
-import sh.zolt.workspace.service.WorkspaceTestService;
+import sh.zolt.workspace.test.WorkspaceTestService;
 import java.util.Objects;
 
 public final class CommandServiceBundles {

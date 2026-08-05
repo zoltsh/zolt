@@ -7,8 +7,8 @@ import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.cli.command.CommandAttributeKeys;
 import sh.zolt.cli.command.CommandJavacWorkerAttributes;
 import sh.zolt.test.TestSelection;
-import sh.zolt.workspace.service.WorkspaceTestCompileResult;
-import sh.zolt.workspace.service.WorkspaceTestResult;
+import sh.zolt.workspace.test.WorkspaceTestCompileResult;
+import sh.zolt.workspace.test.WorkspaceTestResult;
 import sh.zolt.workspace.testpool.WorkspaceTestPoolMetrics;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -170,7 +170,7 @@ public final class CommandTestAttributes {
 
     private static void addWorkspaceToolchainAttributes(
             Map<String, String> attributes,
-            sh.zolt.workspace.service.WorkspaceTestToolchainMetrics metrics) {
+            sh.zolt.workspace.test.WorkspaceTestToolchainMetrics metrics) {
         attributes.put(
                 CommandAttributeKeys.WORKSPACE_TOOLCHAIN_LOCKFILE_PARSES,
                 Integer.toString(metrics.lockfileParses()));

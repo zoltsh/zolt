@@ -10,7 +10,7 @@ import sh.zolt.toolchain.TestRuntimeToolchainResolver;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
-import sh.zolt.workspace.service.WorkspaceTestRunServiceResolver;
+import sh.zolt.workspace.test.WorkspaceTestRunServiceResolver;
 import java.nio.file.Path;
 import java.util.Optional;
 import picocli.CommandLine.Option;

@@ -1,7 +1,8 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.resolve.ResolveResult;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;

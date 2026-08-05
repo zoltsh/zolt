@@ -6,6 +6,8 @@ import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.oneTestS
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.workspace;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.zeroTestsFoundSummary;
+import sh.zolt.workspace.test.WorkspaceTestResult;
+import sh.zolt.workspace.test.WorkspaceTestService;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;

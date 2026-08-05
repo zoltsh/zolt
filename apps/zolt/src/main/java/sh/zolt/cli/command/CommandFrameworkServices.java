@@ -34,7 +34,7 @@ import sh.zolt.workspace.packaging.WorkspacePackageService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.packaging.WorkspaceRunPackageService;
 import sh.zolt.workspace.run.WorkspaceRunService;
-import sh.zolt.workspace.service.WorkspaceTestService;
+import sh.zolt.workspace.test.WorkspaceTestService;
 import java.util.List;
 
 public final class CommandFrameworkServices {

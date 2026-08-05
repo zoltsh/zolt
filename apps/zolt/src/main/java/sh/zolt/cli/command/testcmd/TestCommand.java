@@ -35,6 +35,8 @@ import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.*;
 import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import sh.zolt.workspace.WorkspaceConfigException;
+import sh.zolt.workspace.test.WorkspaceTestResult;
+import sh.zolt.workspace.test.WorkspaceTestService;
 import java.nio.file.Path;
 import java.util.List;
 import picocli.CommandLine.Command;

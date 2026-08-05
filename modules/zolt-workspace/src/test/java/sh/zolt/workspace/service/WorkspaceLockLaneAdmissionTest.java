@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.member;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.workspace;
+import sh.zolt.workspace.test.WorkspaceTestCompileResult;
+import sh.zolt.workspace.test.WorkspaceTestService;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

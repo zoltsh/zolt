@@ -1,9 +1,14 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.build.testruntime.compile.TestCompileResult;
+import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceBuildPlan;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMember;
+import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.state.WorkspaceFileKind;
 import java.nio.file.Path;
 import java.util.ArrayList;

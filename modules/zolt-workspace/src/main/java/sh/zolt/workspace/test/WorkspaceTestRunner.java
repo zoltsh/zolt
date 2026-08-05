@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.build.profile.TestProfileSettings;
 import sh.zolt.build.testruntime.TestReportSettings;
@@ -9,6 +9,10 @@ import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import sh.zolt.workspace.testpool.WorkspaceTestPoolMetrics;
+import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceBuildPlan;
+import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.testpool.WorkspaceTestSchedule;
 import java.nio.file.Path;
 import java.util.ArrayList;

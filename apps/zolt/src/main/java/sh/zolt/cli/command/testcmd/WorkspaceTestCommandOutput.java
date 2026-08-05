@@ -2,7 +2,7 @@ package sh.zolt.cli.command.testcmd;
 
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandOutput;
-import sh.zolt.workspace.service.WorkspaceTestResult;
+import sh.zolt.workspace.test.WorkspaceTestResult;
 import picocli.CommandLine.Model.CommandSpec;
 
 /**

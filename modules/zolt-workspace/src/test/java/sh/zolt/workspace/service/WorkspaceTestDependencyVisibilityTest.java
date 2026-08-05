@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
+import sh.zolt.workspace.test.WorkspaceTestService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

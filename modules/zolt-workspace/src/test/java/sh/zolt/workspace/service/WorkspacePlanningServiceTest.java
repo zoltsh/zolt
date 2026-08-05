@@ -11,6 +11,7 @@ import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
+import sh.zolt.workspace.test.WorkspaceTestService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

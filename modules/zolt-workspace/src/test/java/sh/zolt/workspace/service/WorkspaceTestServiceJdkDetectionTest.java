@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
+import sh.zolt.workspace.test.WorkspaceTestResult;
+import sh.zolt.workspace.test.WorkspaceTestService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

@@ -18,7 +18,7 @@ import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
-import sh.zolt.workspace.service.WorkspaceTestResult;
+import sh.zolt.workspace.test.WorkspaceTestResult;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;

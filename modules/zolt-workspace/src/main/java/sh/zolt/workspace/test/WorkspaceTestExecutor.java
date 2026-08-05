@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.test;
 
 import sh.zolt.cancel.BuildCancellation;
 import sh.zolt.test.runtime.TestRunException;
