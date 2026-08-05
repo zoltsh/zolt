@@ -8,6 +8,10 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.metadata.platform.ManagedVersion;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +20,7 @@ import java.util.Optional;
 /** Shared in-memory {@link LockfileAssemblyContext} for assembler tests: fabricates poms and jars on demand. */
 final class FakeAssemblyContext implements LockfileAssemblyContext {
     final Map<PackageId, ManagedVersion> managedVersions = new LinkedHashMap<>();
+    final List<String> digestedPaths = new ArrayList<>();
     private final ProjectConfig config;
     long lockfileAssemblyNanos;
 
@@ -52,6 +57,12 @@ final class FakeAssemblyContext implements LockfileAssemblyContext {
     }
 
     @Override
+    public String digest(CachedArtifact artifact) {
+        digestedPaths.add(artifact.repositoryPath());
+        return HexFormat.of().formatHex(sha256().digest(artifact.bytes()));
+    }
+
+    @Override
     public Map<PackageId, ManagedVersion> projectManagedVersionDetails() {
         return managedVersions;
     }
@@ -84,5 +95,13 @@ final class FakeAssemblyContext implements LockfileAssemblyContext {
 
     private static byte[] bytes(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static MessageDigest sha256() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable.", exception);
+        }
     }
 }

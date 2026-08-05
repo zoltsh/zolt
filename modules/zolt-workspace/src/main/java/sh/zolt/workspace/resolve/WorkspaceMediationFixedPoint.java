@@ -11,6 +11,7 @@ import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.ResolveOutput;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.resolve.ResolutionVariant;
+import sh.zolt.resolve.materialization.session.WorkspaceResolutionSession;
 import sh.zolt.resolve.metrics.ResolveMetrics;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -37,7 +38,8 @@ final class WorkspaceMediationFixedPoint {
             Map<String, WorkspaceMember> membersByPath,
             Map<String, ProjectConfig> effectiveConfigs,
             Path cacheRoot,
-            ResolveOptions options) {
+            ResolveOptions options,
+            WorkspaceResolutionSession session) {
         WorkspaceExternalPackageSelector selector =
                 new WorkspaceExternalPackageSelector();
         List<WorkspaceMemberResolveOutput> outputs =
@@ -101,7 +103,8 @@ final class WorkspaceMediationFixedPoint {
                         config,
                         cacheRoot,
                         options.withVersionOverrides(
-                                applicableOverrides(memberOutput, frontier, provided)));
+                                applicableOverrides(memberOutput, frontier, provided)),
+                        session);
                 remediated.add(
                         WorkspaceMemberResolveOutputFacts.of(
                                 member.path(),

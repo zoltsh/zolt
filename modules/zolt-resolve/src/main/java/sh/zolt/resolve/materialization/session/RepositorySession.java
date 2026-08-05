@@ -1,7 +1,6 @@
 package sh.zolt.resolve.materialization.session;
 
 import sh.zolt.cache.CachedArtifact;
-import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
@@ -22,41 +21,33 @@ import sh.zolt.resolve.metrics.ResolverMetricsSink;
 import sh.zolt.resolve.metadata.DependencyMetadataSource;
 import sh.zolt.resolve.metadata.platform.ManagedVersion;
 import sh.zolt.resolve.metadata.platform.ProjectPlatformMetadataPlanner;
-import sh.zolt.resolve.metadata.pom.EffectivePomInheritanceBuilder;
-import sh.zolt.resolve.metadata.pom.EffectivePomMetadataLoader;
-import sh.zolt.resolve.metadata.pom.ImportedBomDependencyManagementExpander;
-import sh.zolt.resolve.metadata.pom.ParentPomChainLoader;
 import sh.zolt.resolve.metadata.pom.PomMetadataPreloader;
-import sh.zolt.resolve.metadata.pom.RawPomMetadataLoader;
 import sh.zolt.resolve.request.DependencyRequest;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * One project's view of a resolution session: its configuration, its managed versions, its metrics,
+ * and the repositories its configuration says to fetch from.
+ *
+ * <p>Everything that is a function of the coordinate rather than of this project — POM bytes, parsed
+ * POMs, effective models, artifact digests — lives in the {@link WorkspaceResolutionSession} instead,
+ * so a command resolving many projects derives each of them once. A single-project resolve gets a
+ * session of its own and behaves exactly as it did when it owned these caches directly.
+ */
 public final class RepositorySession implements DependencyMetadataSource, ResolverMetricsSink, LockfileAssemblyContext {
     private final ProjectConfig config;
-    private final LocalArtifactCache cache;
+    private final WorkspaceResolutionSession session;
+    private final SharedRepositoryScope scope;
     private final RepositoryAccessPlanner repositoryAccessPlanner = new RepositoryAccessPlanner();
     private final RepositoryFetchCoordinator repositoryFetchCoordinator = new RepositoryFetchCoordinator();
     private final MavenRepositoryClient repositoryClient;
     private final RepositoryDownloadListener downloadProgressListener;
-    private final ArtifactMaterializer artifactMaterializer;
     private final ArtifactBatchMaterializer artifactBatchMaterializer = new ArtifactBatchMaterializer();
     private final PomMetadataPreloader pomMetadataPreloader = new PomMetadataPreloader();
     private final ProjectPlatformMetadataPlanner projectPlatformMetadataPlanner;
-    private final EffectivePomInheritanceBuilder effectivePomInheritanceBuilder = new EffectivePomInheritanceBuilder();
-    private final ImportedBomDependencyManagementExpander importedBomDependencyManagementExpander =
-            new ImportedBomDependencyManagementExpander();
-    private final ParentPomChainLoader parentPomChainLoader = new ParentPomChainLoader();
-    private final RawPomMetadataLoader rawPomMetadataLoader;
-    private final EffectivePomMetadataLoader effectivePomMetadataLoader =
-            new EffectivePomMetadataLoader(
-                    parentPomChainLoader,
-                    effectivePomInheritanceBuilder,
-                    importedBomDependencyManagementExpander);
-    private final Map<String, String> artifactSources = new ConcurrentHashMap<>();
     private final ResolverMetricsCollector metricsCollector = new ResolverMetricsCollector();
     private Map<PackageId, ManagedVersion> projectManagedVersions;
 
@@ -67,27 +58,39 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
             CoordinateParser coordinateParser,
             MavenRepositoryClient repositoryClient,
             RawPomParser rawPomParser) {
+        this(
+                config,
+                options,
+                coordinateParser,
+                repositoryClient,
+                new WorkspaceResolutionSession(cacheRoot, options, rawPomParser));
+    }
+
+    public RepositorySession(
+            ProjectConfig config,
+            ResolveOptions options,
+            CoordinateParser coordinateParser,
+            MavenRepositoryClient repositoryClient,
+            WorkspaceResolutionSession session) {
         this.config = config;
-        this.cache = new LocalArtifactCache(cacheRoot);
+        this.session = session;
+        this.scope = session.scopeFor(config);
         this.repositoryClient = repositoryClient;
         this.downloadProgressListener = options.artifactProgressListener()::onBytes;
         this.projectPlatformMetadataPlanner = new ProjectPlatformMetadataPlanner(coordinateParser);
-        this.rawPomMetadataLoader = new RawPomMetadataLoader(rawPomParser);
-        LocalOverlayMaterializer localOverlayMaterializer = new LocalOverlayMaterializer(cache, artifactSources);
-        this.artifactMaterializer = new ArtifactMaterializer(cache, options, localOverlayMaterializer);
     }
 
     @Override
     public EffectiveRawPom load(Coordinate coordinate) {
-        return effectivePomMetadataLoader.load(coordinate, List.of(), this::rawPom, metricsCollector);
+        return scope.effectivePom(coordinate, this::rawPom, metricsCollector);
     }
 
     @Override
     public void preload(List<Coordinate> coordinates) {
         pomMetadataPreloader.preload(
                 coordinates,
-                cache.downloadConcurrency(),
-                cache.repositoryExecutionLane(),
+                session.cache().downloadConcurrency(),
+                session.cache().repositoryExecutionLane(),
                 this::load);
     }
 
@@ -98,28 +101,33 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
 
     @Override
     public CachedArtifact getPom(Coordinate coordinate) {
-        return artifactMaterializer.getPom(coordinate, this::fetchPom, metricsCollector);
+        return scope.pomArtifact(coordinate, this::materializePom, metricsCollector);
     }
 
     public CachedArtifact getJar(Coordinate coordinate) {
-        return artifactMaterializer.getJar(coordinate, this::fetchJar, metricsCollector);
+        return session.artifactMaterializer().getJar(coordinate, this::fetchJar, metricsCollector);
     }
 
     CachedArtifact getArtifact(ArtifactDescriptor descriptor) {
-        return artifactMaterializer.getArtifact(descriptor, this::fetchArtifact, metricsCollector);
+        return session.artifactMaterializer().getArtifact(descriptor, this::fetchArtifact, metricsCollector);
     }
 
     @Override
     public String sourceFor(CachedArtifact artifact) {
-        return artifactSources.getOrDefault(artifact.repositoryPath(), "maven-central");
+        return session.artifactSources().getOrDefault(artifact.repositoryPath(), "maven-central");
+    }
+
+    @Override
+    public String digest(CachedArtifact artifact) {
+        return session.digest(artifact);
     }
 
     @Override
     public Map<ArtifactDescriptor, CachedArtifact> getArtifacts(List<ArtifactDescriptor> descriptors) {
         return artifactBatchMaterializer.materialize(
                 descriptors,
-                cache.downloadConcurrency(),
-                cache.repositoryExecutionLane(),
+                session.cache().downloadConcurrency(),
+                session.cache().repositoryExecutionLane(),
                 this::getArtifact);
     }
 
@@ -171,7 +179,11 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
     }
 
     private RawPom rawPom(Coordinate coordinate) {
-        return rawPomMetadataLoader.load(coordinate, this::getPom, metricsCollector);
+        return scope.rawPom(coordinate, this::getPom, metricsCollector);
+    }
+
+    private CachedArtifact materializePom(Coordinate coordinate) {
+        return session.artifactMaterializer().getPom(coordinate, this::fetchPom, metricsCollector);
     }
 
     private sh.zolt.maven.repository.RepositoryArtifact fetchPom(Coordinate coordinate) {

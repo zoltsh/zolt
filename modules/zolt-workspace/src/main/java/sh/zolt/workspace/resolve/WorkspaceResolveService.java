@@ -12,6 +12,7 @@ import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.ResolveOutput;
 import sh.zolt.resolve.ResolveResult;
 import sh.zolt.resolve.ResolveService;
+import sh.zolt.resolve.materialization.session.WorkspaceResolutionSession;
 import sh.zolt.resolve.metrics.ResolveMetrics;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -169,6 +170,11 @@ public final class WorkspaceResolveService {
         List<WorkspaceMemberResolveOutput> memberOutputs = new ArrayList<>();
         int downloadCount = 0;
         ResolveMetrics metrics = ResolveMetrics.empty();
+        // One session for the whole workspace: members still resolve one at a time by the same
+        // algorithm, but a POM read, parsed, and expanded for one member is not read, parsed, and
+        // expanded again for the next 202.
+        WorkspaceResolutionSession session =
+                resolveService.newResolutionSession(cacheRoot, options);
         for (String memberPath : workspace.buildOrder()) {
             WorkspaceMember member = membersByPath.get(memberPath);
             ProjectConfig effectiveConfig = policyMerger.merge(workspace, member);
@@ -176,7 +182,8 @@ public final class WorkspaceResolveService {
             ResolveOutput output = resolveService.resolveLockfile(
                     effectiveConfig,
                     cacheRoot,
-                    options);
+                    options,
+                    session);
             memberOutputs.add(WorkspaceMemberResolveOutputFacts.of(
                     member.path(), effectiveConfig, output));
             downloadCount += output.downloadCount();
@@ -192,7 +199,8 @@ public final class WorkspaceResolveService {
                         membersByPath,
                         effectiveConfigs,
                         cacheRoot,
-                        options);
+                        options,
+                        session);
         memberOutputs = mediation.memberOutputs();
         downloadCount += mediation.downloadCount();
         metrics = metrics.plus(mediation.metrics());

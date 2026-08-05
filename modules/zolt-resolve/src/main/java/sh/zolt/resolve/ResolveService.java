@@ -16,6 +16,7 @@ import sh.zolt.resolve.lockfile.assembly.ExecToolResolution;
 import sh.zolt.resolve.lockfile.assembly.LockfileAssembler;
 import sh.zolt.resolve.lockfile.persistence.ResolveLockfilePersistence;
 import sh.zolt.resolve.materialization.session.RepositorySession;
+import sh.zolt.resolve.materialization.session.WorkspaceResolutionSession;
 import sh.zolt.resolve.metrics.ResolveMetrics;
 import sh.zolt.resolve.metadata.DependencyMetadataSource;
 import sh.zolt.resolve.metadata.platform.ManagedVersion;
@@ -156,8 +157,27 @@ public final class ResolveService {
     }
 
     public ResolveOutput resolveLockfile(ProjectConfig config, Path cacheRoot, ResolveOptions options) {
+        return resolveLockfile(config, cacheRoot, options, newResolutionSession(cacheRoot, options));
+    }
+
+    /**
+     * A session to share across the projects one command resolves. Every project resolves by the same
+     * algorithm over it; the session only spares them from re-deriving the repository metadata they
+     * would each derive identically.
+     */
+    public WorkspaceResolutionSession newResolutionSession(Path cacheRoot, ResolveOptions options) {
+        return new WorkspaceResolutionSession(cacheRoot, options, rawPomParser);
+    }
+
+    /** Resolves {@code config} against a session that other projects in this command also use. */
+    public ResolveOutput resolveLockfile(
+            ProjectConfig config,
+            Path cacheRoot,
+            ResolveOptions options,
+            WorkspaceResolutionSession session) {
+        session.requireSameMaterializationContext(cacheRoot, options);
         RepositorySession context =
-                new RepositorySession(config, cacheRoot, options, coordinateParser, repositoryClient, rawPomParser);
+                new RepositorySession(config, options, coordinateParser, repositoryClient, session);
         Map<PackageId, ManagedVersion> managedVersionDetails = context.projectManagedVersionDetails();
         Map<PackageId, String> managedVersions = context.projectManagedVersions();
         SnapshotAllowance snapshotAllowance =

@@ -30,7 +30,10 @@ final class ResolveServiceTest extends ResolveServiceTestSupport {
         assertEquals(projectDir.resolve("zolt.lock"), result.lockfilePath());
         assertTrue(result.metrics().pomDownloadNanos() > 0);
         assertTrue(result.metrics().artifactDownloadNanos() > 0);
-        assertTrue(result.metrics().pomCacheHitNanos() > 0);
+        // A POM asked for twice — once to traverse it, once to lock it — is downloaded once and then
+        // served from the session, so the repeat is a hit whose cost is a map lookup rather than a
+        // re-read of the cache file.
+        assertTrue(result.metrics().pomCacheHits() > 0);
         assertEquals(0, result.metrics().artifactCacheHitNanos());
         assertTrue(result.metrics().rawPomParseNanos() > 0);
         assertTrue(result.metrics().effectivePomBuildNanos() > 0);

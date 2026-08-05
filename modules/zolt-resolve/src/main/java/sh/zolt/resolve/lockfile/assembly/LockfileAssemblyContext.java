@@ -18,6 +18,12 @@ public interface LockfileAssemblyContext {
 
     String sourceFor(CachedArtifact artifact);
 
+    /**
+     * The SHA-256 the lock records for {@code artifact}. The session answers it, so an artifact many
+     * projects select is hashed once instead of once per project.
+     */
+    String digest(CachedArtifact artifact);
+
     Map<PackageId, ManagedVersion> projectManagedVersionDetails();
 
     void addLockfileAssemblyNanos(long nanos);
