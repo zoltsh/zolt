@@ -17,6 +17,77 @@ final class DoctorCommandTest {
     private Path tempDir;
 
     @Test
+    void doctorReportsEnvironmentHealthOutsideAProject() throws IOException {
+        Path emptyDir = tempDir.resolve("not-a-project");
+        Files.createDirectories(emptyDir);
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", emptyDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertFalse(result.stdout().contains("Could not read zolt.toml"));
+        assertFalse(result.stderr().contains("Could not read zolt.toml"));
+        assertFalse(result.stderr().contains("Check that the file exists and is readable."));
+        assertTrue(result.stdout().contains("Zolt: ok"));
+        assertTrue(result.stdout().contains("version: "));
+        assertTrue(result.stdout().contains("JDK: ok"));
+        assertTrue(result.stdout().contains("Zolt home: ok"));
+    }
+
+    @Test
+    void doctorPointsAtInitOutsideAProject() throws IOException {
+        Path emptyDir = tempDir.resolve("needs-init");
+        Files.createDirectories(emptyDir);
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", emptyDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("skip Not a Zolt project: no zolt.toml in "));
+        assertTrue(result.stdout().contains(emptyDir.toAbsolutePath().normalize().toString()));
+        assertTrue(result.stdout().contains("Next: zolt init"));
+    }
+
+    @Test
+    void doctorSkipsProjectChecksOutsideAProject() throws IOException {
+        Path emptyDir = tempDir.resolve("no-project-checks");
+        Files.createDirectories(emptyDir);
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", emptyDir.toString());
+        CommandResult quiet = execute("--quiet", "doctor", "--directory", emptyDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertFalse(result.stdout().contains("Test runtime JDK"));
+        assertFalse(result.stdout().contains("Self-hosting"));
+        assertEquals(0, quiet.exitCode(), quiet.stderr());
+        assertEquals("", quiet.stdout());
+    }
+
+    @Test
+    void doctorStylesEnvironmentReportWhenColorIsForced() throws IOException {
+        Path emptyDir = tempDir.resolve("colored-environment");
+        Files.createDirectories(emptyDir);
+
+        CommandResult result = execute("--color=always", "doctor", "--directory", emptyDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("Zolt: \u001B[32mok\u001B[0m"));
+        assertTrue(result.stdout().contains("JDK: \u001B[32mok\u001B[0m"));
+        assertTrue(result.stdout().contains("Zolt home: \u001B[32mok\u001B[0m"));
+    }
+
+    @Test
+    void doctorStillReportsUnreadableProjectConfig() throws IOException {
+        Path projectDir = tempDir.resolve("broken");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), "this is not valid toml\n");
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", projectDir.toString());
+
+        assertEquals(1, result.exitCode());
+        assertFalse(result.stdout().contains("Not a Zolt project"));
+        assertTrue(result.stderr().contains("error:"));
+    }
+
+    @Test
     void doctorReportsJdkStatus() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir);

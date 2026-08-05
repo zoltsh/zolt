@@ -1,19 +1,27 @@
 package sh.zolt.cli.command.quality;
 
 import sh.zolt.cli.CommandHumanOutput;
+import sh.zolt.cli.ZoltCli;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.doctor.SelfHostingCheckResult;
 import sh.zolt.doctor.SelfHostingCheckService;
+import sh.zolt.error.ActionableException;
+import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.toolchain.JavaToolchainRequest;
+import sh.zolt.toolchain.JavaToolchainStatus;
+import sh.zolt.toolchain.JavaToolchainStatusService;
 import sh.zolt.toolchain.TestRuntimeToolchain;
 import sh.zolt.toolchain.TestRuntimeToolchainResolver;
+import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import picocli.CommandLine.Command;
@@ -25,9 +33,17 @@ import picocli.CommandLine;
 
 @Command(name = "doctor", description = "Inspect local Java/JDK/Zolt project health.")
 public final class DoctorCommand implements Runnable {
+    /**
+     * Java baseline used for the environment check when no project pins a version. This mirrors the
+     * version {@code zolt init} writes into a fresh {@code zolt.toml}, so a machine that passes the
+     * environment check can actually build the project {@code zolt init} is about to create.
+     */
+    private static final String ENVIRONMENT_JAVA_BASELINE = "21";
+
     private final ZoltTomlParser tomlParser;
     private final JdkDetector jdkDetector;
     private final SelfHostingCheckService selfHostingCheckService;
+    private final JavaToolchainStatusService toolchainStatusService;
 
     @Option(names = "--self-hosting", description = "Check whether the project is ready for Zolt-owned self-hosting flows.")
     private boolean selfHosting;
@@ -39,22 +55,32 @@ public final class DoctorCommand implements Runnable {
     private CommandSpec spec;
 
     public DoctorCommand() {
-        this(new ZoltTomlParser(), new JdkDetector(), new SelfHostingCheckService());
+        this(
+                new ZoltTomlParser(),
+                new JdkDetector(),
+                new SelfHostingCheckService(),
+                new JavaToolchainStatusService());
     }
 
     DoctorCommand(
             ZoltTomlParser tomlParser,
             JdkDetector jdkDetector,
-            SelfHostingCheckService selfHostingCheckService) {
+            SelfHostingCheckService selfHostingCheckService,
+            JavaToolchainStatusService toolchainStatusService) {
         this.tomlParser = tomlParser;
         this.jdkDetector = jdkDetector;
         this.selfHostingCheckService = selfHostingCheckService;
+        this.toolchainStatusService = toolchainStatusService;
     }
 
     @Override
     public void run() {
         try {
             Path projectRoot = projectDirectory.path();
+            if (!Files.isRegularFile(projectRoot.resolve("zolt.toml"))) {
+                checkEnvironment(projectRoot);
+                return;
+            }
             ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
             JdkStatus status = jdkDetector.detect(config.project().java());
             printJdkStatus(status);
@@ -75,6 +101,104 @@ public final class DoctorCommand implements Runnable {
         } catch (ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
+    }
+
+    /**
+     * Environment-level health for a directory that is not a Zolt project. This is the first command a
+     * fresh install runs, so it reports what Zolt can tell about the machine — its own version, the Java
+     * toolchain it would resolve, and whether the user-global tree is writable — instead of failing on a
+     * missing {@code zolt.toml}.
+     */
+    private void checkEnvironment(Path projectRoot) {
+        printZoltStatus();
+        boolean ok = printEnvironmentToolchainStatus();
+        ok = printUserHomeStatus() && ok;
+        printNotAProjectNotice(projectRoot);
+        if (!ok) {
+            throw new CommandLine.ExecutionException(spec.commandLine(), "Environment health check failed.");
+        }
+    }
+
+    private void printZoltStatus() {
+        CommandHumanOutput output = CommandHumanOutput.of(spec);
+        output.status("Zolt", "ok");
+        output.context("version", ZoltCli.version());
+    }
+
+    /**
+     * Resolves the Java toolchain through the same service {@code zolt toolchain status} renders, so
+     * doctor reports the real resolution outcome rather than a second, divergent probe. Nothing pins a
+     * toolchain outside a project, so this asks for an unpinned resolution with no lock metadata.
+     */
+    private boolean printEnvironmentToolchainStatus() {
+        CommandHumanOutput output = CommandHumanOutput.of(spec);
+        JavaToolchainStatus status = toolchainStatusService.status(
+                JavaToolchainRequest.projectDefault(ENVIRONMENT_JAVA_BASELINE),
+                "environment default",
+                false,
+                Optional.empty(),
+                HostPlatform.current(),
+                ToolchainStore.defaults());
+        ResolvedJavaToolchain resolved = status.resolved();
+        if (status.ok()) {
+            output.status("JDK", "ok");
+            return true;
+        }
+        output.status("JDK status", "error");
+        output.context("source", resolved.source().label());
+        output.context("JAVA_HOME", resolved.javaHome().map(Path::toString).orElse("not set"));
+        output.context("java", resolved.java().map(Path::toString).orElse("missing"));
+        output.context("javac", resolved.javac().map(Path::toString).orElse("missing"));
+        output.context("jar", resolved.jar().map(Path::toString).orElse("missing"));
+        output.context("version", resolved.runtime().version().orElse("unknown"));
+        CommandHumanOutput errors = CommandHumanOutput.errors(spec);
+        for (String problem : resolved.problems()) {
+            errors.error(problem);
+        }
+        return false;
+    }
+
+    /**
+     * Zolt creates the user-global tree on demand, so an absent directory is healthy as long as the
+     * nearest existing ancestor can be written to.
+     */
+    private boolean printUserHomeStatus() {
+        CommandHumanOutput output = CommandHumanOutput.of(spec);
+        Path home;
+        try {
+            home = UserGlobalDirectory.root();
+        } catch (ActionableException exception) {
+            output.status("Zolt home status", "error");
+            CommandHumanOutput.errors(spec).error(exception.getMessage());
+            return false;
+        }
+        Path cache = UserGlobalDirectory.artifactCache();
+        if (writable(home) && writable(cache)) {
+            output.status("Zolt home", "ok");
+            return true;
+        }
+        output.status("Zolt home status", "error");
+        output.context("home", home.toString());
+        output.context("cache", cache.toString());
+        CommandHumanOutput.errors(spec)
+                .error("Zolt cannot write to its user-global directory at " + home + ".");
+        return false;
+    }
+
+    private void printNotAProjectNotice(Path projectRoot) {
+        CommandHumanOutput output = CommandHumanOutput.of(spec);
+        output.check(
+                "skip",
+                "Not a Zolt project: no zolt.toml in " + projectRoot.toAbsolutePath().normalize() + ".");
+        output.action("zolt init");
+    }
+
+    private static boolean writable(Path path) {
+        Path candidate = path.toAbsolutePath().normalize();
+        while (candidate != null && !Files.exists(candidate)) {
+            candidate = candidate.getParent();
+        }
+        return candidate != null && Files.isDirectory(candidate) && Files.isWritable(candidate);
     }
 
     private void printJdkStatus(JdkStatus status) {
