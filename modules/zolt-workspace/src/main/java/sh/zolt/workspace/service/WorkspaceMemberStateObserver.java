@@ -29,28 +29,27 @@ import java.util.TreeSet;
 final class WorkspaceMemberStateObserver {
     private final WorkspaceExecutionContext context;
     private final Map<String, WorkspaceMember> membersByPath;
-    private final String resolutionInputDigest;
+    private final WorkspaceMemberLockDigest lockDigest;
+    private final String cacheRootDigest;
 
     WorkspaceMemberStateObserver(
             WorkspaceExecutionContext context,
             Map<String, WorkspaceMember> membersByPath) {
         this.context = context;
         this.membersByPath = membersByPath;
-        this.resolutionInputDigest = resolutionInputDigest(context);
+        this.lockDigest = new WorkspaceMemberLockDigest(context.lockfile());
+        this.cacheRootDigest = WorkspaceHash.text(context.cacheRoot().toString());
     }
 
-    String resolutionInputDigest() {
-        return resolutionInputDigest;
+    String resolutionInputDigest(String memberPath, Set<String> visibleMembers) {
+        return WorkspaceHash.text(
+                cacheRootDigest + "|" + lockDigest.forMember(memberPath, visibleMembers));
     }
 
     /**
-     * The digest of every workspace compile dependency's current on-disk ABI. Compared against the
-     * ABI each dependency recorded in the previous state, this is the dependency-ABI token gate.
+     * True when a workspace compile dependency's ABI on disk no longer matches the token the
+     * dependent recorded for it, which is the workspace half of a moved compile classpath.
      */
-    String dependencyAbiDigest(String memberPath) {
-        return abiDigest(context.memberGraph().mainCompile(memberPath));
-    }
-
     boolean dependencyAbiChanged(
             String memberPath,
             WorkspaceState previous) {
@@ -78,14 +77,15 @@ final class WorkspaceMemberStateObserver {
         String configDigest = WorkspaceHash.text(member.config().toString());
         String toolchainDigest = toolchainDigest(member, resolvedToolchainIdentity, snapshot);
         String generatedDigest = generatedInputs(snapshot, member, build.generatedMainSources());
+        Set<String> compileClosure = context.memberGraph().mainCompile(member.path());
         String compileKey = WorkspaceHash.text(String.join(
                 "|",
                 configDigest,
                 toolchainDigest,
                 mainSources.digest(),
                 generatedDigest,
-                resolutionInputDigest,
-                dependencyAbiDigest(member.path())));
+                resolutionInputDigest(member.path(), compileClosure),
+                abiDigest(compileClosure)));
         Path mainOutput = member.directory().resolve(build.output()).toAbsolutePath().normalize();
         Optional<IncrementalCompileSummary> mainSummary = context.abiIndex().main(mainOutput);
         String mainManifest = mainSummary
@@ -121,12 +121,13 @@ final class WorkspaceMemberStateObserver {
     String testCompileKey(WorkspaceMember member, String mainManifestDigest) {
         var build = member.config().build();
         var testSources = context.fileSnapshot().javaSources(member.directory(), build.testSources());
+        Set<String> testClosure = context.memberGraph().test(member.path());
         return WorkspaceHash.text(String.join(
                 "|",
                 mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
                 testSources.digest(),
-                resolutionInputDigest,
-                abiDigest(context.memberGraph().test(member.path()))));
+                resolutionInputDigest(member.path(), testClosure),
+                abiDigest(testClosure)));
     }
 
     int sourceCount(WorkspaceMember member) {
@@ -139,13 +140,14 @@ final class WorkspaceMemberStateObserver {
             WorkspaceMember member,
             String resourceDigest,
             String mainManifestDigest) {
+        Set<String> runtimeClosure = context.memberGraph().mainRuntime(member.path());
         return WorkspaceHash.text(String.join(
                 "|",
                 member.config().packageSettings().toString(),
                 resourceDigest,
                 mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
-                resolutionInputDigest,
-                abiDigest(context.memberGraph().mainRuntime(member.path()))));
+                resolutionInputDigest(member.path(), runtimeClosure),
+                abiDigest(runtimeClosure)));
     }
 
     private String toolchainDigest(
@@ -202,17 +204,4 @@ final class WorkspaceMemberStateObserver {
                 steps + "|" + snapshot.paths(member.directory(), inputs).digest());
     }
 
-    /**
-     * One digest for the whole workspace: the cache root the artifacts resolve under plus the exact
-     * root-lock bytes the planner captured, falling back to reading the file when a caller built a
-     * context without planning inputs.
-     */
-    private static String resolutionInputDigest(WorkspaceExecutionContext context) {
-        Path lockfilePath = context.workspace().root().resolve("zolt.lock");
-        String lockDigest = context.workspace().inputs()
-                .contentBytes(lockfilePath)
-                .map(WorkspaceHash::bytes)
-                .orElseGet(() -> context.fileSnapshot().pathHash(lockfilePath));
-        return WorkspaceHash.text(context.cacheRoot() + "|" + lockDigest);
-    }
 }

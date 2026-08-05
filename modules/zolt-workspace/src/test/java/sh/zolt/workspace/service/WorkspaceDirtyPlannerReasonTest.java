@@ -149,13 +149,26 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
     }
 
     @Test
-    void aRewrittenRootLockIsReportedAsAResolutionInputChange() throws IOException {
+    void aMovedLockPackageIsReportedAsAResolutionInputChange() throws IOException {
         var lock = tempDir.resolve("zolt.lock");
-        Files.writeString(lock, Files.readString(lock) + "\n# touched\n");
+        Files.writeString(
+                lock,
+                Files.readString(lock)
+                        .replace("workspaceOutput = \"target/classes\"", "workspaceOutput = \"build/classes\""));
 
         List<WorkspaceDirtyReason> apiReasons = reasons().get("apps/api");
         assertTrue(apiReasons.contains(WorkspaceDirtyReason.RESOLUTION_INPUT_CHANGED));
         assertFalse(apiReasons.contains(WorkspaceDirtyReason.MAIN_SOURCE_CHANGED));
+    }
+
+    /** A lock edit that touches nothing on the member's lanes must not admit anyone. */
+    @Test
+    void aLockEditOutsideThePackageRecordsLeavesEveryMemberClean() throws IOException {
+        var lock = tempDir.resolve("zolt.lock");
+        Files.writeString(lock, Files.readString(lock) + "\n# rewritten by an unrelated tool\n");
+
+        assertEquals(List.of(), reasons().get("apps/api"));
+        assertEquals(List.of(), reasons().get("modules/core"));
     }
 
     @Test
