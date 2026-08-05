@@ -67,7 +67,7 @@ final class PackageEvidenceArtifactWriterTest {
         StringBuilder json = new StringBuilder();
         PackageEvidenceArtifactWriter.write(json, projectDir, plan, result, List.of(
                 new PackageArtifact("sources", sources, 3),
-                new PackageArtifact("javadoc", javadoc, 2)));
+                new PackageArtifact("javadoc", javadoc, 2)), new PackageArchiveDigests());
         String artifacts = json.toString();
         int mainIndex = artifacts.indexOf("\"classifier\": \"main\"");
         int javadocIndex = artifacts.indexOf("\"classifier\": \"javadoc\"");

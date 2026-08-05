@@ -25,7 +25,8 @@ final class PackageEvidenceArtifactWriter {
             Path projectRoot,
             PackagePlan plan,
             PackageResult result,
-            List<PackageArtifact> artifacts) {
+            List<PackageArtifact> artifacts,
+            PackageArchiveDigests digests) {
         List<ArtifactEvidence> entries = entries(plan, result, artifacts);
 
         indent(json, 1).append("\"artifacts\": [");
@@ -38,7 +39,7 @@ final class PackageEvidenceArtifactWriter {
                 stringField(json, 3, "type", entry.type(), true);
                 stringField(json, 3, "path", displayPath(projectRoot, entry.path()), true);
                 intField(json, 3, "entries", entry.entries(), true);
-                stringField(json, 3, "sha256", PackageEvidenceChecksums.sha256(entry.path()), false);
+                stringField(json, 3, "sha256", digests.sha256(entry.path()), false);
                 indent(json, 2).append("}");
                 if (index + 1 < entries.size()) {
                     json.append(',');

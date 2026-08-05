@@ -81,13 +81,26 @@ public final class PackageEvidenceManifestWriter {
             PackagePlan plan,
             PackageResult result,
             List<PackageArtifact> artifacts) {
+        return write(projectDirectory, config, plan, result, artifacts, new PackageArchiveDigests());
+    }
+
+    /**
+     * Writes the manifest once, reusing digests already observed while the archives were written.
+     */
+    public Path write(
+            Path projectDirectory,
+            ProjectConfig config,
+            PackagePlan plan,
+            PackageResult result,
+            List<PackageArtifact> artifacts,
+            PackageArchiveDigests digests) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         Path manifestPath = evidenceManifestPath(result.jarPath());
         try {
             Files.createDirectories(manifestPath.getParent());
             PackageArchiveWriter.writeStringAtomically(
                     manifestPath,
-                    json(projectRoot, config, plan, result, artifacts),
+                    json(projectRoot, config, plan, result, artifacts, digests),
                     StandardCharsets.UTF_8);
             return manifestPath;
         } catch (IOException exception) {
@@ -108,7 +121,8 @@ public final class PackageEvidenceManifestWriter {
             ProjectConfig config,
             PackagePlan plan,
             PackageResult result,
-            List<PackageArtifact> artifacts) throws IOException {
+            List<PackageArtifact> artifacts,
+            PackageArchiveDigests digests) throws IOException {
         StringBuilder json = new StringBuilder();
         BuildProvenance provenance = provenanceSource.read(
                 projectRoot,
@@ -122,21 +136,23 @@ public final class PackageEvidenceManifestWriter {
         }
         project(json, config);
         json.append(",\n");
-        packageInfo(json, projectRoot, config, plan, result);
+        packageInfo(json, projectRoot, config, plan, result, digests);
         json.append(",\n");
         PackageEvidenceArtifactWriter.write(
                 json,
                 projectRoot,
                 plan,
                 result,
-                artifacts);
+                artifacts,
+                digests);
         json.append(",\n");
         PackageEvidenceOutputWriter.write(
                 json,
                 projectRoot,
                 plan,
                 result,
-                artifacts);
+                artifacts,
+                digests);
         json.append(",\n");
         PackageEvidenceInputWriter.writeMaterializedInputs(
                 json,
@@ -191,7 +207,8 @@ public final class PackageEvidenceManifestWriter {
             Path projectRoot,
             ProjectConfig config,
             PackagePlan plan,
-            PackageResult result) {
+            PackageResult result,
+            PackageArchiveDigests digests) {
         indent(json, 1).append("\"package\": {\n");
         stringField(json, 2, "mode", result.mode().configValue(), true);
         stringField(json, 2, "archive", displayPath(projectRoot, result.jarPath()), true);
@@ -199,7 +216,7 @@ public final class PackageEvidenceManifestWriter {
         stringField(json, 2, "applicationLayout", plan.applicationLayout(), true);
         nullablePathField(json, 2, "runtimeClasspath", projectRoot, result.runtimeClasspathPath(), true);
         nullableStringField(json, 2, "startClass", config.project().main(), true);
-        stringField(json, 2, "archiveSha256", PackageEvidenceChecksums.sha256(result.jarPath()), true);
+        stringField(json, 2, "archiveSha256", digests.sha256(result.jarPath()), true);
         stringField(
                 json,
                 2,

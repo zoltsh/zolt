@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.PackageException;
 import java.io.IOException;
@@ -14,6 +15,8 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.Enumeration;
 import java.util.List;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
@@ -22,6 +25,15 @@ import org.junit.jupiter.api.io.TempDir;
 final class PackageArchiveWriterTest {
     @TempDir
     private Path tempDir;
+
+    private static String sha256(Path path) throws IOException {
+        try {
+            return "sha256:" + HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
 
     @Test
     void writesDeterministicEntriesDirectoriesAndStoredDependencies() throws IOException {
@@ -104,6 +116,52 @@ final class PackageArchiveWriterTest {
         }
 
         assertArrayEquals(original, Files.readAllBytes(archivePath));
+    }
+
+    @Test
+    void streamedEntriesProduceByteIdenticalArchivesToInMemoryEntries() throws IOException {
+        byte[] content = "class-bytes".repeat(200).getBytes(StandardCharsets.UTF_8);
+        Path inMemory = tempDir.resolve("in-memory.jar");
+        Path streamed = tempDir.resolve("streamed.jar");
+
+        try (PackageArchiveWriter archive = PackageArchiveWriter.open(inMemory)) {
+            archive.writeEntry("com/example/Main.class", content);
+            archive.commit();
+        }
+        try (PackageArchiveWriter archive = PackageArchiveWriter.open(streamed)) {
+            archive.writeEntry("com/example/Main.class", output -> {
+                for (int offset = 0; offset < content.length; offset += 7) {
+                    output.write(content, offset, Math.min(7, content.length - offset));
+                }
+            });
+            archive.commit();
+        }
+
+        assertArrayEquals(Files.readAllBytes(inMemory), Files.readAllBytes(streamed));
+    }
+
+    @Test
+    void theArchiveDigestIsAccumulatedWhileWritingSoEvidenceNeedNotReRead() throws IOException {
+        Path archivePath = tempDir.resolve("digest.jar");
+
+        String digest;
+        try (PackageArchiveWriter archive = PackageArchiveWriter.open(archivePath)) {
+            archive.writeEntry("com/example/Main.class", new byte[] {1, 2, 3});
+            archive.commit();
+            digest = archive.archiveSha256().orElseThrow();
+        }
+
+        assertEquals(sha256(archivePath), digest);
+    }
+
+    @Test
+    void anUncommittedArchiveReportsNoDigest() throws IOException {
+        Path archivePath = tempDir.resolve("abandoned.jar");
+
+        try (PackageArchiveWriter archive = PackageArchiveWriter.open(archivePath)) {
+            archive.writeEntry("com/example/Main.class", new byte[] {1});
+            assertTrue(archive.archiveSha256().isEmpty());
+        }
     }
 
     @Test

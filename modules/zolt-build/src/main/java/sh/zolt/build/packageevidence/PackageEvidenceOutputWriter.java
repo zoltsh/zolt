@@ -24,7 +24,8 @@ final class PackageEvidenceOutputWriter {
             Path projectRoot,
             PackagePlan plan,
             PackageResult result,
-            List<PackageArtifact> artifacts) {
+            List<PackageArtifact> artifacts,
+            PackageArchiveDigests digests) {
         Map<String, Path> actual = new LinkedHashMap<>();
         actual.put("main", result.jarPath());
         result.runtimeClasspathPath().ifPresent(
@@ -86,9 +87,7 @@ final class PackageEvidenceOutputWriter {
                     json,
                     3,
                     "sha256",
-                    PackageEvidenceChecksums.outputSha256(
-                            output.path(),
-                            output.checksumKind()),
+                    outputSha256(digests, output.path(), output.checksumKind()),
                     false);
             indent(json, 2).append("}");
             if (index + 1 < expected.size()) {
@@ -97,5 +96,15 @@ final class PackageEvidenceOutputWriter {
             json.append('\n');
         }
         indent(json, 1).append("]");
+    }
+
+    private static String outputSha256(
+            PackageArchiveDigests digests,
+            Path path,
+            String checksumKind) {
+        if ("tree".equals(checksumKind)) {
+            return PackageEvidenceChecksums.outputSha256(path, checksumKind);
+        }
+        return digests.sha256(path);
     }
 }
