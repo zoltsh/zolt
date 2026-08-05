@@ -93,6 +93,63 @@ for name in legal_documents:
         raise SystemExit(f"error: {name} is empty; zap archives must ship real notice text")
 
 notices = pathlib.Path("THIRD_PARTY_NOTICES").read_text(encoding="utf-8")
+
+
+def unattributed(components, notices_text):
+    # Attribution only counts when one component entry names the exact Maven
+    # identifier and the exact bundled version together. Searching the whole
+    # file for each string independently lets `org.antlr:antlr4` ride on
+    # `org.antlr:antlr4-runtime`, and lets a stale version pass because some
+    # unrelated entry happens to spell it.
+    attributed = {}
+    for entry in re.split(r"\n[ \t]*\n", notices_text):
+        identifier = re.search(r"^[ \t]*Maven coordinates:[ \t]*(\S+)[ \t]*$", entry, re.M)
+        version = re.search(r"^[ \t]*Version:[ \t]*(\S+)[ \t]*$", entry, re.M)
+        if identifier and version:
+            attributed.setdefault(identifier.group(1), set()).add(version.group(1))
+    return sorted(
+        f"{identifier}:{version}"
+        for identifier, version in components
+        if version not in attributed.get(identifier, frozenset())
+    )
+
+
+control_notices = """\
+ANTLR 4 Java runtime
+    Maven coordinates: org.antlr:antlr4-runtime
+    Version:           4.11.1
+    License:           BSD-3-Clause (Appendix A)
+
+tomlj
+    Maven coordinates: org.tomlj:tomlj
+    Version:           1.1.1
+    License:           Apache-2.0 (see LICENSE in this distribution)
+
+legacy helper
+    Maven coordinates: com.example:legacy
+    Version:           1.1.0
+    License:           Apache-2.0 (see LICENSE in this distribution)
+"""
+controls = (
+    # A prefix of a listed identifier is a different component.
+    ("substring identifier", (("org.antlr:antlr4", "4.11.1"),), ["org.antlr:antlr4:4.11.1"]),
+    # A version bump must bite even though another entry still spells the old one.
+    ("stale version", (("org.tomlj:tomlj", "1.1.0"),), ["org.tomlj:tomlj:1.1.0"]),
+    # Exactly attributed components must keep passing.
+    (
+        "exact attribution",
+        (("org.antlr:antlr4-runtime", "4.11.1"), ("org.tomlj:tomlj", "1.1.1")),
+        [],
+    ),
+)
+for label, components, expected in controls:
+    actual = unattributed(components, control_notices)
+    if actual != expected:
+        raise SystemExit(
+            f"error: THIRD_PARTY_NOTICES attribution check failed its {label} control: "
+            f"expected {expected} but reported {actual}"
+        )
+
 bundled = []
 for block in pathlib.Path("zolt.lock").read_text(encoding="utf-8").split("[[package]]")[1:]:
 
@@ -104,11 +161,7 @@ for block in pathlib.Path("zolt.lock").read_text(encoding="utf-8").split("[[pack
     if field("scope") in ("compile", "runtime") and not identifier.startswith("sh.zolt:"):
         bundled.append((identifier, field("version")))
 
-unlisted = [
-    f"{identifier}:{version}"
-    for identifier, version in bundled
-    if identifier not in notices or version not in notices
-]
+unlisted = unattributed(bundled, notices)
 if unlisted:
     raise SystemExit(
         "error: THIRD_PARTY_NOTICES does not attribute bundled components: "
