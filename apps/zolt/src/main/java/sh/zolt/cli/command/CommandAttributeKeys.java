@@ -162,6 +162,10 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_MEMBERS_CONSIDERED = "workspaceMembersConsidered";
     public static final String WORKSPACE_MEMBERS_DECLARED_CLEAN = "workspaceMembersDeclaredClean";
     public static final String WORKSPACE_MEMBER_PIPELINE_INVOCATIONS = "workspaceMemberPipelineInvocations";
+    public static final String WORKSPACE_MEMBERS_ADMITTED = "workspaceMembersAdmitted";
+    public static final String WORKSPACE_MEMBERS_FINALIZED = "workspaceMembersFinalized";
+    public static final String WORKSPACE_RUNTIME_CLASSPATH_CALCULATIONS = "workspaceRuntimeClasspathCalculations";
+    public static final String WORKSPACE_TEST_CLASSPATH_CALCULATIONS = "workspaceTestClasspathCalculations";
     public static final String WORKSPACE_ABI_STATE_READS = "workspaceAbiStateReads";
     public static final String WORKSPACE_ABI_STATE_CACHE_HITS = "workspaceAbiStateCacheHits";
     public static final String WORKSPACE_TOOLCHAIN_RESOLUTIONS = "workspaceToolchainResolutions";

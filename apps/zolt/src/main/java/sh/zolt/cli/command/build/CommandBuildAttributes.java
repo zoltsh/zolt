@@ -74,6 +74,18 @@ public final class CommandBuildAttributes {
                 CommandAttributeKeys.WORKSPACE_MEMBER_PIPELINE_INVOCATIONS,
                 Integer.toString(result.executionMetrics().memberPipelineInvocations()));
         attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBERS_ADMITTED,
+                Integer.toString(result.executionMetrics().membersAdmitted()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_MEMBERS_FINALIZED,
+                Integer.toString(result.executionMetrics().membersFinalized()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_RUNTIME_CLASSPATH_CALCULATIONS,
+                Integer.toString(result.executionMetrics().runtimeClasspathCalculations()));
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_TEST_CLASSPATH_CALCULATIONS,
+                Integer.toString(result.executionMetrics().testClasspathCalculations()));
+        attributes.put(
                 CommandAttributeKeys.WORKSPACE_ABI_STATE_READS,
                 Integer.toString(result.executionMetrics().abiStateReads()));
         attributes.put(
