@@ -209,7 +209,7 @@ public final class WorkspaceBuildService {
                 selection,
                 membersByPath,
                 requirementsByMember);
-        prewarmCompilers(context, workspace, selection, membersByPath);
+        prewarmCompilers(context, selection);
         WorkspaceDirtyPlan dirtyPlan = dirtyPlanner.plan(
                 context,
                 selection,
@@ -258,20 +258,11 @@ public final class WorkspaceBuildService {
      * member by this point, so this costs one cached lookup and buys the dirty-planning window —
      * hundreds of milliseconds — as worker startup time the first admitted member does not pay.
      */
-    private void prewarmCompilers(
+    private static void prewarmCompilers(
             WorkspaceExecutionContext context,
-            Workspace workspace,
-            WorkspaceSelection selection,
-            Map<String, WorkspaceMember> membersByPath) {
-        if (selection.includedMembers().isEmpty()) {
-            return;
-        }
-        WorkspaceMember member = membersByPath.get(selection.includedMembers().get(0));
-        if (member == null) {
-            return;
-        }
+            WorkspaceSelection selection) {
         context.toolchainIndex()
-                .javac(memberBuildExecutor.jdkCheckers(), workspace, member)
+                .resolvedCompiler()
                 .ifPresent(javac -> JavacWorkerPrewarm.start(
                         javac,
                         Math.min(

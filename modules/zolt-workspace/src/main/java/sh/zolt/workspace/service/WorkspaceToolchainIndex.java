@@ -19,6 +19,7 @@ final class WorkspaceToolchainIndex {
     private int identityCalculations;
     private int identityHits;
     private WorkspaceJdkCheckerResolver observedResolver;
+    private Path resolvedCompiler;
 
     JdkChecker checker(
             WorkspaceJdkCheckerResolver resolver,
@@ -31,18 +32,6 @@ final class WorkspaceToolchainIndex {
                 requiredVersion);
     }
 
-    /** The already-detected compiler for a member, used to warm workers before the build needs them. */
-    Optional<Path> javac(
-            WorkspaceJdkCheckerResolver resolver,
-            Workspace workspace,
-            WorkspaceMember member) {
-        Toolchain toolchain = toolchain(resolver, workspace, member);
-        return detect(
-                toolchain.cacheKey(),
-                toolchain.checker(),
-                member.config().project().java()).javac();
-    }
-
     String compileIdentity(
             WorkspaceJdkCheckerResolver resolver,
             Workspace workspace,
@@ -53,6 +42,7 @@ final class WorkspaceToolchainIndex {
                 toolchain.checker(),
                 member.config().project().java());
         requireUsable(member, status);
+        rememberCompiler(status);
         return toolchain.configuredIdentity()
                 + "|javaHome="
                 + path(status.javaHome())
@@ -66,6 +56,21 @@ final class WorkspaceToolchainIndex {
                 + status.version().orElse("missing")
                 + "|required="
                 + status.requiredVersion();
+    }
+
+    /**
+     * A compiler some member has already resolved, which is enough to warm workers for. Reading it
+     * costs nothing and resolves nothing: a member that never needed a compiler — a BOM, say — must
+     * not acquire one just because the build would like warm workers.
+     */
+    synchronized Optional<Path> resolvedCompiler() {
+        return Optional.ofNullable(resolvedCompiler);
+    }
+
+    private synchronized void rememberCompiler(JdkStatus status) {
+        if (resolvedCompiler == null) {
+            resolvedCompiler = status.javac().orElse(null);
+        }
     }
 
     synchronized int resolutions() {

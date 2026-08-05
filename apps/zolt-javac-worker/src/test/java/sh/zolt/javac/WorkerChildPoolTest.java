@@ -67,15 +67,22 @@ final class WorkerChildPoolTest {
         awaitIdle(1);
     }
 
+    /**
+     * Waits on the pool's own monitor, which every state change notifies, so a warm child is observed
+     * the instant it is added rather than at the next poll.
+     */
     private void awaitIdle(int expected) throws InterruptedException {
         long deadline = System.nanoTime() + TIMEOUT_NANOS;
-        while (System.nanoTime() < deadline) {
-            if (pool.idleSize() >= expected) {
-                return;
+        synchronized (pool) {
+            while (pool.idleSize() < expected) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) {
+                    break;
+                }
+                TimeUnit.NANOSECONDS.timedWait(pool, remaining);
             }
-            TimeUnit.MILLISECONDS.sleep(1);
         }
-        assertEquals(expected, pool.idleSize(), "pool never reached its warm target");
+        assertTrue(pool.idleSize() >= expected, "pool never reached its warm target");
     }
 
     private static boolean exited(long pid) throws Exception {
