@@ -19,6 +19,26 @@ final class PackageCanonicalHash {
         update(value == null ? new byte[0] : value);
     }
 
+    /**
+     * Starts a byte field of known length so its content can be streamed in chunks.
+     *
+     * <p>Produces the same digest as {@link #bytes(String, byte[])} over the same bytes, which is
+     * what lets oversized package inputs be hashed without being materialised.
+     */
+    void beginBytes(String key, long length) {
+        update(key);
+        digest.update(Long.toString(length).getBytes(StandardCharsets.US_ASCII));
+        digest.update((byte) ':');
+    }
+
+    void bytesChunk(byte[] buffer, int offset, int length) {
+        digest.update(buffer, offset, length);
+    }
+
+    void endBytes() {
+        digest.update((byte) '\n');
+    }
+
     String finish() {
         return "sha256:" + HexFormat.of().formatHex(digest.digest());
     }

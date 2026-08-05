@@ -2,8 +2,12 @@ package sh.zolt.build.packageplan;
 
 import sh.zolt.build.PackageException;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -13,6 +17,8 @@ import java.util.function.Predicate;
  * Canonical content fingerprints shared by package planning and archive assembly.
  */
 public final class PackageInputFingerprinting {
+    static final String CONTENT_SCHEMA = "zolt.package-content.v1";
+
     private static final Set<String> LOCAL_BUILD_STATE = Set.of(
             ".zolt-build-main.fingerprint",
             ".zolt-build-main.fingerprint.state",
@@ -31,16 +37,41 @@ public final class PackageInputFingerprinting {
         return regularFiles(directory, path -> !LOCAL_BUILD_STATE.contains(path.getFileName().toString()));
     }
 
+    /**
+     * Application files paired with the size the directory walk already observed.
+     *
+     * <p>The walk reads each file's attributes once, so callers get the size without a second stat.
+     */
+    static List<SizedFile> sizedApplicationFiles(Path directory) throws IOException {
+        Path root = directory.toAbsolutePath().normalize();
+        if (!Files.isDirectory(root)) {
+            return List.of();
+        }
+        List<SizedFile> files = new ArrayList<>();
+        Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+                if (attributes.isRegularFile()
+                        && !LOCAL_BUILD_STATE.contains(file.getFileName().toString())) {
+                    files.add(new SizedFile(
+                            root.relativize(file).toString().replace('\\', '/'),
+                            file,
+                            attributes.size()));
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        files.sort(Comparator.comparing(SizedFile::name));
+        return List.copyOf(files);
+    }
+
+    record SizedFile(String name, Path path, long size) {
+    }
+
     public static String applicationOutputFingerprint(Path directory) {
-        Path normalized = directory.toAbsolutePath().normalize();
-        if (!Files.isDirectory(normalized)) {
-            return "missing";
-        }
-        try {
-            return fingerprint(normalized, applicationFiles(normalized));
-        } catch (IOException exception) {
-            throw unreadable("application output", normalized, exception);
-        }
+        return PackageInputSnapshot
+                .of(directory, PackageInputBudget.streaming())
+                .fingerprint();
     }
 
     public static String directoryFingerprint(Path directory) {
@@ -97,8 +128,8 @@ public final class PackageInputFingerprinting {
 
     private static String fingerprint(Path root, List<Path> files) throws IOException {
         PackageCanonicalHash hash = new PackageCanonicalHash();
-        hash.value("schema", "zolt.package-content.v1");
-        List<Path> normalized = new java.util.ArrayList<>(files.stream()
+        hash.value("schema", CONTENT_SCHEMA);
+        List<Path> normalized = new ArrayList<>(files.stream()
                 .map(path -> path.toAbsolutePath().normalize())
                 .toList());
         normalized.sort(Comparator.comparing(path -> entryName(root, path)));
@@ -109,7 +140,7 @@ public final class PackageInputFingerprinting {
         return hash.finish();
     }
 
-    private static String entryName(Path root, Path file) {
+    static String entryName(Path root, Path file) {
         Path normalizedRoot = root.toAbsolutePath().normalize();
         Path normalizedFile = file.toAbsolutePath().normalize();
         return normalizedFile.startsWith(normalizedRoot)
