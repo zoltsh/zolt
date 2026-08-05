@@ -2,6 +2,7 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildService;
 import sh.zolt.build.cache.BuildCacheService;
+import sh.zolt.build.compile.JavacWorkerPrewarm;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.provenance.BuildProvenanceSource;
@@ -208,6 +209,7 @@ public final class WorkspaceBuildService {
                 selection,
                 membersByPath,
                 requirementsByMember);
+        prewarmCompilers(context, workspace, selection, membersByPath);
         WorkspaceDirtyPlan dirtyPlan = dirtyPlanner.plan(
                 context,
                 selection,
@@ -249,6 +251,32 @@ public final class WorkspaceBuildService {
                         selection,
                         dirtyPlan,
                         execution.executedMembers()));
+    }
+
+    /**
+     * Warms compiler workers during stage 0. The toolchain has already been resolved for every
+     * member by this point, so this costs one cached lookup and buys the dirty-planning window —
+     * hundreds of milliseconds — as worker startup time the first admitted member does not pay.
+     */
+    private void prewarmCompilers(
+            WorkspaceExecutionContext context,
+            Workspace workspace,
+            WorkspaceSelection selection,
+            Map<String, WorkspaceMember> membersByPath) {
+        if (selection.includedMembers().isEmpty()) {
+            return;
+        }
+        WorkspaceMember member = membersByPath.get(selection.includedMembers().get(0));
+        if (member == null) {
+            return;
+        }
+        context.toolchainIndex()
+                .javac(memberBuildExecutor.jdkCheckers(), workspace, member)
+                .ifPresent(javac -> JavacWorkerPrewarm.start(
+                        javac,
+                        Math.min(
+                                selection.includedMembers().size(),
+                                Runtime.getRuntime().availableProcessors())));
     }
 
     private static WorkspaceExecutionContext executionContext(

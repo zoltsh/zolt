@@ -31,6 +31,18 @@ final class WorkspaceToolchainIndex {
                 requiredVersion);
     }
 
+    /** The already-detected compiler for a member, used to warm workers before the build needs them. */
+    Optional<Path> javac(
+            WorkspaceJdkCheckerResolver resolver,
+            Workspace workspace,
+            WorkspaceMember member) {
+        Toolchain toolchain = toolchain(resolver, workspace, member);
+        return detect(
+                toolchain.cacheKey(),
+                toolchain.checker(),
+                member.config().project().java()).javac();
+    }
+
     String compileIdentity(
             WorkspaceJdkCheckerResolver resolver,
             Workspace workspace,
