@@ -40,7 +40,7 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
         assertEquals(projectDir.resolve("dist/release-manifest.json"), result.manifestPath());
         assertEquals("zolt-0.1.0-macos-arm64", result.rootDirectory());
         assertEquals(64, result.sha256().length());
-        assertEquals(4, result.fileCount());
+        assertEquals(6, result.fileCount());
         assertEquals(
                 result.sha256() + "  zolt-0.1.0-macos-arm64.tar.gz\n",
                 Files.readString(result.checksumPath()));
@@ -52,7 +52,9 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
                 "zolt-0.1.0-macos-arm64/bin/zolt",
                 "zolt-0.1.0-macos-arm64/VERSION",
                 "zolt-0.1.0-macos-arm64/README.md",
-                "zolt-0.1.0-macos-arm64/LICENSE"), tarEntries(result.archivePath()));
+                "zolt-0.1.0-macos-arm64/LICENSE",
+                "zolt-0.1.0-macos-arm64/NOTICE",
+                "zolt-0.1.0-macos-arm64/THIRD_PARTY_NOTICES"), tarEntries(result.archivePath()));
     }
 
     @Test
@@ -72,7 +74,7 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
                 binary,
                 Path.of("dist"));
 
-        assertEquals(6, result.fileCount());
+        assertEquals(8, result.fileCount());
         assertEquals(List.of(
                 "zolt-0.1.0-linux-x64/",
                 "zolt-0.1.0-linux-x64/bin/",
@@ -82,7 +84,136 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
                 "zolt-0.1.0-linux-x64/libexec/zolt-javac-worker.jar",
                 "zolt-0.1.0-linux-x64/VERSION",
                 "zolt-0.1.0-linux-x64/README.md",
-                "zolt-0.1.0-linux-x64/LICENSE"), tarEntries(result.archivePath()));
+                "zolt-0.1.0-linux-x64/LICENSE",
+                "zolt-0.1.0-linux-x64/NOTICE",
+                "zolt-0.1.0-linux-x64/THIRD_PARTY_NOTICES"), tarEntries(result.archivePath()));
+    }
+
+    @Test
+    void shipsLegalDocumentsKeptAtTheWorkspaceRoot() throws IOException {
+        Path workspaceRoot = projectDir.resolve("repo");
+        Files.createDirectories(workspaceRoot);
+        Files.writeString(
+                workspaceRoot.resolve("zolt.toml"),
+                "[workspace]\nmembers = [\"apps/zolt\"]\n");
+        writeLegalDocuments(workspaceRoot);
+        projectDir = workspaceRoot.resolve("apps/zolt");
+        Files.createDirectories(projectDir);
+        Path binary = writeBinary("target/native/zolt");
+
+        ReleaseArchiveResult result = service.assemble(
+                projectDir,
+                config(),
+                ReleaseTarget.LINUX_X64,
+                binary,
+                Path.of("dist"));
+
+        assertEquals(List.of(
+                "zolt-0.1.0-linux-x64/",
+                "zolt-0.1.0-linux-x64/bin/",
+                "zolt-0.1.0-linux-x64/bin/zolt",
+                "zolt-0.1.0-linux-x64/VERSION",
+                "zolt-0.1.0-linux-x64/LICENSE",
+                "zolt-0.1.0-linux-x64/NOTICE",
+                "zolt-0.1.0-linux-x64/THIRD_PARTY_NOTICES"), tarEntries(result.archivePath()));
+        assertEquals("third party notices\n",
+                tarEntryContent(result.archivePath(), "zolt-0.1.0-linux-x64/THIRD_PARTY_NOTICES"));
+    }
+
+    @Test
+    void prefersLegalDocumentsBesideTheProjectOverWorkspaceRootCopies() throws IOException {
+        Path workspaceRoot = projectDir.resolve("repo");
+        Files.createDirectories(workspaceRoot);
+        Files.writeString(
+                workspaceRoot.resolve("zolt.toml"),
+                "[workspace]\nmembers = [\"apps/zolt\"]\n");
+        writeLegalDocuments(workspaceRoot);
+        projectDir = workspaceRoot.resolve("apps/zolt");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("NOTICE"), "app notice\n");
+        Path binary = writeBinary("target/native/zolt");
+
+        ReleaseArchiveResult result = service.assemble(
+                projectDir,
+                config(),
+                ReleaseTarget.LINUX_X64,
+                binary,
+                Path.of("dist"));
+
+        assertEquals("app notice\n", tarEntryContent(result.archivePath(), "zolt-0.1.0-linux-x64/NOTICE"));
+    }
+
+    @Test
+    void shipsLegalDocumentsFromAStandaloneWorkspaceManifestRoot() throws IOException {
+        Path workspaceRoot = projectDir.resolve("repo");
+        Files.createDirectories(workspaceRoot);
+        Files.writeString(workspaceRoot.resolve("zolt-workspace.toml"), "members = [\"apps/zolt\"]\n");
+        writeLegalDocuments(workspaceRoot);
+        projectDir = workspaceRoot.resolve("apps/zolt");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"zolt\"\n");
+        Path binary = writeBinary("target/native/zolt");
+
+        ReleaseArchiveResult result = service.assemble(
+                projectDir,
+                config(),
+                ReleaseTarget.LINUX_X64,
+                binary,
+                Path.of("dist"));
+
+        assertTrue(tarEntries(result.archivePath()).containsAll(List.of(
+                "zolt-0.1.0-linux-x64/LICENSE",
+                "zolt-0.1.0-linux-x64/NOTICE",
+                "zolt-0.1.0-linux-x64/THIRD_PARTY_NOTICES")));
+    }
+
+    @Test
+    void treatsWorkspaceSubtableManifestsAsWorkspaceRoots() throws IOException {
+        Path workspaceRoot = projectDir.resolve("repo");
+        Files.createDirectories(workspaceRoot);
+        Files.writeString(
+                workspaceRoot.resolve("zolt.toml"),
+                "[workspace.package]\nversion = \"0.1.0\"\n");
+        writeLegalDocuments(workspaceRoot);
+        projectDir = workspaceRoot.resolve("apps/zolt");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"zolt\"\n");
+        Path binary = writeBinary("target/native/zolt");
+
+        ReleaseArchiveResult result = service.assemble(
+                projectDir,
+                config(),
+                ReleaseTarget.LINUX_X64,
+                binary,
+                Path.of("dist"));
+
+        assertTrue(tarEntries(result.archivePath()).contains("zolt-0.1.0-linux-x64/NOTICE"));
+    }
+
+    @Test
+    void doesNotReachOutsideTheWorkspaceForLegalDocuments() throws IOException {
+        writeLegalDocuments(projectDir);
+        Path workspaceRoot = projectDir.resolve("repo");
+        Files.createDirectories(workspaceRoot);
+        Files.writeString(
+                workspaceRoot.resolve("zolt.toml"),
+                "[workspace]\nmembers = [\"apps/zolt\"]\n");
+        projectDir = workspaceRoot.resolve("apps/zolt");
+        Files.createDirectories(projectDir);
+        Path binary = writeBinary("target/native/zolt");
+
+        ReleaseArchiveResult result = service.assemble(
+                projectDir,
+                config(),
+                ReleaseTarget.LINUX_X64,
+                binary,
+                Path.of("dist"));
+
+        assertEquals(List.of(
+                "zolt-0.1.0-linux-x64/",
+                "zolt-0.1.0-linux-x64/bin/",
+                "zolt-0.1.0-linux-x64/bin/zolt",
+                "zolt-0.1.0-linux-x64/VERSION"), tarEntries(result.archivePath()));
     }
 
     @Test
@@ -102,7 +233,7 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
                 binary,
                 Path.of("dist"));
 
-        assertEquals(5, result.fileCount());
+        assertEquals(7, result.fileCount());
         assertTrue(tarEntries(result.archivePath()).contains("zolt-0.1.0-linux-x64/BUILD.json"));
         String build = tarEntryContent(result.archivePath(), "zolt-0.1.0-linux-x64/BUILD.json");
         assertTrue(build.contains("\"schema\": \"zolt.release-provenance.v1\""), build);
@@ -158,11 +289,14 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
             assertTrue(zip.stream().anyMatch(entry -> entry.getName().equals("zolt-0.1.0-windows-x64/VERSION")));
             assertTrue(zip.stream().anyMatch(entry -> entry.getName().equals("zolt-0.1.0-windows-x64/README.md")));
             assertTrue(zip.stream().anyMatch(entry -> entry.getName().equals("zolt-0.1.0-windows-x64/LICENSE")));
+            assertTrue(zip.stream().anyMatch(entry -> entry.getName().equals("zolt-0.1.0-windows-x64/NOTICE")));
+            assertTrue(zip.stream()
+                    .anyMatch(entry -> entry.getName().equals("zolt-0.1.0-windows-x64/THIRD_PARTY_NOTICES")));
         }
     }
 
     @Test
-    void skipsLicenseWhenItDoesNotExist() throws IOException {
+    void skipsLegalDocumentsWhenTheyDoNotExist() throws IOException {
         Files.writeString(projectDir.resolve("README.md"), "# Demo\n");
         Path binary = writeBinary("target/native/zolt");
 
@@ -175,6 +309,9 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
 
         assertTrue(tarEntries(result.archivePath()).contains("zolt-0.1.0-linux-x64/README.md"));
         assertTrue(tarEntries(result.archivePath()).stream().noneMatch(entry -> entry.endsWith("/LICENSE")));
+        assertTrue(tarEntries(result.archivePath()).stream().noneMatch(entry -> entry.endsWith("/NOTICE")));
+        assertTrue(tarEntries(result.archivePath()).stream()
+                .noneMatch(entry -> entry.endsWith("/THIRD_PARTY_NOTICES")));
     }
 
     @Test
@@ -198,7 +335,9 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
                 "zolt-0.1.0-linux-arm64/bin/zolt",
                 "zolt-0.1.0-linux-arm64/VERSION",
                 "zolt-0.1.0-linux-arm64/README.md",
-                "zolt-0.1.0-linux-arm64/LICENSE"), tarEntries(result.archivePath()));
+                "zolt-0.1.0-linux-arm64/LICENSE",
+                "zolt-0.1.0-linux-arm64/NOTICE",
+                "zolt-0.1.0-linux-arm64/THIRD_PARTY_NOTICES"), tarEntries(result.archivePath()));
     }
 
     @Test

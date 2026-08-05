@@ -24,7 +24,14 @@ abstract class ReleaseArchiveTestSupport {
 
     protected void writeProjectFiles() throws IOException {
         Files.writeString(projectDir.resolve("README.md"), "# Demo\n");
-        Files.writeString(projectDir.resolve("LICENSE"), "license\n");
+        writeLegalDocuments(projectDir);
+    }
+
+    protected static void writeLegalDocuments(Path directory) throws IOException {
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("LICENSE"), "license\n");
+        Files.writeString(directory.resolve("NOTICE"), "notice\n");
+        Files.writeString(directory.resolve("THIRD_PARTY_NOTICES"), "third party notices\n");
     }
 
     protected Path writeBinary(String path) throws IOException {

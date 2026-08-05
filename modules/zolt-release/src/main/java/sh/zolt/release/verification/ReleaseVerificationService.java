@@ -16,6 +16,7 @@ import java.util.List;
 public final class ReleaseVerificationService {
     private static final String JUNIT_WORKER_ARCHIVE_NAME = "zolt-junit-worker.jar";
     private static final String JAVAC_WORKER_ARCHIVE_NAME = "zolt-javac-worker.jar";
+    private static final List<String> LEGAL_DOCUMENT_NAMES = List.of("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES");
 
     private final ProcessRunner processRunner;
 
@@ -81,6 +82,7 @@ public final class ReleaseVerificationService {
         verifyVersionMetadata(archive, rootDirectory, expectedVersion);
         verifyJunitWorker(archive, rootDirectory);
         verifyJavacWorker(archive, rootDirectory);
+        verifyLegalDocuments(archive, rootDirectory);
         verifyVersion(archive, binary, expectedVersion);
         Path smokeProject = verifyInit(archive, binary, unpackDirectory);
         verifyBuild(archive, binary, unpackDirectory, smokeProject);
@@ -139,6 +141,28 @@ public final class ReleaseVerificationService {
             }
         } catch (IOException exception) {
             throw archiveFailure(archive, "could not read VERSION metadata at " + versionFile + ".");
+        }
+    }
+
+    private static void verifyLegalDocuments(Path archive, Path rootDirectory) {
+        for (String name : LEGAL_DOCUMENT_NAMES) {
+            Path document = rootDirectory.resolve(name);
+            if (!Files.isRegularFile(document)) {
+                throw archiveFailure(archive, "expected " + name + " at " + document
+                        + " after unpacking. Every release archive must carry "
+                        + String.join(", ", LEGAL_DOCUMENT_NAMES)
+                        + " so the distribution stays within its own license terms.");
+            }
+            String content;
+            try {
+                content = Files.readString(document, StandardCharsets.UTF_8);
+            } catch (IOException exception) {
+                throw archiveFailure(archive, "could not read " + name + " at " + document + ".");
+            }
+            if (content.isBlank()) {
+                throw archiveFailure(archive, name + " at " + document
+                        + " is empty. Ship the real notice text, not a placeholder.");
+            }
         }
     }
 

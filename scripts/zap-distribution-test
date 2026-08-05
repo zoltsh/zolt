@@ -75,4 +75,48 @@ if missing:
     )
 PY
 
+python3 - <<'PY'
+import pathlib
+import re
+
+# Every zap archive ships these next to VERSION; they are assembled from the
+# workspace root, so a missing or empty file here silently ships an archive
+# that no longer satisfies its own license terms.
+legal_documents = ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES")
+for name in legal_documents:
+    path = pathlib.Path(name)
+    if not path.is_file():
+        raise SystemExit(
+            f"error: {name} is missing from the repository root; zap archives ship it at their root"
+        )
+    if not path.read_text(encoding="utf-8").strip():
+        raise SystemExit(f"error: {name} is empty; zap archives must ship real notice text")
+
+notices = pathlib.Path("THIRD_PARTY_NOTICES").read_text(encoding="utf-8")
+bundled = []
+for block in pathlib.Path("zolt.lock").read_text(encoding="utf-8").split("[[package]]")[1:]:
+
+    def field(key, block=block):
+        match = re.search(rf'^{key} = "([^"]*)"', block, re.M)
+        return match.group(1) if match else ""
+
+    identifier = field("id")
+    if field("scope") in ("compile", "runtime") and not identifier.startswith("sh.zolt:"):
+        bundled.append((identifier, field("version")))
+
+unlisted = [
+    f"{identifier}:{version}"
+    for identifier, version in bundled
+    if identifier not in notices or version not in notices
+]
+if unlisted:
+    raise SystemExit(
+        "error: THIRD_PARTY_NOTICES does not attribute bundled components: "
+        + ", ".join(sorted(unlisted))
+    )
+if not bundled:
+    raise SystemExit("error: no bundled third-party components found in zolt.lock; check the parser")
+PY
+
+printf 'zap distribution legal document contract test passed\n'
 printf 'zap candidate and dispatch authority boundary test passed\n'

@@ -21,10 +21,17 @@ final class ReleaseVerificationServiceTestSupport {
 
     static void writeProjectFiles(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("README.md"), "# Demo\n");
+        writeLegalDocuments(projectDir);
         Path workerJar = projectDir.resolve("target/libexec/zolt-junit-worker.jar");
         Files.createDirectories(workerJar.getParent());
         Files.writeString(workerJar, "worker");
         Files.writeString(projectDir.resolve("target/libexec/zolt-javac-worker.jar"), "worker");
+    }
+
+    static void writeLegalDocuments(Path projectDir) throws IOException {
+        Files.writeString(projectDir.resolve("LICENSE"), "license\n");
+        Files.writeString(projectDir.resolve("NOTICE"), "notice\n");
+        Files.writeString(projectDir.resolve("THIRD_PARTY_NOTICES"), "third party notices\n");
     }
 
     static Path writeBinary(Path projectDir, String path) throws IOException {

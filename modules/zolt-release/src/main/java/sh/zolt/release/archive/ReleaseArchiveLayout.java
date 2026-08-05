@@ -34,8 +34,19 @@ final class ReleaseArchiveLayout {
                 rootDirectory + "/BUILD.json",
                 0644)));
         addIfPresent(entries, projectDirectory.resolve("README.md"), rootDirectory + "/README.md", 0644);
-        addIfPresent(entries, projectDirectory.resolve("LICENSE"), rootDirectory + "/LICENSE", 0644);
+        addLegalDocuments(entries, projectDirectory, rootDirectory);
         return entries;
+    }
+
+    private static void addLegalDocuments(
+            List<ReleaseArchiveEntry> entries,
+            Path projectDirectory,
+            String rootDirectory) {
+        for (String name : ReleaseArchiveLegalDocuments.NAMES) {
+            ReleaseArchiveLegalDocuments.resolve(projectDirectory, name)
+                    .ifPresent(document -> entries.add(
+                            ReleaseArchiveEntry.file(document, rootDirectory + "/" + name, 0644)));
+        }
     }
 
     private static void addWorkersIfPresent(
