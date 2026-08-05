@@ -32,6 +32,23 @@ public final class CliTestSupport {
         return ZoltCli.newCommandLine();
     }
 
+    /**
+     * Runs a directly constructed command object under the CLI's real execution-exception handling, so
+     * a command wired with stubbed collaborators reports failures exactly as the assembled CLI does.
+     */
+    public static CommandResult executeCommand(Object command, String... args) {
+        CommandLine commandLine = new CommandLine(command);
+        commandLine.setExecutionExceptionHandler(ZoltCli::handleExecutionException);
+        StringWriter stdout = new StringWriter();
+        StringWriter stderr = new StringWriter();
+        commandLine.setOut(new PrintWriter(stdout));
+        commandLine.setErr(new PrintWriter(stderr));
+
+        int exitCode = commandLine.execute(args);
+
+        return new CommandResult(exitCode, stdout.toString(), stderr.toString());
+    }
+
     public static String memberConfig(String name) {
         return """
                 [project]

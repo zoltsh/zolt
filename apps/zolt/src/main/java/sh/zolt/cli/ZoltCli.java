@@ -240,7 +240,7 @@ public final class ZoltCli implements Runnable {
         commandLine.getSubcommands().values().forEach(ZoltCli::configureExecutionHandling);
     }
 
-    private static int handleExecutionException(
+    static int handleExecutionException(
             Exception exception,
             CommandLine parsedCommandLine,
             CommandLine.ParseResult parseResult) {

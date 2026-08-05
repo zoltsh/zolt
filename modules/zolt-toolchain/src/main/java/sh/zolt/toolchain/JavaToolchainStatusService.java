@@ -27,6 +27,11 @@ public final class JavaToolchainStatusService {
         this(new ToolchainConfigReader(), new ToolchainLockfileService(), new AmbientJavaToolchainProbe());
     }
 
+    /** Status backed by a caller-supplied ambient probe, for hosts that resolve ambient Java themselves. */
+    public JavaToolchainStatusService(JavaToolchainProbe ambientProbe) {
+        this(new ToolchainConfigReader(), new ToolchainLockfileService(), ambientProbe);
+    }
+
     JavaToolchainStatusService(
             ToolchainConfigReader configReader,
             ToolchainLockfileService lockfiles,

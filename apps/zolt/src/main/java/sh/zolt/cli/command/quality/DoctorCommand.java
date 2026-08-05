@@ -6,6 +6,7 @@ import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.doctor.SelfHostingCheckResult;
 import sh.zolt.doctor.SelfHostingCheckService;
+import sh.zolt.error.ActionableError;
 import sh.zolt.error.ActionableException;
 import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.project.ProjectConfig;
@@ -19,6 +20,7 @@ import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -71,6 +73,12 @@ public final class DoctorCommand implements Runnable {
     public void run() {
         try {
             Path projectRoot = projectDirectory.path();
+            if (!Files.isDirectory(projectRoot)) {
+                throw CommandFailures.user(spec, ActionableError.of(
+                        "Cannot inspect " + projectRoot.toAbsolutePath().normalize()
+                                + ": it is not an existing directory.",
+                        "Create the directory, or pass --directory with a path that exists."));
+            }
             if (!Files.isRegularFile(projectRoot.resolve("zolt.toml"))) {
                 checkEnvironment(projectRoot);
                 return;
@@ -103,12 +111,36 @@ public final class DoctorCommand implements Runnable {
      */
     private void checkEnvironment(Path projectRoot) {
         printZoltStatus();
-        boolean ok = printEnvironmentToolchainStatus();
+        boolean ok = printEnvironmentToolchainStatus(toolchainStore());
         ok = printUserHomeStatus() && ok;
+        printSelfHostingSkipNotice();
         printNotAProjectNotice(projectRoot);
         if (!ok) {
             throw new CommandLine.ExecutionException(spec.commandLine(), "Environment health check failed.");
         }
+    }
+
+    /**
+     * The managed-toolchain store, or empty when the user-global directory cannot be resolved.
+     * Resolving it eagerly aborted the command on a bad {@code ZOLT_USER_HOME}, so the user-home check
+     * that exists to report exactly that problem never rendered.
+     */
+    private Optional<ToolchainStore> toolchainStore() {
+        try {
+            return Optional.of(ToolchainStore.defaults());
+        } catch (ActionableException exception) {
+            return Optional.empty();
+        }
+    }
+
+    /** {@code --self-hosting} inspects a project's own layout, so outside one it has nothing to read. */
+    private void printSelfHostingSkipNotice() {
+        if (!selfHosting) {
+            return;
+        }
+        CommandHumanOutput.of(spec).check(
+                "skip",
+                "Self-hosting checks need a Zolt project; run them from a directory with zolt.toml.");
     }
 
     private void printZoltStatus() {
@@ -122,14 +154,19 @@ public final class DoctorCommand implements Runnable {
      * doctor reports the real resolution outcome rather than a second, divergent probe. Nothing pins a
      * toolchain outside a project, so this asks for an unpinned resolution with no lock metadata.
      */
-    private boolean printEnvironmentToolchainStatus() {
+    private boolean printEnvironmentToolchainStatus(Optional<ToolchainStore> store) {
+        if (store.isEmpty()) {
+            CommandHumanOutput.of(spec)
+                    .check("skip", "JDK check skipped: it needs the user-global Zolt directory.");
+            return true;
+        }
         return printJdkStatus(toolchainStatusService.status(
                 JavaToolchainRequest.projectDefault(ENVIRONMENT_JAVA_BASELINE),
                 "environment default",
                 false,
                 Optional.empty(),
                 HostPlatform.current(),
-                ToolchainStore.defaults()));
+                store.orElseThrow()));
     }
 
     /**
@@ -203,10 +240,35 @@ public final class DoctorCommand implements Runnable {
 
     private void printNotAProjectNotice(Path projectRoot) {
         CommandHumanOutput output = CommandHumanOutput.of(spec);
-        output.check(
-                "skip",
-                "Not a Zolt project: no zolt.toml in " + projectRoot.toAbsolutePath().normalize() + ".");
-        output.action("zolt init");
+        Path directory = projectRoot.toAbsolutePath().normalize();
+        output.check("skip", "Not a Zolt project: no zolt.toml in " + directory + ".");
+        Optional<Path> enclosing = enclosingRoot(directory);
+        if (enclosing.isEmpty()) {
+            output.action("zolt init");
+            return;
+        }
+        Path root = enclosing.orElseThrow();
+        output.context(
+                Files.isRegularFile(root.resolve("zolt.toml")) ? "project root" : "workspace root",
+                root.toString());
+        output.action("zolt doctor --directory " + root);
+    }
+
+    /**
+     * The project or workspace root enclosing a directory that has no {@code zolt.toml} of its own.
+     * Doctor is routinely run from a module subdirectory, and suggesting {@code zolt init} there would
+     * nest a second project inside the one that already exists.
+     */
+    private static Optional<Path> enclosingRoot(Path directory) {
+        Path current = directory.getParent();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("zolt.toml"))
+                    || Files.isRegularFile(current.resolve(WorkspaceConfigParser.WORKSPACE_FILE))) {
+                return Optional.of(current);
+            }
+            current = current.getParent();
+        }
+        return Optional.empty();
     }
 
     private static boolean writable(Path path) {

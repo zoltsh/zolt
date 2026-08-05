@@ -46,6 +46,76 @@ final class DoctorCommandTest {
         assertTrue(result.stdout().contains("Next: zolt init"));
     }
 
+    /**
+     * A directory that does not exist is a typo, not an empty machine. Reporting the environment as
+     * healthy and offering {@code zolt init} there would greenlight a path Zolt cannot use.
+     */
+    @Test
+    void doctorFailsOnADirectoryThatDoesNotExist() {
+        Path missing = tempDir.resolve("definitely/not/here");
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", missing.toString());
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains("is not an existing directory."), result.stderr());
+        assertTrue(result.stderr().contains(missing.toAbsolutePath().normalize().toString()), result.stderr());
+        assertFalse(result.stdout().contains("Next: zolt init"), result.stdout());
+    }
+
+    /** Inside a project's subdirectory the next step is the project root, never a second `zolt init`. */
+    @Test
+    void doctorPointsAtTheEnclosingProjectRootFromASubdirectory() throws IOException {
+        Path projectDir = tempDir.resolve("enclosing-project");
+        writeProjectConfig(projectDir);
+        Path subdirectory = projectDir.resolve("src/main/java");
+        Files.createDirectories(subdirectory);
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", subdirectory.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertFalse(result.stdout().contains("Next: zolt init"), result.stdout());
+        assertTrue(
+                result.stdout().contains("project root: " + projectDir.toAbsolutePath().normalize()),
+                result.stdout());
+        assertTrue(
+                result.stdout().contains("Next: zolt doctor --directory "
+                        + projectDir.toAbsolutePath().normalize()),
+                result.stdout());
+    }
+
+    @Test
+    void doctorPointsAtTheEnclosingWorkspaceRootFromAMemberDirectory() throws IOException {
+        Path workspaceDir = tempDir.resolve("enclosing-workspace");
+        Path memberDir = workspaceDir.resolve("modules/member");
+        Files.createDirectories(memberDir);
+        Files.writeString(workspaceDir.resolve("zolt-workspace.toml"), """
+                [workspace]
+                members = ["modules/member"]
+                """);
+
+        CommandResult result = execute("--color=never", "doctor", "--directory", memberDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertFalse(result.stdout().contains("Next: zolt init"), result.stdout());
+        assertTrue(
+                result.stdout().contains("workspace root: " + workspaceDir.toAbsolutePath().normalize()),
+                result.stdout());
+    }
+
+    /** `--self-hosting` reads a project's own layout, so outside one it must say it was skipped. */
+    @Test
+    void doctorSaysSelfHostingChecksNeedAProject() throws IOException {
+        Path emptyDir = tempDir.resolve("self-hosting-outside");
+        Files.createDirectories(emptyDir);
+
+        CommandResult result = execute("--color=never", "doctor", "--self-hosting", "--directory", emptyDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("skip Self-hosting checks need a Zolt project"), result.stdout());
+        assertFalse(result.stdout().contains("Self-hosting: ok"), result.stdout());
+        assertFalse(result.stdout().contains("Self-hosting status:"), result.stdout());
+    }
+
     @Test
     void doctorSkipsProjectChecksOutsideAProject() throws IOException {
         Path emptyDir = tempDir.resolve("no-project-checks");
@@ -152,7 +222,10 @@ final class DoctorCommandTest {
         assertTrue(result.stderr().contains("Java version mismatch."), result.stderr());
     }
 
-    /** A resolvable toolchain must never be reported as broken, on any host. */
+    /**
+     * An unusable toolchain still reports the paths it resolved. The version is wrong, not the JDK, so
+     * every tool row must name a real path instead of collapsing to `missing`.
+     */
     @Test
     void doctorReportsResolvedJdkPathsWhenSomethingIsWrong() throws IOException {
         Path projectDir = tempDir.resolve("resolved-paths");
