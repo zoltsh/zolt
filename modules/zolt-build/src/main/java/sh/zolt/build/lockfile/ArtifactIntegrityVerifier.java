@@ -129,15 +129,25 @@ public final class ArtifactIntegrityVerifier {
                 expectedHash.orElseThrow()));
     }
 
+    /**
+     * The index calls the hasher exactly once per path, and only on behalf of the caller whose claim
+     * won the race for it — which makes that call the one moment at which the previously recorded
+     * fingerprint can be dropped safely. Dropping it anywhere else (from a list of paths that merely
+     * <em>looked</em> unread) can erase a fingerprint another verifier recorded in between, costing
+     * the rest of the command a re-read of a file that was already verified.
+     */
     private VerificationResult verifyOnce(ArtifactVerification verification) {
         return index.verifyOnce(
                 verification.path(),
                 verification.expectedHash(),
-                path -> artifactHasher.hash(
-                        path,
-                        verification.lockPackage(),
-                        verification.kind(),
-                        verification.expectedHash()));
+                path -> {
+                    VerifiedArtifactHashes.invalidate(path);
+                    return artifactHasher.hash(
+                            path,
+                            verification.lockPackage(),
+                            verification.kind(),
+                            verification.expectedHash());
+                });
     }
 
     /**
@@ -146,7 +156,9 @@ public final class ArtifactIntegrityVerifier {
      * file still reaches the index and is rejected there rather than being collapsed away here.
      *
      * <p>Artifacts the index has not read yet are read in parallel; the rest come straight from the
-     * index, so a command's later lock projections do no I/O at all.
+     * index, so a command's later lock projections do no I/O at all. That split is a scheduling hint
+     * and nothing more — a concurrent verifier may read one of them first, and the index stays the
+     * authority on hashing each path once.
      */
     private Map<ArtifactKey, VerificationResult> resolve(List<ArtifactVerification> verifications) {
         Map<ArtifactKey, ArtifactVerification> distinct = new LinkedHashMap<>();
@@ -156,7 +168,6 @@ public final class ArtifactIntegrityVerifier {
         List<ArtifactVerification> unread = distinct.values().stream()
                 .filter(verification -> !index.requested(verification.path()))
                 .toList();
-        unread.forEach(verification -> VerifiedArtifactHashes.invalidate(verification.path()));
         Map<ArtifactKey, VerificationResult> results = new ConcurrentHashMap<>();
         if (unread.size() > 1 && concurrency > 1) {
             readInParallel(unread, results);

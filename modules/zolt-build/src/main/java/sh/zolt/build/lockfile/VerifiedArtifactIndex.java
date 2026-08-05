@@ -85,24 +85,36 @@ public final class VerifiedArtifactIndex {
                 nanos.get());
     }
 
+    /**
+     * Completes the entry on every path out, including one nobody planned for.
+     *
+     * <p>Everything between the hash and the completion — the counters, the {@code Files.size} call —
+     * can throw, and any throw that escaped before {@code complete} would leave every other thread
+     * that ever asks for this path blocked on {@link CompletableFuture#join()} for the life of the
+     * command. The bookkeeping therefore runs inside the guarded region and the completion happens in
+     * a {@code finally}, so an unexpected failure surfaces as a diagnostic for the path rather than a
+     * hang.
+     */
     private void hashInto(Path path, Entry entry, ArtifactContentHasher hasher) {
         long started = System.nanoTime();
-        Outcome outcome;
+        Outcome outcome = new Outcome(null, unreadable(path, null));
         try {
-            outcome = new Outcome(hasher.hash(path), null);
-        } catch (RuntimeException exception) {
-            outcome = new Outcome(null, exception);
-        } catch (Error error) {
-            // Never leave the entry incomplete: every other thread waiting on this path would hang.
-            entry.outcome().complete(new Outcome(null, unreadable(path, error)));
-            throw error;
+            try {
+                outcome = new Outcome(hasher.hash(path), null);
+            } catch (RuntimeException exception) {
+                outcome = new Outcome(null, exception);
+            }
+            hashes.incrementAndGet();
+            nanos.addAndGet(Math.max(0L, System.nanoTime() - started));
+            if (outcome.failure() == null) {
+                bytes.addAndGet(sizeOf(path));
+            }
+        } catch (RuntimeException | Error failure) {
+            outcome = new Outcome(null, unreadable(path, failure));
+            throw failure;
+        } finally {
+            entry.outcome().complete(outcome);
         }
-        hashes.incrementAndGet();
-        nanos.addAndGet(Math.max(0L, System.nanoTime() - started));
-        if (outcome.failure() == null) {
-            bytes.addAndGet(sizeOf(path));
-        }
-        entry.outcome().complete(outcome);
     }
 
     private static VerificationResult result(Path path, Entry entry, boolean cacheHit) {
@@ -130,10 +142,11 @@ public final class VerifiedArtifactIndex {
                         + " entry so one checksum is recorded for the file.");
     }
 
+    /** Best-effort, for a counter: a size we cannot read is worth zero, never a failed command. */
     private static long sizeOf(Path path) {
         try {
             return Files.size(path);
-        } catch (IOException exception) {
+        } catch (IOException | RuntimeException exception) {
             return 0L;
         }
     }

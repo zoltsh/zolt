@@ -67,7 +67,6 @@ final class WorkspaceStateStoreTest {
                 "package-" + value,
                 "test-" + value,
                 "test-resource-" + value,
-                "test-output-" + value,
-                "package-key-" + value);
+                "test-output-" + value);
     }
 }

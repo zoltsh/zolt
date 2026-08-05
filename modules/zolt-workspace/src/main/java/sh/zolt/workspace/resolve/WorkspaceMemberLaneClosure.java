@@ -1,9 +1,11 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.resolve;
 
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.lockfile.LockDependencyIndex;
 import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.workspace.service.WorkspaceHash;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.LinkedHashMap;
@@ -49,10 +51,11 @@ import java.util.TreeSet;
  * reads — a graph row that changes what the lane resolves to must move the key even when the package
  * record itself is untouched.
  */
-final class WorkspaceMemberLaneClosure {
+public final class WorkspaceMemberLaneClosure {
     private final ZoltLockfile lockfile;
-    private final WorkspaceLockIndex lockIndex;
-    private final WorkspaceClasspathMemberGraph memberGraph;
+    private final LockDependencyIndex dependencyIndex;
+    private final LockMemberGraphIndex memberGraphs;
+    private final WorkspaceMemberVisibility visibility;
     private final Bucket shared;
     private final Map<String, Bucket> attributed;
     private final Map<String, Bucket> crossBoundary;
@@ -60,13 +63,15 @@ final class WorkspaceMemberLaneClosure {
     private final Map<String, Bucket> exportedCompile = new LinkedHashMap<>();
     private final Map<String, Lane> lanes = new LinkedHashMap<>();
 
-    WorkspaceMemberLaneClosure(
+    public WorkspaceMemberLaneClosure(
             ZoltLockfile lockfile,
-            WorkspaceLockIndex lockIndex,
-            WorkspaceClasspathMemberGraph memberGraph) {
+            LockDependencyIndex dependencyIndex,
+            LockMemberGraphIndex memberGraphs,
+            WorkspaceMemberVisibility visibility) {
         this.lockfile = lockfile;
-        this.lockIndex = lockIndex;
-        this.memberGraph = memberGraph;
+        this.dependencyIndex = dependencyIndex;
+        this.memberGraphs = memberGraphs;
+        this.visibility = visibility;
         BucketBuilder sharedPackages = new BucketBuilder();
         Map<String, BucketBuilder> attributedPackages = new LinkedHashMap<>();
         Map<String, BucketBuilder> crossBoundaryPackages = new LinkedHashMap<>();
@@ -103,24 +108,24 @@ final class WorkspaceMemberLaneClosure {
     }
 
     /** The lane the member compiles its main sources against. */
-    synchronized Lane mainCompile(String memberPath) {
+    public synchronized Lane mainCompile(String memberPath) {
         return lanes.computeIfAbsent(
                 "compile|" + memberPath,
-                ignored -> compileLane(memberPath, memberGraph.mainCompile(memberPath)));
+                ignored -> compileLane(memberPath, visibility.mainCompile(memberPath)));
     }
 
     /** The lane the member's runtime and package inputs come from. */
-    synchronized Lane mainRuntime(String memberPath) {
+    public synchronized Lane mainRuntime(String memberPath) {
         return lanes.computeIfAbsent(
                 "runtime|" + memberPath,
-                ignored -> runtimeLane(memberPath, memberGraph.mainRuntime(memberPath)));
+                ignored -> runtimeLane(memberPath, visibility.mainRuntime(memberPath)));
     }
 
     /** The lane the member compiles and runs its tests against. */
-    synchronized Lane test(String memberPath) {
+    public synchronized Lane test(String memberPath) {
         return lanes.computeIfAbsent(
                 "test|" + memberPath,
-                ignored -> runtimeLane(memberPath, memberGraph.test(memberPath)));
+                ignored -> runtimeLane(memberPath, visibility.test(memberPath)));
     }
 
     /**
@@ -162,7 +167,8 @@ final class WorkspaceMemberLaneClosure {
             return cached;
         }
         Set<String> reached =
-                WorkspaceExportedCompileClosure.compute(lockfile, Set.of(member), lockIndex);
+                WorkspaceExportedCompileClosure.compute(
+                        lockfile, Set.of(member), dependencyIndex, memberGraphs);
         BucketBuilder builder = new BucketBuilder();
         List<LockPackage> packages = lockfile.packages();
         for (int index = 0; index < packages.size() && !reached.isEmpty(); index++) {
@@ -180,20 +186,19 @@ final class WorkspaceMemberLaneClosure {
     private boolean crossesWorkspaceBoundary(String member, LockPackage lockPackage) {
         DependencyScope scope = lockPackage.scope();
         return (scope == DependencyScope.COMPILE || scope == DependencyScope.RUNTIME)
-                && !lockIndex.memberGraphs().optionalOnlyFor(member, lockPackage);
+                && !memberGraphs.optionalOnlyFor(member, lockPackage);
     }
 
     private String memberIdentity(String member, LockPackage lockPackage) {
-        LockMemberGraphIndex graphs = lockIndex.memberGraphs();
         return identity(lockPackage)
                 + "|optionalOnly="
-                + graphs.optionalOnlyFor(member, lockPackage)
+                + memberGraphs.optionalOnlyFor(member, lockPackage)
                 + "|declaredOptional="
-                + graphs.declaredOptionalFor(member, lockPackage)
+                + memberGraphs.declaredOptionalFor(member, lockPackage)
                 + "|memberPolicies="
-                + String.join(",", graphs.policiesFor(member, lockPackage))
+                + String.join(",", memberGraphs.policiesFor(member, lockPackage))
                 + "|memberDependencies="
-                + String.join(",", graphs.dependenciesFor(member, lockPackage));
+                + String.join(",", memberGraphs.dependenciesFor(member, lockPackage));
     }
 
     private static Lane lane(List<Bucket> buckets) {
@@ -242,9 +247,9 @@ final class WorkspaceMemberLaneClosure {
      * One member's view of one lane: which of the root lock's packages belong on it, and the digest
      * that moves whenever that membership or any member-qualified fact behind it moves.
      */
-    record Lane(BitSet packages, String digest) {
+    public record Lane(BitSet packages, String digest) {
         /** Whether the package at {@code packageIndex} of the root lock belongs on this lane. */
-        boolean contains(int packageIndex) {
+        public boolean contains(int packageIndex) {
             return packages.get(packageIndex);
         }
     }

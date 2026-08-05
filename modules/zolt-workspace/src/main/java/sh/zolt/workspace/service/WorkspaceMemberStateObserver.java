@@ -2,6 +2,7 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -104,9 +105,6 @@ final class WorkspaceMemberStateObserver {
                     .map(IncrementalCompileSummary::outputManifestDigest)
                     .orElse("");
         }
-        String packageKey = requirements.packageInputs()
-                ? packageKey(member, resources.digest(), mainManifest)
-                : previous.map(WorkspaceMemberState::packageKey).orElse("");
         return new WorkspaceMemberState(
                 configDigest,
                 toolchainDigest,
@@ -119,8 +117,7 @@ final class WorkspaceMemberStateObserver {
                 mainSummary.map(IncrementalCompileSummary::packagePrivateAbiDigest).orElse(""),
                 testCompileKey,
                 testResources,
-                testManifest,
-                packageKey);
+                testManifest);
     }
 
     /**
@@ -145,20 +142,6 @@ final class WorkspaceMemberStateObserver {
         return context.fileSnapshot()
                 .javaSources(member.directory(), member.config().build().sourceRoots())
                 .fileCount();
-    }
-
-    private String packageKey(
-            WorkspaceMember member,
-            String resourceDigest,
-            String mainManifestDigest) {
-        Set<String> runtimeClosure = context.memberGraph().mainRuntime(member.path());
-        return WorkspaceHash.text(String.join(
-                "|",
-                member.config().packageSettings().toString(),
-                resourceDigest,
-                mainManifestDigest.isEmpty() ? "missing" : mainManifestDigest,
-                resolutionInputDigest(context.laneClosure().mainRuntime(member.path())),
-                abiDigest(runtimeClosure)));
     }
 
     private String toolchainDigest(

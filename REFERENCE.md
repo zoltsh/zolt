@@ -507,6 +507,22 @@ ambient or historically shaped:
   and JAR and verifies cached/build inputs against those lockfile hashes.
   Repository checksum sidecars are not fetched; the first download trusts the
   repository TLS channel.
+- Integrity is verified **at use, fail-closed, once per command**. An artifact is
+  hashed the first time a command actually puts it on a classpath, and every later
+  projection in that command — any member, any lane, any thread — reuses that
+  verification instead of re-reading the file. A checksum mismatch, a missing
+  file, or two lock entries claiming different checksums for the same file fails
+  the command; nothing downgrades to a warning. The reuse is scoped to a single
+  command, so the next command starts empty and reads again and an artifact
+  modified in between is always caught.
+
+  The corollary is that **a lane a command does not exercise is not hashed by that
+  command**. A workspace build that leaves a member alone builds no classpath for
+  it and so verifies none of its artifacts; a build that never touches the test
+  lane never hashes test-only jars. Verification is a gate on use, not a periodic
+  sweep of the cache: `zolt build --workspace` succeeding says every artifact the
+  build used was intact, not that every artifact in `zolt.lock` is. Use `zolt
+  resolve --locked` to check the whole lock.
 - `zolt.lock` version 5 is deterministic: no timestamps, no absolute paths,
   stable ordering, and LF line endings. Version 2 added variant-qualified
   dependency edges and conflict identities; version 3 added source-scope-qualified

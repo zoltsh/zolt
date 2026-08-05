@@ -182,6 +182,59 @@ final class VerifiedArtifactIndexTest {
         assertTrue(index.requested(jar));
     }
 
+    /**
+     * A hasher that fails in a way nobody planned for still has to complete the entry. Every later
+     * request for the path joins the same future, so an entry left incomplete does not fail the
+     * command — it hangs every thread that asks, for as long as the command lives.
+     */
+    @Test
+    void completesTheEntryWhenTheHasherFailsUnexpectedly() throws Exception {
+        Path jar = write("demo.jar", "jar bytes");
+
+        assertThrows(
+                StackOverflowError.class,
+                () -> index.verifyOnce(jar, sha256(jar), path -> {
+                    throw new StackOverflowError("unexpected");
+                }));
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<VerificationResult> joined =
+                    executor.submit(() -> index.verifyOnce(jar, sha256(jar)));
+            VerificationResult result = joined.get(10, TimeUnit.SECONDS);
+            assertFalse(result.verified());
+            assertNotNull(result.failure());
+            assertTrue(result.failure().getMessage().contains("Could not verify cached artifact"));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * The bookkeeping after a successful hash reads the file again for a byte counter. A counter is
+     * never a reason to fail a verification that already succeeded, nor to leave the entry
+     * incomplete, so a file that vanishes in between is worth zero bytes and nothing else.
+     */
+    @Test
+    void toleratesAnArtifactThatDisappearsBeforeItsByteCounterIsRead() throws Exception {
+        Path jar = write("demo.jar", "jar bytes");
+        String expected = sha256(jar);
+
+        VerificationResult result = index.verifyOnce(jar, expected, path -> {
+            String hash = digest(path);
+            try {
+                Files.delete(path);
+            } catch (IOException exception) {
+                throw new IllegalStateException(exception);
+            }
+            return hash;
+        });
+
+        assertTrue(result.verified());
+        assertEquals(1, index.metrics().hashes());
+        assertEquals(0L, index.metrics().bytes());
+    }
+
     private VerifiedArtifactIndex.ArtifactContentHasher counting(AtomicInteger hashCalls) {
         return path -> {
             hashCalls.incrementAndGet();

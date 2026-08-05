@@ -1,6 +1,8 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.resolve;
 
 import sh.zolt.lockfile.LockDependencyEdge;
+import sh.zolt.lockfile.LockDependencyIndex;
+import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.ArrayDeque;
@@ -9,6 +11,11 @@ import java.util.Set;
 
 /**
  * Walks the member-qualified graph from API packages exported by visible workspace dependencies.
+ *
+ * <p>The walk never crosses members: a queue entry carries the member it was seeded from, and every
+ * edge it follows is that member's own graph row. The closure over a set of members is therefore
+ * exactly the union of the per-member closures, which is what lets one member's contribution be
+ * computed once and reused by every dependent that can see it.
  */
 final class WorkspaceExportedCompileClosure {
     private WorkspaceExportedCompileClosure() {
@@ -17,7 +24,8 @@ final class WorkspaceExportedCompileClosure {
     static Set<String> compute(
             ZoltLockfile lockfile,
             Set<String> dependencyClosure,
-            WorkspaceLockIndex lockIndex) {
+            LockDependencyIndex dependencies,
+            LockMemberGraphIndex memberGraphs) {
         Set<String> reached = new LinkedHashSet<>();
         Set<String> visited = new LinkedHashSet<>();
         ArrayDeque<MemberPackage> queue = new ArrayDeque<>();
@@ -37,12 +45,10 @@ final class WorkspaceExportedCompileClosure {
             }
             reached.add(currentRef);
             for (String dependency :
-                    lockIndex.memberGraphs().dependenciesFor(
-                            current.member(),
-                            current.lockPackage())) {
-                lockIndex.dependencies().resolveGraphEdge(dependency, "zolt resolve --workspace")
+                    memberGraphs.dependenciesFor(current.member(), current.lockPackage())) {
+                dependencies.resolveGraphEdge(dependency, "zolt resolve --workspace")
                         .filter(candidate -> candidate.scope().entersMainCompileClasspath())
-                        .filter(candidate -> !lockIndex.memberGraphs().optionalOnlyFor(
+                        .filter(candidate -> !memberGraphs.optionalOnlyFor(
                                 current.member(), candidate))
                         .map(candidate -> new MemberPackage(current.member(), candidate))
                         .filter(candidate -> !visited.contains(

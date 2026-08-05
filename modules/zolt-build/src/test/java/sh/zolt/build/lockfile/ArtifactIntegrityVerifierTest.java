@@ -16,10 +16,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -271,6 +275,79 @@ final class ArtifactIntegrityVerifierTest {
 
         assertEquals(1, index.metrics().hashes());
         assertEquals(Optional.empty(), VerifiedArtifactHashes.currentHash(jar));
+    }
+
+    /**
+     * Two members' lock views hitting one command's index at the same time. Exactly one verifier
+     * reads each file and publishes its fingerprint; the other must not drop that fingerprint on the
+     * way past, or the rest of the command re-reads a jar it has already verified.
+     *
+     * <p>The two views are deliberately lopsided — one wide, one naming only the wide view's last
+     * artifact — because that is the shape the fingerprint used to be lost in: the wide verifier
+     * decided up front which paths looked unread, and could then drop an entry the narrow verifier
+     * had published in between. Invalidation now happens inside the single hash the index grants for
+     * a path, so only the verifier that actually re-reads a file can drop its fingerprint, and this
+     * test guards that the two stay paired.
+     */
+    @Test
+    void keepsTheRecordedFingerprintWhenVerifiersRaceForTheSameArtifacts() throws Exception {
+        Path cacheRoot = tempDir.resolve("cache");
+        List<Path> wideJars = new ArrayList<>();
+        for (int number = 0; number < 40; number++) {
+            wideJars.add(write(
+                    cacheRoot.resolve("com/example/wide" + number + "/1.0.0/wide-1.0.0.jar"),
+                    "wide jar bytes " + number));
+        }
+        Path shared = wideJars.getLast();
+        ZoltLockfile wideView = wideLockfile(cacheRoot, wideJars);
+        ZoltLockfile narrowView = wideLockfile(cacheRoot, List.of(shared));
+
+        for (int round = 0; round < 4; round++) {
+            VerifiedArtifactHashes.clear();
+            VerifiedArtifactIndex index = new VerifiedArtifactIndex();
+            CountDownLatch start = new CountDownLatch(2);
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            try {
+                List<Future<?>> projections = new ArrayList<>();
+                for (ZoltLockfile view : List.of(wideView, narrowView)) {
+                    projections.add(executor.submit(() -> {
+                        start.countDown();
+                        start.await();
+                        new ArtifactIntegrityVerifier(index).verify(view, cacheRoot);
+                        return null;
+                    }));
+                }
+                for (Future<?> pending : projections) {
+                    pending.get(30, TimeUnit.SECONDS);
+                }
+            } finally {
+                executor.shutdownNow();
+            }
+
+            assertEquals(40, index.metrics().hashes(), "round " + round);
+            assertEquals(
+                    sha256(shared),
+                    VerifiedArtifactHashes.currentHash(shared),
+                    "round " + round);
+        }
+    }
+
+    private static ZoltLockfile wideLockfile(Path cacheRoot, List<Path> jars) throws IOException {
+        List<LockPackage> packages = new ArrayList<>();
+        for (Path jar : jars) {
+            packages.add(new LockPackage(
+                    new PackageId("com.example", jar.getParent().getParent().getFileName().toString()),
+                    "1.0.0",
+                    "maven-central",
+                    DependencyScope.COMPILE,
+                    true,
+                    relative(cacheRoot, jar),
+                    Optional.empty(),
+                    sha256(jar),
+                    Optional.empty(),
+                    List.of()));
+        }
+        return new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, packages, List.of());
     }
 
     private static ZoltLockfile lockfile(

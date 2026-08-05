@@ -12,8 +12,7 @@ record WorkspaceMemberState(
         String packagePrivateAbiDigest,
         String testCompileKey,
         String testResourceTreeDigest,
-        String testOutputManifestDigest,
-        String packageKey) {
+        String testOutputManifestDigest) {
     WorkspaceMemberState {
         configDigest = value(configDigest);
         toolchainDigest = value(toolchainDigest);
@@ -27,7 +26,6 @@ record WorkspaceMemberState(
         testCompileKey = value(testCompileKey);
         testResourceTreeDigest = value(testResourceTreeDigest);
         testOutputManifestDigest = value(testOutputManifestDigest);
-        packageKey = value(packageKey);
     }
 
     String compileAbiDigest() {

@@ -41,7 +41,7 @@ final class WorkspaceStateCodec {
             Map<String, WorkspaceMemberState> members = new LinkedHashMap<>();
             for (String line : payload.lines().toList()) {
                 List<String> values = fields(line);
-                if (values.size() != 15 || !"member".equals(values.getFirst())) {
+                if (values.size() != 14 || !"member".equals(values.getFirst())) {
                     return Optional.empty();
                 }
                 String member = decode(values.get(1));
@@ -73,8 +73,7 @@ final class WorkspaceStateCodec {
                 state.packagePrivateAbiDigest(),
                 state.testCompileKey(),
                 state.testResourceTreeDigest(),
-                state.testOutputManifestDigest(),
-                state.packageKey());
+                state.testOutputManifestDigest());
         payload.append("member");
         values.forEach(value -> payload.append('\t').append(encode(value)));
         payload.append('\n');
@@ -96,8 +95,7 @@ final class WorkspaceStateCodec {
                 decoded.get(8),
                 decoded.get(9),
                 decoded.get(10),
-                decoded.get(11),
-                decoded.get(12));
+                decoded.get(11));
     }
 
     private static List<String> fields(String line) {

@@ -3,6 +3,7 @@ package sh.zolt.workspace.service;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;

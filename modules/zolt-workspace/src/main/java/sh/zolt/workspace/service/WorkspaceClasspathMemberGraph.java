@@ -1,5 +1,6 @@
 package sh.zolt.workspace.service;
 
+import sh.zolt.workspace.resolve.WorkspaceMemberVisibility;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -16,7 +17,7 @@ import java.util.Set;
  * and that dependency's main runtime closure. Processor roots remain isolated in
  * {@link WorkspaceProcessorClasspathAssembler}, which consumes only the all-compile adjacency map.
  */
-final class WorkspaceClasspathMemberGraph {
+final class WorkspaceClasspathMemberGraph implements WorkspaceMemberVisibility {
     private final Map<String, List<WorkspaceProjectEdge>> edgesByMember;
     private final Map<String, List<String>> compileDependenciesByMember;
     private final Map<String, Set<String>> mainCompileClosures = new LinkedHashMap<>();
@@ -44,7 +45,8 @@ final class WorkspaceClasspathMemberGraph {
         compileDependenciesByMember = immutableLists(compileDependencies);
     }
 
-    synchronized Set<String> mainCompile(String memberPath) {
+    @Override
+    public synchronized Set<String> mainCompile(String memberPath) {
         Set<String> cached = mainCompileClosures.get(memberPath);
         if (cached != null) {
             return cached;
@@ -60,7 +62,8 @@ final class WorkspaceClasspathMemberGraph {
         return calculated;
     }
 
-    synchronized Set<String> mainRuntime(String memberPath) {
+    @Override
+    public synchronized Set<String> mainRuntime(String memberPath) {
         Set<String> cached = runtimeClosures.get(memberPath);
         if (cached != null) {
             return cached;
@@ -76,7 +79,8 @@ final class WorkspaceClasspathMemberGraph {
         return calculated;
     }
 
-    synchronized Set<String> test(String memberPath) {
+    @Override
+    public synchronized Set<String> test(String memberPath) {
         Set<String> cached = testClosures.get(memberPath);
         if (cached != null) {
             return cached;

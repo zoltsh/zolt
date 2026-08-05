@@ -8,26 +8,31 @@ package sh.zolt.workspace.service;
  * A reason carries the work it implies: {@link Effect#PIPELINE} needs the canonical member build,
  * {@link Effect#FINALIZE} only needs the clean-member output assurance, and {@link Effect#TEST}
  * concerns the test lanes rather than the main build.
+ *
+ * <p>There is deliberately no package-lane reason. Packaging re-projects the member's package lock
+ * from the root lock every command rather than reading anything stage 0 recorded, and the member's
+ * compiled output — the only thing a rebuild would refresh — is covered by the main lane. A reason
+ * here would have to be produced and compared to mean anything; adding one that is neither is worse
+ * than not having it, so the package lane gets one when it needs one.
  */
 enum WorkspaceDirtyReason {
-    MISSING_STATE("missing-workspace-state", Effect.PIPELINE),
-    CONFIG_CHANGED("config-changed", Effect.PIPELINE),
-    TOOLCHAIN_CHANGED("toolchain-changed", Effect.PIPELINE),
-    MAIN_SOURCE_CHANGED("main-source-changed", Effect.PIPELINE),
-    GENERATED_SOURCE_CHANGED("generated-source-changed", Effect.PIPELINE),
-    DEPENDENCY_ABI_CHANGED("dependency-abi-changed", Effect.PIPELINE),
-    RESOLUTION_INPUT_CHANGED("resolution-input-changed", Effect.PIPELINE),
-    RESOURCE_CHANGED("resource-changed", Effect.PIPELINE),
-    OUTPUT_MISSING("main-output-missing-or-stale", Effect.PIPELINE),
-    RESOURCE_OUTPUT_MISSING("resource-output-missing-or-stale", Effect.PIPELINE),
-    CONSERVATIVE_GENERATED_INPUT("conservative-generated-input", Effect.PIPELINE),
-    CONSERVATIVE_FRAMEWORK_OUTPUT("conservative-framework-output", Effect.PIPELINE),
-    BUILD_METADATA_REQUIRED("build-metadata-required", Effect.FINALIZE),
-    TEST_SOURCE_CHANGED("test-source-changed", Effect.TEST),
-    TEST_RESOURCE_CHANGED("test-resource-changed", Effect.TEST),
-    TEST_RESOURCE_OUTPUT_MISSING("test-resource-output-missing-or-stale", Effect.TEST),
-    TEST_OUTPUT_MISSING("test-output-missing", Effect.TEST),
-    PACKAGE_OUTPUT_MISSING("package-output-missing", Effect.PIPELINE);
+    MISSING_STATE(Effect.PIPELINE),
+    CONFIG_CHANGED(Effect.PIPELINE),
+    TOOLCHAIN_CHANGED(Effect.PIPELINE),
+    MAIN_SOURCE_CHANGED(Effect.PIPELINE),
+    GENERATED_SOURCE_CHANGED(Effect.PIPELINE),
+    DEPENDENCY_ABI_CHANGED(Effect.PIPELINE),
+    RESOLUTION_INPUT_CHANGED(Effect.PIPELINE),
+    RESOURCE_CHANGED(Effect.PIPELINE),
+    OUTPUT_MISSING(Effect.PIPELINE),
+    RESOURCE_OUTPUT_MISSING(Effect.PIPELINE),
+    CONSERVATIVE_GENERATED_INPUT(Effect.PIPELINE),
+    CONSERVATIVE_FRAMEWORK_OUTPUT(Effect.PIPELINE),
+    BUILD_METADATA_REQUIRED(Effect.FINALIZE),
+    TEST_SOURCE_CHANGED(Effect.TEST),
+    TEST_RESOURCE_CHANGED(Effect.TEST),
+    TEST_RESOURCE_OUTPUT_MISSING(Effect.TEST),
+    TEST_OUTPUT_MISSING(Effect.TEST);
 
     /** What the reason asks the executor to do. */
     enum Effect {
@@ -36,20 +41,10 @@ enum WorkspaceDirtyReason {
         TEST
     }
 
-    private final String wireName;
     private final Effect effect;
 
-    WorkspaceDirtyReason(String wireName, Effect effect) {
-        this.wireName = wireName;
+    WorkspaceDirtyReason(Effect effect) {
         this.effect = effect;
-    }
-
-    String wireName() {
-        return wireName;
-    }
-
-    Effect effect() {
-        return effect;
     }
 
     boolean requiresPipeline() {

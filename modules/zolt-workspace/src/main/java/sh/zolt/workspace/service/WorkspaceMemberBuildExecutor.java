@@ -7,9 +7,7 @@ import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.classpath.ClasspathSet;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -75,7 +73,7 @@ final class WorkspaceMemberBuildExecutor {
         if (plan.includedMembers().isEmpty()) {
             return new Result(List.of(), 0, 0, 0L, 0, 0, Set.of(), 0, 0);
         }
-        List<String> admitted = admissionOrder(plan, dirtyPlan);
+        List<String> admitted = WorkspaceMemberAdmission.order(plan, dirtyPlan);
         Map<String, ScheduledMember> scheduled = new LinkedHashMap<>();
         int concurrency = 0;
         long schedulerIdleNanos = 0L;
@@ -131,40 +129,6 @@ final class WorkspaceMemberBuildExecutor {
                 Set.copyOf(executedMembers),
                 finalizations,
                 admitted.size());
-    }
-
-    /**
-     * The members the scheduler may admit: everything stage 0 flagged, plus every member downstream
-     * of one that will actually be rebuilt, because a rebuild can change an ABI its dependents
-     * compile against. Dependents that turn out not to be invalidated cost a queue slot and nothing
-     * else. A member admitted only to have its outputs finalized never recompiles, so it cannot
-     * move an ABI and does not drag its dependents in.
-     */
-    private static List<String> admissionOrder(
-            WorkspaceBuildBatchPlanner.Plan plan,
-            WorkspaceDirtyPlan dirtyPlan) {
-        Set<String> admitted = new LinkedHashSet<>();
-        Set<String> expanded = new LinkedHashSet<>();
-        Deque<String> frontier = new ArrayDeque<>();
-        for (String member : plan.includedMembers()) {
-            WorkspaceDirtyPlan.MemberPlan memberPlan = dirtyPlan.member(member);
-            if (memberPlan.buildRequired()) {
-                frontier.addLast(member);
-            } else if (memberPlan.finalizeRequired()) {
-                admitted.add(member);
-            }
-        }
-        while (!frontier.isEmpty()) {
-            String member = frontier.removeFirst();
-            if (!plan.dependentsByDependency().containsKey(member)) {
-                continue;
-            }
-            admitted.add(member);
-            if (expanded.add(member)) {
-                frontier.addAll(plan.dependentsByDependency().get(member));
-            }
-        }
-        return plan.includedMembers().stream().filter(admitted::contains).toList();
     }
 
     private WorkspaceReadyQueueExecutor.TaskResult<ScheduledMember> executeMember(

@@ -1,5 +1,6 @@
 package sh.zolt.workspace.service;
 
+import sh.zolt.build.BuildException;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
 import java.nio.file.Path;
@@ -39,6 +40,7 @@ final class WorkspaceToolchainIndex {
                 toolchain.cacheKey(),
                 toolchain.checker(),
                 member.config().project().java());
+        requireUsable(member, status);
         return toolchain.configuredIdentity()
                 + "|javaHome="
                 + path(status.javaHome())
@@ -119,6 +121,32 @@ final class WorkspaceToolchainIndex {
                         cacheKey));
         toolchainsByKey.put(cacheKey, resolved);
         return resolved;
+    }
+
+    /**
+     * Stage 0 can declare a member clean and never enter the build pipeline, so the JDK check the
+     * pipeline — and the clean-member finalization before it — performed has to happen here or not at
+     * all for that member.
+     *
+     * <p>The identity this class returns happens to contain every field {@link JdkStatus#ok()} reads
+     * (the three tool paths, the detected version, the required version), so a toolchain that went
+     * from usable to unusable also moves the identity and would be caught as a toolchain change. That
+     * makes this check redundant <em>today</em> — and it is kept anyway, because the redundancy is an
+     * accident of what the identity string happens to spell rather than something either side
+     * promises. Shortening the identity would silently turn "we always notice" into "we notice by
+     * luck". The status is already resolved and cached by the time we get here, so the guarantee
+     * costs one comparison; the alternative costs a member built against a JDK nobody checked.
+     */
+    private static void requireUsable(WorkspaceMember member, JdkStatus status) {
+        if (status.ok()) {
+            return;
+        }
+        throw BuildException.actionable(
+                "JDK check failed.",
+                "Workspace member `"
+                        + member.path()
+                        + "`: "
+                        + String.join(" ", status.problems()));
     }
 
     private static String path(Optional<Path> path) {

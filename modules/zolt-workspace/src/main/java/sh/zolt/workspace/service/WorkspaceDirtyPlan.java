@@ -44,10 +44,6 @@ record WorkspaceDirtyPlan(
                     || reasons.stream().anyMatch(WorkspaceDirtyReason::requiresTestCompile);
         }
 
-        List<String> reasonNames() {
-            return reasons.stream().map(WorkspaceDirtyReason::wireName).toList();
-        }
-
         String previousCompileAbiDigest() {
             return previousState
                     .map(WorkspaceMemberState::compileAbiDigest)

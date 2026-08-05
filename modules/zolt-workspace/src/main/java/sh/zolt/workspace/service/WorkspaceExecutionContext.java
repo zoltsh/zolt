@@ -4,6 +4,7 @@ import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -99,7 +100,11 @@ public final class WorkspaceExecutionContext {
      */
     synchronized WorkspaceMemberLaneClosure laneClosure() {
         if (laneClosure == null) {
-            laneClosure = new WorkspaceMemberLaneClosure(lockfile, lockIndex, memberGraph);
+            laneClosure = new WorkspaceMemberLaneClosure(
+                    lockfile,
+                    lockIndex.dependencies(),
+                    lockIndex.memberGraphs(),
+                    memberGraph);
         }
         return laneClosure;
     }

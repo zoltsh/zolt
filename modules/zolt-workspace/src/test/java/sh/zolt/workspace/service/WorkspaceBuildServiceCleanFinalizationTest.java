@@ -84,6 +84,9 @@ final class WorkspaceBuildServiceCleanFinalizationTest {
                 () -> service.build(tempDir, cacheRoot(), false));
 
         assertTrue(exception.getMessage().contains("JDK check failed"));
+        assertTrue(
+                exception.getMessage().contains("apps/api"),
+                "the failure names the member whose toolchain could not be used");
         assertEquals(2, detections.get());
     }
 

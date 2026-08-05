@@ -8,6 +8,7 @@ import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
+import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
 import sh.zolt.workspace.WorkspaceConfig;
 import java.io.IOException;
 import java.nio.file.Files;
