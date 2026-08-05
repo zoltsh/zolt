@@ -40,7 +40,8 @@ final class OptionGroupHelpRenderer implements IHelpSectionRenderer {
                     "--include-tag",
                     "--exclude-tag")),
             new OptionGroup("Test Runtime", List.of(
-                    "--jvm-arg")),
+                    "--jvm-arg",
+                    "--test-workers")),
             new OptionGroup("Output", List.of(
                     "--format",
                     "--reports-dir",

@@ -32,12 +32,8 @@ import sh.zolt.test.shard.TestShardException;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.service.WorkspaceBuildPlan;
-import sh.zolt.workspace.service.WorkspaceBuildResult;
-import sh.zolt.workspace.service.WorkspaceMutationLock;
+import sh.zolt.workspace.service.*;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.service.WorkspaceTestResult;
-import sh.zolt.workspace.service.WorkspaceTestService;
 import java.nio.file.Path;
 import java.util.List;
 import picocli.CommandLine.Command;
@@ -86,6 +82,9 @@ public final class TestCommand implements Runnable {
 
     @Option(names = "--jvm-arg", description = "Pass one JVM argument to the test runner process. May be repeated.")
     private List<String> jvmArgs = List.of();
+
+    @Option(names = "--test-workers", description = "Run this many workspace members at once. Defaults to scaling with the machine.")
+    private String testWorkers;
 
     @Option(names = "--test-event", description = "Show JUnit test events: passed, skipped, or failed. May be repeated.")
     private List<String> testEvents = List.of();
@@ -160,7 +159,8 @@ public final class TestCommand implements Runnable {
                     profileOptions.settings(),
                     CommandTestEvents.validated(testEvents),
                     suiteName,
-                    TestShardSpec.parse(shardValue));
+                    TestShardSpec.parse(shardValue),
+                    WorkspaceTestConcurrency.fromCli(testWorkers));
             if (workspace) {
                 if (compileOnly) {
                     compileRunner().compileWorkspace(
@@ -238,7 +238,8 @@ public final class TestCommand implements Runnable {
                                         request.requestedTestEvents(),
                                         request.suiteName(),
                                         request.shard(),
-                                                request.profileSettings()),
+                                                request.profileSettings(),
+                                                request.concurrency()),
                                         CommandTestAttributes::workspaceTest);
                             },
                             CommandTestAttributes::workspaceTest);
@@ -246,15 +247,7 @@ public final class TestCommand implements Runnable {
         if (result.resolvedLockfile()) {
             output.detail("Resolved workspace dependencies because zolt.lock was missing");
         }
-        for (WorkspaceTestResult.MemberTestRunResult member : result.members()) {
-            CommandOutput.printAndFlush(spec, member.result().output());
-            if (!member.result().output().isEmpty() && !member.result().output().endsWith("\n")) {
-                output.blankLine();
-            }
-            output.success("Tests passed in " + member.member());
-            member.result().reportsDirectory().ifPresent(directory ->
-                    output.pointer("wrote", directory.toString()));
-        }
+        WorkspaceTestCommandOutput.printMembers(spec, output, result);
         result.profileDirectory().ifPresent(directory ->
                 CommandTestProfileOutput.print(output, directory, request.profileSettings()));
         int testedMembers = result.members().size();

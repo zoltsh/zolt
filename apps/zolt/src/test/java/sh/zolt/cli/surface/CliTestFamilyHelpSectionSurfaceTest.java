@@ -41,6 +41,7 @@ final class CliTestFamilyHelpSectionSurfaceTest {
                 "--exclude-tag",
                 "Test Runtime:",
                 "--jvm-arg",
+                "--test-workers",
                 "Output:",
                 "--reports-dir",
                 "--test-event",
@@ -71,6 +72,7 @@ final class CliTestFamilyHelpSectionSurfaceTest {
         assertTrue(result.stdout().contains("\u001B[1;36m--workspace\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--test\u001B[0m\u001B[36m <TEST_SELECTORS>\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--jvm-arg\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--test-workers\u001B[0m\u001B[36m <TEST_WORKERS>\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--reports-dir\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--profile-tests\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--profile-dir\u001B[0m"));

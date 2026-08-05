@@ -14,7 +14,8 @@ public record WorkspaceTestResult(
         List<MemberTestRunResult> members,
         int totalMemberCount,
         Optional<Path> profileDirectory,
-        WorkspaceTestToolchainMetrics toolchainMetrics) {
+        WorkspaceTestToolchainMetrics toolchainMetrics,
+        WorkspaceTestPoolMetrics poolMetrics) {
     public WorkspaceTestResult {
         resolveResult = resolveResult == null ? Optional.empty() : resolveResult;
         builtMembers = List.copyOf(builtMembers);
@@ -24,6 +25,24 @@ public record WorkspaceTestResult(
         toolchainMetrics = toolchainMetrics == null
                 ? WorkspaceTestToolchainMetrics.empty()
                 : toolchainMetrics;
+        poolMetrics = poolMetrics == null ? WorkspaceTestPoolMetrics.empty() : poolMetrics;
+    }
+
+    public WorkspaceTestResult(
+            Optional<ResolveResult> resolveResult,
+            List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
+            List<MemberTestRunResult> members,
+            int totalMemberCount,
+            Optional<Path> profileDirectory,
+            WorkspaceTestToolchainMetrics toolchainMetrics) {
+        this(
+                resolveResult,
+                builtMembers,
+                members,
+                totalMemberCount,
+                profileDirectory,
+                toolchainMetrics,
+                WorkspaceTestPoolMetrics.empty());
     }
 
     public WorkspaceTestResult(
@@ -206,6 +225,34 @@ public record WorkspaceTestResult(
         return members.stream()
                 .map(MemberTestRunResult::result)
                 .mapToInt(TestRunResult::testWorkerRequests)
+                .sum();
+    }
+
+    /** Aggregate time members spent booting their test JVMs. Unknown members contribute nothing. */
+    public long testWorkerStartupNanos() {
+        return sumTimings(TestRunResult::testRunnerStartupNanos);
+    }
+
+    /** Aggregate time members spent inside test requests, boot excluded. */
+    public long testWorkerRequestNanos() {
+        return sumTimings(TestRunResult::testRunnerRequestNanos);
+    }
+
+    /** Aggregate time members waited for a pool slot. */
+    public long testWorkerQueueNanos() {
+        return poolMetrics.queueNanos();
+    }
+
+    /** How many members were allowed to run at once. */
+    public int testWorkerConcurrency() {
+        return poolMetrics.workers();
+    }
+
+    private long sumTimings(java.util.function.ToLongFunction<TestRunResult> timing) {
+        return members.stream()
+                .map(MemberTestRunResult::result)
+                .mapToLong(timing)
+                .filter(nanos -> nanos >= 0L)
                 .sum();
     }
 

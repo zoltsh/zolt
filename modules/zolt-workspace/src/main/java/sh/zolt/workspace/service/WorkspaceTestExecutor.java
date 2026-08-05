@@ -12,45 +12,69 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 final class WorkspaceTestExecutor {
     private static final long DEFAULT_SHUTDOWN_WAIT_MILLIS =
             TimeUnit.SECONDS.toMillis(30);
 
-    private final int maximumWorkers;
+    private final WorkspaceTestConcurrency concurrency;
     private final long shutdownWaitMillis;
 
     WorkspaceTestExecutor() {
-        this(Math.min(
-                4,
-                Runtime.getRuntime().availableProcessors()));
+        this(WorkspaceTestConcurrency.adaptive(), DEFAULT_SHUTDOWN_WAIT_MILLIS);
     }
 
     WorkspaceTestExecutor(int maximumWorkers) {
-        this(maximumWorkers, DEFAULT_SHUTDOWN_WAIT_MILLIS);
+        this(WorkspaceTestConcurrency.of(maximumWorkers), DEFAULT_SHUTDOWN_WAIT_MILLIS);
     }
 
     WorkspaceTestExecutor(int maximumWorkers, long shutdownWaitMillis) {
-        this.maximumWorkers = Math.max(1, maximumWorkers);
+        this(WorkspaceTestConcurrency.of(maximumWorkers), shutdownWaitMillis);
+    }
+
+    WorkspaceTestExecutor(WorkspaceTestConcurrency concurrency) {
+        this(concurrency, DEFAULT_SHUTDOWN_WAIT_MILLIS);
+    }
+
+    WorkspaceTestExecutor(
+            WorkspaceTestConcurrency concurrency,
+            long shutdownWaitMillis) {
+        this.concurrency = concurrency == null
+                ? WorkspaceTestConcurrency.adaptive()
+                : concurrency;
         this.shutdownWaitMillis = Math.max(1, shutdownWaitMillis);
     }
 
     <T> List<T> execute(List<Callable<T>> tasks) {
+        return run(tasks, naturalOrder(tasks.size())).results();
+    }
+
+    /**
+     * Run every task, submitting in {@code submissionOrder} but returning results in task order.
+     *
+     * <p>Submission order is a scheduling hint only. Result positions follow the caller's task list
+     * so reporting stays deterministic however the pool interleaves.
+     */
+    <T> Execution<T> run(List<Callable<T>> tasks, List<Integer> submissionOrder) {
         if (tasks.isEmpty()) {
-            return List.of();
+            return new Execution<>(List.of(), 0, 0L);
         }
-        int workers = Math.min(tasks.size(), maximumWorkers);
+        int workers = concurrency.workersFor(tasks.size());
         ExecutorService executor = Executors.newFixedThreadPool(workers);
         ExecutorCompletionService<Completed<T>> completions =
                 new ExecutorCompletionService<>(executor);
         Set<BuildCancellation> cancellations = ConcurrentHashMap.newKeySet();
+        AtomicLong queueNanos = new AtomicLong();
+        long submittedAt = System.nanoTime();
         try {
-            for (int index = 0; index < tasks.size(); index++) {
-                int resultIndex = index;
-                Callable<T> task = tasks.get(index);
+            for (int position : submissionOrder) {
+                int resultIndex = position;
+                Callable<T> task = tasks.get(position);
                 BuildCancellation cancellation = new BuildCancellation();
                 cancellations.add(cancellation);
                 completions.submit(() -> {
+                    queueNanos.addAndGet(Math.max(0L, System.nanoTime() - submittedAt));
                     try {
                         return cancellation.call(() -> call(resultIndex, task));
                     } finally {
@@ -64,11 +88,19 @@ final class WorkspaceTestExecutor {
                 Completed<T> result = await(completions);
                 ordered.set(result.index(), result.value());
             }
-            return ordered;
+            return new Execution<>(ordered, workers, queueNanos.get());
         } finally {
             cancellations.forEach(BuildCancellation::cancel);
             stop(executor, shutdownWaitMillis);
         }
+    }
+
+    private static List<Integer> naturalOrder(int size) {
+        List<Integer> order = new ArrayList<>(size);
+        for (int index = 0; index < size; index++) {
+            order.add(index);
+        }
+        return order;
     }
 
     private static <T> Completed<T> call(int index, Callable<T> task) {
@@ -128,6 +160,10 @@ final class WorkspaceTestExecutor {
                     "Workspace member test execution failed.",
                     cause);
         }
+    }
+
+    /** Results in task order, plus what the pool actually did. */
+    record Execution<T>(List<T> results, int workers, long queueNanos) {
     }
 
     private record Completed<T>(int index, T value) {

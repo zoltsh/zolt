@@ -67,6 +67,7 @@ zolt test --tests '*IntegrationTest'
 zolt test --include-tag fast --exclude-tag slow
 zolt test --suite smoke
 zolt test --shard 1/4
+zolt test --workspace --all --test-workers 8
 zolt test --reports-dir target/test-reports
 zolt test --profile-tests --profile-dir target/test-profiles
 zolt coverage
@@ -1361,6 +1362,19 @@ groovy = ["src/test/groovy"]
 Test commands support class/method selection, glob patterns, JUnit tags, JVM
 arguments, XML reports, deterministic shards, named suites, and optional profile
 history used for shard balancing.
+
+`--test-workers <n>` sets how many workspace members run their tests at once. It
+accepts 1 through 64; anything else is rejected before any member runs. Without
+it, Zolt scales the pool with the machine and never exceeds the number of
+selected members, so small workspaces are unaffected. Members are submitted
+heaviest-first (by test source count) to keep a long member from running alone at
+the tail, but results are always reported in selection order, so the pool width
+never changes output ordering, the summary, or the exit code.
+
+Member test JVMs are short-lived, so a workspace whose members each run only a
+handful of tests can trade peak throughput for faster startup with
+`zolt test --workspace --all --jvm-arg=-XX:TieredStopAtLevel=1`. That flag is not
+a default because it slows long-running test suites down.
 
 ### Coverage Floors
 

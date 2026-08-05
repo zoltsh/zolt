@@ -138,8 +138,15 @@ public final class CommandAttributeKeys {
     public static final String TEST_SLOW_EVIDENCE = "testSlowEvidence";
     public static final String TEST_SLOW_ENTRIES = "testSlowEntries";
     public static final String TEST_SOURCE_FILES = "testSourceFiles";
+    public static final String TEST_WORKER_CONCURRENCY = "testWorkerConcurrency";
+    public static final String TEST_WORKER_QUEUE_MILLIS = "testWorkerQueueMillis";
+    public static final String TEST_WORKER_QUEUE_NANOS = "testWorkerQueueNanos";
     public static final String TEST_WORKER_REQUESTS = "testWorkerRequests";
+    public static final String TEST_WORKER_REQUEST_MILLIS = "testWorkerRequestMillis";
+    public static final String TEST_WORKER_REQUEST_NANOS = "testWorkerRequestNanos";
     public static final String TEST_WORKER_STARTS = "testWorkerStarts";
+    public static final String TEST_WORKER_STARTUP_MILLIS = "testWorkerStartupMillis";
+    public static final String TEST_WORKER_STARTUP_NANOS = "testWorkerStartupNanos";
     public static final String VERSION_SELECTION_MILLIS = "versionSelectionMillis";
     public static final String VERSION_SELECTION_NANOS = "versionSelectionNanos";
     public static final String WARNINGS = "warnings";

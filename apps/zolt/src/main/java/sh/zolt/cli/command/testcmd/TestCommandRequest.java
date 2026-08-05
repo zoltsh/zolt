@@ -5,6 +5,7 @@ import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.test.TestSelection;
+import sh.zolt.workspace.service.WorkspaceTestConcurrency;
 import java.util.List;
 
 /**
@@ -19,5 +20,6 @@ record TestCommandRequest(
         TestProfileSettings profileSettings,
         List<String> requestedTestEvents,
         String suiteName,
-        TestShardSpec shard) {
+        TestShardSpec shard,
+        WorkspaceTestConcurrency concurrency) {
 }

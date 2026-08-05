@@ -102,6 +102,7 @@ public final class CommandTestAttributes {
                 attributes,
                 result.testWorkerStartCount(),
                 result.testWorkerRequestCount());
+        addTestWorkerPoolAttributes(attributes, result);
         addMainFingerprintAttributes(
                 attributes,
                 result.mainFingerprintCheckNanos(),
@@ -195,6 +196,38 @@ public final class CommandTestAttributes {
             attributes.put(CommandAttributeKeys.TEST_RUNNER_REQUEST_MILLIS, Long.toString(result.testRunnerRequestNanos() / 1_000_000L));
             attributes.put(CommandAttributeKeys.TEST_RUNNER_REQUEST_NANOS, Long.toString(result.testRunnerRequestNanos()));
         }
+    }
+
+    private static void addTestWorkerPoolAttributes(
+            Map<String, String> attributes,
+            WorkspaceTestResult result) {
+        attributes.put(
+                CommandAttributeKeys.TEST_WORKER_CONCURRENCY,
+                Integer.toString(result.testWorkerConcurrency()));
+        addNanosAttribute(
+                attributes,
+                CommandAttributeKeys.TEST_WORKER_STARTUP_MILLIS,
+                CommandAttributeKeys.TEST_WORKER_STARTUP_NANOS,
+                result.testWorkerStartupNanos());
+        addNanosAttribute(
+                attributes,
+                CommandAttributeKeys.TEST_WORKER_REQUEST_MILLIS,
+                CommandAttributeKeys.TEST_WORKER_REQUEST_NANOS,
+                result.testWorkerRequestNanos());
+        addNanosAttribute(
+                attributes,
+                CommandAttributeKeys.TEST_WORKER_QUEUE_MILLIS,
+                CommandAttributeKeys.TEST_WORKER_QUEUE_NANOS,
+                result.testWorkerQueueNanos());
+    }
+
+    private static void addNanosAttribute(
+            Map<String, String> attributes,
+            String millisKey,
+            String nanosKey,
+            long nanos) {
+        attributes.put(millisKey, Long.toString(nanos / 1_000_000L));
+        attributes.put(nanosKey, Long.toString(nanos));
     }
 
     private static void addTestWorkerAttributes(
