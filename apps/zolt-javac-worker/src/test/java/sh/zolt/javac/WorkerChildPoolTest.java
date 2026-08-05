@@ -29,11 +29,12 @@ final class WorkerChildPoolTest {
 
         pool.prewarm(2);
         awaitIdle(2);
+        assertEquals(2L, pool.starts(), "prewarm starts the children");
 
         WorkerChildPool.Lease first = pool.acquire();
         WorkerChildPool.Lease second = pool.acquire();
-        assertFalse(first.started(), "a prewarmed child is already running when the request arrives");
-        assertFalse(second.started());
+
+        assertEquals(2L, pool.starts(), "a request must not have to boot a JVM after a prewarm");
         assertNotEquals(first.child().pid(), second.child().pid());
     }
 

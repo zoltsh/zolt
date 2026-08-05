@@ -20,6 +20,8 @@ final class WorkerChild {
     private final DataOutputStream requests;
     private final DataInputStream responses;
     private final long startupNanos;
+    private final java.util.concurrent.atomic.AtomicBoolean used =
+            new java.util.concurrent.atomic.AtomicBoolean();
 
     private WorkerChild(Process process, long startupNanos) {
         this.process = process;
@@ -49,6 +51,15 @@ final class WorkerChild {
 
     long startupNanos() {
         return startupNanos;
+    }
+
+    /**
+     * Whether this lease is the child's first compile. A child that has already compiled is warm —
+     * its JIT profile and file-manager indexes are the reason the broker exists — so only the first
+     * use is counted as a worker start, whether the child was started on demand or prewarmed.
+     */
+    boolean claimFirstUse() {
+        return used.compareAndSet(false, true);
     }
 
     boolean isAlive() {

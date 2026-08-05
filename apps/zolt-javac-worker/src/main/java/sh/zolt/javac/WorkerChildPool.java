@@ -41,7 +41,7 @@ final class WorkerChildPool {
         while (true) {
             WorkerChild reused = pollIdle();
             if (reused != null) {
-                return new Lease(reused, false, 0L);
+                return lease(reused);
             }
             if (!reserve()) {
                 awaitCapacity();
@@ -50,12 +50,17 @@ final class WorkerChildPool {
             try {
                 WorkerChild started = WorkerChild.start(childCommand);
                 starts.incrementAndGet();
-                return new Lease(started, true, started.startupNanos());
+                return lease(started);
             } catch (IOException exception) {
                 unreserve();
                 throw exception;
             }
         }
+    }
+
+    private static Lease lease(WorkerChild child) {
+        boolean firstUse = child.claimFirstUse();
+        return new Lease(child, firstUse, firstUse ? child.startupNanos() : 0L);
     }
 
     /** Returns a healthy child to the warm set. */
