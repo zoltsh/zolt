@@ -99,6 +99,8 @@ final class WorkspaceBuildCommandTest {
         assertTrue(lines[2].contains("\"workspaceFileSnapshotNanos\""));
         assertTrue(lines[2].contains("\"workspaceBytesHashed\""));
         assertTrue(lines[2].contains("\"workspaceFilesHashed\""));
+        assertTrue(lines[2].contains("\"workspaceFilesStatted\""));
+        assertTrue(lines[2].contains("\"workspaceFilesReused\":\"0\""));
         assertTrue(lines[2].contains("\"workspaceMembersConsidered\":\"2\""));
         assertTrue(lines[2].contains("\"workspaceMembersDeclaredClean\":\"0\""));
         assertTrue(lines[2].contains("\"workspaceMemberPipelineInvocations\":\"2\""));

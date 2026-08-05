@@ -40,25 +40,7 @@ public final class WorkspaceExecutionContext {
             new ConcurrentHashMap<>();
     private final Map<String, ZoltLockfile> packageLocks =
             new ConcurrentHashMap<>();
-    private long classpathCalculationNanos;
-    private long packageCalculationNanos;
-    private long memberExecutionNanos;
-    private long schedulerIdleNanos;
-    private long fileSnapshotNanos;
-    private long bytesHashed;
-    private int classpathCacheHits;
-    private int packageCacheHits;
-    private int readyQueuePeak;
-    private int filesHashed;
-    private int filesStatted;
-    private int filesReused;
-    private int membersConsidered;
-    private int membersDeclaredClean;
-    private int memberPipelineInvocations;
-    private int membersAdmitted;
-    private int membersFinalized;
-    private int runtimeClasspathCalculations;
-    private int testClasspathCalculations;
+    private final WorkspaceExecutionCounters counters = new WorkspaceExecutionCounters();
 
     public WorkspaceExecutionContext(
             Workspace workspace,
@@ -151,17 +133,17 @@ public final class WorkspaceExecutionContext {
                 requirements.withPackageInputs(false));
         ClasspathSet cached = classpaths.get(key);
         if (cached != null) {
-            recordClasspathCacheHit();
+            counters.addClasspathCacheHit();
             return cached;
         }
         long started = System.nanoTime();
         ClasspathSet value = calculation.get();
         ClasspathSet existing = classpaths.putIfAbsent(key, value);
         if (existing != null) {
-            recordClasspathCacheHit();
+            counters.addClasspathCacheHit();
             return existing;
         }
-        recordClasspathCalculation(elapsedSince(started), requirements);
+        counters.addClasspathCalculation(elapsedSince(started), requirements);
         return value;
     }
 
@@ -170,7 +152,7 @@ public final class WorkspaceExecutionContext {
             Supplier<List<ResolvedClasspathPackage>> calculation) {
         List<ResolvedClasspathPackage> cached = classpathPackages.get(member);
         if (cached != null) {
-            recordPackageCacheHit();
+            counters.addPackageCacheHit();
             return cached;
         }
         long started = System.nanoTime();
@@ -178,10 +160,10 @@ public final class WorkspaceExecutionContext {
         List<ResolvedClasspathPackage> existing =
                 classpathPackages.putIfAbsent(member, value);
         if (existing != null) {
-            recordPackageCacheHit();
+            counters.addPackageCacheHit();
             return existing;
         }
-        recordPackageCalculation(elapsedSince(started));
+        counters.addPackageCalculation(elapsedSince(started));
         return value;
     }
 
@@ -190,115 +172,44 @@ public final class WorkspaceExecutionContext {
             Supplier<ZoltLockfile> calculation) {
         ZoltLockfile cached = packageLocks.get(member);
         if (cached != null) {
-            recordPackageCacheHit();
+            counters.addPackageCacheHit();
             return cached;
         }
         long started = System.nanoTime();
         ZoltLockfile value = calculation.get();
         ZoltLockfile existing = packageLocks.putIfAbsent(member, value);
         if (existing != null) {
-            recordPackageCacheHit();
+            counters.addPackageCacheHit();
             return existing;
         }
-        recordPackageCalculation(elapsedSince(started));
+        counters.addPackageCalculation(elapsedSince(started));
         return value;
     }
 
-    private synchronized void recordClasspathCalculation(
-            long durationNanos,
-            WorkspaceBuildRequirements requirements) {
-        classpathCalculationNanos += durationNanos;
-        if (requirements.mainRuntimeClasspath()) {
-            runtimeClasspathCalculations++;
-        }
-        if (requirements.testCompileClasspath()) {
-            testClasspathCalculations++;
-        }
-    }
-
-    private synchronized void recordPackageCalculation(long durationNanos) {
-        packageCalculationNanos += durationNanos;
-    }
-
-    private synchronized void recordClasspathCacheHit() {
-        classpathCacheHits++;
-    }
-
-    private synchronized void recordPackageCacheHit() {
-        packageCacheHits++;
-    }
-
-    public synchronized Metrics metrics() {
-        return new Metrics(
+    public Metrics metrics() {
+        return counters.metrics(
                 graphConstructionNanos,
-                classpathCalculationNanos,
-                packageCalculationNanos,
-                memberExecutionNanos,
-                schedulerIdleNanos,
                 classpaths.size(),
                 classpathPackages.size() + packageLocks.size(),
-                classpathCacheHits,
-                packageCacheHits,
-                readyQueuePeak,
-                fileSnapshotNanos,
-                bytesHashed,
-                filesHashed,
-                filesStatted,
-                filesReused,
-                membersConsidered,
-                membersDeclaredClean,
-                memberPipelineInvocations,
-                membersAdmitted,
-                membersFinalized,
-                runtimeClasspathCalculations,
-                testClasspathCalculations,
-                abiIndex.reads(),
-                abiIndex.hits(),
-                toolchainIndex.resolutions(),
-                toolchainIndex.hits(),
-                toolchainIndex.lockfileParses(),
-                toolchainIndex.identityCalculations(),
-                toolchainIndex.identityHits(),
-                artifactIndex.metrics());
+                abiIndex,
+                toolchainIndex,
+                artifactIndex);
     }
 
-    synchronized void addMemberExecutionNanos(long durationNanos) {
-        memberExecutionNanos += Math.max(0L, durationNanos);
+    void addMemberExecutionNanos(long durationNanos) {
+        counters.addMemberExecutionNanos(durationNanos);
     }
 
-    synchronized void addSchedulerMetrics(long idleNanos, int queuePeak) {
-        schedulerIdleNanos += Math.max(0L, idleNanos);
-        readyQueuePeak = Math.max(readyQueuePeak, queuePeak);
+    void addSchedulerMetrics(long idleNanos, int queuePeak) {
+        counters.addSchedulerMetrics(idleNanos, queuePeak);
     }
 
-    /**
-     * The snapshot's running totals, not deltas: {@code statted} counts every input the command
-     * considered, {@code hashed} only the ones whose bytes it had to read, and {@code reused} the
-     * ones a recorded hash answered for. On a warm command the second is zero.
-     */
-    synchronized void addFileSnapshotMetrics(long durationNanos, WorkspaceFileSnapshot snapshot) {
-        fileSnapshotNanos += Math.max(0L, durationNanos);
-        bytesHashed = Math.max(bytesHashed, snapshot.bytesHashed());
-        filesHashed = Math.max(filesHashed, snapshot.filesHashed());
-        filesStatted = Math.max(filesStatted, snapshot.filesStatted());
-        filesReused = Math.max(filesReused, snapshot.filesReused());
+    void addFileSnapshotMetrics(long durationNanos, WorkspaceFileSnapshot snapshot) {
+        counters.addFileSnapshotMetrics(durationNanos, snapshot);
     }
 
-    /**
-     * {@code admitted} is how many members the scheduler let into the executor at all — the number
-     * that could cost a classpath. {@code pipelineInvocations} is the subset that ran the canonical
-     * member build; {@code finalized} is the subset that only had its clean outputs assured.
-     */
-    synchronized void addDirtyPlanMetrics(
-            int considered,
-            int admitted,
-            int pipelineInvocations,
-            int finalized) {
-        membersConsidered += Math.max(0, considered);
-        membersAdmitted += Math.max(0, admitted);
-        memberPipelineInvocations += Math.max(0, pipelineInvocations);
-        membersFinalized += Math.max(0, finalized);
-        membersDeclaredClean += Math.max(0, considered - pipelineInvocations);
+    void addDirtyPlanMetrics(int considered, int admitted, int pipelineInvocations, int finalized) {
+        counters.addDirtyPlanMetrics(considered, admitted, pipelineInvocations, finalized);
     }
 
     private static long elapsedSince(long started) {
