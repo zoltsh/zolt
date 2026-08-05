@@ -1,9 +1,12 @@
 package sh.zolt.workspace.state;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +56,24 @@ final class WorkspaceStateStoreTest {
                     .toString()
                     .endsWith(".tmp")));
         }
+    }
+
+    /**
+     * The fence only means anything while the state file's timestamp stays behind the inputs it was
+     * written after. A command that concluded nothing changed must therefore leave the file untouched
+     * rather than rewrite identical bytes and drag the fence forward over every input edited since.
+     */
+    @Test
+    void anUnchangedStateIsNotRewritten() throws Exception {
+        WorkspaceStateStore store = new WorkspaceStateStore();
+        WorkspaceState state = new WorkspaceState(Map.of("apps/api", memberState("first")));
+        assertTrue(store.write(tempDir, state));
+        FileTime committed = Files.getLastModifiedTime(store.path(tempDir));
+
+        assertFalse(store.write(tempDir, state));
+
+        assertEquals(committed, Files.getLastModifiedTime(store.path(tempDir)));
+        assertTrue(store.write(tempDir, new WorkspaceState(Map.of("apps/api", memberState("second")))));
     }
 
     private static WorkspaceMemberState memberState(String value) {

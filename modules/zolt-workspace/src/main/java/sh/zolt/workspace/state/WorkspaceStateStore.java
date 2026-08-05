@@ -19,6 +19,9 @@ import java.util.Optional;
  * no clock skew between processes can enter the decision. A file whose modification time is not
  * strictly older than the state file's has its recorded hash refused; see {@link WorkspaceFileState}.
  *
+ * <p>A command that changed nothing must not touch the file. Rewriting it would push the fence
+ * forward over inputs modified between the two commands, and the identical bytes would teach the
+ * next command nothing.
  */
 public final class WorkspaceStateStore {
     private static final String FILE_NAME = "workspace-state-v1";
@@ -44,9 +47,13 @@ public final class WorkspaceStateStore {
         }
     }
 
-    public void write(Path workspaceRoot, WorkspaceState state) {
+    /** Commits {@code state}, or leaves the file alone when it would be written back byte for byte. */
+    public boolean write(Path workspaceRoot, WorkspaceState state) {
         Path path = path(workspaceRoot);
         String content = codec.format(state);
+        if (content.equals(existing(path))) {
+            return false;
+        }
         Path temporary = null;
         try {
             Files.createDirectories(path.getParent());
@@ -59,6 +66,7 @@ public final class WorkspaceStateStore {
                     content,
                     StandardCharsets.UTF_8);
             move(temporary, path);
+            return true;
         } catch (IOException exception) {
             throw new BuildException(
                     "Could not write workspace state at " + path + ".",
@@ -72,6 +80,14 @@ public final class WorkspaceStateStore {
         return workspaceRoot.toAbsolutePath().normalize()
                 .resolve(".zolt")
                 .resolve(FILE_NAME);
+    }
+
+    private static String existing(Path path) {
+        try {
+            return Files.readString(path, StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            return "";
+        }
     }
 
     private static Optional<BasicFileAttributes> attributes(Path path) {
