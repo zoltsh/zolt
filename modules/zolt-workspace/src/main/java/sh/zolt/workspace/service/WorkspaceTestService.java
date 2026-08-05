@@ -11,10 +11,7 @@ import sh.zolt.resolve.ResolveService;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.test.TestSelection;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 public final class WorkspaceTestService {
     private final WorkspaceBuildService workspaceBuildService;
@@ -217,12 +214,42 @@ public final class WorkspaceTestService {
             String suiteName,
             TestShardSpec shard,
             TestProfileSettings profileSettings) {
+        return runTests(
+                plan,
+                buildResult,
+                cacheRoot,
+                testSelection,
+                jvmArguments,
+                reportSettings,
+                cliEvents,
+                suiteName,
+                shard,
+                profileSettings,
+                WorkspaceTestConcurrency.adaptive());
+    }
+
+    /**
+     * Run every selected member's tests.
+     *
+     * @param concurrency how many members may run at once; adaptive scales with the machine
+     */
+    public WorkspaceTestResult runTests(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Path cacheRoot,
+            TestSelection testSelection,
+            TestJvmArguments jvmArguments,
+            TestReportSettings reportSettings,
+            List<String> cliEvents,
+            String suiteName,
+            TestShardSpec shard,
+            TestProfileSettings profileSettings,
+            WorkspaceTestConcurrency concurrency) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
-            return runTestsLocked(
+            return new WorkspaceTestRunner(testRunServices, concurrency).runUnit(
                     plan,
                     buildResult,
-                    cacheRoot,
                     testSelection,
                     jvmArguments,
                     reportSettings,
@@ -233,58 +260,6 @@ public final class WorkspaceTestService {
         }
     }
 
-    private WorkspaceTestResult runTestsLocked(
-            WorkspaceBuildPlan plan,
-            WorkspaceBuildResult buildResult,
-            Path cacheRoot,
-            TestSelection testSelection,
-            TestJvmArguments jvmArguments,
-            TestReportSettings reportSettings,
-            List<String> cliEvents,
-            String suiteName,
-            TestShardSpec shard,
-            TestProfileSettings profileSettings) {
-        TestJvmArguments testJvmArguments = jvmArguments == null ? TestJvmArguments.empty() : jvmArguments;
-        TestReportSettings testReportSettings = reportSettings == null ? TestReportSettings.disabled() : reportSettings;
-        TestProfileSettings testProfileSettings = profileSettings == null ? TestProfileSettings.disabled() : profileSettings;
-        Optional<Path> workspaceProfileDirectory = testProfileSettings
-                .forShard(suiteName, shard)
-                .absoluteProfileDirectory(plan.workspace().root());
-        Workspace workspace = plan.requireInputsCurrent().workspace();
-        WorkspaceSelection selection = plan.selection();
-        Map<String, WorkspaceMember> membersByPath = WorkspaceTestExecutionSupport.membersByPath(workspace);
-        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
-                WorkspaceTestExecutionSupport.buildsByPath(buildResult);
-        List<TestRunService> usedServices = new ArrayList<>();
-        var tasks = WorkspaceTestTasks.unit(
-                workspace,
-                selection.selectedMembers(),
-                membersByPath,
-                buildsByPath,
-                testRunServices,
-                usedServices,
-                testSelection,
-                testJvmArguments,
-                testReportSettings,
-                cliEvents,
-                suiteName,
-                shard,
-                testProfileSettings);
-        List<WorkspaceTestResult.MemberTestRunResult> results;
-        try {
-            results = new WorkspaceTestExecutor().execute(tasks);
-        } finally {
-            WorkspaceTestExecutionSupport.closeTestWorkers(usedServices);
-        }
-        WorkspaceTestExecutionSupport.mergeProfiles(workspaceProfileDirectory, results);
-        return new WorkspaceTestResult(
-                buildResult.resolveResult(),
-                buildResult.members(),
-                results,
-                workspace.members().size(),
-                workspaceProfileDirectory,
-                WorkspaceTestToolchainMetrics.combine(buildResult.executionMetrics(), testRunServices.toolchainMetrics()));
-    }
     public WorkspaceTestResult runIntegrationTests(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
@@ -293,58 +268,35 @@ public final class WorkspaceTestService {
             TestJvmArguments jvmArguments,
             TestReportSettings reportSettings,
             List<String> cliEvents) {
-        try (WorkspaceMutationLock ignored =
-                WorkspaceMutationLock.acquire(plan.workspace().root())) {
-            return runIntegrationTestsLocked(
-                    plan,
-                    buildResult,
-                    cacheRoot,
-                    testSelection,
-                    jvmArguments,
-                    reportSettings,
-                    cliEvents);
-        }
+        return runIntegrationTests(
+                plan,
+                buildResult,
+                cacheRoot,
+                testSelection,
+                jvmArguments,
+                reportSettings,
+                cliEvents,
+                WorkspaceTestConcurrency.adaptive());
     }
 
-    private WorkspaceTestResult runIntegrationTestsLocked(
+    public WorkspaceTestResult runIntegrationTests(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
             Path cacheRoot,
             TestSelection testSelection,
             TestJvmArguments jvmArguments,
             TestReportSettings reportSettings,
-            List<String> cliEvents) {
-        TestJvmArguments testJvmArguments = jvmArguments == null ? TestJvmArguments.empty() : jvmArguments;
-        TestReportSettings testReportSettings = reportSettings == null ? TestReportSettings.disabled() : reportSettings;
-        Workspace workspace = plan.requireInputsCurrent().workspace();
-        WorkspaceSelection selection = plan.selection();
-        Map<String, WorkspaceMember> membersByPath = WorkspaceTestExecutionSupport.membersByPath(workspace);
-        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
-                WorkspaceTestExecutionSupport.buildsByPath(buildResult);
-        List<TestRunService> usedServices = new ArrayList<>();
-        var tasks = WorkspaceTestTasks.integration(
-                workspace,
-                selection.selectedMembers(),
-                membersByPath,
-                buildsByPath,
-                testRunServices,
-                usedServices,
-                testSelection,
-                testJvmArguments,
-                testReportSettings,
-                cliEvents);
-        List<WorkspaceTestResult.MemberTestRunResult> results;
-        try {
-            results = new WorkspaceTestExecutor().execute(tasks);
-        } finally {
-            WorkspaceTestExecutionSupport.closeTestWorkers(usedServices);
+            List<String> cliEvents,
+            WorkspaceTestConcurrency concurrency) {
+        try (WorkspaceMutationLock ignored =
+                WorkspaceMutationLock.acquire(plan.workspace().root())) {
+            return new WorkspaceTestRunner(testRunServices, concurrency).runIntegration(
+                    plan,
+                    buildResult,
+                    testSelection,
+                    jvmArguments,
+                    reportSettings,
+                    cliEvents);
         }
-        return new WorkspaceTestResult(
-                buildResult.resolveResult(),
-                buildResult.members(),
-                results,
-                workspace.members().size(),
-                Optional.empty(),
-                WorkspaceTestToolchainMetrics.combine(buildResult.executionMetrics(), testRunServices.toolchainMetrics()));
     }
 }
