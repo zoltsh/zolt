@@ -1162,19 +1162,49 @@ gate is a digest, not a resolve: `zolt resolve --workspace` records an optional
 version, the exact bytes of every workspace and member config (including
 configs that were absent when captured), the sorted member paths and their
 group/artifact/version, each member's effective resolution configuration after
-workspace repository and platform policy merging, and the workspace dependency
-edges with their scopes. A command computes that digest from the workspace it
-just discovered and continues immediately when it matches. When it does not
-match -- a changed input, or a lock written before the annotation existed -- the
-full locked workspace resolve runs and fails with the same actionable stale-lock
-error as before. The digest is deliberately coarse: a comment-only config edit
-re-verifies rather than risk a missed change.
+workspace repository and platform policy merging, the workspace dependency
+edges with their scopes, and the lock's own canonical dependency content. A
+command computes that digest from the workspace it just discovered and from the
+lock it just read, and continues immediately when it matches. When it does not
+match -- a changed input, an edited lock, or a lock written before the
+annotation existed -- the full locked workspace resolve runs and fails with the
+same actionable stale-lock error as before. The digest is deliberately coarse: a
+comment-only config edit re-verifies rather than risk a missed change.
+
+Covering the lock's own content is what keeps a lockfile-only edit honest.
+Hand-editing a `[[package]]` block to a different self-consistent version -- a
+botched merge, or a pull request that touches only `zolt.lock` -- changes no
+config, so an inputs-only digest would still match and the gate would skip the
+verification that catches it. Recording the value cannot perturb it: the digest
+is taken over the canonical dependency lockfile, which already excludes the
+fingerprint line itself. The residual risk is deliberate and narrow. Someone who
+edits the lock *and* recomputes the recorded fingerprint to match defeats the
+fast path, as they could defeat any digest stored beside what it certifies; that
+lock is still rejected by any full `zolt resolve --workspace`, which re-derives
+the packages from the configs. Accidents -- the realistic case -- are caught in
+full.
+
+A matching fingerprint is necessary but not sufficient. The locked resolve the
+gate skips is also the only step that materializes locked artifacts, so the gate
+first confirms every artifact path the lock names is present in the cache. That
+is an existence check only -- one stat per distinct path, no hashing -- and on a
+miss the command falls back to the locked resolve, which downloads what is
+absent and still ends in `--locked` verification. Under `--offline` that
+fallback reports the ordinary offline error naming the missing artifact rather
+than reaching the network. A fresh clone against a cold cache therefore builds,
+instead of failing later with a cached-artifact integrity error.
 
 The annotation does not change the lock schema. It stays `version = 5`, older
 Zolt versions ignore the unknown key when reading, and it is excluded from the
 bytes `--locked` compares so a lock predating it still verifies unchanged. A
-locked verification never writes it; the next ordinary `zolt resolve --workspace`
-does.
+full locked verification that passes has proved the lock is what the current
+inputs derive, so the gate records the fingerprint it just computed, in the same
+position and bytes an ordinary `zolt resolve --workspace` would write. Without
+that, a lock written before the annotation existed -- or one whose configs took
+a comment-only edit -- would make every later command repeat the full resolve
+for the life of the lock. The write is an optimisation and never a requirement:
+a lock the process may not write, such as a read-only checkout, keeps taking the
+slow path rather than failing a command that has already succeeded.
 
 `zolt tree --workspace` projects those same facts without resolving: it reads the
 root `zolt.lock` and the discovered workspace config, renders one tree section per
