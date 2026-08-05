@@ -5,6 +5,7 @@ import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.cli.command.CommandAttributeKeys;
+import sh.zolt.cli.command.CommandJavacWorkerAttributes;
 import sh.zolt.test.TestSelection;
 import sh.zolt.workspace.service.WorkspaceTestCompileResult;
 import sh.zolt.workspace.service.WorkspaceTestResult;
@@ -117,6 +118,7 @@ public final class CommandTestAttributes {
         addSlowTestEvidenceAttributes(attributes);
         attributes.put(CommandAttributeKeys.RESOLVED_LOCKFILE, Boolean.toString(result.resolvedLockfile()));
         addWorkspaceToolchainAttributes(attributes, result.toolchainMetrics());
+        CommandJavacWorkerAttributes.add(attributes);
         return attributes;
     }
 

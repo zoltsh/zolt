@@ -45,6 +45,14 @@ public final class CommandAttributeKeys {
     public static final String JAR_CACHE_MISSES = "jarCacheMisses";
     public static final String JAR_DOWNLOAD_MILLIS = "jarDownloadMillis";
     public static final String JAR_DOWNLOAD_NANOS = "jarDownloadNanos";
+    public static final String JAVAC_BROKER_REQUESTS = "javacBrokerRequests";
+    public static final String JAVAC_BROKER_SESSIONS = "javacBrokerSessions";
+    public static final String JAVAC_LOCAL_REQUESTS = "javacLocalRequests";
+    public static final String JAVAC_WORKER_QUEUE_NANOS = "javacWorkerQueueNanos";
+    public static final String JAVAC_WORKER_REQUEST_NANOS = "javacWorkerRequestNanos";
+    public static final String JAVAC_WORKER_REUSES = "javacWorkerReuses";
+    public static final String JAVAC_WORKER_STARTS = "javacWorkerStarts";
+    public static final String JAVAC_WORKER_STARTUP_NANOS = "javacWorkerStartupNanos";
     public static final String LOCKFILE_ASSEMBLY_MILLIS = "lockfileAssemblyMillis";
     public static final String LOCKFILE_ASSEMBLY_NANOS = "lockfileAssemblyNanos";
     public static final String LOCKFILE_VERIFICATION_MILLIS = "lockfileVerificationMillis";

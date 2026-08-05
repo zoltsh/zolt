@@ -4,6 +4,7 @@ import sh.zolt.build.BuildResult;
 import sh.zolt.build.CompileDiagnostics;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.cli.command.CommandAttributeKeys;
+import sh.zolt.cli.command.CommandJavacWorkerAttributes;
 import sh.zolt.framework.FrameworkBuildAugmentationResult;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -134,6 +135,7 @@ public final class CommandBuildAttributes {
                 attributes,
                 result.mainFingerprintCheckNanos(),
                 result.mainFingerprintWriteNanos());
+        CommandJavacWorkerAttributes.add(attributes);
         return attributes;
     }
 
