@@ -3,8 +3,6 @@ package sh.zolt.toolchain.jvm;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.project.toolchain.ToolchainPolicy;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -12,13 +10,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
-    private static final Pattern VERSION_LINE = Pattern.compile("version \"([^\"]+)\"");
-    private static final Pattern PROPERTY_LINE = Pattern.compile("\\s*([^=]+?)\\s*=\\s*(.+)");
-
     private final Function<String, String> environment;
     private final String pathSeparator;
     private final String osName;
@@ -32,7 +26,7 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
                 java.io.File.pathSeparator,
                 System.getProperty("os.name"),
                 runtimeJavaHome(System.getProperty("java.home")),
-                AmbientJavaToolchainProbe::readRuntimeInfo);
+                JavaRuntimeProbe::read);
     }
 
     AmbientJavaToolchainProbe(
@@ -53,6 +47,7 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
         AmbientTools tools = ambientTools();
         List<String> problems = problems(
                 request,
+                tools.javaHome(),
                 tools.java(),
                 tools.javac(),
                 tools.jar(),
@@ -88,44 +83,32 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
     private AmbientTools detectAmbientTools() {
         Optional<Path> configuredJavaHome = value("JAVA_HOME").map(Path::of);
         Optional<Path> java = findTool("java", configuredJavaHome);
-        Optional<Path> javac = findTool("javac", configuredJavaHome);
-        Optional<Path> jar = findTool("jar", configuredJavaHome);
-        Optional<Path> nativeImage = findTool("native-image", configuredJavaHome);
-        JavaRuntimeInfo runtime = java.flatMap(runtimeInfoReader::read).orElse(JavaRuntimeInfo.empty());
-        return new AmbientTools(
-                selectedJavaHome(configuredJavaHome, java),
+        Optional<JavaRuntimeProbe.Result> probe = java.flatMap(runtimeInfoReader::read);
+        Optional<Path> javaHome = selectedJavaHome(
+                configuredJavaHome,
                 java,
-                javac,
-                jar,
-                nativeImage,
-                runtime);
-    }
-
-    static Optional<String> featureVersion(String value) {
-        if (value == null || value.isBlank()) {
-            return Optional.empty();
-        }
-        String normalized = value.strip();
-        String[] parts = normalized.split("[._+-]", -1);
-        if (parts.length >= 2 && "1".equals(parts[0])) {
-            return Optional.of(parts[1]);
-        }
-        return Optional.of(parts[0]);
+                probe.flatMap(JavaRuntimeProbe.Result::javaHome));
+        return new AmbientTools(
+                javaHome,
+                java,
+                findTool("javac", configuredJavaHome, javaHome),
+                findTool("jar", configuredJavaHome, javaHome),
+                findTool("native-image", configuredJavaHome, javaHome),
+                probe.map(JavaRuntimeProbe.Result::runtime).orElse(JavaRuntimeInfo.empty()));
     }
 
     static Optional<Path> runtimeJavaHome(String value) {
         return value == null || value.isBlank() ? Optional.empty() : Optional.of(Path.of(value));
     }
 
-    static JavaRuntimeInfo parseRuntimeInfo(String output) {
-        Optional<String> version = versionFromOutput(output);
-        return new JavaRuntimeInfo(
-                version,
-                version.flatMap(AmbientJavaToolchainProbe::featureVersion),
-                property(output, "java.vendor"));
+    private Optional<Path> findTool(String name, Optional<Path> configuredJavaHome) {
+        return findTool(name, configuredJavaHome, Optional.empty());
     }
 
-    private Optional<Path> findTool(String name, Optional<Path> configuredJavaHome) {
+    private Optional<Path> findTool(
+            String name,
+            Optional<Path> configuredJavaHome,
+            Optional<Path> resolvedJavaHome) {
         String executable = executableName(name);
         Optional<Path> fromConfigured = configuredJavaHome
                 .map(home -> home.resolve("bin").resolve(executable))
@@ -139,7 +122,7 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
         if (fromRuntime.isPresent()) {
             return fromRuntime;
         }
-        return value("PATH").flatMap(path -> {
+        Optional<Path> fromPath = value("PATH").flatMap(path -> {
             for (String entry : path.split(Pattern.quote(pathSeparator))) {
                 if (entry.isBlank()) {
                     continue;
@@ -151,9 +134,18 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
             }
             return Optional.empty();
         });
+        if (fromPath.isPresent()) {
+            return fromPath;
+        }
+        return resolvedJavaHome
+                .map(home -> home.resolve("bin").resolve(executable))
+                .filter(this::isUsable);
     }
 
-    private Optional<Path> selectedJavaHome(Optional<Path> configuredJavaHome, Optional<Path> java) {
+    private Optional<Path> selectedJavaHome(
+            Optional<Path> configuredJavaHome,
+            Optional<Path> java,
+            Optional<Path> reportedJavaHome) {
         if (configuredJavaHome.isPresent()) {
             return configuredJavaHome;
         }
@@ -162,11 +154,16 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
                         .orElse(false)) {
             return runtimeJavaHome;
         }
+        Optional<Path> reported = reportedJavaHome.filter(Files::isDirectory);
+        if (reported.isPresent()) {
+            return reported;
+        }
         return java.flatMap(AmbientJavaToolchainProbe::inferJavaHome);
     }
 
     private List<String> problems(
             JavaToolchainRequest request,
+            Optional<Path> javaHome,
             Optional<Path> java,
             Optional<Path> javac,
             Optional<Path> jar,
@@ -195,6 +192,11 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
                     + runtime.featureVersion().orElseThrow()
                     + ".");
         }
+        if (java.isPresent() && javaHome.isEmpty()) {
+            problems.add("Could not determine the Java home for `"
+                    + java.orElseThrow()
+                    + "`. Set JAVA_HOME to a JDK directory, or configure [toolchain.java] and run `zolt toolchain sync`.");
+        }
         if (request.requiresNativeImage() && nativeImage.isEmpty()) {
             problems.add("Native Image is missing from the resolved Java toolchain. Run `zolt toolchain status`, then `zolt toolchain sync`, or pass --native-image as an explicit override.");
         }
@@ -218,7 +220,7 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
     }
 
     private static Optional<Integer> integerFeature(String value) {
-        Optional<String> feature = featureVersion(value);
+        Optional<String> feature = JavaRuntimeProbe.featureVersion(value);
         if (feature.isEmpty()) {
             return Optional.empty();
         }
@@ -253,49 +255,9 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
         return Optional.ofNullable(bin.getParent());
     }
 
-    private static Optional<JavaRuntimeInfo> readRuntimeInfo(Path java) {
-        try {
-            Process process = new ProcessBuilder(java.toString(), "-XshowSettings:properties", "-version")
-                    .redirectErrorStream(true)
-                    .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            return exitCode == 0 ? Optional.of(parseRuntimeInfo(output)) : Optional.empty();
-        } catch (IOException exception) {
-            return Optional.empty();
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            return Optional.empty();
-        }
-    }
-
-    private static Optional<String> versionFromOutput(String output) {
-        if (output == null || output.isBlank()) {
-            return Optional.empty();
-        }
-        Matcher line = VERSION_LINE.matcher(output);
-        if (line.find()) {
-            return Optional.of(line.group(1));
-        }
-        return property(output, "java.version");
-    }
-
-    private static Optional<String> property(String output, String key) {
-        if (output == null || output.isBlank()) {
-            return Optional.empty();
-        }
-        for (String line : output.lines().toList()) {
-            Matcher matcher = PROPERTY_LINE.matcher(line);
-            if (matcher.matches() && key.equals(matcher.group(1).strip())) {
-                return Optional.of(matcher.group(2).strip());
-            }
-        }
-        return Optional.empty();
-    }
-
     @FunctionalInterface
     interface RuntimeInfoReader {
-        Optional<JavaRuntimeInfo> read(Path java);
+        Optional<JavaRuntimeProbe.Result> read(Path java);
     }
 
     private record AmbientTools(

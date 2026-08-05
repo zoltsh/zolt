@@ -1,6 +1,7 @@
 package sh.zolt.toolchain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -111,6 +112,60 @@ final class JavaToolchainExecutionServiceTest {
                 new ToolchainStore(tempDir.resolve("toolchains")));
 
         assertTrue(nativeImage.isEmpty());
+    }
+
+    @Test
+    void reportsAmbientJavaHomeProblemInsteadOfGenericExposureError() throws IOException {
+        Path project = writeProjectWithoutToolchain();
+        JavaToolchainExecutionService service = executionService(request -> new ResolvedJavaToolchain(
+                JavaToolchainSource.AMBIENT,
+                Optional.empty(),
+                Optional.of(Path.of("/shims/java")),
+                Optional.of(Path.of("/shims/javac")),
+                Optional.of(Path.of("/shims/jar")),
+                Optional.empty(),
+                new JavaRuntimeInfo(Optional.of("21"), Optional.of("21"), Optional.of("ambient")),
+                request,
+                List.of("Could not determine the Java home for `/shims/java`. Set JAVA_HOME to a JDK directory,"
+                        + " or configure [toolchain.java] and run `zolt toolchain sync`."),
+                List.of()));
+
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> service.environment(
+                        project,
+                        parse(project),
+                        HostPlatform.parse("linux-x64"),
+                        new ToolchainStore(tempDir.resolve("toolchains"))));
+
+        assertTrue(exception.getMessage().contains("Could not determine the Java home for `/shims/java`."));
+        assertFalse(exception.getMessage().contains("does not expose JAVA_HOME"));
+    }
+
+    @Test
+    void resolvesEnvironmentFromAmbientJavaHomeReportedByTheJvm() throws IOException {
+        Path project = writeProjectWithoutToolchain();
+        Path javaHome = tempDir.resolve("probed-jdk");
+        JavaToolchainExecutionService service = executionService(request -> new ResolvedJavaToolchain(
+                JavaToolchainSource.AMBIENT,
+                Optional.of(javaHome),
+                Optional.of(Path.of("/shims/java")),
+                Optional.of(Path.of("/shims/javac")),
+                Optional.of(Path.of("/shims/jar")),
+                Optional.empty(),
+                new JavaRuntimeInfo(Optional.of("21"), Optional.of("21"), Optional.of("ambient")),
+                request,
+                List.of(),
+                List.of()));
+
+        JavaToolchainEnvironment environment = service.environment(
+                project,
+                parse(project),
+                HostPlatform.parse("linux-x64"),
+                new ToolchainStore(tempDir.resolve("toolchains")));
+
+        assertEquals(javaHome.toAbsolutePath().normalize(), environment.javaHome());
+        assertEquals(javaHome.resolve("bin").toAbsolutePath().normalize(), environment.bin());
     }
 
     private Path writeProject(
