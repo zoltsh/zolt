@@ -83,6 +83,25 @@ final class WorkerCompileProtocol {
         }
     }
 
+    /** Length-prefixes a response so a supervisor can relay it without understanding its shape. */
+    static void writeFramedResponse(DataOutputStream output, byte[] response) throws IOException {
+        output.writeInt(response.length);
+        output.write(response);
+        output.flush();
+    }
+
+    static byte[] readFramedResponse(DataInputStream input) throws IOException {
+        int length = input.readInt();
+        if (length < 0 || length > MAX_STRING_BYTES) {
+            throw new IOException("invalid framed response length " + length);
+        }
+        byte[] response = input.readNBytes(length);
+        if (response.length != length) {
+            throw new EOFException("incomplete framed response");
+        }
+        return response;
+    }
+
     static void writeString(DataOutputStream output, String value) throws IOException {
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
         output.writeInt(bytes.length);
