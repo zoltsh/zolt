@@ -1,10 +1,8 @@
 package sh.zolt.workspace.service;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 record WorkspaceDirtyPlan(
         WorkspaceState previousState,
@@ -21,17 +19,6 @@ record WorkspaceDirtyPlan(
         return (int) members.values().stream()
                 .filter(MemberPlan::buildRequired)
                 .count();
-    }
-
-    /** Members stage 0 could not leave alone: they need the pipeline or a clean-output assurance. */
-    Set<String> workRequiredMembers() {
-        Set<String> required = new LinkedHashSet<>();
-        members.forEach((member, plan) -> {
-            if (plan.buildRequired() || plan.finalizeRequired()) {
-                required.add(member);
-            }
-        });
-        return required;
     }
 
     record MemberPlan(

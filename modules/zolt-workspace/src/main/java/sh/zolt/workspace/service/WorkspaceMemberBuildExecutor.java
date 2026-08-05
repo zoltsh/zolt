@@ -135,20 +135,34 @@ final class WorkspaceMemberBuildExecutor {
 
     /**
      * The members the scheduler may admit: everything stage 0 flagged, plus every member downstream
-     * of one, because a rebuilt member can change an ABI its dependents compile against. Dependents
-     * that turn out not to be invalidated cost a queue slot and nothing else.
+     * of one that will actually be rebuilt, because a rebuild can change an ABI its dependents
+     * compile against. Dependents that turn out not to be invalidated cost a queue slot and nothing
+     * else. A member admitted only to have its outputs finalized never recompiles, so it cannot
+     * move an ABI and does not drag its dependents in.
      */
     private static List<String> admissionOrder(
             WorkspaceBuildBatchPlanner.Plan plan,
             WorkspaceDirtyPlan dirtyPlan) {
         Set<String> admitted = new LinkedHashSet<>();
-        Deque<String> frontier = new ArrayDeque<>(dirtyPlan.workRequiredMembers());
+        Set<String> expanded = new LinkedHashSet<>();
+        Deque<String> frontier = new ArrayDeque<>();
+        for (String member : plan.includedMembers()) {
+            WorkspaceDirtyPlan.MemberPlan memberPlan = dirtyPlan.member(member);
+            if (memberPlan.buildRequired()) {
+                frontier.addLast(member);
+            } else if (memberPlan.finalizeRequired()) {
+                admitted.add(member);
+            }
+        }
         while (!frontier.isEmpty()) {
             String member = frontier.removeFirst();
-            if (!plan.dependentsByDependency().containsKey(member) || !admitted.add(member)) {
+            if (!plan.dependentsByDependency().containsKey(member)) {
                 continue;
             }
-            frontier.addAll(plan.dependentsByDependency().get(member));
+            admitted.add(member);
+            if (expanded.add(member)) {
+                frontier.addAll(plan.dependentsByDependency().get(member));
+            }
         }
         return plan.includedMembers().stream().filter(admitted::contains).toList();
     }
