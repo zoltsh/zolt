@@ -6,6 +6,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -14,6 +15,8 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 final class ReleaseVerificationServiceTestSupport {
     private ReleaseVerificationServiceTestSupport() {
@@ -82,6 +85,16 @@ final class ReleaseVerificationServiceTestSupport {
                 new NativeSettings("zolt", "target/native", List.of("--no-fallback")));
     }
 
+    static void writeZip(Path archive, ZipFile... entries) throws IOException {
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+            for (ZipFile entry : entries) {
+                zip.putNextEntry(new ZipEntry(entry.name()));
+                zip.write(entry.content().getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+    }
+
     static String sha256(Path archivePath) throws IOException {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(archivePath)));
@@ -97,5 +110,8 @@ final class ReleaseVerificationServiceTestSupport {
             return parts[1];
         }
         return parts[0];
+    }
+
+    record ZipFile(String name, String content) {
     }
 }
