@@ -25,6 +25,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
+import sh.zolt.workspace.resolve.WorkspaceResolveSnapshot;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -114,15 +115,16 @@ public final class ResolveCommand implements Runnable {
                 ResolveOptions options = ResolveOptions.offline(offline)
                         .withRetryCommand("zolt resolve --workspace")
                         .withArtifactProgressListener(progress.artifactProgressListener());
-                ResolveResult result = resolveInPhase(phase, () -> timings.measure(
+                WorkspaceResolveSnapshot snapshot = resolveInPhase(phase, () -> timings.measure(
                         "resolve workspace",
-                        () -> workspaceResolveService.resolve(
+                        () -> workspaceResolveService.resolveSnapshot(
                                 projectRoot,
                                 cacheRoot,
                                 locked,
                                 options),
-                        ResolveCommand::resolveAttributes));
-                CommandResolveOutput.print(spec, result, !locked);
+                        ResolveCommand::workspaceResolveAttributes));
+                ResolveResult result = snapshot.result();
+                CommandResolveOutput.printWorkspace(spec, result, locked, snapshot.resolutionSkipped());
                 CommandHumanOutput.of(spec).action("zolt build --workspace");
                 progress.result("Resolved " + result.resolvedCount() + " packages");
                 return;
@@ -157,15 +159,23 @@ public final class ResolveCommand implements Runnable {
         }
     }
 
-    private static ResolveResult resolveInPhase(ProgressPhase phase, java.util.function.Supplier<ResolveResult> work) {
+    private static <T> T resolveInPhase(ProgressPhase phase, java.util.function.Supplier<T> work) {
         try {
-            ResolveResult result = work.get();
+            T result = work.get();
             phase.done();
             return result;
         } catch (RuntimeException failure) {
             phase.fail();
             throw failure;
         }
+    }
+
+    private static Map<String, String> workspaceResolveAttributes(WorkspaceResolveSnapshot snapshot) {
+        Map<String, String> attributes = resolveAttributes(snapshot.result());
+        attributes.put(
+                CommandAttributeKeys.WORKSPACE_LOCK_RESOLUTION_SKIPPED,
+                Boolean.toString(snapshot.resolutionSkipped()));
+        return attributes;
     }
 
     private ResolveOptions resolveOptions() {

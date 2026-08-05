@@ -5,6 +5,7 @@ import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
@@ -35,6 +36,7 @@ public final class WorkspaceResolveService {
     private final WorkspaceResolveLockfilePersistence lockfilePersistence;
     private final WorkspacePolicyMerger policyMerger;
     private final WorkspaceLockfileAggregator lockfileAggregator;
+    private final ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
 
     public WorkspaceResolveService() {
         this(new WorkspaceDiscoveryService(), new ResolveService(), new ZoltLockfileWriter(), new WorkspacePolicyMerger());
@@ -103,12 +105,21 @@ public final class WorkspaceResolveService {
     }
 
     public ResolveResult resolve(Path startDirectory, Path cacheRoot, boolean locked, ResolveOptions options) {
-        return WorkspaceMutationLock.withWorkspaceLock(
-                startDirectory,
-                () -> resolveLocked(startDirectory, cacheRoot, locked, options));
+        return resolveSnapshot(startDirectory, cacheRoot, locked, options).result();
     }
 
-    private ResolveResult resolveLocked(
+    /** The same resolve, reporting whether the lock was already current and nothing had to run. */
+    public WorkspaceResolveSnapshot resolveSnapshot(
+            Path startDirectory,
+            Path cacheRoot,
+            boolean locked,
+            ResolveOptions options) {
+        return WorkspaceMutationLock.withWorkspaceLock(
+                startDirectory,
+                () -> resolveSnapshotLocked(startDirectory, cacheRoot, locked, options));
+    }
+
+    private WorkspaceResolveSnapshot resolveSnapshotLocked(
             Path startDirectory,
             Path cacheRoot,
             boolean locked,
@@ -116,7 +127,7 @@ public final class WorkspaceResolveService {
         Path start = startDirectory.toAbsolutePath().normalize();
         Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> new ResolveException(
                 "Could not find workspace config. Run `zolt resolve --workspace` from a workspace directory or add zolt.toml with [workspace]."));
-        return resolveLocked(workspace, cacheRoot, locked, options);
+        return resolveSnapshotLocked(workspace, cacheRoot, locked, options);
     }
 
     public ResolveResult resolve(
@@ -161,6 +172,15 @@ public final class WorkspaceResolveService {
                     "Locked workspace resolve requires zolt.lock at "
                             + lockfilePath
                             + ". Run `zolt resolve --workspace` to create it, then retry `zolt resolve --workspace --locked`.");
+        }
+        // Coverage resolves are excluded: they may add tooling packages the lock on disk does not
+        // carry yet, which is a change the fingerprint deliberately does not cover.
+        if (!locked && !options.includeCoverageTooling()) {
+            Optional<WorkspaceResolveSnapshot> current = WorkspaceResolveUpToDateLock.committed(
+                    workspace, lockfilePath, cacheRoot, lockfileReader);
+            if (current.isPresent()) {
+                return current.orElseThrow();
+            }
         }
         options = lockfilePersistence.prepare(lockfilePath, options)
                 .withWorkspaceMemberCoordinates(workspaceMemberCoordinates(workspace));

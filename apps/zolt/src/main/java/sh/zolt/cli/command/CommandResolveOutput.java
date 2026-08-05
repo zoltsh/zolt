@@ -13,11 +13,28 @@ public final class CommandResolveOutput {
     }
 
     public static void print(CommandSpec spec, ResolveResult result, boolean wroteLockfile) {
+        print(spec, result, wroteLockfile ? "wrote" : "verified");
+    }
+
+    /**
+     * A workspace resolve names what it actually did: verified a locked run, left a lock that was
+     * already current alone, or wrote a new one.
+     */
+    public static void printWorkspace(
+            CommandSpec spec, ResolveResult result, boolean locked, boolean resolutionSkipped) {
+        if (locked) {
+            print(spec, result, "verified");
+            return;
+        }
+        print(spec, result, resolutionSkipped ? "up to date" : "wrote");
+    }
+
+    private static void print(CommandSpec spec, ResolveResult result, String verb) {
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         output.summary(
                 "Resolved " + result.resolvedCount() + " packages",
                 result.downloadCount() + " downloaded",
                 result.conflictCount() + " conflicts");
-        output.pointer(wroteLockfile ? "wrote" : "verified", result.lockfilePath().toString());
+        output.pointer(verb, result.lockfilePath().toString());
     }
 }

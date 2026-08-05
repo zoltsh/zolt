@@ -82,6 +82,31 @@ final class WorkspaceResolveCommandTest {
     }
 
     @Test
+    void repeatedResolveReportsTheLockCurrentInsteadOfRewritingIt() throws IOException {
+        Path workspaceDir = tempDir.resolve("current-workspace");
+        Path apiDir = workspaceDir.resolve("apps/api");
+        Files.createDirectories(apiDir);
+        Files.writeString(workspaceDir.resolve("zolt-workspace.toml"), """
+                [workspace]
+                name = "workspace"
+                members = ["apps/api"]
+                defaultMembers = ["apps/api"]
+                """);
+        Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
+        Path cacheRoot = tempDir.resolve("cache-current");
+        execute("resolve", "--workspace", "--cwd", apiDir.toString(), "--cache-root", cacheRoot.toString());
+        String committed = Files.readString(workspaceDir.resolve("zolt.lock"));
+
+        CommandResult result = execute(
+                "resolve", "--workspace", "--cwd", apiDir.toString(), "--cache-root", cacheRoot.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.stdout().contains("up to date " + workspaceDir.resolve("zolt.lock")));
+        assertFalse(result.stdout().contains("wrote " + workspaceDir.resolve("zolt.lock")));
+        assertEquals(committed, Files.readString(workspaceDir.resolve("zolt.lock")));
+    }
+
+    @Test
     void resolveOnWorkspaceRootWithoutWorkspaceFlagHintsWorkspace() throws IOException {
         Path workspaceDir = writeWorkspaceRootConfig("hint-resolve");
 

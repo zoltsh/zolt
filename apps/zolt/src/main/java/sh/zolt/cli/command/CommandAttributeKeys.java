@@ -168,6 +168,7 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_DISCOVERY_NANOS = "workspaceDiscoveryNanos";
     public static final String WORKSPACE_SELECTION_NANOS = "workspaceSelectionNanos";
     public static final String WORKSPACE_RESOLUTION_NANOS = "workspaceResolutionNanos";
+    public static final String WORKSPACE_LOCK_RESOLUTION_SKIPPED = "workspaceLockResolutionSkipped";
     public static final String WORKSPACE_LOCKFILE_READ_NANOS = "workspaceLockfileReadNanos";
     public static final String WORKSPACE_EDGES = "workspaceEdges";
     public static final String WORKSPACE_LOCKFILE_PACKAGES = "workspaceLockfilePackages";
