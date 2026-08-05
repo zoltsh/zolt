@@ -2,6 +2,7 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.workspace.state.WorkspaceMemberState;
 import sh.zolt.workspace.state.WorkspaceState;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,6 +51,16 @@ record WorkspaceDirtyPlan(
             return previousState
                     .map(WorkspaceMemberState::compileAbiDigest)
                     .orElse("");
+        }
+
+        /** The same plan with one more reason, or itself when the reason is already recorded. */
+        MemberPlan with(WorkspaceDirtyReason reason) {
+            if (reasons.contains(reason)) {
+                return this;
+            }
+            List<WorkspaceDirtyReason> extended = new ArrayList<>(reasons);
+            extended.add(reason);
+            return new MemberPlan(candidateState, previousState, sourceCount, extended);
         }
     }
 }

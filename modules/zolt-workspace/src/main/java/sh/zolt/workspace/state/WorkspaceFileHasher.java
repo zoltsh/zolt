@@ -50,6 +50,27 @@ final class WorkspaceFileHasher {
         }
     }
 
+    /**
+     * Discards what this command already learned about one member's source set.
+     *
+     * <p>The per-command memo assumes a file does not change while the command runs, which holds for
+     * everything a build reads and not for what it writes. A member whose build just regenerated its
+     * sources must be re-observed against the bytes on disk now, or the state would record the stat
+     * from before the build beside a hash of content that no longer exists — costing the next command
+     * a re-read and a spurious dirty reason.
+     */
+    void forget(String member, WorkspaceFileKind kind) {
+        String scope = member + "|" + kind.id();
+        observed.entrySet().removeIf(entry -> {
+            if (!entry.getValue().scope().equals(scope)) {
+                return false;
+            }
+            hashes.remove(workspaceRoot.resolve(entry.getKey()).toAbsolutePath().normalize());
+            return true;
+        });
+        sweptScopes.remove(scope);
+    }
+
     String hash(Path path, WorkspaceFileKind kind, String member) {
         return hash(path, null, kind, member);
     }

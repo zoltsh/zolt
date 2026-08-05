@@ -144,7 +144,9 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
                         core.packagePrivateAbiDigest(),
                         core.testCompileKey(),
                         core.testResourceTreeDigest(),
-                        core.testOutputManifestDigest()));
+                        core.testOutputManifestDigest(),
+                        core.processorInputDigest(),
+                        core.generatedOutputDigest()));
         store.write(tempDir, new WorkspaceState(rewritten));
 
         assertEquals(

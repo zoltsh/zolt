@@ -9,6 +9,13 @@ package sh.zolt.workspace.service;
  * {@link Effect#FINALIZE} only needs the clean-member output assurance, and {@link Effect#TEST}
  * concerns the test lanes rather than the main build.
  *
+ * <p>Annotation processors get precise reasons rather than a standing one. A processor-bearing member
+ * is dirty when its configuration, its processor classpath identity, its sources, or the generated
+ * sources its processors emitted have moved — each of which has a recorded digest here. The posture
+ * this rests on is the one Gradle and Bazel also take: a processor is a pure function of its declared
+ * inputs. A processor that reads an undeclared file or environment variable is outside the contract
+ * and no build tool can see it change.
+ *
  * <p>There is deliberately no package-lane reason. Packaging re-projects the member's package lock
  * from the root lock every command rather than reading anything stage 0 recorded, and the member's
  * compiled output — the only thing a rebuild would refresh — is covered by the main lane. A reason
@@ -21,12 +28,14 @@ enum WorkspaceDirtyReason {
     TOOLCHAIN_CHANGED(Effect.PIPELINE),
     MAIN_SOURCE_CHANGED(Effect.PIPELINE),
     GENERATED_SOURCE_CHANGED(Effect.PIPELINE),
+    GENERATED_OUTPUT_CHANGED(Effect.PIPELINE),
+    PROCESSOR_INPUT_CHANGED(Effect.PIPELINE),
     DEPENDENCY_ABI_CHANGED(Effect.PIPELINE),
     RESOLUTION_INPUT_CHANGED(Effect.PIPELINE),
     RESOURCE_CHANGED(Effect.PIPELINE),
     OUTPUT_MISSING(Effect.PIPELINE),
     RESOURCE_OUTPUT_MISSING(Effect.PIPELINE),
-    CONSERVATIVE_GENERATED_INPUT(Effect.PIPELINE),
+    CONSERVATIVE_GENERATED_SOURCE_STEP(Effect.PIPELINE),
     CONSERVATIVE_FRAMEWORK_OUTPUT(Effect.PIPELINE),
     BUILD_METADATA_REQUIRED(Effect.FINALIZE),
     TEST_SOURCE_CHANGED(Effect.TEST),

@@ -22,9 +22,11 @@ public record WorkspaceMemberState(
         String packagePrivateAbiDigest,
         String testCompileKey,
         String testResourceTreeDigest,
-        String testOutputManifestDigest) {
+        String testOutputManifestDigest,
+        String processorInputDigest,
+        String generatedOutputDigest) {
     /** How many digest fields a row carries, in the order this record declares them. */
-    static final int DIGESTS = 12;
+    static final int DIGESTS = 14;
 
     public WorkspaceMemberState {
         configDigest = value(configDigest);
@@ -39,6 +41,8 @@ public record WorkspaceMemberState(
         testCompileKey = value(testCompileKey);
         testResourceTreeDigest = value(testResourceTreeDigest);
         testOutputManifestDigest = value(testOutputManifestDigest);
+        processorInputDigest = value(processorInputDigest);
+        generatedOutputDigest = value(generatedOutputDigest);
     }
 
     public String compileAbiDigest() {
@@ -59,7 +63,9 @@ public record WorkspaceMemberState(
                 packagePrivateAbiDigest,
                 testCompileKey,
                 testResourceTreeDigest,
-                testOutputManifestDigest);
+                testOutputManifestDigest,
+                processorInputDigest,
+                generatedOutputDigest);
     }
 
     /** Rebuilds a member from a row's digests, padding any an older codec version did not write. */
@@ -80,7 +86,9 @@ public record WorkspaceMemberState(
                 padded.get(8),
                 padded.get(9),
                 padded.get(10),
-                padded.get(11));
+                padded.get(11),
+                padded.get(12),
+                padded.get(13));
     }
 
     private static String value(String value) {

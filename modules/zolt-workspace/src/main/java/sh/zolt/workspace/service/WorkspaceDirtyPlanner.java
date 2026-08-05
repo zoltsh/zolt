@@ -3,6 +3,7 @@ package sh.zolt.workspace.service;
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.build.incremental.IncrementalCompileStateCodec;
 import sh.zolt.project.PackageMode;
+import sh.zolt.workspace.state.WorkspaceFileKind;
 import sh.zolt.workspace.state.WorkspaceMemberState;
 import sh.zolt.workspace.state.WorkspaceState;
 import sh.zolt.workspace.state.WorkspaceStateStore;
@@ -34,9 +35,6 @@ final class WorkspaceDirtyPlanner {
         long started = System.nanoTime();
         WorkspaceMemberStateObserver observer =
                 new WorkspaceMemberStateObserver(context, membersByPath);
-        Set<String> processorMembers = WorkspaceCanonicalBuildPolicy.membersWithProcessorInputs(
-                context.workspace(),
-                context.lockfile());
         Map<String, WorkspaceDirtyPlan.MemberPlan> plans = new LinkedHashMap<>();
         for (String memberPath : selection.includedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
@@ -60,7 +58,6 @@ final class WorkspaceDirtyPlanner {
                                     observer,
                                     member,
                                     requirements,
-                                    processorMembers.contains(memberPath),
                                     previous,
                                     prior,
                                     candidate)));
@@ -68,7 +65,45 @@ final class WorkspaceDirtyPlanner {
         context.addFileSnapshotMetrics(
                 Math.max(0L, System.nanoTime() - started),
                 context.fileSnapshot());
-        return new WorkspaceDirtyPlan(previous, plans);
+        return new WorkspaceDirtyPlan(previous, withProcessorRebuilds(context, plans));
+    }
+
+    /**
+     * A member whose annotation processor is itself about to be rebuilt has to be rebuilt with it.
+     *
+     * <p>Every other processor input is settled by comparing recorded state to what is on disk now,
+     * but a workspace processor member's classes are what will emit the generated sources, and this
+     * command has not compiled them yet — stage 0 is reading the previous command's output. So the
+     * one thing that cannot be read is inferred instead, from the reasons stage 0 just produced for
+     * the processor itself. A processor rebuild that turns out to emit identical bytes costs the
+     * consumer a pipeline trip and no compilation, because its own fingerprint still matches.
+     */
+    private static Map<String, WorkspaceDirtyPlan.MemberPlan> withProcessorRebuilds(
+            WorkspaceExecutionContext context,
+            Map<String, WorkspaceDirtyPlan.MemberPlan> plans) {
+        Map<String, WorkspaceDirtyPlan.MemberPlan> propagated = new LinkedHashMap<>();
+        plans.forEach((memberPath, memberPlan) -> propagated.put(
+                memberPath,
+                rebuildsAProcessorOf(context, plans, memberPath)
+                        ? memberPlan.with(WorkspaceDirtyReason.PROCESSOR_INPUT_CHANGED)
+                        : memberPlan));
+        return propagated;
+    }
+
+    private static boolean rebuildsAProcessorOf(
+            WorkspaceExecutionContext context,
+            Map<String, WorkspaceDirtyPlan.MemberPlan> plans,
+            String memberPath) {
+        for (String processor : WorkspaceCanonicalBuildPolicy.processorMembers(
+                context.workspace(),
+                memberPath,
+                context.memberGraph().compileDependenciesByMember())) {
+            WorkspaceDirtyPlan.MemberPlan processorPlan = plans.get(processor);
+            if (processorPlan != null && processorPlan.buildRequired()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -96,6 +131,7 @@ final class WorkspaceDirtyPlanner {
                 current.put(memberPath, plan.member(memberPath).candidateState());
                 continue;
             }
+            context.fileSnapshot().forget(memberPath, WorkspaceFileKind.GENERATED_OUTPUT);
             context.abiIndex().refreshMain(
                     member.directory().resolve(member.config().build().output()));
             if (requirements.testCompileClasspath()) {
@@ -120,7 +156,6 @@ final class WorkspaceDirtyPlanner {
             WorkspaceMemberStateObserver observer,
             WorkspaceMember member,
             WorkspaceBuildRequirements requirements,
-            boolean hasProcessorInputs,
             WorkspaceState previousState,
             Optional<WorkspaceMemberState> previous,
             WorkspaceMemberState candidate) {
@@ -137,8 +172,8 @@ final class WorkspaceDirtyPlanner {
                 .resourceOutputsCurrent(member.path(), member.directory(), member.config().build())) {
             reasons.add(WorkspaceDirtyReason.RESOURCE_OUTPUT_MISSING);
         }
-        if (hasProcessorInputs || !member.config().build().generatedMainSources().isEmpty()) {
-            reasons.add(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_INPUT);
+        if (!member.config().build().generatedMainSources().isEmpty()) {
+            reasons.add(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_SOURCE_STEP);
         }
         if (WorkspaceCanonicalBuildPolicy.hasFrameworkOutputs(member)) {
             reasons.add(WorkspaceDirtyReason.CONSERVATIVE_FRAMEWORK_OUTPUT);
@@ -172,6 +207,12 @@ final class WorkspaceDirtyPlanner {
         if (!prior.generatedInputDigest().equals(candidate.generatedInputDigest())) {
             reasons.add(WorkspaceDirtyReason.GENERATED_SOURCE_CHANGED);
         }
+        if (moved(prior.generatedOutputDigest(), candidate.generatedOutputDigest())) {
+            reasons.add(WorkspaceDirtyReason.GENERATED_OUTPUT_CHANGED);
+        }
+        if (moved(prior.processorInputDigest(), candidate.processorInputDigest())) {
+            reasons.add(WorkspaceDirtyReason.PROCESSOR_INPUT_CHANGED);
+        }
         if (observer.dependencyAbiChanged(member.path(), previousState)) {
             reasons.add(WorkspaceDirtyReason.DEPENDENCY_ABI_CHANGED);
         }
@@ -183,6 +224,16 @@ final class WorkspaceDirtyPlanner {
         if (!prior.resourceTreeDigest().equals(candidate.resourceTreeDigest())) {
             reasons.add(WorkspaceDirtyReason.RESOURCE_CHANGED);
         }
+    }
+
+    /**
+     * Whether a recorded digest disagrees with a freshly observed one. An empty recorded value means
+     * the field post-dates the state file that was read, not that the input was empty — every digest
+     * is a hash and no hash is the empty string — so it is treated as unobserved rather than as a
+     * mismatch. That is what lets an appended field arrive without invalidating the workspace.
+     */
+    private static boolean moved(String recorded, String observed) {
+        return !recorded.isEmpty() && !recorded.equals(observed);
     }
 
     /**

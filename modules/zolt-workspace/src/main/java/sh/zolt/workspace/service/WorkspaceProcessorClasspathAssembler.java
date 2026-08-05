@@ -48,7 +48,7 @@ final class WorkspaceProcessorClasspathAssembler {
             Classpath externalProcessors) {
         Workspace workspace = context.workspace();
         ZoltLockfile lockfile = context.lockfile();
-        Set<String> processorMembers = processorMemberClosure(
+        Set<String> processorMembers = WorkspaceCanonicalBuildPolicy.processorMemberClosure(
                 workspace,
                 memberPath,
                 edgeScope,
@@ -72,37 +72,6 @@ final class WorkspaceProcessorClasspathAssembler {
         Classpath memberProcessors =
                 targetScope == DependencyScope.TEST_PROCESSOR ? built.testProcessor() : built.processor();
         return mergeClasspaths(externalProcessors, memberProcessors);
-    }
-
-    /**
-     * The processor member(s) a consumer pulls in via a {@code processor}/{@code test-processor} edge,
-     * plus the compile/test closure of each — a processor module may itself depend on other workspace
-     * members whose output it needs at processing time.
-     */
-    private static Set<String> processorMemberClosure(
-            Workspace workspace,
-            String memberPath,
-            String edgeScope,
-            Map<String, List<String>> dependenciesByMember) {
-        Set<String> processorMembers = new LinkedHashSet<>();
-        for (WorkspaceProjectEdge edge : workspace.edges()) {
-            if (edge.from().equals(memberPath) && edge.scope().equals(edgeScope)) {
-                includeMember(edge.to(), dependenciesByMember, processorMembers);
-            }
-        }
-        return processorMembers;
-    }
-
-    private static void includeMember(
-            String memberPath,
-            Map<String, List<String>> dependenciesByMember,
-            Set<String> closure) {
-        if (!closure.add(memberPath)) {
-            return;
-        }
-        for (String dependency : dependenciesByMember.getOrDefault(memberPath, List.of())) {
-            includeMember(dependency, dependenciesByMember, closure);
-        }
     }
 
     private static List<LockPackage> processorClasspathPackagesFor(

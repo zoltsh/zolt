@@ -92,7 +92,7 @@ final class BuildFingerprintContent {
         line(content, "generatedSourcesDirectory", fileHasher.relative(projectRoot, generatedSourcesDirectory));
         line(content, "compilerSettings", config.compilerSettings().toString());
         section(content, "compileClasspath", classpathEntries(compileClasspath, cachedState, collectedState, cacheKeyMode));
-        section(content, "processorClasspath", classpathEntries(processorClasspath, cachedState, collectedState, cacheKeyMode));
+        section(content, "processorClasspath", processorClasspathEntries(processorClasspath, cachedState, collectedState, cacheKeyMode));
         section(content, "sources", fileEntries(projectRoot, sources, cachedState, collectedState));
         section(content, "generatedProducerFingerprints", generatedProducerEntries(generatedProducerFingerprints));
         section(content, "generatedSourceInputs", generatedSourceInputEntries(projectRoot, generatedSteps, cachedState, collectedState));
@@ -142,6 +142,30 @@ final class BuildFingerprintContent {
                 .map(path -> path.toAbsolutePath().normalize())
                 .sorted()
                 .map(path -> path + "|" + fileHasher.classpathHash(path, cachedState, collectedState))
+                .toList();
+    }
+
+    /**
+     * The processor path is hashed by content, never by ABI.
+     *
+     * <p>A compile classpath entry that is a workspace output is summarised by its ABI, because javac
+     * reads only signatures from a dependency and an unchanged ABI cannot change what it compiles. A
+     * processor is not read, it is <em>run</em>: an edit confined to a method body leaves the ABI
+     * identical and changes every source the processor emits. Hashing the compiled bytes is what makes
+     * a processor edit reach the members whose sources it generates.
+     */
+    private List<String> processorClasspathEntries(
+            Classpath classpath,
+            BuildFingerprintState cachedState,
+            Map<Path, BuildFingerprintCachedFileHash> collectedState,
+            boolean cacheKeyMode) {
+        if (cacheKeyMode) {
+            return classpathEntries(classpath, cachedState, collectedState, true);
+        }
+        return classpath.entries().stream()
+                .map(path -> path.toAbsolutePath().normalize())
+                .sorted()
+                .map(path -> path + "|" + fileHasher.classpathKeyHash(path, cachedState, collectedState))
                 .toList();
     }
 

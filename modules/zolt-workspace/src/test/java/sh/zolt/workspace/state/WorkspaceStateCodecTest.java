@@ -51,7 +51,11 @@ final class WorkspaceStateCodecTest {
 
         WorkspaceState decoded = codec.parse(version2(codec.format(state))).orElseThrow();
 
-        assertEquals(memberState("core"), decoded.member("modules/core").orElseThrow());
+        WorkspaceMemberState core = decoded.member("modules/core").orElseThrow();
+        assertEquals(memberState("core").mainCompileKey(), core.mainCompileKey());
+        assertEquals(memberState("core").testCompileKey(), core.testCompileKey());
+        assertEquals("", core.processorInputDigest());
+        assertEquals("", core.generatedOutputDigest());
         assertEquals(Map.of(), decoded.files().files());
         assertTrue(codec.format(decoded).startsWith("version=3\n"));
     }
@@ -99,6 +103,8 @@ final class WorkspaceStateCodecTest {
                 "package-" + value,
                 "test-" + value,
                 "test-resource-" + value,
-                "test-output-" + value);
+                "test-output-" + value,
+                "processor-" + value,
+                "generated-output-" + value);
     }
 }

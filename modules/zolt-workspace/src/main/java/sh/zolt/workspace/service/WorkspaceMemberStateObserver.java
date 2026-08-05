@@ -34,7 +34,8 @@ import java.util.TreeSet;
  *
  * <p>The external half is asked of {@link WorkspaceMemberLaneClosure}, the same object the classpath
  * factory projects lanes from, so a lock edit that moves any lane of a member necessarily moves that
- * member's key for the lane.
+ * member's key for the lane. Processor-scoped packages are included in that: they sit in the member's
+ * own lane bucket, so a processor version bump moves the compile key like any other dependency edit.
  */
 final class WorkspaceMemberStateObserver {
     private final WorkspaceExecutionContext context;
@@ -87,6 +88,7 @@ final class WorkspaceMemberStateObserver {
         String configDigest = WorkspaceHash.text(member.config().toString());
         String toolchainDigest = toolchainDigest(member, resolvedToolchainIdentity, snapshot);
         String generatedDigest = generatedInputs(snapshot, member, build.generatedMainSources());
+        String processorDigest = processorInputDigest(member);
         String compileKey = WorkspaceHash.text(String.join(
                 "|",
                 configDigest,
@@ -129,7 +131,9 @@ final class WorkspaceMemberStateObserver {
                 mainSummary.map(IncrementalCompileSummary::packagePrivateAbiDigest).orElse(""),
                 testCompileKey,
                 testResources,
-                testManifest);
+                testManifest,
+                processorDigest,
+                generatedOutputDigest(snapshot, member));
     }
 
     /**
@@ -158,6 +162,54 @@ final class WorkspaceMemberStateObserver {
                         member.directory(),
                         member.config().build().sourceRoots())
                 .fileCount();
+    }
+
+    /**
+     * The identity of the classes that will run as this member's annotation processors, to the extent
+     * that identity is not already inside the compile lane. External processor jars are inside it —
+     * they are lock packages on the member's own lane bucket. Workspace processor members are not,
+     * because they are deliberately kept out of the compile closure so their classes never leak onto
+     * a compile classpath, so their output is folded in here instead.
+     *
+     * <p>A processor member is folded in by its whole compiled output rather than by its ABI. An ABI
+     * is the right currency for a compile dependency, because javac reads only signatures from one —
+     * but a processor is a program that runs, and an edit confined to a method body can change every
+     * source it emits while leaving its signatures untouched.
+     *
+     * <p>This is recorded beside the compile key rather than inside it so that a processor moving is
+     * reported as a processor change and not as an unexplained lock edit.
+     */
+    private String processorInputDigest(WorkspaceMember member) {
+        Set<String> processors = new TreeSet<>(WorkspaceCanonicalBuildPolicy.processorMembers(
+                context.workspace(),
+                member.path(),
+                context.memberGraph().compileDependenciesByMember()));
+        StringBuilder content = new StringBuilder();
+        for (String processor : processors) {
+            content.append(processor)
+                    .append('|')
+                    .append(mainSummary(processor)
+                            .map(IncrementalCompileSummary::outputManifestDigest)
+                            .orElse("missing"))
+                    .append('\n');
+        }
+        return WorkspaceHash.text(content.toString());
+    }
+
+    /**
+     * What the member's processors last emitted, recorded as the member's own observed state rather
+     * than stood in for by a permanent dirty flag. Generated sources are outputs that are also inputs
+     * to the next compile, so a hand edit or a deleted generated tree has to move a digest to be seen
+     * at all: a member declared clean never reaches the build's own fingerprint gate.
+     */
+    private static String generatedOutputDigest(
+            WorkspaceFileSnapshot snapshot,
+            WorkspaceMember member) {
+        Path generated = member.directory()
+                .resolve(member.config().compilerSettings().generatedSources())
+                .toAbsolutePath()
+                .normalize();
+        return snapshot.tree(member.path(), WorkspaceFileKind.GENERATED_OUTPUT, generated).digest();
     }
 
     private String toolchainDigest(
@@ -191,19 +243,24 @@ final class WorkspaceMemberStateObserver {
     }
 
     private String currentCompileAbi(String memberPath) {
-        WorkspaceMember dependency = membersByPath.get(memberPath);
-        if (dependency == null) {
+        if (!membersByPath.containsKey(memberPath)) {
             return "unknown";
         }
-        Path output = dependency.directory()
-                .resolve(dependency.config().build().output())
-                .toAbsolutePath()
-                .normalize();
-        return context.abiIndex()
-                .main(output)
+        return mainSummary(memberPath)
                 .map(summary -> WorkspaceHash.text(
                         summary.publicAbiDigest() + "|" + summary.packagePrivateAbiDigest()))
                 .orElse("missing");
+    }
+
+    private Optional<IncrementalCompileSummary> mainSummary(String memberPath) {
+        WorkspaceMember dependency = membersByPath.get(memberPath);
+        if (dependency == null) {
+            return Optional.empty();
+        }
+        return context.abiIndex().main(dependency.directory()
+                .resolve(dependency.config().build().output())
+                .toAbsolutePath()
+                .normalize());
     }
 
     private static String generatedInputs(

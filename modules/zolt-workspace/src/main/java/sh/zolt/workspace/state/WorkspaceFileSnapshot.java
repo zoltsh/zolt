@@ -106,6 +106,14 @@ public final class WorkspaceFileSnapshot {
                 build.resourceFiltering().enabled() && build.resourceFiltering().testEnabled());
     }
 
+    /**
+     * Drops everything this command recorded about one member's source set, so the next read of it
+     * goes back to the filesystem. Callers use this after a build has rewritten what it observed.
+     */
+    public void forget(String member, WorkspaceFileKind kind) {
+        hasher.forget(member, kind);
+    }
+
     /** The table to persist, unfenced; the store stamps a fence onto it when it commits the state. */
     public WorkspaceFileState state() {
         return hasher.state();

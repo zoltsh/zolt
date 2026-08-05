@@ -4,9 +4,13 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 final class WorkspaceCanonicalBuildPolicy {
+    private static final List<String> PROCESSOR_EDGE_SCOPES = List.of("processor", "test-processor");
+
     private WorkspaceCanonicalBuildPolicy() {
     }
 
@@ -55,6 +59,54 @@ final class WorkspaceCanonicalBuildPolicy {
             }
         }
         return members;
+    }
+
+    /**
+     * The workspace members whose compiled output lands on {@code memberPath}'s processor path for
+     * one edge scope, plus each of their own compile dependencies — a processor module may need
+     * another member's classes at processing time.
+     *
+     * <p>These members are deliberately absent from the consumer's compile closure (see {@link
+     * WorkspaceClasspathMemberGraph}), so their ABI reaches the consumer's dirtiness key only through
+     * here. External processor jars need no equivalent: a processor-scoped lock package naming the
+     * member sits in the member's own lane bucket and already moves its compile key.
+     */
+    static Set<String> processorMembers(
+            Workspace workspace,
+            String memberPath,
+            Map<String, List<String>> compileDependenciesByMember) {
+        Set<String> processors = new LinkedHashSet<>();
+        for (String edgeScope : PROCESSOR_EDGE_SCOPES) {
+            processors.addAll(processorMemberClosure(
+                    workspace, memberPath, edgeScope, compileDependenciesByMember));
+        }
+        return processors;
+    }
+
+    static Set<String> processorMemberClosure(
+            Workspace workspace,
+            String memberPath,
+            String edgeScope,
+            Map<String, List<String>> compileDependenciesByMember) {
+        Set<String> processorMembers = new LinkedHashSet<>();
+        for (WorkspaceProjectEdge edge : workspace.edges()) {
+            if (edge.from().equals(memberPath) && edge.scope().equals(edgeScope)) {
+                includeMember(edge.to(), compileDependenciesByMember, processorMembers);
+            }
+        }
+        return processorMembers;
+    }
+
+    private static void includeMember(
+            String memberPath,
+            Map<String, List<String>> dependenciesByMember,
+            Set<String> closure) {
+        if (!closure.add(memberPath)) {
+            return;
+        }
+        for (String dependency : dependenciesByMember.getOrDefault(memberPath, List.of())) {
+            includeMember(dependency, dependenciesByMember, closure);
+        }
     }
 
     private static Set<String> everyMember(Workspace workspace) {
