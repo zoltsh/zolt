@@ -22,6 +22,7 @@ final class WorkerCompileProtocol {
 
     private static final int MAX_ARGUMENTS = 100_000;
     private static final int MAX_STRING_BYTES = 64 * 1024 * 1024;
+    private static final int MAX_HANDSHAKE_BYTES = 4096;
 
     private WorkerCompileProtocol() {
     }
@@ -46,9 +47,18 @@ final class WorkerCompileProtocol {
         return arguments;
     }
 
+    /** A handshake field, bounded so an unauthenticated peer cannot ask the broker for memory. */
+    static String readHandshakeString(DataInputStream input) throws IOException {
+        return readString(input, MAX_HANDSHAKE_BYTES);
+    }
+
     static String readString(DataInputStream input) throws IOException {
+        return readString(input, MAX_STRING_BYTES);
+    }
+
+    private static String readString(DataInputStream input, int maximumBytes) throws IOException {
         int length = input.readInt();
-        if (length < 0 || length > MAX_STRING_BYTES) {
+        if (length < 0 || length > maximumBytes) {
             throw new IOException("invalid string length " + length);
         }
         byte[] bytes = input.readNBytes(length);

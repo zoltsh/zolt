@@ -64,23 +64,20 @@ final class BrokerSession implements Runnable {
         }
     }
 
+    /**
+     * Reads the whole handshake before answering it. Hanging up as soon as something looks wrong
+     * would break the client's pipe mid-write, turning "declined, use your own workers" into an
+     * error on a path whose entire purpose is to degrade quietly.
+     */
     private boolean accept(DataInputStream input, DataOutputStream output) throws IOException {
         boolean supported = input.readInt() == BrokerProtocol.MAGIC
                 && input.readInt() == BrokerProtocol.VERSION;
-        if (!supported) {
-            output.writeInt(BrokerProtocol.HELLO_DECLINE);
-            output.flush();
-            return false;
-        }
-        if (!token.equals(WorkerCompileProtocol.readString(input))) {
-            output.writeInt(BrokerProtocol.HELLO_DECLINE);
-            output.flush();
-            return false;
-        }
-        WorkerCompileProtocol.readString(input);
-        output.writeInt(BrokerProtocol.HELLO_ACCEPT);
+        boolean authenticated = token.equals(WorkerCompileProtocol.readHandshakeString(input));
+        WorkerCompileProtocol.readHandshakeString(input);
+        boolean accepted = supported && authenticated;
+        output.writeInt(accepted ? BrokerProtocol.HELLO_ACCEPT : BrokerProtocol.HELLO_DECLINE);
         output.flush();
-        return true;
+        return accepted;
     }
 
     private boolean serve(DataInputStream input) throws IOException {
