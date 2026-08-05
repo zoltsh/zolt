@@ -1,9 +1,9 @@
 package sh.zolt.resolve.materialization.session;
 
-import sh.zolt.cache.CachedArtifact;
 import sh.zolt.concurrent.RepositoryExecutionLane;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.resolve.ResolveException;
+import sh.zolt.resolve.materialization.MaterializedArtifact;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -15,18 +15,18 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 
 final class ArtifactBatchMaterializer {
-    Map<ArtifactDescriptor, CachedArtifact> materialize(
+    Map<ArtifactDescriptor, MaterializedArtifact> materialize(
             List<ArtifactDescriptor> descriptors,
             int concurrency,
-            Function<ArtifactDescriptor, CachedArtifact> materializer) {
+            Function<ArtifactDescriptor, MaterializedArtifact> materializer) {
         return materialize(descriptors, concurrency, RepositoryExecutionLane.DEFAULT, materializer);
     }
 
-    Map<ArtifactDescriptor, CachedArtifact> materialize(
+    Map<ArtifactDescriptor, MaterializedArtifact> materialize(
             List<ArtifactDescriptor> descriptors,
             int concurrency,
             RepositoryExecutionLane executionLane,
-            Function<ArtifactDescriptor, CachedArtifact> materializer) {
+            Function<ArtifactDescriptor, MaterializedArtifact> materializer) {
         Map<ArtifactDescriptor, ArtifactDescriptor> uniqueDescriptors = new LinkedHashMap<>();
         descriptors.stream()
                 .sorted(Comparator.comparing(ArtifactBatchMaterializer::artifactDescriptorKey))
@@ -35,14 +35,14 @@ final class ArtifactBatchMaterializer {
             return Map.of();
         }
         try (ExecutorService executor = executionLane.openExecutor(concurrency)) {
-            Map<ArtifactDescriptor, Future<CachedArtifact>> futures = new LinkedHashMap<>();
+            Map<ArtifactDescriptor, Future<MaterializedArtifact>> futures = new LinkedHashMap<>();
             for (ArtifactDescriptor descriptor : uniqueDescriptors.values()) {
                 futures.put(descriptor, executor.submit(() -> materializer.apply(descriptor)));
             }
 
-            Map<ArtifactDescriptor, CachedArtifact> artifacts = new LinkedHashMap<>();
+            Map<ArtifactDescriptor, MaterializedArtifact> artifacts = new LinkedHashMap<>();
             List<ArtifactDownloadFailure> failures = new ArrayList<>();
-            for (Map.Entry<ArtifactDescriptor, Future<CachedArtifact>> entry : futures.entrySet()) {
+            for (Map.Entry<ArtifactDescriptor, Future<MaterializedArtifact>> entry : futures.entrySet()) {
                 try {
                     artifacts.put(entry.getKey(), entry.getValue().get());
                 } catch (InterruptedException exception) {

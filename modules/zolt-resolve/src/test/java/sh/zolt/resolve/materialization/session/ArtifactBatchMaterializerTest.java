@@ -4,12 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import sh.zolt.cache.CachedArtifact;
 import sh.zolt.concurrent.RepositoryExecutionLane;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.resolve.ResolveException;
-import java.nio.file.Path;
+import sh.zolt.resolve.materialization.MaterializedArtifact;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,7 +27,7 @@ final class ArtifactBatchMaterializerTest {
         ArtifactDescriptor alpha = jar("com.example", "alpha", "1.0.0");
         Map<ArtifactDescriptor, AtomicInteger> calls = new ConcurrentHashMap<>();
 
-        Map<ArtifactDescriptor, CachedArtifact> artifacts = materializer.materialize(
+        Map<ArtifactDescriptor, MaterializedArtifact> artifacts = materializer.materialize(
                 List.of(zeta, alpha, zeta),
                 2,
                 descriptor -> {
@@ -43,7 +42,7 @@ final class ArtifactBatchMaterializerTest {
 
     @Test
     void returnsEmptyMapWithoutCallingMaterializerForEmptyInput() {
-        Map<ArtifactDescriptor, CachedArtifact> artifacts = materializer.materialize(
+        Map<ArtifactDescriptor, MaterializedArtifact> artifacts = materializer.materialize(
                 List.of(),
                 1,
                 descriptor -> {
@@ -58,7 +57,7 @@ final class ArtifactBatchMaterializerTest {
         ArtifactDescriptor alpha = jar("com.example", "alpha", "1.0.0");
         List<Boolean> virtualThreads = Collections.synchronizedList(new ArrayList<>());
 
-        Map<ArtifactDescriptor, CachedArtifact> artifacts = materializer.materialize(
+        Map<ArtifactDescriptor, MaterializedArtifact> artifacts = materializer.materialize(
                 List.of(alpha),
                 1,
                 RepositoryExecutionLane.VIRTUAL,
@@ -99,11 +98,7 @@ final class ArtifactBatchMaterializerTest {
         return ArtifactDescriptor.jar(new Coordinate(groupId, artifactId, Optional.of(version)));
     }
 
-    private static CachedArtifact cached(ArtifactDescriptor descriptor) {
-        return new CachedArtifact(
-                descriptor.coordinate(),
-                descriptor.coordinate().toString(),
-                Path.of(descriptor.coordinate().artifactId()),
-                new byte[] {1});
+    private static MaterializedArtifact cached(ArtifactDescriptor descriptor) {
+        return new MaterializedArtifact(descriptor.coordinate().toString(), "sha256-of-" + descriptor.coordinate());
     }
 }

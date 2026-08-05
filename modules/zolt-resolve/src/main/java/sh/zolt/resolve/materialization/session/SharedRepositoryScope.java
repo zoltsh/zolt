@@ -1,10 +1,12 @@
 package sh.zolt.resolve.materialization.session;
 
 import sh.zolt.cache.CachedArtifact;
+import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.EffectiveRawPom;
 import sh.zolt.maven.repository.RawPom;
 import sh.zolt.maven.repository.RawPomParser;
+import sh.zolt.resolve.materialization.MaterializedArtifact;
 import sh.zolt.resolve.metadata.pom.EffectivePomInheritanceBuilder;
 import sh.zolt.resolve.metadata.pom.EffectivePomMetadataLoader;
 import sh.zolt.resolve.metadata.pom.ImportedBomDependencyManagementExpander;
@@ -13,6 +15,9 @@ import sh.zolt.resolve.metadata.pom.RawPomMetadataLoader;
 import sh.zolt.resolve.metrics.ArtifactLoadMetricsSink;
 import sh.zolt.resolve.metrics.EffectivePomLoadMetricsSink;
 import sh.zolt.resolve.metrics.RawPomLoadMetricsSink;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,6 +40,7 @@ final class SharedRepositoryScope {
     private final RawPomMetadataLoader rawPomMetadataLoader;
     private final EffectivePomMetadataLoader effectivePomMetadataLoader;
     private final Map<String, CachedArtifact> pomArtifacts = new ConcurrentHashMap<>();
+    private final Map<ArtifactDescriptor, MaterializedArtifact> selectedArtifacts = new ConcurrentHashMap<>();
 
     SharedRepositoryScope(RawPomParser rawPomParser) {
         this.rawPomMetadataLoader = new RawPomMetadataLoader(rawPomParser);
@@ -77,5 +83,35 @@ final class SharedRepositoryScope {
         CachedArtifact materialized = materializer.apply(coordinate);
         pomArtifacts.putIfAbsent(coordinate.toString(), materialized);
         return materialized;
+    }
+
+    /**
+     * Describes every selected artifact, materializing only the ones this scope has not described
+     * before. An artifact many projects select is read and hashed once; the projects that follow get
+     * the recorded answer, which is the cache hit re-reading the file used to be. When nothing is
+     * missing the batch is skipped entirely rather than opened to do nothing.
+     */
+    Map<ArtifactDescriptor, MaterializedArtifact> materializedArtifacts(
+            List<ArtifactDescriptor> descriptors,
+            Function<List<ArtifactDescriptor>, Map<ArtifactDescriptor, MaterializedArtifact>> materializer,
+            ArtifactLoadMetricsSink metrics) {
+        List<ArtifactDescriptor> requested = List.copyOf(new LinkedHashSet<>(descriptors));
+        List<ArtifactDescriptor> missing = new ArrayList<>();
+        for (ArtifactDescriptor descriptor : requested) {
+            long started = System.nanoTime();
+            if (selectedArtifacts.containsKey(descriptor)) {
+                metrics.recordArtifactCacheHit(Math.max(0L, System.nanoTime() - started));
+            } else {
+                missing.add(descriptor);
+            }
+        }
+        if (!missing.isEmpty()) {
+            selectedArtifacts.putAll(materializer.apply(List.copyOf(missing)));
+        }
+        Map<ArtifactDescriptor, MaterializedArtifact> artifacts = new LinkedHashMap<>();
+        for (ArtifactDescriptor descriptor : requested) {
+            artifacts.put(descriptor, selectedArtifacts.get(descriptor));
+        }
+        return Map.copyOf(artifacts);
     }
 }

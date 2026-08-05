@@ -15,6 +15,7 @@ import sh.zolt.maven.repository.RepositoryDownloadListener;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.lockfile.assembly.LockfileAssemblyContext;
+import sh.zolt.resolve.materialization.MaterializedArtifact;
 import sh.zolt.resolve.metrics.ResolveMetrics;
 import sh.zolt.resolve.metrics.ResolverMetricsCollector;
 import sh.zolt.resolve.metrics.ResolverMetricsSink;
@@ -99,8 +100,7 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
         return config;
     }
 
-    @Override
-    public CachedArtifact getPom(Coordinate coordinate) {
+    private CachedArtifact getPom(Coordinate coordinate) {
         return scope.pomArtifact(coordinate, this::materializePom, metricsCollector);
     }
 
@@ -113,22 +113,27 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
     }
 
     @Override
-    public String sourceFor(CachedArtifact artifact) {
+    public String sourceFor(MaterializedArtifact artifact) {
         return session.artifactSources().getOrDefault(artifact.repositoryPath(), "maven-central");
     }
 
     @Override
-    public String digest(CachedArtifact artifact) {
-        return session.digest(artifact);
+    public MaterializedArtifact getPomArtifact(Coordinate coordinate) {
+        return session.describe(getPom(coordinate));
     }
 
     @Override
-    public Map<ArtifactDescriptor, CachedArtifact> getArtifacts(List<ArtifactDescriptor> descriptors) {
+    public Map<ArtifactDescriptor, MaterializedArtifact> getArtifacts(List<ArtifactDescriptor> descriptors) {
+        return scope.materializedArtifacts(descriptors, this::materializeArtifacts, metricsCollector);
+    }
+
+    private Map<ArtifactDescriptor, MaterializedArtifact> materializeArtifacts(
+            List<ArtifactDescriptor> descriptors) {
         return artifactBatchMaterializer.materialize(
                 descriptors,
                 session.cache().downloadConcurrency(),
                 session.cache().repositoryExecutionLane(),
-                this::getArtifact);
+                descriptor -> session.describe(getArtifact(descriptor)));
     }
 
     public int downloadCount() {

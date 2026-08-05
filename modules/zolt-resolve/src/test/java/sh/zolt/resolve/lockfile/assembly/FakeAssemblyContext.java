@@ -1,13 +1,12 @@
 package sh.zolt.resolve.lockfile.assembly;
 
-import sh.zolt.cache.CachedArtifact;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.resolve.materialization.MaterializedArtifact;
 import sh.zolt.resolve.metadata.platform.ManagedVersion;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -34,8 +33,8 @@ final class FakeAssemblyContext implements LockfileAssemblyContext {
     }
 
     @Override
-    public Map<ArtifactDescriptor, CachedArtifact> getArtifacts(List<ArtifactDescriptor> descriptors) {
-        Map<ArtifactDescriptor, CachedArtifact> artifacts = new LinkedHashMap<>();
+    public Map<ArtifactDescriptor, MaterializedArtifact> getArtifacts(List<ArtifactDescriptor> descriptors) {
+        Map<ArtifactDescriptor, MaterializedArtifact> artifacts = new LinkedHashMap<>();
         for (ArtifactDescriptor descriptor : descriptors) {
             artifacts.put(descriptor, artifact(descriptor));
         }
@@ -43,23 +42,15 @@ final class FakeAssemblyContext implements LockfileAssemblyContext {
     }
 
     @Override
-    public CachedArtifact getPom(Coordinate coordinate) {
-        return new CachedArtifact(
-                coordinate,
+    public MaterializedArtifact getPomArtifact(Coordinate coordinate) {
+        return describe(
                 repositoryPath(coordinate, Optional.empty(), "pom"),
-                Path.of("cache", coordinate.artifactId() + ".pom"),
                 bytes("pom:" + coordinate));
     }
 
     @Override
-    public String sourceFor(CachedArtifact artifact) {
+    public String sourceFor(MaterializedArtifact artifact) {
         return "repo";
-    }
-
-    @Override
-    public String digest(CachedArtifact artifact) {
-        digestedPaths.add(artifact.repositoryPath());
-        return HexFormat.of().formatHex(sha256().digest(artifact.bytes()));
     }
 
     @Override
@@ -72,12 +63,15 @@ final class FakeAssemblyContext implements LockfileAssemblyContext {
         lockfileAssemblyNanos += nanos;
     }
 
-    private static CachedArtifact artifact(ArtifactDescriptor descriptor) {
-        return new CachedArtifact(
-                descriptor.coordinate(),
+    private MaterializedArtifact artifact(ArtifactDescriptor descriptor) {
+        return describe(
                 repositoryPath(descriptor.coordinate(), descriptor.classifier(), descriptor.extension()),
-                Path.of("cache", descriptor.coordinate().artifactId() + "." + descriptor.extension()),
                 bytes("artifact:" + descriptor));
+    }
+
+    private MaterializedArtifact describe(String repositoryPath, byte[] content) {
+        digestedPaths.add(repositoryPath);
+        return new MaterializedArtifact(repositoryPath, HexFormat.of().formatHex(sha256().digest(content)));
     }
 
     private static String repositoryPath(Coordinate coordinate, Optional<String> classifier, String extension) {

@@ -6,6 +6,7 @@ import sh.zolt.maven.repository.RawPomParser;
 import sh.zolt.maven.repository.RepositoryConfigurationIdentity;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
+import sh.zolt.resolve.materialization.MaterializedArtifact;
 import sh.zolt.resolve.ResolveOptions;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -83,10 +84,12 @@ public final class WorkspaceResolutionSession {
                 ignored -> new SharedRepositoryScope(rawPomParser));
     }
 
-    /** The SHA-256 of {@code artifact}, computed once per cache-relative path. */
-    String digest(CachedArtifact artifact) {
-        return artifactDigests.computeIfAbsent(
-                artifact.repositoryPath(), ignored -> sha256(artifact.bytes()));
+    /** What a lock records about {@code artifact}, digesting its bytes once per cache-relative path. */
+    MaterializedArtifact describe(CachedArtifact artifact) {
+        return new MaterializedArtifact(
+                artifact.repositoryPath(),
+                artifactDigests.computeIfAbsent(
+                        artifact.repositoryPath(), ignored -> sha256(artifact.bytes())));
     }
 
     /**

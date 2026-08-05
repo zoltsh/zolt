@@ -1,6 +1,5 @@
 package sh.zolt.resolve.lockfile.assembly;
 
-import sh.zolt.cache.CachedArtifact;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockConflict;
@@ -19,6 +18,7 @@ import sh.zolt.resolve.DependencyPolicyEffect;
 import sh.zolt.resolve.graph.PackageNode;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.graph.ResolutionGraph;
+import sh.zolt.resolve.materialization.MaterializedArtifact;
 import sh.zolt.resolve.fingerprint.ProjectResolutionFingerprint;
 import sh.zolt.resolve.metadata.platform.ManagedVersion;
 import sh.zolt.resolve.request.DependencyRequest;
@@ -69,7 +69,7 @@ public final class LockfileAssembler {
                             .map(scope -> LockPackagePlan.of(node, scope, graph, selection, List.of())))
                     .toList());
             packagePlans.addAll(ExecToolLockPlanner.plans(execResolutions));
-            Map<ArtifactDescriptor, CachedArtifact> artifacts = context.getArtifacts(
+            Map<ArtifactDescriptor, MaterializedArtifact> artifacts = context.getArtifacts(
                     packagePlans.stream().map(LockPackagePlan::artifactDescriptor).distinct().toList());
             Map<PackageId, List<DependencyScope>> managedDirectScopes = managedDirectScopes(context.config());
             Map<PackageId, ManagedVersion> managedVersionDetails = context.projectManagedVersionDetails();
@@ -243,14 +243,14 @@ public final class LockfileAssembler {
     private LockPackage lockPackage(
             LockfileAssemblyContext context,
             LockPackagePlan plan,
-            CachedArtifact artifact,
+            MaterializedArtifact artifact,
             Map<PackageId, List<DependencyScope>> managedDirectScopes,
             Map<PackageId, ManagedVersion> managedVersionDetails,
             Map<String, DependencyMetadata> dependencyMetadata) {
         PackageNode node = plan.node();
         SelectedDependencyScope selectedScope = plan.selectedScope();
         ArtifactDescriptor descriptor = plan.artifactDescriptor();
-        CachedArtifact pom = context.getPom(descriptor.coordinate());
+        MaterializedArtifact pom = context.getPomArtifact(descriptor.coordinate());
         boolean jarArtifact = "jar".equals(descriptor.extension());
         return new LockPackage(
                 node.packageId(),
@@ -260,11 +260,11 @@ public final class LockfileAssembler {
                 selectedScope.direct(),
                 jarArtifact ? Optional.of(artifact.repositoryPath()) : Optional.empty(),
                 Optional.of(pom.repositoryPath()),
-                jarArtifact ? Optional.of(context.digest(artifact)) : Optional.empty(),
-                Optional.of(context.digest(pom)),
+                jarArtifact ? Optional.of(artifact.sha256()) : Optional.empty(),
+                Optional.of(pom.sha256()),
                 jarArtifact ? Optional.empty() : Optional.of(artifact.repositoryPath()),
                 jarArtifact ? Optional.empty() : Optional.of(descriptor.extension()),
-                jarArtifact ? Optional.empty() : Optional.of(context.digest(artifact)),
+                jarArtifact ? Optional.empty() : Optional.of(artifact.sha256()),
                 Optional.empty(),
                 Optional.empty(),
                 LockfileEdges.dependenciesFor(
