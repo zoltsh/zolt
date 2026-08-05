@@ -128,9 +128,6 @@ zolt licenses --format json
 zolt licenses --notices THIRD_PARTY.txt
 zolt native
 zolt native --workspace --member apps/zolt
-zolt release-archive --target linux-x64 --binary target/native/zolt
-zolt release-index --channel-manifest channels/zap.json --output index.json
-zolt release-verify dist/zolt-0.1.0-linux-x64.tar.gz
 ```
 
 Thin packaging writes a `.runtime-classpath` sidecar beside the application
@@ -1168,6 +1165,29 @@ stay separate per scope and artifact variant exactly as the lock records them.
 Standalone `zolt tree --format json` stays `schemaVersion 1`, and both schemas
 spell coordinates, variants, and dependency edges identically. A missing or stale
 root lock fails with an actionable error instead of resolving.
+
+Schema 2 is a machine contract, so its three shapes are worth spelling out:
+
+- **Scopes.** Schema 2 emits *every* scope the lock records — `compile`,
+  `runtime`, `dev`, `test`, `provided`, `processor`, `test-processor`,
+  `quarkus-deployment`, and the `tool-*` scopes — not just the packaged ones.
+  Each package carries its own `scope`, and every dependency edge ends in the
+  scope of the occurrence it names. `zolt sbom` instead defaults to compile plus
+  runtime, so a consumer cross-checking the two documents must pass
+  `--include-dev --include-test --include-provided --include-tools`; those four
+  flags together cover every scope schema 2 can emit.
+- **Edges.** A dependency edge is always the five-field canonical form
+  `groupId:artifactId:version:extension|classifier:scope`, and always names a
+  package listed in the same document. Historical scope-less edges inherited by
+  an older lock are re-encoded into that form, so one parser reads schema 1 and
+  schema 2 alike.
+- **Roots.** `roots` lists *coordinates* (`id:version`, plus `:variant` when the
+  variant is not a plain jar) — not edges. A coordinate appears once however many
+  members or scopes declare it.
+
+A lock that cannot be projected unambiguously — one occurrence listed twice, or a
+package attributed to a path the workspace no longer declares as a member — fails
+with an actionable error rather than emitting a document a consumer cannot key.
 
 Root-only workspaces (`members = ["."]`) use the same qualified lock contract:
 project fingerprints are retained while packages, exports, and optional facts

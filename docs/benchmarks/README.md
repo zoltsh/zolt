@@ -157,7 +157,7 @@ retain the evidence and command logs but exclude mutable build, cache, checkout,
 fixture, and workspace trees.
 
 Pushes to `benchmark-improvements` select `smoke` automatically. Both `smoke`
-and `candidate` build and release-verify one ephemeral branch benchmark
+and `candidate` build and verify one ephemeral branch benchmark
 distribution, then share it across the parallel lane jobs. It is never
 published to the zap channel. Smoke results are merge gates; candidate results
 are full-scale pre-merge evidence. Neither is public performance evidence.

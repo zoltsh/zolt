@@ -74,9 +74,6 @@ zolt explain --source maven --emit-toml
 zolt ide model --workspace --format json
 zolt quarkus plan
 zolt native --workspace --member apps/zolt
-zolt release-archive --target linux-x64 --binary target/native/zolt
-zolt release-index --channel-manifest channels/zap.json --output index.json
-zolt release-verify dist/zolt-0.1.0-linux-x64.tar.gz
 zolt self releases --channel zap
 zolt self install VERSION --channel zap
 zolt self exec VERSION -- version

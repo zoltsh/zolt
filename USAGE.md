@@ -224,8 +224,7 @@ zolt self update
 ```
 
 Installer-managed versions support channels, switching, pruning, updates, and
-rollback. Zolt also builds and verifies itself with `self-check`, `self-parity`,
-and `native-smoke`.
+rollback.
 
 ## More
 
