@@ -38,8 +38,9 @@ curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
 
 The stable URL serves a reviewed bootstrap that pins an immutable GitHub-hosted
 installer and its SHA-256. That installer resolves the current zap release, accepts
-only exact `zoltsh/releases` archive and checksum URLs, verifies the archive, and
-records the signed channel used by `zolt self update`.
+only exact `zoltsh/releases` archive and checksum URLs, verifies the archive against
+the SHA-256 pinned in the release channel manifest, and records the signed channel
+used by `zolt self update`.
 
 ## Start
 

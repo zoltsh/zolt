@@ -284,13 +284,25 @@ ZOLT_INSTALL_TARGET="$preview_target" \
 [[ "$("$preview_root/bin/zolt" --version)" == "$preview_version" ]]
 [[ "$(cat "$preview_root/channel-url")" == "https://dist.zolt.sh/channels/preview.json" ]]
 
+pinned_only_manifest="$temporary/channel-pinned-only.json"
+grep -v '"checksumUrl"' "$manifest" >"$pinned_only_manifest"
+pinned_only_root="$temporary/install-pinned-only"
+ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+ZOLT_INSTALL_CURL="$fake_curl" \
+ZOLT_INSTALL_ROOT="$pinned_only_root" \
+ZOLT_INSTALL_CHANNEL_URL="file://$pinned_only_manifest" \
+ZOLT_INSTALL_TARGET="linux-x64" \
+    scripts/install-zolt >/dev/null
+[[ "$("$pinned_only_root/bin/zolt" --version)" == "$version" ]]
+
 expect_install_failure() {
     local label="$1"
     local rejected_manifest="$2"
     local expected_message="$3"
+    local asset_root="${4:-$temporary}"
     local output
     if output="$(
-        ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+        ZOLT_INSTALL_TEST_ASSET_ROOT="$asset_root" \
         ZOLT_INSTALL_CURL="$fake_curl" \
         ZOLT_INSTALL_ROOT="$temporary/rejected-$label" \
         ZOLT_INSTALL_CHANNEL_URL="file://$rejected_manifest" \
@@ -302,6 +314,10 @@ expect_install_failure() {
     fi
     if ! grep -F "$expected_message" <<<"$output" >/dev/null; then
         printf 'error: installer rejected %s manifest for the wrong reason\n%s\n' "$label" "$output" >&2
+        exit 1
+    fi
+    if [[ -e "$temporary/rejected-$label/bin/zolt" ]]; then
+        printf 'error: installer linked a binary while rejecting %s manifest\n' "$label" >&2
         exit 1
     fi
 }
@@ -377,4 +393,33 @@ if output="$(
 fi
 grep -F 'must not include a query or fragment' <<<"$output" >/dev/null
 
-printf 'installer selected immutable stable, preview, and zap artifacts correctly\n'
+tampered_pin="deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+linux_digest="$(sha256_file "$temporary/zolt-$version-linux-x64.tar.gz")"
+tampered_pin_manifest="$temporary/channel-tampered-pin.json"
+sed "s|\"$linux_digest\"|\"$tampered_pin\"|" "$manifest" >"$tampered_pin_manifest"
+expect_install_failure \
+    tampered-pin \
+    "$tampered_pin_manifest" \
+    "but the release channel manifest pins $tampered_pin"
+
+tampered_pin_only_manifest="$temporary/channel-tampered-pin-only.json"
+grep -v '"checksumUrl"' "$tampered_pin_manifest" >"$tampered_pin_only_manifest"
+expect_install_failure \
+    tampered-pin-only \
+    "$tampered_pin_only_manifest" \
+    'checksum mismatch for native Zolt archive'
+
+disagreeing_assets="$temporary/assets-disagreeing-checksum"
+mkdir -p "$disagreeing_assets"
+cp "$temporary/zolt-$version-linux-x64.tar.gz" "$disagreeing_assets/"
+printf '%s  %s\n' \
+    "0000000000000000000000000000000000000000000000000000000000000000" \
+    "zolt-$version-linux-x64.tar.gz" \
+    >"$disagreeing_assets/zolt-$version-linux-x64.tar.gz.sha256"
+expect_install_failure \
+    disagreeing-checksum-asset \
+    "$manifest" \
+    "but the release channel manifest pins $linux_digest" \
+    "$disagreeing_assets"
+
+printf 'installer selected immutable stable, preview, and zap artifacts with origin and checksum pins correctly\n'

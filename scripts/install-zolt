@@ -437,16 +437,24 @@ fi
 archive_path="$work_dir/$archive"
 require_under_root "$work_dir" "$archive_path" "native archive download path"
 download "$archive_url" "$archive_path"
+if [ -z "$expected_sha256" ] && [ -z "$checksum_url" ]; then
+  fail "release channel artifact $selected_target must include checksumUrl or sha256."
+fi
+if [ -n "$expected_sha256" ]; then
+  validate_sha256 "release channel artifact $selected_target sha256" "$expected_sha256"
+fi
 if [ -n "$checksum_url" ]; then
   checksum_path="$work_dir/$archive.sha256"
   require_under_root "$work_dir" "$checksum_path" "native checksum download path"
   download "$checksum_url" "$checksum_path"
-  expected_sha256="$(awk '{ print $1; exit }' "$checksum_path")"
+  published_sha256="$(awk '{ print $1; exit }' "$checksum_path")"
+  validate_sha256 "release channel artifact $selected_target published sha256" "$published_sha256"
+  if [ -z "$expected_sha256" ]; then
+    expected_sha256="$published_sha256"
+  elif [ "$published_sha256" != "$expected_sha256" ]; then
+    fail "release channel artifact $selected_target checksum asset publishes $published_sha256 but the release channel manifest pins $expected_sha256."
+  fi
 fi
-if [ -z "$expected_sha256" ]; then
-  fail "release channel artifact $selected_target must include checksumUrl or sha256."
-fi
-validate_sha256 "release channel artifact $selected_target sha256" "$expected_sha256"
 verify_checksum "$archive_path" "$expected_sha256"
 validate_tar_entries "$archive_path"
 
