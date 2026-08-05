@@ -24,6 +24,8 @@ enum WorkspaceDirtyReason {
     CONSERVATIVE_FRAMEWORK_OUTPUT("conservative-framework-output", Effect.PIPELINE),
     BUILD_METADATA_REQUIRED("build-metadata-required", Effect.FINALIZE),
     TEST_SOURCE_CHANGED("test-source-changed", Effect.TEST),
+    TEST_RESOURCE_CHANGED("test-resource-changed", Effect.TEST),
+    TEST_RESOURCE_OUTPUT_MISSING("test-resource-output-missing-or-stale", Effect.TEST),
     TEST_OUTPUT_MISSING("test-output-missing", Effect.TEST),
     PACKAGE_OUTPUT_MISSING("package-output-missing", Effect.PIPELINE);
 

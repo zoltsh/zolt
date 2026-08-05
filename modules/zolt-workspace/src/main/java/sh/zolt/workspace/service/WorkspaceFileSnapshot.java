@@ -59,12 +59,40 @@ final class WorkspaceFileSnapshot {
     boolean resourceOutputsCurrent(
             Path projectDirectory,
             BuildSettings build) {
-        if (build.resourceFiltering().enabled()) {
+        return copiedResourcesCurrent(
+                projectDirectory,
+                build.resourceRoots(),
+                build.output(),
+                build.resourceFiltering().enabled());
+    }
+
+    /**
+     * The test-lane twin of {@link #resourceOutputsCurrent}. Test resources are copied into the test
+     * output by the member's test compile, and filtering opts in per lane exactly as the copier reads
+     * it, so the test lane is declared stale for filtering only when filtering would rewrite the test
+     * bytes.
+     */
+    boolean testResourceOutputsCurrent(
+            Path projectDirectory,
+            BuildSettings build) {
+        return copiedResourcesCurrent(
+                projectDirectory,
+                build.testResourceRoots(),
+                build.testOutput(),
+                build.resourceFiltering().enabled() && build.resourceFiltering().testEnabled());
+    }
+
+    private boolean copiedResourcesCurrent(
+            Path projectDirectory,
+            List<String> resourceRoots,
+            String outputRoot,
+            boolean filtered) {
+        if (filtered) {
             return false;
         }
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
-        Path output = confined(projectRoot, build.output());
-        for (String configuredRoot : build.resourceRoots()) {
+        Path output = confined(projectRoot, outputRoot);
+        for (String configuredRoot : resourceRoots) {
             Path root = confined(projectRoot, configuredRoot);
             for (Path input : walk(
                     root,

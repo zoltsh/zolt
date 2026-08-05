@@ -11,6 +11,7 @@ record WorkspaceMemberState(
         String publicAbiDigest,
         String packagePrivateAbiDigest,
         String testCompileKey,
+        String testResourceTreeDigest,
         String testOutputManifestDigest,
         String packageKey) {
     WorkspaceMemberState {
@@ -24,6 +25,7 @@ record WorkspaceMemberState(
         publicAbiDigest = value(publicAbiDigest);
         packagePrivateAbiDigest = value(packagePrivateAbiDigest);
         testCompileKey = value(testCompileKey);
+        testResourceTreeDigest = value(testResourceTreeDigest);
         testOutputManifestDigest = value(testOutputManifestDigest);
         packageKey = value(packageKey);
     }

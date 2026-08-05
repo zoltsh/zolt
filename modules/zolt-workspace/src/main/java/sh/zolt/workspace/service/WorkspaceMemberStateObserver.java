@@ -93,9 +93,12 @@ final class WorkspaceMemberStateObserver {
                 .map(IncrementalCompileSummary::outputManifestDigest)
                 .orElse("");
         String testCompileKey = previous.map(WorkspaceMemberState::testCompileKey).orElse("");
+        String testResources =
+                previous.map(WorkspaceMemberState::testResourceTreeDigest).orElse("");
         String testManifest = previous.map(WorkspaceMemberState::testOutputManifestDigest).orElse("");
         if (requirements.testCompileClasspath()) {
             testCompileKey = testCompileKey(member, mainManifest);
+            testResources = snapshot.resources(member.directory(), build.testResourceRoots()).digest();
             testManifest = context.abiIndex()
                     .test(member.directory().resolve(build.testOutput()).toAbsolutePath().normalize())
                     .map(IncrementalCompileSummary::outputManifestDigest)
@@ -115,10 +118,17 @@ final class WorkspaceMemberStateObserver {
                 mainSummary.map(IncrementalCompileSummary::publicAbiDigest).orElse(""),
                 mainSummary.map(IncrementalCompileSummary::packagePrivateAbiDigest).orElse(""),
                 testCompileKey,
+                testResources,
                 testManifest,
                 packageKey);
     }
 
+    /**
+     * The test lane's compile inputs only. Test resources are tracked beside this key rather than
+     * inside it, exactly as the main lane keeps {@code resourceTreeDigest} out of its compile key:
+     * both lanes copy resources after compiling, so a resource edit has to be able to say so on its
+     * own instead of masquerading as a source change.
+     */
     String testCompileKey(WorkspaceMember member, String mainManifestDigest) {
         var build = member.config().build();
         var testSources = context.fileSnapshot().javaSources(member.directory(), build.testSources());

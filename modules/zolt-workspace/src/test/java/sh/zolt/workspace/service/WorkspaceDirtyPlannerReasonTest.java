@@ -54,6 +54,7 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
                 }
                 """);
         source("apps/api/src/main/resources/application.properties", "message=first\n");
+        source("apps/api/src/test/resources/fixture.txt", "A");
         service.build(tempDir, tempDir.resolve("cache"), false);
     }
 
@@ -139,6 +140,7 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
                         "abi-from-an-older-build",
                         core.packagePrivateAbiDigest(),
                         core.testCompileKey(),
+                        core.testResourceTreeDigest(),
                         core.testOutputManifestDigest(),
                         core.packageKey()));
         store.write(tempDir, new WorkspaceState(rewritten));
@@ -182,6 +184,15 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
 
         assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
         assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_SOURCE_CHANGED));
+    }
+
+    /** The test lane's own resource input, mirrored on the main lane's {@code RESOURCE_CHANGED}. */
+    @Test
+    void testResourceEditIsReportedOnlyWhenTheCommandCompilesTests() throws IOException {
+        Files.writeString(tempDir.resolve("apps/api/src/test/resources/fixture.txt"), "B");
+
+        assertFalse(reasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED));
+        assertTrue(testReasons().get("apps/api").contains(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED));
     }
 
     private Map<String, List<WorkspaceDirtyReason>> reasons() {

@@ -22,7 +22,7 @@ final class WorkspaceStateCodecTest {
 
         assertEquals(state, decoded);
         assertEquals(encoded, codec.format(decoded));
-        assertTrue(encoded.startsWith("version=1\nchecksum="));
+        assertTrue(encoded.startsWith("version=2\nchecksum="));
     }
 
     @Test
@@ -32,7 +32,7 @@ final class WorkspaceStateCodecTest {
 
         String corrupt = encoded.substring(0, encoded.length() - 2) + "X\n";
         assertTrue(codec.parse(corrupt).isEmpty());
-        assertTrue(codec.parse(encoded.replace("version=1", "version=999")).isEmpty());
+        assertTrue(codec.parse(encoded.replace("version=2", "version=999")).isEmpty());
         assertTrue(codec.parse("not-state").isEmpty());
     }
 
@@ -48,6 +48,7 @@ final class WorkspaceStateCodecTest {
                 "public-" + value,
                 "package-" + value,
                 "test-" + value,
+                "test-resource-" + value,
                 "test-output-" + value,
                 "package-key-" + value);
     }

@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 
 final class WorkspaceStateCodec {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
 
     String format(WorkspaceState state) {
         StringBuilder payload = new StringBuilder();
@@ -41,7 +41,7 @@ final class WorkspaceStateCodec {
             Map<String, WorkspaceMemberState> members = new LinkedHashMap<>();
             for (String line : payload.lines().toList()) {
                 List<String> values = fields(line);
-                if (values.size() != 14 || !"member".equals(values.getFirst())) {
+                if (values.size() != 15 || !"member".equals(values.getFirst())) {
                     return Optional.empty();
                 }
                 String member = decode(values.get(1));
@@ -72,6 +72,7 @@ final class WorkspaceStateCodec {
                 state.publicAbiDigest(),
                 state.packagePrivateAbiDigest(),
                 state.testCompileKey(),
+                state.testResourceTreeDigest(),
                 state.testOutputManifestDigest(),
                 state.packageKey());
         payload.append("member");
@@ -95,7 +96,8 @@ final class WorkspaceStateCodec {
                 decoded.get(8),
                 decoded.get(9),
                 decoded.get(10),
-                decoded.get(11));
+                decoded.get(11),
+                decoded.get(12));
     }
 
     private static List<String> fields(String line) {

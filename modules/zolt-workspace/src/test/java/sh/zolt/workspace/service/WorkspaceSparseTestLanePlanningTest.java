@@ -8,6 +8,7 @@ import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.workspace;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.function.Function;
@@ -59,6 +60,7 @@ final class WorkspaceSparseTestLanePlanningTest {
                 public final class AppBTest {
                 }
                 """);
+        source(tempDir, "apps/a/src/test/resources/fixture.txt", "A");
     }
 
     @Test
@@ -113,6 +115,53 @@ final class WorkspaceSparseTestLanePlanningTest {
                 skipped(result).get("apps/a"),
                 "a rebuilt main output re-enters the member's test compile");
         assertTrue(skipped(result).get("apps/b"));
+    }
+
+    /**
+     * A test-resource edit reaches the test output. The member's test sources did not move, so
+     * nothing recompiles; the refresh the copy lane owes still has to happen, or the run reads the
+     * bytes from the previous command.
+     */
+    @Test
+    void testResourceEditIsServedFromTheTestOutput() throws IOException {
+        compile();
+        assertEquals(
+                "A",
+                Files.readString(tempDir.resolve("apps/a/target/test-classes/fixture.txt")));
+        source(tempDir, "apps/a/src/test/resources/fixture.txt", "B");
+
+        Compilation result = compile();
+
+        assertEquals(
+                "B",
+                Files.readString(tempDir.resolve("apps/a/target/test-classes/fixture.txt")),
+                "the edited test resource is what the test lane serves");
+        assertEquals(0, result.metrics().memberPipelineInvocations());
+        assertEquals(1, refreshedResources(result).get("apps/a"), "the copy lane ran for the edit");
+        assertEquals(0, refreshedResources(result).get("apps/b"), "the untouched member is skipped");
+        assertTrue(
+                skipped(result).get("apps/a"),
+                "a resource-only edit refreshes the copy lane without recompiling tests");
+    }
+
+    /** A deleted copy of a test resource is restored even though no input digest moved. */
+    @Test
+    void deletedTestResourceOutputIsRestored() throws IOException {
+        compile();
+        Files.delete(tempDir.resolve("apps/a/target/test-classes/fixture.txt"));
+
+        compile();
+
+        assertEquals(
+                "A",
+                Files.readString(tempDir.resolve("apps/a/target/test-classes/fixture.txt")));
+    }
+
+    private static Map<String, Integer> refreshedResources(Compilation compilation) {
+        return compilation.compiled().members().stream()
+                .collect(Collectors.toMap(
+                        WorkspaceTestCompileResult.MemberTestCompileResult::member,
+                        entry -> entry.result().resourceCount()));
     }
 
     private static Map<String, Boolean> skipped(Compilation compilation) {

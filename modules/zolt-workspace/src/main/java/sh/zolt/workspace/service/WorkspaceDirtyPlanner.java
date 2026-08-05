@@ -143,7 +143,7 @@ final class WorkspaceDirtyPlanner {
             reasons.add(WorkspaceDirtyReason.BUILD_METADATA_REQUIRED);
         }
         if (requirements.testCompileClasspath()) {
-            testReasons(member, previous, candidate, reasons);
+            testReasons(context, member, previous, candidate, reasons);
         }
         return List.copyOf(reasons);
     }
@@ -181,7 +181,13 @@ final class WorkspaceDirtyPlanner {
         }
     }
 
+    /**
+     * The test lane's half of stage 0, mirroring the main lane reason for reason: sources and
+     * resources are separate inputs, and each has a recorded digest plus an on-disk output check so a
+     * lane that was never refreshed cannot claim to be current.
+     */
     private void testReasons(
+            WorkspaceExecutionContext context,
             WorkspaceMember member,
             Optional<WorkspaceMemberState> previous,
             WorkspaceMemberState candidate,
@@ -192,6 +198,15 @@ final class WorkspaceDirtyPlanner {
         }
         if (!previous.orElseThrow().testCompileKey().equals(candidate.testCompileKey())) {
             reasons.add(WorkspaceDirtyReason.TEST_SOURCE_CHANGED);
+        }
+        if (!previous.orElseThrow()
+                .testResourceTreeDigest()
+                .equals(candidate.testResourceTreeDigest())) {
+            reasons.add(WorkspaceDirtyReason.TEST_RESOURCE_CHANGED);
+        }
+        if (!context.fileSnapshot()
+                .testResourceOutputsCurrent(member.directory(), member.config().build())) {
+            reasons.add(WorkspaceDirtyReason.TEST_RESOURCE_OUTPUT_MISSING);
         }
         Path testOutput = member.directory()
                 .resolve(member.config().build().testOutput())
