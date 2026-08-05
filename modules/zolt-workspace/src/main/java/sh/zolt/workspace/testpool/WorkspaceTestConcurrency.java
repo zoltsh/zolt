@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.testpool;
 
 import sh.zolt.test.runtime.TestRunException;
 

@@ -9,6 +9,7 @@ import sh.zolt.cli.command.CommandJavacWorkerAttributes;
 import sh.zolt.test.TestSelection;
 import sh.zolt.workspace.service.WorkspaceTestCompileResult;
 import sh.zolt.workspace.service.WorkspaceTestResult;
+import sh.zolt.workspace.testpool.WorkspaceTestPoolMetrics;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -201,24 +202,25 @@ public final class CommandTestAttributes {
     private static void addTestWorkerPoolAttributes(
             Map<String, String> attributes,
             WorkspaceTestResult result) {
+        WorkspaceTestPoolMetrics pool = result.poolMetrics();
         attributes.put(
                 CommandAttributeKeys.TEST_WORKER_CONCURRENCY,
-                Integer.toString(result.testWorkerConcurrency()));
+                Integer.toString(pool.workers()));
         addNanosAttribute(
                 attributes,
                 CommandAttributeKeys.TEST_WORKER_STARTUP_MILLIS,
                 CommandAttributeKeys.TEST_WORKER_STARTUP_NANOS,
-                result.testWorkerStartupNanos());
+                pool.startupNanos());
         addNanosAttribute(
                 attributes,
                 CommandAttributeKeys.TEST_WORKER_REQUEST_MILLIS,
                 CommandAttributeKeys.TEST_WORKER_REQUEST_NANOS,
-                result.testWorkerRequestNanos());
+                pool.requestNanos());
         addNanosAttribute(
                 attributes,
                 CommandAttributeKeys.TEST_WORKER_QUEUE_MILLIS,
                 CommandAttributeKeys.TEST_WORKER_QUEUE_NANOS,
-                result.testWorkerQueueNanos());
+                pool.queueNanos());
     }
 
     private static void addNanosAttribute(

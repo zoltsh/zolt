@@ -2,10 +2,14 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.profile.TestProfileSettings;
 import sh.zolt.build.testruntime.TestReportSettings;
+import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.shard.TestShardSpec;
+import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
+import sh.zolt.workspace.testpool.WorkspaceTestPoolMetrics;
+import sh.zolt.workspace.testpool.WorkspaceTestSchedule;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -129,7 +133,28 @@ final class WorkspaceTestRunner {
                 WorkspaceTestToolchainMetrics.combine(
                         buildResult.executionMetrics(),
                         testRunServices.toolchainMetrics()),
-                new WorkspaceTestPoolMetrics(execution.workers(), execution.queueNanos()));
+                poolMetrics(execution));
+    }
+
+    /** Worker timings the members already collected, rolled up for the whole run. */
+    private static WorkspaceTestPoolMetrics poolMetrics(
+            WorkspaceTestExecutor.Execution<WorkspaceTestResult.MemberTestRunResult> execution) {
+        return new WorkspaceTestPoolMetrics(
+                execution.workers(),
+                execution.queueNanos(),
+                sum(execution, TestRunResult::testRunnerStartupNanos),
+                sum(execution, TestRunResult::testRunnerRequestNanos));
+    }
+
+    /** Unknown timings are reported as negative by the runner; they contribute nothing. */
+    private static long sum(
+            WorkspaceTestExecutor.Execution<WorkspaceTestResult.MemberTestRunResult> execution,
+            java.util.function.ToLongFunction<TestRunResult> timing) {
+        return execution.results().stream()
+                .map(WorkspaceTestResult.MemberTestRunResult::result)
+                .mapToLong(timing)
+                .filter(nanos -> nanos >= 0L)
+                .sum();
     }
 
     private static TestJvmArguments arguments(TestJvmArguments jvmArguments) {

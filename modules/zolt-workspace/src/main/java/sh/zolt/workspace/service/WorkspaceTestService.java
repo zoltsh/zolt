@@ -10,6 +10,7 @@ import sh.zolt.framework.FrameworkTestRunner;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.test.TestSelection;
+import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import java.nio.file.Path;
 import java.util.List;
 

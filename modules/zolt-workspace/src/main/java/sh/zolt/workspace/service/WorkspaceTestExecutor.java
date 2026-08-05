@@ -2,6 +2,7 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.cancel.BuildCancellation;
 import sh.zolt.test.runtime.TestRunException;
+import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;

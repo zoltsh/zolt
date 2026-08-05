@@ -1,5 +1,6 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.testpool;
 
+import sh.zolt.workspace.service.WorkspaceMember;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,7 +21,7 @@ import java.util.stream.Stream;
  * <p>Ordering only affects <em>submission</em>. Results are scattered back to their original member
  * positions by {@link WorkspaceTestExecutor}, so reporting order never changes.
  */
-final class WorkspaceTestSchedule {
+public final class WorkspaceTestSchedule {
     private WorkspaceTestSchedule() {
     }
 
@@ -30,7 +31,7 @@ final class WorkspaceTestSchedule {
      * <p>Equal weights keep their original relative order, so the schedule is stable and a repeated
      * run submits the same sequence.
      */
-    static List<Integer> order(List<String> memberPaths, Map<String, Integer> weights) {
+    public static List<Integer> order(List<String> memberPaths, Map<String, Integer> weights) {
         return IntStream.range(0, memberPaths.size())
                 .boxed()
                 .sorted(Comparator
@@ -46,7 +47,7 @@ final class WorkspaceTestSchedule {
      * <p>No per-member duration history is persisted today, so this counts test sources as a stand-in.
      * Unreadable trees weigh zero and sort last, which costs at most one badly placed member.
      */
-    static Map<String, Integer> testSourceWeights(
+    public static Map<String, Integer> testSourceWeights(
             List<String> memberPaths,
             Map<String, WorkspaceMember> membersByPath) {
         Map<String, Integer> weights = new LinkedHashMap<>();

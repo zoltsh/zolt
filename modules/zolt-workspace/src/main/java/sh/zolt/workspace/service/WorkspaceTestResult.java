@@ -2,6 +2,7 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.resolve.ResolveResult;
+import sh.zolt.workspace.testpool.WorkspaceTestPoolMetrics;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -228,33 +229,6 @@ public record WorkspaceTestResult(
                 .sum();
     }
 
-    /** Aggregate time members spent booting their test JVMs. Unknown members contribute nothing. */
-    public long testWorkerStartupNanos() {
-        return sumTimings(TestRunResult::testRunnerStartupNanos);
-    }
-
-    /** Aggregate time members spent inside test requests, boot excluded. */
-    public long testWorkerRequestNanos() {
-        return sumTimings(TestRunResult::testRunnerRequestNanos);
-    }
-
-    /** Aggregate time members waited for a pool slot. */
-    public long testWorkerQueueNanos() {
-        return poolMetrics.queueNanos();
-    }
-
-    /** How many members were allowed to run at once. */
-    public int testWorkerConcurrency() {
-        return poolMetrics.workers();
-    }
-
-    private long sumTimings(java.util.function.ToLongFunction<TestRunResult> timing) {
-        return members.stream()
-                .map(MemberTestRunResult::result)
-                .mapToLong(timing)
-                .filter(nanos -> nanos >= 0L)
-                .sum();
-    }
 
     public int testClassSelectorCount() {
         return members.stream()

@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.testpool;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

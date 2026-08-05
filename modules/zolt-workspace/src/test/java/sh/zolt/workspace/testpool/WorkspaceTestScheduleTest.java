@@ -1,7 +1,8 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.testpool;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;

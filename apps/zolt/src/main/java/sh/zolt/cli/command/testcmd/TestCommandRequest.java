@@ -5,7 +5,7 @@ import sh.zolt.build.testruntime.TestReportSettings;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.test.TestSelection;
-import sh.zolt.workspace.service.WorkspaceTestConcurrency;
+import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import java.util.List;
 
 /**

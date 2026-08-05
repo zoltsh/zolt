@@ -33,6 +33,7 @@ import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.*;
+import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import sh.zolt.workspace.WorkspaceConfigException;
 import java.nio.file.Path;
 import java.util.List;
