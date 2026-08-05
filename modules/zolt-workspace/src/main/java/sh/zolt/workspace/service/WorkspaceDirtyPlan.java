@@ -1,5 +1,7 @@
 package sh.zolt.workspace.service;
 
+import sh.zolt.workspace.state.WorkspaceMemberState;
+import sh.zolt.workspace.state.WorkspaceState;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;

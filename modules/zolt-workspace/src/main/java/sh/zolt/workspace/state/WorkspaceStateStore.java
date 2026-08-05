@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.state;
 
 import sh.zolt.build.BuildException;
 import java.io.IOException;
@@ -8,11 +8,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-final class WorkspaceStateStore {
+public final class WorkspaceStateStore {
     private static final String FILE_NAME = "workspace-state-v1";
     private final WorkspaceStateCodec codec = new WorkspaceStateCodec();
 
-    WorkspaceState read(Path workspaceRoot) {
+    public WorkspaceState read(Path workspaceRoot) {
         Path path = path(workspaceRoot);
         if (!Files.isRegularFile(path)) {
             return WorkspaceState.empty();
@@ -27,7 +27,7 @@ final class WorkspaceStateStore {
         }
     }
 
-    void write(Path workspaceRoot, WorkspaceState state) {
+    public void write(Path workspaceRoot, WorkspaceState state) {
         Path path = path(workspaceRoot);
         Path temporary = null;
         try {
@@ -50,7 +50,7 @@ final class WorkspaceStateStore {
         }
     }
 
-    Path path(Path workspaceRoot) {
+    public Path path(Path workspaceRoot) {
         return workspaceRoot.toAbsolutePath().normalize()
                 .resolve(".zolt")
                 .resolve(FILE_NAME);

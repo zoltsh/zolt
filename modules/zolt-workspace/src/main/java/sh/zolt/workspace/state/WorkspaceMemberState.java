@@ -1,6 +1,6 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.state;
 
-record WorkspaceMemberState(
+public record WorkspaceMemberState(
         String configDigest,
         String toolchainDigest,
         String mainSourceTreeDigest,
@@ -13,7 +13,7 @@ record WorkspaceMemberState(
         String testCompileKey,
         String testResourceTreeDigest,
         String testOutputManifestDigest) {
-    WorkspaceMemberState {
+    public WorkspaceMemberState {
         configDigest = value(configDigest);
         toolchainDigest = value(toolchainDigest);
         mainSourceTreeDigest = value(mainSourceTreeDigest);
@@ -28,7 +28,7 @@ record WorkspaceMemberState(
         testOutputManifestDigest = value(testOutputManifestDigest);
     }
 
-    String compileAbiDigest() {
+    public String compileAbiDigest() {
         return WorkspaceHash.text(publicAbiDigest + "|" + packagePrivateAbiDigest);
     }
 

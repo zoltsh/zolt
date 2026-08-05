@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.doctor.JdkDetector;
+import sh.zolt.workspace.state.WorkspaceMemberState;
+import sh.zolt.workspace.state.WorkspaceState;
+import sh.zolt.workspace.state.WorkspaceStateStore;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;

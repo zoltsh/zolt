@@ -5,7 +5,7 @@ import sh.zolt.lockfile.LockDependencyIndex;
 import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.workspace.service.WorkspaceHash;
+import sh.zolt.workspace.state.WorkspaceHash;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.LinkedHashMap;

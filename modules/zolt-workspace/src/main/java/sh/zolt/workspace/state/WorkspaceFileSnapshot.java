@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.state;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.project.BuildSettings;
@@ -13,25 +13,25 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-final class WorkspaceFileSnapshot {
+public final class WorkspaceFileSnapshot {
     private final Map<Path, String> hashes = new LinkedHashMap<>();
     private long bytesHashed;
 
-    TreeDigest javaSources(Path projectDirectory, List<String> roots) {
+    public TreeDigest javaSources(Path projectDirectory, List<String> roots) {
         return roots(
                 projectDirectory,
                 roots,
                 path -> path.getFileName().toString().endsWith(".java"));
     }
 
-    TreeDigest resources(Path projectDirectory, List<String> roots) {
+    public TreeDigest resources(Path projectDirectory, List<String> roots) {
         return roots(
                 projectDirectory,
                 roots,
                 path -> !path.getFileName().toString().endsWith(".java"));
     }
 
-    TreeDigest paths(Path projectDirectory, List<Path> inputs) {
+    public TreeDigest paths(Path projectDirectory, List<Path> inputs) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         List<Path> files = new ArrayList<>();
         for (Path input : inputs) {
@@ -45,7 +45,7 @@ final class WorkspaceFileSnapshot {
         return digest(projectRoot, files);
     }
 
-    String pathHash(Path path) {
+    public String pathHash(Path path) {
         Path normalized = path.toAbsolutePath().normalize();
         if (Files.isDirectory(normalized)) {
             return digest(normalized, walk(normalized, ignored -> true)).digest();
@@ -56,7 +56,7 @@ final class WorkspaceFileSnapshot {
         return hashes.computeIfAbsent(normalized, this::readHash);
     }
 
-    boolean resourceOutputsCurrent(
+    public boolean resourceOutputsCurrent(
             Path projectDirectory,
             BuildSettings build) {
         return copiedResourcesCurrent(
@@ -72,7 +72,7 @@ final class WorkspaceFileSnapshot {
      * it, so the test lane is declared stale for filtering only when filtering would rewrite the test
      * bytes.
      */
-    boolean testResourceOutputsCurrent(
+    public boolean testResourceOutputsCurrent(
             Path projectDirectory,
             BuildSettings build) {
         return copiedResourcesCurrent(
@@ -107,11 +107,11 @@ final class WorkspaceFileSnapshot {
         return true;
     }
 
-    long bytesHashed() {
+    public long bytesHashed() {
         return bytesHashed;
     }
 
-    int filesHashed() {
+    public int filesHashed() {
         return hashes.size();
     }
 
@@ -188,6 +188,6 @@ final class WorkspaceFileSnapshot {
                 : path.toString().replace('\\', '/');
     }
 
-    record TreeDigest(String digest, int fileCount) {
+    public record TreeDigest(String digest, int fileCount) {
     }
 }

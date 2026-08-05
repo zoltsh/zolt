@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.state;
 
 import sh.zolt.build.BuildException;
 import java.nio.charset.StandardCharsets;

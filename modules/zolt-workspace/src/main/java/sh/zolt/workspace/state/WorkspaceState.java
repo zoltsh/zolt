@@ -1,19 +1,19 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.state;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-record WorkspaceState(Map<String, WorkspaceMemberState> members) {
-    WorkspaceState {
+public record WorkspaceState(Map<String, WorkspaceMemberState> members) {
+    public WorkspaceState {
         members = Map.copyOf(new LinkedHashMap<>(members));
     }
 
-    static WorkspaceState empty() {
+    public static WorkspaceState empty() {
         return new WorkspaceState(Map.of());
     }
 
-    Optional<WorkspaceMemberState> member(String member) {
+    public Optional<WorkspaceMemberState> member(String member) {
         return Optional.ofNullable(members.get(member));
     }
 }

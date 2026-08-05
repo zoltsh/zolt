@@ -5,6 +5,7 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
+import sh.zolt.workspace.state.WorkspaceFileSnapshot;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.state;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-final class WorkspaceStateCodec {
+public final class WorkspaceStateCodec {
     private static final String VERSION = "2";
 
-    String format(WorkspaceState state) {
+    public String format(WorkspaceState state) {
         StringBuilder payload = new StringBuilder();
         state.members().entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -21,7 +21,7 @@ final class WorkspaceStateCodec {
                 + payload;
     }
 
-    Optional<WorkspaceState> parse(String content) {
+    public Optional<WorkspaceState> parse(String content) {
         try {
             int firstBreak = content.indexOf('\n');
             int secondBreak = content.indexOf('\n', firstBreak + 1);

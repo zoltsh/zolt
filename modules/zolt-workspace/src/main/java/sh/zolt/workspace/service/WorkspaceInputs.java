@@ -1,6 +1,7 @@
 package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.workspace.state.WorkspaceHash;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
