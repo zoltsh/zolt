@@ -2,6 +2,7 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.workspace.resolve.WorkspaceMemberLockDigest;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;

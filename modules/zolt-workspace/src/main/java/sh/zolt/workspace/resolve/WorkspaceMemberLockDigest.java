@@ -1,6 +1,7 @@
-package sh.zolt.workspace.service;
+package sh.zolt.workspace.resolve;
 
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.workspace.service.WorkspaceHash;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,12 +25,12 @@ import java.util.TreeSet;
  * says which artifact belongs on the lane, and the command's verified-artifact index is what
  * confirms the file matches when the lane is actually built.
  */
-final class WorkspaceMemberLockDigest {
+public final class WorkspaceMemberLockDigest {
     private final String sharedDigest;
     private final Map<String, String> attributedDigests;
     private final Map<String, String> workspaceDigests;
 
-    WorkspaceMemberLockDigest(ZoltLockfile lockfile) {
+    public WorkspaceMemberLockDigest(ZoltLockfile lockfile) {
         List<String> shared = new ArrayList<>();
         Map<String, List<String>> attributed = new LinkedHashMap<>();
         Map<String, List<String>> workspaces = new LinkedHashMap<>();
@@ -59,7 +60,7 @@ final class WorkspaceMemberLockDigest {
      * @param visibleMembers the workspace members whose lock entries the member can see, which is
      *     its own plus its dependency closure for the lane being observed
      */
-    String forMember(String memberPath, Set<String> visibleMembers) {
+    public String forMember(String memberPath, Set<String> visibleMembers) {
         List<String> parts = new ArrayList<>();
         parts.add(sharedDigest);
         parts.add(attributedDigests.getOrDefault(memberPath, ""));

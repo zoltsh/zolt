@@ -2,17 +2,12 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildService;
 import sh.zolt.build.cache.BuildCacheService;
-import sh.zolt.classpath.ClasspathSet;
-import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.provenance.BuildProvenanceSource;
-import sh.zolt.project.PackageMode;
 import sh.zolt.resolve.ResolveService;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -201,25 +196,26 @@ public final class WorkspaceBuildService {
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
-        Map<String, WorkspaceBuildRequirements> resolvedRequirements =
-                resolvedRequirements(selection, membersByPath, requirementsByMember);
-        Map<String, String> toolchainIdentitiesByMember =
-                toolchainIdentities(context, workspace, selection, membersByPath);
+        WorkspaceMemberBuildInputs inputs = new WorkspaceMemberBuildInputs(
+                context,
+                workspaceClasspathService,
+                memberBuildExecutor.jdkCheckers(),
+                selection,
+                membersByPath,
+                requirementsByMember);
         WorkspaceDirtyPlan dirtyPlan = dirtyPlanner.plan(
                 context,
                 selection,
                 membersByPath,
-                resolvedRequirements,
-                toolchainIdentitiesByMember);
-        WorkspaceMemberClasspaths classpaths =
-                onDemandClasspaths(context, resolvedRequirements);
+                inputs.requirements(),
+                inputs.toolchainIdentities());
         long memberExecutionStarted = System.nanoTime();
         WorkspaceMemberBuildExecutor.Result execution = memberBuildExecutor.build(
                 context,
                 workspace,
                 selection,
                 membersByPath,
-                classpaths,
+                inputs.classpaths(),
                 dirtyPlan);
         context.addMemberExecutionNanos(elapsedSince(memberExecutionStarted));
         context.addSchedulerMetrics(
@@ -234,8 +230,8 @@ public final class WorkspaceBuildService {
                 context,
                 selection,
                 membersByPath,
-                resolvedRequirements,
-                toolchainIdentitiesByMember,
+                inputs.requirements(),
+                inputs.toolchainIdentities(),
                 dirtyPlan,
                 execution.executedMembers());
         return new WorkspaceBuildResult(
@@ -244,89 +240,10 @@ public final class WorkspaceBuildService {
                 execution.waveCount(),
                 execution.maxWorkers(),
                 context.metrics(),
-                testCompileRequired(selection, dirtyPlan, execution.executedMembers()));
-    }
-
-    /**
-     * Test classes are stale when stage 0 saw their own inputs move, and also whenever the member's
-     * main output was rewritten in this build — including members a dependency ABI change dragged in
-     * after stage 0 had already decided.
-     */
-    private static Set<String> testCompileRequired(
-            WorkspaceSelection selection,
-            WorkspaceDirtyPlan dirtyPlan,
-            Set<String> executedMembers) {
-        Set<String> required = new LinkedHashSet<>(executedMembers);
-        for (String member : selection.includedMembers()) {
-            if (dirtyPlan.member(member).testCompileRequired()) {
-                required.add(member);
-            }
-        }
-        return required;
-    }
-
-    private WorkspaceMemberClasspaths onDemandClasspaths(
-            WorkspaceExecutionContext context,
-            Map<String, WorkspaceBuildRequirements> resolvedRequirements) {
-        return new WorkspaceMemberClasspaths() {
-            @Override
-            public ClasspathSet forMember(String memberPath) {
-                return workspaceClasspathService.classpathsFor(
-                        context,
-                        memberPath,
-                        resolvedRequirements.getOrDefault(
-                                memberPath,
-                                WorkspaceBuildRequirements.mainBuild()));
-            }
-
-            @Override
-            public List<ResolvedClasspathPackage> packagesForMember(String memberPath) {
-                return resolvedRequirements
-                                .getOrDefault(memberPath, WorkspaceBuildRequirements.mainBuild())
-                                .packageInputs()
-                        ? workspaceClasspathService.classpathPackagesFor(context, memberPath)
-                        : List.of();
-            }
-        };
-    }
-
-    private static Map<String, WorkspaceBuildRequirements> resolvedRequirements(
-            WorkspaceSelection selection,
-            Map<String, WorkspaceMember> membersByPath,
-            Map<String, WorkspaceBuildRequirements> requirementsByMember) {
-        WorkspaceBuildRequirementResolver requirementResolver =
-                new WorkspaceBuildRequirementResolver();
-        Map<String, WorkspaceBuildRequirements> resolved = new LinkedHashMap<>();
-        for (String member : selection.includedMembers()) {
-            resolved.put(
-                    member,
-                    requirementResolver.forMember(
-                            requirementsByMember.getOrDefault(
-                                    member,
-                                    WorkspaceBuildRequirements.mainBuild()),
-                            membersByPath.get(member).config()));
-        }
-        return resolved;
-    }
-
-    private Map<String, String> toolchainIdentities(
-            WorkspaceExecutionContext context,
-            Workspace workspace,
-            WorkspaceSelection selection,
-            Map<String, WorkspaceMember> membersByPath) {
-        Map<String, String> identities = new LinkedHashMap<>();
-        for (String member : selection.includedMembers()) {
-            WorkspaceMember workspaceMember = membersByPath.get(member);
-            identities.put(
-                    member,
-                    workspaceMember.config().packageSettings().mode() == PackageMode.BOM
-                            ? "not-applicable:bom"
-                            : context.toolchainIndex().compileIdentity(
-                                    memberBuildExecutor.jdkCheckers(),
-                                    workspace,
-                                    workspaceMember));
-        }
-        return identities;
+                WorkspaceMemberBuildInputs.testCompileRequired(
+                        selection,
+                        dirtyPlan,
+                        execution.executedMembers()));
     }
 
     private static WorkspaceExecutionContext executionContext(

@@ -6,15 +6,15 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
-final class WorkspaceHash {
+public final class WorkspaceHash {
     private WorkspaceHash() {
     }
 
-    static String text(String value) {
+    public static String text(String value) {
         return bytes(value.getBytes(StandardCharsets.UTF_8));
     }
 
-    static String bytes(byte[] value) {
+    public static String bytes(byte[] value) {
         try {
             return HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(value));
