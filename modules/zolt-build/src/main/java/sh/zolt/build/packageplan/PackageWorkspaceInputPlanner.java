@@ -41,7 +41,7 @@ final class PackageWorkspaceInputPlanner {
                 .forEach(lockPackage -> {
                     String workspace = lockPackage.workspace().orElseThrow();
                     String output = lockPackage.workspaceOutput().orElseThrow();
-                    Path source = sourceDirectory(projectRoot, workspace, output);
+                    Path source = sourceDirectory(projectRoot, workspace, output, outputFingerprints);
                     NestedArtifactIdentity artifactIdentity =
                             NestedArtifactIdentity.of(lockPackage);
                     String coordinate = artifactIdentity.coordinate();
@@ -108,11 +108,19 @@ final class PackageWorkspaceInputPlanner {
             Path projectRoot,
             String workspace,
             String output) {
+        return sourceDirectory(projectRoot, workspace, output, new PackageOutputFingerprintIndex());
+    }
+
+    static Path sourceDirectory(
+            Path projectRoot,
+            String workspace,
+            String output,
+            PackageOutputFingerprintIndex directories) {
         Path ancestor = projectRoot;
         while (ancestor != null) {
             Path member = ancestor.resolve(workspace).normalize();
             Path candidate = member.resolve(output).normalize();
-            if (Files.isDirectory(candidate)) {
+            if (directories.directoryExists(candidate)) {
                 return ProjectPaths.output(member, "workspaceOutput", output);
             }
             ancestor = ancestor.getParent();
@@ -120,7 +128,7 @@ final class PackageWorkspaceInputPlanner {
         ancestor = projectRoot;
         while (ancestor != null) {
             Path member = ancestor.resolve(workspace).normalize();
-            if (Files.isDirectory(member)) {
+            if (directories.directoryExists(member)) {
                 return ProjectPaths.output(member, "workspaceOutput", output);
             }
             ancestor = ancestor.getParent();
