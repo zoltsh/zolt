@@ -49,6 +49,8 @@ zolt version remove ALIAS
 zolt resolve --locked
 zolt resolve --offline
 zolt tree
+zolt tree --format json
+zolt tree --workspace --format json
 zolt why GROUP:ARTIFACT
 zolt conflicts
 zolt policy --format json
@@ -101,6 +103,7 @@ zolt build --workspace --all
 zolt test --workspace --member apps/api
 zolt package --workspace --members apps/api,tools
 zolt run --workspace --member tools -- release-notes
+zolt tree --workspace --format json
 zolt coverage --workspace --all
 zolt check --workspace --context ci --all
 zolt clean --workspace --all
@@ -1155,6 +1158,17 @@ member-qualified `bom-ref` contexts when a shared PURL has different outgoing
 graphs. If repositories serve
 different artifact or POM bytes for the same selected identity, workspace resolve
 fails instead of choosing whichever member happened to resolve first.
+
+`zolt tree --workspace` projects those same facts without resolving: it reads the
+root `zolt.lock` and the discovered workspace config, renders one tree section per
+member in the text view, and emits `schemaVersion 2` under `--format json`. Schema
+2 adds `mode`, `lockVersion`, and a `workspace` object with the sorted member paths;
+each package carries the members whose graphs consume it, and package occurrences
+stay separate per scope and artifact variant exactly as the lock records them.
+Standalone `zolt tree --format json` stays `schemaVersion 1`, and both schemas
+spell coordinates, variants, and dependency edges identically. A missing or stale
+root lock fails with an actionable error instead of resolving.
+
 Root-only workspaces (`members = ["."]`) use the same qualified lock contract:
 project fingerprints are retained while packages, exports, and optional facts
 are attributed to `"."`. Workspace `package-contents` quality also uses each

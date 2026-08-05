@@ -45,6 +45,7 @@ Inspect and update the graph:
 
 ```sh
 zolt tree
+zolt tree --format json
 zolt why GROUP:ARTIFACT
 zolt conflicts
 zolt policy
@@ -65,6 +66,7 @@ zolt resolve --workspace
 zolt build --workspace --all
 zolt test --workspace --member apps/api
 zolt package --workspace --members apps/api,tools
+zolt tree --workspace --format json
 zolt check --workspace --context ci --all
 zolt clean --workspace --all
 ```
