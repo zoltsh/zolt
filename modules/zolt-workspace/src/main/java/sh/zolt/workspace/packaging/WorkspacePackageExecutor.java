@@ -17,12 +17,20 @@ final class WorkspacePackageExecutor {
     private static final long DEFAULT_SHUTDOWN_WAIT_MILLIS =
             TimeUnit.SECONDS.toMillis(30);
 
+    /**
+     * Packaging a member is dominated by filesystem metadata work — create, write, rename, digest —
+     * not by compression, so extra threads buy contention rather than throughput. Measured on a
+     * 203-member workspace: 4 and 6 workers tie, 8 is marginally slower, and 14 is 45 % slower with
+     * 3.5x the system time. The cap stays low on purpose.
+     */
+    private static final int DEFAULT_MAXIMUM_WORKERS = 4;
+
     private final int maximumWorkers;
     private final long shutdownWaitMillis;
 
     WorkspacePackageExecutor() {
         this(Math.min(
-                4,
+                DEFAULT_MAXIMUM_WORKERS,
                 Runtime.getRuntime().availableProcessors()));
     }
 
