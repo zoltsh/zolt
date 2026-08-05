@@ -45,6 +45,10 @@ public final class WorkspaceExecutionContext {
     private int membersConsidered;
     private int membersDeclaredClean;
     private int memberPipelineInvocations;
+    private int membersAdmitted;
+    private int membersFinalized;
+    private int runtimeClasspathCalculations;
+    private int testClasspathCalculations;
 
     public WorkspaceExecutionContext(
             Workspace workspace,
@@ -109,7 +113,7 @@ public final class WorkspaceExecutionContext {
             recordClasspathCacheHit();
             return existing;
         }
-        recordClasspathCalculation(elapsedSince(started));
+        recordClasspathCalculation(elapsedSince(started), requirements);
         return value;
     }
 
@@ -152,8 +156,16 @@ public final class WorkspaceExecutionContext {
         return value;
     }
 
-    private synchronized void recordClasspathCalculation(long durationNanos) {
+    private synchronized void recordClasspathCalculation(
+            long durationNanos,
+            WorkspaceBuildRequirements requirements) {
         classpathCalculationNanos += durationNanos;
+        if (requirements.mainRuntimeClasspath()) {
+            runtimeClasspathCalculations++;
+        }
+        if (requirements.testCompileClasspath()) {
+            testClasspathCalculations++;
+        }
     }
 
     private synchronized void recordPackageCalculation(long durationNanos) {
@@ -186,6 +198,10 @@ public final class WorkspaceExecutionContext {
                 membersConsidered,
                 membersDeclaredClean,
                 memberPipelineInvocations,
+                membersAdmitted,
+                membersFinalized,
+                runtimeClasspathCalculations,
+                testClasspathCalculations,
                 abiIndex.reads(),
                 abiIndex.hits(),
                 toolchainIndex.resolutions(),
@@ -214,11 +230,20 @@ public final class WorkspaceExecutionContext {
         filesHashed = Math.max(filesHashed, hashedFiles);
     }
 
+    /**
+     * {@code admitted} is how many members the scheduler let into the executor at all — the number
+     * that could cost a classpath. {@code pipelineInvocations} is the subset that ran the canonical
+     * member build; {@code finalized} is the subset that only had its clean outputs assured.
+     */
     synchronized void addDirtyPlanMetrics(
             int considered,
-            int pipelineInvocations) {
+            int admitted,
+            int pipelineInvocations,
+            int finalized) {
         membersConsidered += Math.max(0, considered);
+        membersAdmitted += Math.max(0, admitted);
         memberPipelineInvocations += Math.max(0, pipelineInvocations);
+        membersFinalized += Math.max(0, finalized);
         membersDeclaredClean += Math.max(0, considered - pipelineInvocations);
     }
 
@@ -248,6 +273,10 @@ public final class WorkspaceExecutionContext {
             int membersConsidered,
             int membersDeclaredClean,
             int memberPipelineInvocations,
+            int membersAdmitted,
+            int membersFinalized,
+            int runtimeClasspathCalculations,
+            int testClasspathCalculations,
             int abiStateReads,
             int abiStateCacheHits,
             int toolchainResolutions,
@@ -278,6 +307,10 @@ public final class WorkspaceExecutionContext {
                     0,
                     0L,
                     0L,
+                    0,
+                    0,
+                    0,
+                    0,
                     0,
                     0,
                     0,

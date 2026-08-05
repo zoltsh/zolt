@@ -2,11 +2,6 @@ package sh.zolt.workspace.service;
 
 import sh.zolt.build.incremental.IncrementalCompileState;
 import sh.zolt.build.incremental.IncrementalCompileStateCodec;
-import sh.zolt.build.incremental.IncrementalCompileSummary;
-import sh.zolt.classpath.Classpath;
-import sh.zolt.classpath.ClasspathSet;
-import sh.zolt.classpath.ResolvedClasspathPackage;
-import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.PackageMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +10,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+/**
+ * Stage 0 of workspace planning: decides, per member and from persisted state alone, whether the
+ * member needs work — before any classpath, lock projection, or package list has been built.
+ */
 final class WorkspaceDirtyPlanner {
     private final WorkspaceStateStore stateStore = new WorkspaceStateStore();
     private final IncrementalCompileStateCodec compileStateCodec =
@@ -25,40 +25,42 @@ final class WorkspaceDirtyPlanner {
             WorkspaceExecutionContext context,
             WorkspaceSelection selection,
             Map<String, WorkspaceMember> membersByPath,
-            Map<String, ClasspathSet> classpathsByMember,
-            Map<String, List<ResolvedClasspathPackage>> packagesByMember,
             Map<String, WorkspaceBuildRequirements> requirementsByMember,
             Map<String, String> toolchainIdentitiesByMember) {
         WorkspaceState previous = stateStore.read(context.workspace().root());
         long started = System.nanoTime();
+        WorkspaceMemberStateObserver observer =
+                new WorkspaceMemberStateObserver(context, membersByPath);
+        Set<String> processorMembers = WorkspaceCanonicalBuildPolicy.membersWithProcessorInputs(
+                context.workspace(),
+                context.lockfile());
         Map<String, WorkspaceDirtyPlan.MemberPlan> plans = new LinkedHashMap<>();
         for (String memberPath : selection.includedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
+            WorkspaceBuildRequirements requirements = requirementsByMember.getOrDefault(
+                    memberPath,
+                    WorkspaceBuildRequirements.mainBuild());
             Optional<WorkspaceMemberState> prior = previous.member(memberPath);
-            WorkspaceMemberState candidate = observe(
-                    context,
+            WorkspaceMemberState candidate = observer.observe(
                     member,
-                    classpathsByMember.get(memberPath),
-                    packagesByMember.getOrDefault(memberPath, List.of()),
-                    requirementsByMember.getOrDefault(
-                            memberPath,
-                            WorkspaceBuildRequirements.mainBuild()),
+                    requirements,
                     toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
                     prior);
-            List<String> reasons = dirtyReasons(
-                    context.fileSnapshot(),
-                    member,
-                    classpathsByMember.get(memberPath),
-                    prior,
-                    candidate);
             plans.put(
                     memberPath,
                     new WorkspaceDirtyPlan.MemberPlan(
                             candidate,
                             prior,
-                            sourceCount(context.fileSnapshot(), member),
-                            !reasons.isEmpty(),
-                            reasons));
+                            observer.sourceCount(member),
+                            reasons(
+                                    context,
+                                    observer,
+                                    member,
+                                    requirements,
+                                    processorMembers.contains(memberPath),
+                                    previous,
+                                    prior,
+                                    candidate)));
         }
         context.addFileSnapshotMetrics(
                 Math.max(0L, System.nanoTime() - started),
@@ -67,152 +69,137 @@ final class WorkspaceDirtyPlanner {
         return new WorkspaceDirtyPlan(previous, plans);
     }
 
+    /**
+     * Carries clean members' state forward untouched — nothing about them was observed to change,
+     * so re-observing would recompute the identical row — and re-observes only what was executed.
+     */
     void writeCurrent(
             WorkspaceExecutionContext context,
             WorkspaceSelection selection,
             Map<String, WorkspaceMember> membersByPath,
-            Map<String, ClasspathSet> classpathsByMember,
-            Map<String, List<ResolvedClasspathPackage>> packagesByMember,
             Map<String, WorkspaceBuildRequirements> requirementsByMember,
             Map<String, String> toolchainIdentitiesByMember,
-            WorkspaceDirtyPlan plan) {
+            WorkspaceDirtyPlan plan,
+            Set<String> executedMembers) {
         Map<String, WorkspaceMemberState> current =
                 new LinkedHashMap<>(plan.previousState().members());
+        WorkspaceMemberStateObserver observer =
+                new WorkspaceMemberStateObserver(context, membersByPath);
         for (String memberPath : selection.includedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
+            WorkspaceBuildRequirements requirements = requirementsByMember.getOrDefault(
+                    memberPath,
+                    WorkspaceBuildRequirements.mainBuild());
+            if (!executedMembers.contains(memberPath)) {
+                current.put(memberPath, plan.member(memberPath).candidateState());
+                continue;
+            }
             context.abiIndex().refreshMain(
                     member.directory().resolve(member.config().build().output()));
-            if (requirementsByMember
-                    .getOrDefault(memberPath, WorkspaceBuildRequirements.mainBuild())
-                    .testCompileClasspath()) {
+            if (requirements.testCompileClasspath()) {
                 context.abiIndex().refreshTest(
                         member.directory().resolve(member.config().build().testOutput()));
             }
             current.put(
                     memberPath,
-                    observe(
-                            context,
+                    observer.observe(
                             member,
-                            classpathsByMember.get(memberPath),
-                            packagesByMember.getOrDefault(memberPath, List.of()),
-                            requirementsByMember.getOrDefault(
-                                    memberPath,
-                                    WorkspaceBuildRequirements.mainBuild()),
+                            requirements,
                             toolchainIdentitiesByMember.getOrDefault(memberPath, ""),
                             plan.previousState().member(memberPath)));
         }
         stateStore.write(context.workspace().root(), new WorkspaceState(current));
     }
 
-    private WorkspaceMemberState observe(
+    private List<WorkspaceDirtyReason> reasons(
             WorkspaceExecutionContext context,
+            WorkspaceMemberStateObserver observer,
             WorkspaceMember member,
-            ClasspathSet classpaths,
-            List<ResolvedClasspathPackage> packages,
             WorkspaceBuildRequirements requirements,
-            String resolvedToolchainIdentity,
-            Optional<WorkspaceMemberState> previous) {
-        WorkspaceFileSnapshot snapshot = context.fileSnapshot();
-        var build = member.config().build();
-        var mainSources = snapshot.javaSources(member.directory(), build.sourceRoots());
-        var resources = snapshot.resources(member.directory(), build.resourceRoots());
-        String configDigest = WorkspaceHash.text(member.config().toString());
-        String toolchainDigest = WorkspaceHash.text(
-                member.config().project().java()
-                        + "|"
-                        + member.config().compilerSettings()
-                        + "|"
-                        + resolvedToolchainIdentity
-                        + "|memberConfig="
-                        + snapshot.pathHash(member.directory().resolve("zolt.toml"))
-                        + "|workspaceConfig="
-                        + snapshot.pathHash(context.workspace().configPath())
-                        + "|inheritedToolchainConfig="
-                        + snapshot.pathHash(context.workspace().root().resolve("zolt.toml")));
-        String generatedDigest = generatedInputs(snapshot, member, build.generatedMainSources());
-        String compileClasspathDigest =
-                classpathDigest(context, snapshot, classpaths.compile());
-        String processorClasspathDigest =
-                classpathDigest(context, snapshot, classpaths.processor());
-        String compileKey = WorkspaceHash.text(String.join(
-                "|",
-                configDigest,
-                toolchainDigest,
-                mainSources.digest(),
-                generatedDigest,
-                compileClasspathDigest,
-                processorClasspathDigest));
-        Path mainOutput = member.directory().resolve(build.output()).toAbsolutePath().normalize();
-        Optional<IncrementalCompileSummary> mainSummary =
-                context.abiIndex().main(mainOutput);
-        String testCompileKey = previous.map(WorkspaceMemberState::testCompileKey).orElse("");
-        String testManifest = previous.map(WorkspaceMemberState::testOutputManifestDigest).orElse("");
-        if (requirements.testCompileClasspath()) {
-            var testSources = snapshot.javaSources(member.directory(), build.testSources());
-            Path testOutput = member.directory().resolve(build.testOutput()).toAbsolutePath().normalize();
-            Optional<IncrementalCompileSummary> testSummary =
-                    context.abiIndex().test(testOutput);
-            testCompileKey = WorkspaceHash.text(
-                    mainSummary.map(IncrementalCompileSummary::outputManifestDigest).orElse("missing")
-                            + "|"
-                            + testSources.digest()
-                            + "|"
-                            + classpathDigest(context, snapshot, classpaths.testCompile())
-                            + "|"
-                            + classpathDigest(context, snapshot, classpaths.testProcessor()));
-            testManifest = testSummary
-                    .map(IncrementalCompileSummary::outputManifestDigest)
-                    .orElse("");
-        }
-        String packageKey = requirements.packageInputs()
-                ? packageKey(member, packages, resources.digest(), mainSummary)
-                : previous.map(WorkspaceMemberState::packageKey).orElse("");
-        return new WorkspaceMemberState(
-                configDigest,
-                toolchainDigest,
-                mainSources.digest(),
-                resources.digest(),
-                generatedDigest,
-                compileKey,
-                mainSummary.map(IncrementalCompileSummary::outputManifestDigest).orElse(""),
-                mainSummary.map(IncrementalCompileSummary::publicAbiDigest).orElse(""),
-                mainSummary.map(IncrementalCompileSummary::packagePrivateAbiDigest).orElse(""),
-                testCompileKey,
-                testManifest,
-                packageKey);
-    }
-
-    private List<String> dirtyReasons(
-            WorkspaceFileSnapshot snapshot,
-            WorkspaceMember member,
-            ClasspathSet classpaths,
+            boolean hasProcessorInputs,
+            WorkspaceState previousState,
             Optional<WorkspaceMemberState> previous,
             WorkspaceMemberState candidate) {
-        List<String> reasons = new ArrayList<>();
+        List<WorkspaceDirtyReason> reasons = new ArrayList<>();
         if (previous.isEmpty()) {
-            reasons.add("missing-workspace-state");
+            reasons.add(WorkspaceDirtyReason.MISSING_STATE);
         } else {
-            WorkspaceMemberState prior = previous.orElseThrow();
-            if (!prior.mainCompileKey().equals(candidate.mainCompileKey())) {
-                reasons.add("main-compile-key-changed");
-            }
-            if (!prior.resourceTreeDigest().equals(candidate.resourceTreeDigest())) {
-                reasons.add("resource-key-changed");
-            }
+            stateReasons(observer, member, previousState, previous.orElseThrow(), candidate, reasons);
         }
         if (!compileOutputsCurrent(member)) {
-            reasons.add("main-output-missing-or-stale");
+            reasons.add(WorkspaceDirtyReason.OUTPUT_MISSING);
         }
-        if (!snapshot.resourceOutputsCurrent(member.directory(), member.config().build())) {
-            reasons.add("resource-output-missing-or-stale");
+        if (!context.fileSnapshot()
+                .resourceOutputsCurrent(member.directory(), member.config().build())) {
+            reasons.add(WorkspaceDirtyReason.RESOURCE_OUTPUT_MISSING);
         }
-        if (WorkspaceCanonicalBuildPolicy.hasGeneratedInputs(member, classpaths)) {
-            reasons.add("conservative-generated-input");
+        if (hasProcessorInputs || !member.config().build().generatedMainSources().isEmpty()) {
+            reasons.add(WorkspaceDirtyReason.CONSERVATIVE_GENERATED_INPUT);
         }
         if (WorkspaceCanonicalBuildPolicy.hasFrameworkOutputs(member)) {
-            reasons.add("conservative-framework-output");
+            reasons.add(WorkspaceDirtyReason.CONSERVATIVE_FRAMEWORK_OUTPUT);
+        }
+        if (WorkspaceCanonicalBuildPolicy.generatesBuildMetadata(member)) {
+            reasons.add(WorkspaceDirtyReason.BUILD_METADATA_REQUIRED);
+        }
+        if (requirements.testCompileClasspath()) {
+            testReasons(member, previous, candidate, reasons);
         }
         return List.copyOf(reasons);
+    }
+
+    private static void stateReasons(
+            WorkspaceMemberStateObserver observer,
+            WorkspaceMember member,
+            WorkspaceState previousState,
+            WorkspaceMemberState prior,
+            WorkspaceMemberState candidate,
+            List<WorkspaceDirtyReason> reasons) {
+        int before = reasons.size();
+        if (!prior.configDigest().equals(candidate.configDigest())) {
+            reasons.add(WorkspaceDirtyReason.CONFIG_CHANGED);
+        }
+        if (!prior.toolchainDigest().equals(candidate.toolchainDigest())) {
+            reasons.add(WorkspaceDirtyReason.TOOLCHAIN_CHANGED);
+        }
+        if (!prior.mainSourceTreeDigest().equals(candidate.mainSourceTreeDigest())) {
+            reasons.add(WorkspaceDirtyReason.MAIN_SOURCE_CHANGED);
+        }
+        if (!prior.generatedInputDigest().equals(candidate.generatedInputDigest())) {
+            reasons.add(WorkspaceDirtyReason.GENERATED_SOURCE_CHANGED);
+        }
+        if (observer.dependencyAbiChanged(member.path(), previousState)) {
+            reasons.add(WorkspaceDirtyReason.DEPENDENCY_ABI_CHANGED);
+        }
+        boolean compileKeyChanged = !prior.mainCompileKey().equals(candidate.mainCompileKey());
+        if (compileKeyChanged && reasons.size() == before) {
+            // Everything else the compile key covers matched, so the root lock is what moved.
+            reasons.add(WorkspaceDirtyReason.RESOLUTION_INPUT_CHANGED);
+        }
+        if (!prior.resourceTreeDigest().equals(candidate.resourceTreeDigest())) {
+            reasons.add(WorkspaceDirtyReason.RESOURCE_CHANGED);
+        }
+    }
+
+    private void testReasons(
+            WorkspaceMember member,
+            Optional<WorkspaceMemberState> previous,
+            WorkspaceMemberState candidate,
+            List<WorkspaceDirtyReason> reasons) {
+        if (previous.isEmpty()) {
+            reasons.add(WorkspaceDirtyReason.TEST_SOURCE_CHANGED);
+            return;
+        }
+        if (!previous.orElseThrow().testCompileKey().equals(candidate.testCompileKey())) {
+            reasons.add(WorkspaceDirtyReason.TEST_SOURCE_CHANGED);
+        }
+        Path testOutput = member.directory()
+                .resolve(member.config().build().testOutput())
+                .toAbsolutePath()
+                .normalize();
+        if (!outputsCurrent(testOutput, IncrementalCompileState.testStatePath(testOutput))) {
+            reasons.add(WorkspaceDirtyReason.TEST_OUTPUT_MISSING);
+        }
     }
 
     private boolean compileOutputsCurrent(WorkspaceMember member) {
@@ -223,67 +210,16 @@ final class WorkspaceDirtyPlanner {
                 .resolve(member.config().build().output())
                 .toAbsolutePath()
                 .normalize();
-        Optional<IncrementalCompileState> state =
-                compileStateCodec.read(IncrementalCompileState.mainStatePath(output));
+        return outputsCurrent(output, IncrementalCompileState.mainStatePath(output));
+    }
+
+    /** One recorded state read plus a stat per recorded class: the whole output-existence check. */
+    private boolean outputsCurrent(Path outputDirectory, Path statePath) {
+        Optional<IncrementalCompileState> state = compileStateCodec.read(statePath);
         return state.isPresent()
-                && state.orElseThrow().outputDirectory().equals(output)
+                && state.orElseThrow().outputDirectory().equals(outputDirectory)
                 && state.orElseThrow().classes().stream()
                         .map(IncrementalCompileState.ClassRecord::outputPath)
                         .allMatch(Files::isRegularFile);
-    }
-
-    private String classpathDigest(
-            WorkspaceExecutionContext context,
-            WorkspaceFileSnapshot snapshot,
-            Classpath classpath) {
-        StringBuilder content = new StringBuilder();
-        classpath.entries().stream()
-                .map(path -> path.toAbsolutePath().normalize())
-                .sorted()
-                .forEach(path -> content
-                        .append(path)
-                        .append('|')
-                        .append(context.abiIndex()
-                                .main(path)
-                                .map(IncrementalCompileSummary::compileAbiDigest)
-                                .orElseGet(() -> snapshot.pathHash(path)))
-                        .append('\n'));
-        return WorkspaceHash.text(content.toString());
-    }
-
-    private static String generatedInputs(
-            WorkspaceFileSnapshot snapshot,
-            WorkspaceMember member,
-            List<GeneratedSourceStep> steps) {
-        List<Path> inputs = steps.stream()
-                .flatMap(step -> step.inputs().stream())
-                .map(input -> member.directory().resolve(input).normalize())
-                .toList();
-        return WorkspaceHash.text(
-                steps + "|" + snapshot.paths(member.directory(), inputs).digest());
-    }
-
-    private static int sourceCount(
-            WorkspaceFileSnapshot snapshot,
-            WorkspaceMember member) {
-        return snapshot.javaSources(
-                        member.directory(),
-                        member.config().build().sourceRoots())
-                .fileCount();
-    }
-
-    private static String packageKey(
-            WorkspaceMember member,
-            List<ResolvedClasspathPackage> packages,
-            String resourceDigest,
-            Optional<IncrementalCompileSummary> summary) {
-        return WorkspaceHash.text(
-                member.config().packageSettings()
-                        + "|"
-                        + resourceDigest
-                        + "|"
-                        + summary.map(IncrementalCompileSummary::outputManifestDigest).orElse("missing")
-                        + "|"
-                        + packages);
     }
 }

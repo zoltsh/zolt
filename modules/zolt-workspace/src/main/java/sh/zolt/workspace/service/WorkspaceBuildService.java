@@ -186,6 +186,11 @@ public final class WorkspaceBuildService {
         }
     }
 
+    /**
+     * Stage 0 decides who needs work from persisted state alone; stage 1 builds a member's
+     * classpaths only when the scheduler admits it. Nothing between planning and execution touches
+     * the root lock on behalf of a member that turns out to be clean.
+     */
     private WorkspaceBuildResult buildLocked(
             WorkspaceBuildPlan plan,
             Path cacheRoot,
@@ -195,12 +200,85 @@ public final class WorkspaceBuildService {
         Workspace workspace = plan.workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
+        Map<String, WorkspaceBuildRequirements> resolvedRequirements =
+                resolvedRequirements(selection, membersByPath, requirementsByMember);
+        Map<String, String> toolchainIdentitiesByMember =
+                toolchainIdentities(context, workspace, selection, membersByPath);
+        WorkspaceDirtyPlan dirtyPlan = dirtyPlanner.plan(
+                context,
+                selection,
+                membersByPath,
+                resolvedRequirements,
+                toolchainIdentitiesByMember);
+        WorkspaceMemberClasspaths classpaths =
+                onDemandClasspaths(context, resolvedRequirements);
+        long memberExecutionStarted = System.nanoTime();
+        WorkspaceMemberBuildExecutor.Result execution = memberBuildExecutor.build(
+                context,
+                workspace,
+                selection,
+                membersByPath,
+                classpaths,
+                dirtyPlan);
+        context.addMemberExecutionNanos(elapsedSince(memberExecutionStarted));
+        context.addSchedulerMetrics(
+                execution.schedulerIdleNanos(),
+                execution.readyQueuePeak());
+        context.addDirtyPlanMetrics(
+                selection.includedMembers().size(),
+                execution.admitted(),
+                execution.pipelineInvocations(),
+                execution.finalizations());
+        dirtyPlanner.writeCurrent(
+                context,
+                selection,
+                membersByPath,
+                resolvedRequirements,
+                toolchainIdentitiesByMember,
+                dirtyPlan,
+                execution.executedMembers());
+        return new WorkspaceBuildResult(
+                plan.resolveResult(),
+                execution.results(),
+                execution.waveCount(),
+                execution.maxWorkers(),
+                context.metrics());
+    }
+
+    private WorkspaceMemberClasspaths onDemandClasspaths(
+            WorkspaceExecutionContext context,
+            Map<String, WorkspaceBuildRequirements> resolvedRequirements) {
+        return new WorkspaceMemberClasspaths() {
+            @Override
+            public ClasspathSet forMember(String memberPath) {
+                return workspaceClasspathService.classpathsFor(
+                        context,
+                        memberPath,
+                        resolvedRequirements.getOrDefault(
+                                memberPath,
+                                WorkspaceBuildRequirements.mainBuild()));
+            }
+
+            @Override
+            public List<ResolvedClasspathPackage> packagesForMember(String memberPath) {
+                return resolvedRequirements
+                                .getOrDefault(memberPath, WorkspaceBuildRequirements.mainBuild())
+                                .packageInputs()
+                        ? workspaceClasspathService.classpathPackagesFor(context, memberPath)
+                        : List.of();
+            }
+        };
+    }
+
+    private static Map<String, WorkspaceBuildRequirements> resolvedRequirements(
+            WorkspaceSelection selection,
+            Map<String, WorkspaceMember> membersByPath,
+            Map<String, WorkspaceBuildRequirements> requirementsByMember) {
         WorkspaceBuildRequirementResolver requirementResolver =
                 new WorkspaceBuildRequirementResolver();
-        Map<String, WorkspaceBuildRequirements> resolvedRequirements =
-                new LinkedHashMap<>();
+        Map<String, WorkspaceBuildRequirements> resolved = new LinkedHashMap<>();
         for (String member : selection.includedMembers()) {
-            resolvedRequirements.put(
+            resolved.put(
                     member,
                     requirementResolver.forMember(
                             requirementsByMember.getOrDefault(
@@ -208,11 +286,18 @@ public final class WorkspaceBuildService {
                                     WorkspaceBuildRequirements.mainBuild()),
                             membersByPath.get(member).config()));
         }
-        Map<String, String> toolchainIdentitiesByMember =
-                new LinkedHashMap<>();
+        return resolved;
+    }
+
+    private Map<String, String> toolchainIdentities(
+            WorkspaceExecutionContext context,
+            Workspace workspace,
+            WorkspaceSelection selection,
+            Map<String, WorkspaceMember> membersByPath) {
+        Map<String, String> identities = new LinkedHashMap<>();
         for (String member : selection.includedMembers()) {
             WorkspaceMember workspaceMember = membersByPath.get(member);
-            toolchainIdentitiesByMember.put(
+            identities.put(
                     member,
                     workspaceMember.config().packageSettings().mode() == PackageMode.BOM
                             ? "not-applicable:bom"
@@ -221,62 +306,7 @@ public final class WorkspaceBuildService {
                                     workspace,
                                     workspaceMember));
         }
-        Map<String, ClasspathSet> classpathsByMember = workspaceClasspathService.classpathsForMembers(
-                context,
-                selection.includedMembers(),
-                resolvedRequirements);
-        List<String> packageMembers = selection.includedMembers().stream()
-                .filter(member -> resolvedRequirements
-                        .getOrDefault(member, WorkspaceBuildRequirements.mainBuild())
-                        .packageInputs())
-                .toList();
-        Map<String, List<ResolvedClasspathPackage>> calculatedPackages =
-                workspaceClasspathService.classpathPackagesForMembers(context, packageMembers);
-        Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember = new LinkedHashMap<>();
-        for (String member : selection.includedMembers()) {
-            classpathPackagesByMember.put(
-                    member,
-                    calculatedPackages.getOrDefault(member, List.of()));
-        }
-        WorkspaceDirtyPlan dirtyPlan = dirtyPlanner.plan(
-                context,
-                selection,
-                membersByPath,
-                classpathsByMember,
-                classpathPackagesByMember,
-                resolvedRequirements,
-                toolchainIdentitiesByMember);
-        long memberExecutionStarted = System.nanoTime();
-        WorkspaceMemberBuildExecutor.Result execution = memberBuildExecutor.build(
-                context,
-                workspace,
-                selection,
-                membersByPath,
-                classpathsByMember,
-                classpathPackagesByMember,
-                dirtyPlan);
-        context.addMemberExecutionNanos(elapsedSince(memberExecutionStarted));
-        context.addSchedulerMetrics(
-                execution.schedulerIdleNanos(),
-                execution.readyQueuePeak());
-        context.addDirtyPlanMetrics(
-                selection.includedMembers().size(),
-                execution.pipelineInvocations());
-        dirtyPlanner.writeCurrent(
-                context,
-                selection,
-                membersByPath,
-                classpathsByMember,
-                classpathPackagesByMember,
-                resolvedRequirements,
-                toolchainIdentitiesByMember,
-                dirtyPlan);
-        return new WorkspaceBuildResult(
-                plan.resolveResult(),
-                execution.results(),
-                execution.waveCount(),
-                execution.maxWorkers(),
-                context.metrics());
+        return identities;
     }
 
     private static WorkspaceExecutionContext executionContext(

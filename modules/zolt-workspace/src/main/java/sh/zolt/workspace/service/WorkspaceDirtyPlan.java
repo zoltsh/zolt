@@ -1,8 +1,10 @@
 package sh.zolt.workspace.service;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 record WorkspaceDirtyPlan(
         WorkspaceState previousState,
@@ -21,15 +23,42 @@ record WorkspaceDirtyPlan(
                 .count();
     }
 
+    /** Members stage 0 could not leave alone: they need the pipeline or a clean-output assurance. */
+    Set<String> workRequiredMembers() {
+        Set<String> required = new LinkedHashSet<>();
+        members.forEach((member, plan) -> {
+            if (plan.buildRequired() || plan.finalizeRequired()) {
+                required.add(member);
+            }
+        });
+        return required;
+    }
+
     record MemberPlan(
             WorkspaceMemberState candidateState,
             Optional<WorkspaceMemberState> previousState,
             int sourceCount,
-            boolean buildRequired,
-            List<String> reasons) {
+            List<WorkspaceDirtyReason> reasons) {
         MemberPlan {
             previousState = previousState == null ? Optional.empty() : previousState;
             reasons = List.copyOf(reasons);
+        }
+
+        boolean buildRequired() {
+            return reasons.stream().anyMatch(WorkspaceDirtyReason::requiresPipeline);
+        }
+
+        boolean finalizeRequired() {
+            return reasons.stream().anyMatch(WorkspaceDirtyReason::requiresFinalization);
+        }
+
+        boolean testCompileRequired() {
+            return buildRequired()
+                    || reasons.stream().anyMatch(WorkspaceDirtyReason::requiresTestCompile);
+        }
+
+        List<String> reasonNames() {
+            return reasons.stream().map(WorkspaceDirtyReason::wireName).toList();
         }
 
         String previousCompileAbiDigest() {

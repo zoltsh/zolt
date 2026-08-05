@@ -7,6 +7,7 @@ import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.resolve.ResolveResult;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public record WorkspaceBuildResult(
         Optional<ResolveResult> resolveResult,
@@ -132,13 +133,82 @@ public record WorkspaceBuildResult(
         return new WorkspaceExecutionContext.Metrics(0L, 0L, 0L, 0L, 0, 0, 0, 0);
     }
 
-    public record MemberBuildResult(
-            String member,
-            BuildResult result,
-            ClasspathSet classpaths,
-            List<ResolvedClasspathPackage> classpathPackages) {
-        public MemberBuildResult {
-            classpathPackages = List.copyOf(classpathPackages);
+    /**
+     * A member's build outcome, with its classpaths reachable but not necessarily built.
+     *
+     * <p>A workspace build no longer projects a classpath for a member it never admitted, so the
+     * classpaths here are produced on first access. A consumer that needs them — a test lane, a run
+     * launch, a package assembly — gets exactly the same set it always did; a consumer that only
+     * reads the build outcome costs nothing. Access is memoized, so asking twice builds once.
+     */
+    public static final class MemberBuildResult {
+        private final String member;
+        private final BuildResult result;
+        private final Supplier<ClasspathSet> classpaths;
+        private final Supplier<List<ResolvedClasspathPackage>> classpathPackages;
+
+        public MemberBuildResult(
+                String member,
+                BuildResult result,
+                ClasspathSet classpaths,
+                List<ResolvedClasspathPackage> classpathPackages) {
+            List<ResolvedClasspathPackage> packages = List.copyOf(classpathPackages);
+            this.member = member;
+            this.result = result;
+            this.classpaths = () -> classpaths;
+            this.classpathPackages = () -> packages;
+        }
+
+        MemberBuildResult(
+                String member,
+                BuildResult result,
+                Supplier<ClasspathSet> classpaths,
+                Supplier<List<ResolvedClasspathPackage>> classpathPackages) {
+            this.member = member;
+            this.result = result;
+            this.classpaths = memoized(classpaths);
+            this.classpathPackages = memoized(classpathPackages);
+        }
+
+        public String member() {
+            return member;
+        }
+
+        public BuildResult result() {
+            return result;
+        }
+
+        public ClasspathSet classpaths() {
+            return classpaths.get();
+        }
+
+        public List<ResolvedClasspathPackage> classpathPackages() {
+            return classpathPackages.get();
+        }
+
+        @Override
+        public String toString() {
+            return "MemberBuildResult[member=" + member + ", result=" + result + "]";
+        }
+
+        private static <T> Supplier<T> memoized(Supplier<T> supplier) {
+            return new Supplier<>() {
+                private volatile T value;
+
+                @Override
+                public T get() {
+                    T current = value;
+                    if (current == null) {
+                        synchronized (this) {
+                            if (value == null) {
+                                value = supplier.get();
+                            }
+                            current = value;
+                        }
+                    }
+                    return current;
+                }
+            };
         }
     }
 }

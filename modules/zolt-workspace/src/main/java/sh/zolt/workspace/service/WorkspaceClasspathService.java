@@ -107,17 +107,21 @@ public final class WorkspaceClasspathService {
             List<String> memberPaths) {
         Map<String, List<ResolvedClasspathPackage>> packagesByMember = new LinkedHashMap<>();
         for (String memberPath : memberPaths) {
-            packagesByMember.put(
-                    memberPath,
-                    context.classpathPackages(
-                            memberPath,
-                            () -> LockfileClasspathPackageConverter.classpathPackages(
-                                    packageLockFor(context, memberPath),
-                                    context.cacheRoot(),
-                                    context.workspace().root(),
-                                    context.artifactIndex())));
+            packagesByMember.put(memberPath, classpathPackagesFor(context, memberPath));
         }
         return Collections.unmodifiableMap(packagesByMember);
+    }
+
+    List<ResolvedClasspathPackage> classpathPackagesFor(
+            WorkspaceExecutionContext context,
+            String memberPath) {
+        return context.classpathPackages(
+                memberPath,
+                () -> LockfileClasspathPackageConverter.classpathPackages(
+                        packageLockFor(context, memberPath),
+                        context.cacheRoot(),
+                        context.workspace().root(),
+                        context.artifactIndex()));
     }
 
     /**
@@ -188,7 +192,7 @@ public final class WorkspaceClasspathService {
                 runtimeClasspaths.quarkusDeployment());
     }
 
-    private ClasspathSet classpathsFor(
+    ClasspathSet classpathsFor(
             WorkspaceExecutionContext context,
             String memberPath,
             WorkspaceBuildRequirements requirements) {

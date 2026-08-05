@@ -6,13 +6,27 @@ import sh.zolt.build.JavacException;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.incremental.IncrementalCompileSummary;
 import sh.zolt.classpath.ClasspathSet;
-import sh.zolt.classpath.ResolvedClasspathPackage;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+/**
+ * Stage 1: runs only the members stage 0 could not rule out, and gives each its classpaths at the
+ * moment the scheduler admits it.
+ *
+ * <p>A member that stage 0 declared clean never enters the ready queue. Its result is synthesized
+ * from the state carried forward, which is what its queue trip would have produced anyway: the
+ * output-existence assurance the clean path used to perform is now one recorded-state read in stage
+ * 0 rather than a scheduled task, and members that genuinely need output finalization say so with a
+ * reason and are admitted for exactly that.
+ */
 final class WorkspaceMemberBuildExecutor {
     private final BuildService buildService;
     private final WorkspaceJdkCheckerResolver jdkCheckers;
@@ -54,92 +68,131 @@ final class WorkspaceMemberBuildExecutor {
             Workspace workspace,
             WorkspaceSelection selection,
             Map<String, WorkspaceMember> membersByPath,
-            Map<String, ClasspathSet> classpathsByMember,
-            Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember,
+            WorkspaceMemberClasspaths classpaths,
             WorkspaceDirtyPlan dirtyPlan) {
         WorkspaceBuildBatchPlanner.Plan plan =
                 batchPlanner.plan(workspace, selection.includedMembers());
         if (plan.includedMembers().isEmpty()) {
-            return new Result(List.of(), 0, 0, 0L, 0, 0);
+            return new Result(List.of(), 0, 0, 0L, 0, 0, Set.of(), 0, 0);
         }
-        int concurrency = workspaceBuildConcurrency(selection.includedMembers().size());
-        WorkspaceReadyQueueExecutor.Result<ScheduledMember> execution =
-                new WorkspaceReadyQueueExecutor().execute(
-                        plan,
-                        concurrency,
-                        (memberPath, dependencyInvalidated) -> buildOrReuseMember(
-                                workspace,
-                                memberPath,
-                                dependencyInvalidated,
-                                membersByPath,
-                                classpathsByMember,
-                                classpathPackagesByMember,
-                                dirtyPlan,
-                                context));
+        List<String> admitted = admissionOrder(plan, dirtyPlan);
+        Map<String, ScheduledMember> scheduled = new LinkedHashMap<>();
+        int concurrency = 0;
+        long schedulerIdleNanos = 0L;
+        int readyQueuePeak = 0;
+        if (!admitted.isEmpty()) {
+            WorkspaceBuildBatchPlanner.Plan admittedPlan = batchPlanner.plan(workspace, admitted);
+            concurrency = workspaceBuildConcurrency(admitted.size());
+            WorkspaceReadyQueueExecutor.Result<ScheduledMember> execution =
+                    new WorkspaceReadyQueueExecutor().execute(
+                            admittedPlan,
+                            concurrency,
+                            (memberPath, dependencyInvalidated) -> executeMember(
+                                    workspace,
+                                    memberPath,
+                                    dependencyInvalidated,
+                                    membersByPath,
+                                    classpaths,
+                                    dirtyPlan,
+                                    context));
+            scheduled.putAll(execution.resultsByMember());
+            schedulerIdleNanos = execution.schedulerIdleNanos();
+            readyQueuePeak = execution.readyQueuePeak();
+        }
         List<WorkspaceBuildResult.MemberBuildResult> orderedResults = new ArrayList<>();
+        Set<String> executedMembers = new LinkedHashSet<>();
+        int pipelineInvocations = 0;
+        int finalizations = 0;
         for (String memberPath : selection.includedMembers()) {
-            orderedResults.add(execution.resultsByMember().get(memberPath).result());
+            ScheduledMember member = scheduled.get(memberPath);
+            if (member == null) {
+                orderedResults.add(cleanResult(
+                        memberPath,
+                        membersByPath.get(memberPath),
+                        dirtyPlan.member(memberPath),
+                        0,
+                        classpaths));
+                continue;
+            }
+            orderedResults.add(member.result());
+            if (member.pipelineInvoked() || member.finalized()) {
+                executedMembers.add(memberPath);
+            }
+            pipelineInvocations += member.pipelineInvoked() ? 1 : 0;
+            finalizations += member.finalized() ? 1 : 0;
         }
-        int pipelineInvocations = (int) execution.resultsByMember().values().stream()
-                .filter(ScheduledMember::pipelineInvoked)
-                .count();
         return new Result(
                 List.copyOf(orderedResults),
                 plan.dependencyDepth(),
                 concurrency,
-                execution.schedulerIdleNanos(),
-                execution.readyQueuePeak(),
-                pipelineInvocations);
+                schedulerIdleNanos,
+                readyQueuePeak,
+                pipelineInvocations,
+                Set.copyOf(executedMembers),
+                finalizations,
+                admitted.size());
     }
 
-    private WorkspaceReadyQueueExecutor.TaskResult<ScheduledMember>
-            buildOrReuseMember(
-                    Workspace workspace,
-                    String memberPath,
-                    boolean dependencyInvalidated,
-                    Map<String, WorkspaceMember> membersByPath,
-                    Map<String, ClasspathSet> classpathsByMember,
-                    Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember,
-                    WorkspaceDirtyPlan dirtyPlan,
-                    WorkspaceExecutionContext context) {
+    /**
+     * The members the scheduler may admit: everything stage 0 flagged, plus every member downstream
+     * of one, because a rebuilt member can change an ABI its dependents compile against. Dependents
+     * that turn out not to be invalidated cost a queue slot and nothing else.
+     */
+    private static List<String> admissionOrder(
+            WorkspaceBuildBatchPlanner.Plan plan,
+            WorkspaceDirtyPlan dirtyPlan) {
+        Set<String> admitted = new LinkedHashSet<>();
+        Deque<String> frontier = new ArrayDeque<>(dirtyPlan.workRequiredMembers());
+        while (!frontier.isEmpty()) {
+            String member = frontier.removeFirst();
+            if (!plan.dependentsByDependency().containsKey(member) || !admitted.add(member)) {
+                continue;
+            }
+            frontier.addAll(plan.dependentsByDependency().get(member));
+        }
+        return plan.includedMembers().stream().filter(admitted::contains).toList();
+    }
+
+    private WorkspaceReadyQueueExecutor.TaskResult<ScheduledMember> executeMember(
+            Workspace workspace,
+            String memberPath,
+            boolean dependencyInvalidated,
+            Map<String, WorkspaceMember> membersByPath,
+            WorkspaceMemberClasspaths classpaths,
+            WorkspaceDirtyPlan dirtyPlan,
+            WorkspaceExecutionContext context) {
         WorkspaceDirtyPlan.MemberPlan memberPlan = dirtyPlan.member(memberPath);
-        boolean invokeBuild = memberPlan.buildRequired() || dependencyInvalidated;
-        WorkspaceBuildResult.MemberBuildResult result = invokeBuild
-                ? buildMember(
-                        workspace,
-                        memberPath,
-                        membersByPath,
-                        classpathsByMember,
-                        classpathPackagesByMember,
-                        context)
-                : cleanMember(
-                        workspace,
-                        memberPath,
-                        membersByPath,
-                        classpathsByMember,
-                        classpathPackagesByMember,
-                        memberPlan,
-                        context);
-        String currentAbi = compileAbiDigest(
-                context,
-                membersByPath.get(memberPath),
-                invokeBuild);
-        boolean abiChanged = invokeBuild
-                && !currentAbi.equals(memberPlan.previousCompileAbiDigest());
+        WorkspaceMember member = membersByPath.get(memberPath);
+        if (memberPlan.buildRequired() || dependencyInvalidated) {
+            WorkspaceBuildResult.MemberBuildResult result =
+                    buildMember(workspace, member, classpaths, context);
+            String currentAbi = compileAbiDigest(context, member);
+            return new WorkspaceReadyQueueExecutor.TaskResult<>(
+                    new ScheduledMember(result, true, false),
+                    !currentAbi.equals(memberPlan.previousCompileAbiDigest()));
+        }
+        if (memberPlan.finalizeRequired()) {
+            return new WorkspaceReadyQueueExecutor.TaskResult<>(
+                    new ScheduledMember(
+                            finalizedResult(workspace, member, memberPlan, classpaths, context),
+                            false,
+                            true),
+                    false);
+        }
         return new WorkspaceReadyQueueExecutor.TaskResult<>(
-                new ScheduledMember(result, invokeBuild),
-                abiChanged);
+                new ScheduledMember(
+                        cleanResult(memberPath, member, memberPlan, 0, classpaths),
+                        false,
+                        false),
+                false);
     }
 
     private WorkspaceBuildResult.MemberBuildResult buildMember(
             Workspace workspace,
-            String memberPath,
-            Map<String, WorkspaceMember> membersByPath,
-            Map<String, ClasspathSet> classpathsByMember,
-            Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember,
+            WorkspaceMember member,
+            WorkspaceMemberClasspaths classpaths,
             WorkspaceExecutionContext context) {
-        WorkspaceMember member = membersByPath.get(memberPath);
-        ClasspathSet classpaths = classpathsByMember.get(member.path());
+        ClasspathSet memberClasspaths = classpaths.forMember(member.path());
         try {
             return new WorkspaceBuildResult.MemberBuildResult(
                     member.path(),
@@ -151,9 +204,9 @@ final class WorkspaceMemberBuildExecutor {
                             .build(
                                     member.directory(),
                                     member.config(),
-                                    classpaths),
-                    classpaths,
-                    classpathPackagesByMember.get(member.path()));
+                                    memberClasspaths),
+                    memberClasspaths,
+                    classpaths.packagesForMember(member.path()));
         } catch (JavacException exception) {
             throw new JavacException(
                     exception.getMessage()
@@ -164,20 +217,12 @@ final class WorkspaceMemberBuildExecutor {
         }
     }
 
-    private WorkspaceBuildResult.MemberBuildResult cleanMember(
+    private WorkspaceBuildResult.MemberBuildResult finalizedResult(
             Workspace workspace,
-            String memberPath,
-            Map<String, WorkspaceMember> membersByPath,
-            Map<String, ClasspathSet> classpathsByMember,
-            Map<String, List<ResolvedClasspathPackage>> classpathPackagesByMember,
+            WorkspaceMember member,
             WorkspaceDirtyPlan.MemberPlan memberPlan,
+            WorkspaceMemberClasspaths classpaths,
             WorkspaceExecutionContext context) {
-        WorkspaceMember member = membersByPath.get(memberPath);
-        Path outputDirectory = member.directory()
-                .resolve(member.config().build().output())
-                .toAbsolutePath()
-                .normalize();
-        ClasspathSet classpaths = classpathsByMember.get(memberPath);
         int finalizedOutputCount = buildService
                 .withJdkChecker(context
                         .toolchainIndex()
@@ -185,7 +230,25 @@ final class WorkspaceMemberBuildExecutor {
                 .ensureCleanMemberOutputsCurrent(
                         member.directory(),
                         member.config(),
-                        classpaths);
+                        classpaths.forMember(member.path()));
+        return cleanResult(
+                member.path(),
+                member,
+                memberPlan,
+                finalizedOutputCount,
+                classpaths);
+    }
+
+    private static WorkspaceBuildResult.MemberBuildResult cleanResult(
+            String memberPath,
+            WorkspaceMember member,
+            WorkspaceDirtyPlan.MemberPlan memberPlan,
+            int finalizedOutputCount,
+            WorkspaceMemberClasspaths classpaths) {
+        Path outputDirectory = member.directory()
+                .resolve(member.config().build().output())
+                .toAbsolutePath()
+                .normalize();
         return new WorkspaceBuildResult.MemberBuildResult(
                 memberPath,
                 new BuildResult(
@@ -195,22 +258,19 @@ final class WorkspaceMemberBuildExecutor {
                         outputDirectory,
                         "",
                         true),
-                classpaths,
-                classpathPackagesByMember.get(memberPath));
+                () -> classpaths.forMember(memberPath),
+                () -> classpaths.packagesForMember(memberPath));
     }
 
     private static String compileAbiDigest(
             WorkspaceExecutionContext context,
-            WorkspaceMember member,
-            boolean refresh) {
+            WorkspaceMember member) {
         Path output = member.directory()
                 .resolve(member.config().build().output())
                 .toAbsolutePath()
                 .normalize();
-        Optional<IncrementalCompileSummary> summary = refresh
-                ? context.abiIndex().refreshMain(output)
-                : context.abiIndex().main(output);
-        return summary
+        return context.abiIndex()
+                .refreshMain(output)
                 .map(IncrementalCompileSummary::compileAbiDigest)
                 .orElse("");
     }
@@ -229,7 +289,10 @@ final class WorkspaceMemberBuildExecutor {
             int maxWorkers,
             long schedulerIdleNanos,
             int readyQueuePeak,
-            int pipelineInvocations) {
+            int pipelineInvocations,
+            Set<String> executedMembers,
+            int finalizations,
+            int admitted) {
         Result(
                 List<WorkspaceBuildResult.MemberBuildResult> results,
                 int waveCount,
@@ -242,6 +305,9 @@ final class WorkspaceMemberBuildExecutor {
                     maxWorkers,
                     schedulerIdleNanos,
                     readyQueuePeak,
+                    results.size(),
+                    Set.of(),
+                    0,
                     results.size());
         }
 
@@ -249,16 +315,18 @@ final class WorkspaceMemberBuildExecutor {
                 List<WorkspaceBuildResult.MemberBuildResult> results,
                 int waveCount,
                 int maxWorkers) {
-            this(results, waveCount, maxWorkers, 0L, 0, results.size());
+            this(results, waveCount, maxWorkers, 0L, 0, results.size(), Set.of(), 0, results.size());
         }
 
         Result {
             results = List.copyOf(results);
+            executedMembers = Set.copyOf(executedMembers);
         }
     }
 
     private record ScheduledMember(
             WorkspaceBuildResult.MemberBuildResult result,
-            boolean pipelineInvoked) {
+            boolean pipelineInvoked,
+            boolean finalized) {
     }
 }
