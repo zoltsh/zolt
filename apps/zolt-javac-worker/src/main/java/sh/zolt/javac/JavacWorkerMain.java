@@ -11,15 +11,18 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalLong;
 import javax.tools.ToolProvider;
 
 /**
  * Entry point for both worker roles. With no arguments the process is a compile worker driven over
  * stdin/stdout; {@link #FRAMED_FLAG} adds a length prefix so a supervisor can relay responses without
- * parsing them; {@link #BROKER_FLAG} runs the supervisor itself.
+ * parsing them; {@link #SUPERVISOR_PID_FLAG} names the supervisor to halt with; {@link #BROKER_FLAG}
+ * runs the supervisor itself.
  */
 public final class JavacWorkerMain {
     static final String FRAMED_FLAG = "--framed";
+    static final String SUPERVISOR_PID_FLAG = "--supervisor-pid";
     static final String BROKER_FLAG = "--broker";
     static final String WORKER_JVM_ARGUMENT_FLAG = "--worker-jvm-arg";
 
@@ -30,11 +33,19 @@ public final class JavacWorkerMain {
         if (args.length >= 2 && BROKER_FLAG.equals(args[0])) {
             System.exit(BrokerServer.run(Path.of(args[1]), workerJvmArguments(args), System.err));
         }
-        boolean framed = args.length == 1 && FRAMED_FLAG.equals(args[0]);
-        if (args.length > 0 && !framed) {
-            System.err.println("error: Unknown Zolt javac worker argument: " + args[0] + ".");
-            System.exit(2);
+        boolean framed = false;
+        OptionalLong supervisorPid = OptionalLong.empty();
+        for (int index = 0; index < args.length; index++) {
+            if (FRAMED_FLAG.equals(args[index])) {
+                framed = true;
+            } else if (SUPERVISOR_PID_FLAG.equals(args[index]) && index + 1 < args.length) {
+                supervisorPid = OptionalLong.of(Long.parseLong(args[++index]));
+            } else {
+                System.err.println("error: Unknown Zolt javac worker argument: " + args[index] + ".");
+                System.exit(2);
+            }
         }
+        supervisorPid.ifPresent(ParentWatchdog::watch);
         System.exit(run(System.in, System.out, System.err, framed));
     }
 

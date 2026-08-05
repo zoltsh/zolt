@@ -131,6 +131,8 @@ final class BrokerServer {
         command.add(System.getProperty("java.class.path", ""));
         command.add(JavacWorkerMain.class.getName());
         command.add(JavacWorkerMain.FRAMED_FLAG);
+        command.add(JavacWorkerMain.SUPERVISOR_PID_FLAG);
+        command.add(Long.toString(ProcessHandle.current().pid()));
         return List.copyOf(command);
     }
 
