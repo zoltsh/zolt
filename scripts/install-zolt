@@ -142,10 +142,14 @@ sha256_file() {
   fi
 }
 
+lowercase_hex() {
+  printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 verify_checksum() {
   archive="$1"
-  expected="$2"
-  actual="$(sha256_file "$archive")"
+  expected="$(lowercase_hex "$2")"
+  actual="$(lowercase_hex "$(sha256_file "$archive")")"
   if [ "$actual" != "$expected" ]; then
     fail "checksum mismatch for native Zolt archive. Expected $expected but found $actual."
   fi
@@ -447,6 +451,7 @@ if [ -z "$expected_sha256" ] && [ -z "$checksum_url" ]; then
 fi
 if [ -n "$expected_sha256" ]; then
   validate_sha256 "release channel artifact $selected_target sha256" "$expected_sha256"
+  expected_sha256="$(lowercase_hex "$expected_sha256")"
 fi
 if [ -n "$checksum_url" ]; then
   checksum_path="$work_dir/$archive.sha256"
@@ -454,6 +459,7 @@ if [ -n "$checksum_url" ]; then
   download "$checksum_url" "$checksum_path" "the native Zolt archive checksum"
   published_sha256="$(awk '{ print $1; exit }' "$checksum_path")"
   validate_sha256 "release channel artifact $selected_target published sha256" "$published_sha256"
+  published_sha256="$(lowercase_hex "$published_sha256")"
   if [ -z "$expected_sha256" ]; then
     expected_sha256="$published_sha256"
   elif [ "$published_sha256" != "$expected_sha256" ]; then

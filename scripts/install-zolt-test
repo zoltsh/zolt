@@ -295,6 +295,20 @@ ZOLT_INSTALL_TARGET="linux-x64" \
     scripts/install-zolt >/dev/null
 [[ "$("$pinned_only_root/bin/zolt" --version)" == "$version" ]]
 
+lowercase_pin="$(sha256_file "$temporary/zolt-$version-linux-x64.tar.gz")"
+uppercase_pin="$(printf '%s' "$lowercase_pin" | tr '[:lower:]' '[:upper:]')"
+uppercase_pin_manifest="$temporary/channel-uppercase-pin.json"
+sed "s|\"$lowercase_pin\"|\"$uppercase_pin\"|" "$manifest" >"$uppercase_pin_manifest"
+grep -F "\"$uppercase_pin\"" "$uppercase_pin_manifest" >/dev/null
+uppercase_pin_root="$temporary/install-uppercase-pin"
+ZOLT_INSTALL_TEST_ASSET_ROOT="$temporary" \
+ZOLT_INSTALL_CURL="$fake_curl" \
+ZOLT_INSTALL_ROOT="$uppercase_pin_root" \
+ZOLT_INSTALL_CHANNEL_URL="file://$uppercase_pin_manifest" \
+ZOLT_INSTALL_TARGET="linux-x64" \
+    scripts/install-zolt >/dev/null
+[[ "$("$uppercase_pin_root/bin/zolt" --version)" == "$version" ]]
+
 expect_install_failure() {
     local label="$1"
     local rejected_manifest="$2"
