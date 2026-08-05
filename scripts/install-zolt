@@ -434,6 +434,11 @@ validate_release_asset_url \
   "$channel" \
   "$version" \
   "$archive"
+if [ -z "$expected_sha256" ]; then
+  fail "release channel artifact $selected_target is missing its sha256 pin. The release channel manifest must pin the archive sha256; the published $archive.sha256 asset alone is not accepted."
+fi
+validate_sha256 "release channel artifact $selected_target sha256" "$expected_sha256"
+expected_sha256="$(lowercase_hex "$expected_sha256")"
 if [ -n "$checksum_url" ]; then
   validate_url "release channel artifact $selected_target checksumUrl" "$checksum_url"
   validate_release_asset_url \
@@ -446,13 +451,6 @@ fi
 archive_path="$work_dir/$archive"
 require_under_root "$work_dir" "$archive_path" "native archive download path"
 download "$archive_url" "$archive_path" "the native Zolt archive"
-if [ -z "$expected_sha256" ] && [ -z "$checksum_url" ]; then
-  fail "release channel artifact $selected_target must include checksumUrl or sha256."
-fi
-if [ -n "$expected_sha256" ]; then
-  validate_sha256 "release channel artifact $selected_target sha256" "$expected_sha256"
-  expected_sha256="$(lowercase_hex "$expected_sha256")"
-fi
 if [ -n "$checksum_url" ]; then
   checksum_path="$work_dir/$archive.sha256"
   require_under_root "$work_dir" "$checksum_path" "native checksum download path"
@@ -460,9 +458,7 @@ if [ -n "$checksum_url" ]; then
   published_sha256="$(awk '{ print $1; exit }' "$checksum_path")"
   validate_sha256 "release channel artifact $selected_target published sha256" "$published_sha256"
   published_sha256="$(lowercase_hex "$published_sha256")"
-  if [ -z "$expected_sha256" ]; then
-    expected_sha256="$published_sha256"
-  elif [ "$published_sha256" != "$expected_sha256" ]; then
+  if [ "$published_sha256" != "$expected_sha256" ]; then
     fail "release channel artifact $selected_target checksum asset publishes $published_sha256 but the release channel manifest pins $expected_sha256."
   fi
 fi

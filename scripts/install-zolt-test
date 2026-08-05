@@ -436,6 +436,31 @@ expect_install_failure \
     "but the release channel manifest pins $linux_digest" \
     "$disagreeing_assets"
 
+missing_pin_manifest="$temporary/channel-missing-pin.json"
+grep -v '"sha256" :' "$manifest" >"$missing_pin_manifest"
+grep -F '"checksumUrl"' "$missing_pin_manifest" >/dev/null
+expect_install_failure \
+    missing-pin \
+    "$missing_pin_manifest" \
+    'is missing its sha256 pin'
+
+empty_pin_manifest="$temporary/channel-empty-pin.json"
+sed 's|"sha256" : "[^"]*"|"sha256" : ""|g' "$manifest" >"$empty_pin_manifest"
+grep -F '"sha256" : ""' "$empty_pin_manifest" >/dev/null
+expect_install_failure \
+    empty-pin \
+    "$empty_pin_manifest" \
+    'is missing its sha256 pin'
+
+non_hex_pin="zolt${linux_digest:4}"
+non_hex_pin_manifest="$temporary/channel-non-hex-pin.json"
+sed "s|\"$linux_digest\"|\"$non_hex_pin\"|" "$manifest" >"$non_hex_pin_manifest"
+grep -F "\"$non_hex_pin\"" "$non_hex_pin_manifest" >/dev/null
+expect_install_failure \
+    non-hex-pin \
+    "$non_hex_pin_manifest" \
+    'sha256 must be exactly 64 hexadecimal characters'
+
 unreachable_curl="$temporary/curl-unreachable"
 cat >"$unreachable_curl" <<'UNREACHABLE_CURL'
 #!/bin/sh
