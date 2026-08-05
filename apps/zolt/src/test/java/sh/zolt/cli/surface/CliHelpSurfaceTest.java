@@ -29,6 +29,18 @@ import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 
 final class CliHelpSurfaceTest {
+    /**
+     * Zolt's own release and self-hosting machinery. These stay registered and invokable for CI and
+     * the release scripts, but must never surface in end-user help.
+     */
+    private static final List<String> INTERNAL_COMMANDS = List.of(
+            "self-check",
+            "self-parity",
+            "native-smoke",
+            "release-archive",
+            "release-index",
+            "release-verify");
+
     @Test
     void helpListsMvpCommands() {
         CommandResult result = execute("help");
@@ -61,12 +73,71 @@ final class CliHelpSurfaceTest {
                 "    quarkus",
                 "  Native and Release",
                 "    native",
-                "    release-verify",
-                "  Self-Hosting",
-                "    self-check",
+                "    publish",
+                "  Supply Chain",
+                "    sbom",
+                "    licenses",
                 HELP_COMMAND_FOOTER);
         assertTrue(result.stdout().contains("help                Display help for zolt or a command."));
         assertFalse(result.stdout().contains("%n"));
+    }
+
+    @Test
+    void helpOmitsInternalReleaseAndSelfHostingCommands() {
+        CommandResult result = execute("help");
+
+        assertEquals(0, result.exitCode());
+        for (String internalCommand : INTERNAL_COMMANDS) {
+            assertFalse(
+                    result.stdout().contains(internalCommand),
+                    internalCommand + " is internal machinery and must not appear in root help");
+        }
+        assertFalse(result.stdout().contains("Self-Hosting"), "the Self-Hosting category must be gone");
+    }
+
+    @Test
+    void listOmitsInternalReleaseAndSelfHostingCommands() {
+        CommandResult result = execute("--list");
+
+        assertEquals(0, result.exitCode());
+        for (String internalCommand : INTERNAL_COMMANDS) {
+            assertFalse(
+                    result.stdout().contains(internalCommand),
+                    internalCommand + " is internal machinery and must not be listed");
+        }
+        assertFalse(result.stdout().contains("Self-Hosting"), "the Self-Hosting category must be gone");
+    }
+
+    @Test
+    void internalCommandsStayRegisteredAndHidden() {
+        CommandLine root = newCommandLine();
+
+        for (String internalCommand : INTERNAL_COMMANDS) {
+            CommandLine subcommand = root.getSubcommands().get(internalCommand);
+            assertTrue(subcommand != null, internalCommand + " must stay registered for CI and release scripts");
+            assertTrue(
+                    subcommand.getCommandSpec().usageMessage().hidden(),
+                    internalCommand + " must be hidden from the public help surface");
+        }
+    }
+
+    @Test
+    void hiddenInternalCommandsStillResolveThroughHelp() {
+        for (String internalCommand : INTERNAL_COMMANDS) {
+            CommandResult viaHelpCommand = execute("--color=never", "help", internalCommand);
+            CommandResult viaHelpOption = execute("--color=never", internalCommand, "--help");
+
+            assertEquals(0, viaHelpCommand.exitCode(), "zolt help " + internalCommand + " should succeed");
+            assertEquals("", viaHelpCommand.stderr(), "zolt help " + internalCommand + " should not write stderr");
+            assertTrue(
+                    viaHelpCommand.stdout().contains("zolt " + internalCommand),
+                    "zolt help " + internalCommand + " should render its usage");
+
+            assertEquals(0, viaHelpOption.exitCode(), "zolt " + internalCommand + " --help should succeed");
+            assertTrue(
+                    viaHelpOption.stdout().contains("zolt " + internalCommand),
+                    "zolt " + internalCommand + " --help should render its usage");
+        }
     }
 
     @Test
@@ -123,8 +194,8 @@ final class CliHelpSurfaceTest {
                 "    check",
                 "  Native and Release",
                 "    native",
-                "  Self-Hosting",
-                "    self-check",
+                "  Supply Chain",
+                "    sbom",
                 HELP_COMMAND_FOOTER);
     }
 

@@ -28,7 +28,8 @@ import picocli.CommandLine;
 
 @Command(
         name = "self-parity",
-        description = "Compare bootstrap and Zolt-built jar entries.")
+        description = "Compare bootstrap and Zolt-built jar entries.",
+        hidden = true)
 public final class SelfParityCommand implements Runnable {
     private final SelfHostingParityService selfHostingParityService;
 

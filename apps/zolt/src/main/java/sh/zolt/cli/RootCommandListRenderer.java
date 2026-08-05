@@ -16,6 +16,14 @@ import picocli.CommandLine.Model.CommandSpec;
 final class RootCommandListRenderer implements IHelpSectionRenderer {
     private static final int COMMAND_COLUMN_WIDTH = 20;
     private static final String HELP_COMMAND = "zolt help <command>";
+
+    /**
+     * The public command surface, in the order end users see it. Zolt's own release and self-hosting
+     * machinery ({@code self-check}, {@code self-parity}, {@code native-smoke}, {@code release-archive},
+     * {@code release-index}, {@code release-verify}) is declared {@code hidden = true} and stays out of
+     * this table; the hidden filter below also keeps it out of the trailing "Other" group. Those commands
+     * remain fully invokable, and {@code zolt help <command>} still renders their usage.
+     */
     private static final List<CommandGroup> GROUPS = List.of(
             new CommandGroup("Basics", List.of(
                     "help",
@@ -59,16 +67,10 @@ final class RootCommandListRenderer implements IHelpSectionRenderer {
                     "quarkus")),
             new CommandGroup("Native and Release", List.of(
                     "native",
-                    "native-smoke",
-                    "release-archive",
-                    "release-verify",
                     "publish")),
             new CommandGroup("Supply Chain", List.of(
                     "sbom",
-                    "licenses")),
-            new CommandGroup("Self-Hosting", List.of(
-                    "self-check",
-                    "self-parity")));
+                    "licenses")));
 
     private final Supplier<ConsoleStyle> styles;
 

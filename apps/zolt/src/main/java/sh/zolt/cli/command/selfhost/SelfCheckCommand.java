@@ -20,7 +20,8 @@ import picocli.CommandLine;
 
 @Command(
         name = "self-check",
-        description = "Run the self-hosting verification path.")
+        description = "Run the self-hosting verification path.",
+        hidden = true)
 public final class SelfCheckCommand implements Runnable {
     private final SelfCheckService selfCheckService;
 

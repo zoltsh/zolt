@@ -1,3 +1,6 @@
+// The public command surface listed by `zolt --list`. Zolt's own release and self-hosting machinery
+// (self-check, self-parity, native-smoke, release-archive, release-index, release-verify) is hidden
+// from the listing and is therefore absent here, but stays invokable.
 export const EXPECTED_ZOLT_COMMANDS = [
   "help", "init", "version", "config", "doctor", "self",
   "add", "remove", "platform", "resolve", "tree", "why", "policy", "conflicts",
@@ -5,8 +8,8 @@ export const EXPECTED_ZOLT_COMMANDS = [
   "aliases", "tasks", "task", "build", "run", "exec", "test", "integration-test", "coverage",
   "package", "run-package", "clean",
   "check", "plan", "classpath", "ide", "toolchain", "shims", "explain", "quarkus",
-  "native", "native-smoke", "release-archive", "release-verify", "publish",
-  "sbom", "licenses", "self-check", "self-parity", "cache",
+  "native", "publish",
+  "sbom", "licenses", "cache",
 ] as const;
 
 export function parseListedCommands(output: string): string[] {
