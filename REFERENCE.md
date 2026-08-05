@@ -1223,6 +1223,31 @@ for the life of the lock. The write is an optimisation and never a requirement:
 a lock the process may not write, such as a read-only checkout, keeps taking the
 slow path rather than failing a command that has already succeeded.
 
+`zolt resolve --workspace` takes the same gate. A resolve of unchanged inputs is
+a byte-identical rewrite of the lock it started from, so when the recorded
+fingerprint still matches and every artifact the lock names is present, the
+command reports `up to date` and skips both the resolution and the write; a
+`--locked` run still verifies, and `zolt coverage` resolves are excluded because
+they may add tooling packages the lock does not carry yet. Any change takes the
+full path, because any change breaks the digest: an edit to any captured config
+(a comment is enough), a member added or removed, a hand-edited `[[package]]`
+block, or a deleted fingerprint line. That deletion is the escape hatch; there is
+no flag, because a flag would be a second way to say what touching the inputs
+already says.
+
+A workspace resolve that does run resolves each member by the ordinary
+single-project algorithm, sharing one resolution session across them. The session
+holds what is a function of the coordinate rather than of the asking member --
+POM bytes, parsed POMs, parent chains, imported-BOM expansions, artifact digests,
+and one artifact cache whose download coordinator is the single flight for an
+artifact across the whole command. Metadata is keyed by the repository
+configuration each member merged to, never by the member, because workspace
+policy merging lets a member add a repository the root does not declare and a
+different repository set can serve different bytes for the same coordinate;
+digests are keyed by cache-relative path, which one cache root resolves to one
+file. Mediation, version selection, managed versions, and policy enforcement stay
+per member, so the sharing changes what is recomputed and never what is decided.
+
 `zolt tree --workspace` projects those same facts without resolving: it reads the
 root `zolt.lock` and the discovered workspace config, renders one tree section per
 member in the text view, and emits `schemaVersion 2` under `--format json`. Schema
