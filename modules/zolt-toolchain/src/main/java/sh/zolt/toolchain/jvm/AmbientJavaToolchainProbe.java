@@ -1,8 +1,8 @@
 package sh.zolt.toolchain.jvm;
 
-import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.project.toolchain.ToolchainPolicy;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -45,15 +45,6 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
     @Override
     public ResolvedJavaToolchain resolve(JavaToolchainRequest request) {
         AmbientTools tools = ambientTools();
-        List<String> problems = problems(
-                request,
-                tools.javaHome(),
-                tools.java(),
-                tools.javac(),
-                tools.jar(),
-                tools.nativeImage(),
-                tools.runtime());
-        List<String> notes = notes(request);
         return new ResolvedJavaToolchain(
                 JavaToolchainSource.AMBIENT,
                 tools.javaHome(),
@@ -63,8 +54,8 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
                 tools.nativeImage(),
                 tools.runtime(),
                 request,
-                problems,
-                notes);
+                problems(request, tools),
+                notes(request));
     }
 
     private AmbientTools ambientTools() {
@@ -81,8 +72,9 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
     }
 
     private AmbientTools detectAmbientTools() {
-        Optional<Path> configuredJavaHome = value("JAVA_HOME").map(Path::of);
-        Optional<Path> java = findTool("java", configuredJavaHome);
+        List<String> problems = new ArrayList<>();
+        Optional<Path> configuredJavaHome = configuredJavaHome(problems);
+        Optional<Path> java = findTool("java", configuredJavaHome, Optional.empty());
         Optional<JavaRuntimeProbe.Result> probe = java.flatMap(runtimeInfoReader::read);
         Optional<Path> javaHome = selectedJavaHome(
                 configuredJavaHome,
@@ -94,35 +86,56 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
                 findTool("javac", configuredJavaHome, javaHome),
                 findTool("jar", configuredJavaHome, javaHome),
                 findTool("native-image", configuredJavaHome, javaHome),
-                probe.map(JavaRuntimeProbe.Result::runtime).orElse(JavaRuntimeInfo.empty()));
+                probe.map(JavaRuntimeProbe.Result::runtime).orElse(JavaRuntimeInfo.empty()),
+                problems);
+    }
+
+    /**
+     * {@code JAVA_HOME} as configured, dropped with a problem when it does not name a directory. A
+     * home that does not exist must not be reported as the resolved one: it provides no tool, so
+     * resolution continues as if the variable were unset and the misconfiguration is surfaced instead
+     * of being papered over by whatever {@code java} happens to sit on {@code PATH}.
+     */
+    private Optional<Path> configuredJavaHome(List<String> problems) {
+        Optional<Path> configured = value("JAVA_HOME").map(Path::of);
+        if (configured.isEmpty() || Files.isDirectory(configured.orElseThrow())) {
+            return configured;
+        }
+        problems.add("JAVA_HOME is set to `"
+                + configured.orElseThrow()
+                + "`, which is not a directory. Set JAVA_HOME to a JDK directory, or unset it to use the "
+                + "JDK on PATH.");
+        return Optional.empty();
     }
 
     static Optional<Path> runtimeJavaHome(String value) {
         return value == null || value.isBlank() ? Optional.empty() : Optional.of(Path.of(value));
     }
 
-    private Optional<Path> findTool(String name, Optional<Path> configuredJavaHome) {
-        return findTool(name, configuredJavaHome, Optional.empty());
-    }
-
+    /**
+     * Resolves one tool, preferring a Java home over the {@code PATH} scan. Once a home is known the
+     * toolset must come from it: a {@code PATH} hit for {@code javac} while {@code java} dispatches
+     * elsewhere is a different JDK, and taking it would compile against a runtime nobody asked for.
+     * {@code resolvedJavaHome} is empty while {@code java} itself is being located, because the home
+     * is read from the JVM that {@code java} starts.
+     */
     private Optional<Path> findTool(
             String name,
             Optional<Path> configuredJavaHome,
             Optional<Path> resolvedJavaHome) {
         String executable = executableName(name);
-        Optional<Path> fromConfigured = configuredJavaHome
-                .map(home -> home.resolve("bin").resolve(executable))
-                .filter(this::isUsable);
-        if (fromConfigured.isPresent()) {
-            return fromConfigured;
-        }
-        Optional<Path> fromRuntime = runtimeJavaHome
-                .map(home -> home.resolve("bin").resolve(executable))
-                .filter(this::isUsable);
-        if (fromRuntime.isPresent()) {
-            return fromRuntime;
-        }
-        Optional<Path> fromPath = value("PATH").flatMap(path -> {
+        return fromJavaHome(configuredJavaHome, executable)
+                .or(() -> fromJavaHome(resolvedJavaHome, executable))
+                .or(() -> fromJavaHome(runtimeJavaHome, executable))
+                .or(() -> fromPath(executable));
+    }
+
+    private Optional<Path> fromJavaHome(Optional<Path> javaHome, String executable) {
+        return javaHome.map(home -> home.resolve("bin").resolve(executable)).filter(this::isUsable);
+    }
+
+    private Optional<Path> fromPath(String executable) {
+        return value("PATH").flatMap(path -> {
             for (String entry : path.split(Pattern.quote(pathSeparator))) {
                 if (entry.isBlank()) {
                     continue;
@@ -134,12 +147,6 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
             }
             return Optional.empty();
         });
-        if (fromPath.isPresent()) {
-            return fromPath;
-        }
-        return resolvedJavaHome
-                .map(home -> home.resolve("bin").resolve(executable))
-                .filter(this::isUsable);
     }
 
     private Optional<Path> selectedJavaHome(
@@ -161,15 +168,14 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
         return java.flatMap(AmbientJavaToolchainProbe::inferJavaHome);
     }
 
-    private List<String> problems(
-            JavaToolchainRequest request,
-            Optional<Path> javaHome,
-            Optional<Path> java,
-            Optional<Path> javac,
-            Optional<Path> jar,
-            Optional<Path> nativeImage,
-            JavaRuntimeInfo runtime) {
-        List<String> problems = new ArrayList<>();
+    private List<String> problems(JavaToolchainRequest request, AmbientTools tools) {
+        Optional<Path> javaHome = tools.javaHome();
+        Optional<Path> java = tools.java();
+        Optional<Path> javac = tools.javac();
+        Optional<Path> jar = tools.jar();
+        Optional<Path> nativeImage = tools.nativeImage();
+        JavaRuntimeInfo runtime = tools.runtime();
+        List<String> problems = new ArrayList<>(tools.problems());
         if (request.policy() == ToolchainPolicy.REQUIRE_MANAGED) {
             problems.add("This project requires a Zolt-managed Java toolchain, but ambient Java was selected. Run `zolt toolchain status` for details, then `zolt toolchain sync`.");
         }
@@ -200,7 +206,57 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
         if (request.requiresNativeImage() && nativeImage.isEmpty()) {
             problems.add("Native Image is missing from the resolved Java toolchain. Run `zolt toolchain status`, then `zolt toolchain sync`, or pass --native-image as an explicit override.");
         }
+        problems.addAll(mixedJavaHomeProblems(request, tools));
         return List.copyOf(problems);
+    }
+
+    /**
+     * Reports a toolset that straddles two JDKs. Tools are taken from the resolved Java home first, so
+     * a tool resolved outside it means the home does not provide that tool and the copy found on
+     * {@code PATH} belongs to a different JDK. Accepting that silently is how a build ends up compiling
+     * with a foreign {@code javac}. {@code java} is exempt: the home is read from the JVM that
+     * {@code java} starts, so a wrapper script (jenv, asdf, mise, sdkman) outside the home is coherent.
+     */
+    private static List<String> mixedJavaHomeProblems(JavaToolchainRequest request, AmbientTools tools) {
+        if (tools.javaHome().isEmpty()) {
+            return List.of();
+        }
+        Path javaHome = tools.javaHome().orElseThrow();
+        List<String> problems = new ArrayList<>();
+        outsideJavaHome("javac", tools.javac(), javaHome).ifPresent(problems::add);
+        outsideJavaHome("jar", tools.jar(), javaHome).ifPresent(problems::add);
+        if (request.requiresNativeImage()) {
+            outsideJavaHome("native-image", tools.nativeImage(), javaHome).ifPresent(problems::add);
+        }
+        return problems;
+    }
+
+    private static Optional<String> outsideJavaHome(String name, Optional<Path> tool, Path javaHome) {
+        if (tool.isEmpty() || contains(javaHome, tool.orElseThrow())) {
+            return Optional.empty();
+        }
+        return Optional.of("Mixed Java toolchain: `"
+                + name
+                + "` resolves to "
+                + tool.orElseThrow()
+                + ", which is outside the resolved Java home "
+                + javaHome
+                + ". Set JAVA_HOME to one JDK that provides every tool, or configure [toolchain.java] and "
+                + "run `zolt toolchain sync`.");
+    }
+
+    private static boolean contains(Path javaHome, Path tool) {
+        Path home = javaHome.toAbsolutePath().normalize();
+        Path candidate = tool.toAbsolutePath().normalize();
+        return candidate.startsWith(home) || realPath(candidate).startsWith(realPath(home));
+    }
+
+    private static Path realPath(Path path) {
+        try {
+            return path.toRealPath();
+        } catch (IOException exception) {
+            return path;
+        }
     }
 
     private static List<String> notes(JavaToolchainRequest request) {
@@ -260,13 +316,15 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
         Optional<JavaRuntimeProbe.Result> read(Path java);
     }
 
+    /** Detected tools plus the problems detection itself found, such as a misconfigured JAVA_HOME. */
     private record AmbientTools(
             Optional<Path> javaHome,
             Optional<Path> java,
             Optional<Path> javac,
             Optional<Path> jar,
             Optional<Path> nativeImage,
-            JavaRuntimeInfo runtime) {
+            JavaRuntimeInfo runtime,
+            List<String> problems) {
         private AmbientTools {
             javaHome = javaHome == null ? Optional.empty() : javaHome;
             java = java == null ? Optional.empty() : java;
@@ -274,6 +332,7 @@ public final class AmbientJavaToolchainProbe implements JavaToolchainProbe {
             jar = jar == null ? Optional.empty() : jar;
             nativeImage = nativeImage == null ? Optional.empty() : nativeImage;
             runtime = runtime == null ? JavaRuntimeInfo.empty() : runtime;
+            problems = problems == null ? List.of() : List.copyOf(problems);
         }
     }
 }

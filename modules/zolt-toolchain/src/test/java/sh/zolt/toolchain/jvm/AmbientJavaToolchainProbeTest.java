@@ -127,6 +127,80 @@ final class AmbientJavaToolchainProbeTest {
                 resolved.jar().orElseThrow().toRealPath());
     }
 
+    /**
+     * A shim that wraps only {@code java} leaves every other JDK on {@code PATH} in play. Taking
+     * {@code javac} from that scan would compile with a JDK the resolved home never named, so the
+     * probed home wins whenever it carries the tool.
+     */
+    @Test
+    void prefersProbedJavaHomeToolsOverAForeignJavacOnPath() throws IOException {
+        assumeShellShims();
+        Path realJavaHome = realJavaHome();
+        Path shims = tempDir.resolve("java-only-shims");
+        shim(shims, "java", realJavaHome);
+        Path foreign = tempDir.resolve("foreign-jdk/bin");
+        tool(foreign, "javac");
+        tool(foreign, "jar");
+        AmbientJavaToolchainProbe probe = shimProbe(shims + java.io.File.pathSeparator + foreign);
+
+        ResolvedJavaToolchain resolved = probe.resolve(JavaToolchainRequest.projectDefault("21"));
+
+        assertTrue(resolved.ok(), () -> "problems: " + resolved.problems());
+        assertEquals(
+                realJavaHome.resolve("bin").resolve("javac").toRealPath(),
+                resolved.javac().orElseThrow().toRealPath());
+        assertEquals(
+                realJavaHome.resolve("bin").resolve("jar").toRealPath(),
+                resolved.jar().orElseThrow().toRealPath());
+    }
+
+    /** When the resolved home genuinely lacks a tool, the foreign copy is reported, never accepted. */
+    @Test
+    void reportsMixedToolchainWhenTheResolvedHomeLacksJavac() throws IOException {
+        Path javaHome = tempDir.resolve("jre");
+        tool(javaHome, "java");
+        Path foreign = tempDir.resolve("other-jdk/bin");
+        tool(foreign, "javac");
+        tool(foreign, "jar");
+        AmbientJavaToolchainProbe probe = probe(
+                Map.of("JAVA_HOME", javaHome.toString(), "PATH", foreign.toString()),
+                java -> Optional.of(runtimeProbe("Eclipse Temurin")));
+
+        ResolvedJavaToolchain resolved = probe.resolve(JavaToolchainRequest.projectDefault("21"));
+
+        assertFalse(resolved.ok());
+        assertEquals(javaHome, resolved.javaHome().orElseThrow());
+        assertTrue(
+                resolved.problems().stream().anyMatch(problem ->
+                        problem.contains("Mixed Java toolchain: `javac`")
+                                && problem.contains(foreign.resolve("javac").toString())
+                                && problem.contains(javaHome.toString())),
+                () -> "problems: " + resolved.problems());
+    }
+
+    /** A JAVA_HOME that does not exist is a misconfiguration to report, not a home to hand out. */
+    @Test
+    void reportsConfiguredJavaHomeThatIsNotADirectory() throws IOException {
+        Path missing = tempDir.resolve("missing-jdk");
+        Path bin = tempDir.resolve("jdk/bin");
+        tool(bin, "java");
+        tool(bin, "javac");
+        tool(bin, "jar");
+        AmbientJavaToolchainProbe probe = probe(
+                Map.of("JAVA_HOME", missing.toString(), "PATH", bin.toString()),
+                java -> Optional.of(runtimeProbe("Eclipse Temurin")));
+
+        ResolvedJavaToolchain resolved = probe.resolve(JavaToolchainRequest.projectDefault("21"));
+
+        assertFalse(resolved.ok());
+        assertEquals(tempDir.resolve("jdk"), resolved.javaHome().orElseThrow());
+        assertTrue(
+                resolved.problems().stream().anyMatch(problem ->
+                        problem.contains("JAVA_HOME is set to `" + missing + "`")
+                                && problem.contains("not a directory")),
+                () -> "problems: " + resolved.problems());
+    }
+
     @Test
     void reportsUnresolvableJavaHomeWhenShimCannotRunJava() throws IOException {
         assumeShellShims();
@@ -161,8 +235,12 @@ final class AmbientJavaToolchainProbeTest {
     }
 
     private static AmbientJavaToolchainProbe shimProbe(Path shims) {
+        return shimProbe(shims.toString());
+    }
+
+    private static AmbientJavaToolchainProbe shimProbe(String path) {
         return new AmbientJavaToolchainProbe(
-                Map.of("PATH", shims.toString())::get,
+                Map.of("PATH", path)::get,
                 java.io.File.pathSeparator,
                 System.getProperty("os.name"),
                 Optional.empty(),
