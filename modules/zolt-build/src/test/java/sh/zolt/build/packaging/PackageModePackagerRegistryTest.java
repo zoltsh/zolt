@@ -8,6 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.PackageException;
+import sh.zolt.build.packageevidence.PackageArchiveDigests;
+import sh.zolt.build.packageplan.PackageInputBudget;
+import sh.zolt.build.packageplan.PackageInputSnapshot;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
@@ -72,7 +75,11 @@ final class PackageModePackagerRegistryTest {
                 buildResult(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                PackageInputSnapshot.of(
+                        Path.of("project/target/classes"),
+                        PackageInputBudget.streaming()),
+                new PackageArchiveDigests());
     }
 
     private static ProjectConfig projectConfig(PackageMode mode) {

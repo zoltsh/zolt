@@ -238,7 +238,8 @@ public final class WorkspacePackageService {
                 packaged.values().stream()
                         .map(PackagedMember::result)
                         .toList(),
-                packaged.maxWorkers());
+                packaged.maxWorkers(),
+                outputFingerprints.metrics());
     }
 
     private PackagedMember packageMember(
@@ -281,22 +282,15 @@ public final class WorkspacePackageService {
         return new PackagedMember(
                 new WorkspacePackageResult.MemberPackageResult(
                         member.path(),
-                        cacheRoot
-                                .map(root -> packageService.packageJar(
-                                        member.directory(),
-                                        memberConfig,
-                                        memberBuild.result(),
-                                        root,
-                                        packageInputs.classpaths(),
-                                        packageInputs.packages(),
-                                        packagePlan))
-                                .orElseGet(() -> packageService.packageJar(
-                                        member.directory(),
-                                        memberConfig,
-                                        memberBuild.result(),
-                                        packageInputs.classpaths(),
-                                        packageInputs.packages(),
-                                        packagePlan))),
+                        packageService.packageJar(
+                                member.directory(),
+                                memberConfig,
+                                memberBuild.result(),
+                                cacheRoot,
+                                packageInputs.classpaths(),
+                                packageInputs.packages(),
+                                packagePlan,
+                                outputFingerprints)),
                 Optional.of(packageInputs));
     }
 

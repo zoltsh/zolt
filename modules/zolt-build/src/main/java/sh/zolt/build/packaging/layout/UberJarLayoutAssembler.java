@@ -8,7 +8,11 @@ import sh.zolt.build.packaging.PackageArchiveWriter;
 import sh.zolt.build.packaging.PackageMergeDecision;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageRuntimeJar;
+import sh.zolt.build.packageevidence.PackageArchiveDigests;
 import sh.zolt.build.packageplan.PackageInputFingerprinting;
+import sh.zolt.build.packageplan.PackageInputBudget;
+import sh.zolt.build.packageplan.PackageInputEntry;
+import sh.zolt.build.packageplan.PackageInputSnapshot;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
@@ -38,9 +42,29 @@ public final class UberJarLayoutAssembler {
             Path outputDirectory,
             Path jarPath,
             List<PackageRuntimeJar> runtimeJars) {
+        return assemble(
+                projectDirectory,
+                config,
+                buildResult,
+                outputDirectory,
+                jarPath,
+                runtimeJars,
+                PackageInputSnapshot.of(outputDirectory, PackageInputBudget.defaults()),
+                new PackageArchiveDigests());
+    }
+
+    public PackageResult assemble(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResult buildResult,
+            Path outputDirectory,
+            Path jarPath,
+            List<PackageRuntimeJar> runtimeJars,
+            PackageInputSnapshot inputs,
+            PackageArchiveDigests digests) {
         int entryCount = 0;
         try {
-            boolean multiRelease = detectMultiReleaseContent(outputDirectory, runtimeJars);
+            boolean multiRelease = detectMultiReleaseContent(inputs, runtimeJars);
             GeneratedManifest manifest = manifestGenerator.generate(projectDirectory, config, multiRelease);
             Files.createDirectories(jarPath.getParent());
             List<PackageMergeDecision> mergeDecisions = new ArrayList<>();
@@ -49,10 +73,10 @@ public final class UberJarLayoutAssembler {
                         archive, new UberJarMergeAccumulator(), config.packageSettings().uberDuplicates());
                 writer.writeEntry(manifest.path(), manifest.content(), "generated manifest");
                 entryCount++;
-                for (Path file : compiledFiles(outputDirectory)) {
+                for (PackageInputEntry file : inputs.entries()) {
                     if (writer.writeOrCollectEntry(
-                            entryName(outputDirectory, file),
-                            Files.readAllBytes(file),
+                            file.name(),
+                            inputs.content(file),
                             "application output")) {
                         entryCount++;
                     }
@@ -63,6 +87,7 @@ public final class UberJarLayoutAssembler {
                 entryCount += writer.writeMergedEntries();
                 mergeDecisions.addAll(writer.decisions());
                 archive.commit();
+                archive.archiveSha256().ifPresent(sha256 -> digests.record(jarPath, sha256));
             }
             return new PackageResult(
                     buildResult,
@@ -150,10 +175,12 @@ public final class UberJarLayoutAssembler {
     }
 
     private static boolean detectMultiReleaseContent(
-            Path outputDirectory,
+            PackageInputSnapshot inputs,
             List<PackageRuntimeJar> runtimeJars) throws IOException {
-        if (directoryHasVersionedEntry(outputDirectory)) {
-            return true;
+        for (PackageInputEntry entry : inputs.entries()) {
+            if (isMultiReleaseEntry(entry.name())) {
+                return true;
+            }
         }
         for (PackageRuntimeJar runtimeJar : runtimeJars) {
             if (Files.isDirectory(runtimeJar.jarPath())) {

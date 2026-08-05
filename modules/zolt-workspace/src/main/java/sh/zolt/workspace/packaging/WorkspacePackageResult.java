@@ -1,5 +1,6 @@
 package sh.zolt.workspace.packaging;
 
+import sh.zolt.build.packageplan.PackageInputMetrics;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.resolve.ResolveResult;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -10,12 +11,22 @@ public record WorkspacePackageResult(
         Optional<ResolveResult> resolveResult,
         List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
         List<MemberPackageResult> members,
-        int maxWorkers) {
+        int maxWorkers,
+        PackageInputMetrics inputMetrics) {
     public WorkspacePackageResult {
         resolveResult = resolveResult == null ? Optional.empty() : resolveResult;
         builtMembers = List.copyOf(builtMembers);
         members = List.copyOf(members);
         maxWorkers = Math.max(0, maxWorkers);
+        inputMetrics = inputMetrics == null ? PackageInputMetrics.empty() : inputMetrics;
+    }
+
+    public WorkspacePackageResult(
+            Optional<ResolveResult> resolveResult,
+            List<WorkspaceBuildResult.MemberBuildResult> builtMembers,
+            List<MemberPackageResult> members,
+            int maxWorkers) {
+        this(resolveResult, builtMembers, members, maxWorkers, PackageInputMetrics.empty());
     }
 
     public WorkspacePackageResult(

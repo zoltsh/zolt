@@ -8,6 +8,8 @@ import sh.zolt.build.packaging.layout.QuarkusFastJarLayoutAssembler;
 import sh.zolt.build.packaging.layout.UberJarLayoutAssembler;
 import sh.zolt.build.packaging.layout.WarLayoutAssembler;
 import sh.zolt.build.packageauthority.ProvidedPackagingOverrides;
+import sh.zolt.build.packageevidence.PackageArchiveDigests;
+import sh.zolt.build.packageplan.PackageInputSnapshot;
 import sh.zolt.build.springboot.SpringBootJarLayoutAssembler;
 import sh.zolt.build.springboot.SpringBootWarLayoutAssembler;
 import sh.zolt.framework.FrameworkPackageAugmenter;
@@ -74,7 +76,9 @@ final class PackageArchiveModePackager {
             BuildResult buildResult,
             Path warPath,
             Path cacheRoot,
-            Optional<List<ResolvedClasspathPackage>> classpathPackages) {
+            Optional<List<ResolvedClasspathPackage>> classpathPackages,
+            PackageInputSnapshot applicationInputs,
+            PackageArchiveDigests digests) {
         Path outputDirectory = requireOutputDirectory(buildResult);
         List<ResolvedClasspathPackage> resolvedPackages = classpathPackages
                 .orElseGet(() -> runtimeJarSelector.allClasspathPackages(
@@ -92,7 +96,15 @@ final class PackageArchiveModePackager {
         PackageRuntimeJarMaterializer.Result inputs =
                 runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
         return warLayoutAssembler
-                .assemble(projectDirectory, config, buildResult, outputDirectory, warPath, inputs.runtimeJars())
+                .assemble(
+                        projectDirectory,
+                        config,
+                        buildResult,
+                        outputDirectory,
+                        warPath,
+                        inputs.runtimeJars(),
+                        applicationInputs,
+                        digests)
                 .withMaterializedInputs(inputs.materializedInputs());
     }
 
@@ -102,14 +114,24 @@ final class PackageArchiveModePackager {
             BuildResult buildResult,
             Path jarPath,
             Path cacheRoot,
-            Optional<List<ResolvedClasspathPackage>> classpathPackages) {
+            Optional<List<ResolvedClasspathPackage>> classpathPackages,
+            PackageInputSnapshot applicationInputs,
+            PackageArchiveDigests digests) {
         Path outputDirectory = requireOutputDirectory(buildResult);
         List<PackageRuntimeJar> runtimeJars = classpathPackages
                 .map(runtimeJarSelector::runtimeJars)
                 .orElseGet(() -> runtimeJarSelector.runtimeJars(
                         lockfileReader.read(projectDirectory.resolve("zolt.lock")),
                         cacheRoot));
-        return uberJarLayoutAssembler.assemble(projectDirectory, config, buildResult, outputDirectory, jarPath, runtimeJars);
+        return uberJarLayoutAssembler.assemble(
+                projectDirectory,
+                config,
+                buildResult,
+                outputDirectory,
+                jarPath,
+                runtimeJars,
+                applicationInputs,
+                digests);
     }
 
     PackageResult packageSpringBootWar(

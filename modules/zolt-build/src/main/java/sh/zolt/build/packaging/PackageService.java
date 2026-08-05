@@ -6,7 +6,9 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
+import sh.zolt.build.packageevidence.PackageArchiveDigests;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
+import sh.zolt.build.packageplan.PackageOutputFingerprintIndex;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.manifest.ManifestGenerator;
@@ -161,7 +163,8 @@ public final class PackageService {
                 Optional.of(cacheRoot),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                new PackageOutputFingerprintIndex());
     }
 
     public PackageResult packageJar(
@@ -178,7 +181,8 @@ public final class PackageService {
                 Optional.of(cacheRoot),
                 Optional.of(buildResult.classpathPackages()),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                new PackageOutputFingerprintIndex());
     }
 
     public PackageResult packageJar(
@@ -194,7 +198,8 @@ public final class PackageService {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                new PackageOutputFingerprintIndex());
     }
 
     public PackageResult packageJar(
@@ -211,7 +216,8 @@ public final class PackageService {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(classpaths),
-                Optional.empty());
+                Optional.empty(),
+                new PackageOutputFingerprintIndex());
     }
 
     public PackageResult packageJar(
@@ -229,52 +235,22 @@ public final class PackageService {
                 Optional.empty(),
                 Optional.of(classpathPackages),
                 Optional.of(classpaths),
-                Optional.empty());
-    }
-
-    public PackageResult packageJar(
-            Path projectDirectory,
-            ProjectConfig config,
-            BuildResult buildResult,
-            ClasspathSet classpaths,
-            List<ResolvedClasspathPackage> classpathPackages,
-            PackagePlan packagePlan) {
-        return packageJar(
-                projectDirectory,
-                config,
-                buildResult,
                 Optional.empty(),
-                classpaths,
-                classpathPackages,
-                packagePlan);
+                new PackageOutputFingerprintIndex());
     }
 
+    /**
+     * Packages one workspace member against that command's shared package input index.
+     */
     public PackageResult packageJar(
-            Path projectDirectory,
-            ProjectConfig config,
-            BuildResult buildResult,
-            Path cacheRoot,
-            ClasspathSet classpaths,
-            List<ResolvedClasspathPackage> classpathPackages,
-            PackagePlan packagePlan) {
-        return packageJar(
-                projectDirectory,
-                config,
-                buildResult,
-                Optional.of(cacheRoot),
-                classpaths,
-                classpathPackages,
-                packagePlan);
-    }
-
-    private PackageResult packageJar(
             Path projectDirectory,
             ProjectConfig config,
             BuildResult buildResult,
             Optional<Path> cacheRoot,
             ClasspathSet classpaths,
             List<ResolvedClasspathPackage> classpathPackages,
-            PackagePlan packagePlan) {
+            PackagePlan packagePlan,
+            PackageOutputFingerprintIndex inputs) {
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
         return packageJar(
@@ -284,7 +260,8 @@ public final class PackageService {
                 cacheRoot,
                 Optional.of(classpathPackages),
                 Optional.of(classpaths),
-                Optional.of(packagePlan));
+                Optional.of(packagePlan),
+                inputs);
     }
 
     private static Path projectRoot(Path projectDirectory) {
@@ -298,31 +275,40 @@ public final class PackageService {
             Optional<Path> cacheRoot,
             Optional<List<ResolvedClasspathPackage>> classpathPackages,
             Optional<ClasspathSet> classpaths,
-            Optional<PackagePlan> suppliedPlan) {
+            Optional<PackagePlan> suppliedPlan,
+            PackageOutputFingerprintIndex inputs) {
         testCompileGate.requireCurrent(
                 projectDirectory, config, buildResult, cacheRoot, classpathPackages, classpaths);
         PackagePlan plan = suppliedPlan.orElseGet(() ->
-                packagePlanResolver.plan(projectDirectory, config, cacheRoot));
-        Optional<PackageResult> reused =
-                reuseService.reuse(projectDirectory, config, buildResult, plan);
-        if (reused.isPresent()) {
-            return reused.orElseThrow();
+                packagePlanResolver.plan(projectDirectory, config, cacheRoot, inputs));
+        try {
+            Optional<PackageResult> reused =
+                    reuseService.reuse(projectDirectory, config, buildResult, plan);
+            if (reused.isPresent()) {
+                return reused.orElseThrow();
+            }
+            PackageArchiveDigests digests = new PackageArchiveDigests();
+            PackageResult result = primaryArtifactAssembler.assemble(
+                    projectDirectory,
+                    config,
+                    buildResult,
+                    cacheRoot,
+                    classpathPackages,
+                    classpaths,
+                    inputs.snapshot(plan.applicationOutput()),
+                    digests);
+            List<PackageArtifact> artifacts = supplementalArtifactAssembler.assemble(
+                    projectDirectory,
+                    config,
+                    buildResult,
+                    classpathPackages,
+                    classpaths);
+            Path evidenceManifest = evidenceManifestWriter.write(
+                    projectDirectory, config, plan, result, artifacts, digests);
+            return result.withArtifactsAndEvidence(artifacts, Optional.of(evidenceManifest));
+        } finally {
+            inputs.releaseBytes(plan.applicationOutput());
         }
-        PackageResult result = primaryArtifactAssembler.assemble(
-                projectDirectory,
-                config,
-                buildResult,
-                cacheRoot,
-                classpathPackages,
-                classpaths);
-        List<PackageArtifact> artifacts = supplementalArtifactAssembler.assemble(
-                projectDirectory,
-                config,
-                buildResult,
-                classpathPackages,
-                classpaths);
-        Path evidenceManifest = evidenceManifestWriter.write(projectDirectory, config, plan, result, artifacts);
-        return result.withArtifactsAndEvidence(artifacts, Optional.of(evidenceManifest));
     }
 
 }

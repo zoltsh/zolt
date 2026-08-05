@@ -33,6 +33,15 @@ final class CommandPackageAttributes {
                 CommandAttributeKeys.WORKSPACE_PACKAGE_MAX_WORKERS,
                 Integer.toString(result.maxWorkers()));
         attributes.put(
+                CommandAttributeKeys.PACKAGE_INPUT_SNAPSHOTS,
+                Integer.toString(result.inputMetrics().snapshots()));
+        attributes.put(
+                CommandAttributeKeys.PACKAGE_INPUT_FILES_READ,
+                Long.toString(result.inputMetrics().filesRead()));
+        attributes.put(
+                CommandAttributeKeys.PACKAGE_INPUT_BYTES_READ,
+                Long.toString(result.inputMetrics().bytesRead()));
+        attributes.put(
                 CommandAttributeKeys.RESOLVED_LOCKFILE,
                 Boolean.toString(result.resolvedLockfile()));
         return attributes;

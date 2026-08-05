@@ -6,6 +6,8 @@ import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.manifest.ManifestGenerator;
+import sh.zolt.build.packageevidence.PackageArchiveDigests;
+import sh.zolt.build.packageplan.PackageInputSnapshot;
 import sh.zolt.build.packaging.layout.ThinJarLayoutAssembler;
 import sh.zolt.framework.FrameworkPackageAugmenter;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -48,14 +50,18 @@ final class PackagePrimaryArtifactAssembler {
             BuildResult buildResult,
             Optional<Path> cacheRoot,
             Optional<List<ResolvedClasspathPackage>> classpathPackages,
-            Optional<ClasspathSet> classpaths) {
+            Optional<ClasspathSet> classpaths,
+            PackageInputSnapshot applicationInputs,
+            PackageArchiveDigests digests) {
         return packagers.assemble(new PackageAssemblyRequest(
                 projectDirectory,
                 config,
                 buildResult,
                 cacheRoot,
                 classpathPackages,
-                classpaths));
+                classpaths,
+                applicationInputs,
+                digests));
     }
 }
 
@@ -82,7 +88,9 @@ final class PackageModePackagerRegistry {
                 artifactPathPlanner.jarPath(request.projectDirectory(), request.config()),
                 request.cacheRoot(),
                 request.classpathPackages(),
-                request.classpaths()));
+                request.classpaths(),
+                request.applicationInputs(),
+                request.digests()));
         packagers.put(PackageMode.SPRING_BOOT, request -> archiveModePackager.packageSpringBootJar(
                 request.projectDirectory(),
                 request.config(),
@@ -101,7 +109,9 @@ final class PackageModePackagerRegistry {
                         request.cacheRoot(),
                         request.classpathPackages(),
                         "WAR package mode requires dependency jar access from zolt.lock. Use single-project `zolt package --mode war` for now; workspace WAR packaging is not wired yet."),
-                request.classpathPackages()));
+                request.classpathPackages(),
+                request.applicationInputs(),
+                request.digests()));
         packagers.put(PackageMode.SPRING_BOOT_WAR, request -> archiveModePackager.packageSpringBootWar(
                 request.projectDirectory(),
                 request.config(),
@@ -128,7 +138,9 @@ final class PackageModePackagerRegistry {
                         request.cacheRoot(),
                         request.classpathPackages(),
                         "Uber package mode requires dependency jar access from zolt.lock. Use single-project `zolt package --mode uber` for now; workspace uber packaging is not wired yet."),
-                request.classpathPackages()));
+                request.classpathPackages(),
+                request.applicationInputs(),
+                request.digests()));
         return new PackageModePackagerRegistry(packagers);
     }
 
@@ -180,11 +192,15 @@ record PackageAssemblyRequest(
         BuildResult buildResult,
         Optional<Path> cacheRoot,
         Optional<List<ResolvedClasspathPackage>> classpathPackages,
-        Optional<ClasspathSet> classpaths) {
+        Optional<ClasspathSet> classpaths,
+        PackageInputSnapshot applicationInputs,
+        PackageArchiveDigests digests) {
     PackageAssemblyRequest {
         Objects.requireNonNull(projectDirectory, "projectDirectory");
         Objects.requireNonNull(config, "config");
         Objects.requireNonNull(buildResult, "buildResult");
+        Objects.requireNonNull(applicationInputs, "applicationInputs");
+        Objects.requireNonNull(digests, "digests");
         cacheRoot = cacheRoot == null ? Optional.empty() : cacheRoot;
         classpathPackages = classpathPackages == null ? Optional.empty() : classpathPackages;
         classpaths = classpaths == null ? Optional.empty() : classpaths;

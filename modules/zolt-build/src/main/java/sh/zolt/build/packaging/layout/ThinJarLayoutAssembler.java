@@ -13,7 +13,10 @@ import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
-import sh.zolt.build.packageplan.PackageInputFingerprinting;
+import sh.zolt.build.packageevidence.PackageArchiveDigests;
+import sh.zolt.build.packageplan.PackageInputBudget;
+import sh.zolt.build.packageplan.PackageInputEntry;
+import sh.zolt.build.packageplan.PackageInputSnapshot;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,19 +48,44 @@ public final class ThinJarLayoutAssembler {
             Optional<Path> cacheRoot,
             Optional<List<ResolvedClasspathPackage>> classpathPackages,
             Optional<ClasspathSet> classpaths) {
-        Path outputDirectory = requireOutputDirectory(buildResult);
+        return assemble(
+                projectDirectory,
+                config,
+                buildResult,
+                jarPath,
+                cacheRoot,
+                classpathPackages,
+                classpaths,
+                PackageInputSnapshot.of(
+                        buildResult.outputDirectory(),
+                        PackageInputBudget.defaults()),
+                new PackageArchiveDigests());
+    }
+
+    public PackageResult assemble(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResult buildResult,
+            Path jarPath,
+            Optional<Path> cacheRoot,
+            Optional<List<ResolvedClasspathPackage>> classpathPackages,
+            Optional<ClasspathSet> classpaths,
+            PackageInputSnapshot inputs,
+            PackageArchiveDigests digests) {
+        requireOutputDirectory(buildResult);
         Path runtimeClasspathPath = runtimeClasspathPath(jarPath);
         GeneratedManifest manifest = manifestGenerator.generate(projectDirectory, config);
 
         try {
             Files.createDirectories(jarPath.getParent());
-            List<Path> files = compiledFiles(outputDirectory);
+            List<PackageInputEntry> files = inputs.entries();
             try (PackageArchiveWriter archive = PackageArchiveWriter.open(jarPath)) {
                 archive.writeEntry(manifest.path(), manifest.content());
-                for (Path file : files) {
-                    archive.writeFile(entryName(outputDirectory, file), file);
+                for (PackageInputEntry file : files) {
+                    archive.writeEntry(file.name(), output -> inputs.transferTo(file, output));
                 }
                 archive.commit();
+                archive.archiveSha256().ifPresent(sha256 -> digests.record(jarPath, sha256));
             }
             Optional<Path> writtenRuntimeClasspathPath = Optional.empty();
             if (classpathPackages.isPresent()) {
@@ -86,7 +114,7 @@ public final class ThinJarLayoutAssembler {
         }
     }
 
-    private Path requireOutputDirectory(BuildResult buildResult) {
+    private void requireOutputDirectory(BuildResult buildResult) {
         Path outputDirectory = buildResult.outputDirectory();
         if (!Files.isDirectory(outputDirectory)) {
             throw new PackageException(
@@ -94,7 +122,6 @@ public final class ThinJarLayoutAssembler {
                             + outputDirectory
                             + ". Run zolt build and check [build].output in zolt.toml.");
         }
-        return outputDirectory;
     }
 
     private void writeRuntimeClasspath(
@@ -146,11 +173,4 @@ public final class ThinJarLayoutAssembler {
         return jarPath.resolveSibling(fileName + ".runtime-classpath");
     }
 
-    private static List<Path> compiledFiles(Path outputDirectory) throws IOException {
-        return PackageInputFingerprinting.applicationFiles(outputDirectory);
-    }
-
-    private static String entryName(Path outputDirectory, Path file) {
-        return outputDirectory.relativize(file).normalize().toString().replace('\\', '/');
-    }
 }

@@ -8,7 +8,10 @@ import sh.zolt.build.packaging.PackageArchiveWriter;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageRuntimeJar;
 import sh.zolt.build.packaging.PackageRuntimeJars;
-import sh.zolt.build.packageplan.PackageInputFingerprinting;
+import sh.zolt.build.packageevidence.PackageArchiveDigests;
+import sh.zolt.build.packageplan.PackageInputBudget;
+import sh.zolt.build.packageplan.PackageInputEntry;
+import sh.zolt.build.packageplan.PackageInputSnapshot;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
@@ -34,21 +37,41 @@ public final class WarLayoutAssembler {
             Path outputDirectory,
             Path warPath,
             List<PackageRuntimeJar> runtimeJars) {
+        return assemble(
+                projectDirectory,
+                config,
+                buildResult,
+                outputDirectory,
+                warPath,
+                runtimeJars,
+                PackageInputSnapshot.of(outputDirectory, PackageInputBudget.defaults()),
+                new PackageArchiveDigests());
+    }
+
+    public PackageResult assemble(
+            Path projectDirectory,
+            ProjectConfig config,
+            BuildResult buildResult,
+            Path outputDirectory,
+            Path warPath,
+            List<PackageRuntimeJar> runtimeJars,
+            PackageInputSnapshot inputs,
+            PackageArchiveDigests digests) {
         GeneratedManifest manifest = manifestGenerator.generateWithoutMain(projectDirectory, config);
         PackageRuntimeJars.requireUniqueNestedPaths(WEB_INF_LIB_PREFIX, runtimeJars);
 
         try {
             Files.createDirectories(warPath.getParent());
-            List<Path> files = compiledFiles(outputDirectory);
+            List<PackageInputEntry> files = inputs.entries();
             try (PackageArchiveWriter archive = PackageArchiveWriter.open(warPath)) {
                 archive.writeEntry(manifest.path(), manifest.content());
                 archive.writeDirectory(WEB_INF_PREFIX);
                 archive.writeDirectory(WEB_INF_CLASSES_PREFIX);
                 archive.writeDirectory(WEB_INF_LIB_PREFIX);
-                for (Path file : files) {
-                    String warEntryName = WEB_INF_CLASSES_PREFIX + entryName(outputDirectory, file);
+                for (PackageInputEntry file : files) {
+                    String warEntryName = WEB_INF_CLASSES_PREFIX + file.name();
                     archive.writeParentDirectories(warEntryName);
-                    archive.writeFile(warEntryName, file);
+                    archive.writeEntry(warEntryName, output -> inputs.transferTo(file, output));
                 }
                 for (PackageRuntimeJar runtimeJar : runtimeJars) {
                     archive.writeStoredEntry(
@@ -56,6 +79,7 @@ public final class WarLayoutAssembler {
                             PackageRuntimeJars.read(runtimeJar));
                 }
                 archive.commit();
+                archive.archiveSha256().ifPresent(sha256 -> digests.record(warPath, sha256));
             }
             return new PackageResult(
                     buildResult,
@@ -71,14 +95,6 @@ public final class WarLayoutAssembler {
                             + ". Check that target/ is writable and try again.",
                     exception);
         }
-    }
-
-    private static List<Path> compiledFiles(Path outputDirectory) throws IOException {
-        return PackageInputFingerprinting.applicationFiles(outputDirectory);
-    }
-
-    private static String entryName(Path outputDirectory, Path file) {
-        return outputDirectory.relativize(file).normalize().toString().replace('\\', '/');
     }
 
 }

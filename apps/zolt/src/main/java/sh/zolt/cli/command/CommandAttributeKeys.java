@@ -162,6 +162,9 @@ public final class CommandAttributeKeys {
     public static final String WORKSPACE_PACKAGE_CALCULATIONS = "workspacePackageCalculations";
     public static final String WORKSPACE_PACKAGE_CALCULATION_NANOS = "workspacePackageCalculationNanos";
     public static final String WORKSPACE_PACKAGE_MAX_WORKERS = "workspacePackageMaxWorkers";
+    public static final String PACKAGE_INPUT_SNAPSHOTS = "packageInputSnapshots";
+    public static final String PACKAGE_INPUT_FILES_READ = "packageInputFilesRead";
+    public static final String PACKAGE_INPUT_BYTES_READ = "packageInputBytesRead";
     public static final String WORKSPACE_DISCOVERY_NANOS = "workspaceDiscoveryNanos";
     public static final String WORKSPACE_SELECTION_NANOS = "workspaceSelectionNanos";
     public static final String WORKSPACE_RESOLUTION_NANOS = "workspaceResolutionNanos";
