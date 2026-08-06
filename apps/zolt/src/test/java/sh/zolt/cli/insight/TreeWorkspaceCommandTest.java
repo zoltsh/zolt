@@ -23,9 +23,10 @@ final class TreeWorkspaceCommandTest {
 
         assertEquals(0, result.exitCode(), result.stderr());
         assertEquals("", result.stderr());
-        assertTrue(result.stdout().contains("\"schemaVersion\": 2"), result.stdout());
+        assertTrue(result.stdout().contains("\"schemaVersion\": 3"), result.stdout());
         assertTrue(result.stdout().contains("\"name\": \"demo-workspace\""), result.stdout());
-        assertTrue(result.stdout().contains("\"members\": [\"apps/api\", \"modules/core\"]"), result.stdout());
+        assertTrue(result.stdout().contains("\"path\": \"apps/api\""), result.stdout());
+        assertTrue(result.stdout().contains("\"path\": \"modules/core\""), result.stdout());
     }
 
     @Test

@@ -1250,29 +1250,30 @@ per member, so the sharing changes what is recomputed and never what is decided.
 
 `zolt tree --workspace` projects those same facts without resolving: it reads the
 root `zolt.lock` and the discovered workspace config, renders one tree section per
-member in the text view, and emits `schemaVersion 2` under `--format json`. Schema
-2 adds `mode`, `lockVersion`, and a `workspace` object with the sorted member paths;
-each package carries the members whose graphs consume it, and package occurrences
-stay separate per scope and artifact variant exactly as the lock records them.
+member in the text view, and emits `schemaVersion 3` under `--format json`. Schema
+3 adds `mode`, `lockVersion`, and a `workspace` object that binds each sorted member
+path to its Maven identity. Each first-party package names its owning member, each
+package carries the members whose graphs consume it, and package occurrences stay
+separate per scope and artifact variant exactly as the lock records them.
 Standalone `zolt tree --format json` stays `schemaVersion 1`, and both schemas
 spell coordinates, variants, and dependency edges identically. A missing or stale
 root lock fails with an actionable error instead of resolving.
 
-Schema 2 is a machine contract, so its three shapes are worth spelling out:
+Schema 3 is a machine contract, so its three shapes are worth spelling out:
 
-- **Scopes.** Schema 2 emits *every* scope the lock records — `compile`,
+- **Scopes.** Schema 3 emits *every* scope the lock records — `compile`,
   `runtime`, `dev`, `test`, `provided`, `processor`, `test-processor`,
   `quarkus-deployment`, and the `tool-*` scopes — not just the packaged ones.
   Each package carries its own `scope`, and every dependency edge ends in the
   scope of the occurrence it names. `zolt sbom` instead defaults to compile plus
   runtime, so a consumer cross-checking the two documents must pass
   `--include-dev --include-test --include-provided --include-tools`; those four
-  flags together cover every scope schema 2 can emit.
+  flags together cover every scope schema 3 can emit.
 - **Edges.** A dependency edge is always the five-field canonical form
   `groupId:artifactId:version:extension|classifier:scope`, and always names a
   package listed in the same document. Historical scope-less edges inherited by
   an older lock are re-encoded into that form, so one parser reads schema 1 and
-  schema 2 alike.
+  schema 3 alike.
 - **Roots.** `roots` lists *coordinates* (`id:version`, plus `:variant` when the
   variant is not a plain jar) — not edges. A coordinate appears once however many
   members or scopes declare it.

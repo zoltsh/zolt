@@ -17,6 +17,7 @@ import sh.zolt.tree.DependencyJsonFormatter;
 import sh.zolt.tree.DependencyTreeFormatter;
 import sh.zolt.tree.WorkspaceDependencyJsonFormatter;
 import sh.zolt.tree.WorkspaceDependencyTreeFormatter;
+import sh.zolt.tree.WorkspaceTreeMember;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.service.Workspace;
@@ -118,11 +119,16 @@ public final class TreeCommand implements Runnable {
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         WorkspaceGraphLockCapability.requireMemberGraphEvidence(lockfile);
         String name = discovered.config().name();
-        List<String> members = discovered.members().stream()
+        List<String> memberPaths = discovered.members().stream()
                 .map(WorkspaceMember::path)
                 .toList();
         return format == Format.JSON
-                ? workspaceJsonFormatter.tree(name, members, lockfile)
-                : workspaceTreeFormatter.format(name, members, lockfile);
+                ? workspaceJsonFormatter.tree(
+                        name,
+                        discovered.members().stream()
+                                .map(member -> WorkspaceTreeMember.from(member.path(), member.config()))
+                                .toList(),
+                        lockfile)
+                : workspaceTreeFormatter.format(name, memberPaths, lockfile);
     }
 }

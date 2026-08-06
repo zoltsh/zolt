@@ -7,7 +7,7 @@ import java.nio.file.Path;
 
 /**
  * The committed `zolt tree` schema fixtures: a standalone project frozen at schema 1, and a two-member
- * workspace frozen at schema 2. Both locks are hand-written so the projections stay a pure read of
+ * workspace frozen at schema 3. Both locks are hand-written so the projections stay a pure read of
  * committed facts — no resolution, no network.
  */
 final class TreeFixtures {

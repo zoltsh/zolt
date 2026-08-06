@@ -10,16 +10,17 @@ import static sh.zolt.tree.DependencyJsonFields.stringField;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.TreeSet;
 
 /**
- * The schema-version-2 workspace projection of {@code zolt tree --format json}.
+ * The schema-version-3 workspace projection of {@code zolt tree --format json}.
  *
- * <p>Schema 1 describes one standalone project and stays exactly as it is; schema 2 describes a whole
- * workspace and is emitted only for {@code --workspace}. Both share this package's coordinate, variant,
- * and dependency-edge spellings, so one consumer-side edge parser reads either version.
+ * <p>Schema 1 describes one standalone project and stays exactly as it is; schema 3 describes a whole
+ * workspace and is emitted only for {@code --workspace}. Schema 3 binds every member path to its
+ * package identity and every first-party package occurrence to its owning path. Both schemas share
+ * this package's coordinate, variant, and dependency-edge spellings.
  *
  * <p>Schema 2 projects the lock in full: every {@code sh.zolt.dependency.DependencyScope} the lock
  * records is emitted, each occurrence carrying its own {@code scope} and each dependency edge carrying
@@ -30,9 +31,10 @@ import java.util.TreeSet;
  * regardless of member iteration order.
  */
 public final class WorkspaceDependencyJsonFormatter {
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 3;
 
-    public String tree(String workspaceName, List<String> memberPaths, ZoltLockfile lockfile) {
+    public String tree(String workspaceName, List<WorkspaceTreeMember> members, ZoltLockfile lockfile) {
+        List<String> memberPaths = members.stream().map(WorkspaceTreeMember::path).toList();
         WorkspaceTreeProjection projection = WorkspaceTreeProjection.of(lockfile, memberPaths);
         StringBuilder json = new StringBuilder();
         json.append("{\n");
@@ -40,7 +42,7 @@ public final class WorkspaceDependencyJsonFormatter {
         stringField(json, 1, "command", "tree", true);
         stringField(json, 1, "mode", "workspace", true);
         intField(json, 1, "lockVersion", lockfile.version(), true);
-        workspace(json, workspaceName, memberPaths);
+        workspace(json, workspaceName, members);
         comma(json);
         packages(json, projection);
         comma(json);
@@ -49,10 +51,32 @@ public final class WorkspaceDependencyJsonFormatter {
         return json.toString();
     }
 
-    private static void workspace(StringBuilder json, String workspaceName, List<String> memberPaths) {
+    private static void workspace(StringBuilder json, String workspaceName, List<WorkspaceTreeMember> members) {
         indent(json, 1).append("\"workspace\": {\n");
         stringField(json, 2, "name", workspaceName, true);
-        stringArrayField(json, 2, "members", List.copyOf(new TreeSet<>(memberPaths)), false);
+        indent(json, 2).append("\"members\": [");
+        List<WorkspaceTreeMember> sorted = members.stream()
+                .sorted(Comparator.comparing(WorkspaceTreeMember::path))
+                .toList();
+        if (!sorted.isEmpty()) {
+            json.append('\n');
+            for (int index = 0; index < sorted.size(); index++) {
+                WorkspaceTreeMember member = sorted.get(index);
+                indent(json, 3).append("{\n");
+                stringField(json, 4, "path", member.path(), true);
+                stringField(json, 4, "group", member.group(), true);
+                stringField(json, 4, "name", member.name(), true);
+                stringField(json, 4, "version", member.version(), true);
+                stringField(json, 4, "type", member.type(), false);
+                indent(json, 3).append("}");
+                if (index + 1 < sorted.size()) {
+                    json.append(',');
+                }
+                json.append('\n');
+            }
+            indent(json, 2);
+        }
+        json.append("]\n");
         indent(json, 1).append("}");
     }
 
@@ -85,6 +109,7 @@ public final class WorkspaceDependencyJsonFormatter {
                 stringField(json, 3, "variant", variant.key(), true));
         stringField(json, 3, "scope", lockPackage.scope().lockfileName(), true);
         booleanField(json, 3, "direct", lockPackage.direct(), true);
+        lockPackage.workspace().ifPresent(path -> stringField(json, 3, "workspace", path, true));
         stringArrayField(json, 3, "members", projection.members(lockPackage), true);
         stringArrayField(json, 3, "dependencies", projection.dependencies(lockPackage), false);
         indent(json, 2).append("}");

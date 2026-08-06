@@ -14,7 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The frozen machine contract of {@code zolt tree --format json}: standalone output stays schema 1
- * byte for byte, and {@code --workspace} emits schema 2 byte for byte. Both are compared against
+ * byte for byte, and {@code --workspace} emits schema 3 byte for byte. Both are compared against
  * committed goldens, because downstream decoders (the dependency-submission action) parse them
  * strictly and share one dependency-edge parser across the two versions.
  */
@@ -41,7 +41,7 @@ final class TreeJsonSchemaTest {
 
         assertEquals(0, result.exitCode(), result.stderr());
         assertEquals("", result.stderr());
-        assertEquals(golden("tree-workspace-schema-v2.json"), result.stdout());
+        assertEquals(golden("tree-workspace-schema-v3.json"), result.stdout());
     }
 
     @Test
@@ -73,7 +73,7 @@ final class TreeJsonSchemaTest {
                 standalone.stdout());
         assertTrue(standalone.stdout().contains("\"variant\": \"jar|runtime\""), standalone.stdout());
 
-        String workspace = golden("tree-workspace-schema-v2.json");
+        String workspace = golden("tree-workspace-schema-v3.json");
         assertTrue(workspace.contains("\"dependencies\": [\"org.example:extra:2.0.0:jar:compile\"]"), workspace);
         assertTrue(workspace.contains("\"coordinate\": \"org.example:agent:0.9.0:jar|runtime\""), workspace);
         assertTrue(workspace.contains("\"variant\": \"jar|runtime\""), workspace);

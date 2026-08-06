@@ -91,7 +91,7 @@ final class WorkspaceDependencyTreeFormatterTest extends WorkspaceTreeTestSuppor
                 () -> formatter.format(WORKSPACE_NAME, MEMBERS, lockfile));
         LockDependencyGraphException json = assertThrows(
                 LockDependencyGraphException.class,
-                () -> jsonFormatter.tree(WORKSPACE_NAME, MEMBERS, lockfile));
+                () -> jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile));
 
         assertTrue(text.getMessage().contains("Dangling dependency edge"), text.getMessage());
         assertTrue(text.getMessage().contains("zolt resolve --workspace"), text.getMessage());

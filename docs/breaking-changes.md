@@ -3,6 +3,15 @@
 Breaking changes to Zolt's CLI and configuration, newest first. Each entry names
 the old behavior, the new behavior, and how to migrate.
 
+## Workspace tree schema 3 binds member identities
+
+- **Old behavior:** `zolt tree --workspace --format json` emitted schema 2 with
+  member paths but no exact path-to-package identity mapping.
+- **New behavior:** schema 3 emits each member's path and Maven identity, and
+  marks every first-party package occurrence with its owning member path.
+- **Migration:** update machine consumers to accept schema 3. Standalone tree
+  output remains schema 1.
+
 ## Lockfile version 5 preserves optional boundaries and conflict provenance
 
 - **Old behavior:** workspace optional dependencies could cross into downstream

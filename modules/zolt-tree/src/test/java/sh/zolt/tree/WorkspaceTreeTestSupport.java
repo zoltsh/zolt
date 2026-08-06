@@ -12,13 +12,16 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * A two-member workspace lock exercising the identities the schema-2 contract must keep separate:
+ * A two-member workspace lock exercising the identities the schema-3 contract must keep separate:
  * a first-party member package, one coordinate present in two scopes, a classified jar, a non-default
  * artifact type, and an external shared by both members whose child set differs per member.
  */
 abstract class WorkspaceTreeTestSupport {
     protected static final String WORKSPACE_NAME = "demo-workspace";
     protected static final List<String> MEMBERS = List.of("modules/core", "apps/api");
+    protected static final List<WorkspaceTreeMember> JSON_MEMBERS = List.of(
+            new WorkspaceTreeMember("modules/core", "com.example", "core", "0.1.0", "jar"),
+            new WorkspaceTreeMember("apps/api", "com.example", "api", "0.1.0", "jar"));
 
     protected static ZoltLockfile workspaceLockfile() {
         return new ZoltLockfile(
@@ -195,7 +198,7 @@ abstract class WorkspaceTreeTestSupport {
                 List.of());
     }
 
-    /** Every dependency-edge string the schema-2 document lists, in document order. */
+    /** Every dependency-edge string the schema-3 document lists, in document order. */
     protected static List<String> edges(String output) {
         return output.lines()
                 .filter(line -> line.contains("\"dependencies\": ["))

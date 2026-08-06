@@ -11,7 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The machine-contract guarantees the schema-2 projection owes its consumers: every emitted edge names
+ * The machine-contract guarantees the schema-3 projection owes its consumers: every emitted edge names
  * a listed occurrence in one canonical spelling, children are sourced the way the workspace SBOM
  * sources them, and a lock that cannot be projected unambiguously fails closed with an actionable
  * message instead of emitting a document a consumer cannot key.
@@ -24,7 +24,7 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
     void canonicalizesALegacyBareGavEdgeToTheOccurrenceItNames() {
         ZoltLockfile lockfile = legacyEdgeLockfile();
 
-        String output = jsonFormatter.tree(WORKSPACE_NAME, MEMBERS, lockfile);
+        String output = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
 
         assertTrue(edges(output).contains("org.example:extra:2.0.0:jar:compile"), output);
         assertTrue(
@@ -36,7 +36,7 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
     void emitsOnlyEdgesThatNameAListedOccurrenceEvenFromALegacyLock() {
         ZoltLockfile lockfile = legacyEdgeLockfile();
 
-        String output = jsonFormatter.tree(WORKSPACE_NAME, MEMBERS, lockfile);
+        String output = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
 
         for (String edge : edges(output)) {
             assertTrue(identities(lockfile).contains(edge), "dangling edge " + edge + " in\n" + output);
@@ -63,7 +63,7 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
                         typedBundle()),
                 List.of());
 
-        String output = jsonFormatter.tree(WORKSPACE_NAME, MEMBERS, lockfile);
+        String output = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
 
         assertTrue(
                 output.contains("\"dependencies\": [\"org.example:bundle:3.0.0:zip:runtime\"]"),
@@ -79,7 +79,7 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
     void sourcesChildrenFromTheMemberGraphsWhenTheCollapsedListIsLarger() {
         ZoltLockfile lockfile = collapsedSupersetLockfile();
 
-        String output = jsonFormatter.tree(WORKSPACE_NAME, MEMBERS, lockfile);
+        String output = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
 
         assertEquals(List.of(), edges(output), output);
     }
@@ -93,7 +93,7 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
 
         LockDependencyGraphException json = assertThrows(
                 LockDependencyGraphException.class,
-                () -> jsonFormatter.tree(WORKSPACE_NAME, MEMBERS, lockfile));
+                () -> jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile));
         LockDependencyGraphException text = assertThrows(
                 LockDependencyGraphException.class,
                 () -> treeFormatter.format(WORKSPACE_NAME, MEMBERS, lockfile));
@@ -120,7 +120,7 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
 
         LockDependencyGraphException json = assertThrows(
                 LockDependencyGraphException.class,
-                () -> jsonFormatter.tree(WORKSPACE_NAME, MEMBERS, lockfile));
+                () -> jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile));
         LockDependencyGraphException text = assertThrows(
                 LockDependencyGraphException.class,
                 () -> treeFormatter.format(WORKSPACE_NAME, MEMBERS, lockfile));
@@ -135,9 +135,9 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
     void canonicalizationIsByteStableAcrossRuns() {
         ZoltLockfile lockfile = legacyEdgeLockfile();
 
-        String first = jsonFormatter.tree(WORKSPACE_NAME, List.of("modules/core", "apps/api"), lockfile);
+        String first = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
         String second = new WorkspaceDependencyJsonFormatter()
-                .tree(WORKSPACE_NAME, List.of("apps/api", "modules/core"), lockfile);
+                .tree(WORKSPACE_NAME, JSON_MEMBERS.reversed(), lockfile);
 
         assertEquals(first, second);
     }

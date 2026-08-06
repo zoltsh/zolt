@@ -14,17 +14,32 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
 
     @Test
     void emitsSchemaVersionTwoWorkspaceProjection() {
-        String output = formatter.tree(WORKSPACE_NAME, MEMBERS, workspaceLockfile());
+        String output = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS, workspaceLockfile());
 
         assertEquals("""
                 {
-                  "schemaVersion": 2,
+                  "schemaVersion": 3,
                   "command": "tree",
                   "mode": "workspace",
                   "lockVersion": 5,
                   "workspace": {
                     "name": "demo-workspace",
-                    "members": ["apps/api", "modules/core"]
+                    "members": [
+                      {
+                        "path": "apps/api",
+                        "group": "com.example",
+                        "name": "api",
+                        "version": "0.1.0",
+                        "type": "jar"
+                      },
+                      {
+                        "path": "modules/core",
+                        "group": "com.example",
+                        "name": "core",
+                        "version": "0.1.0",
+                        "type": "jar"
+                      }
+                    ]
                   },
                   "packages": [
                     {
@@ -33,6 +48,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                       "coordinate": "com.example:core:0.1.0",
                       "scope": "compile",
                       "direct": true,
+                      "workspace": "modules/core",
                       "members": ["apps/api"],
                       "dependencies": ["org.example:shared:1.0.0:jar:compile"]
                     },
@@ -91,7 +107,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
 
     @Test
     void keepsOneCoordinateSeparatePerScope() {
-        String output = formatter.tree(WORKSPACE_NAME, MEMBERS, workspaceLockfile());
+        String output = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS, workspaceLockfile());
 
         assertEquals(
                 2,
@@ -105,7 +121,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
 
     @Test
     void dedupesRootsAcrossScopesAndMembers() {
-        String output = formatter.tree(WORKSPACE_NAME, MEMBERS, workspaceLockfile());
+        String output = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS, workspaceLockfile());
 
         assertTrue(output.contains(
                 "\"roots\": [\"com.example:core:0.1.0\", "
@@ -117,7 +133,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
     void unionsMemberSensitiveChildrenOfASharedDependency() {
         // apps/api reaches `extra` through `shared`; modules/core does not. The workspace-level child
         // set is the union, so the edge is still listed exactly once.
-        String output = formatter.tree(WORKSPACE_NAME, MEMBERS, workspaceLockfile());
+        String output = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS, workspaceLockfile());
 
         assertEquals(
                 1,
@@ -129,10 +145,10 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
     void emitsTheSameBytesRegardlessOfMemberOrderAndAcrossRuns() {
         ZoltLockfile lockfile = workspaceLockfile();
 
-        String first = formatter.tree(WORKSPACE_NAME, List.of("modules/core", "apps/api"), lockfile);
-        String second = formatter.tree(WORKSPACE_NAME, List.of("apps/api", "modules/core"), lockfile);
+        String first = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
+        String second = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS.reversed(), lockfile);
         String third = new WorkspaceDependencyJsonFormatter()
-                .tree(WORKSPACE_NAME, List.of("apps/api", "modules/core"), lockfile);
+                .tree(WORKSPACE_NAME, JSON_MEMBERS.reversed(), lockfile);
 
         assertEquals(first, second);
         assertEquals(first, third);
@@ -140,7 +156,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
 
     @Test
     void everyChildEdgeNamesAListedPackageOccurrence() {
-        String output = formatter.tree(WORKSPACE_NAME, MEMBERS, workspaceLockfile());
+        String output = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS, workspaceLockfile());
 
         for (String edge : edges(output)) {
             assertTrue(
@@ -156,7 +172,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
 
         assertEquals("""
                 {
-                  "schemaVersion": 2,
+                  "schemaVersion": 3,
                   "command": "tree",
                   "mode": "workspace",
                   "lockVersion": 5,
@@ -172,7 +188,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
 
     @Test
     void listsOnlyKnownLockfileScopes() {
-        String output = formatter.tree(WORKSPACE_NAME, MEMBERS, workspaceLockfile());
+        String output = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS, workspaceLockfile());
 
         output.lines()
                 .filter(line -> line.trim().startsWith("\"scope\":"))

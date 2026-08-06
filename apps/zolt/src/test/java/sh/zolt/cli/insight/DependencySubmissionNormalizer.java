@@ -29,7 +29,7 @@ final class DependencySubmissionNormalizer {
     private DependencySubmissionNormalizer() {
     }
 
-    /** The external edge set of the schema-2 tree document, as {@code source -> target} pairs. */
+    /** The external edge set of the schema-3 tree document, as {@code source -> target} pairs. */
     static Set<String> treeEdges(String treeJson, Set<String> firstParty) {
         Set<String> edges = new TreeSet<>();
         String id = "";
@@ -107,7 +107,7 @@ final class DependencySubmissionNormalizer {
         return graph;
     }
 
-    /** A canonical schema-2 edge string reduced to its scope-free node identity. */
+    /** A canonical schema-3 edge string reduced to its scope-free node identity. */
     private static String treeNode(String edge) {
         String[] parts = edge.split(":", -1);
         if (parts.length != 5) {
