@@ -19,10 +19,10 @@ import java.util.Optional;
  *
  * <p>Schema 1 describes one standalone project and stays exactly as it is; schema 3 describes a whole
  * workspace and is emitted only for {@code --workspace}. Schema 3 binds every member path to its
- * package identity and every first-party package occurrence to its owning path. Both schemas share
- * this package's coordinate, variant, and dependency-edge spellings.
+ * package identity, its exact locked graph roots, and every first-party package occurrence to its
+ * owning path. Both schemas share this package's coordinate, variant, and dependency-edge spellings.
  *
- * <p>Schema 2 projects the lock in full: every {@code sh.zolt.dependency.DependencyScope} the lock
+ * <p>Schema 3 projects the lock in full: every {@code sh.zolt.dependency.DependencyScope} the lock
  * records is emitted, each occurrence carrying its own {@code scope} and each dependency edge carrying
  * the scope of the occurrence it names. {@code roots} lists coordinates ({@code id:version[:variant]}),
  * not edges, because a direct declaration is a coordinate the members share.
@@ -67,7 +67,8 @@ public final class WorkspaceDependencyJsonFormatter {
                 stringField(json, 4, "group", member.group(), true);
                 stringField(json, 4, "name", member.name(), true);
                 stringField(json, 4, "version", member.version(), true);
-                stringField(json, 4, "type", member.type(), false);
+                stringField(json, 4, "type", member.type(), true);
+                stringArrayField(json, 4, "dependencies", member.dependencies(), false);
                 indent(json, 3).append("}");
                 if (index + 1 < sorted.size()) {
                     json.append(',');

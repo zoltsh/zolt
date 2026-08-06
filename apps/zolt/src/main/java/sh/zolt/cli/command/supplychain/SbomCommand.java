@@ -40,6 +40,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.resolve.WorkspaceMemberGraphRoots;
 import sh.zolt.workspace.service.Workspace;
 
 @Command(name = "sbom", description = "Generate a CycloneDX software bill of materials from zolt.lock.")
@@ -56,6 +57,7 @@ public final class SbomCommand implements Runnable {
     private final Map<String, String> environment;
     private final String toolVersion;
     private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
+    private final WorkspaceMemberGraphRoots memberGraphRoots = new WorkspaceMemberGraphRoots();
     private final WorkspaceSbomAssembler workspaceAssembler = new WorkspaceSbomAssembler();
 
     @Mixin
@@ -201,7 +203,10 @@ public final class SbomCommand implements Runnable {
         sh.zolt.lockfile.WorkspaceGraphLockCapability.requireMemberGraphEvidence(lockfile);
         LicenseIndex licenses = resolveLicenses(lockfile, selection);
         List<SbomWorkspaceMember> members = discovered.members().stream()
-                .map(member -> new SbomWorkspaceMember(member.path(), member.config()))
+                .map(member -> new SbomWorkspaceMember(
+                        member.path(),
+                        member.config(),
+                        memberGraphRoots.roots(member.path(), member.config(), lockfile, discovered)))
                 .toList();
         SbomModel model = workspaceAssembler.assemble(
                 discovered.config().name(), members, lockfile, selection, timestampValue, toolVersion, licenses);

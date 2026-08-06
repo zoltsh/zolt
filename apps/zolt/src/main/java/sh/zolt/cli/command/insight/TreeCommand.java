@@ -20,6 +20,7 @@ import sh.zolt.tree.WorkspaceDependencyTreeFormatter;
 import sh.zolt.tree.WorkspaceTreeMember;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.resolve.WorkspaceMemberGraphRoots;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Files;
@@ -42,6 +43,7 @@ public final class TreeCommand implements Runnable {
             new WorkspaceDependencyJsonFormatter();
     private final WorkspaceDependencyTreeFormatter workspaceTreeFormatter =
             new WorkspaceDependencyTreeFormatter();
+    private final WorkspaceMemberGraphRoots memberGraphRoots = new WorkspaceMemberGraphRoots();
 
     enum Format {
         TEXT,
@@ -126,7 +128,11 @@ public final class TreeCommand implements Runnable {
                 ? workspaceJsonFormatter.tree(
                         name,
                         discovered.members().stream()
-                                .map(member -> WorkspaceTreeMember.from(member.path(), member.config()))
+                                .map(member -> WorkspaceTreeMember.from(
+                                        member.path(),
+                                        member.config(),
+                                        memberGraphRoots.roots(
+                                                member.path(), member.config(), lockfile, discovered)))
                                 .toList(),
                         lockfile)
                 : workspaceTreeFormatter.format(name, memberPaths, lockfile);

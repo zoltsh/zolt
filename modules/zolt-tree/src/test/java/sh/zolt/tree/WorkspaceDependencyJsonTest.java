@@ -13,7 +13,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
     private final WorkspaceDependencyJsonFormatter formatter = new WorkspaceDependencyJsonFormatter();
 
     @Test
-    void emitsSchemaVersionTwoWorkspaceProjection() {
+    void emitsSchemaVersionThreeWorkspaceProjection() {
         String output = formatter.tree(WORKSPACE_NAME, JSON_MEMBERS, workspaceLockfile());
 
         assertEquals("""
@@ -30,14 +30,16 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                         "group": "com.example",
                         "name": "api",
                         "version": "0.1.0",
-                        "type": "jar"
+                        "type": "jar",
+                        "dependencies": ["com.example:core:0.1.0:jar:compile", "org.example:bundle:3.0.0:zip:runtime", "org.example:shared:1.0.0:jar:compile"]
                       },
                       {
                         "path": "modules/core",
                         "group": "com.example",
                         "name": "core",
                         "version": "0.1.0",
-                        "type": "jar"
+                        "type": "jar",
+                        "dependencies": ["org.example:shared:1.0.0:jar:compile", "org.example:shared:1.0.0:jar:test"]
                       }
                     ]
                   },

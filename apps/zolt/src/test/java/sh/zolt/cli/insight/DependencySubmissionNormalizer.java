@@ -35,7 +35,15 @@ final class DependencySubmissionNormalizer {
         String id = "";
         String version = "";
         String variant = "jar";
+        boolean packages = false;
         for (String line : treeJson.lines().toList()) {
+            if (line.trim().startsWith("\"packages\":")) {
+                packages = true;
+                continue;
+            }
+            if (!packages) {
+                continue;
+            }
             switch (key(line)) {
                 case "id" -> {
                     id = stringValue(line);

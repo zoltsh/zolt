@@ -20,8 +20,35 @@ abstract class WorkspaceTreeTestSupport {
     protected static final String WORKSPACE_NAME = "demo-workspace";
     protected static final List<String> MEMBERS = List.of("modules/core", "apps/api");
     protected static final List<WorkspaceTreeMember> JSON_MEMBERS = List.of(
-            new WorkspaceTreeMember("modules/core", "com.example", "core", "0.1.0", "jar"),
-            new WorkspaceTreeMember("apps/api", "com.example", "api", "0.1.0", "jar"));
+            new WorkspaceTreeMember(
+                    "modules/core",
+                    "com.example",
+                    "core",
+                    "0.1.0",
+                    "jar",
+                    List.of(
+                            "org.example:shared:1.0.0:jar:compile",
+                            "org.example:shared:1.0.0:jar:test")),
+            new WorkspaceTreeMember(
+                    "apps/api",
+                    "com.example",
+                    "api",
+                    "0.1.0",
+                    "jar",
+                    List.of(
+                            "com.example:core:0.1.0:jar:compile",
+                            "org.example:bundle:3.0.0:zip:runtime",
+                            "org.example:shared:1.0.0:jar:compile")));
+
+    protected static List<WorkspaceTreeMember> jsonMembers(
+            List<String> coreDependencies,
+            List<String> apiDependencies) {
+        return List.of(
+                new WorkspaceTreeMember(
+                        "modules/core", "com.example", "core", "0.1.0", "jar", coreDependencies),
+                new WorkspaceTreeMember(
+                        "apps/api", "com.example", "api", "0.1.0", "jar", apiDependencies));
+    }
 
     protected static ZoltLockfile workspaceLockfile() {
         return new ZoltLockfile(
@@ -200,7 +227,8 @@ abstract class WorkspaceTreeTestSupport {
 
     /** Every dependency-edge string the schema-3 document lists, in document order. */
     protected static List<String> edges(String output) {
-        return output.lines()
+        String packages = output.substring(output.indexOf("\"packages\":"));
+        return packages.lines()
                 .filter(line -> line.contains("\"dependencies\": ["))
                 .map(line -> line.substring(line.indexOf('[') + 1, line.lastIndexOf(']')))
                 .flatMap(list -> Stream.of(list.split(", ")))

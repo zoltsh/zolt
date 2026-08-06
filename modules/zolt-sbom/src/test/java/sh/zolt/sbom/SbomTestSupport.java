@@ -48,12 +48,21 @@ abstract class SbomTestSupport {
     }
 
     protected static SbomWorkspaceMember member(String path, String group, String name, String version) {
+        return member(path, group, name, version, List.of());
+    }
+
+    protected static SbomWorkspaceMember member(
+            String path,
+            String group,
+            String name,
+            String version,
+            List<String> dependencies) {
         return new SbomWorkspaceMember(path, ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata(name, version, group, "21", Optional.empty()),
                 java.util.Map.of("central", "https://repo.maven.apache.org/maven2"),
                 java.util.Map.of(),
                 java.util.Map.of(),
-                BuildSettings.defaults()));
+                BuildSettings.defaults()), dependencies);
     }
 
     protected static LockPackage workspacePackage(

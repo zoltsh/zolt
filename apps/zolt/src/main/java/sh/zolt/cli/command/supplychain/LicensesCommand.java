@@ -43,6 +43,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.resolve.WorkspaceMemberGraphRoots;
 import sh.zolt.workspace.service.Workspace;
 
 @Command(name = "licenses", description = "Report the licenses of resolved dependencies from cached POMs.")
@@ -68,6 +69,7 @@ public final class LicensesCommand implements Runnable {
     private final LicenseReportJsonWriter jsonWriter = new LicenseReportJsonWriter();
     private final LicenseNoticesWriter noticesWriter = new LicenseNoticesWriter();
     private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
+    private final WorkspaceMemberGraphRoots memberGraphRoots = new WorkspaceMemberGraphRoots();
     private final WorkspaceSbomAssembler workspaceAssembler = new WorkspaceSbomAssembler();
     private final WorkspaceLicensePolicyScopes workspaceScopes = new WorkspaceLicensePolicyScopes();
 
@@ -184,7 +186,10 @@ public final class LicensesCommand implements Runnable {
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         LicenseIndex index = resolveLicenses(lockfile, selection);
         List<SbomWorkspaceMember> members = discovered.members().stream()
-                .map(member -> new SbomWorkspaceMember(member.path(), member.config()))
+                .map(member -> new SbomWorkspaceMember(
+                        member.path(),
+                        member.config(),
+                        memberGraphRoots.roots(member.path(), member.config(), lockfile, discovered)))
                 .toList();
         SbomModel model = workspaceAssembler.assemble(
                 discovered.config().name(), members, lockfile, selection, Optional.empty(), toolVersion, index);

@@ -11,14 +11,16 @@
         "group": "com.example",
         "name": "api",
         "version": "0.1.0",
-        "type": "jar"
+        "type": "jar",
+        "dependencies": ["com.example:core:0.1.0:jar:compile", "org.example:agent:0.9.0:jar|runtime:tool-coverage"]
       },
       {
         "path": "modules/core",
         "group": "com.example",
         "name": "core",
         "version": "0.1.0",
-        "type": "jar"
+        "type": "jar",
+        "dependencies": ["org.example:agent:0.9.0:jar|runtime:tool-coverage"]
       }
     ]
   },

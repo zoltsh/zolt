@@ -24,7 +24,7 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
     void canonicalizesALegacyBareGavEdgeToTheOccurrenceItNames() {
         ZoltLockfile lockfile = legacyEdgeLockfile();
 
-        String output = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
+        String output = jsonFormatter.tree(WORKSPACE_NAME, legacyMembers(), lockfile);
 
         assertTrue(edges(output).contains("org.example:extra:2.0.0:jar:compile"), output);
         assertTrue(
@@ -36,7 +36,7 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
     void emitsOnlyEdgesThatNameAListedOccurrenceEvenFromALegacyLock() {
         ZoltLockfile lockfile = legacyEdgeLockfile();
 
-        String output = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
+        String output = jsonFormatter.tree(WORKSPACE_NAME, legacyMembers(), lockfile);
 
         for (String edge : edges(output)) {
             assertTrue(identities(lockfile).contains(edge), "dangling edge " + edge + " in\n" + output);
@@ -63,7 +63,14 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
                         typedBundle()),
                 List.of());
 
-        String output = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
+        String output = jsonFormatter.tree(
+                WORKSPACE_NAME,
+                jsonMembers(
+                        List.of(),
+                        List.of(
+                                "org.example:bundle:3.0.0:zip:runtime",
+                                "org.example:shared:1.0.0:jar:runtime")),
+                lockfile);
 
         assertTrue(
                 output.contains("\"dependencies\": [\"org.example:bundle:3.0.0:zip:runtime\"]"),
@@ -79,7 +86,12 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
     void sourcesChildrenFromTheMemberGraphsWhenTheCollapsedListIsLarger() {
         ZoltLockfile lockfile = collapsedSupersetLockfile();
 
-        String output = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
+        String output = jsonFormatter.tree(
+                WORKSPACE_NAME,
+                jsonMembers(
+                        List.of("org.example:shared:1.0.0:jar:compile"),
+                        List.of("org.example:shared:1.0.0:jar:compile")),
+                lockfile);
 
         assertEquals(List.of(), edges(output), output);
     }
@@ -135,10 +147,18 @@ final class WorkspaceTreeProjectionContractTest extends WorkspaceTreeTestSupport
     void canonicalizationIsByteStableAcrossRuns() {
         ZoltLockfile lockfile = legacyEdgeLockfile();
 
-        String first = jsonFormatter.tree(WORKSPACE_NAME, JSON_MEMBERS, lockfile);
+        String first = jsonFormatter.tree(WORKSPACE_NAME, legacyMembers(), lockfile);
         String second = new WorkspaceDependencyJsonFormatter()
-                .tree(WORKSPACE_NAME, JSON_MEMBERS.reversed(), lockfile);
+                .tree(WORKSPACE_NAME, legacyMembers().reversed(), lockfile);
 
         assertEquals(first, second);
+    }
+
+    private static List<WorkspaceTreeMember> legacyMembers() {
+        return jsonMembers(
+                List.of("org.example:shared:1.0.0:jar:compile"),
+                List.of(
+                        "com.example:core:0.1.0:jar:compile",
+                        "org.example:shared:1.0.0:jar:compile"));
     }
 }

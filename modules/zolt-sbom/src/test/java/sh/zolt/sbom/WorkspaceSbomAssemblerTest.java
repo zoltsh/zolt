@@ -20,8 +20,10 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
     @Test
     void aggregatesWorkspaceIntoOneBomWithMemberAndExternalEdges() {
         List<SbomWorkspaceMember> members = List.of(
-                member("apps/app", "com.example", "app", "1.0.0"),
-                member("modules/lib-a", "com.example", "lib-a", "1.0.0"));
+                member("apps/app", "com.example", "app", "1.0.0",
+                        List.of("com.example:lib-a:1.0.0:jar:compile")),
+                member("modules/lib-a", "com.example", "lib-a", "1.0.0",
+                        List.of("org.ext:ext-lib:2.0.0:jar:compile")));
         ZoltLockfile lockfile = lockfile(
                 Optional.of("sha256:ws-fingerprint"),
                 workspacePackage("com.example", "lib-a", "1.0.0", "modules/lib-a", List.of("apps/app")),
@@ -111,7 +113,9 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
     @Test
     void defaultScopeOmitsTestAndProcessorMemberRelationships() {
         List<SbomWorkspaceMember> members = List.of(
-                member("apps/app", "com.example", "app", "1.0.0"),
+                member("apps/app", "com.example", "app", "1.0.0", List.of(
+                        "com.example:code-generator:1.0.0:jar:processor",
+                        "com.example:test-support:1.0.0:jar:test")),
                 member("modules/test-support", "com.example", "test-support", "1.0.0"),
                 member("modules/code-generator", "com.example", "code-generator", "1.0.0"));
         ZoltLockfile lockfile = lockfile(
@@ -160,8 +164,10 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
     @Test
     void memberQualifiedGraphKeepsExcludedLeafUnreachableFromThatMember() {
         List<SbomWorkspaceMember> members = List.of(
-                member("modules/core", "com.example", "core", "1.0.0"),
-                member("modules/worker", "com.example", "worker", "1.0.0"));
+                member("modules/core", "com.example", "core", "1.0.0",
+                        List.of("org.ext:root:1.0.0:jar:compile")),
+                member("modules/worker", "com.example", "worker", "1.0.0",
+                        List.of("org.ext:root:1.0.0:jar:compile")));
         LockPackage leaf = externalWithMembers(
                 "org.ext",
                 "leaf",
@@ -221,7 +227,7 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
                 List.of(coreContext),
                 dependsOn(model, "pkg:maven/com.example/core@1.0.0?type=jar"));
         assertEquals(
-                List.of(leafRef, workerContext),
+                List.of(workerContext),
                 dependsOn(model, "pkg:maven/com.example/worker@1.0.0?type=jar"));
         assertEquals(List.of(), dependsOn(model, coreContext));
         assertEquals(List.of(leafRef), dependsOn(model, workerContext));
@@ -230,7 +236,9 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
     @Test
     void includesTypedArtifactsAlongsideThePlainJarWithExactHashAndGraph() {
         List<SbomWorkspaceMember> members =
-                List.of(member("modules/core", "com.example", "core", "1.0.0"));
+                List.of(member("modules/core", "com.example", "core", "1.0.0", List.of(
+                        "org.ext:native:1.0.0:jar:compile",
+                        "org.ext:native:1.0.0:zip|bundle:compile")));
         LockPackage leaf = externalWithMembers(
                 "org.ext",
                 "leaf",
@@ -293,7 +301,6 @@ final class WorkspaceSbomAssemblerTest extends SbomTestSupport {
                 dependsOn(model, zipRef));
         assertEquals(
                 List.of(
-                        "pkg:maven/org.ext/leaf@1.0.0?type=jar",
                         zipRef,
                         jarRef),
                 dependsOn(model, "pkg:maven/com.example/core@1.0.0?type=jar"));

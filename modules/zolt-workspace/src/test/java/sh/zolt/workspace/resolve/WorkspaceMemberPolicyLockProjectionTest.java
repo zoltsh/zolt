@@ -113,6 +113,42 @@ final class WorkspaceMemberPolicyLockProjectionTest {
         assertEquals(2, projected.memberGraphs().size());
         assertTrue(projected.memberGraphs().stream()
                 .allMatch(graph -> graph.member().equals("apps/app")));
+        assertEquals(
+                List.of(
+                        "com.example:lib:2.0.0:jar|linux:runtime",
+                        "com.example:test-lib:1.0.0:jar:test"),
+                new WorkspaceMemberGraphRoots()
+                        .roots("apps/app", app.config(), aggregate, workspace));
+    }
+
+    @Test
+    void includesInjectedToolClosureRootsWithoutCallingThemDirect() throws IOException {
+        WorkspaceMember app = member("apps/app", "app", "");
+        Workspace workspace = new Workspace(
+                tempDir,
+                tempDir.resolve("zolt-workspace.toml"),
+                new WorkspaceConfig("demo", List.of("apps/app"), List.of(), Map.of(), Map.of()),
+                List.of(app),
+                List.of());
+        LockPackage leaf = tool("args4j", "args4j", "2.0.0", List.of());
+        LockPackage cli = tool(
+                "org.jacoco",
+                "org.jacoco.cli",
+                "0.8.14",
+                List.of("args4j:args4j:2.0.0:jar:tool-coverage"));
+        LockPackage agent = tool("org.jacoco", "org.jacoco.agent", "0.8.14", List.of());
+        ZoltLockfile aggregate = new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION, List.of(cli, leaf, agent), List.of());
+
+        WorkspaceMemberPolicyLockProjection projection = new WorkspaceMemberPolicyLockProjection();
+
+        assertEquals(
+                List.of(
+                        "org.jacoco:org.jacoco.agent:0.8.14:jar:tool-coverage",
+                        "org.jacoco:org.jacoco.cli:0.8.14:jar:tool-coverage"),
+                new WorkspaceMemberGraphRoots().roots("apps/app", app.config(), aggregate, workspace));
+        assertTrue(projection.project("apps/app", app.config(), aggregate, workspace).packages().stream()
+                .noneMatch(LockPackage::direct));
     }
 
     private WorkspaceMember member(
@@ -185,5 +221,32 @@ final class WorkspaceMemberPolicyLockProjectionTest {
                 Optional.empty(),
                 variant,
                 List.of(member));
+    }
+
+    private static LockPackage tool(
+            String group,
+            String artifact,
+            String version,
+            List<String> dependencies) {
+        return new LockPackage(
+                new PackageId(group, artifact),
+                version,
+                "central",
+                DependencyScope.TOOL_COVERAGE,
+                false,
+                Optional.of(group.replace('.', '/') + "/" + artifact + "/" + version + "/" + artifact + ".jar"),
+                Optional.empty(),
+                Optional.of("jar-sha"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                dependencies,
+                List.of("apps/app"),
+                List.of(),
+                List.of(),
+                List.of());
     }
 }

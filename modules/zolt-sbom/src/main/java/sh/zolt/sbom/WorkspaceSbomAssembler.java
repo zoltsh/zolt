@@ -18,7 +18,7 @@ import sh.zolt.project.ProjectConfig;
 /**
  * Aggregates a whole workspace into ONE CycloneDX BOM: a root workspace component, each member as a
  * library component, and external dependencies deduped across members. Member→dependency edges come
- * from the lockfile {@code members} attribution; external→external edges from {@code dependencies}.
+ * from each member's exact projected graph roots; package edges come from the lock graph.
  *
  * <p>Member licenses are authoritative from each member's config; external licenses are resolved from
  * cached POMs (passed in as a {@link LicenseIndex}). The assembler is a pure read of already-parsed
@@ -99,7 +99,7 @@ public final class WorkspaceSbomAssembler {
         components.addAll(externalComponents);
         components.sort(Comparator.comparing(SbomComponent::bomRef));
 
-        List<SbomDependency> dependencies = dependencyGraph(root, memberComponents, components, lockfile,
+        List<SbomDependency> dependencies = dependencyGraph(root, members, memberComponents, components, lockfile,
                 contexts, workspacePackageRefs, memberPathToRef, selection, memberGraphs);
         String serialNumber = serialNumber(root.bomRef(), lockfile, components);
         return new SbomModel(
@@ -113,6 +113,7 @@ public final class WorkspaceSbomAssembler {
 
     private List<SbomDependency> dependencyGraph(
             SbomComponent root,
+            List<SbomWorkspaceMember> members,
             List<SbomComponent> memberComponents,
             List<SbomComponent> components,
             ZoltLockfile lockfile,
@@ -141,6 +142,22 @@ public final class WorkspaceSbomAssembler {
                 .flatMap(graph -> graph.dependencies().stream())
                 .forEach(edge -> packageIndex.resolveGraphEdge(
                         edge, "zolt resolve --workspace"));
+        for (SbomWorkspaceMember member : members) {
+            String memberRef = memberPathToRef.get(member.path());
+            if (memberRef == null) {
+                continue;
+            }
+            for (String edge : member.dependencies()) {
+                packageIndex.resolveGraphEdge(edge, "zolt resolve --workspace")
+                        .filter(target -> selection.includes(SbomScopeGroup.of(target.scope())))
+                        .map(target -> targetRef(
+                                target,
+                                member.path(),
+                                contexts,
+                                workspacePackageRefs))
+                        .ifPresent(target -> edges.get(memberRef).add(target));
+            }
+        }
         for (LockPackage lockPackage : lockfile.packages()) {
             if (!selection.includes(SbomScopeGroup.of(lockPackage.scope()))) {
                 continue;
@@ -149,12 +166,6 @@ public final class WorkspaceSbomAssembler {
                 String ref = workspacePackageRefs.get(refOf(lockPackage));
                 if (ref == null) {
                     continue;
-                }
-                for (String memberPath : lockPackage.members()) {
-                    String usingRef = memberPathToRef.get(memberPath);
-                    if (usingRef != null) {
-                        edges.get(usingRef).add(ref);
-                    }
                 }
                 for (String edge : lockPackage.dependencies()) {
                     packageIndex.resolveGraphEdge(edge, "zolt resolve --workspace")
@@ -174,10 +185,6 @@ public final class WorkspaceSbomAssembler {
                 String ref = contexts.ref(lockPackage, memberPath);
                 if (ref == null) {
                     continue;
-                }
-                String usingRef = memberPathToRef.get(memberPath);
-                if (usingRef != null) {
-                    edges.get(usingRef).add(ref);
                 }
                 List<String> dependencies = memberPath.isEmpty()
                         ? lockPackage.dependencies()

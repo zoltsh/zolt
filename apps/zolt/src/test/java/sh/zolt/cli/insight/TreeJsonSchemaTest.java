@@ -34,7 +34,7 @@ final class TreeJsonSchemaTest {
     }
 
     @Test
-    void workspaceJsonEmitsSchemaVersionTwo() throws IOException {
+    void workspaceJsonEmitsSchemaVersionThree() throws IOException {
         Path workspace = writeWorkspace();
 
         CommandResult result = execute("tree", "--workspace", "--format", "json", "--cwd", workspace.toString());
