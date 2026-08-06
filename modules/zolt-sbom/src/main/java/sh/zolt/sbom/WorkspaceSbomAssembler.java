@@ -239,11 +239,7 @@ public final class WorkspaceSbomAssembler {
         String group = config.project().group();
         String name = config.project().name();
         String version = config.project().version();
-        String extension = switch (config.packageSettings().mode()) {
-            case WAR, SPRING_BOOT_WAR -> "war";
-            case BOM -> "pom";
-            case THIN, SPRING_BOOT, QUARKUS, UBER -> "jar";
-        };
+        String extension = config.packageSettings().mode().artifactType();
         String purl = PurlWriter.purl(group, name, version, extension, Optional.empty());
         return new SbomComponent(
                 SbomComponentType.LIBRARY,

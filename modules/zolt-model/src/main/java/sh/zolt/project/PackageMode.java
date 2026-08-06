@@ -23,6 +23,15 @@ public enum PackageMode {
         return configValue;
     }
 
+    /** The Maven artifact type emitted for this package mode. */
+    public String artifactType() {
+        return switch (this) {
+            case WAR, SPRING_BOOT_WAR -> "war";
+            case BOM -> "pom";
+            case THIN, SPRING_BOOT, QUARKUS, UBER -> "jar";
+        };
+    }
+
     public static Optional<PackageMode> fromConfigValue(String value) {
         if (value == null) {
             return Optional.empty();
