@@ -1,0 +1,33 @@
+name: Submit Zolt dependencies
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zolt-dependency-submission-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Submit Zolt dependency graph
+        uses: zoltsh/submit-dependencies@485d4ab3d85599aacafaf76098b9f1d32fc4289c # v0.1.0
+        with:
+          workspace: "true"
