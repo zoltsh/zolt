@@ -1,0 +1,95 @@
+package sh.zolt.cli.command.dependency;
+
+import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.update.OutdatedScope;
+import sh.zolt.update.OutdatedScopes;
+import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.service.Workspace;
+import sh.zolt.workspace.service.WorkspaceMember;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+/** Resolves report scopes while preserving v1 selection and providing authoritative v2 paths. */
+final class DependencyUpdateScopeResolver {
+    private final OutdatedScopes scopes;
+    private final WorkspaceDiscoveryService workspaceDiscovery;
+
+    DependencyUpdateScopeResolver() {
+        this(new OutdatedScopes(), new WorkspaceDiscoveryService());
+    }
+
+    DependencyUpdateScopeResolver(
+            OutdatedScopes scopes,
+            WorkspaceDiscoveryService workspaceDiscovery) {
+        this.scopes = scopes;
+        this.workspaceDiscovery = workspaceDiscovery;
+    }
+
+    List<OutdatedScope> reportScopes(Path start, int schemaVersion) {
+        return schemaVersion == 2 ? automationScopes(start) : legacyScopes(start);
+    }
+
+    private List<OutdatedScope> legacyScopes(Path start) {
+        Optional<Workspace> workspace = workspaceDiscovery.discover(start);
+        if (workspace.isPresent() && sameDirectory(start, workspace.orElseThrow().root())) {
+            Optional<ZoltLockfile> lockfile = scopes.readLockfile(workspace.orElseThrow().root().resolve("zolt.lock"));
+            return workspace.orElseThrow().members().stream()
+                    .map(member -> new OutdatedScope(member.path(), member.config(), lockfile))
+                    .toList();
+        }
+        return List.of(scopes.fromDirectory(labelFor(start), start));
+    }
+
+    private List<OutdatedScope> automationScopes(Path start) {
+        Optional<Workspace> discovered = workspaceDiscovery.discover(start);
+        if (discovered.isEmpty()) {
+            return List.of(scopes.fromDirectory(labelFor(start), start));
+        }
+        Workspace workspace = discovered.orElseThrow();
+        if (sameDirectory(start, workspace.root())) {
+            return workspaceScopes(workspace);
+        }
+        WorkspaceMember member = workspace.members().stream()
+                .filter(candidate -> sameDirectory(start, candidate.directory()))
+                .findFirst()
+                .orElseThrow(() -> new ZoltConfigException(
+                        "Outdated schema v2 requires a standalone project, workspace root, or declared workspace member."));
+        return List.of(memberScope(workspace, member, rootLockfile(workspace)));
+    }
+
+    private List<OutdatedScope> workspaceScopes(Workspace workspace) {
+        Optional<ZoltLockfile> lockfile = rootLockfile(workspace);
+        List<OutdatedScope> reportScopes = new ArrayList<>();
+        for (WorkspaceMember member : workspace.members()) {
+            reportScopes.add(memberScope(workspace, member, lockfile));
+        }
+        return List.copyOf(reportScopes);
+    }
+
+    private OutdatedScope memberScope(
+            Workspace workspace,
+            WorkspaceMember member,
+            Optional<ZoltLockfile> lockfile) {
+        String manifestPath = CanonicalUpdatePath.relative(
+                workspace.root(), member.directory().resolve("zolt.toml"));
+        return new OutdatedScope(
+                member.path(), manifestPath, "zolt.lock", member.config(), lockfile);
+    }
+
+    private Optional<ZoltLockfile> rootLockfile(Workspace workspace) {
+        return scopes.readLockfile(workspace.root().resolve("zolt.lock"));
+    }
+
+    private static boolean sameDirectory(Path left, Path right) {
+        return left.toAbsolutePath().normalize().equals(right.toAbsolutePath().normalize());
+    }
+
+    private static String labelFor(Path start) {
+        Path normalized = start.toAbsolutePath().normalize();
+        Path name = normalized.getFileName();
+        return name == null ? normalized.toString() : name.toString();
+    }
+}

@@ -5,7 +5,6 @@ import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.net.CommandNetwork;
-import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.maven.metadata.MetadataCache;
 import sh.zolt.maven.metadata.RepositoryMetadataService;
@@ -13,18 +12,13 @@ import sh.zolt.maven.repository.RepositoryAccessException;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.update.OutdatedEngine;
 import sh.zolt.update.OutdatedJsonRenderer;
+import sh.zolt.update.OutdatedJsonRendererV2;
 import sh.zolt.update.OutdatedOptions;
 import sh.zolt.update.OutdatedReport;
 import sh.zolt.update.OutdatedScope;
-import sh.zolt.update.OutdatedScopes;
 import sh.zolt.update.OutdatedTextRenderer;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
-import sh.zolt.workspace.service.Workspace;
-import sh.zolt.workspace.service.WorkspaceMember;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
@@ -47,6 +41,9 @@ public final class OutdatedCommand implements Runnable {
     @Option(names = "--format", description = "Output format: text or json.")
     private Format format = Format.TEXT;
 
+    @Option(names = "--schema-version", description = "JSON schema version: 1 or 2.")
+    private String schemaVersion = "1";
+
     @Option(names = "--include-prereleases", description = "Include prerelease versions as update candidates.")
     private boolean includePrereleases;
 
@@ -66,27 +63,26 @@ public final class OutdatedCommand implements Runnable {
     private CommandSpec spec;
 
     private final OutdatedEngine engine;
-    private final OutdatedScopes scopes;
-    private final WorkspaceDiscoveryService workspaceDiscovery;
+    private final DependencyUpdateScopeResolver scopeResolver;
 
     public OutdatedCommand() {
-        this(defaultEngine(), new OutdatedScopes(), new WorkspaceDiscoveryService());
+        this(defaultEngine(), new DependencyUpdateScopeResolver());
     }
 
-    OutdatedCommand(OutdatedEngine engine, OutdatedScopes scopes, WorkspaceDiscoveryService workspaceDiscovery) {
+    OutdatedCommand(OutdatedEngine engine, DependencyUpdateScopeResolver scopeResolver) {
         this.engine = engine;
-        this.scopes = scopes;
-        this.workspaceDiscovery = workspaceDiscovery;
+        this.scopeResolver = scopeResolver;
     }
 
     @Override
     public void run() {
         try {
-            List<OutdatedScope> reportScopes = resolveScopes(projectDirectory.path());
+            int selectedSchema = selectedSchema();
+            List<OutdatedScope> reportScopes = scopeResolver.reportScopes(projectDirectory.path(), selectedSchema);
             OutdatedOptions options = new OutdatedOptions(includePrereleases, all, offline, selectors);
             OutdatedReport report = engine.report(reportScopes, options);
             String output = format == Format.JSON
-                    ? new OutdatedJsonRenderer().render(report)
+                    ? renderJson(report, selectedSchema)
                     : new OutdatedTextRenderer().render(report);
             CommandOutput.printAndFlush(spec, output);
         } catch (LockfileReadException | ZoltConfigException | RepositoryAccessException exception) {
@@ -94,21 +90,17 @@ public final class OutdatedCommand implements Runnable {
         }
     }
 
-    private List<OutdatedScope> resolveScopes(Path start) {
-        Optional<Workspace> workspace = workspaceDiscovery.discover(start);
-        if (workspace.isPresent() && sameDirectory(start, workspace.orElseThrow().root())) {
-            return workspaceScopes(workspace.orElseThrow());
+    private int selectedSchema() {
+        boolean explicitlySelected = spec.commandLine().getParseResult().hasMatchedOption("--schema-version");
+        if (explicitlySelected && format != Format.JSON) {
+            throw new ZoltConfigException("--schema-version is available only with --format json.");
         }
-        return List.of(scopes.fromDirectory(labelFor(start), start));
-    }
-
-    private List<OutdatedScope> workspaceScopes(Workspace workspace) {
-        Optional<ZoltLockfile> lockfile = scopes.readLockfile(workspace.root().resolve("zolt.lock"));
-        List<OutdatedScope> reportScopes = new ArrayList<>();
-        for (WorkspaceMember member : workspace.members()) {
-            reportScopes.add(new OutdatedScope(member.path(), member.config(), lockfile));
+        if (!schemaVersion.equals("1") && !schemaVersion.equals("2")) {
+            throw new ZoltConfigException("Unsupported outdated JSON schema version `"
+                    + schemaVersion
+                    + "`. Use 1 or 2.");
         }
-        return reportScopes;
+        return Integer.parseInt(schemaVersion);
     }
 
     private static OutdatedEngine defaultEngine() {
@@ -119,13 +111,9 @@ public final class OutdatedCommand implements Runnable {
         return new OutdatedEngine(discovery);
     }
 
-    private static boolean sameDirectory(Path left, Path right) {
-        return left.toAbsolutePath().normalize().equals(right.toAbsolutePath().normalize());
-    }
-
-    private static String labelFor(Path start) {
-        Path normalized = start.toAbsolutePath().normalize();
-        Path name = normalized.getFileName();
-        return name == null ? normalized.toString() : name.toString();
+    private static String renderJson(OutdatedReport report, int schemaVersion) {
+        return schemaVersion == 2
+                ? new OutdatedJsonRendererV2().render(report)
+                : new OutdatedJsonRenderer().render(report);
     }
 }

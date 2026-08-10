@@ -28,7 +28,7 @@ public final class OutdatedEngine {
 
     private final SurfaceDiscovery surfaceDiscovery;
     private final RepositoryAccessPlanner planner;
-    private final SurfaceCollector collector = new SurfaceCollector();
+    private final UpdateTargetCatalog catalog = new UpdateTargetCatalog();
     private final VersionClassifier classifier = new VersionClassifier();
 
     public OutdatedEngine(VersionDiscovery discovery) {
@@ -52,30 +52,42 @@ public final class OutdatedEngine {
         List<RepositoryAccess> repositories = planner.plan(scope.config());
         Map<String, MetadataDiscovery> memo = new LinkedHashMap<>();
         List<OutdatedEntry> entries = new ArrayList<>();
-        for (SurfaceRequest surface : collector.collect(scope.config())) {
-            OutdatedEntry entry = evaluate(surface, repositories, options, memo);
+        for (UpdateTargetCatalog.Entry catalogEntry :
+                catalog.entries(scope.config(), scope.manifestPath(), scope.lockfilePath())) {
+            OutdatedEntry entry = evaluate(catalogEntry, repositories, options, memo);
             if (include(entry, options)) {
                 entries.add(entry);
             }
         }
         entries.sort(ENTRY_ORDER);
-        return new OutdatedScopeReport(scope.label(), entries);
+        return new OutdatedScopeReport(scope.label(), scope.manifestPath(), scope.lockfilePath(), entries);
     }
 
     private OutdatedEntry evaluate(
-            SurfaceRequest surface,
+            UpdateTargetCatalog.Entry catalogEntry,
             List<RepositoryAccess> repositories,
             OutdatedOptions options,
             Map<String, MetadataDiscovery> memo) {
+        SurfaceRequest surface = catalogEntry.request();
         MetadataDiscovery discovered = surfaceDiscovery.discover(surface, repositories, options.offline(), memo);
         if (!discovered.resolved()) {
-            return entry(surface, OutdatedStatus.UNKNOWN, OutdatedCandidates.none(), Optional.empty(), discovered.notes());
+            return entry(
+                    catalogEntry.target(),
+                    OutdatedStatus.UNKNOWN,
+                    OutdatedCandidates.none(),
+                    Optional.empty(),
+                    discovered.notes());
         }
         VersionCandidates candidates =
                 classifier.candidates(surface.currentVersion(), discovered.versions(), options.includePrereleases());
         OutdatedStatus status = candidates.updateAvailable() ? OutdatedStatus.UPDATE_AVAILABLE : OutdatedStatus.CURRENT;
         Optional<String> source = candidates.selectedLatest().flatMap(discovered::source);
-        return entry(surface, status, toCandidates(surface.currentVersion(), candidates), source, discovered.notes());
+        return entry(
+                catalogEntry.target(),
+                status,
+                toCandidates(surface.currentVersion(), candidates),
+                source,
+                discovered.notes());
     }
 
     private OutdatedCandidates toCandidates(String current, VersionCandidates candidates) {
@@ -90,20 +102,16 @@ public final class OutdatedEngine {
     }
 
     private static OutdatedEntry entry(
-            SurfaceRequest surface,
+            UpdateTarget target,
             OutdatedStatus status,
             OutdatedCandidates candidates,
             Optional<String> source,
             List<String> notes) {
         return new OutdatedEntry(
-                surface.surface(),
-                surface.identifier(),
-                surface.section(),
-                surface.currentVersion(),
+                target,
                 status,
                 candidates,
                 source,
-                surface.governs(),
                 List.of(),
                 notes);
     }
@@ -134,7 +142,8 @@ public final class OutdatedEngine {
                 List<String> members = membersByIdentifier.get(entry.identifier());
                 entries.add(members.size() > 1 ? entry.withMembers(List.copyOf(members)) : entry);
             }
-            annotated.add(new OutdatedScopeReport(scope.label(), entries));
+            annotated.add(new OutdatedScopeReport(
+                    scope.label(), scope.manifestPath(), scope.lockfilePath(), entries));
         }
         return new OutdatedReport(annotated, sharedNotes(membersByIdentifier));
     }

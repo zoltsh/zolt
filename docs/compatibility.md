@@ -56,3 +56,16 @@ output.
 Other structured outputs are preview contracts unless their documentation says
 otherwise. They may still carry a schema version, but that alone does not declare
 the command stable.
+
+### Outdated automation schema v2
+
+`zolt outdated --format json --schema-version 2` is the stable automation
+contract for exact dependency targets. Schema v1 remains the default and is not
+extended with v2 fields.
+
+Each v2 scope includes canonical mutation-root-relative `manifestPath` and
+`lockfilePath` values. Each entry includes an opaque `zt1_` target ID plus
+`updateable` and `updateBlocker`. Target IDs are scoped to one standalone project
+or workspace and remain stable when current versions, candidates, fan-out, or
+lockfile paths change. Callers must treat them as opaque and rediscover them from
+the selected Zolt root rather than constructing or decoding them.

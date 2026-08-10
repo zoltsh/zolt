@@ -92,7 +92,7 @@ public final class CommandFailures {
 
     private static void render(CommandSpec spec, String commandId, CommandErrorBlock block) {
         if (machineReadable(spec)) {
-            spec.commandLine().getOut().print(json(commandId, block));
+            spec.commandLine().getOut().print(json(commandId, MachineJsonSchema.selected(spec), block));
             spec.commandLine().getOut().flush();
             return;
         }
@@ -124,10 +124,10 @@ public final class CommandFailures {
         return format != null && "json".equalsIgnoreCase(format.toString());
     }
 
-    private static String json(String commandId, CommandErrorBlock block) {
+    private static String json(String commandId, int schemaVersion, CommandErrorBlock block) {
         StringBuilder output = new StringBuilder();
         output.append("{\n")
-                .append("  \"schemaVersion\": 1,\n")
+                .append("  \"schemaVersion\": ").append(schemaVersion).append(",\n")
                 .append("  \"command\": ").append(quote(commandId)).append(",\n")
                 .append("  \"status\": \"failed\",\n")
                 .append("  \"diagnostics\": [\n")
