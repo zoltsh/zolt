@@ -16,6 +16,8 @@ public final class OutdatedJsonRenderer {
         json.append("{\n");
         field(json, 1, "schemaVersion", "1", false, false);
         stringField(json, 1, "command", "outdated", false);
+        stringField(json, 1, "status", "ok", false);
+        diagnostics(json, report.notes());
         key(json, 1, "scopes");
         json.append("[");
         renderScopes(json, report.scopes());
@@ -23,6 +25,25 @@ public final class OutdatedJsonRenderer {
         arrayOfStrings(json, 1, "notes", report.notes(), true);
         json.append("}\n");
         return json.toString();
+    }
+
+    private static void diagnostics(StringBuilder json, List<String> notes) {
+        indent(json, 1);
+        json.append("\"diagnostics\": ");
+        if (notes.isEmpty()) {
+            json.append("[],\n");
+            return;
+        }
+        json.append("[\n");
+        for (int index = 0; index < notes.size(); index++) {
+            indent(json, 2);
+            json.append("{\"severity\": \"warning\", \"message\": ")
+                    .append(quote(notes.get(index)))
+                    .append("}")
+                    .append(index + 1 < notes.size() ? ",\n" : "\n");
+        }
+        indent(json, 1);
+        json.append("],\n");
     }
 
     private void renderScopes(StringBuilder json, List<OutdatedScopeReport> scopes) {

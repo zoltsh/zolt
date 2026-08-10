@@ -100,25 +100,31 @@ public final class PlatformCommand implements Runnable {
                 Coordinate parsed = coordinateParser.parse(coordinate);
                 String platform = parsed.groupId() + ":" + parsed.artifactId();
                 Path projectRoot = projectDirectory.path();
-                Path configPath = projectRoot.resolve("zolt.toml");
-                ProjectConfig config = tomlParser.parse(configPath);
-                PlatformAddRequest request = addRequest(config, parsed, platform);
-                ProjectConfig updated = request.versionRef() == null
-                        ? tomlWriter.addPlatform(config, platform, request.version())
-                        : tomlWriter.addVersionRefPlatform(
-                                config,
-                                platform,
-                                request.versionRef(),
-                                request.version());
+                ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                        projectRoot,
+                        cacheRoot,
+                        noResolve,
+                        tomlParser,
+                        tomlWriter,
+                        resolveService,
+                        current -> {
+                            PlatformAddRequest currentRequest = addRequest(current, parsed, platform);
+                            return currentRequest.versionRef() == null
+                                    ? tomlWriter.addPlatform(current, platform, currentRequest.version())
+                                    : tomlWriter.addVersionRefPlatform(
+                                            current,
+                                            platform,
+                                            currentRequest.versionRef(),
+                                            currentRequest.version());
+                        });
+                PlatformAddRequest request = addRequest(edit.original(), parsed, platform);
                 CommandHumanOutput output = CommandHumanOutput.of(spec);
-                DependencyEditCommentWarning.printIfNeeded(output, configPath);
-                tomlWriter.write(configPath, updated);
-                printAddSummary(output, config, platform, request);
+                printAddSummary(output, edit.original(), platform, request);
                 if (noResolve) {
                     output.detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
                     return;
                 }
-                CommandResolveOutput.print(spec, resolveService.resolve(projectRoot, updated, cacheRoot));
+                CommandResolveOutput.print(spec, edit.resolveResult());
             } catch (PlatformCommandException
                     | ArtifactCacheException
                     | CoordinateParseException
@@ -267,18 +273,28 @@ public final class PlatformCommand implements Runnable {
                 }
                 String platform = parsed.groupId() + ":" + parsed.artifactId();
                 Path projectRoot = projectDirectory.path();
-                Path configPath = projectRoot.resolve("zolt.toml");
-                ProjectConfig config = tomlParser.parse(configPath);
+                ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
                 CommandHumanOutput output = CommandHumanOutput.of(spec);
                 if (!config.platforms().containsKey(platform)) {
                     output.detail("Platform " + platform + " is not present in [platforms]; nothing to remove.");
                     return;
                 }
-                ProjectConfig updated = tomlWriter.removePlatform(config, platform);
-                DependencyEditCommentWarning.printIfNeeded(output, configPath);
-                tomlWriter.write(configPath, updated);
+                ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                        projectRoot,
+                        cacheRoot,
+                        false,
+                        tomlParser,
+                        tomlWriter,
+                        resolveService,
+                        current -> {
+                            if (!current.platforms().containsKey(platform)) {
+                                throw new PlatformCommandException(
+                                        "zolt.toml changed before the platform could be removed. Retry the command against the current manifest.");
+                            }
+                            return tomlWriter.removePlatform(current, platform);
+                        });
                 output.summary("Removed platform " + platform + " from [platforms]");
-                CommandResolveOutput.print(spec, resolveService.resolve(projectRoot, updated, cacheRoot));
+                CommandResolveOutput.print(spec, edit.resolveResult());
             } catch (PlatformCommandException
                     | ArtifactCacheException
                     | CoordinateParseException

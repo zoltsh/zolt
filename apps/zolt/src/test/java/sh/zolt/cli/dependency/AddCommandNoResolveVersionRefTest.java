@@ -56,9 +56,9 @@ final class AddCommandNoResolveVersionRefTest {
         assertFalse(result.stdout().contains(
                 "\u001B[32mSkipped resolve; run zolt resolve to refresh zolt.lock.\u001B[0m"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(config.contains("[versions]\n\"guava\" = \"33.4.8-jre\""));
+        assertTrue(config.contains("[versions]\nguava = \"33.4.8-jre\""));
         assertTrue(config.contains("\"com.google.guava:guava\" = { versionRef = \"guava\" }"));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
-        assertEquals(1, occurrences(config, "\"guava\" = \"33.4.8-jre\""));
+        assertEquals(1, occurrences(config, "guava = \"33.4.8-jre\""));
     }
 }

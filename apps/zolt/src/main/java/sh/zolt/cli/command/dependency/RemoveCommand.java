@@ -82,8 +82,7 @@ public final class RemoveCommand implements Runnable {
         try {
             RemoveRequest request = parseRequest(arguments);
             Path projectRoot = projectDirectory.path();
-            Path configPath = projectRoot.resolve("zolt.toml");
-            ProjectConfig config = tomlParser.parse(configPath);
+            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
             String section = DependencyEditCommands.sectionName(request.section());
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             if (!DependencyEditCommands.hasDependency(config, request.section(), request.coordinate())) {
@@ -91,11 +90,28 @@ public final class RemoveCommand implements Runnable {
                         + " is not present in [" + section + "]; nothing to remove.");
                 return;
             }
-            ProjectConfig updated = tomlWriter.removeDependency(config, request.section(), request.coordinate());
-            DependencyEditCommentWarning.printIfNeeded(output, configPath);
-            tomlWriter.write(configPath, updated);
+            ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                    projectRoot,
+                    cacheRoot,
+                    false,
+                    tomlParser,
+                    tomlWriter,
+                    resolveService,
+                    current -> {
+                        if (!DependencyEditCommands.hasDependency(
+                                current,
+                                request.section(),
+                                request.coordinate())) {
+                            throw new RemoveCommandException(
+                                    "zolt.toml changed before the dependency could be removed. Retry the command against the current manifest.");
+                        }
+                        return tomlWriter.removeDependency(
+                                current,
+                                request.section(),
+                                request.coordinate());
+                    });
             output.summary("Removed dependency " + request.coordinate() + " from [" + section + "]");
-            CommandResolveOutput.print(spec, resolveService.resolve(projectRoot, updated, cacheRoot));
+            CommandResolveOutput.print(spec, edit.resolveResult());
         } catch (RemoveCommandException
                 | DependencySectionException
                 | ArtifactCacheException

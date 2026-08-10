@@ -91,18 +91,21 @@ public final class AddCommand implements Runnable {
         try {
             AddRequest request = parseRequest(arguments);
             Path projectRoot = projectDirectory.path();
-            Path configPath = projectRoot.resolve("zolt.toml");
-            ProjectConfig config = tomlParser.parse(configPath);
-            ProjectConfig updated = updateConfig(config, request);
+            ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                    projectRoot,
+                    cacheRoot,
+                    noResolve,
+                    tomlParser,
+                    tomlWriter,
+                    resolveService,
+                    config -> updateConfig(config, request));
             CommandHumanOutput output = CommandHumanOutput.of(spec);
-            DependencyEditCommentWarning.printIfNeeded(output, configPath);
-            tomlWriter.write(configPath, updated);
-            printAddSummary(output, config, request);
+            printAddSummary(output, edit.original(), request);
             if (noResolve) {
                 output.detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
                 return;
             }
-            CommandResolveOutput.print(spec, resolveService.resolve(projectRoot, updated, cacheRoot));
+            CommandResolveOutput.print(spec, edit.resolveResult());
         } catch (AddCommandException
                 | DependencySectionException
                 | ArtifactCacheException

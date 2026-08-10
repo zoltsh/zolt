@@ -30,7 +30,10 @@ public final class QualityCheckFormatter {
     public static String json(QualityCheckReport report) {
         StringBuilder output = new StringBuilder();
         output.append('{');
-        jsonField(output, "status", report.status());
+        output.append("\"schemaVersion\":1,");
+        jsonField(output, "command", "check");
+        output.append(',');
+        jsonField(output, "status", report.ok() ? "ok" : "failed");
         output.append(',');
         jsonField(output, "projectRoot", normalize(report.projectRoot()));
         output.append(",\"workspace\":").append(report.workspace());
@@ -43,8 +46,16 @@ public final class QualityCheckFormatter {
             appendCheck(output, check);
             first = false;
         }
+        output.append("],\"diagnostics\":[");
+        appendFailedChecks(output, report);
         output.append("],\"blockers\":[");
-        first = true;
+        appendFailedChecks(output, report);
+        output.append("]}").append(System.lineSeparator());
+        return output.toString();
+    }
+
+    private static void appendFailedChecks(StringBuilder output, QualityCheckReport report) {
+        boolean first = true;
         for (QualityCheckResult check : report.checks()) {
             if (check.status() != QualityCheckStatus.FAILED) {
                 continue;
@@ -55,8 +66,6 @@ public final class QualityCheckFormatter {
             appendBlocker(output, check);
             first = false;
         }
-        output.append("]}").append(System.lineSeparator());
-        return output.toString();
     }
 
     private static void appendCheck(StringBuilder output, QualityCheckResult check) {

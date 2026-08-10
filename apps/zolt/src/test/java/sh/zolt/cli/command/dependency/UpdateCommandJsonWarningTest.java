@@ -13,6 +13,7 @@ import sh.zolt.update.UpdateEngine;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -21,19 +22,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
-/**
- * The JSON output mode must honour the same comment-rewrite contract as text mode: before rewriting a
- * commented zolt.toml it warns, but on STDERR so STDOUT stays valid machine-readable JSON.
- */
+/** JSON updates preserve source while keeping STDOUT exclusively machine-readable. */
 final class UpdateCommandJsonWarningTest {
-    private static final String WARNING =
-            "Warning: zolt.toml contains comments; this edit rewrites the file and may remove comments or formatting.";
-
     @TempDir
     private Path tempDir;
 
     @Test
-    void jsonModeWarnsOnStderrAndKeepsStdoutValidJsonWhenRewritingCommentedConfig() throws IOException {
+    void jsonModePreservesCommentsAndKeepsStdoutValidJson() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         Files.createDirectories(projectDir);
         Path configPath = projectDir.resolve("zolt.toml");
@@ -51,13 +46,28 @@ final class UpdateCommandJsonWarningTest {
                 test = "src/test/java"
                 output = "target/classes"
                 testOutput = "target/test-classes"
+
+                [coverage]
+                minLine = 88.0 # release floor
+
+                [toolchain.java]
+                version = "21"
+
+                [publish.central]
+                automatic = false
+
+                [commands.tasks."verify.all"]
+                command = ["zolt", "check"]
+
+                [workspace]
+                name = "demo"
+                members = []
                 """);
 
         Result result = runUpdateJson(projectDir, discovery("com.example", "lib", "1.0.0", "1.1.0"));
 
         assertEquals(0, result.exitCode(), result.stderr());
-        // The warning goes to STDERR, never STDOUT.
-        assertTrue(result.stderr().contains(WARNING), result.stderr());
+        assertEquals("", result.stderr());
         assertFalse(result.stdout().contains("Warning"), result.stdout());
         assertFalse(result.stdout().contains("comments"), result.stdout());
         // STDOUT is the plan JSON and nothing else.
@@ -67,10 +77,14 @@ final class UpdateCommandJsonWarningTest {
         assertTrue(stdout.contains("\"command\": \"update\""), stdout);
         assertTrue(stdout.contains("\"from\": \"1.0.0\""), stdout);
         assertTrue(stdout.contains("\"to\": \"1.1.0\""), stdout);
-        // The file was rewritten: version bumped, comment dropped (the very risk the warning names).
         String rewritten = Files.readString(configPath);
         assertTrue(rewritten.contains("\"com.example:lib\" = \"1.1.0\""), rewritten);
-        assertFalse(rewritten.contains("# pin lib for reproducibility"), rewritten);
+        assertTrue(rewritten.contains("# pin lib for reproducibility"), rewritten);
+        assertTrue(rewritten.contains("[coverage]\nminLine = 88.0 # release floor"), rewritten);
+        assertTrue(rewritten.contains("[toolchain.java]\nversion = \"21\""), rewritten);
+        assertTrue(rewritten.contains("[publish.central]\nautomatic = false"), rewritten);
+        assertTrue(rewritten.contains("[commands.tasks.\"verify.all\"]\ncommand = [\"zolt\", \"check\"]"), rewritten);
+        assertTrue(rewritten.contains("[workspace]\nname = \"demo\"\nmembers = []"), rewritten);
     }
 
     @Test
@@ -98,9 +112,43 @@ final class UpdateCommandJsonWarningTest {
         Result result = runUpdateJsonDryRun(projectDir, discovery("com.example", "lib", "1.0.0", "1.1.0"));
 
         assertEquals(0, result.exitCode(), result.stderr());
-        assertFalse(result.stderr().contains(WARNING), result.stderr());
+        assertEquals("", result.stderr());
         assertTrue(result.stdout().strip().startsWith("{"), result.stdout());
         assertEquals(original, Files.readString(configPath));
+    }
+
+    @Test
+    void updateRefusesAStalePlanWithoutOverwritingTheConcurrentEdit() throws IOException {
+        Path projectDir = tempDir.resolve("stale");
+        Files.createDirectories(projectDir);
+        Path configPath = projectDir.resolve("zolt.toml");
+        String original = memberConfig("stale") + """
+
+                [repositories]
+                central = "http://127.0.0.1:1/maven2"
+
+                [dependencies]
+                "com.example:lib" = "1.0.0"
+                """;
+        String concurrent = original.replace(
+                "\"com.example:lib\" = \"1.0.0\"",
+                "\"com.example:lib\" = \"1.0.1\" # concurrent edit");
+        Files.writeString(configPath, original);
+        VersionDiscovery discovery = (repositories, group, artifact, offline) -> {
+            try {
+                Files.writeString(configPath, concurrent);
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            return discovery("com.example", "lib", "1.0.0", "1.1.0")
+                    .discover(repositories, group, artifact, offline);
+        };
+
+        Result result = runUpdateJson(projectDir, discovery);
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains("changed while dependency updates were being planned"));
+        assertEquals(concurrent, Files.readString(configPath));
     }
 
     private Result runUpdateJson(Path projectDir, VersionDiscovery discovery) {

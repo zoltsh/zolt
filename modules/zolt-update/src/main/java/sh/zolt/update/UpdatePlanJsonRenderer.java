@@ -13,12 +13,34 @@ public final class UpdatePlanJsonRenderer {
         Json.indent(json, 1);
         json.append("\"command\": \"update\",\n");
         Json.indent(json, 1);
+        json.append("\"status\": \"ok\",\n");
+        Json.indent(json, 1);
         json.append("\"dryRun\": ").append(dryRun).append(",\n");
         renderEdits(json, plan.edits());
         renderSkips(json, plan.skips());
+        diagnostics(json, plan.warnings());
         arrayField(json, 1, "warnings", plan.warnings(), true);
         json.append("}\n");
         return json.toString();
+    }
+
+    private static void diagnostics(StringBuilder json, List<String> warnings) {
+        Json.indent(json, 1);
+        json.append("\"diagnostics\": ");
+        if (warnings.isEmpty()) {
+            json.append("[],\n");
+            return;
+        }
+        json.append("[\n");
+        for (int index = 0; index < warnings.size(); index++) {
+            Json.indent(json, 2);
+            json.append("{\"severity\": \"warning\", \"message\": ")
+                    .append(Json.quote(warnings.get(index)))
+                    .append("}")
+                    .append(index + 1 < warnings.size() ? ",\n" : "\n");
+        }
+        Json.indent(json, 1);
+        json.append("],\n");
     }
 
     private void renderEdits(StringBuilder json, List<UpdateEdit> edits) {

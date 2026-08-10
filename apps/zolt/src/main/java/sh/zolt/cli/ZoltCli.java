@@ -247,9 +247,8 @@ public final class ZoltCli implements Runnable {
         if (!PrintedUserException.alreadyPrinted(exception)) {
             if (!sh.zolt.cli.command.CommandFailures.printActionable(
                     parsedCommandLine.getCommandSpec(), exception)) {
-                CommandHumanOutput output = CommandHumanOutput.errors(parsedCommandLine.getCommandSpec());
-                output.error(exception.getMessage());
-                parsedCommandLine.getErr().flush();
+                sh.zolt.cli.command.CommandFailures.printUser(
+                        parsedCommandLine.getCommandSpec(), exception.getMessage());
             }
         }
         return parsedCommandLine.getCommandSpec().exitCodeOnExecutionException();

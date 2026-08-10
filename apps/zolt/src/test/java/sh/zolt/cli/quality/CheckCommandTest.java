@@ -70,7 +70,9 @@ final class CheckCommandTest extends CheckCommandTestSupport {
         CommandResult result = execute("check", "--format", "json", "--cwd", projectDir.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().startsWith("{\"status\":\"ok\",\"projectRoot\":\""));
+        assertTrue(result.stdout().startsWith(
+                "{\"schemaVersion\":1,\"command\":\"check\",\"status\":\"ok\",\"projectRoot\":\""));
+        assertTrue(result.stdout().contains("\"diagnostics\":[]"));
         assertTrue(result.stdout().contains("\"workspace\":false"));
         assertTrue(result.stdout().contains("\"id\":\"command-surface\""));
         assertTrue(result.stdout().contains("\"severity\":\"info\""));

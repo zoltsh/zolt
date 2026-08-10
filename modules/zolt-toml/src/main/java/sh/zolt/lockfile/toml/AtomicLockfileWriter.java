@@ -28,7 +28,16 @@ public final class AtomicLockfileWriter {
     }
 
     public static void write(Path target, String content) throws IOException {
-        mutate(target, ignored -> content);
+        mutate(target, ignored -> content, false);
+    }
+
+    /**
+     * Replaces {@code target} only when the filesystem supports an atomic move. Transactions that
+     * coordinate multiple files use this stricter form so an unsupported filesystem fails before
+     * exposing a partially replaced file.
+     */
+    public static void writeAtomically(Path target, String content) throws IOException {
+        mutate(target, ignored -> content, true);
     }
 
     /**
@@ -37,7 +46,7 @@ public final class AtomicLockfileWriter {
     public static void update(
             Path target,
             UnaryOperator<String> mutation) throws IOException {
-        mutate(target, mutation);
+        mutate(target, mutation, false);
     }
 
     /**
@@ -46,12 +55,13 @@ public final class AtomicLockfileWriter {
     public static String updateAndReturn(
             Path target,
             UnaryOperator<String> mutation) throws IOException {
-        return mutate(target, mutation);
+        return mutate(target, mutation, false);
     }
 
     private static String mutate(
             Path target,
-            UnaryOperator<String> mutation) throws IOException {
+            UnaryOperator<String> mutation,
+            boolean requireAtomicMove) throws IOException {
         Path normalized = target.toAbsolutePath().normalize();
         ReentrantLock targetLock =
                 TARGET_LOCKS.computeIfAbsent(normalized, ignored -> new ReentrantLock());
@@ -75,7 +85,7 @@ public final class AtomicLockfileWriter {
                         ? Files.readString(normalized, StandardCharsets.UTF_8)
                         : "";
                 String committed = mutation.apply(current);
-                writeLocked(normalized, committed);
+                writeLocked(normalized, committed, requireAtomicMove);
                 return committed;
             }
         } finally {
@@ -83,7 +93,7 @@ public final class AtomicLockfileWriter {
         }
     }
 
-    private static void writeLocked(Path normalized, String content)
+    private static void writeLocked(Path normalized, String content, boolean requireAtomicMove)
             throws IOException {
         Path parent = normalized.getParent();
         if (parent == null) {
@@ -102,7 +112,10 @@ public final class AtomicLockfileWriter {
                         temporary, normalized,
                         StandardCopyOption.ATOMIC_MOVE,
                         StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException ignored) {
+            } catch (AtomicMoveNotSupportedException exception) {
+                if (requireAtomicMove) {
+                    throw exception;
+                }
                 moveWithRetry(
                         temporary, normalized,
                         StandardCopyOption.REPLACE_EXISTING);

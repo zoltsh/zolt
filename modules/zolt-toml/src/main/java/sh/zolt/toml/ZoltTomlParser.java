@@ -58,8 +58,13 @@ public final class ZoltTomlParser {
             "coverage",
             "commands");
     public ProjectConfig parse(Path path) {
+        return parseDocument(path).config();
+    }
+
+    public ZoltManifestDocument parseDocument(Path path) {
         try {
-            return parse(Toml.parse(path));
+            String source = Files.readString(path);
+            return new ZoltManifestDocument(source, parse(source));
         } catch (IOException exception) {
             throw new ZoltConfigException(ActionableError.of(
                     "Could not read zolt.toml at " + path + ".",

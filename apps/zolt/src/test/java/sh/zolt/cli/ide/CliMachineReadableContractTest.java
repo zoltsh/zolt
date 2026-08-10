@@ -35,7 +35,9 @@ final class CliMachineReadableContractTest {
         assertEquals("", result.stderr());
         assertNoAnsi(result.stdout());
         assertNoProgressText(result.stdout());
-        assertTrue(result.stdout().startsWith("{\n  \"schemaVersion\": 1,"));
+        assertTrue(result.stdout().startsWith("{"));
+        assertTrue(result.stdout().contains("\"schemaVersion\": 1")
+                || result.stdout().contains("\"schemaVersion\":1"));
         assertTrue(result.stdout().contains("\"projectRoot\": \"" + projectDir.toAbsolutePath().normalize()));
         assertTrue(result.stdout().contains("\"project\": \"plan-contract\""));
         assertTrue(result.stdout().contains("\"target\": \"package\""));
@@ -215,10 +217,48 @@ final class CliMachineReadableContractTest {
         assertEquals("", result.stderr());
         assertNoAnsi(result.stdout());
         assertNoProgressText(result.stdout());
-        assertTrue(result.stdout().startsWith("{\"status\":\"ok\",\"projectRoot\":\""));
+        assertTrue(result.stdout().startsWith(
+                "{\"schemaVersion\":1,\"command\":\"check\",\"status\":\"ok\",\"projectRoot\":\""));
+        assertTrue(result.stdout().contains("\"diagnostics\":[]"));
         assertTrue(result.stdout().contains("\"id\":\"command-surface\""));
         assertFalse(result.stdout().contains("Checking project"));
         assertFalse(result.stdout().contains("Checked 1 quality checks"));
+    }
+
+    @Test
+    void stableJsonCommandsKeepAJsonFailureEnvelope() throws IOException {
+        Path projectDir = tempDir.resolve("stable-json-failures");
+        Files.createDirectories(projectDir);
+
+        assertJsonFailure(
+                "check",
+                execute("check", "--format", "json", "--cwd", projectDir.toString()));
+        assertJsonFailure(
+                "outdated",
+                execute("outdated", "--format", "json", "--cwd", projectDir.toString()));
+        assertJsonFailure(
+                "update",
+                execute("update", "--format", "json", "--cwd", projectDir.toString()));
+        assertJsonFailure(
+                "toolchain status",
+                execute("toolchain", "status", "--format", "json", "--cwd", projectDir.toString()));
+    }
+
+    private static void assertJsonFailure(String command, CommandResult result) {
+        assertEquals(1, result.exitCode());
+        assertEquals("", result.stderr());
+        assertTrue(result.stdout().startsWith("{"));
+        assertJsonField(result.stdout(), "schemaVersion", "1");
+        assertJsonField(result.stdout(), "command", "\"" + command + "\"");
+        assertJsonField(result.stdout(), "status", "\"failed\"");
+        assertTrue(result.stdout().contains("\"diagnostics\":[")
+                || result.stdout().contains("\"diagnostics\": ["));
+        assertJsonField(result.stdout(), "severity", "\"error\"");
+    }
+
+    private static void assertJsonField(String json, String name, String renderedValue) {
+        assertTrue(json.contains("\"" + name + "\":" + renderedValue)
+                || json.contains("\"" + name + "\": " + renderedValue));
     }
 
     @Test

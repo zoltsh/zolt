@@ -44,7 +44,7 @@ final class CheckLockfileCommandTest {
                 "--format", "json");
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("\"status\":\"error\""));
+        assertTrue(result.stdout().contains("\"status\":\"failed\""));
         assertTrue(result.stdout().contains("\"checks\":["));
         assertTrue(result.stdout().contains("\"blockers\":[{"));
         assertTrue(result.stdout().indexOf("\"blockers\"") > result.stdout().indexOf("\"checks\""));

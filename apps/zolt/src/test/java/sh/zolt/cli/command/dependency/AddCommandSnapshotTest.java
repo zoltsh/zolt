@@ -39,28 +39,49 @@ final class AddCommandSnapshotTest {
     }
 
     @Test
-    void addSnapshotWritesTomlThenLetsResolveDecide() throws IOException {
+    void failedSnapshotResolveLeavesManifestAndLockfileUnchanged() throws IOException {
         Path projectDir = tempDir.resolve("add-snap-resolve");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("add-snap-resolve") + """
+        String original = memberConfig("add-snap-resolve") + """
 
                 [repositories]
                 central = "https://repo.maven.apache.org/maven2"
-                """);
+                """;
+        Files.writeString(projectDir.resolve("zolt.toml"), original);
 
         CommandResult result = execute(
                 "add", "com.example:snap:1.0.0-SNAPSHOT",
                 "--cwd", projectDir.toString(),
                 "--cache-root", tempDir.resolve("cache").toString());
 
-        // The declaration is written before resolve runs (add writes, resolve decides), and resolve
-        // then rejects the unsupported SNAPSHOT.
-        String toml = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(toml.contains("com.example:snap"), toml);
-        assertTrue(toml.contains("1.0.0-SNAPSHOT"), toml);
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains("Unsupported SNAPSHOT dependency version `1.0.0-SNAPSHOT`"),
                 result.stderr());
+        assertEquals(original, Files.readString(projectDir.resolve("zolt.toml")));
+        assertTrue(Files.notExists(projectDir.resolve("zolt.lock")));
+    }
+
+    @Test
+    void failedResolvePreservesAnExistingLockfileByteForByte() throws IOException {
+        Path projectDir = tempDir.resolve("add-snap-existing-lock");
+        Files.createDirectories(projectDir);
+        String originalManifest = memberConfig("add-snap-existing-lock");
+        Files.writeString(projectDir.resolve("zolt.toml"), originalManifest);
+        CommandResult initialResolve = execute(
+                "resolve",
+                "--cwd", projectDir.toString(),
+                "--cache-root", tempDir.resolve("existing-lock-cache").toString());
+        assertEquals(0, initialResolve.exitCode(), initialResolve.stderr());
+        String originalLockfile = Files.readString(projectDir.resolve("zolt.lock"));
+
+        CommandResult result = execute(
+                "add", "com.example:snap:1.0.0-SNAPSHOT",
+                "--cwd", projectDir.toString(),
+                "--cache-root", tempDir.resolve("existing-lock-cache").toString());
+
+        assertEquals(1, result.exitCode());
+        assertEquals(originalManifest, Files.readString(projectDir.resolve("zolt.toml")));
+        assertEquals(originalLockfile, Files.readString(projectDir.resolve("zolt.lock")));
     }
 
     @Test

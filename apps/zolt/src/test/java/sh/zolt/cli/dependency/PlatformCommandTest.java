@@ -148,7 +148,7 @@ final class PlatformCommandTest extends PlatformCommandTestSupport {
         assertFalse(result.stdout().contains(
                 "\u001B[32mSkipped resolve; run zolt resolve to refresh zolt.lock.\u001B[0m"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(config.contains("[versions]\n\"enterprise\" = \"2026.1.0\""));
+        assertTrue(config.contains("[versions]\nenterprise = \"2026.1.0\""));
         assertTrue(config.contains("\"com.example:enterprise-platform\" = { versionRef = \"enterprise\" }"));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
     }

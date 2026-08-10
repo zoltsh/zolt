@@ -5,10 +5,19 @@ import sh.zolt.cli.PrintedUserException;
 import sh.zolt.error.ActionableError;
 import sh.zolt.error.HasActionableError;
 import java.util.Optional;
+import java.util.Set;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.ParseResult;
 
 public final class CommandFailures {
+    private static final Set<String> STABLE_JSON_COMMANDS = Set.of(
+            "check",
+            "outdated",
+            "update",
+            "toolchain status",
+            "toolchain global status");
+
     private CommandFailures() {
     }
 
@@ -62,6 +71,11 @@ public final class CommandFailures {
     }
 
     private static void render(CommandSpec spec, CommandErrorBlock block) {
+        if (machineReadable(spec)) {
+            spec.commandLine().getOut().print(json(spec, block));
+            spec.commandLine().getOut().flush();
+            return;
+        }
         CommandHumanOutput output = CommandHumanOutput.errors(spec);
         output.error(block.summary());
         if (!block.contextRows().isEmpty() || block.next().isPresent()) {
@@ -72,6 +86,70 @@ public final class CommandFailures {
         }
         block.next().ifPresent(output::next);
         spec.commandLine().getErr().flush();
+    }
+
+    private static boolean machineReadable(CommandSpec spec) {
+        ParseResult parseResult = spec.commandLine().getParseResult();
+        if (parseResult == null || !STABLE_JSON_COMMANDS.contains(commandName(spec))) {
+            return false;
+        }
+        if (parseResult.hasMatchedOption("--json")
+                && Boolean.TRUE.equals(parseResult.matchedOptionValue("--json", false))) {
+            return true;
+        }
+        if (!parseResult.hasMatchedOption("--format")) {
+            return false;
+        }
+        Object format = parseResult.matchedOptionValue("--format", null);
+        return format != null && "json".equalsIgnoreCase(format.toString());
+    }
+
+    private static String json(CommandSpec spec, CommandErrorBlock block) {
+        StringBuilder output = new StringBuilder();
+        output.append("{\n")
+                .append("  \"schemaVersion\": 1,\n")
+                .append("  \"command\": ").append(quote(commandName(spec))).append(",\n")
+                .append("  \"status\": \"failed\",\n")
+                .append("  \"diagnostics\": [\n")
+                .append("    {\n")
+                .append("      \"severity\": \"error\",\n")
+                .append("      \"message\": ").append(quote(block.summary())).append(",\n")
+                .append("      \"nextStep\": ")
+                .append(block.next().map(CommandFailures::quote).orElse("null"))
+                .append("\n")
+                .append("    }\n")
+                .append("  ]\n")
+                .append("}\n");
+        return output.toString();
+    }
+
+    private static String commandName(CommandSpec spec) {
+        String qualified = spec.qualifiedName();
+        return qualified.startsWith("zolt ") ? qualified.substring("zolt ".length()) : qualified;
+    }
+
+    private static String quote(String value) {
+        StringBuilder escaped = new StringBuilder(value.length() + 8).append('"');
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            switch (character) {
+                case '"' -> escaped.append("\\\"");
+                case '\\' -> escaped.append("\\\\");
+                case '\b' -> escaped.append("\\b");
+                case '\f' -> escaped.append("\\f");
+                case '\n' -> escaped.append("\\n");
+                case '\r' -> escaped.append("\\r");
+                case '\t' -> escaped.append("\\t");
+                default -> {
+                    if (character < 0x20) {
+                        escaped.append(String.format("\\u%04x", (int) character));
+                    } else {
+                        escaped.append(character);
+                    }
+                }
+            }
+        }
+        return escaped.append('"').toString();
     }
 
     private static Optional<ActionableError> actionableError(Throwable throwable) {

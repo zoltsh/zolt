@@ -65,13 +65,12 @@ final class RemoveCommandTest {
             assertTrue(initialLockfile.contains("com.example:app"));
             assertTrue(initialLockfile.contains("com.example:lib"));
             assertEquals(0, remove.exitCode());
-            assertTrue(remove.stdout().contains(
-                    "Warning: zolt.toml contains comments; this edit rewrites the file and may remove comments or formatting."));
+            assertFalse(remove.stdout().contains("Warning:"));
             assertTrue(remove.stdout().contains("Removed dependency com.example:app from [dependencies]"));
             assertTrue(remove.stdout().contains("Resolved 0 packages"));
             String config = Files.readString(configPath);
             String updatedLockfile = Files.readString(projectDir.resolve("zolt.lock"));
-            assertFalse(config.contains("# dependency note"));
+            assertTrue(config.contains("# dependency note"));
             assertFalse(config.contains("\"com.example:app\" = \"1.0.0\""));
             assertFalse(updatedLockfile.contains("com.example:app"));
             assertFalse(updatedLockfile.contains("com.example:lib"));

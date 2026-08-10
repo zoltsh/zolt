@@ -65,8 +65,8 @@ final class VersionCommandTest {
                 "\u001B[32mSkipped resolve; run zolt resolve to refresh zolt.lock.\u001B[0m"));
         assertEquals("", result.stderr());
         String config = Files.readString(projectDir.resolve("zolt.toml"));
-        assertFalse(config.contains("\"guava\""));
-        assertTrue(config.contains("[versions]\n\"junit\" = \"5.12.1\""));
+        assertFalse(config.contains("guava ="));
+        assertTrue(config.contains("[versions]\njunit = \"5.12.1\""));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
     }
 
@@ -95,7 +95,7 @@ final class VersionCommandTest {
         assertTrue(result.stdout().contains("Removed version alias guava from [versions]"));
         assertTrue(result.stdout().contains("Resolved 0 packages"));
         assertTrue(Files.exists(projectDir.resolve("zolt.lock")));
-        assertFalse(Files.readString(projectDir.resolve("zolt.toml")).contains("[versions]"));
+        assertTrue(Files.readString(projectDir.resolve("zolt.toml")).contains("[versions]"));
     }
 
     @Test

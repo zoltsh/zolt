@@ -51,6 +51,11 @@ public final class ToolchainCommand implements Runnable {
 
     @Command(name = "status", description = "Show the Java toolchain Zolt would use.")
     public static final class StatusCommand implements Callable<Integer> {
+        enum Format {
+            TEXT,
+            JSON
+        }
+
         private final ZoltTomlParser tomlParser;
         private final ToolchainConfigReader toolchainConfigReader;
         private final UserGlobalConfigParser globalConfigParser;
@@ -67,6 +72,9 @@ public final class ToolchainCommand implements Runnable {
 
         @Option(names = "--json", description = "Write machine-readable JSON status.")
         private boolean json;
+
+        @Option(names = "--format", description = "Output format: text or json.")
+        private Format format = Format.TEXT;
 
         @Option(names = "--target", hidden = true)
         private String target;
@@ -104,13 +112,15 @@ public final class ToolchainCommand implements Runnable {
                         ? globalStatus()
                         : projectStatus(projectRoot);
                 print(status);
-                if (!global && !json) {
+                if (!global && !jsonOutput()) {
                     printTestRuntimeStatus(projectRoot);
                 }
-                if (!status.ok() && !json) {
-                    CommandHumanOutput errors = CommandHumanOutput.errors(spec);
-                    for (String problem : status.resolved().problems()) {
-                        errors.error(problem);
+                if (!status.ok()) {
+                    if (!jsonOutput()) {
+                        CommandHumanOutput errors = CommandHumanOutput.errors(spec);
+                        for (String problem : status.resolved().problems()) {
+                            errors.error(problem);
+                        }
                     }
                     return 1;
                 }
@@ -167,11 +177,16 @@ public final class ToolchainCommand implements Runnable {
         }
 
         private void print(JavaToolchainStatus status) {
-            if (json) {
-                CommandOutput.printAndFlush(spec, ToolchainStatusJsonFormatter.json(status));
+            if (jsonOutput()) {
+                String command = global ? "toolchain global status" : "toolchain status";
+                CommandOutput.printAndFlush(spec, ToolchainStatusJsonFormatter.json(command, status));
             } else {
                 ToolchainStatusOutput.print(spec, status);
             }
+        }
+
+        private boolean jsonOutput() {
+            return json || format == Format.JSON;
         }
     }
 

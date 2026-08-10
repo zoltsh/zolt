@@ -24,6 +24,8 @@
   <span> · </span>
   <a href="./FAQ.md">FAQ</a>
   <span> · </span>
+  <a href="./docs/compatibility.md">Compatibility</a>
+  <span> · </span>
   <a href="#benchmarks">Benchmarks</a>
 </p>
 
@@ -103,7 +105,7 @@ zolt           build, test, package, release
 
 ## CLI
 
-Human-readable output. Stable JSON. Plans and dry runs. Errors with next steps.
+Human-readable output. Versioned JSON contracts. Plans and dry runs. Errors with next steps.
 
 ```console
 $ zolt plan --target package
@@ -113,6 +115,8 @@ Status: blocked
 ```
 
 Use `zolt --list` for the command map or `zolt help <command>` for command help.
+The supported surfaces and machine-output guarantees are defined in
+[Compatibility](./docs/compatibility.md).
 
 ## Benchmarks
 

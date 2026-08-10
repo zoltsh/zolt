@@ -40,6 +40,8 @@ final class OutdatedJsonRendererTest {
                         "{",
                         "  \"schemaVersion\": 1,",
                         "  \"command\": \"outdated\",",
+                        "  \"status\": \"ok\",",
+                        "  \"diagnostics\": [],",
                         "  \"scopes\": [",
                         "    {",
                         "      \"label\": \"demo\",",

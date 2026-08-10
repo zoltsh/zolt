@@ -38,7 +38,7 @@ final class AddCommandNoResolveTest {
     }
 
     @Test
-    void addWarnsBeforeRewritingCommentedManifest() throws IOException {
+    void addPreservesCommentedManifestWithoutARewriteWarning() throws IOException {
         Path projectDir = tempDir.resolve("commented-demo");
         writeProjectConfig(projectDir);
         Path configPath = projectDir.resolve("zolt.toml");
@@ -51,9 +51,8 @@ final class AddCommandNoResolveTest {
                 "com.google.guava:guava:33.4.0-jre");
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains(
-                "Warning: zolt.toml contains comments; this edit rewrites the file and may remove comments or formatting."));
-        assertFalse(Files.readString(configPath).contains("# kept for humans"));
+        assertFalse(result.stdout().contains("Warning:"));
+        assertTrue(Files.readString(configPath).contains("# kept for humans"));
     }
 
     @Test
@@ -91,7 +90,7 @@ final class AddCommandNoResolveTest {
         assertEquals("", quiet.stdout());
         String quietConfig = Files.readString(quietConfigPath);
         assertTrue(quietConfig.contains("\"com.google.guava:guava\" = \"33.4.0-jre\""));
-        assertFalse(quietConfig.contains("# quiet rewrite note"));
+        assertTrue(quietConfig.contains("# quiet rewrite note"));
         assertFalse(Files.exists(quietProjectDir.resolve("zolt.lock")));
     }
 

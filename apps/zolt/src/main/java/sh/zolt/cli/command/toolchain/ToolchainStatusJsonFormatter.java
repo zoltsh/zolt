@@ -10,17 +10,36 @@ final class ToolchainStatusJsonFormatter {
     private ToolchainStatusJsonFormatter() {
     }
 
-    static String json(JavaToolchainStatus status) {
+    static String json(String command, JavaToolchainStatus status) {
         ResolvedJavaToolchain resolved = status.resolved();
         StringBuilder json = new StringBuilder();
         json.append("{\n");
         intField(json, 1, "schemaVersion", 1, true);
+        stringField(json, 1, "command", command, true);
+        stringField(json, 1, "status", status.ok() ? "ok" : "failed", true);
+        diagnostics(json, resolved.problems());
         booleanField(json, 1, "ok", status.ok(), true);
         request(json, status);
         json.append(",\n");
         resolved(json, resolved);
         json.append("\n}\n");
         return json.toString();
+    }
+
+    private static void diagnostics(StringBuilder json, List<String> problems) {
+        fieldPrefix(json, 1, "diagnostics").append('[');
+        if (!problems.isEmpty()) {
+            json.append('\n');
+            for (int index = 0; index < problems.size(); index++) {
+                indent(json, 2)
+                        .append("{\"severity\": \"error\", \"message\": ")
+                        .append(quote(problems.get(index)))
+                        .append('}');
+                json.append(index + 1 < problems.size() ? ",\n" : "\n");
+            }
+            indent(json, 1);
+        }
+        json.append("],\n");
     }
 
     private static void request(StringBuilder json, JavaToolchainStatus status) {

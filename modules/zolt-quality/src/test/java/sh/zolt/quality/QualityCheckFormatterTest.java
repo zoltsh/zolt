@@ -32,13 +32,14 @@ final class QualityCheckFormatterTest {
 
         String json = QualityCheckFormatter.json(report);
 
-        assertTrue(json.startsWith("{\"status\":\"error\""));
+        assertTrue(json.startsWith("{\"schemaVersion\":1,\"command\":\"check\",\"status\":\"failed\""));
         assertTrue(json.contains("\"workspace\":false"));
         assertTrue(json.contains("\"message\":\"message with \\\"quote\\\" and newline\\ninside\""));
         assertTrue(json.contains("\"subject\":\"subject\\\\path\""));
         assertTrue(json.contains("\"message\":\"tab\\tbackspace\\bformfeed\\fcarriage\\r\""));
         assertTrue(json.contains("\"member\":\"modules/api\""));
         assertTrue(json.contains("\"blockers\":[{\"id\":\"blocked\""));
+        assertTrue(json.contains("\"diagnostics\":[{\"id\":\"blocked\""));
         assertFalse(json.contains("\"blockers\":[{\"id\":\"format\""));
         assertTrue(json.endsWith(System.lineSeparator()));
     }

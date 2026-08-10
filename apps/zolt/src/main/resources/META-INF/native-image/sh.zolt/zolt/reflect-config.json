@@ -258,6 +258,12 @@
     "allDeclaredMethods": true
   },
   {
+    "name": "sh.zolt.cli.command.toolchain.GlobalToolchainCommand$StatusCommand$Format",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
     "name": "sh.zolt.cli.command.toolchain.GlobalToolchainCommand$UnsetCommand",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
@@ -571,6 +577,12 @@
   },
   {
     "name": "sh.zolt.cli.command.toolchain.ToolchainCommand$StatusCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.toolchain.ToolchainCommand$StatusCommand$Format",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
     "allDeclaredMethods": true

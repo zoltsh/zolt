@@ -115,6 +115,11 @@ public final class GlobalToolchainCommand implements Runnable {
 
     @Command(name = "status", description = "Show the user global Java toolchain default.")
     public static final class StatusCommand implements Callable<Integer> {
+        enum Format {
+            TEXT,
+            JSON
+        }
+
         private final UserGlobalConfigParser parser;
         private final JavaToolchainStatusService statusService;
 
@@ -129,6 +134,9 @@ public final class GlobalToolchainCommand implements Runnable {
 
         @Option(names = "--json", description = "Write machine-readable JSON status.")
         private boolean json;
+
+        @Option(names = "--format", description = "Output format: text or json.")
+        private Format format = Format.TEXT;
 
         @Spec
         private CommandSpec spec;
@@ -155,10 +163,12 @@ public final class GlobalToolchainCommand implements Runnable {
                         HostPlatform.parse(target),
                         new ToolchainStore(installRoot));
                 print(status);
-                if (!status.ok() && !json) {
-                    CommandHumanOutput errors = CommandHumanOutput.errors(spec);
-                    for (String problem : status.resolved().problems()) {
-                        errors.error(problem);
+                if (!status.ok()) {
+                    if (!jsonOutput()) {
+                        CommandHumanOutput errors = CommandHumanOutput.errors(spec);
+                        for (String problem : status.resolved().problems()) {
+                            errors.error(problem);
+                        }
                     }
                     return 1;
                 }
@@ -169,11 +179,17 @@ public final class GlobalToolchainCommand implements Runnable {
         }
 
         private void print(JavaToolchainStatus status) {
-            if (json) {
-                CommandOutput.printAndFlush(spec, ToolchainStatusJsonFormatter.json(status));
+            if (jsonOutput()) {
+                CommandOutput.printAndFlush(
+                        spec,
+                        ToolchainStatusJsonFormatter.json("toolchain global status", status));
             } else {
                 ToolchainStatusOutput.print(spec, status);
             }
+        }
+
+        private boolean jsonOutput() {
+            return json || format == Format.JSON;
         }
     }
 

@@ -91,18 +91,25 @@ public final class VersionCommand implements Runnable {
                 String normalizedAlias = VersionAliasCommands.validateAlias(alias);
                 String normalizedVersion = VersionAliasCommands.validateValue(normalizedAlias, version);
                 Path projectRoot = projectDirectory.path();
-                Path configPath = projectRoot.resolve("zolt.toml");
-                ProjectConfig config = tomlParser.parse(configPath);
-                Map<String, String> aliases = new LinkedHashMap<>(config.versionAliases());
-                String previous = aliases.put(normalizedAlias, normalizedVersion);
-                ProjectConfig updated = config.withVersionAliases(aliases);
-                tomlWriter.write(configPath, updated);
+                ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                        projectRoot,
+                        cacheRoot,
+                        noResolve,
+                        tomlParser,
+                        tomlWriter,
+                        resolveService,
+                        current -> {
+                            Map<String, String> aliases = new LinkedHashMap<>(current.versionAliases());
+                            aliases.put(normalizedAlias, normalizedVersion);
+                            return current.withVersionAliases(aliases);
+                        });
+                String previous = edit.original().versionAliases().get(normalizedAlias);
                 printVersionAliasSummary(normalizedAlias, normalizedVersion, previous);
                 if (noResolve) {
                     CommandHumanOutput.of(spec).detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
                     return;
                 }
-                CommandResolveOutput.print(spec, resolveService.resolve(projectRoot, updated, cacheRoot));
+                CommandResolveOutput.print(spec, edit.resolveResult());
             } catch (ArtifactCacheException
                     | ResolveException
                     | VersionAliasCommandException
@@ -170,34 +177,40 @@ public final class VersionCommand implements Runnable {
             try {
                 String normalizedAlias = VersionAliasCommands.validateAlias(alias);
                 Path projectRoot = projectDirectory.path();
-                Path configPath = projectRoot.resolve("zolt.toml");
-                ProjectConfig config = tomlParser.parse(configPath);
-                Map<String, String> aliases = new LinkedHashMap<>(config.versionAliases());
-                if (!aliases.containsKey(normalizedAlias)) {
-                    throw new VersionAliasCommandException(
-                            "Version alias `" + normalizedAlias + "` is not declared in [versions].");
-                }
-                List<String> references = VersionAliasCommands.references(config, normalizedAlias);
-                if (!references.isEmpty()) {
-                    throw new VersionAliasCommandException(
-                            "Version alias `"
-                                    + normalizedAlias
-                                    + "` is still referenced by "
-                                    + String.join(", ", references)
-                                    + ". Remove or update those versionRef declarations before removing [versions]."
-                                    + normalizedAlias
-                                    + ".");
-                }
-                aliases.remove(normalizedAlias);
-                ProjectConfig updated = config.withVersionAliases(aliases);
-                tomlWriter.write(configPath, updated);
+                ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                        projectRoot,
+                        cacheRoot,
+                        noResolve,
+                        tomlParser,
+                        tomlWriter,
+                        resolveService,
+                        current -> {
+                            Map<String, String> currentAliases = new LinkedHashMap<>(current.versionAliases());
+                            if (!currentAliases.containsKey(normalizedAlias)) {
+                                throw new VersionAliasCommandException(
+                                        "Version alias `" + normalizedAlias + "` is not declared in [versions].");
+                            }
+                            List<String> references = VersionAliasCommands.references(current, normalizedAlias);
+                            if (!references.isEmpty()) {
+                                throw new VersionAliasCommandException(
+                                        "Version alias `"
+                                                + normalizedAlias
+                                                + "` is still referenced by "
+                                                + String.join(", ", references)
+                                                + ". Remove or update those versionRef declarations before removing [versions]."
+                                                + normalizedAlias
+                                                + ".");
+                            }
+                            currentAliases.remove(normalizedAlias);
+                            return current.withVersionAliases(currentAliases);
+                        });
                 CommandHumanOutput output = CommandHumanOutput.of(spec);
                 output.success("Removed version alias " + normalizedAlias + " from [versions]");
                 if (noResolve) {
                     output.detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
                     return;
                 }
-                CommandResolveOutput.print(spec, resolveService.resolve(projectRoot, updated, cacheRoot));
+                CommandResolveOutput.print(spec, edit.resolveResult());
             } catch (ArtifactCacheException
                     | ResolveException
                     | VersionAliasCommandException

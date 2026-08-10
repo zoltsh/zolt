@@ -118,43 +118,61 @@ public final class UpdateCommand implements Runnable {
             UpdateOptions options = new UpdateOptions(ceiling(), includePrereleases, offline, selectors);
             UpdatePlan plan = engine.plan(config, options);
             if (format == Format.JSON) {
-                runJson(projectRoot, configPath, config, plan);
+                runJson(projectRoot, config, plan);
             } else {
-                runText(projectRoot, configPath, config, plan);
+                runText(projectRoot, config, plan);
             }
         } catch (ArtifactCacheException | RepositoryAccessException | ResolveException | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
     }
 
-    private void runText(Path projectRoot, Path configPath, ProjectConfig config, UpdatePlan plan) {
+    private void runText(Path projectRoot, ProjectConfig plannedFrom, UpdatePlan plan) {
         UpdatePlanTextRenderer renderer = new UpdatePlanTextRenderer();
         if (dryRun || !plan.hasEdits()) {
             CommandOutput.printAndFlush(spec, renderer.render(plan, dryRun));
             return;
         }
-        ProjectConfig updated = engine.apply(config, plan);
         CommandHumanOutput output = CommandHumanOutput.of(spec);
-        DependencyEditCommentWarning.printIfNeeded(output, configPath);
-        tomlWriter.write(configPath, updated);
+        ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                projectRoot,
+                cacheRoot,
+                noResolve,
+                tomlParser,
+                tomlWriter,
+                resolveService,
+                current -> applyCurrentPlan(current, plannedFrom, plan));
         CommandOutput.printAndFlush(spec, renderer.render(plan, false));
         if (noResolve) {
             output.detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
             return;
         }
-        CommandResolveOutput.print(spec, resolveService.resolve(projectRoot, updated, cacheRoot));
+        CommandResolveOutput.print(spec, edit.resolveResult());
     }
 
-    private void runJson(Path projectRoot, Path configPath, ProjectConfig config, UpdatePlan plan) {
+    private void runJson(Path projectRoot, ProjectConfig plannedFrom, UpdatePlan plan) {
         if (!dryRun && plan.hasEdits()) {
-            DependencyEditCommentWarning.printIfNeeded(CommandHumanOutput.errors(spec), configPath);
-            ProjectConfig updated = engine.apply(config, plan);
-            tomlWriter.write(configPath, updated);
-            if (!noResolve) {
-                resolveService.resolve(projectRoot, updated, cacheRoot);
-            }
+            ManifestEditTransaction.execute(
+                    projectRoot,
+                    cacheRoot,
+                    noResolve,
+                    tomlParser,
+                    tomlWriter,
+                    resolveService,
+                    current -> applyCurrentPlan(current, plannedFrom, plan));
         }
         CommandOutput.printAndFlush(spec, new UpdatePlanJsonRenderer().render(plan, dryRun));
+    }
+
+    private ProjectConfig applyCurrentPlan(
+            ProjectConfig current,
+            ProjectConfig plannedFrom,
+            UpdatePlan plan) {
+        if (!current.equals(plannedFrom)) {
+            throw new ZoltConfigException(
+                    "zolt.toml changed while dependency updates were being planned. No changes were written; retry against the current manifest.");
+        }
+        return engine.apply(current, plan);
     }
 
     private UpdateCeiling ceiling() {

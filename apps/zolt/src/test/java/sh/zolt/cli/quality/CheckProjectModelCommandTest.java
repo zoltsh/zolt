@@ -112,7 +112,7 @@ final class CheckProjectModelCommandTest {
                 "--check", "project-model");
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("\"status\":\"error\""));
+        assertTrue(result.stdout().contains("\"status\":\"failed\""));
         assertTrue(result.stdout().contains("\"id\":\"project-model\""));
         assertTrue(result.stdout().contains("\"subject\":\"[compiler].release\""));
         assertTrue(result.stdout().contains("Compiler release `99` is newer than [project].java"));
