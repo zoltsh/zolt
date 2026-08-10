@@ -104,6 +104,9 @@ final class CliConfigUpdateHelpSectionSurfaceTest {
                 "--quiet",
                 "--help",
                 "--version");
+        assertTrue(result.stdout().contains("--target-id"));
+        assertTrue(result.stdout().contains("--to"));
+        assertTrue(result.stdout().contains("--schema-version"));
         assertFalse(result.stdout().contains("Commands:"));
         assertFalse(result.stdout().contains("Diagnostics:"));
     }
@@ -117,6 +120,9 @@ final class CliConfigUpdateHelpSectionSurfaceTest {
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36mzolt update\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--help\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--target-id\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--to\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--schema-version\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32mCommands:\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32mDiagnostics:\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32m--"));

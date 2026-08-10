@@ -20,7 +20,7 @@ jobs:
       matrix:
         include:
           - name: foundation
-            members: modules/zolt-model,modules/zolt-framework-api,modules/zolt-toml,modules/zolt-repository,modules/zolt-resolve,modules/zolt-test-model,modules/zolt-junit-client
+            members: modules/zolt-model,modules/zolt-framework-api,modules/zolt-toml,modules/zolt-repository,modules/zolt-resolve,modules/zolt-update,modules/zolt-test-model,modules/zolt-junit-client
           - name: build-runtime
             members: modules/zolt-build,modules/zolt-test-runtime,modules/zolt-native-image,modules/zolt-workspace
           - name: quarkus

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.metadata.VersionDiscovery;
+import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.update.OutdatedSurface;
@@ -215,6 +216,45 @@ final class DependencyExactUpdateCommandTest {
     }
 
     @Test
+    void rootMemberAndLegacyWorkspaceRouteExactTargets() throws IOException {
+        Path rootMember = writeProject(tempDir.resolve("root-member"), """
+                [dependencies]
+                "com.example:root" = "1.0.0"
+
+                [workspace]
+                name = "root-member"
+                members = ["."]
+                """);
+        UpdateTarget rootTarget = target(
+                rootMember, "zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies]");
+
+        Result rootResult = run(rootMember, () -> {}, exactArgs(rootTarget, "1.1.0", "--no-resolve"));
+
+        assertEquals(0, rootResult.exitCode(), rootResult.stderr());
+        assertTrue(Files.readString(rootMember.resolve("zolt.toml"))
+                .contains("\"com.example:root\" = \"1.1.0\""));
+
+        Path legacy = tempDir.resolve("legacy-workspace");
+        Path member = writeProject(legacy.resolve("apps/api"), """
+                [dependencies]
+                "com.example:legacy" = "2.0.0"
+                """);
+        Files.writeString(legacy.resolve("zolt-workspace.toml"), """
+                [workspace]
+                name = "legacy"
+                members = ["apps/api"]
+                """);
+        UpdateTarget legacyTarget = target(
+                member, "apps/api/zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies]");
+
+        Result legacyResult = run(legacy, () -> {}, exactArgs(legacyTarget, "2.1.0", "--no-resolve"));
+
+        assertEquals(0, legacyResult.exitCode(), legacyResult.stderr());
+        assertTrue(Files.readString(member.resolve("zolt.toml"))
+                .contains("\"com.example:legacy\" = \"2.1.0\""));
+    }
+
+    @Test
     void executionRebuildsTargetAndTurnsAConcurrentDestinationIntoNoOp() throws IOException {
         Path project = writeProject(tempDir.resolve("revalidate-noop"), """
                 [dependencies]
@@ -257,14 +297,51 @@ final class DependencyExactUpdateCommandTest {
         assertFalse(Files.readString(manifest).contains("com.example:lib"));
     }
 
+    @Test
+    void identicalRegeneratedLockIsOmittedFromActualChangedFiles() throws IOException {
+        Path project = writeProject(tempDir.resolve("unchanged-lock"), """
+                [versions]
+                unused = "1.0.0"
+
+                [dependencies]
+                """);
+        Path cache = project.resolve("cache");
+        ResolveService resolveService = new ResolveService();
+        Path manifest = project.resolve("zolt.toml");
+        replace(manifest, "unused = \"1.0.0\"", "unused = \"2.0.0\"");
+        resolveService.resolve(project, parser.parse(project.resolve("zolt.toml")), cache);
+        replace(manifest, "unused = \"2.0.0\"", "unused = \"1.0.0\"");
+        String originalLock = Files.readString(project.resolve("zolt.lock"));
+        UpdateTarget target = target(project, "zolt.toml", OutdatedSurface.VERSION_ALIAS, "[versions]");
+
+        Result result = run(
+                project,
+                () -> {},
+                resolveService,
+                exactArgs(target, "2.0.0", "--format", "json", "--schema-version", "2", "--cache-root", cache.toString()));
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("\"resolved\": true"));
+        assertTrue(result.stdout().contains("\"changedFiles\": [\n    \"zolt.toml\"\n  ]"), result.stdout());
+        assertEquals(originalLock, Files.readString(project.resolve("zolt.lock")));
+    }
+
     private Result run(Path project, Runnable beforeExecution, String... arguments) {
+        return run(project, beforeExecution, null, arguments);
+    }
+
+    private Result run(
+            Path project,
+            Runnable beforeExecution,
+            ResolveService resolveService,
+            String... arguments) {
         VersionDiscovery forbiddenDiscovery = (repositories, group, artifact, offline) -> {
             throw new AssertionError("Exact update must not perform metadata discovery.");
         };
         UpdateCommand command = new UpdateCommand(
                 parser,
                 new ZoltTomlWriter(),
-                null,
+                resolveService,
                 new UpdateEngine(forbiddenDiscovery),
                 beforeExecution);
         CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true);
