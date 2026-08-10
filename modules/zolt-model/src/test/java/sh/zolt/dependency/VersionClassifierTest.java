@@ -117,6 +117,19 @@ final class VersionClassifierTest {
     }
 
     @Test
+    void classifiesNumericComponentsWithoutOverflow() {
+        assertEquals(UpdateClass.PATCH, classifier.classify(
+                "1.999999999999999999999999999999.1",
+                "1.999999999999999999999999999999.2"));
+        assertEquals(UpdateClass.MINOR, classifier.classify(
+                "1.999999999999999999999999999999.1",
+                "1.1000000000000000000000000000000.0"));
+        assertEquals(UpdateClass.MAJOR, classifier.classify(
+                "999999999999999999999999999999.0.0",
+                "1000000000000000000000000000000.0.0"));
+    }
+
+    @Test
     void patchCeilingStaysWithinCurrentMinor() {
         VersionCandidates candidates = classifier.candidates(
                 "1.2.3", List.of("1.2.4", "1.2.9", "1.4.0"), false);

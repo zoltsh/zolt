@@ -1,5 +1,6 @@
 package sh.zolt.dependency;
 
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,11 +40,11 @@ public final class VersionClassifier {
                 latestMajor = candidate;
             }
             ReleaseCore candidateCore = ReleaseCore.of(candidate);
-            if (candidateCore.major() == currentCore.major()) {
+            if (candidateCore.major().equals(currentCore.major())) {
                 if (isNewer(candidate, latestMinor)) {
                     latestMinor = candidate;
                 }
-                if (candidateCore.minor() == currentCore.minor() && isNewer(candidate, latestPatch)) {
+                if (candidateCore.minor().equals(currentCore.minor()) && isNewer(candidate, latestPatch)) {
                     latestPatch = candidate;
                 }
             }
@@ -59,10 +60,10 @@ public final class VersionClassifier {
     public UpdateClass classify(String current, String candidate) {
         ReleaseCore currentCore = ReleaseCore.of(current);
         ReleaseCore candidateCore = ReleaseCore.of(candidate);
-        if (candidateCore.major() != currentCore.major()) {
+        if (!candidateCore.major().equals(currentCore.major())) {
             return UpdateClass.MAJOR;
         }
-        if (candidateCore.minor() != currentCore.minor()) {
+        if (!candidateCore.minor().equals(currentCore.minor())) {
             return UpdateClass.MINOR;
         }
         return UpdateClass.PATCH;
@@ -73,9 +74,9 @@ public final class VersionClassifier {
     }
 
     /** Leading numeric release core; missing segments default to zero. */
-    record ReleaseCore(int major, int minor, int patch) {
+    record ReleaseCore(BigInteger major, BigInteger minor, BigInteger patch) {
         static ReleaseCore of(String version) {
-            int[] core = {0, 0, 0};
+            BigInteger[] core = {BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO};
             int index = 0;
             for (String segment : version.split("[.\\-_+]", -1)) {
                 if (index >= core.length) {
@@ -84,7 +85,7 @@ public final class VersionClassifier {
                 if (segment.isBlank()) {
                     continue;
                 }
-                Integer value = numericOrNull(segment);
+                BigInteger value = numericOrNull(segment);
                 if (value == null) {
                     break;
                 }
@@ -93,17 +94,13 @@ public final class VersionClassifier {
             return new ReleaseCore(core[0], core[1], core[2]);
         }
 
-        private static Integer numericOrNull(String segment) {
+        private static BigInteger numericOrNull(String segment) {
             for (int index = 0; index < segment.length(); index++) {
                 if (!Character.isDigit(segment.charAt(index))) {
                     return null;
                 }
             }
-            try {
-                return Integer.parseInt(segment);
-            } catch (NumberFormatException exception) {
-                return null;
-            }
+            return new BigInteger(segment);
         }
     }
 }

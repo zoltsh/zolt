@@ -1,5 +1,6 @@
 package sh.zolt.dependency;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -72,7 +73,7 @@ public final class VersionComparator implements Comparator<String> {
     private static void addPart(StringBuilder token, boolean numeric, List<Part> parts) {
         String value = token.toString();
         if (numeric) {
-            parts.add(Part.numeric(Integer.parseInt(value)));
+            parts.add(Part.numeric(new BigInteger(value)));
         } else {
             parts.add(Part.qualifier(value.toLowerCase(Locale.ROOT)));
         }
@@ -84,8 +85,8 @@ public final class VersionComparator implements Comparator<String> {
         }
     }
 
-    private record Part(Integer number, String qualifier) implements Comparable<Part> {
-        static Part numeric(int value) {
+    private record Part(BigInteger number, String qualifier) implements Comparable<Part> {
+        static Part numeric(BigInteger value) {
             return new Part(value, null);
         }
 
@@ -94,13 +95,13 @@ public final class VersionComparator implements Comparator<String> {
         }
 
         static Part release() {
-            return new Part(0, "");
+            return new Part(BigInteger.ZERO, "");
         }
 
         @Override
         public int compareTo(Part other) {
             if (number != null && other.number != null) {
-                return Integer.compare(number, other.number);
+                return number.compareTo(other.number);
             }
             if (number != null) {
                 return compareQualifierRanks("", other.qualifier);
@@ -113,7 +114,7 @@ public final class VersionComparator implements Comparator<String> {
 
         boolean releaseEquivalent() {
             if (number != null) {
-                return number == 0;
+                return number.signum() == 0;
             }
             return QUALIFIER_RANKS.getOrDefault(qualifier, Integer.MIN_VALUE) == 0;
         }

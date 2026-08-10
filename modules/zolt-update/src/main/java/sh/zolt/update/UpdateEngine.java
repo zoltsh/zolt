@@ -6,11 +6,7 @@ import sh.zolt.maven.metadata.MetadataDiscovery;
 import sh.zolt.maven.metadata.VersionDiscovery;
 import sh.zolt.maven.repository.RepositoryAccess;
 import sh.zolt.maven.repository.RepositoryAccessPlanner;
-import sh.zolt.project.DependencyConstraint;
-import sh.zolt.project.DependencyPolicySettings;
-import sh.zolt.project.DependencySection;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.dependency.ProjectConfigDependencyMutator;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -35,6 +31,7 @@ public final class UpdateEngine {
     private final RepositoryAccessPlanner planner;
     private final SurfaceCollector collector = new SurfaceCollector();
     private final VersionClassifier classifier = new VersionClassifier();
+    private final UpdateApplier applier = new UpdateApplier();
 
     public UpdateEngine(VersionDiscovery discovery) {
         this(discovery, new RepositoryAccessPlanner());
@@ -90,54 +87,7 @@ public final class UpdateEngine {
     }
 
     public ProjectConfig apply(ProjectConfig config, UpdatePlan plan) {
-        ProjectConfig updated = config;
-        Map<String, String> aliases = new LinkedHashMap<>(config.versionAliases());
-        boolean aliasChanged = false;
-        for (UpdateEdit edit : plan.edits()) {
-            switch (edit.surface()) {
-                case VERSION_ALIAS -> {
-                    aliases.put(edit.identifier(), edit.toVersion());
-                    aliasChanged = true;
-                }
-                case DEPENDENCY, ANNOTATION_PROCESSOR -> updated = ProjectConfigDependencyMutator.addDependency(
-                        updated, sectionOf(edit.section()), edit.identifier(), edit.toVersion());
-                case PLATFORM ->
-                    updated = ProjectConfigDependencyMutator.addPlatform(updated, edit.identifier(), edit.toVersion());
-                case DEPENDENCY_CONSTRAINT -> updated = applyConstraint(updated, edit.identifier(), edit.toVersion());
-                default -> {
-                    // Non-applicable surfaces are reported as skips and never mutated.
-                }
-            }
-        }
-        return aliasChanged ? updated.withVersionAliases(aliases) : updated;
-    }
-
-    private static ProjectConfig applyConstraint(ProjectConfig config, String coordinate, String version) {
-        Map<String, DependencyConstraint> constraints = new LinkedHashMap<>(config.dependencyPolicy().constraints());
-        DependencyConstraint existing = constraints.get(coordinate);
-        if (existing == null) {
-            return config;
-        }
-        constraints.put(
-                coordinate,
-                new DependencyConstraint(coordinate, version, existing.versionRef(), existing.kind(), existing.reason()));
-        DependencyPolicySettings policy = new DependencyPolicySettings(
-                config.dependencyPolicy().exclusions(), constraints, config.dependencyPolicy().failOnVersionConflict());
-        return config.withDependencyPolicy(policy);
-    }
-
-    private static DependencySection sectionOf(String section) {
-        return switch (section) {
-            case "[dependencies]" -> DependencySection.MAIN;
-            case "[api.dependencies]" -> DependencySection.API;
-            case "[runtime.dependencies]" -> DependencySection.RUNTIME;
-            case "[provided.dependencies]" -> DependencySection.PROVIDED;
-            case "[dev.dependencies]" -> DependencySection.DEV;
-            case "[test.dependencies]" -> DependencySection.TEST;
-            case "[annotationProcessors]" -> DependencySection.PROCESSOR;
-            case "[test.annotationProcessors]" -> DependencySection.TEST_PROCESSOR;
-            default -> throw new IllegalStateException("Unmapped dependency section: " + section);
-        };
+        return applier.apply(config, plan);
     }
 
     private static List<String> aliasFanOutWarnings(List<UpdateEdit> edits) {

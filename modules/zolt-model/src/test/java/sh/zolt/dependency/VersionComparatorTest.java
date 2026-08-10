@@ -19,6 +19,12 @@ final class VersionComparatorTest {
     }
 
     @Test
+    void numericComponentsDoNotOverflow() {
+        assertOlder("1.999999999999999999999999999999.0", "1.1000000000000000000000000000000.0");
+        assertEquals(0, comparator.compare("1.000000000000000000000000000001", "1.1"));
+    }
+
+    @Test
     void missingPatchIsEquivalentToZeroPatch() {
         assertEquals(0, comparator.compare("1.0", "1.0.0"));
         assertEquals(0, comparator.compare("1", "1.0.0"));
