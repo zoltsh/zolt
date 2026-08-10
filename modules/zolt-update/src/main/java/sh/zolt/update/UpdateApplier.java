@@ -51,9 +51,8 @@ public final class UpdateApplier {
                 case PLATFORM ->
                     updated = ProjectConfigDependencyMutator.addPlatform(updated, edit.identifier(), edit.toVersion());
                 case DEPENDENCY_CONSTRAINT -> updated = applyConstraint(updated, edit.identifier(), edit.toVersion());
-                default -> {
-                    // Non-applicable surfaces never reach a valid plan and are not mutable here.
-                }
+                default -> throw new IllegalArgumentException(
+                        "Update surface `" + edit.surface().jsonName() + "` is not mutable.");
             }
         }
         return aliasChanged ? updated.withVersionAliases(aliases) : updated;

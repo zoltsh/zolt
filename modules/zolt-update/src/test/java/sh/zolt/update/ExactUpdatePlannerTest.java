@@ -13,6 +13,7 @@ import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class ExactUpdatePlannerTest {
@@ -122,6 +123,42 @@ final class ExactUpdatePlannerTest {
 
         assertTrue(failure.getMessage().contains("not updateable"));
         assertTrue(failure.getMessage().contains("generated-tool"));
+    }
+
+    @Test
+    void applierRejectsProgrammaticallyConstructedPlansForUnsupportedSurfaces() {
+        ProjectConfig config = config("""
+                [dependencies]
+                "com.example:lib" = "1.2.3"
+                """);
+        UpdateTarget target = new UpdateTarget(
+                UpdateTargetId.create(
+                        "zolt.toml",
+                        OutdatedSurface.OPENAPI_TOOL,
+                        "[generated.openapiTool]",
+                        "org.openapitools:openapi-generator-cli"),
+                "zolt.toml",
+                "zolt.lock",
+                OutdatedSurface.OPENAPI_TOOL,
+                "org.openapitools:openapi-generator-cli",
+                "[generated.openapiTool]",
+                "7.11.0",
+                true,
+                Optional.empty(),
+                List.of());
+        ExactUpdatePlan plan = new ExactUpdatePlan(
+                target,
+                "7.11.0",
+                "7.12.0",
+                Optional.of(UpdateClass.MINOR),
+                true,
+                List.of());
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> applier.apply(config, plan));
+
+        assertEquals("Update surface `openapiTool` is not mutable.", failure.getMessage());
     }
 
     @Test
