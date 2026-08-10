@@ -1,4 +1,4 @@
-name: Submit Zolt dependencies
+name: dependency submission
 
 on:
   push:
@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   submit:
+    name: submit dependency graph
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
