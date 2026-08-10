@@ -10,11 +10,9 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltManifestDocument;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.toml.ZoltTomlWriter;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
-import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,12 +22,10 @@ import java.util.function.UnaryOperator;
 
 /** Failure-safe manifest and lockfile edit transaction shared by every public mutation command. */
 final class ManifestEditTransaction {
-    private static final int LOCK_ROOT_CONFIRMATION_ATTEMPTS = 3;
-
     private ManifestEditTransaction() {
     }
 
-    static Result execute(
+    static ManifestEditResult execute(
             Path projectRoot,
             Path cacheRoot,
             boolean noResolve,
@@ -44,12 +40,34 @@ final class ManifestEditTransaction {
                 parser,
                 writer,
                 resolveService,
+                null,
+                mutation,
+                () -> {});
+    }
+
+    static ManifestEditResult execute(
+            Path projectRoot,
+            Path cacheRoot,
+            boolean noResolve,
+            ZoltTomlParser parser,
+            ZoltTomlWriter writer,
+            ResolveService resolveService,
+            ScopeExpectation expectation,
+            UnaryOperator<ProjectConfig> mutation) {
+        return execute(
+                projectRoot,
+                cacheRoot,
+                noResolve,
+                parser,
+                writer,
+                resolveService,
+                expectation,
                 mutation,
                 () -> {});
     }
 
     /** Test seam for a deterministic writer arriving after staging but before the lockfile CAS. */
-    static Result execute(
+    static ManifestEditResult execute(
             Path projectRoot,
             Path cacheRoot,
             boolean noResolve,
@@ -58,12 +76,34 @@ final class ManifestEditTransaction {
             ResolveService resolveService,
             UnaryOperator<ProjectConfig> mutation,
             Runnable beforeLockfileCompareAndSet) {
+        return execute(
+                projectRoot,
+                cacheRoot,
+                noResolve,
+                parser,
+                writer,
+                resolveService,
+                null,
+                mutation,
+                beforeLockfileCompareAndSet);
+    }
+
+    private static ManifestEditResult execute(
+            Path projectRoot,
+            Path cacheRoot,
+            boolean noResolve,
+            ZoltTomlParser parser,
+            ZoltTomlWriter writer,
+            ResolveService resolveService,
+            ScopeExpectation expectation,
+            UnaryOperator<ProjectConfig> mutation,
+            Runnable beforeLockfileCompareAndSet) {
         Objects.requireNonNull(projectRoot, "projectRoot");
         Objects.requireNonNull(parser, "parser");
         Objects.requireNonNull(writer, "writer");
         Objects.requireNonNull(mutation, "mutation");
         Objects.requireNonNull(beforeLockfileCompareAndSet, "beforeLockfileCompareAndSet");
-        return withMutationLock(projectRoot, lockRoot -> executeLocked(
+        return ManifestMutationLockGuard.withLock(projectRoot, lockRoot -> executeLocked(
                 projectRoot,
                 lockRoot,
                 cacheRoot,
@@ -71,6 +111,7 @@ final class ManifestEditTransaction {
                 parser,
                 writer,
                 resolveService,
+                expectation,
                 mutation,
                 beforeLockfileCompareAndSet));
     }
@@ -83,34 +124,23 @@ final class ManifestEditTransaction {
         Objects.requireNonNull(projectRoot, "projectRoot");
         Objects.requireNonNull(parser, "parser");
         Objects.requireNonNull(inspection, "inspection");
-        return withMutationLock(projectRoot, lockRoot -> {
-            ManifestEditRecovery.recoverAll(projectRoot, lockRoot);
+        return inspectLocked(projectRoot, lockRoot -> {
             ManifestMutationScope scope = ManifestMutationScope.discover(projectRoot, lockRoot);
             return inspection.apply(parser.parse(scope.manifestPath()));
         });
     }
 
-    private static <T> T withMutationLock(Path projectRoot, Function<Path, T> action) {
-        WorkspaceDiscoveryService discovery = new WorkspaceDiscoveryService();
-        Path standaloneRoot = projectRoot.toAbsolutePath().normalize();
-        for (int attempt = 0; attempt < LOCK_ROOT_CONFIRMATION_ATTEMPTS; attempt++) {
-            Path lockRoot = discovery.discoverRoot(projectRoot)
-                    .map(path -> path.toAbsolutePath().normalize())
-                    .orElse(standaloneRoot);
-            try (WorkspaceMutationLock ignored = WorkspaceMutationLock.acquire(lockRoot)) {
-                Path confirmedRoot = discovery.discoverRoot(projectRoot)
-                        .map(path -> path.toAbsolutePath().normalize())
-                        .orElse(standaloneRoot);
-                if (lockRoot.equals(confirmedRoot)) {
-                    return action.apply(lockRoot);
-                }
-            }
-        }
-        throw new ZoltConfigException(
-                "Workspace root changed repeatedly while acquiring the manifest mutation lock. Retry the command.");
+    /** Recovers pending edits and performs a workspace-wide inspection under the mutation lock. */
+    static <T> T inspectLocked(Path projectRoot, Function<Path, T> inspection) {
+        Objects.requireNonNull(projectRoot, "projectRoot");
+        Objects.requireNonNull(inspection, "inspection");
+        return ManifestMutationLockGuard.withLock(projectRoot, lockRoot -> {
+            ManifestEditRecovery.recoverAll(projectRoot, lockRoot);
+            return inspection.apply(lockRoot);
+        });
     }
 
-    private static Result executeLocked(
+    private static ManifestEditResult executeLocked(
             Path projectRoot,
             Path lockRoot,
             Path cacheRoot,
@@ -118,19 +148,25 @@ final class ManifestEditTransaction {
             ZoltTomlParser parser,
             ZoltTomlWriter writer,
             ResolveService resolveService,
+            ScopeExpectation expectation,
             UnaryOperator<ProjectConfig> mutation,
             Runnable beforeLockfileCompareAndSet) {
         ManifestEditRecovery.recoverAll(projectRoot, lockRoot);
         ManifestMutationScope scope = ManifestMutationScope.discover(projectRoot, lockRoot);
+        requireExpectedScope(scope, expectation);
         ZoltManifestDocument original = parser.parseDocument(scope.manifestPath());
         ProjectConfig requested = mutation.apply(original.config());
         ZoltManifestDocument edited = writer.patchDocument(original, requested);
         if (edited.source().equals(original.source())) {
-            return new Result(original.config(), edited.config(), null);
+            return new ManifestEditResult(
+                    original.config(), edited.config(), null,
+                    scope.manifestPath(), scope.lockfilePath(), false, false);
         }
         if (noResolve) {
             writer.writePrepared(scope.manifestPath(), original, edited);
-            return new Result(original.config(), edited.config(), null);
+            return new ManifestEditResult(
+                    original.config(), edited.config(), null,
+                    scope.manifestPath(), scope.lockfilePath(), true, false);
         }
         if (resolveService == null) {
             throw new IllegalStateException("Resolve service is required for a resolving manifest edit.");
@@ -145,7 +181,7 @@ final class ManifestEditTransaction {
                 beforeLockfileCompareAndSet);
     }
 
-    private static Result resolveAndCommit(
+    private static ManifestEditResult resolveAndCommit(
             ManifestMutationScope scope,
             Path cacheRoot,
             ZoltTomlWriter writer,
@@ -210,7 +246,10 @@ final class ManifestEditTransaction {
                     staged.conflictCount(),
                     scope.lockfilePath(),
                     staged.metrics());
-            return new Result(original.config(), edited.config(), committed);
+            boolean lockfileChanged = !originalLockfile.equals(FileSnapshot.present(resolvedLockfile));
+            return new ManifestEditResult(
+                    original.config(), edited.config(), committed,
+                    scope.manifestPath(), scope.lockfilePath(), true, lockfileChanged);
         } catch (IOException exception) {
             if (!ManifestEditRecovery.rollbackAfterFailure(
                     transaction, scope.manifestRoot(), scope.lockRoot(), exception)) {
@@ -294,9 +333,17 @@ final class ManifestEditTransaction {
         }
     }
 
-    record Result(ProjectConfig original, ProjectConfig updated, ResolveResult resolveResult) {
-        boolean changed() {
-            return !original.equals(updated);
+    private static void requireExpectedScope(
+            ManifestMutationScope actual,
+            ScopeExpectation expected) {
+        if (expected == null) {
+            return;
+        }
+        if (!actual.manifestPath().equals(expected.manifestPath())
+                || !actual.lockfilePath().equals(expected.lockfilePath())) {
+            throw new ZoltConfigException(ActionableError.of(
+                    "Dependency update scope changed before execution. No changes were written.",
+                    "Run `zolt outdated --format json --schema-version 2` again and retry with a current targetId."));
         }
     }
 

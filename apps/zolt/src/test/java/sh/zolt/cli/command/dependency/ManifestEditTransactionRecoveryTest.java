@@ -15,11 +15,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -252,6 +254,58 @@ final class ManifestEditTransactionRecoveryTest {
         assertFalse(Files.exists(transactionDirectory()));
     }
 
+    @Test
+    void expectedScopeIsVerifiedAndActualChangedPathsAreOrdered() throws IOException {
+        writeProject(tempDir, "expected");
+        Path manifest = tempDir.resolve("zolt.toml");
+        Path lockfile = tempDir.resolve("zolt.lock");
+
+        ManifestEditResult edit = ManifestEditTransaction.execute(
+                tempDir,
+                tempDir.resolve("cache"),
+                true,
+                new ZoltTomlParser(),
+                new ZoltTomlWriter(),
+                null,
+                new ScopeExpectation(manifest, lockfile),
+                config -> {
+                    var aliases = new LinkedHashMap<>(config.versionAliases());
+                    aliases.put("added", "1.0.0");
+                    return config.withVersionAliases(aliases);
+                });
+
+        assertTrue(edit.changed());
+        assertTrue(edit.manifestChanged());
+        assertFalse(edit.lockfileChanged());
+        assertEquals(List.of(manifest.toAbsolutePath().normalize()), edit.changedPaths());
+    }
+
+    @Test
+    void scopeMismatchFailsBeforeParsingOrMutation() throws IOException {
+        writeProject(tempDir, "moved");
+        String original = Files.readString(tempDir.resolve("zolt.toml"));
+        AtomicBoolean mutationCalled = new AtomicBoolean();
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> ManifestEditTransaction.execute(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        true,
+                        new ZoltTomlParser(),
+                        new ZoltTomlWriter(),
+                        null,
+                        new ScopeExpectation(tempDir.resolve("elsewhere/zolt.toml"), tempDir.resolve("zolt.lock")),
+                        config -> {
+                            mutationCalled.set(true);
+                            return config;
+                        }));
+
+        assertTrue(failure.getMessage().contains("scope changed before execution"));
+        assertFalse(mutationCalled.get());
+        assertEquals(original, Files.readString(tempDir.resolve("zolt.toml")));
+    }
+
     private static void writeProject(Path directory, String name) throws IOException {
         Files.writeString(directory.resolve("zolt.toml"), """
                 [project]
@@ -266,7 +320,7 @@ final class ManifestEditTransactionRecoveryTest {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         CountDownLatch submitted = new CountDownLatch(1);
         CountDownLatch mutationEntered = new CountDownLatch(1);
-        Future<ManifestEditTransaction.Result> edit;
+        Future<ManifestEditResult> edit;
         try {
             try (WorkspaceMutationLock ignored = WorkspaceMutationLock.acquire(lockRoot)) {
                 edit = executor.submit(() -> {

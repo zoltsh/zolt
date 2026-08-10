@@ -100,7 +100,7 @@ public final class PlatformCommand implements Runnable {
                 Coordinate parsed = coordinateParser.parse(coordinate);
                 String platform = parsed.groupId() + ":" + parsed.artifactId();
                 Path projectRoot = projectDirectory.path();
-                ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                ManifestEditResult edit = ManifestEditTransaction.execute(
                         projectRoot,
                         cacheRoot,
                         noResolve,
@@ -276,7 +276,7 @@ public final class PlatformCommand implements Runnable {
                 String platform = parsed.groupId() + ":" + parsed.artifactId();
                 Path projectRoot = projectDirectory.path();
                 CommandHumanOutput output = CommandHumanOutput.of(spec);
-                ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                ManifestEditResult edit = ManifestEditTransaction.execute(
                         projectRoot,
                         cacheRoot,
                         false,

@@ -91,7 +91,7 @@ public final class AddCommand implements Runnable {
         try {
             AddRequest request = parseRequest(arguments);
             Path projectRoot = projectDirectory.path();
-            ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+            ManifestEditResult edit = ManifestEditTransaction.execute(
                     projectRoot,
                     cacheRoot,
                     noResolve,

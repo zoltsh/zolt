@@ -83,7 +83,7 @@ public final class RemoveCommand implements Runnable {
             Path projectRoot = projectDirectory.path();
             String section = DependencyEditCommands.sectionName(request.section());
             CommandHumanOutput output = CommandHumanOutput.of(spec);
-            ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+            ManifestEditResult edit = ManifestEditTransaction.execute(
                     projectRoot,
                     cacheRoot,
                     false,

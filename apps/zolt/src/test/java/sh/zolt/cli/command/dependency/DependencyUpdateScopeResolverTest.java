@@ -30,6 +30,23 @@ final class DependencyUpdateScopeResolverTest {
     }
 
     @Test
+    void retainedEmptyWorkspaceDomainRemainsStandalone() throws IOException {
+        Path project = writeProject(tempDir.resolve("retained"), "retained");
+        Files.writeString(project.resolve("zolt.toml"), Files.readString(project.resolve("zolt.toml")) + """
+
+                [workspace]
+                name = "retained"
+                members = []
+                """);
+
+        OutdatedScope report = resolver.reportScopes(project, 2).getFirst();
+        ResolvedUpdateScope catalog = resolver.catalogScopes(project, project).getFirst();
+
+        assertEquals("zolt.toml", report.manifestPath());
+        assertEquals(project.toAbsolutePath().normalize(), catalog.projectDirectory());
+    }
+
+    @Test
     void workspaceRootReportsEveryMemberWithOneRootLock() throws IOException {
         Path root = writeWorkspace("zolt.toml", List.of("apps/api", "modules/core"));
         writeProject(root.resolve("apps/api"), "api");
@@ -101,6 +118,34 @@ final class DependencyUpdateScopeResolverTest {
 
         assertThrows(ZoltConfigException.class, () -> resolver.reportScopes(undeclared, 2));
         assertEquals(1, resolver.reportScopes(undeclared, 1).size());
+    }
+
+    @Test
+    void catalogAllUsesTheConfirmedStandaloneMutationRoot() throws IOException {
+        Path project = writeProject(tempDir.resolve("standalone"), "standalone");
+
+        ResolvedUpdateScope scope = resolver.catalogScopes(project, project).getFirst();
+
+        assertEquals(project.toAbsolutePath().normalize(), scope.mutationRoot());
+        assertEquals(project.toAbsolutePath().normalize(), scope.projectDirectory());
+        assertEquals(project.resolve("zolt.toml").toAbsolutePath().normalize(), scope.absoluteManifestPath());
+        assertEquals(project.resolve("zolt.lock").toAbsolutePath().normalize(), scope.absoluteLockfilePath());
+    }
+
+    @Test
+    void catalogAllFromOneMemberIncludesEveryWorkspaceMember() throws IOException {
+        Path root = writeWorkspace("zolt.toml", List.of("apps/api", "modules/core"));
+        Path api = writeProject(root.resolve("apps/api"), "api");
+        writeProject(root.resolve("modules/core"), "core");
+
+        List<ResolvedUpdateScope> scopes = resolver.catalogScopes(api, root);
+
+        assertEquals(List.of("apps/api", "modules/core"),
+                scopes.stream().map(ResolvedUpdateScope::label).toList());
+        assertEquals(List.of("apps/api/zolt.toml", "modules/core/zolt.toml"),
+                scopes.stream().map(ResolvedUpdateScope::manifestPath).toList());
+        assertEquals(List.of(root.toAbsolutePath().normalize(), root.toAbsolutePath().normalize()),
+                scopes.stream().map(ResolvedUpdateScope::mutationRoot).toList());
     }
 
     private Path writeWorkspace(String filename, List<String> members) throws IOException {

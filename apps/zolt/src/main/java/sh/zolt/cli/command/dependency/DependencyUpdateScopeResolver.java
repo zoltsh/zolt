@@ -4,6 +4,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.update.OutdatedScope;
 import sh.zolt.update.OutdatedScopes;
+import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -32,6 +33,34 @@ final class DependencyUpdateScopeResolver {
         return schemaVersion == 2 ? automationScopes(start) : legacyScopes(start);
     }
 
+    List<ResolvedUpdateScope> catalogScopes(Path start, Path confirmedMutationRoot) {
+        Path mutationRoot = confirmedMutationRoot.toAbsolutePath().normalize();
+        Optional<Workspace> discovered = discoverCatalogWorkspace(start, mutationRoot);
+        if (discovered.isEmpty()) {
+            Path project = start.toAbsolutePath().normalize();
+            if (!project.equals(mutationRoot)) {
+                throw changedScope();
+            }
+            OutdatedScope scope = scopes.fromDirectory(labelFor(project), project);
+            return List.of(new ResolvedUpdateScope(
+                    mutationRoot,
+                    project,
+                    scope.label(),
+                    "zolt.toml",
+                    "zolt.lock",
+                    scope.config(),
+                    scope.lockfile()));
+        }
+        Workspace workspace = discovered.orElseThrow();
+        if (!workspace.root().toAbsolutePath().normalize().equals(mutationRoot)) {
+            throw changedScope();
+        }
+        Optional<ZoltLockfile> lockfile = rootLockfile(workspace);
+        return workspace.members().stream()
+                .map(member -> resolvedMemberScope(workspace, member, lockfile))
+                .toList();
+    }
+
     private List<OutdatedScope> legacyScopes(Path start) {
         Optional<Workspace> workspace = workspaceDiscovery.discover(start);
         if (workspace.isPresent() && sameDirectory(start, workspace.orElseThrow().root())) {
@@ -44,7 +73,7 @@ final class DependencyUpdateScopeResolver {
     }
 
     private List<OutdatedScope> automationScopes(Path start) {
-        Optional<Workspace> discovered = workspaceDiscovery.discover(start);
+        Optional<Workspace> discovered = discoverAutomationWorkspace(start);
         if (discovered.isEmpty()) {
             return List.of(scopes.fromDirectory(labelFor(start), start));
         }
@@ -79,8 +108,47 @@ final class DependencyUpdateScopeResolver {
                 member.path(), manifestPath, "zolt.lock", member.config(), lockfile);
     }
 
+    private ResolvedUpdateScope resolvedMemberScope(
+            Workspace workspace,
+            WorkspaceMember member,
+            Optional<ZoltLockfile> lockfile) {
+        String manifestPath = CanonicalUpdatePath.relative(
+                workspace.root(), member.directory().resolve("zolt.toml"));
+        return new ResolvedUpdateScope(
+                workspace.root(),
+                member.directory(),
+                member.path(),
+                manifestPath,
+                "zolt.lock",
+                member.config(),
+                lockfile);
+    }
+
     private Optional<ZoltLockfile> rootLockfile(Workspace workspace) {
         return scopes.readLockfile(workspace.root().resolve("zolt.lock"));
+    }
+
+    private Optional<Workspace> discoverCatalogWorkspace(Path start, Path mutationRoot) {
+        try {
+            return workspaceDiscovery.discover(start);
+        } catch (WorkspaceConfigException exception) {
+            if (start.toAbsolutePath().normalize().equals(mutationRoot)) {
+                return Optional.empty();
+            }
+            throw exception;
+        }
+    }
+
+    private Optional<Workspace> discoverAutomationWorkspace(Path start) {
+        try {
+            return workspaceDiscovery.discover(start);
+        } catch (WorkspaceConfigException exception) {
+            Optional<Path> root = workspaceDiscovery.discoverRoot(start);
+            if (root.isEmpty() || sameDirectory(start, root.orElseThrow())) {
+                return Optional.empty();
+            }
+            throw exception;
+        }
     }
 
     private static boolean sameDirectory(Path left, Path right) {
@@ -91,5 +159,10 @@ final class DependencyUpdateScopeResolver {
         Path normalized = start.toAbsolutePath().normalize();
         Path name = normalized.getFileName();
         return name == null ? normalized.toString() : name.toString();
+    }
+
+    private static ZoltConfigException changedScope() {
+        return new ZoltConfigException(
+                "Dependency update scope changed while acquiring its mutation lock. Retry the command.");
     }
 }

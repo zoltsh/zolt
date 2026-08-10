@@ -91,7 +91,7 @@ public final class VersionCommand implements Runnable {
                 String normalizedAlias = VersionAliasCommands.validateAlias(alias);
                 String normalizedVersion = VersionAliasCommands.validateValue(normalizedAlias, version);
                 Path projectRoot = projectDirectory.path();
-                ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                ManifestEditResult edit = ManifestEditTransaction.execute(
                         projectRoot,
                         cacheRoot,
                         noResolve,
@@ -179,7 +179,7 @@ public final class VersionCommand implements Runnable {
             try {
                 String normalizedAlias = VersionAliasCommands.validateAlias(alias);
                 Path projectRoot = projectDirectory.path();
-                ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
+                ManifestEditResult edit = ManifestEditTransaction.execute(
                         projectRoot,
                         cacheRoot,
                         noResolve,
