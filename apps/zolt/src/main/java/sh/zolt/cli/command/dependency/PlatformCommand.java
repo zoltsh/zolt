@@ -124,7 +124,9 @@ public final class PlatformCommand implements Runnable {
                     output.detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
                     return;
                 }
-                CommandResolveOutput.print(spec, edit.resolveResult());
+                if (edit.resolveResult() != null) {
+                    CommandResolveOutput.print(spec, edit.resolveResult());
+                }
             } catch (PlatformCommandException
                     | ArtifactCacheException
                     | CoordinateParseException
@@ -273,12 +275,7 @@ public final class PlatformCommand implements Runnable {
                 }
                 String platform = parsed.groupId() + ":" + parsed.artifactId();
                 Path projectRoot = projectDirectory.path();
-                ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
                 CommandHumanOutput output = CommandHumanOutput.of(spec);
-                if (!config.platforms().containsKey(platform)) {
-                    output.detail("Platform " + platform + " is not present in [platforms]; nothing to remove.");
-                    return;
-                }
                 ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
                         projectRoot,
                         cacheRoot,
@@ -288,11 +285,14 @@ public final class PlatformCommand implements Runnable {
                         resolveService,
                         current -> {
                             if (!current.platforms().containsKey(platform)) {
-                                throw new PlatformCommandException(
-                                        "zolt.toml changed before the platform could be removed. Retry the command against the current manifest.");
+                                return current;
                             }
                             return tomlWriter.removePlatform(current, platform);
                         });
+                if (!edit.changed()) {
+                    output.detail("Platform " + platform + " is not present in [platforms]; nothing to remove.");
+                    return;
+                }
                 output.summary("Removed platform " + platform + " from [platforms]");
                 CommandResolveOutput.print(spec, edit.resolveResult());
             } catch (PlatformCommandException

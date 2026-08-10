@@ -159,4 +159,33 @@ final class VersionCommandSetTest {
         assertTrue(result.stdout().contains("Resolved 0 packages"));
         assertTrue(Files.exists(projectDir.resolve("zolt.lock")));
     }
+
+    @Test
+    void settingAnAlreadyCurrentAliasIsASuccessfulNoOp() throws IOException {
+        Path projectDir = tempDir.resolve("version-alias-current");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "version-alias-current"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [versions]
+                guava = "33.4.8-jre"
+                """);
+        String original = Files.readString(projectDir.resolve("zolt.toml"));
+
+        CommandResult result = execute(
+                "version",
+                "set",
+                "--cwd", projectDir.toString(),
+                "guava",
+                "33.4.8-jre");
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("already equals 33.4.8-jre"));
+        assertEquals(original, Files.readString(projectDir.resolve("zolt.toml")));
+        assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
+    }
 }

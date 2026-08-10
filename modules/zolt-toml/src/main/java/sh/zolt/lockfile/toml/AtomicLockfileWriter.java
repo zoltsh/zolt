@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.UnaryOperator;
@@ -58,6 +59,52 @@ public final class AtomicLockfileWriter {
         return mutate(target, mutation, false);
     }
 
+    /** Captures both lockfile presence and exact UTF-8 content for a later compare-and-set. */
+    public static FileSnapshot capture(Path target) throws IOException {
+        return captureUnlocked(target.toAbsolutePath().normalize());
+    }
+
+    /**
+     * Checks and replaces one lockfile while holding the same thread and process mutation locks.
+     * The companion commit runs only after the expected snapshot matches and before replacement.
+     */
+    public static void compareAndSetAtomically(
+            Path target,
+            FileSnapshot expected,
+            FileSnapshot replacement,
+            LockedCommit companionCommit) throws IOException {
+        Objects.requireNonNull(expected, "expected");
+        Objects.requireNonNull(replacement, "replacement");
+        Objects.requireNonNull(companionCommit, "companionCommit");
+        Path normalized = target.toAbsolutePath().normalize();
+        ReentrantLock targetLock = TARGET_LOCKS.computeIfAbsent(normalized, ignored -> new ReentrantLock());
+        targetLock.lock();
+        try {
+            Path parent = requireParent(normalized);
+            Files.createDirectories(parent);
+            Path mutationLock = mutationLock(parent, normalized);
+            Files.createDirectories(mutationLock.getParent());
+            try (FileChannel channel = FileChannel.open(
+                    mutationLock,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.WRITE);
+                    FileLock ignored = channel.lock()) {
+                FileSnapshot current = captureUnlocked(normalized);
+                if (!current.equals(expected)) {
+                    throw new ConcurrentWriteException(normalized);
+                }
+                companionCommit.run();
+                if (replacement.exists()) {
+                    writeLocked(normalized, replacement.content(), true);
+                } else {
+                    Files.deleteIfExists(normalized);
+                }
+            }
+        } finally {
+            targetLock.unlock();
+        }
+    }
+
     private static String mutate(
             Path target,
             UnaryOperator<String> mutation,
@@ -67,14 +114,9 @@ public final class AtomicLockfileWriter {
                 TARGET_LOCKS.computeIfAbsent(normalized, ignored -> new ReentrantLock());
         targetLock.lock();
         try {
-            Path parent = normalized.getParent();
-            if (parent == null) {
-                throw new IOException("Lockfile path has no parent: " + normalized);
-            }
+            Path parent = requireParent(normalized);
             Files.createDirectories(parent);
-            Path mutationLock = parent.resolve(".zolt")
-                    .resolve("lockfile-mutations")
-                    .resolve(normalized.getFileName() + ".lock");
+            Path mutationLock = mutationLock(parent, normalized);
             Files.createDirectories(mutationLock.getParent());
             try (FileChannel channel = FileChannel.open(
                     mutationLock,
@@ -95,10 +137,7 @@ public final class AtomicLockfileWriter {
 
     private static void writeLocked(Path normalized, String content, boolean requireAtomicMove)
             throws IOException {
-        Path parent = normalized.getParent();
-        if (parent == null) {
-            throw new IOException("Lockfile path has no parent: " + normalized);
-        }
+        Path parent = requireParent(normalized);
         Files.createDirectories(parent);
         Path temporary = Files.createTempFile(
                 parent,
@@ -154,6 +193,60 @@ public final class AtomicLockfileWriter {
             throw new IOException(
                     "Interrupted while replacing lockfile " + target + ".",
                     exception);
+        }
+    }
+
+    private static FileSnapshot captureUnlocked(Path normalized) throws IOException {
+        if (!Files.exists(normalized)) {
+            return FileSnapshot.absent();
+        }
+        if (!Files.isRegularFile(normalized)) {
+            throw new IOException("Lockfile path is not a regular file: " + normalized);
+        }
+        return FileSnapshot.present(Files.readString(normalized, StandardCharsets.UTF_8));
+    }
+
+    private static Path requireParent(Path normalized) throws IOException {
+        Path parent = normalized.getParent();
+        if (parent == null) {
+            throw new IOException("Lockfile path has no parent: " + normalized);
+        }
+        return parent;
+    }
+
+    private static Path mutationLock(Path parent, Path normalized) {
+        return parent.resolve(".zolt")
+                .resolve("lockfile-mutations")
+                .resolve(normalized.getFileName() + ".lock");
+    }
+
+    public record FileSnapshot(boolean exists, String content) {
+        public FileSnapshot {
+            if (exists && content == null) {
+                throw new IllegalArgumentException("Present file snapshots require content.");
+            }
+            if (!exists && content != null) {
+                throw new IllegalArgumentException("Absent file snapshots cannot carry content.");
+            }
+        }
+
+        public static FileSnapshot present(String content) {
+            return new FileSnapshot(true, content);
+        }
+
+        public static FileSnapshot absent() {
+            return new FileSnapshot(false, null);
+        }
+    }
+
+    @FunctionalInterface
+    public interface LockedCommit {
+        void run() throws IOException;
+    }
+
+    public static final class ConcurrentWriteException extends IOException {
+        public ConcurrentWriteException(Path target) {
+            super("Lockfile changed before it could be committed: " + target);
         }
     }
 }

@@ -155,6 +155,7 @@ public final class GlobalToolchainCommand implements Runnable {
         @Override
         public Integer call() {
             try {
+                validateFormatOptions();
                 JavaToolchainRequest request = globalRequest(parser.read(configPath));
                 JavaToolchainStatus status = statusService.status(
                         request,
@@ -174,7 +175,7 @@ public final class GlobalToolchainCommand implements Runnable {
                 }
                 return 0;
             } catch (ActionableException | UserGlobalConfigException exception) {
-                throw CommandFailures.user(spec, exception);
+                throw CommandFailures.userWithCommandId(spec, machineCommandId(), exception);
             }
         }
 
@@ -182,7 +183,7 @@ public final class GlobalToolchainCommand implements Runnable {
             if (jsonOutput()) {
                 CommandOutput.printAndFlush(
                         spec,
-                        ToolchainStatusJsonFormatter.json("toolchain global status", status));
+                        ToolchainStatusJsonFormatter.json(machineCommandId(), status));
             } else {
                 ToolchainStatusOutput.print(spec, status);
             }
@@ -190,6 +191,18 @@ public final class GlobalToolchainCommand implements Runnable {
 
         private boolean jsonOutput() {
             return json || format == Format.JSON;
+        }
+
+        private void validateFormatOptions() {
+            if (json && spec.commandLine().getParseResult().hasMatchedOption("--format")) {
+                throw new ActionableException(
+                        "--json and --format cannot be used together.",
+                        "Use --json or --format json, but not both.");
+            }
+        }
+
+        private static String machineCommandId() {
+            return "toolchain global status";
         }
     }
 

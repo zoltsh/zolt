@@ -15,7 +15,6 @@ import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.CoordinateParseException;
 import sh.zolt.maven.CoordinateParser;
 import sh.zolt.project.DependencySection;
-import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltConfigException;
@@ -82,14 +81,8 @@ public final class RemoveCommand implements Runnable {
         try {
             RemoveRequest request = parseRequest(arguments);
             Path projectRoot = projectDirectory.path();
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
             String section = DependencyEditCommands.sectionName(request.section());
             CommandHumanOutput output = CommandHumanOutput.of(spec);
-            if (!DependencyEditCommands.hasDependency(config, request.section(), request.coordinate())) {
-                output.detail("Dependency " + request.coordinate()
-                        + " is not present in [" + section + "]; nothing to remove.");
-                return;
-            }
             ManifestEditTransaction.Result edit = ManifestEditTransaction.execute(
                     projectRoot,
                     cacheRoot,
@@ -102,14 +95,18 @@ public final class RemoveCommand implements Runnable {
                                 current,
                                 request.section(),
                                 request.coordinate())) {
-                            throw new RemoveCommandException(
-                                    "zolt.toml changed before the dependency could be removed. Retry the command against the current manifest.");
+                            return current;
                         }
                         return tomlWriter.removeDependency(
                                 current,
                                 request.section(),
                                 request.coordinate());
                     });
+            if (!edit.changed()) {
+                output.detail("Dependency " + request.coordinate()
+                        + " is not present in [" + section + "]; nothing to remove.");
+                return;
+            }
             output.summary("Removed dependency " + request.coordinate() + " from [" + section + "]");
             CommandResolveOutput.print(spec, edit.resolveResult());
         } catch (RemoveCommandException

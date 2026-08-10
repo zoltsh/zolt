@@ -5,6 +5,7 @@ import sh.zolt.cli.CliTestRepository;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
@@ -43,6 +44,133 @@ final class AddCommandTest {
             assertTrue(result.stdout().contains("Resolved 1 packages"));
             assertTrue(result.stdout().contains("2 downloaded"));
             assertTrue(Files.exists(projectDir.resolve("zolt.lock")));
+        }
+    }
+
+    @Test
+    void memberAddUpdatesRootLockAndNeverCreatesMemberLock() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            repository.addArtifact("com.example", "app", "1.0.0", """
+                    <project>
+                      <groupId>com.example</groupId>
+                      <artifactId>app</artifactId>
+                      <version>1.0.0</version>
+                    </project>
+                    """);
+            Path workspace = tempDir.resolve("workspace");
+            Path member = workspace.resolve("apps/api");
+            Files.createDirectories(member);
+            Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+                    [workspace]
+                    name = "workspace"
+                    members = ["apps/api"]
+                    """);
+            writeProjectConfig(member, repository.baseUri().toString());
+            Path cache = tempDir.resolve("workspace-cache");
+            CommandResult initialResolve = execute(
+                    "resolve", "--workspace", "--cwd", member.toString(), "--cache-root", cache.toString());
+            assertEquals(0, initialResolve.exitCode(), initialResolve.stderr());
+            String originalRootLock = Files.readString(workspace.resolve("zolt.lock"));
+
+            CommandResult result = execute(
+                    "add",
+                    "--cwd", member.toString(),
+                    "--cache-root", cache.toString(),
+                    "com.example:app:1.0.0");
+
+            assertEquals(0, result.exitCode(), result.stderr());
+            String updatedRootLock = Files.readString(workspace.resolve("zolt.lock"));
+            assertFalse(originalRootLock.equals(updatedRootLock));
+            assertTrue(updatedRootLock.contains("com.example:app"), updatedRootLock);
+            assertFalse(Files.exists(member.resolve("zolt.lock")));
+        }
+    }
+
+    @Test
+    void failedMemberRemoveRestoresMemberManifestAndRootLock() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            repository.addArtifact("com.example", "old", "1.0.0", pom("old", "1.0.0"));
+            Path workspace = tempDir.resolve("remove-workspace");
+            Path member = workspace.resolve("apps/api");
+            Files.createDirectories(member);
+            Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+                    [workspace]
+                    name = "workspace"
+                    members = ["apps/api"]
+                    """);
+            writeProjectConfig(
+                    member,
+                    repository.baseUri().toString(),
+                    Map.of("com.example:old", "1.0.0"));
+            Path cache = tempDir.resolve("remove-workspace-cache");
+            CommandResult initialResolve = execute(
+                    "resolve", "--workspace", "--cwd", member.toString(), "--cache-root", cache.toString());
+            assertEquals(0, initialResolve.exitCode(), initialResolve.stderr());
+            Path manifest = member.resolve("zolt.toml");
+            String withMissingDependency = Files.readString(manifest).replace(
+                    "[dependencies]\n",
+                    "[dependencies]\n\"com.example:missing\" = \"1.0.0\"\n");
+            Files.writeString(manifest, withMissingDependency);
+            String originalRootLock = Files.readString(workspace.resolve("zolt.lock"));
+
+            CommandResult result = execute(
+                    "remove",
+                    "--cwd", member.toString(),
+                    "--cache-root", cache.toString(),
+                    "com.example:old");
+
+            assertEquals(1, result.exitCode());
+            assertEquals(withMissingDependency, Files.readString(manifest));
+            assertEquals(originalRootLock, Files.readString(workspace.resolve("zolt.lock")));
+            assertFalse(Files.exists(member.resolve("zolt.lock")));
+            assertFalse(Files.exists(workspace.resolve(".zolt/manifest-edits/YXBwcy9hcGk")));
+        }
+    }
+
+    @Test
+    void memberUpdateUsesWholeWorkspaceResolution() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            repository.addArtifact("com.example", "library", "1.0.0", pom("library", "1.0.0"));
+            repository.addArtifact("com.example", "library", "1.1.0", pom("library", "1.1.0"));
+            repository.addMetadata("com.example", "library", """
+                    <metadata>
+                      <groupId>com.example</groupId>
+                      <artifactId>library</artifactId>
+                      <versioning>
+                        <latest>1.1.0</latest>
+                        <release>1.1.0</release>
+                        <versions><version>1.0.0</version><version>1.1.0</version></versions>
+                        <lastUpdated>20260809000000</lastUpdated>
+                      </versioning>
+                    </metadata>
+                    """);
+            Path workspace = tempDir.resolve("update-workspace");
+            Path member = workspace.resolve("apps/api");
+            Files.createDirectories(member);
+            Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+                    [workspace]
+                    name = "workspace"
+                    members = ["apps/api"]
+                    """);
+            writeProjectConfig(
+                    member,
+                    repository.baseUri().toString(),
+                    Map.of("com.example:library", "1.0.0"));
+            Path cache = tempDir.resolve("update-workspace-cache");
+            CommandResult initialResolve = execute(
+                    "resolve", "--workspace", "--cwd", member.toString(), "--cache-root", cache.toString());
+            assertEquals(0, initialResolve.exitCode(), initialResolve.stderr());
+
+            CommandResult result = execute(
+                    "update",
+                    "--cwd", member.toString(),
+                    "--cache-root", cache.toString());
+
+            assertEquals(0, result.exitCode(), result.stderr());
+            assertTrue(Files.readString(member.resolve("zolt.toml"))
+                    .contains("\"com.example:library\" = \"1.1.0\""));
+            assertTrue(Files.readString(workspace.resolve("zolt.lock")).contains("version = \"1.1.0\""));
+            assertFalse(Files.exists(member.resolve("zolt.lock")));
         }
     }
 
@@ -95,5 +223,16 @@ final class AddCommandTest {
             index = value.indexOf(needle, index + needle.length());
         }
         return count;
+    }
+
+    private static String pom(String artifact, String version) {
+        return """
+                <project>
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>%s</artifactId>
+                  <version>%s</version>
+                </project>
+                """.formatted(artifact, version);
     }
 }

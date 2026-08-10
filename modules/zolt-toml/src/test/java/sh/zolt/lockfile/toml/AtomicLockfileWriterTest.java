@@ -3,6 +3,7 @@ package sh.zolt.lockfile.toml;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
@@ -90,6 +91,43 @@ final class AtomicLockfileWriterTest {
 
         assertEquals("version = 5\n# coverage tooling\n", committed);
         assertEquals(committed, Files.readString(lockfile));
+    }
+
+    @Test
+    void compareAndSetChecksAndReplacesWhileHoldingOneMutationLock() throws Exception {
+        Path lockfile = tempDir.resolve("zolt.lock");
+        Files.writeString(lockfile, "version = 5\n# original\n");
+        AtomicLockfileWriter.FileSnapshot original = AtomicLockfileWriter.capture(lockfile);
+        AtomicLockfileWriter.write(lockfile, "version = 5\n# concurrent resolve\n");
+
+        assertThrows(
+                AtomicLockfileWriter.ConcurrentWriteException.class,
+                () -> AtomicLockfileWriter.compareAndSetAtomically(
+                        lockfile,
+                        original,
+                        AtomicLockfileWriter.FileSnapshot.present("version = 5\n# transaction\n"),
+                        () -> {
+                            throw new AssertionError("commit callback must not run after a failed comparison");
+                        }));
+
+        assertEquals("version = 5\n# concurrent resolve\n", Files.readString(lockfile));
+    }
+
+    @Test
+    void compareAndSetCanCommitACompanionFileBeforeReplacingTheLockfile() throws Exception {
+        Path manifest = tempDir.resolve("zolt.toml");
+        Path lockfile = tempDir.resolve("zolt.lock");
+        Files.writeString(manifest, "manifest = \"original\"\n");
+        Files.writeString(lockfile, "lock = \"original\"\n");
+
+        AtomicLockfileWriter.compareAndSetAtomically(
+                lockfile,
+                AtomicLockfileWriter.capture(lockfile),
+                AtomicLockfileWriter.FileSnapshot.present("lock = \"edited\"\n"),
+                () -> Files.writeString(manifest, "manifest = \"edited\"\n"));
+
+        assertEquals("manifest = \"edited\"\n", Files.readString(manifest));
+        assertEquals("lock = \"edited\"\n", Files.readString(lockfile));
     }
 
     private static Thread writer(

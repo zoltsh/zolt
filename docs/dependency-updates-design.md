@@ -88,7 +88,7 @@ Deterministic ordering (aliases first, then group:artifact sort).
 Default = latest STABLE within current MAJOR. `--latest` allows majors;
 `--patch|--minor|--major` set the ceiling; `--include-prereleases` widens
 (never SNAPSHOT); selectors scope. `--dry-run` prints a SEMANTIC edit list
-(the TOML writer re-serializes whole files, so text diffs are noise) with
+(the source-preserving TOML writer patches only modeled declarations) with
 from → to, class, and fan-out counts; `--format json` emits edits[]/skipped[].
 Apply path uses ONLY existing mutation machinery: aliases via
 withVersionAliases (the primary lever; ALWAYS warn with the full fan-out list

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.lockfile.toml.AtomicLockfileWriter;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.toml.ZoltTomlWriter;
@@ -13,6 +14,7 @@ import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,11 +28,11 @@ final class ManifestEditTransactionRecoveryTest {
     private Path tempDir;
 
     @Test
-    void interruptedCommitRestoresBothBackups() throws IOException {
+    void manifestOnlyCommitRestoresTheOriginalManifest() throws IOException {
         Path transaction = transactionDirectory();
         Files.createDirectories(transaction);
         Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"partial\"\n");
-        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"partial\"\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"original\"\n");
         Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
         Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"partial\"\n");
         Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
@@ -59,6 +61,25 @@ final class ManifestEditTransactionRecoveryTest {
 
         assertEquals("manifest = \"committed\"\n", Files.readString(tempDir.resolve("zolt.toml")));
         assertEquals("lock = \"committed\"\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertFalse(Files.exists(transaction));
+    }
+
+    @Test
+    void fullyStagedFilesArePromotedInsteadOfRolledBack() throws IOException {
+        Path transaction = transactionDirectory();
+        Files.createDirectories(transaction);
+        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"edited\"\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"edited\"\n");
+        Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
+        Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"edited\"\n");
+        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
+        Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"edited\"\n");
+        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
+
+        ManifestEditTransaction.recover(transaction, tempDir);
+
+        assertEquals("manifest = \"edited\"\n", Files.readString(tempDir.resolve("zolt.toml")));
+        assertEquals("lock = \"edited\"\n", Files.readString(tempDir.resolve("zolt.lock")));
         assertFalse(Files.exists(transaction));
     }
 
@@ -118,11 +139,10 @@ final class ManifestEditTransactionRecoveryTest {
     }
 
     @Test
-    void interruptedFirstLockfileCommitRestoresManifestAndRemovesNewLockfile() throws IOException {
+    void interruptedBeforeFirstLockfileCommitRestoresManifestAndKeepsLockfileAbsent() throws IOException {
         Path transaction = transactionDirectory();
         Files.createDirectories(transaction);
         Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"edited\"\n");
-        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"new\"\n");
         Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
         Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"edited\"\n");
         Files.writeString(transaction.resolve("zolt.lock.absent"), "absent\n");
@@ -195,6 +215,41 @@ final class ManifestEditTransactionRecoveryTest {
         writeProject(member, "member");
 
         assertEditWaitsForLock(tempDir, member);
+    }
+
+    @Test
+    void transactionCannotOverwriteConcurrentResolve() throws Exception {
+        writeProject(tempDir, "concurrent");
+        String originalManifest = Files.readString(tempDir.resolve("zolt.toml"));
+        Path lockfile = tempDir.resolve("zolt.lock");
+        String concurrentLock = "lock = \"concurrent resolve\"\n";
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> ManifestEditTransaction.execute(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        false,
+                        new ZoltTomlParser(),
+                        new ZoltTomlWriter(),
+                        new sh.zolt.resolve.ResolveService(),
+                        config -> {
+                            var aliases = new LinkedHashMap<>(config.versionAliases());
+                            aliases.put("added", "1.0.0");
+                            return config.withVersionAliases(aliases);
+                        },
+                        () -> {
+                            try {
+                                AtomicLockfileWriter.write(lockfile, concurrentLock);
+                            } catch (IOException exception) {
+                                throw new AssertionError(exception);
+                            }
+                        }));
+
+        assertTrue(failure.getMessage().contains("zolt.lock changed while dependency resolution was in progress"));
+        assertEquals(originalManifest, Files.readString(tempDir.resolve("zolt.toml")));
+        assertEquals(concurrentLock, Files.readString(lockfile));
+        assertFalse(Files.exists(transactionDirectory()));
     }
 
     private static void writeProject(Path directory, String name) throws IOException {

@@ -62,11 +62,12 @@ final class LocalArtifactCacheConcurrencyTest {
 
     @Test
     void manyConcurrentDuplicateJarFetchesDownloadOnce() throws Exception {
-        LocalArtifactCache cache = new LocalArtifactCache(tempDir, new DownloadCoordinator(4));
+        CountDownLatch duplicateJoined = new CountDownLatch(11);
+        LocalArtifactCache cache = new LocalArtifactCache(
+                tempDir,
+                new DownloadCoordinator(4, RepositoryExecutionLane.DEFAULT, duplicateJoined::countDown));
         Coordinate coordinate = parser.parse("com.google.guava:guava:33.4.0-jre");
         AtomicInteger fetchCount = new AtomicInteger();
-        CountDownLatch firstStarted = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
         byte[] jarBytes = new byte[] {0x50, 0x4b, 0x03, 0x04};
 
         try (ExecutorService executor = Executors.newFixedThreadPool(12)) {
@@ -74,8 +75,7 @@ final class LocalArtifactCacheConcurrencyTest {
             for (int index = 0; index < 12; index++) {
                 futures.add(executor.submit(() -> cache.getOrFetchJar(coordinate, requested -> {
                     fetchCount.incrementAndGet();
-                    firstStarted.countDown();
-                    await(release);
+                    await(duplicateJoined);
                     return new RepositoryArtifact(
                             requested,
                             "com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.jar",
@@ -83,8 +83,6 @@ final class LocalArtifactCacheConcurrencyTest {
                             jarBytes);
                 })));
             }
-            assertTrue(firstStarted.await(2, TimeUnit.SECONDS));
-            release.countDown();
             for (Future<CachedArtifact> future : futures) {
                 assertArrayEquals(jarBytes, future.get().bytes());
             }

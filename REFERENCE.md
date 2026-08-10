@@ -473,9 +473,7 @@ spring = "4.0.6"
 "org.springframework.boot:spring-boot-dependencies" = { versionRef = "spring" }
 
 [dependencies]
-"org.springframework.boot:spring-boot-starter-webmvc" = { exclusions = [
-  { group = "org.apache.tomcat.embed", artifact = "tomcat-embed-core" }
-] }
+"org.springframework.boot:spring-boot-starter-webmvc" = { exclusions = [{ group = "org.apache.tomcat.embed", artifact = "tomcat-embed-core" }] }
 # classifier and type select a specific published artifact for a coordinate and
 # are independent; both work in every dependency scope, with or without a
 # version or platform-managed version.
@@ -537,9 +535,12 @@ ambient or historically shaped:
   cannot silently misread variant-, scope-, member-, or optional-qualified graphs. Newer
   lockfile versions require a newer Zolt before `zolt resolve --locked` can
   verify them.
-- `zolt add`, `zolt remove`, and `zolt platform` rewrite `zolt.toml`. They
-  warn before rewriting a file that contains comments because comments and
-  custom formatting may be removed.
+- Manifest mutation commands preserve unrelated comments, formatting, and
+  configuration byte-for-byte and fail closed if the source changes during an
+  edit. Editable dependency, platform, and constraint declarations must use a
+  scalar or inline table on one physical line. Long-form subtables and multiline
+  values remain readable by Zolt, but mutation commands reject them with the exact
+  canonical one-line declaration to use before retrying.
 - `[publish]` is active project configuration for `zolt publish --dry-run`
   and uploads, and can reference `[repositoryCredentials]` entries for
   authenticated repositories.

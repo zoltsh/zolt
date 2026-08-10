@@ -64,6 +64,15 @@ final class ZoltManifestPatcher {
             }
 
             TomlTable sourceTable = parsedSource.getTable(tablePath);
+            ManifestDependencyRepresentationGuard.requireEditable(
+                    parsedSource,
+                    lines,
+                    tablePath,
+                    sourceTable,
+                    key -> {
+                        CanonicalEntry entry = oldSection.entries().get(key);
+                        return entry == null ? null : entry.assignment();
+                    });
             List<CanonicalEntry> additions = new ArrayList<>();
             for (String key : changedKeys) {
                 CanonicalEntry desired = newSection.entries().get(key);

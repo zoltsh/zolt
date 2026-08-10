@@ -105,7 +105,9 @@ public final class AddCommand implements Runnable {
                 output.detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
                 return;
             }
-            CommandResolveOutput.print(spec, edit.resolveResult());
+            if (edit.resolveResult() != null) {
+                CommandResolveOutput.print(spec, edit.resolveResult());
+            }
         } catch (AddCommandException
                 | DependencySectionException
                 | ArtifactCacheException

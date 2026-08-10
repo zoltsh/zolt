@@ -113,10 +113,13 @@ public final class UpdateCommand implements Runnable {
     public void run() {
         try {
             Path projectRoot = projectDirectory.path();
-            Path configPath = projectRoot.resolve("zolt.toml");
-            ProjectConfig config = tomlParser.parse(configPath);
             UpdateOptions options = new UpdateOptions(ceiling(), includePrereleases, offline, selectors);
-            UpdatePlan plan = engine.plan(config, options);
+            PlannedUpdate planned = ManifestEditTransaction.inspect(
+                    projectRoot,
+                    tomlParser,
+                    config -> new PlannedUpdate(config, engine.plan(config, options)));
+            ProjectConfig config = planned.config();
+            UpdatePlan plan = planned.plan();
             if (format == Format.JSON) {
                 runJson(projectRoot, config, plan);
             } else {
@@ -147,7 +150,9 @@ public final class UpdateCommand implements Runnable {
             output.detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
             return;
         }
-        CommandResolveOutput.print(spec, edit.resolveResult());
+        if (edit.resolveResult() != null) {
+            CommandResolveOutput.print(spec, edit.resolveResult());
+        }
     }
 
     private void runJson(Path projectRoot, ProjectConfig plannedFrom, UpdatePlan plan) {
@@ -197,5 +202,8 @@ public final class UpdateCommand implements Runnable {
         RepositoryMetadataService discovery = new RepositoryMetadataService(
                 CommandNetwork.repositoryClient(), new MetadataCache(LocalArtifactCache.defaultRoot()));
         return new UpdateEngine(discovery);
+    }
+
+    private record PlannedUpdate(ProjectConfig config, UpdatePlan plan) {
     }
 }

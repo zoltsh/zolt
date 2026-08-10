@@ -31,6 +31,22 @@ public final class CommandFailures {
         return new PrintedUserException(spec.commandLine(), exception.getMessage());
     }
 
+    public static CommandLine.ExecutionException userWithCommandId(
+            CommandSpec spec,
+            String commandId,
+            Exception exception) {
+        Optional<ActionableError> carrier = actionableError(exception);
+        if (carrier.isPresent()) {
+            ActionableError error = carrier.orElseThrow();
+            render(spec, commandId, CommandErrorBlock.of(
+                    error.summary(),
+                    error.remediation()));
+        } else {
+            render(spec, commandId, CommandErrorBlock.from(exception.getMessage()));
+        }
+        return new PrintedUserException(spec.commandLine(), exception.getMessage());
+    }
+
     public static CommandLine.ExecutionException user(CommandSpec spec, ActionableError error) {
         printUser(spec, error);
         return new PrintedUserException(spec.commandLine(), error.message());
@@ -71,8 +87,12 @@ public final class CommandFailures {
     }
 
     private static void render(CommandSpec spec, CommandErrorBlock block) {
+        render(spec, commandName(spec), block);
+    }
+
+    private static void render(CommandSpec spec, String commandId, CommandErrorBlock block) {
         if (machineReadable(spec)) {
-            spec.commandLine().getOut().print(json(spec, block));
+            spec.commandLine().getOut().print(json(commandId, block));
             spec.commandLine().getOut().flush();
             return;
         }
@@ -104,11 +124,11 @@ public final class CommandFailures {
         return format != null && "json".equalsIgnoreCase(format.toString());
     }
 
-    private static String json(CommandSpec spec, CommandErrorBlock block) {
+    private static String json(String commandId, CommandErrorBlock block) {
         StringBuilder output = new StringBuilder();
         output.append("{\n")
                 .append("  \"schemaVersion\": 1,\n")
-                .append("  \"command\": ").append(quote(commandName(spec))).append(",\n")
+                .append("  \"command\": ").append(quote(commandId)).append(",\n")
                 .append("  \"status\": \"failed\",\n")
                 .append("  \"diagnostics\": [\n")
                 .append("    {\n")

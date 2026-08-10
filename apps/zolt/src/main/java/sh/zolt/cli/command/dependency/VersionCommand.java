@@ -109,7 +109,9 @@ public final class VersionCommand implements Runnable {
                     CommandHumanOutput.of(spec).detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
                     return;
                 }
-                CommandResolveOutput.print(spec, edit.resolveResult());
+                if (edit.resolveResult() != null) {
+                    CommandResolveOutput.print(spec, edit.resolveResult());
+                }
             } catch (ArtifactCacheException
                     | ResolveException
                     | VersionAliasCommandException

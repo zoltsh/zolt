@@ -129,4 +129,40 @@ final class ToolchainStatusExitCodeTest {
         assertEquals(result.stdout(), formatResult.stdout());
         assertEquals(result.stderr(), formatResult.stderr());
     }
+
+    @Test
+    void legacyGlobalStatusUsesOneJsonCommandIdOnSuccessAndFailure() {
+        Path missingConfig = tempDir.resolve("home/missing-config.toml");
+
+        var result = execute(
+                "toolchain",
+                "status",
+                "--global",
+                "--format",
+                "json",
+                "--config",
+                missingConfig.toString());
+
+        assertEquals(1, result.exitCode());
+        assertEquals("", result.stderr());
+        assertTrue(result.stdout().contains("\"command\": \"toolchain global status\""), result.stdout());
+    }
+
+    @Test
+    void contradictoryJsonAndTextFormatIsRejectedActionably() {
+        var result = execute(
+                "toolchain",
+                "status",
+                "--json",
+                "--format",
+                "text",
+                "--global",
+                "--config",
+                tempDir.resolve("home/config.toml").toString());
+
+        assertEquals(1, result.exitCode());
+        assertEquals("", result.stderr());
+        assertTrue(result.stdout().contains("\"command\": \"toolchain global status\""), result.stdout());
+        assertTrue(result.stdout().contains("--json and --format cannot be used together"), result.stdout());
+    }
 }

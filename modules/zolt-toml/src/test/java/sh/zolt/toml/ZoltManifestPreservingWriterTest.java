@@ -68,6 +68,125 @@ final class ZoltManifestPreservingWriterTest {
     }
 
     @Test
+    void longFormDependencySyntaxIsRejectedWithCanonicalRewriteGuidance() throws IOException {
+        String original = richManifest("""
+                [dependencies.\"com.example:lib\"]
+                version = "1.0.0"
+                optional = true
+                """);
+        Path manifest = write(original);
+        ZoltManifestDocument document = parser.parseDocument(manifest);
+        ProjectConfig updated = writer.addDependency(
+                document.config(),
+                DependencySection.MAIN,
+                "com.example:lib",
+                "1.1.0");
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> writer.writePreserving(manifest, document, updated));
+
+        assertTrue(failure.getMessage().contains("long-form dependency table"), failure.getMessage());
+        assertTrue(failure.getMessage().contains(
+                "\"com.example:lib\" = { version = \"1.0.0\", optional = true }"),
+                failure.getMessage());
+        assertEquals(original, Files.readString(manifest));
+    }
+
+    @Test
+    void removingLongFormDependencyIsRejectedWithoutChangingTheManifest() throws IOException {
+        String original = richManifest("""
+                [dependencies.\"com.example:lib\"]
+                version = "1.0.0"
+                optional = true
+                """);
+        Path manifest = write(original);
+        ZoltManifestDocument document = parser.parseDocument(manifest);
+        ProjectConfig updated = writer.removeDependency(
+                document.config(),
+                DependencySection.MAIN,
+                "com.example:lib");
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> writer.writePreserving(manifest, document, updated));
+
+        assertTrue(failure.getMessage().contains("long-form dependency table"));
+        assertEquals(original, Files.readString(manifest));
+    }
+
+    @Test
+    void addingBesideLongFormDependencyIsRejectedWithoutChangingTheManifest() throws IOException {
+        String original = richManifest("""
+                [dependencies.\"com.example:existing\"]
+                version = "1.0.0"
+                """);
+        Path manifest = write(original);
+        ZoltManifestDocument document = parser.parseDocument(manifest);
+        ProjectConfig updated = writer.addDependency(
+                document.config(),
+                DependencySection.MAIN,
+                "com.example:added",
+                "2.0.0");
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> writer.writePreserving(manifest, document, updated));
+
+        assertTrue(failure.getMessage().contains("long-form dependency table"));
+        assertEquals(original, Files.readString(manifest));
+    }
+
+    @Test
+    void multilineDependencyValueIsRejectedWithCanonicalRewriteGuidance() throws IOException {
+        String original = richManifest("""
+                [dependencies]
+                "com.example:lib" = { version = "1.0.0", exclusions = [
+                    { group = "com.example", artifact = "legacy" },
+                ] }
+                """);
+        Path manifest = write(original);
+        ZoltManifestDocument document = parser.parseDocument(manifest);
+        ProjectConfig updated = writer.addDependency(
+                document.config(),
+                DependencySection.MAIN,
+                "com.example:lib",
+                "1.1.0");
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> writer.writePreserving(manifest, document, updated));
+
+        assertTrue(failure.getMessage().contains("multiline dependency value"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("exclusions = ["), failure.getMessage());
+        assertEquals(original, Files.readString(manifest));
+    }
+
+    @Test
+    void longFormPlatformSyntaxIsRejectedWithoutChangingTheManifest() throws IOException {
+        String original = richManifest("""
+                [versions]
+                bom = "1.0.0"
+
+                [platforms.\"com.example:bom\"]
+                versionRef = "bom"
+                """);
+        Path manifest = write(original);
+        ZoltManifestDocument document = parser.parseDocument(manifest);
+        ProjectConfig updated = writer.addPlatform(
+                document.config(),
+                "com.example:bom",
+                "1.1.0");
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> writer.writePreserving(manifest, document, updated));
+
+        assertTrue(failure.getMessage().contains("long-form dependency table"));
+        assertEquals(original, Files.readString(manifest));
+    }
+
+    @Test
     void movingDependencyScopeRemovesOnlyTheOldAssignment() throws IOException {
         String original = richManifest("""
                 [dependencies]

@@ -79,6 +79,15 @@ public final class CliTestRepository implements AutoCloseable {
         responses.put(base + ".jar", jar.clone());
     }
 
+    public void addMetadata(String groupId, String artifactId, String metadata) {
+        String path = "/maven2/"
+                + groupId.replace('.', '/')
+                + "/"
+                + artifactId
+                + "/maven-metadata.xml";
+        responses.put(path, metadata.getBytes(StandardCharsets.UTF_8));
+    }
+
     public void addClassifiedArtifact(
             String groupId,
             String artifactId,
