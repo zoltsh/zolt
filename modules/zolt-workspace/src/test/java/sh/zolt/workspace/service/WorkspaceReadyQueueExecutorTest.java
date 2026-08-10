@@ -202,7 +202,7 @@ final class WorkspaceReadyQueueExecutorTest {
                             2,
                             (member, invalidated) -> {
                                 if ("modules/failing".equals(member)) {
-                                    awaitFile(readyEvents, readyFile);
+                                    awaitProcessIds(readyEvents, readyFile);
                                     throw new BuildException("boom");
                                 }
                                 try (BuildCancellation.Registration cancellationObserved =
@@ -259,22 +259,41 @@ final class WorkspaceReadyQueueExecutorTest {
         }
     }
 
-    private static void awaitFile(
+    private static void awaitProcessIds(
             WatchService events,
             Path readyFile) {
-        if (Files.isRegularFile(readyFile)) {
-            return;
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            if (hasCompleteProcessIds(readyFile)) {
+                return;
+            }
+            try {
+                WatchKey key = events.poll(50, TimeUnit.MILLISECONDS);
+                if (key != null) {
+                    key.reset();
+                }
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(exception);
+            }
+        }
+        throw new AssertionError("Java child did not publish both process IDs.");
+    }
+
+    private static boolean hasCompleteProcessIds(Path readyFile) {
+        if (!Files.isRegularFile(readyFile)) {
+            return false;
         }
         try {
-            WatchKey key = events.poll(5, TimeUnit.SECONDS);
-            assertTrue(key != null, "Java child did not publish its ready file.");
-            key.reset();
-            assertTrue(
-                    Files.isRegularFile(readyFile),
-                    "Java child readiness event did not create the ready file.");
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new AssertionError(exception);
+            String[] values = Files.readString(readyFile).strip().split(",", -1);
+            if (values.length != 2) {
+                return false;
+            }
+            Long.parseLong(values[0]);
+            Long.parseLong(values[1]);
+            return true;
+        } catch (IOException | NumberFormatException ignored) {
+            return false;
         }
     }
 
