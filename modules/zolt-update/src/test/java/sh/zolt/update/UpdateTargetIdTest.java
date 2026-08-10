@@ -77,17 +77,23 @@ final class UpdateTargetIdTest {
 
     @Test
     void descriptiveAndDestinationStateDoNotAffectIdentity() {
+        String decomposed = "cafe\u0301";
         UpdateTargetId targetId = id(
                 "apps/api/zolt.toml",
                 OutdatedSurface.VERSION_ALIAS,
                 "[versions]",
                 "shared");
-        UpdateTarget before = target(targetId, "1.0.0", true, Optional.empty(), List.of("[dependencies].com.a:one"));
+        UpdateTarget before = target(
+                targetId,
+                "1.0.0-" + decomposed,
+                true,
+                Optional.empty(),
+                List.of("[dependencies].com.a:" + decomposed));
         UpdateTarget after = target(
                 targetId,
                 "2.0.0",
                 false,
-                Optional.of("temporarily blocked"),
+                Optional.of("temporarily blocked " + decomposed),
                 List.of("[dependencies].com.b:two"));
 
         assertEquals(before.targetId(), after.targetId());

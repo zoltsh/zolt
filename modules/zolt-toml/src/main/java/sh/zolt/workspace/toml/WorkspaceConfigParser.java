@@ -79,6 +79,19 @@ public final class WorkspaceConfigParser {
         return parse(Toml.parse(content), ROOT_CONFIG_FILE, ROOT_TOP_LEVEL_SECTIONS);
     }
 
+    /**
+     * Returns whether a root project contains the intentionally retained, inert workspace domain.
+     * Invalid workspace configuration is never classified as inert.
+     */
+    public boolean isRetainedEmptyRootWorkspace(Path path) {
+        try {
+            return isRetainedEmptyRootWorkspace(Toml.parse(path));
+        } catch (IOException exception) {
+            throw new WorkspaceConfigException(
+                    "Could not read zolt.toml at " + path + ". Check that the file exists and is readable.");
+        }
+    }
+
     public boolean hasWorkspaceSection(Path path) {
         try {
             return hasWorkspaceSection(Toml.parse(path));
@@ -103,10 +116,34 @@ public final class WorkspaceConfigParser {
         return result.getTable("workspace") != null;
     }
 
+    private boolean isRetainedEmptyRootWorkspace(TomlParseResult result) {
+        if (result.hasErrors() || result.getTable("project") == null) {
+            return false;
+        }
+        try {
+            WorkspaceConfig config = parse(
+                    result,
+                    ROOT_CONFIG_FILE,
+                    ROOT_TOP_LEVEL_SECTIONS,
+                    true);
+            return config.members().isEmpty() && config.defaultMembers().isEmpty();
+        } catch (WorkspaceConfigException exception) {
+            return false;
+        }
+    }
+
     private WorkspaceConfig parse(
             TomlParseResult result,
             String sourceName,
             Set<String> allowedTopLevelSections) {
+        return parse(result, sourceName, allowedTopLevelSections, false);
+    }
+
+    private WorkspaceConfig parse(
+            TomlParseResult result,
+            String sourceName,
+            Set<String> allowedTopLevelSections,
+            boolean allowEmptyMembers) {
         if (result.hasErrors()) {
             throw new WorkspaceConfigException(parseErrorMessage(result, sourceName));
         }
@@ -128,7 +165,12 @@ public final class WorkspaceConfigParser {
                     repositoryCredentials);
             return new WorkspaceConfig(
                     requiredString(workspaceTable, "workspace", "name", sourceName),
-                    requiredStringList(workspaceTable, "workspace", "members", sourceName),
+                    requiredStringList(
+                            workspaceTable,
+                            "workspace",
+                            "members",
+                            sourceName,
+                            allowEmptyMembers),
                     stringListOrDefault(
                             workspaceTable,
                             "workspace",
@@ -211,13 +253,14 @@ public final class WorkspaceConfigParser {
             TomlTable table,
             String section,
             String key,
-            String sourceName) {
+            String sourceName,
+            boolean allowEmpty) {
         List<String> values = stringListOrDefault(table, section, key, null, sourceName);
         if (values == null) {
             throw new WorkspaceConfigException(
                     "Missing required field [" + section + "]." + key + " in " + sourceName + ". Add an array of member paths.");
         }
-        if (values.isEmpty()) {
+        if (values.isEmpty() && !allowEmpty) {
             throw new WorkspaceConfigException(
                     "Invalid value for [" + section + "]." + key + " in " + sourceName + ". Add at least one member path.");
         }

@@ -298,6 +298,30 @@ final class DependencyExactUpdateCommandTest {
     }
 
     @Test
+    void executionFailsClosedWhenAStandaloneProjectBecomesAMalformedWorkspace() throws IOException {
+        Path project = writeProject(tempDir.resolve("malformed-workspace-race"), """
+                [dependencies]
+                "com.example:lib" = "1.0.0"
+                """);
+        Path manifest = project.resolve("zolt.toml");
+        UpdateTarget target = target(project, "zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies]");
+        Runnable concurrent = () -> replace(
+                manifest,
+                "[dependencies]",
+                "[workspace]\nname = \"broken\"\nmembers = [\"missing-member\"]\n\n[dependencies]");
+
+        Result result = run(project, concurrent, exactArgs(
+                target, "1.1.0", "--format", "json", "--schema-version", "2", "--no-resolve"));
+
+        assertEquals(1, result.exitCode());
+        assertTrue(
+                result.stdout().contains("\"status\": \"failed\""),
+                () -> "stdout:\n" + result.stdout() + "\nstderr:\n" + result.stderr());
+        assertTrue(Files.readString(manifest).contains("\"com.example:lib\" = \"1.0.0\""));
+        assertFalse(Files.exists(project.resolve("zolt.lock")));
+    }
+
+    @Test
     void identicalRegeneratedLockIsOmittedFromActualChangedFiles() throws IOException {
         Path project = writeProject(tempDir.resolve("unchanged-lock"), """
                 [versions]

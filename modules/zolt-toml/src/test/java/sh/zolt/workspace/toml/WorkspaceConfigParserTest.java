@@ -1,15 +1,24 @@
 package sh.zolt.workspace.toml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.WorkspaceConfigException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class WorkspaceConfigParserTest {
+    @TempDir
+    private Path tempDir;
+
     private final WorkspaceConfigParser parser = new WorkspaceConfigParser();
 
     @Test
@@ -178,5 +187,37 @@ final class WorkspaceConfigParserTest {
         assertEquals(
                 "Invalid value for [repositories].central in zolt-workspace.toml. Use a non-empty URL string or { url = \"...\", credentials = \"...\" }.",
                 exception.getMessage());
+    }
+
+    @Test
+    void recognizesOnlyValidEmptyWorkspaceDomainsRetainedByRootProjects() throws IOException {
+        Path retained = tempDir.resolve("retained.toml");
+        Files.writeString(retained, """
+                [project]
+                name = "root"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [workspace]
+                name = "retained"
+                members = []
+                """);
+        Path malformed = tempDir.resolve("malformed.toml");
+        Files.writeString(malformed, """
+                [project]
+                name = "root"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [workspace]
+                name = "broken"
+                members = []
+                defaultMembers = ["missing"]
+                """);
+
+        assertTrue(parser.isRetainedEmptyRootWorkspace(retained));
+        assertFalse(parser.isRetainedEmptyRootWorkspace(malformed));
     }
 }

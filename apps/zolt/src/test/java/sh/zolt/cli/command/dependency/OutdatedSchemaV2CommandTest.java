@@ -51,6 +51,58 @@ final class OutdatedSchemaV2CommandTest {
     }
 
     @Test
+    void malformedRootWorkspaceFailsWithTheSelectedEnvelope() throws IOException {
+        Path project = writeProject();
+        Files.writeString(project.resolve("zolt.toml"), Files.readString(project.resolve("zolt.toml")) + """
+
+                [workspace]
+                name = "broken"
+                members = ["missing-member"]
+                """);
+
+        CommandResult result = execute(
+                "outdated",
+                "--format", "json",
+                "--schema-version", "2",
+                "--offline",
+                "--cwd", project.toString());
+
+        assertEquals(1, result.exitCode());
+        assertEquals("", result.stderr());
+        assertTrue(result.stdout().contains("\"schemaVersion\": 2"));
+        assertTrue(result.stdout().contains("\"status\": \"failed\""));
+        assertTrue(result.stdout().contains("missing-member"));
+    }
+
+    @Test
+    void schemaV1PreservesDecomposedDisplayLabelsAndVersionText() throws IOException {
+        String decomposed = "cafe\u0301";
+        Path project = tempDir.resolve(decomposed);
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [dependencies]
+                "com.example:lib" = "1.0.0-%s"
+                """.formatted(decomposed));
+
+        CommandResult result = execute(
+                "outdated",
+                "--format", "json",
+                "--all",
+                "--offline",
+                "--cwd", project.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("\"label\": \"" + decomposed + "\""));
+        assertTrue(result.stdout().contains("\"current\": \"1.0.0-" + decomposed + "\""));
+    }
+
+    @Test
     void schemaSelectionRequiresJsonAndOneSupportedVersion() throws IOException {
         Path project = writeProject();
 

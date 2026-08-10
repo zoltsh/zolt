@@ -62,11 +62,11 @@ record ManifestMutationScope(
             return new WorkspaceDiscoveryService().discover(projectRoot).orElse(null);
         } catch (WorkspaceConfigException exception) {
             // Project manifests may retain an inert [workspace] domain for source-preservation.
-            // Only a containing workspace root makes a discovery failure authoritative here.
-            if (!projectRoot.equals(lockRoot)) {
-                throw exception;
+            if (projectRoot.equals(lockRoot)
+                    && RetainedEmptyWorkspaceDomain.existsAt(projectRoot)) {
+                return null;
             }
-            return null;
+            throw exception;
         }
     }
 }

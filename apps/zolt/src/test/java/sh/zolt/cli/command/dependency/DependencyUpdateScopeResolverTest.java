@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.update.OutdatedScope;
+import sh.zolt.workspace.WorkspaceConfigException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,6 +45,20 @@ final class DependencyUpdateScopeResolverTest {
 
         assertEquals("zolt.toml", report.manifestPath());
         assertEquals(project.toAbsolutePath().normalize(), catalog.projectDirectory());
+    }
+
+    @Test
+    void malformedRootWorkspaceNeverFallsBackToStandalone() throws IOException {
+        Path project = writeProject(tempDir.resolve("malformed"), "malformed");
+        Files.writeString(project.resolve("zolt.toml"), Files.readString(project.resolve("zolt.toml")) + """
+
+                [workspace]
+                name = "broken"
+                members = ["missing-member"]
+                """);
+
+        assertThrows(WorkspaceConfigException.class, () -> resolver.reportScopes(project, 2));
+        assertThrows(WorkspaceConfigException.class, () -> resolver.catalogScopes(project, project));
     }
 
     @Test

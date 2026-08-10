@@ -23,12 +23,9 @@ public record UpdateTarget(
         surface = Objects.requireNonNull(surface, "surface");
         identifier = UpdateTargetId.requireCanonicalText(identifier, "identifier");
         section = UpdateTargetId.requireCanonicalText(section, "section");
-        currentVersion = UpdateTargetId.requireCanonicalText(currentVersion, "current version");
+        currentVersion = Objects.requireNonNull(currentVersion, "currentVersion");
         updateBlocker = updateBlocker == null ? Optional.empty() : updateBlocker;
-        updateBlocker = updateBlocker.map(value -> UpdateTargetId.requireCanonicalText(value, "update blocker"));
-        governs = governs == null ? List.of() : governs.stream()
-                .map(value -> UpdateTargetId.requireCanonicalText(value, "governed surface"))
-                .toList();
+        governs = governs == null ? List.of() : List.copyOf(governs);
         if (updateable == updateBlocker.isPresent()) {
             throw new IllegalArgumentException(
                     "An updateable target cannot have a blocker, and a non-updateable target must have one.");

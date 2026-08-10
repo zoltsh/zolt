@@ -21,6 +21,7 @@ import sh.zolt.update.UpdateCeiling;
 import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateOptions;
 import sh.zolt.update.UpdateTargetId;
+import sh.zolt.workspace.WorkspaceConfigException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -151,7 +152,8 @@ public final class UpdateCommand implements Runnable {
                         format == Format.JSON);
             }
         } catch (ActionableException | ArtifactCacheException | LockfileReadException
-                | RepositoryAccessException | ResolveException | ZoltConfigException exception) {
+                | RepositoryAccessException | ResolveException | WorkspaceConfigException
+                | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
     }

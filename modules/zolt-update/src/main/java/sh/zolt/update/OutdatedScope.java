@@ -17,7 +17,7 @@ public record OutdatedScope(
         ProjectConfig config,
         Optional<ZoltLockfile> lockfile) {
     public OutdatedScope {
-        label = UpdateTargetId.requireCanonicalText(label, "scope label");
+        label = Objects.requireNonNull(label, "label");
         manifestPath = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
         lockfilePath = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
         config = Objects.requireNonNull(config, "config");

@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 export const UPDATE_REPOSITORY_USERNAME_ENV = "ZOLT_SMOKE_UPDATE_REPO_USERNAME";
 export const UPDATE_REPOSITORY_PASSWORD_ENV = "ZOLT_SMOKE_UPDATE_REPO_TOKEN";
+export const UPDATE_REPOSITORY_BEARER_ENV = "ZOLT_SMOKE_UPDATE_REPO_BEARER_TOKEN";
 
 export const UPDATE_GROUP = "com.example.smoke";
 export const UPDATE_ARTIFACT = "widget";
@@ -59,6 +60,24 @@ export async function installVersionedArtifact(
 
 /** A consumer pinned to the older version, resolving only from the hosted repository. */
 export async function writeUpdateConsumer(directory: string, repositoryUrl: string): Promise<void> {
+  await writeConsumer(directory, repositoryUrl, [
+    `usernameEnv = "${UPDATE_REPOSITORY_USERNAME_ENV}"`,
+    `passwordEnv = "${UPDATE_REPOSITORY_PASSWORD_ENV}"`,
+  ]);
+}
+
+/** A consumer that authenticates to the hosted repository with one bearer token. */
+export async function writeBearerUpdateConsumer(directory: string, repositoryUrl: string): Promise<void> {
+  await writeConsumer(directory, repositoryUrl, [
+    `tokenEnv = "${UPDATE_REPOSITORY_BEARER_ENV}"`,
+  ]);
+}
+
+async function writeConsumer(
+  directory: string,
+  repositoryUrl: string,
+  credentials: readonly string[],
+): Promise<void> {
   const source = join(directory, "src/main/java/com/example/consumer");
   await mkdir(source, { recursive: true });
   await writeFile(join(directory, "zolt.toml"), [
@@ -66,8 +85,7 @@ export async function writeUpdateConsumer(directory: string, repositoryUrl: stri
     'group = "com.example"', 'java = "21"', "",
     "[repositories]", `smoke = { url = "${repositoryUrl}", credentials = "smoke-repo" }`, "",
     "[repositoryCredentials.smoke-repo]",
-    `usernameEnv = "${UPDATE_REPOSITORY_USERNAME_ENV}"`,
-    `passwordEnv = "${UPDATE_REPOSITORY_PASSWORD_ENV}"`,
+    ...credentials,
     "",
     "[dependencies]", `"${UPDATE_COORDINATE}" = "${UPDATE_OLD_VERSION}"`, "",
   ].join("\n"), "utf8");

@@ -185,6 +185,23 @@ final class OutdatedEngineTest {
         assertTrue(report.notes().stream().anyMatch(note -> note.contains("com.example:lib is shared by members alpha, zeta")));
     }
 
+    @Test
+    void schemaV1PreservesDisplayLabelsAndDescriptiveVersionText() {
+        String decomposed = "cafe\u0301";
+        OutdatedReport report = engine(new FakeVersionDiscovery()).report(
+                List.of(OutdatedScope.of(decomposed, config("""
+                        [dependencies]
+                        "com.example:lib" = "1.0.0-%s"
+                        """.formatted(decomposed)))),
+                OutdatedOptions.defaults());
+
+        assertEquals(decomposed, report.scopes().getFirst().label());
+        assertEquals("1.0.0-" + decomposed, single(report).currentVersion());
+        String json = new OutdatedJsonRenderer().render(report);
+        assertTrue(json.contains("\"label\": \"" + decomposed + "\""));
+        assertTrue(json.contains("\"current\": \"1.0.0-" + decomposed + "\""));
+    }
+
     private OutdatedEngine engine(FakeVersionDiscovery discovery) {
         return new OutdatedEngine(discovery);
     }

@@ -132,7 +132,8 @@ final class DependencyUpdateScopeResolver {
         try {
             return workspaceDiscovery.discover(start);
         } catch (WorkspaceConfigException exception) {
-            if (start.toAbsolutePath().normalize().equals(mutationRoot)) {
+            if (start.toAbsolutePath().normalize().equals(mutationRoot)
+                    && RetainedEmptyWorkspaceDomain.existsAt(mutationRoot)) {
                 return Optional.empty();
             }
             throw exception;
@@ -144,7 +145,9 @@ final class DependencyUpdateScopeResolver {
             return workspaceDiscovery.discover(start);
         } catch (WorkspaceConfigException exception) {
             Optional<Path> root = workspaceDiscovery.discoverRoot(start);
-            if (root.isEmpty() || sameDirectory(start, root.orElseThrow())) {
+            if (root.isPresent()
+                    && sameDirectory(start, root.orElseThrow())
+                    && RetainedEmptyWorkspaceDomain.existsAt(root.orElseThrow())) {
                 return Optional.empty();
             }
             throw exception;

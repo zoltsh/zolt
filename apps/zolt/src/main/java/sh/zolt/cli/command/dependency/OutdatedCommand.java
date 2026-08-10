@@ -17,6 +17,7 @@ import sh.zolt.update.OutdatedOptions;
 import sh.zolt.update.OutdatedReport;
 import sh.zolt.update.OutdatedScope;
 import sh.zolt.update.OutdatedTextRenderer;
+import sh.zolt.workspace.WorkspaceConfigException;
 import java.util.ArrayList;
 import java.util.List;
 import picocli.CommandLine.Command;
@@ -85,7 +86,8 @@ public final class OutdatedCommand implements Runnable {
                     ? renderJson(report, selectedSchema)
                     : new OutdatedTextRenderer().render(report);
             CommandOutput.printAndFlush(spec, output);
-        } catch (LockfileReadException | ZoltConfigException | RepositoryAccessException exception) {
+        } catch (LockfileReadException | ZoltConfigException | RepositoryAccessException
+                | WorkspaceConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
     }

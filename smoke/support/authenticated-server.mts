@@ -18,8 +18,25 @@ export async function startAuthenticatedFileServer(
   root: string,
   credentials: BasicCredentials,
 ): Promise<AuthenticatedFileServer> {
-  const repositoryRoot = resolve(root);
   const authorization = `Basic ${Buffer.from(`${credentials.username}:${credentials.password}`).toString("base64")}`;
+  return await startAuthorizationFileServer(t, root, authorization, 'Basic realm="zolt-smoke"');
+}
+
+export async function startBearerAuthenticatedFileServer(
+  t: SmokeContext,
+  root: string,
+  token: string,
+): Promise<AuthenticatedFileServer> {
+  return await startAuthorizationFileServer(t, root, `Bearer ${token}`, 'Bearer realm="zolt-smoke"');
+}
+
+async function startAuthorizationFileServer(
+  t: SmokeContext,
+  root: string,
+  authorization: string,
+  challenge: string,
+): Promise<AuthenticatedFileServer> {
+  const repositoryRoot = resolve(root);
   const requests: string[] = [];
   const server = createServer(async (request, response) => {
     const method = request.method ?? "GET";
@@ -27,7 +44,7 @@ export async function startAuthenticatedFileServer(
     requests.push(`${method} ${pathname}`);
 
     if (request.headers.authorization !== authorization) {
-      response.writeHead(401, { "WWW-Authenticate": 'Basic realm="zolt-smoke"' });
+      response.writeHead(401, { "WWW-Authenticate": challenge });
       response.end();
       return;
     }

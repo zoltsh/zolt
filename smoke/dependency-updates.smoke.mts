@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import {
   startAuthenticatedFileServer,
+  startBearerAuthenticatedFileServer,
   type AuthenticatedFileServer,
 } from "./support/authenticated-server.mts";
 import {
@@ -20,13 +21,15 @@ import {
   UPDATE_COORDINATE,
   UPDATE_NEW_VERSION,
   UPDATE_OLD_VERSION,
+  UPDATE_REPOSITORY_BEARER_ENV,
   UPDATE_REPOSITORY_PASSWORD_ENV,
   UPDATE_REPOSITORY_USERNAME_ENV,
+  writeBearerUpdateConsumer,
   writeUpdateConsumer,
   writeUpdateLibrary,
 } from "./support/update-fixtures.mts";
 import { isolatedUserGlobalHome } from "./support/user-global-config.mts";
-import { expectTextFile, packagedZolt, runZolt, singleJar } from "./support/zolt-smoke.mts";
+import { expectOutputExcludes, expectTextFile, packagedZolt, runZolt, singleJar } from "./support/zolt-smoke.mts";
 
 smoke.suite("dependency update reporting smoke", { tags: ["dependencies", "enterprise"] }, async (t: SmokeContext) => {
   const work = await t.tempDir("zolt-dependency-updates");
@@ -162,6 +165,74 @@ smoke.suite("dependency update reporting smoke", { tags: ["dependencies", "enter
     ], { env });
   });
 
+  await t.step("uses bearer auth and rolls back an exact update after rejected credentials", async () => {
+    const acceptedToken = "exact-update-bearer-token";
+    const rejectedToken = "rejected-exact-update-token";
+    t.redact(acceptedToken);
+    t.redact(rejectedToken);
+    const bearerServer = await startBearerAuthenticatedFileServer(t, repository, acceptedToken);
+    const bearerConsumer = work.path("bearer-consumer");
+    const bearerCache = work.path("bearer-cache");
+    await writeBearerUpdateConsumer(bearerConsumer, bearerServer.url("maven2/"));
+    const acceptedEnv = { ...home.env, [UPDATE_REPOSITORY_BEARER_ENV]: acceptedToken };
+    await runZolt(t, zolt, [
+      "--no-progress", "resolve", "--cwd", bearerConsumer, "--cache-root", bearerCache,
+    ], { env: acceptedEnv });
+
+    const reportOutput = await runZolt(t, zolt, [
+      "--no-progress", "outdated", "--format", "json", "--schema-version", "2", "--cwd", bearerConsumer,
+    ], { env: acceptedEnv });
+    const report = parseJsonObject(t, reportOutput.stdout, "bearer outdated schema v2 output");
+    const scopes = jsonArray(t, report, "scopes", "bearer outdated");
+    const entries = jsonArray(t, expectJsonObject(t, scopes[0], "bearer outdated.scopes[0]"), "entries", "scope");
+    const entry = findJsonObjectByString(
+      t, entries, "identifier", UPDATE_COORDINATE, "bearer outdated entries");
+    const targetId = jsonString(t, entry, "targetId", "bearer update target");
+    const manifestBefore = await readFile(join(bearerConsumer, "zolt.toml"), "utf8");
+    const lockBefore = await readFile(join(bearerConsumer, "zolt.lock"), "utf8");
+
+    const rejected = await runZolt(t, zolt, [
+      "--no-progress", "update",
+      "--target-id", targetId,
+      "--to", UPDATE_NEW_VERSION,
+      "--format", "json",
+      "--schema-version", "2",
+      "--cwd", bearerConsumer,
+      "--cache-root", bearerCache,
+    ], { env: { ...home.env, [UPDATE_REPOSITORY_BEARER_ENV]: rejectedToken }, check: false });
+    expect.value(rejected.exitCode).toBe(1);
+    const rejectedResult = parseJsonObject(t, rejected.stdout, "rejected bearer exact update output");
+    expect.value(jsonNumber(t, rejectedResult, "schemaVersion", "rejected bearer exact update")).toBe(2);
+    expect.value(rejectedResult.status).toBe("failed");
+    expectOutputExcludes(
+      t, `${rejected.stdout}\n${rejected.stderr}`, [acceptedToken, rejectedToken], "rejected bearer exact update output");
+    expect.value(await readFile(join(bearerConsumer, "zolt.toml"), "utf8")).toBe(manifestBefore);
+    expect.value(await readFile(join(bearerConsumer, "zolt.lock"), "utf8")).toBe(lockBefore);
+
+    const applied = await runZolt(t, zolt, [
+      "--no-progress", "update",
+      "--target-id", targetId,
+      "--to", UPDATE_NEW_VERSION,
+      "--format", "json",
+      "--schema-version", "2",
+      "--cwd", bearerConsumer,
+      "--cache-root", bearerCache,
+    ], { env: acceptedEnv });
+    const appliedResult = parseJsonObject(t, applied.stdout, "bearer exact update output");
+    expect.value(appliedResult.applied).toBe(true);
+    expect.value(appliedResult.resolved).toBe(true);
+    expectOutputExcludes(
+      t, `${applied.stdout}\n${applied.stderr}`, [acceptedToken, rejectedToken], "bearer exact update output");
+    await expectTextFile(join(bearerConsumer, "zolt.toml"), {
+      contains: [`"${UPDATE_COORDINATE}" = "${UPDATE_NEW_VERSION}"`],
+      excludes: [acceptedToken, rejectedToken],
+    });
+    await expectTextFile(join(bearerConsumer, "zolt.lock"), {
+      contains: [`${UPDATE_ARTIFACT}-${UPDATE_NEW_VERSION}.jar`],
+      excludes: [acceptedToken, rejectedToken],
+    });
+  });
+
   await t.step("rewrites zolt.toml and leaves the project resolvable", async () => {
     const preview = await runZolt(t, zolt, [
       "--no-progress", "update", "--dry-run", "--cwd", consumer, "--cache-root", cache,
@@ -192,8 +263,12 @@ smoke.suite("dependency update reporting smoke", { tags: ["dependencies", "enter
     expect.value(result.resolved).toBe(true);
     expect.value(JSON.stringify(jsonArray(t, result, "changedFiles", "exact update")))
       .toBe(JSON.stringify(["zolt.toml", "zolt.lock"]));
-    expect.value(applied.stdout.includes(credentials.username)).toBe(false);
-    expect.value(applied.stdout.includes(credentials.password)).toBe(false);
+    expectOutputExcludes(
+      t,
+      `${applied.stdout}\n${applied.stderr}`,
+      [credentials.username, credentials.password],
+      "basic-auth exact update output",
+    );
     expect.value(server.requests.filter((request) => request.includes("maven-metadata.xml")).length)
       .toBe(metadataRequestsBefore);
     await expectTextFile(join(consumer, "zolt.toml"), {
