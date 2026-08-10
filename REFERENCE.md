@@ -81,6 +81,7 @@ Toolchain commands:
 zolt toolchain status
 zolt toolchain status --json
 zolt toolchain sync
+zolt toolchain sync --refresh
 zolt toolchain install java 21 --graalvm --native-image
 zolt toolchain list
 zolt toolchain available
@@ -664,6 +665,11 @@ features = ["native-image"]
 policy = "prefer-managed"
 ```
 
+`version` is a concrete Java feature release such as `21` or `25`. Floating
+aliases such as `latest` are rejected. Zolt resolves the newest stable GA patch
+in that feature line and writes the exact provider version, artifact URL, and
+SHA-256 checksum to `zolt.lock`.
+
 Use `temurin` for JVM-only work, or `graalvm-community` with
 `features = ["native-image"]` for native builds. Supported policies are:
 
@@ -677,7 +683,9 @@ multi-platform toolchain metadata:
 
 ```sh
 zolt toolchain install java 21 --graalvm --native-image
+zolt toolchain install java 21 --graalvm --native-image --refresh
 zolt toolchain sync
+zolt toolchain sync --refresh
 zolt toolchain list
 zolt toolchain available
 zolt toolchain status
@@ -687,15 +695,28 @@ zolt toolchain status --json
 Use `zolt toolchain install java ...` when you want a managed Java version
 available without first creating a project config. It installs into the same
 shared user store and writes reusable global lock metadata, but it does not
-change the global default. `zolt toolchain list` shows the active project or
-global selection, lock entries, and installed catalog entries. `zolt toolchain
-available` shows the bundled Temurin and GraalVM catalog matrix.
+change the global default. Pass `--refresh` to update a standalone install to
+the newest GA patch in its feature line. `zolt toolchain list` shows the active
+project or global selection, lock entries, and installed catalog entries. `zolt toolchain
+available` shows Zolt's bundled Java 21 seed matrix for offline discovery and
+compatibility; it is not an allow-list for resolvable Java versions.
 
-`zolt.lock` records the supported target matrix, so a macOS developer and Linux
-CI do not rewrite the lock back and forth. The install itself stays local to the
+Ordinary sync is lock-first: a matching lock is reused without querying provider
+metadata, and `zolt toolchain sync --refresh` explicitly checks for a newer GA
+patch in the same feature line. Temurin metadata comes from the Adoptium API;
+GraalVM Community metadata comes from the official `graalvm/graalvm-ce-builds`
+GitHub releases. Existing Java 21 requests retain Zolt's bundled exact pins until
+an explicit refresh.
+
+`zolt.lock` records every target artifact the upstream release actually
+publishes, so a macOS developer and Linux CI do not rewrite the lock back and
+forth. Zolt does not invent missing platform artifacts, and sync fails clearly
+when the current host is unavailable. The install itself stays local to the
 machine under `~/.zolt/toolchains`; only the current host's archive is downloaded
 when it is missing. Managed downloads are pinned to exact artifact URLs and
-verified with SHA-256 checksums from the lock.
+verified with SHA-256 checksums from the lock. Normal build, test, native, and
+locked-resolution paths use only the lock and local store; they do not query
+provider metadata.
 
 ### Test-runtime toolchain
 
@@ -717,11 +738,14 @@ distribution = "temurin"
 [toolchain.java.test]
 version = "17"
 # distribution = "temurin"   # optional; defaults to [toolchain.java].distribution
+# features = []              # optional; defaults to [toolchain.java].features
 ```
 
-`[toolchain.java.test]` sets its own `version` (and optional `distribution`),
-inheriting `features` and `policy` from `[toolchain.java]`. It resolves, installs,
-and locks through the same managed-toolchain machinery: `zolt toolchain sync`
+`[toolchain.java.test]` sets its own `version` and can override `distribution`
+and `features`, inheriting omitted values and `policy` from `[toolchain.java]`.
+This lets a GraalVM build toolchain require Native Image while tests run on
+Temurin with `features = []`. It resolves, installs, and locks through the same
+managed-toolchain machinery: `zolt toolchain sync`
 installs it beside the build toolchain, `zolt toolchain status` and `zolt toolchain
 list` show it, and it is recorded as an additive `[[toolchain.java]]` entry in
 `zolt.lock` in the same per-platform, SHA-256-pinned format. An equal-version test

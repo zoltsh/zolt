@@ -1,7 +1,7 @@
 version = 5
-projectResolutionFingerprint = "sha256:81358e3a07c7839c2008f72beae93699ccd1fec5feb2d8a4fadf174ef14856b8"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:7fc594463dd514ad55e92ffa40a24e48e3436c1b1f2fcdf4917996178ed37b6c", "dependencies.compile=sha256:ff84fa7b7a416746662ce10d9ec1cec2553f43cca30569ac127e92bbb1dcc546", "dependencies.provided=sha256:fb1d589a350c36415cc1f7ab6f5efe21de446b82ef4f93d2562b248243479fe7", "dependencies.test=sha256:d37ad981d555fa84e84870a6273244956c9f63ef8f0b0af06165dee874fa02d8", "dependencyMetadata=sha256:cdc704285703fc71a1707e5059aebf9f5748acd917f12084b12d26ad88011dd1", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:2749c690c9704c4c4ffc0cf47a88263a7341b3e9e7b1eb64da57c527dd91a24a", "repositories=sha256:799032c8cf536aacc8d4dd13962887d60e72dc4a4c3f4da0bd018f4a301ed451", "schema=sha256:8bc527af269ce6e00194239e0204a133eccebadb631fb736c0e3e63d92dc5e2b"]
-workspaceResolutionInputFingerprint = "sha256:0bd3746c3aae7710377bbdf38abc8d2edb812a0cf827f0ed28c69d51283f3339"
+projectResolutionFingerprint = "sha256:78701261772fe13daff1c9b3bdb92cc14360c4c2abde4ff2155c0e51e3e3b916"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:7fc594463dd514ad55e92ffa40a24e48e3436c1b1f2fcdf4917996178ed37b6c", "dependencies.compile=sha256:53fb1039d86bc528a791d43155f872d5f656b50a1676f6b4714084cfae45849b", "dependencies.provided=sha256:fb1d589a350c36415cc1f7ab6f5efe21de446b82ef4f93d2562b248243479fe7", "dependencies.test=sha256:d37ad981d555fa84e84870a6273244956c9f63ef8f0b0af06165dee874fa02d8", "dependencyMetadata=sha256:cdc704285703fc71a1707e5059aebf9f5748acd917f12084b12d26ad88011dd1", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:2749c690c9704c4c4ffc0cf47a88263a7341b3e9e7b1eb64da57c527dd91a24a", "repositories=sha256:799032c8cf536aacc8d4dd13962887d60e72dc4a4c3f4da0bd018f4a301ed451", "schema=sha256:8bc527af269ce6e00194239e0204a133eccebadb631fb736c0e3e63d92dc5e2b"]
+workspaceResolutionInputFingerprint = "sha256:756bd765c6fe90361b31d9073c1421505b82bc896afff91351130cb6f2c2a6bd"
 
 [[package]]
 id = "args4j:args4j"
@@ -14,6 +14,19 @@ pom = "args4j/args4j/2.0.28/args4j-2.0.28.pom"
 jarSha256 = "11b029a602e787e2bc08eb3b77eda1a4f5e8b263d22e3c5d6220cd5c51f30b18"
 pomSha256 = "1f821c93660b7fa573692c305ca97092eab647cefeccfcb3f54771117c3737d3"
 members = ["apps/zolt", "apps/zolt-javac-worker", "apps/zolt-junit-worker", "modules/zolt-build", "modules/zolt-config", "modules/zolt-explain", "modules/zolt-framework-api", "modules/zolt-ide", "modules/zolt-init", "modules/zolt-junit-client", "modules/zolt-model", "modules/zolt-native-image", "modules/zolt-plan", "modules/zolt-policy", "modules/zolt-publish", "modules/zolt-quality", "modules/zolt-quarkus", "modules/zolt-release", "modules/zolt-repository", "modules/zolt-resolve", "modules/zolt-sbom", "modules/zolt-selfhost", "modules/zolt-test-model", "modules/zolt-test-runtime", "modules/zolt-toml", "modules/zolt-toolchain", "modules/zolt-tree", "modules/zolt-update", "modules/zolt-workspace"]
+dependencies = []
+
+[[package]]
+id = "com.fasterxml.jackson.core:jackson-core"
+version = "2.22.1"
+source = "maven-central"
+scope = "compile"
+direct = true
+jar = "com/fasterxml/jackson/core/jackson-core/2.22.1/jackson-core-2.22.1.jar"
+pom = "com/fasterxml/jackson/core/jackson-core/2.22.1/jackson-core-2.22.1.pom"
+jarSha256 = "941ff029bcdb93e83d209ce516c1a7fb8bbac07d0a2fa122f5bf194b2cd7b4f4"
+pomSha256 = "34551c6c8d72a4a2215fd05fdcf2f4e693eff99e6e54632bd57cf2674478e293"
+members = ["modules/zolt-toolchain"]
 dependencies = []
 
 [[package]]
@@ -542,7 +555,7 @@ direct = true
 workspace = "modules/zolt-toolchain"
 workspaceOutput = "target/classes"
 members = ["apps/zolt"]
-dependencies = []
+dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.1:jar:compile"]
 
 [[package]]
 id = "sh.zolt:zolt-tree"

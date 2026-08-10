@@ -2,6 +2,7 @@ package sh.zolt.toml;
 
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
+import sh.zolt.project.toolchain.JavaFeatureVersion;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 import java.util.Collections;
@@ -17,7 +18,7 @@ public final class ToolchainSectionCodec {
     private static final Set<String> TOOLCHAIN_KEYS = Set.of("zolt", "java");
     private static final Set<String> ZOLT_KEYS = Set.of("version");
     private static final Set<String> JAVA_KEYS = Set.of("version", "distribution", "features", "policy", "test");
-    private static final Set<String> JAVA_TEST_KEYS = Set.of("version", "distribution");
+    private static final Set<String> JAVA_TEST_KEYS = Set.of("version", "distribution", "features");
 
     private ToolchainSectionCodec() {
     }
@@ -60,9 +61,9 @@ public final class ToolchainSectionCodec {
         }
         validateKeys("toolchain.java", java, JAVA_KEYS, sourceName);
 
-        String version = requiredString(java, "toolchain.java", "version", sourceName);
+        String version = requiredFeatureVersion(java, "toolchain.java", sourceName);
         Optional<JavaDistribution> distribution = optionalDistribution(java, "toolchain.java", sourceName);
-        Set<JavaFeature> features = features(java, sourceName);
+        Set<JavaFeature> features = features(java, "toolchain.java", sourceName);
         ToolchainPolicy policy = optionalPolicy(java, sourceName).orElse(ToolchainPolicy.PREFER_MANAGED);
         return Optional.of(new JavaToolchainRequest(version, distribution, features, policy));
     }
@@ -70,9 +71,9 @@ public final class ToolchainSectionCodec {
     /**
      * Parses the optional {@code [toolchain.java.test]} scoped entry that pins the JDK used to
      * <em>run</em> tests (compile stays on the main toolchain). It sets its own {@code version}
-     * (and optional {@code distribution}), inheriting {@code features} and {@code policy} from the
-     * main {@code [toolchain.java]} entry, so an equal-version entry is byte-identical to the main
-     * request and resolves to the same locked toolchain.
+     * (and optional {@code distribution} and {@code features}), inheriting omitted values and
+     * {@code policy} from the main {@code [toolchain.java]} entry. An equal-version entry with no
+     * overrides is byte-identical to the main request and resolves to the same locked toolchain.
      */
     public static Optional<JavaToolchainRequest> parseJavaTestToolchain(
             TomlParseResult result, String sourceName, JavaToolchainRequest main) {
@@ -95,10 +96,13 @@ public final class ToolchainSectionCodec {
                             + sourceName
                             + ". Add [toolchain.java] with version and distribution.");
         }
-        String version = requiredString(test, "toolchain.java.test", "version", sourceName);
+        String version = requiredFeatureVersion(test, "toolchain.java.test", sourceName);
         Optional<JavaDistribution> distribution =
                 optionalDistribution(test, "toolchain.java.test", sourceName).or(main::distribution);
-        return Optional.of(new JavaToolchainRequest(version, distribution, main.features(), main.policy()));
+        Set<JavaFeature> features = test.get(List.of("features")) == null
+                ? main.features()
+                : features(test, "toolchain.java.test", sourceName);
+        return Optional.of(new JavaToolchainRequest(version, distribution, features, main.policy()));
     }
 
     private static void validateKeys(String section, TomlTable table, Set<String> allowedKeys, String sourceName) {
@@ -143,6 +147,21 @@ public final class ToolchainSectionCodec {
         return value.strip();
     }
 
+    private static String requiredFeatureVersion(TomlTable table, String section, String sourceName) {
+        String version = requiredString(table, section, "version", sourceName);
+        if (!JavaFeatureVersion.isConcrete(version)) {
+            throw new ZoltConfigException(
+                    "Invalid value for ["
+                            + section
+                            + "].version in "
+                            + sourceName
+                            + ": `"
+                            + version
+                            + "`. Use a Java feature release number such as `21` or `25`; aliases such as `latest` are not supported.");
+        }
+        return version;
+    }
+
     private static Optional<String> optionalString(TomlTable table, String section, String key, String sourceName) {
         Object rawValue = table.get(List.of(key));
         if (rawValue == null) {
@@ -185,25 +204,25 @@ public final class ToolchainSectionCodec {
                         + ".")));
     }
 
-    private static Set<JavaFeature> features(TomlTable table, String sourceName) {
+    private static Set<JavaFeature> features(TomlTable table, String section, String sourceName) {
         Object rawValue = table.get(List.of("features"));
         if (rawValue == null) {
             return Set.of();
         }
         if (!(rawValue instanceof TomlArray array)) {
             throw new ZoltConfigException(
-                    "Invalid value for [toolchain.java].features in " + sourceName + ". Use an array of strings.");
+                    "Invalid value for [" + section + "].features in " + sourceName + ". Use an array of strings.");
         }
         LinkedHashSet<JavaFeature> features = new LinkedHashSet<>();
         for (int index = 0; index < array.size(); index++) {
             Object element = array.get(index);
             if (!(element instanceof String value) || value.isBlank()) {
                 throw new ZoltConfigException(
-                        "Invalid value for [toolchain.java].features[" + index + "] in " + sourceName + ". Use a non-empty string.");
+                        "Invalid value for [" + section + "].features[" + index + "] in " + sourceName + ". Use a non-empty string.");
             }
             String normalized = value.strip();
             features.add(JavaFeature.fromId(normalized).orElseThrow(() -> new ZoltConfigException(
-                    "Unsupported value for [toolchain.java].features in "
+                    "Unsupported value for [" + section + "].features in "
                             + sourceName
                             + ": `"
                             + normalized

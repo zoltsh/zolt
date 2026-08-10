@@ -230,6 +230,36 @@ final class UserGlobalConfigParserTest {
     }
 
     @Test
+    void rejectsFloatingGlobalJavaVersionAliases() {
+        UserGlobalConfigException exception = assertThrows(
+                UserGlobalConfigException.class,
+                () -> new UserGlobalConfigParser().parse("""
+                        version = 1
+
+                        [defaults.toolchain.java]
+                        version = "latest"
+                        distribution = "temurin"
+                        """, tempDir.resolve("config.toml")));
+
+        assertTrue(exception.getMessage().contains("aliases such as `latest` are not supported"));
+    }
+
+    @Test
+    void rejectsNonAsciiGlobalJavaVersionNumerals() {
+        UserGlobalConfigException exception = assertThrows(
+                UserGlobalConfigException.class,
+                () -> new UserGlobalConfigParser().parse("""
+                        version = 1
+
+                        [defaults.toolchain.java]
+                        version = "٢٥"
+                        distribution = "temurin"
+                        """, tempDir.resolve("config.toml")));
+
+        assertTrue(exception.getMessage().contains("Java feature release number"));
+    }
+
+    @Test
     void rejectsUnsupportedVersion() {
         UserGlobalConfigException exception = assertThrows(
                 UserGlobalConfigException.class,

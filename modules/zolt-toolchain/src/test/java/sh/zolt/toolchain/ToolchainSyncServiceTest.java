@@ -207,6 +207,31 @@ final class ToolchainSyncServiceTest {
         assertEquals(1, countOccurrences(lock, "[[toolchain.java]]"));
     }
 
+    @Test
+    void syncReusesMatchingLockUntilRefreshIsExplicit() throws IOException {
+        Path project = writeProject("lock-first-sync");
+        Path archive = fakeJdkArchive(tempDir.resolve("refresh-jdk.zip"), false);
+        ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
+        RefreshingCatalog catalog = new RefreshingCatalog(archive);
+        ToolchainSyncService service = new ToolchainSyncService(
+                new ToolchainConfigReader(),
+                catalog,
+                new ToolchainLockfileService(),
+                new JavaToolchainInstaller());
+        JavaToolchainRequest request = temurin("21");
+
+        service.sync(request, project.resolve("zolt.lock"), HostPlatform.parse("linux-x64"), store);
+        assertEquals(1, catalog.lockCalls);
+        assertTrue(Files.readString(project.resolve("zolt.lock")).contains("resolved.version = \"21.0.1+1\""));
+
+        service.sync(request, project.resolve("zolt.lock"), HostPlatform.parse("linux-x64"), store);
+        assertEquals(1, catalog.lockCalls);
+
+        service.sync(request, project.resolve("zolt.lock"), HostPlatform.parse("linux-x64"), store, true);
+        assertEquals(2, catalog.lockCalls);
+        assertTrue(Files.readString(project.resolve("zolt.lock")).contains("resolved.version = \"21.0.2+1\""));
+    }
+
     private static JavaToolchainRequest temurin(String version) {
         return new JavaToolchainRequest(version, JavaDistribution.TEMURIN, Set.of(), ToolchainPolicy.REQUIRE_MANAGED);
     }
@@ -372,6 +397,38 @@ final class ToolchainSyncServiceTest {
                     distribution,
                     "test:" + id,
                     JavaToolchainLayout.standard(nativeImage)));
+        }
+
+        @Override
+        public Optional<JavaToolchainArtifact> artifact(LockedJavaToolchain locked) {
+            return Optional.of(new JavaToolchainArtifact(
+                    archive.toUri(),
+                    JavaToolchainArchiveFormat.ZIP,
+                    Optional.empty(),
+                    true));
+        }
+    }
+
+    private static final class RefreshingCatalog implements JavaToolchainCatalog {
+        private final Path archive;
+        private int lockCalls;
+
+        private RefreshingCatalog(Path archive) {
+            this.archive = archive;
+        }
+
+        @Override
+        public Optional<LockedJavaToolchain> lock(JavaToolchainRequest request, HostPlatform platform) {
+            lockCalls++;
+            JavaDistribution distribution = request.distribution().orElseThrow();
+            return Optional.of(new LockedJavaToolchain(
+                    "java-" + distribution.id() + "-" + request.version(),
+                    request,
+                    platform,
+                    request.version() + ".0." + lockCalls + "+1",
+                    distribution,
+                    "test:refresh",
+                    JavaToolchainLayout.standard(false)));
         }
 
         @Override

@@ -93,15 +93,19 @@ set coverage floors in `zolt.toml`. See [Tests](./REFERENCE.md#tests-and-coverag
 
 ```sh
 zolt toolchain install java 21 --graalvm --native-image
+zolt toolchain install java 21 --graalvm --native-image --refresh
 zolt toolchain sync
+zolt toolchain sync --refresh
 zolt toolchain status
 zolt toolchain list
 zolt exec -- java -version
 zolt shims install
 ```
 
-Projects can pin managed Temurin or GraalVM JDKs. A separate test-runtime JDK can
-verify the Java version users actually run.
+Projects declare a concrete Java feature release and lock the newest resolved GA
+patch from Temurin or GraalVM Community. Sync reuses the lock by default; pass
+`--refresh` to update its exact patch. A separate test-runtime JDK can verify the
+Java version users actually run.
 
 See [Toolchains](./REFERENCE.md#java-toolchains).
 

@@ -1,6 +1,7 @@
 package sh.zolt.project.toolchain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,5 +42,14 @@ final class JavaToolchainRequestTest {
                 () -> new JavaToolchainRequest(" ", Optional.empty(), Set.of(), ToolchainPolicy.ALLOW_SYSTEM));
 
         assertEquals("Java toolchain version is required.", exception.getMessage());
+    }
+
+    @Test
+    void recognizesOnlyConcreteAsciiFeatureVersions() {
+        assertTrue(JavaFeatureVersion.isConcrete("21"));
+        assertTrue(JavaFeatureVersion.isConcrete("25"));
+        assertFalse(JavaFeatureVersion.isConcrete("latest"));
+        assertFalse(JavaFeatureVersion.isConcrete("021"));
+        assertFalse(JavaFeatureVersion.isConcrete("٢٥"));
     }
 }

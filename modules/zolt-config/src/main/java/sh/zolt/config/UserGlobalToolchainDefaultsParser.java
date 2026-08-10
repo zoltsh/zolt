@@ -2,6 +2,7 @@ package sh.zolt.config;
 
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
+import sh.zolt.project.toolchain.JavaFeatureVersion;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.project.toolchain.ToolchainPolicy;
 import java.util.Collections;
@@ -35,7 +36,7 @@ final class UserGlobalToolchainDefaultsParser {
             return UserGlobalToolchainDefaults.none();
         }
         validateKeys("defaults.toolchain.java", java, JAVA_TOOLCHAIN_KEYS);
-        String version = requiredString(java, "defaults.toolchain.java", "version");
+        String version = requiredFeatureVersion(java);
         JavaDistribution distribution = requiredDistribution(java);
         Set<JavaFeature> features = features(java);
         ToolchainPolicy policy = optionalPolicy(java).orElse(ToolchainPolicy.PREFER_MANAGED);
@@ -66,6 +67,17 @@ final class UserGlobalToolchainDefaultsParser {
                     "Missing required [" + section + "]." + key + " in user global config. Use a non-empty string.");
         }
         return value.trim();
+    }
+
+    private static String requiredFeatureVersion(TomlTable table) {
+        String version = requiredString(table, "defaults.toolchain.java", "version");
+        if (!JavaFeatureVersion.isConcrete(version)) {
+            throw new UserGlobalConfigException(
+                    "Invalid value for [defaults.toolchain.java].version in user global config: `"
+                            + version
+                            + "`. Use a Java feature release number such as `21` or `25`; aliases such as `latest` are not supported.");
+        }
+        return version;
     }
 
     private static Optional<String> optionalString(TomlTable table, String section, String key) {

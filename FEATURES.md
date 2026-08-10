@@ -120,13 +120,15 @@ zolt check --context ci
 
 ```sh
 zolt toolchain sync
+zolt toolchain sync --refresh
 zolt toolchain status
 zolt self update
 zolt config show
 ```
 
-- **Toolchains.** Install and pin Temurin or GraalVM JDKs. Run commands inside
-  the resolved JDK or install opt-in Java shims.
+- **Toolchains.** Resolve concrete Java feature releases from Temurin or GraalVM
+  Community, pin exact GA artifacts, and refresh patches explicitly. Run
+  commands inside the resolved JDK or install opt-in Java shims.
 - **Enterprise.** Use authenticated proxies, private CAs, repository
   credentials, Java mirrors, and isolated user state.
 - **Distribution.** Install, select, execute, prune, update, and roll back native

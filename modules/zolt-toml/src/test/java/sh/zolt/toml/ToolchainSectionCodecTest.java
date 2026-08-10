@@ -102,6 +102,30 @@ final class ToolchainSectionCodecTest {
     }
 
     @Test
+    void testToolchainCanClearInheritedNativeImageFeature() {
+        org.tomlj.TomlParseResult result = Toml.parse("""
+                [toolchain.java]
+                version = "25"
+                distribution = "graalvm-community"
+                features = ["native-image"]
+                policy = "require-managed"
+
+                [toolchain.java.test]
+                version = "25"
+                distribution = "temurin"
+                features = []
+                """);
+        JavaToolchainRequest main = ToolchainSectionCodec.parseJavaToolchain(result, "zolt.toml").orElseThrow();
+
+        JavaToolchainRequest test =
+                ToolchainSectionCodec.parseJavaTestToolchain(result, "zolt.toml", main).orElseThrow();
+
+        assertEquals(Optional.of(JavaDistribution.TEMURIN), test.distribution());
+        assertTrue(test.features().isEmpty());
+        assertEquals(ToolchainPolicy.REQUIRE_MANAGED, test.policy());
+    }
+
+    @Test
     void equalVersionTestToolchainIsIdenticalToMainRequest() {
         org.tomlj.TomlParseResult result = Toml.parse("""
                 [toolchain.java]
@@ -174,5 +198,32 @@ final class ToolchainSectionCodecTest {
                         """), "zolt.toml"));
 
         assertTrue(exception.getMessage().contains("Unsupported value for [toolchain.java].features"));
+    }
+
+    @Test
+    void rejectsFloatingJavaToolchainVersionAlias() {
+        ZoltConfigException exception = assertThrows(
+                ZoltConfigException.class,
+                () -> ToolchainSectionCodec.parseJavaToolchain(Toml.parse("""
+                        [toolchain.java]
+                        version = "latest"
+                        distribution = "temurin"
+                        """), "zolt.toml"));
+
+        assertTrue(exception.getMessage().contains("Java feature release number"));
+        assertTrue(exception.getMessage().contains("aliases such as `latest` are not supported"));
+    }
+
+    @Test
+    void rejectsNonAsciiJavaToolchainVersionNumerals() {
+        ZoltConfigException exception = assertThrows(
+                ZoltConfigException.class,
+                () -> ToolchainSectionCodec.parseJavaToolchain(Toml.parse("""
+                        [toolchain.java]
+                        version = "٢٥"
+                        distribution = "temurin"
+                        """), "zolt.toml"));
+
+        assertTrue(exception.getMessage().contains("Java feature release number"));
     }
 }

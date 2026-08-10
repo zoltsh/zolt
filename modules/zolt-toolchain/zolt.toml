@@ -8,6 +8,7 @@ java = "21"
 central = "https://repo.maven.apache.org/maven2"
 
 [dependencies]
+"com.fasterxml.jackson.core:jackson-core" = "2.22.1"
 "sh.zolt:zolt-model" = { workspace = "modules/zolt-model" }
 "sh.zolt:zolt-toml" = { workspace = "modules/zolt-toml" }
 

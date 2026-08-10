@@ -34,6 +34,12 @@ picocli
     License:           Apache-2.0 (see LICENSE in this distribution)
     Homepage:          https://picocli.info
 
+Jackson-core
+    Maven coordinates: com.fasterxml.jackson.core:jackson-core
+    Version:           2.22.1
+    License:           Apache-2.0 (see LICENSE in this distribution)
+    Homepage:          https://github.com/FasterXML/jackson-core
+
 tomlj
     Maven coordinates: org.tomlj:tomlj
     Version:           1.1.1

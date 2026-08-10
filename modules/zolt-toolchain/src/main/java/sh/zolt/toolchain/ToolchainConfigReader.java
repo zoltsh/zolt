@@ -30,8 +30,9 @@ public final class ToolchainConfigReader {
 
     /**
      * Reads the optional {@code [toolchain.java.test]} scoped runtime toolchain, which pins the JDK
-     * used to run tests (compile stays on {@code [toolchain.java]}). Distribution/features/policy
-     * default from the main entry; returns empty when no test runtime toolchain is declared.
+     * used to run tests (compile stays on {@code [toolchain.java]}). Distribution, features, and
+     * policy default from the main entry, while distribution and features can be overridden;
+     * returns empty when no test runtime toolchain is declared.
      */
     public Optional<JavaToolchainRequest> readJavaTest(Path configPath) {
         Path normalized = configPath.toAbsolutePath().normalize();

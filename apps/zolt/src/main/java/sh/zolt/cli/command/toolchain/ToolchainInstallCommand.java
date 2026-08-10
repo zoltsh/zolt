@@ -21,7 +21,7 @@ import picocli.CommandLine.Spec;
 
 @Command(
         name = "install",
-        description = "Install a Java toolchain from Zolt's bundled catalog.",
+        description = "Resolve and install a managed Java toolchain.",
         subcommands = {ToolchainInstallCommand.JavaCommand.class})
 public final class ToolchainInstallCommand implements Runnable {
     @Spec
@@ -47,6 +47,9 @@ public final class ToolchainInstallCommand implements Runnable {
 
         @Option(names = "--native-image", description = "Require native-image in the Java toolchain.")
         private boolean nativeImage;
+
+        @Option(names = "--refresh", description = "Resolve the newest GA patch instead of reusing a matching lock.")
+        private boolean refresh;
 
         @Option(names = "--policy", hidden = true)
         private String policy = ToolchainPolicy.PREFER_MANAGED.id();
@@ -90,7 +93,8 @@ public final class ToolchainInstallCommand implements Runnable {
                         request,
                         GlobalToolchainPaths.lockfile(configPath),
                         HostPlatform.parse(target),
-                        new ToolchainStore(installRoot));
+                        new ToolchainStore(installRoot),
+                        refresh);
                 print(request, result);
                 return 0;
             } catch (ActionableException | UserGlobalConfigException exception) {

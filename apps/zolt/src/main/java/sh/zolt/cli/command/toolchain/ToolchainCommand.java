@@ -223,6 +223,11 @@ public final class ToolchainCommand implements Runnable {
         @Option(names = "--install-root", hidden = true)
         private Path installRoot;
 
+        @Option(
+                names = "--refresh",
+                description = "Resolve the newest GA patch for each configured Java feature version.")
+        private boolean refresh;
+
         @Spec
         private CommandSpec spec;
 
@@ -267,9 +272,11 @@ public final class ToolchainCommand implements Runnable {
                             "Add [toolchain.java] with version, distribution, and features, then rerun `zolt toolchain sync`."));
             return syncService().sync(
                     request,
+                    toolchainConfigReader.readJavaTest(projectRoot.resolve("zolt.toml")),
                     projectRoot.resolve("zolt.lock"),
                     HostPlatform.parse(target),
-                    new ToolchainStore(installRoot));
+                    new ToolchainStore(installRoot),
+                    refresh);
         }
 
         private ToolchainSyncResult syncGlobal() {
@@ -279,7 +286,8 @@ public final class ToolchainCommand implements Runnable {
                     request,
                     GlobalToolchainPaths.lockfile(globalConfigPath),
                     HostPlatform.parse(target),
-                    new ToolchainStore(installRoot));
+                    new ToolchainStore(installRoot),
+                    refresh);
         }
 
         private void print(ToolchainSyncResult result) {
