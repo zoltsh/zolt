@@ -229,8 +229,9 @@ public final class WorkspacePackageService {
             UnaryOperator<PackageMode> packageModeResolver) {
         Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
-        Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
-        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath = buildsByPath(buildResult);
+        Map<String, WorkspaceMember> membersByPath = WorkspacePackagingIndex.membersByPath(workspace);
+        Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath =
+                WorkspacePackagingIndex.buildsByPath(buildResult);
         PackageOutputFingerprintIndex outputFingerprints =
                 new PackageOutputFingerprintIndex();
         List<Callable<PackagedMember>> tasks = new ArrayList<>();
@@ -338,22 +339,6 @@ public final class WorkspacePackageService {
                             packageInputs.packages());
                 })
                 .toList();
-    }
-
-    private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {
-        Map<String, WorkspaceMember> members = new LinkedHashMap<>();
-        for (WorkspaceMember member : workspace.members()) {
-            members.put(member.path(), member);
-        }
-        return members;
-    }
-
-    private static Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath(WorkspaceBuildResult result) {
-        Map<String, WorkspaceBuildResult.MemberBuildResult> builds = new LinkedHashMap<>();
-        for (WorkspaceBuildResult.MemberBuildResult member : result.members()) {
-            builds.put(member.member(), member);
-        }
-        return builds;
     }
 
     private record PackagedMember(

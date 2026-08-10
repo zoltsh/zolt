@@ -13,7 +13,6 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.NativeSettings;
 import sh.zolt.project.PackageMode;
-import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectVersionOverride;
 import sh.zolt.project.ProjectPaths;
@@ -85,7 +84,7 @@ public final class NativeBuildService {
         preflightNativeImageExecutable(nativeImageExecutable);
         PackageResult packageResult = packageService.packageJar(
                 projectDirectory,
-                nativePackageConfig(config),
+                NativePackagePolicy.packageConfig(config),
                 cacheRoot);
         ZoltLockfile lockfile = lockfileReader.read(projectDirectory.resolve("zolt.lock"));
         ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot).stream()
@@ -144,9 +143,8 @@ public final class NativeBuildService {
                     config.build().outputRoot(),
                     outputDirectory.resolve("spring-aot-evidence.json")));
         }
-        List<Path> nativeRuntimeClasspath = new ArrayList<>(packageResult.mode() == PackageMode.UBER
-                ? List.of()
-                : runtimeClasspath == null ? List.of() : runtimeClasspath);
+        List<Path> nativeRuntimeClasspath =
+                new ArrayList<>(NativePackagePolicy.runtimeClasspath(packageResult, runtimeClasspath));
         nativeRuntimeClasspath.addAll(0, springBootAotClasspath);
         NativeImageResult nativeImageResult = nativeImageRunner.build(new NativeImageRequest(
                 nativeImageExecutable,
@@ -158,12 +156,6 @@ public final class NativeBuildService {
                 nativeImageArguments(config, nativeSettings)), progress);
         reportSeriousWarnings(nativeImageResult);
         return new NativeBuildResult(packageResult, nativeImageResult, springBootAotEvidencePath);
-    }
-
-    private static ProjectConfig nativePackageConfig(ProjectConfig config) {
-        return config.packageSettings().mode() == PackageMode.UBER
-                ? config
-                : config.withPackageSettings(PackageSettings.defaults());
     }
 
     private static List<String> nativeImageArguments(ProjectConfig config, NativeSettings nativeSettings) {
