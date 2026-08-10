@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.function.UnaryOperator;
 
 public final class WorkspacePackageService {
     private final WorkspaceBuildService workspaceBuildService;
@@ -179,6 +180,13 @@ public final class WorkspacePackageService {
         return packageBuiltJars(plan, buildResult, Optional.empty(), packageModeOverride);
     }
 
+    WorkspacePackageResult packageBuiltJars(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            UnaryOperator<PackageMode> packageModeResolver) {
+        return packageBuiltJars(plan, buildResult, Optional.empty(), packageModeResolver);
+    }
+
     public WorkspacePackageResult packageBuiltJars(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
@@ -192,13 +200,25 @@ public final class WorkspacePackageService {
             WorkspaceBuildResult buildResult,
             Optional<Path> cacheRoot,
             Optional<PackageMode> packageModeOverride) {
+        return packageBuiltJars(
+                plan,
+                buildResult,
+                cacheRoot,
+                configured -> packageModeOverride.orElse(configured));
+    }
+
+    private WorkspacePackageResult packageBuiltJars(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Optional<Path> cacheRoot,
+            UnaryOperator<PackageMode> packageModeResolver) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
             return packageBuiltJarsLocked(
                     plan,
                     buildResult,
                     cacheRoot,
-                    packageModeOverride);
+                    packageModeResolver);
         }
     }
 
@@ -206,7 +226,7 @@ public final class WorkspacePackageService {
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
             Optional<Path> cacheRoot,
-            Optional<PackageMode> packageModeOverride) {
+            UnaryOperator<PackageMode> packageModeResolver) {
         Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);
@@ -217,10 +237,9 @@ public final class WorkspacePackageService {
         for (String memberPath : selection.selectedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
             WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
-            ProjectConfig memberConfig = packageModeOverride
-                    .map(mode -> member.config().withPackageSettings(
-                            member.config().packageSettings().withMode(mode)))
-                    .orElse(member.config());
+            PackageMode packageMode = packageModeResolver.apply(member.config().packageSettings().mode());
+            ProjectConfig memberConfig = member.config().withPackageSettings(
+                    member.config().packageSettings().withMode(packageMode));
             tasks.add(() -> packageMember(
                     workspace,
                     plan,

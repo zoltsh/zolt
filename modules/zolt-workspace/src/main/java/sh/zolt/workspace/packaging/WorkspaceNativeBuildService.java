@@ -127,7 +127,7 @@ public final class WorkspaceNativeBuildService {
         return workspacePackageService.packageBuiltJars(
                 plan,
                 buildResult,
-                Optional.of(PackageMode.THIN));
+                WorkspaceNativeBuildService::nativePackageMode);
     }
 
     public WorkspaceNativeBuildResult buildNativeImages(
@@ -196,6 +196,10 @@ public final class WorkspaceNativeBuildService {
                             + member.path()
                             + "` has no main class configured. Add [project].main to its zolt.toml or choose an application member.");
         }
+    }
+
+    private static PackageMode nativePackageMode(PackageMode configuredMode) {
+        return configuredMode == PackageMode.UBER ? PackageMode.UBER : PackageMode.THIN;
     }
 
     private static Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath(WorkspacePackageResult result) {

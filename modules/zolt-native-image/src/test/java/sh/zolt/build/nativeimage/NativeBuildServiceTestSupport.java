@@ -16,6 +16,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.io.TempDir;
 
 abstract class NativeBuildServiceTestSupport {
@@ -51,6 +53,17 @@ abstract class NativeBuildServiceTestSupport {
                 jar = "com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"
                 dependencies = []
                 """);
+    }
+
+    protected static Path writeRuntimeJar(Path cacheRoot) throws IOException {
+        Path jar = cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar");
+        Files.createDirectories(jar.getParent());
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            output.putNextEntry(new JarEntry("com/example/runtime/RuntimeLib.class"));
+            output.write("runtime".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+        return jar;
     }
 
     protected void source(String path, String content) throws IOException {

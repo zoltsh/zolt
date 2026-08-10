@@ -1,17 +1,21 @@
 package sh.zolt.workspace.packaging;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import sh.zolt.build.NativeImageException;
+import sh.zolt.project.PackageMode;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -22,7 +26,7 @@ final class WorkspaceNativeBuildServiceTest {
     private Path tempDir;
 
     @Test
-    void buildsNativeImageForDefaultWorkspaceApplicationMember() throws IOException {
+    void preservesConfiguredUberJarForWorkspaceNativeBuild() throws IOException {
         workspace("""
                 [workspace]
                 name = "acme-platform"
@@ -47,6 +51,9 @@ final class WorkspaceNativeBuildServiceTest {
 
                 [dependencies]
                 "com.acme:core" = { workspace = "modules/core" }
+
+                [package]
+                mode = "uber"
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -62,30 +69,44 @@ final class WorkspaceNativeBuildServiceTest {
                     }
                 }
                 """);
+        Path cacheRoot = tempDir.resolve("cache");
+        WorkspacePackageResult packaged = new WorkspacePackageService().packageJars(
+                tempDir,
+                cacheRoot,
+                WorkspaceSelectionRequest.defaults());
+        assertTrue(packaged.resolvedLockfile());
+        Path jar = tempDir.resolve("apps/api/target/api-0.1.0.jar");
+        byte[] packagedBytes = Files.readAllBytes(jar);
         Path nativeImage = fakeNativeImage(tempDir.resolve("native-image"));
 
         WorkspaceNativeBuildResult result = service.buildNative(
                 tempDir,
-                tempDir.resolve("cache"),
+                cacheRoot,
                 WorkspaceSelectionRequest.defaults(),
                 (workspace, member, config) -> nativeImage,
                 () -> {
                 });
 
-        assertTrue(result.resolvedLockfile());
+        assertFalse(result.resolvedLockfile());
         assertEquals(List.of("modules/core", "apps/api"), result.builtMembers().stream()
                 .map(WorkspaceBuildResult.MemberBuildResult::member)
                 .toList());
         assertEquals(List.of("apps/api"), result.members().stream()
                 .map(WorkspaceNativeBuildResult.MemberNativeBuildResult::member)
                 .toList());
+        assertEquals(PackageMode.UBER, result.members().getFirst().result().packageResult().mode());
+        assertArrayEquals(packagedBytes, Files.readAllBytes(jar));
+        try (JarFile archive = new JarFile(jar.toFile())) {
+            assertNotNull(archive.getEntry("com/acme/api/Api.class"));
+            assertNotNull(archive.getEntry("com/acme/core/Core.class"));
+        }
         Path binary = tempDir.resolve("apps/api/target/native/api");
         assertTrue(Files.exists(binary));
         assertFalse(Files.exists(tempDir.resolve("modules/core/target/native/core")));
         String log = Files.readString(tempDir.resolve("apps/api/target/native/native-image.log"));
         assertTrue(log.contains("executable=" + nativeImage));
-        assertTrue(log.contains(tempDir.resolve("apps/api/target/api-0.1.0.jar").toString()));
-        assertTrue(log.contains(tempDir.resolve("modules/core/target/classes").toString()));
+        assertTrue(log.contains("classpath=" + jar));
+        assertFalse(log.contains(tempDir.resolve("modules/core/target/classes").toString()));
     }
 
     @Test

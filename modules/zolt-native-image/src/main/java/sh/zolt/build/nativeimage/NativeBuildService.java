@@ -85,7 +85,7 @@ public final class NativeBuildService {
         preflightNativeImageExecutable(nativeImageExecutable);
         PackageResult packageResult = packageService.packageJar(
                 projectDirectory,
-                config.withPackageSettings(PackageSettings.defaults()),
+                nativePackageConfig(config),
                 cacheRoot);
         ZoltLockfile lockfile = lockfileReader.read(projectDirectory.resolve("zolt.lock"));
         ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot).stream()
@@ -144,7 +144,9 @@ public final class NativeBuildService {
                     config.build().outputRoot(),
                     outputDirectory.resolve("spring-aot-evidence.json")));
         }
-        List<Path> nativeRuntimeClasspath = new ArrayList<>(runtimeClasspath == null ? List.of() : runtimeClasspath);
+        List<Path> nativeRuntimeClasspath = new ArrayList<>(packageResult.mode() == PackageMode.UBER
+                ? List.of()
+                : runtimeClasspath == null ? List.of() : runtimeClasspath);
         nativeRuntimeClasspath.addAll(0, springBootAotClasspath);
         NativeImageResult nativeImageResult = nativeImageRunner.build(new NativeImageRequest(
                 nativeImageExecutable,
@@ -156,6 +158,12 @@ public final class NativeBuildService {
                 nativeImageArguments(config, nativeSettings)), progress);
         reportSeriousWarnings(nativeImageResult);
         return new NativeBuildResult(packageResult, nativeImageResult, springBootAotEvidencePath);
+    }
+
+    private static ProjectConfig nativePackageConfig(ProjectConfig config) {
+        return config.packageSettings().mode() == PackageMode.UBER
+                ? config
+                : config.withPackageSettings(PackageSettings.defaults());
     }
 
     private static List<String> nativeImageArguments(ProjectConfig config, NativeSettings nativeSettings) {
