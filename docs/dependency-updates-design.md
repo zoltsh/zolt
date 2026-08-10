@@ -1,7 +1,8 @@
 # Dependency Updates — Design Record
 
-Status: decided 2026-07-22. Implementation contract for `zolt outdated` and
-`zolt update` plus the external Renovate manager spec.
+Status: decided 2026-07-22, amended 2026-08-10. Implementation contract for
+`zolt outdated`, policy and exact `zolt update`, plus the external Renovate
+manager spec.
 
 ## Command naming
 
@@ -16,7 +17,8 @@ path; reflect-config and the help-surface fixture update accordingly.
 ## Boundary contract (append to USAGE "Resolution and Lockfile Contracts")
 
 Version discovery is advisory-only. `maven-metadata.xml` is fetched ONLY by
-`zolt outdated` and `zolt update`. Resolution (`zolt resolve`, `--locked`,
+`zolt outdated` and policy-driven `zolt update`. Exact target update does not
+query metadata. Resolution (`zolt resolve`, `--locked`,
 build/test/package, workspace resolve, `explain verify`) never fetches, reads,
 or is influenced by version listings, and `zolt.lock` never records one. A
 discovered version enters a build only when written as a fixed literal into
@@ -105,6 +107,32 @@ opts out; `--dry-run` does neither) — matches every sibling mutation command
 and keeps zolt.lock consistent; the steelman (bulk-bump review, CI staging)
 loses because the edit is already saved and `--dry-run` is the review valve.
 `update` has NO zolt.lock read/write path of its own.
+
+## Exact target automation amendment
+
+Schema v1 remains the default for both `outdated` and policy-driven `update`.
+`zolt outdated --format json --schema-version 2` adds canonical mutation-root-
+relative manifest/lock paths and an opaque SHA-256-derived `zt1_` ID for every
+reportable surface. Identity includes only schema version, manifest path,
+surface, section, and identifier. Current/candidate versions, fan-out,
+updateability, and lockfile state are descriptive and excluded from identity.
+
+`zolt update --target-id ID --to VERSION` selects exactly one ID. Exact mode is
+incompatible with selectors, ceilings, and `--offline`, but retains dry-run,
+no-resolve, and prerelease opt-in. It validates through `VersionPolicy`, rejects
+downgrades and comparator-equivalent rewrites, and never performs metadata
+discovery. Availability is proved by the existing staged resolve transaction.
+
+Workspace lookup catalogs all declared members under one confirmed root lock.
+Execution reacquires that lock, verifies the expected manifest/root-lock paths,
+rebuilds the target from the current manifest, and replans before applying via
+the same `UpdateApplier` as policy mode. A removed/moved target or changed scope
+fails closed; an already-applied destination becomes a no-op. Transaction output
+reports actual manifest and lockfile byte changes in deterministic order.
+
+Exact JSON requires schema v2 and reports `changed`, `applied`, `resolved`,
+`changedFiles`, alias fan-out, and structured diagnostics. Valid machine failures
+retain that schema number. Policy JSON stays schema v1.
 
 ## Renovate manager spec (appendix — external repo, not built here)
 

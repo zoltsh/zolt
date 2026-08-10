@@ -546,8 +546,9 @@ ambient or historically shaped:
   and uploads, and can reference `[repositoryCredentials]` entries for
   authenticated repositories.
 - Version discovery is advisory-only. `maven-metadata.xml` is fetched only by
-  `zolt outdated` and `zolt update`. Resolution — `zolt resolve`, `zolt resolve
-  --locked`, `build`/`test`/`package`, workspace resolve, and `zolt explain
+  `zolt outdated` and policy-driven `zolt update`. Exact target update (`zolt
+  update --target-id ... --to ...`) does not query listings. Resolution — `zolt
+  resolve`, `zolt resolve --locked`, `build`/`test`/`package`, workspace resolve, and `zolt explain
   verify` — never fetches, reads, or is influenced by version listings, and
   `zolt.lock` never records one. A discovered version enters a build only when
   written as a fixed literal into `zolt.toml` and re-resolved. This is enforced
@@ -580,8 +581,9 @@ SNAPSHOTs while parsing.
 
 ## Dependency Updates
 
-`zolt outdated` and `zolt update` are the only commands that consult remote
-version listings (`maven-metadata.xml`). Discovery is advisory: it never changes
+`zolt outdated` and policy-driven `zolt update` are the only commands that consult
+remote version listings (`maven-metadata.xml`). Exact target update does not.
+Discovery is advisory: it never changes
 a build until a chosen version is written into `zolt.toml` and re-resolved.
 SNAPSHOT versions are never suggested, ranges are never written, and toolchain
 JDK versions are out of scope.
@@ -610,12 +612,21 @@ ignored. Candidates are grouped by change class (patch, minor, major) with a
 selected in-major target and a latest target. Run at a workspace root it reports
 one block per member and notes coordinates shared across members.
 
-Flags: `--format text|json` (JSON is schema v1 with stable keys and explicit
-nulls), `--include-prereleases`, `--all` (also show up-to-date surfaces),
+Flags: `--format text|json` (schema v1 remains the default, with stable keys and
+explicit nulls), `--schema-version 2` with JSON for the automation contract,
+`--include-prereleases`, `--all` (also show up-to-date surfaces),
 `--offline`, and optional selectors (a coordinate, alias, or section token).
+
+Schema v2 gives every scope canonical mutation-root-relative `manifestPath` and
+`lockfilePath` values. Every entry has an opaque `targetId`, `updateable`, and an
+`updateBlocker` when Zolt can report but not mutate that surface. A target ID is
+root-scoped and identifies the manifest path, surface, section, and identifier;
+current versions, candidates, alias fan-out, and lockfile contents do not change
+it. Treat IDs as opaque and rediscover them instead of constructing them.
 
     zolt outdated
     zolt outdated --format json
+    zolt outdated --format json --schema-version 2
     zolt outdated --include-prereleases com.google.guava:guava
 
 ### `zolt update`
@@ -646,6 +657,35 @@ rewritten.
     zolt update --dry-run
     zolt update --latest
     zolt update --minor com.example:lib
+
+Automation can select one exact declaration without fuzzy coordinate or section
+matching:
+
+    zolt update --target-id zt1_... --to 33.4.0-jre
+    zolt update --target-id zt1_... --to 33.4.0-jre \
+      --format json --schema-version 2
+
+`--target-id` and `--to` are required together. They cannot be combined with
+selectors, `--patch`/`--minor`/`--major`/`--latest`, or `--offline`; exact mode
+accepts `--dry-run`, `--no-resolve`, and `--include-prereleases`. The requested
+version must be fixed. The exact current spelling is a no-op; any other
+destination must be strictly newer. Ranges, dynamic selectors, interpolation,
+incomplete versions, SNAPSHOTs, downgrades, and comparator-equivalent spelling
+changes are rejected.
+
+Exact mode never requests `maven-metadata.xml`: the caller selects the
+destination, and the default staged resolve is the authority on artifact
+availability. From a workspace root or member, Zolt catalogs every declared
+member, routes the opaque ID to its owner, revalidates the same ID under the
+workspace mutation lock, edits only that manifest, and refreshes only the root
+`zolt.lock`. A target that moved or disappeared fails closed.
+
+Exact JSON uses schema v2. It reports the target, `from`, `to`, change `class`,
+semantic `changed`, actual `applied` and `resolved` effects, and canonical
+`changedFiles`. Dry runs and same-version no-ops have no changed files; alias
+targets expose their complete `fanOut` and a warning diagnostic. Runtime
+failures use the same schema-v2 envelope on standard output. Policy-driven
+`zolt update --format json` remains schema v1 by default.
 
 ## Java Toolchains
 

@@ -69,3 +69,21 @@ Each v2 scope includes canonical mutation-root-relative `manifestPath` and
 or workspace and remain stable when current versions, candidates, fan-out, or
 lockfile paths change. Callers must treat them as opaque and rediscover them from
 the selected Zolt root rather than constructing or decoding them.
+
+### Exact update automation schema v2
+
+`zolt update --target-id ID --to VERSION --format json --schema-version 2`
+is the matching stable write contract. The destination is caller-selected and
+must be a supported, strictly newer fixed version. Exact mode does not consult
+repository metadata; the default staged resolve proves availability and rolls
+back both manifest and lockfile if resolution fails.
+
+Success output distinguishes the requested semantic change from actual effects
+with `changed`, `applied`, `resolved`, and canonical `changedFiles` fields. It
+also returns the exact target identity and alias fan-out. Valid schema-v2 machine
+requests use the same envelope with `status: "failed"` and structured diagnostics
+when validation, routing, revalidation, or resolution fails.
+
+Policy-driven `zolt update --format json` remains schema v1. Schema v2 is not an
+extension of policy-update output, and schema v1 is not extended with exact-
+target fields.

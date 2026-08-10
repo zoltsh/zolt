@@ -51,10 +51,19 @@ zolt conflicts
 zolt policy
 zolt outdated
 zolt update --dry-run
+zolt outdated --format json --schema-version 2
+zolt update --target-id TARGET_ID --to VERSION --format json --schema-version 2
 ```
 
 Zolt supports BOM imports, version aliases, scopes, exclusions, optional
 dependencies, classifiers, artifact types, and constraints.
+
+Automation should discover opaque target IDs from schema-v2 `outdated` output,
+then pass one ID and an exact newer fixed version to `update`. Exact mode works
+from a standalone project, workspace root, or member directory; it does not
+consult version metadata, and the normal resolve proves whether the requested
+artifact actually exists. Add `--dry-run` to preview or `--no-resolve` to defer
+the lockfile refresh.
 
 See [Resolution](./REFERENCE.md#resolution-and-lockfile-contracts) and
 [Updates](./REFERENCE.md#dependency-updates).
