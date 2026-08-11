@@ -76,8 +76,16 @@ public final class SpdxCatalog {
                 .toList();
     }
 
+    List<String> knownLicenseIds() {
+        return licenses.values().stream().sorted().toList();
+    }
+
     public Optional<String> canonicalException(String candidate) {
         return Optional.ofNullable(exceptions.get(normalize(candidate)));
+    }
+
+    List<String> exceptionIds() {
+        return exceptions.values().stream().sorted().toList();
     }
 
     public int licenseCount() {

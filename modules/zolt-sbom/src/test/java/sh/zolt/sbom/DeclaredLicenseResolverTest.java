@@ -28,17 +28,34 @@ final class DeclaredLicenseResolverTest {
 
     @Test
     void invalidSpdxLookingNamesNeverFallThroughToRecognizableUrls() {
-        assertUnmapped("MIT AND Not-A-License", "https://opensource.org/licenses/MIT");
-        assertUnmapped("MIT And Apache-2.0", "https://www.apache.org/licenses/LICENSE-2.0.txt");
-        assertUnmapped("GPL-2.0+", "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html");
-        assertUnmapped("LicenseRef-Internal", "https://opensource.org/licenses/MIT");
-        assertUnmapped("AdditionRef-Custom", "https://opensource.org/licenses/apache-2.0");
-        assertUnmapped("DocumentRef-upstream:LicenseRef-Custom", "https://opensource.org/licenses/MIT");
-        assertUnmapped("Net-SNMP", "https://opensource.org/licenses/MIT");
-        assertUnmapped("GPL-3.0-only MIT", "https://opensource.org/licenses/MIT");
-        assertUnmapped("MIT WITH Not-A-Real-Exception", "https://opensource.org/licenses/MIT");
-        assertUnmapped("(MIT", "https://opensource.org/licenses/MIT");
-        assertUnmapped("MIT)", "https://opensource.org/licenses/MIT");
+        for (String name : List.of(
+                "MIT AND Not-A-License",
+                "MIT And Apache-2.0",
+                "GPL-2.0+",
+                "LicenseRef-Internal",
+                "AdditionRef-Custom",
+                "DocumentRef-upstream:LicenseRef-Custom",
+                "Net-SNMP",
+                "GPL-3.0-only MIT",
+                "MIT WITH Not-A-Real-Exception",
+                "(MIT",
+                "MIT)",
+                "GPL-3.0-only/MIT",
+                "GPL-3.0-only, MIT",
+                "GPL-3.0-only.",
+                "[GPL-3.0-only]",
+                "SPDX:GPL-3.0-only",
+                "Classpath-exception-2.0")) {
+            assertUnmapped(name, "https://opensource.org/licenses/MIT");
+        }
+    }
+
+    @Test
+    void curatedAliasStillResolvesBeforeBoundaryClassification() {
+        SbomLicense license = resolver.resolve(Optional.of("The MIT License"), Optional.empty());
+
+        assertEquals(SbomLicenseStatus.SPDX, license.status());
+        assertEquals("MIT", license.label());
     }
 
     @Test

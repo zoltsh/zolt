@@ -143,7 +143,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                   <artifactId>lib</artifactId>
                   <version>1.0.0</version>
                   <licenses><license>
-                    <name>GPL-3.0-only MIT</name>
+                    <name>GPL-3.0-only/MIT</name>
                     <url>https://opensource.org/licenses/MIT</url>
                   </license></licenses>
                 </project>
@@ -161,7 +161,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 Optional.empty(), projectDir, config, projectDir.resolve("zolt.lock"), false, cache);
 
         assertEquals(1, failures(results).size(), results.toString());
-        assertTrue(failures(results).getFirst().message().contains("GPL-3.0-only MIT"), results.toString());
+        assertTrue(failures(results).getFirst().message().contains("GPL-3.0-only/MIT"), results.toString());
     }
 
     @Test

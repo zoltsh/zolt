@@ -7,6 +7,7 @@ public final class SpdxExpressionParser {
     private static final int MAX_LENGTH = 4096;
     private static final int MAX_DEPTH = 64;
     private final SpdxCatalog catalog;
+    private final SpdxSignalScanner signals;
 
     public SpdxExpressionParser() {
         this(SpdxCatalog.defaultCatalog());
@@ -14,6 +15,7 @@ public final class SpdxExpressionParser {
 
     SpdxExpressionParser(SpdxCatalog catalog) {
         this.catalog = catalog;
+        signals = new SpdxSignalScanner(catalog);
     }
 
     public SpdxExpression parse(String source) {
@@ -51,6 +53,10 @@ public final class SpdxExpressionParser {
         if (source == null || source.isBlank()) {
             return DeclaredLicenseSyntax.PROSE;
         }
+        String trimmed = source.trim();
+        if (trimmed.length() > MAX_LENGTH) {
+            return DeclaredLicenseSyntax.MALFORMED_SPDX;
+        }
         Optional<SpdxExpression> parsed = tryParse(source);
         if (parsed.isPresent()) {
             SpdxExpression expression = parsed.orElseThrow();
@@ -58,71 +64,16 @@ public final class SpdxExpressionParser {
                     ? DeclaredLicenseSyntax.VALID_EXPRESSION
                     : DeclaredLicenseSyntax.VALID_TERM;
         }
-        String trimmed = source.trim();
-        if (isUnsupportedAtomic(trimmed)) {
+        if (signals.isUnsupportedAtomic(trimmed)) {
             return DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC;
         }
-        return hasMalformedSpdxShape(source)
+        return signals.contains(source)
                 ? DeclaredLicenseSyntax.MALFORMED_SPDX
                 : DeclaredLicenseSyntax.PROSE;
     }
 
     public boolean isExpressionShaped(String source) {
         return classify(source) != DeclaredLicenseSyntax.PROSE;
-    }
-
-    private boolean isUnsupportedAtomic(String source) {
-        if (source.indexOf('(') >= 0
-                || source.indexOf(')') >= 0
-                || source.chars().anyMatch(Character::isWhitespace)) {
-            return false;
-        }
-        return isSpdxSignal(source);
-    }
-
-    private boolean hasMalformedSpdxShape(String source) {
-        Lexer lexer = new Lexer(source);
-        int signals = 0;
-        boolean syntaxMarker = false;
-        Token token = lexer.next();
-        while (token.type() != TokenType.END) {
-            if (token.type() == TokenType.LEFT_PAREN || token.type() == TokenType.RIGHT_PAREN) {
-                syntaxMarker = true;
-            } else if (token.type() == TokenType.AND
-                    || token.type() == TokenType.OR
-                    || token.type() == TokenType.WITH
-                    || isOperatorSpelling(token.text())) {
-                syntaxMarker = true;
-            } else if (token.type() == TokenType.IDENTIFIER && isSpdxSignal(token.text())) {
-                signals++;
-            }
-            token = lexer.next();
-        }
-        return signals > 1 || signals == 1 && syntaxMarker;
-    }
-
-    private boolean isSpdxSignal(String identifier) {
-        if (isKnownLicense(identifier) || hasSpdxReferencePrefix(identifier)) {
-            return true;
-        }
-        return identifier.endsWith("+")
-                && isKnownLicense(identifier.substring(0, identifier.length() - 1));
-    }
-
-    private static boolean isOperatorSpelling(String token) {
-        return "AND".equalsIgnoreCase(token)
-                || "OR".equalsIgnoreCase(token)
-                || "WITH".equalsIgnoreCase(token);
-    }
-
-    private boolean isKnownLicense(String identifier) {
-        return catalog.knownLicense(identifier).isPresent();
-    }
-
-    private static boolean hasSpdxReferencePrefix(String source) {
-        return source.startsWith("LicenseRef-")
-                || source.startsWith("AdditionRef-")
-                || source.startsWith("DocumentRef-");
     }
 
     private final class Parser {

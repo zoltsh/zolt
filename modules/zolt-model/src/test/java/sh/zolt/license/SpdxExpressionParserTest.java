@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class SpdxExpressionParserTest {
@@ -106,14 +107,38 @@ final class SpdxExpressionParserTest {
         assertEquals(DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC, parser.classify("Net-SNMP"));
         assertEquals(DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC, parser.classify("LicenseRef-Internal"));
         assertEquals(DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC, parser.classify("GPL-2.0+"));
+        assertEquals(DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC, parser.classify("MIT+"));
         assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify("GPL-3.0-only MIT"));
         assertEquals(
                 DeclaredLicenseSyntax.MALFORMED_SPDX,
                 parser.classify("MIT WITH Not-A-Real-Exception"));
         assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify("(MIT"));
         assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify("MIT)"));
-        assertEquals(DeclaredLicenseSyntax.PROSE, parser.classify("The MIT License"));
+        assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify("The MIT License"));
+        assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify("x".repeat(4097)));
         assertEquals(DeclaredLicenseSyntax.PROSE, parser.classify("License With Restrictions"));
+    }
+
+    @Test
+    void detectsCatalogIdentifiersAcrossDeclarationBoundaries() {
+        for (String malformed : List.of(
+                "GPL-3.0-only/MIT",
+                "GPL-3.0-only, MIT",
+                "GPL-3.0-only.",
+                "[GPL-3.0-only]",
+                "SPDX:GPL-3.0-only",
+                "Classpath-exception-2.0",
+                "GPL-3.0-only; MIT",
+                "GPL-3.0-only|MIT",
+                "\"GPL-3.0-only\"",
+                "MITish/MIT",
+                "xMIT/MIT",
+                "[LicenseRef-Internal]",
+                "XLicenseRef-Hidden/LicenseRef-Visible")) {
+            assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify(malformed), malformed);
+        }
+        assertEquals(DeclaredLicenseSyntax.PROSE, parser.classify("XLicenseRef-Hidden"));
+        assertEquals(DeclaredLicenseSyntax.PROSE, parser.classify("Unknown+"));
     }
 
     @Test

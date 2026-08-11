@@ -116,7 +116,10 @@ policy term, and malformed SPDX-shaped input is also rejected. One shared
 classifier distinguishes valid terms, valid expressions, unsupported atomic
 labels, malformed SPDX, and prose. Missing operators, malformed `WITH`, and
 unbalanced parentheses therefore fail closed in both configuration and Maven
-evidence handling.
+evidence handling. Boundary-aware catalog matching also recognizes license and
+exception identifiers beside punctuation, wrappers, and `SPDX:` prefixes; an
+invalid declaration cannot hide an SPDX term from classification by changing
+its separator.
 Unsupported atomic SPDX-like labels such as `Net-SNMP`, `LicenseRef-*`, and
 legacy `+` identifiers remain exact raw global terms so projects can target the
 same `UNMAPPED` evidence without broadening `unknown`. In particular, a current
@@ -176,8 +179,9 @@ not invent legal meaning that the publisher did not provide.
 2. If the remaining raw name is a valid explicit SPDX expression, preserve its
    AST and canonical expression text.
 3. If that name asserts SPDX syntax but fails parsing, including a missing
-   operator, malformed `WITH`, or unbalanced parentheses, retain it immediately
-   as `UNMAPPED`; its URL cannot rescue or narrow the publisher's declaration.
+   operator, malformed `WITH`, unbalanced parentheses, or punctuation-delimited
+   SPDX identifiers, retain it immediately as `UNMAPPED`; its URL cannot rescue
+   or narrow the publisher's declaration.
 4. Otherwise apply the conservative URL mapping to one SPDX term.
 5. Otherwise retain the raw record as `UNMAPPED`.
 6. No readable declaration remains `UNKNOWN` as today.

@@ -314,7 +314,13 @@ final class ZoltTomlRepositoryPolicyWriterTest {
                 "GPL-3.0-only MIT",
                 "MIT WITH Not-A-Real-Exception",
                 "(MIT",
-                "MIT)")) {
+                "MIT)",
+                "GPL-3.0-only/MIT",
+                "GPL-3.0-only, MIT",
+                "GPL-3.0-only.",
+                "[GPL-3.0-only]",
+                "SPDX:GPL-3.0-only",
+                "Classpath-exception-2.0")) {
             ZoltConfigException exception = assertThrows(ZoltConfigException.class, () -> parser.parse("""
                     [project]
                     name = "enterprise"
