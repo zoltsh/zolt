@@ -283,6 +283,9 @@ javac --release 21 -cp "$classpath" -d "$BOOTSTRAP_CLASSES" @"$SOURCE_LIST"
 if [[ -d src/main/resources ]]; then
   cp -R src/main/resources/. "$BOOTSTRAP_CLASSES"/
 fi
+if [[ -d modules/zolt-model/src/main/resources ]]; then
+  cp -R modules/zolt-model/src/main/resources/. "$BOOTSTRAP_CLASSES"/
+fi
 if [[ -d apps/zolt/src/main/resources ]]; then
   cp -R apps/zolt/src/main/resources/. "$BOOTSTRAP_CLASSES"/
 fi

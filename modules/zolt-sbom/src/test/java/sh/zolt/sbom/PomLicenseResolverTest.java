@@ -69,6 +69,37 @@ final class PomLicenseResolverTest extends SbomTestSupport {
     }
 
     @Test
+    void inheritsExplicitExpressionFromParentPom(@TempDir Path cache) throws IOException {
+        writePom(cache, "org.example", "child-expression", "1.0.0", """
+                <project>
+                  <parent>
+                    <groupId>org.example</groupId>
+                    <artifactId>expression-parent</artifactId>
+                    <version>2.0.0</version>
+                  </parent>
+                  <artifactId>child-expression</artifactId>
+                </project>
+                """);
+        writePom(cache, "org.example", "expression-parent", "2.0.0", """
+                <project>
+                  <groupId>org.example</groupId>
+                  <artifactId>expression-parent</artifactId>
+                  <version>2.0.0</version>
+                  <licenses><license><name>MIT OR Apache-2.0</name></license></licenses>
+                </project>
+                """);
+
+        SbomLicense license = new PomLicenseResolver(cache)
+                .resolve(maven(
+                        "org.example", "child-expression", "1.0.0",
+                        DependencyScope.COMPILE, true, SHA_A, List.of()))
+                .getFirst();
+
+        assertEquals(SbomLicenseStatus.SPDX_EXPRESSION, license.status());
+        assertEquals("MIT OR Apache-2.0", license.label());
+    }
+
+    @Test
     void keepsDualLicensesAsDiscreteObjects(@TempDir Path cache) throws IOException {
         writePom(cache, "org.example", "dual", "1.0.0", """
                 <project>
@@ -85,7 +116,49 @@ final class PomLicenseResolverTest extends SbomTestSupport {
         List<SbomLicense> licenses = new PomLicenseResolver(cache)
                 .resolve(maven("org.example", "dual", "1.0.0", DependencyScope.COMPILE, true, SHA_A, List.of()));
 
-        assertEquals(List.of("EPL-2.0", "GPL-2.0-with-classpath-exception"), labels(licenses));
+        assertEquals(List.of("EPL-2.0", "GPL-2.0-only WITH Classpath-exception-2.0"), labels(licenses));
+    }
+
+    @Test
+    void preservesAnExplicitSpdxExpressionFromOneLicenseName(@TempDir Path cache) throws IOException {
+        writePom(cache, "org.example", "expression", "1.0.0", """
+                <project>
+                  <groupId>org.example</groupId>
+                  <artifactId>expression</artifactId>
+                  <version>1.0.0</version>
+                  <licenses>
+                    <license><name>MIT and BSD-3-Clause</name><url>https://example.com/license</url></license>
+                  </licenses>
+                </project>
+                """);
+
+        SbomLicense license = new PomLicenseResolver(cache)
+                .resolve(maven("org.example", "expression", "1.0.0", DependencyScope.COMPILE, true, SHA_A, List.of()))
+                .getFirst();
+
+        assertEquals(SbomLicenseStatus.SPDX_EXPRESSION, license.status());
+        assertEquals("MIT AND BSD-3-Clause", license.label());
+        assertEquals("MIT and BSD-3-Clause", license.name().orElseThrow());
+        assertEquals("https://example.com/license", license.url().orElseThrow());
+    }
+
+    @Test
+    void keepsMalformedExpressionShapedTextUnmapped(@TempDir Path cache) throws IOException {
+        writePom(cache, "org.example", "malformed", "1.0.0", """
+                <project>
+                  <groupId>org.example</groupId>
+                  <artifactId>malformed</artifactId>
+                  <version>1.0.0</version>
+                  <licenses><license><name>MIT AND Not-A-License</name></license></licenses>
+                </project>
+                """);
+
+        SbomLicense license = new PomLicenseResolver(cache)
+                .resolve(maven("org.example", "malformed", "1.0.0", DependencyScope.COMPILE, true, SHA_A, List.of()))
+                .getFirst();
+
+        assertEquals(SbomLicenseStatus.UNMAPPED, license.status());
+        assertEquals("MIT AND Not-A-License", license.label());
     }
 
     @Test

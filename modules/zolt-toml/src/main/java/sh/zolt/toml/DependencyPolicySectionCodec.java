@@ -8,7 +8,6 @@ import sh.zolt.project.DependencyConstraintKind;
 import sh.zolt.project.DependencyPolicyExclusion;
 import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.project.LicensePolicySettings;
-import sh.zolt.project.UnknownLicensePolicy;
 import sh.zolt.project.VersionPolicy;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,7 +23,6 @@ final class DependencyPolicySectionCodec {
     private static final Set<String> DEPENDENCY_POLICY_KEYS = Set.of("exclude", "failOnVersionConflict", "licenses");
     private static final Set<String> DEPENDENCY_POLICY_EXCLUSION_KEYS = Set.of("group", "artifact", "reason");
     private static final Set<String> DEPENDENCY_CONSTRAINT_KEYS = Set.of("version", "versionRef", "kind", "reason");
-    private static final Set<String> DEPENDENCY_POLICY_LICENSES_KEYS = Set.of("allow", "deny", "unknown");
 
     private DependencyPolicySectionCodec() {
     }
@@ -36,37 +34,11 @@ final class DependencyPolicySectionCodec {
         List<DependencyPolicyExclusion> exclusions = dependencyPolicyExclusions(policyTable);
         boolean failOnVersionConflict = failOnVersionConflict(policyTable);
         Map<String, DependencyConstraint> constraints = dependencyConstraints(constraintsTable, versionAliases);
-        LicensePolicySettings licenses = licensePolicy(policyTable);
+        LicensePolicySettings licenses = LicensePolicySectionCodec.parse(policyTable);
         if (exclusions.isEmpty() && constraints.isEmpty() && !failOnVersionConflict && licenses.isDefault()) {
             return DependencyPolicySettings.defaults();
         }
         return new DependencyPolicySettings(exclusions, constraints, failOnVersionConflict, licenses);
-    }
-
-    private static LicensePolicySettings licensePolicy(TomlTable policyTable) {
-        if (policyTable == null) {
-            return LicensePolicySettings.defaults();
-        }
-        TomlTable licensesTable = policyTable.getTable(List.of("licenses"));
-        if (licensesTable == null) {
-            return LicensePolicySettings.defaults();
-        }
-        TomlValidation.validateKeysWithVersionRefHint(
-                "dependencyPolicy.licenses", licensesTable, DEPENDENCY_POLICY_LICENSES_KEYS);
-        List<String> allow = TomlScalars.stringListOrDefault(
-                licensesTable, "dependencyPolicy.licenses", "allow", List.of());
-        List<String> deny = TomlScalars.stringListOrDefault(
-                licensesTable, "dependencyPolicy.licenses", "deny", List.of());
-        String unknownValue = TomlScalars.stringOrDefault(
-                licensesTable, "dependencyPolicy.licenses", "unknown", UnknownLicensePolicy.WARN.configValue());
-        UnknownLicensePolicy unknown = UnknownLicensePolicy.fromConfigValue(unknownValue)
-                .orElseThrow(() -> new ZoltConfigException(
-                        "Unsupported [dependencyPolicy.licenses].unknown value `"
-                                + unknownValue
-                                + "` in zolt.toml. Supported values are: "
-                                + UnknownLicensePolicy.supportedValues()
-                                + "."));
-        return new LicensePolicySettings(allow, deny, unknown);
     }
 
     static void write(StringBuilder toml, DependencyPolicySettings policy) {
@@ -90,7 +62,7 @@ final class DependencyPolicySectionCodec {
             }
             toml.append('\n');
         }
-        writeLicensePolicy(toml, policy.licenses());
+        LicensePolicySectionCodec.write(toml, policy.licenses());
         if (!policy.constraints().isEmpty()) {
             toml.append("[dependencyConstraints]\n");
             for (DependencyConstraint constraint : new TreeMap<>(policy.constraints()).values()) {
@@ -199,34 +171,6 @@ final class DependencyPolicySectionCodec {
                     TomlScalars.optionalString(constraintTable, "dependencyConstraints." + coordinate, "reason")));
         }
         return constraints;
-    }
-
-    private static void writeLicensePolicy(StringBuilder toml, LicensePolicySettings licenses) {
-        if (licenses == null || licenses.isDefault()) {
-            return;
-        }
-        toml.append("[dependencyPolicy.licenses]\n");
-        if (!licenses.allow().isEmpty()) {
-            toml.append("allow = ").append(stringArray(licenses.allow())).append('\n');
-        }
-        if (!licenses.deny().isEmpty()) {
-            toml.append("deny = ").append(stringArray(licenses.deny())).append('\n');
-        }
-        if (licenses.unknown() != UnknownLicensePolicy.WARN) {
-            toml.append("unknown = ").append(quote(licenses.unknown().configValue())).append('\n');
-        }
-        toml.append('\n');
-    }
-
-    private static String stringArray(List<String> values) {
-        StringBuilder array = new StringBuilder("[");
-        for (int index = 0; index < values.size(); index++) {
-            if (index > 0) {
-                array.append(", ");
-            }
-            array.append(quote(values.get(index)));
-        }
-        return array.append("]").toString();
     }
 
     private static String policyExclusion(DependencyPolicyExclusion exclusion) {

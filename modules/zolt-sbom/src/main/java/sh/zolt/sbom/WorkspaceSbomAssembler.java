@@ -25,7 +25,7 @@ import sh.zolt.project.ProjectConfig;
  * inputs — no filesystem, no network.
  */
 public final class WorkspaceSbomAssembler {
-    private final SpdxLicenseMapping licenseMapping = new SpdxLicenseMapping();
+    private final DeclaredLicenseResolver declaredLicenseResolver = new DeclaredLicenseResolver();
 
     public SbomModel assemble(
             String workspaceName,
@@ -268,9 +268,7 @@ public final class WorkspaceSbomAssembler {
         if (name.isEmpty() && url.isEmpty()) {
             return List.of();
         }
-        return List.of(licenseMapping.spdxId(name, url)
-                .map(SbomLicense::spdx)
-                .orElseGet(() -> SbomLicense.unmapped(name, url)));
+        return List.of(declaredLicenseResolver.resolve(name, url));
     }
 
     private String serialNumber(String rootRef, ZoltLockfile lockfile, List<SbomComponent> components) {

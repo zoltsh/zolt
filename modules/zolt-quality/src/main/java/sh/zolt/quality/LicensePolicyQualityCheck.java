@@ -15,8 +15,10 @@ import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.LicensePolicySettings;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.sbom.LicenseExceptionAudit;
 import sh.zolt.sbom.LicenseIndex;
 import sh.zolt.sbom.LicensePolicyEvaluator;
+import sh.zolt.sbom.LicensePolicyEvaluation;
 import sh.zolt.sbom.LicensePolicyFinding;
 import sh.zolt.sbom.LicenseVerdict;
 import sh.zolt.sbom.LockArtifacts;
@@ -133,37 +135,83 @@ final class LicensePolicyQualityCheck {
                         .filter(component -> externalPurls.contains(component.purl()))
                         .toList()
                 : assembled;
-        List<LicensePolicyFinding> findings = evaluator.evaluate(components, index, policy);
+        LicensePolicyEvaluation evaluation = evaluator.evaluateDetailed(components, index, policy);
+        List<LicensePolicyFinding> findings = evaluation.findings();
 
         List<QualityCheckResult> results = new ArrayList<>();
-        results.add(summary(member, components.size(), findings));
+        results.add(summary(member, components.size(), evaluation));
         for (LicensePolicyFinding finding : findings) {
             String message = finding.license() + " — " + finding.reason();
-            if (finding.verdict() == LicenseVerdict.VIOLATION) {
-                results.add(QualityCheckResult.failed(
+            switch (finding.verdict()) {
+                case VIOLATION -> results.add(QualityCheckResult.failed(
                         LICENSE_POLICY, member, finding.coordinate(), message, nextStep(finding)));
-            } else {
-                results.add(QualityCheckResult.warning(
+                case WARN -> results.add(QualityCheckResult.warning(
                         LICENSE_POLICY, member, finding.coordinate(), message, nextStep(finding)));
+                case PERMITTED, PERMITTED_BY_EXCEPTION -> {
+                    // The summary records permitted decisions; only failures and warnings need details.
+                }
             }
         }
+        evaluation.exceptionAudits().stream()
+                .filter(LicenseExceptionAudit::failure)
+                .map(audit -> exceptionFailure(member, audit))
+                .forEach(results::add);
         return List.copyOf(results);
     }
 
     private static QualityCheckResult summary(
-            Optional<String> member, int total, List<LicensePolicyFinding> findings) {
-        long violations = findings.stream()
+            Optional<String> member, int total, LicensePolicyEvaluation evaluation) {
+        long violations = evaluation.findings().stream()
                 .filter(finding -> finding.verdict() == LicenseVerdict.VIOLATION)
                 .count();
-        long warnings = findings.size() - violations;
+        long warnings = evaluation.findings().stream()
+                .filter(finding -> finding.verdict() == LicenseVerdict.WARN)
+                .count();
+        long exceptions = evaluation.findings().stream()
+                .filter(finding -> finding.verdict() == LicenseVerdict.PERMITTED_BY_EXCEPTION)
+                .count();
+        long stale = evaluation.exceptionAudits().stream().filter(LicenseExceptionAudit::failure).count();
         String message = "Evaluated " + total + " compile/runtime "
                 + QualityCheckText.plural(total, "dependency", "dependencies")
-                + " against [dependencyPolicy.licenses]: " + violations + " violation(s), " + warnings + " warning(s).";
+                + " against [dependencyPolicy.licenses]: " + violations + " violation(s), "
+                + warnings + " warning(s). " + exceptions + " permitted by exception, "
+                + stale + " stale exception(s).";
         return QualityCheckResult.passed(LICENSE_POLICY, member, "[dependencyPolicy.licenses]", message);
     }
 
     private static String nextStep(LicensePolicyFinding finding) {
+        if (finding.reason().contains(".deny")) {
+            return "Remove " + finding.coordinate()
+                    + " or amend [dependencyPolicy.licenses].deny after review; an exception cannot override deny.";
+        }
+        if (finding.reason().startsWith("unrecognized license")) {
+            return "Run `zolt resolve`, verify the dependency's cached POM license metadata, or amend "
+                    + "[dependencyPolicy.licenses].unknown after review; scoped exceptions require SPDX terms.";
+        }
         return "Remove " + finding.coordinate()
-                + ", add `" + finding.license() + "` to [dependencyPolicy.licenses].allow, or amend the policy.";
+                + ", add `" + finding.license() + "` to [dependencyPolicy.licenses].allow, or add an exact reviewed "
+                + "[dependencyPolicy.licenses.exceptions.\"group:artifact\"] entry.";
+    }
+
+    private static QualityCheckResult exceptionFailure(
+            Optional<String> member,
+            LicenseExceptionAudit audit) {
+        String dependency = audit.exception().dependency();
+        String path = "[dependencyPolicy.licenses.exceptions.\"" + dependency + "\"]";
+        String message = switch (audit.status()) {
+            case MISSING -> "Scoped license exception is stale: " + dependency
+                    + " is absent from the compile/runtime dependency closure.";
+            case VERSION_MISMATCHED -> "Scoped license exception reviewed version "
+                    + audit.exception().version().orElseThrow() + ", but the resolved version is "
+                    + audit.resolvedVersion().orElse("unknown") + ".";
+            case REDUNDANT -> "Scoped license exception is redundant: no resolved declaration requires it.";
+            case USED -> throw new IllegalArgumentException("used exceptions are not failures");
+        };
+        return QualityCheckResult.failed(
+                LICENSE_POLICY,
+                member,
+                path,
+                message + " Reason: " + audit.exception().reason(),
+                "Remove " + path + " or update it after reviewing the resolved dependency and license evidence.");
     }
 }

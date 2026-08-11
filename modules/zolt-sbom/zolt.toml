@@ -13,6 +13,7 @@ central = "https://repo.maven.apache.org/maven2"
 "sh.zolt:zolt-repository" = { workspace = "modules/zolt-repository" }
 
 [test.dependencies]
+"com.networknt:json-schema-validator" = "2.0.4"
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
 [build]

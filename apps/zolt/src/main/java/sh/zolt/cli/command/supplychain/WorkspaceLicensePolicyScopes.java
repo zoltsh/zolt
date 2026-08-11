@@ -3,6 +3,7 @@ package sh.zolt.cli.command.supplychain;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -64,7 +65,8 @@ final class WorkspaceLicensePolicyScopes {
                     effectiveConfig,
                     components.stream()
                             .filter(component -> consumed.contains(coordinate(component)))
-                            .toList()));
+                            .toList(),
+                    Optional.of(member.path())));
         }
         return List.copyOf(scopes);
     }

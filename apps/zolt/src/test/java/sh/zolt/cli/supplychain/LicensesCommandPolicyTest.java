@@ -93,6 +93,64 @@ final class LicensesCommandPolicyTest {
     }
 
     @Test
+    void scopedExpressionExceptionIsReportedAndEnforcedByTheSameDecision() throws IOException {
+        Path projectDir = tempDir.resolve("exception");
+        Path cache = tempDir.resolve("cache-exception");
+        writeProject(projectDir, """
+
+                [dependencyPolicy.licenses]
+                allow = ["MIT"]
+                unknown = "fail"
+
+                [dependencyPolicy.licenses.exceptions."org.example:lib"]
+                allow = ["BSD-3-Clause"]
+                version = "1.0.0"
+                reason = "Reviewed transitive expression"
+                """);
+        writePom(cache, "MIT AND BSD-3-Clause");
+
+        CommandResult licenses = execute("licenses", "--format", "json", "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+        CommandResult check = execute("check", "--check", "license-policy", "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+
+        assertEquals(0, licenses.exitCode(), licenses.stderr());
+        assertTrue(licenses.stdout().contains("\"expression\": \"MIT AND BSD-3-Clause\""), licenses.stdout());
+        assertTrue(licenses.stdout().contains("\"status\": \"permitted-by-exception\""), licenses.stdout());
+        assertTrue(licenses.stdout().contains("\"reason\": \"Reviewed transitive expression\""), licenses.stdout());
+        assertEquals(0, check.exitCode(), check.stdout() + check.stderr());
+    }
+
+    @Test
+    void staleExceptionIsReportedWithoutFailingLicensesAndFailsTheCheck() throws IOException {
+        Path projectDir = tempDir.resolve("stale-exception");
+        Path cache = tempDir.resolve("cache-stale-exception");
+        writeProject(projectDir, """
+
+                [dependencyPolicy.licenses]
+                allow = ["MIT"]
+
+                [dependencyPolicy.licenses.exceptions."org.example:missing"]
+                allow = ["BSD-3-Clause"]
+                version = "1.0.0"
+                reason = "Old review"
+                """);
+        writePom(cache, "MIT");
+
+        CommandResult licenses = execute("licenses", "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+        CommandResult check = execute("check", "--check", "license-policy", "--cwd", projectDir.toString(),
+                "--cache-root", cache.toString());
+
+        assertEquals(0, licenses.exitCode(), licenses.stderr());
+        assertTrue(licenses.stdout().contains("org.example:missing@1.0.0  [missing]"), licenses.stdout());
+        assertTrue(licenses.stdout().contains("1 stale exception"), licenses.stdout());
+        assertEquals(1, check.exitCode(), check.stdout() + check.stderr());
+        assertTrue(check.stdout().contains(
+                "[dependencyPolicy.licenses.exceptions.\"org.example:missing\"]"), check.stdout());
+    }
+
+    @Test
     void withoutAPolicyTheOutputCarriesNoPolicyAnnotations() throws IOException {
         Path projectDir = tempDir.resolve("unannotated");
         Path cache = tempDir.resolve("cache-unannotated");
@@ -108,7 +166,6 @@ final class LicensesCommandPolicyTest {
         assertEquals("""
                 GPL-3.0-only (1)
                   org.example:lib:1.0.0
-                  note: unrecognized license spelling; kept raw. Verify the license manually.
                 """, text.stdout());
         assertFalse(json.stdout().contains("licensePolicy"), json.stdout());
         assertFalse(json.stdout().contains("\"policy\""), json.stdout());

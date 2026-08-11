@@ -22,7 +22,7 @@ import sh.zolt.project.ProjectConfig;
  * all happen here so the writers only serialize.
  */
 public final class LockSbomAssembler {
-    private final SpdxLicenseMapping licenseMapping = new SpdxLicenseMapping();
+    private final DeclaredLicenseResolver declaredLicenseResolver = new DeclaredLicenseResolver();
 
     public SbomModel assemble(
             ProjectConfig config,
@@ -179,9 +179,7 @@ public final class LockSbomAssembler {
         if (name.isEmpty() && url.isEmpty()) {
             return List.of();
         }
-        return List.of(licenseMapping.spdxId(name, url)
-                .map(SbomLicense::spdx)
-                .orElseGet(() -> SbomLicense.unmapped(name, url)));
+        return List.of(declaredLicenseResolver.resolve(name, url));
     }
 
     private static SbomComponentType rootType(ProjectConfig config) {

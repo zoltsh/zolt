@@ -1,6 +1,7 @@
 package sh.zolt.sbom;
 
 import java.util.List;
+import java.util.Optional;
 import sh.zolt.project.LicensePolicySettings;
 import sh.zolt.project.ProjectConfig;
 
@@ -15,9 +16,17 @@ import sh.zolt.project.ProjectConfig;
  * Keeping the pairing in the caller is what lets zolt-sbom stay free of any workspace dependency — the
  * projection lives in zolt-workspace and only its result crosses this boundary.
  */
-public record LicensePolicyScope(ProjectConfig config, List<SbomComponent> components) {
+public record LicensePolicyScope(
+        ProjectConfig config,
+        List<SbomComponent> components,
+        Optional<String> member) {
+    public LicensePolicyScope(ProjectConfig config, List<SbomComponent> components) {
+        this(config, components, Optional.empty());
+    }
+
     public LicensePolicyScope {
         components = List.copyOf(components);
+        member = member == null ? Optional.empty() : member;
     }
 
     /** The owner's configured license policy; {@code isDefault()} means it enforces nothing. */

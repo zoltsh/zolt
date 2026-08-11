@@ -3,6 +3,9 @@
 Status: decided 2026-07-22. Implementation contract for `zolt sbom`,
 `zolt licenses`, the license policy gate, and publish attachment.
 
+Implemented scoped exceptions and explicit SPDX-expression semantics are specified
+in [`docs/license-policy-exceptions-design.md`](license-policy-exceptions-design.md).
+
 ## Load-bearing fact
 
 `zolt.lock` ALREADY stores the dependency graph edges: each `[[package]]`
@@ -101,12 +104,15 @@ cache (nearest-ancestor wins, cycle-guarded); missing cached POM or empty
 chain → UNKNOWN + one stderr warning suggesting `zolt resolve` (never fetch,
 never fail the SBOM). Normalization via curated SpdxLicenseMapping keyed on
 lowercased name AND url (Apache-2.0/MIT/BSD-2/BSD-3/EPL-1/EPL-2/LGPL/GPL
-(+classpath)/CDDL/MPL-2.0/ISC/Unlicense/EDL spellings). Status per license:
-SPDX (→ {"license":{"id"}}), UNMAPPED (raw name+url kept, flagged — never
-guessed into a nearby id), UNKNOWN (component licenses omitted in SBOM,
-surfaced in reports/policy). Dual licenses = N discrete objects, never an
-SPDX expression (Maven semantics are ambiguous). No persisted memoization
-(POMs are disk-cached; extraction is pure); in-process per-run memo only.
+(+classpath)/CDDL/MPL-2.0/ISC/Unlicense/EDL spellings). A license name that is
+itself an SPDX identifier or expression is parsed first against the source-pinned
+3.28.0 catalog. Status per license: SPDX (→ {"license":{"id"}}),
+SPDX_EXPRESSION, UNMAPPED (raw name+url kept, flagged — never guessed into a
+nearby id), UNKNOWN (component licenses omitted in SBOM, surfaced in
+reports/policy). Multiple Maven license records remain discrete alternatives;
+Zolt never invents an expression because Maven semantics are ambiguous. No
+persisted memoization (POMs are disk-cached; extraction is pure); in-process
+per-run memo only.
 
 ## `zolt licenses`
 
@@ -121,7 +127,11 @@ guarantee + maintenance; v2 path: curated texts for top permissive ids).
 
 Config home `[dependencyPolicy.licenses]`: `allow = [...]`, `deny = [...]`,
 `unknown = "fail"|"warn"|"allow"` (default warn — failing on UNKNOWN by
-default would break most real projects; strict shops set fail in CI).
+default would break most real projects; strict shops set fail in CI). Exact
+`[dependencyPolicy.licenses.exceptions."group:artifact"]` tables extend a
+non-empty allow list with canonical SPDX terms and require a review reason;
+an optional `version` is exact. Missing, mismatched, and redundant exceptions
+fail the quality gate, and no exception can override global deny.
 Precedence rule (one sentence, no ambiguity): permitted iff id ∉ deny AND
 (allow empty OR id ∈ allow) — deny always wins; a non-empty allow-list is
 authoritative. UNMAPPED matches by its raw string, otherwise follows the
@@ -133,8 +143,9 @@ CI_CONTEXT_CHECKS), LicensePolicyQualityCheck in zolt-quality delegating to
 zolt-sbom's evaluator; offline; failures name dependency, license, and the
 policy line with a Next: (remove dep / policy exclude / amend policy).
 Reporting: `zolt licenses` annotates the same evaluator's verdicts onto its own
-output — `[denied]`/`[unknown]` markers carrying the evaluator's reason, a counts
-summary, and a pointer at the enforcing command — through
+output — `[denied]`/`[unknown]`/`[exception]` markers carrying the evaluator's
+reason, exception lifecycle audits, a counts summary, and a pointer at the
+enforcing command — through
 `LicensePolicyAnnotations` in zolt-sbom, which both writers accept as an optional
 argument. Enforcement does not move: `zolt licenses` still exits 0, and with no
 policy configured its text and JSON output are byte-unchanged (JSON gains new

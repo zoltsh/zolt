@@ -39,6 +39,9 @@ public final class LicenseNoticesWriter {
     private static String noticeLine(SbomLicense license) {
         return switch (license.status()) {
             case SPDX -> license.spdxId().orElse("UNKNOWN");
+            case SPDX_EXPRESSION -> license.expression()
+                    .map(sh.zolt.license.SpdxExpression::canonical)
+                    .orElse("UNKNOWN");
             case UNMAPPED -> license.url()
                     .map(url -> license.displayName() + " (" + url + ")")
                     .orElseGet(license::displayName);

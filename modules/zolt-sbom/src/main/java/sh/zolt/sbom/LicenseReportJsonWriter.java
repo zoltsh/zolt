@@ -55,14 +55,18 @@ public final class LicenseReportJsonWriter {
         indent(json, 2).append("{\n");
         stringField(json, 3, "license", group.label(), true);
         stringField(json, 3, "status", group.status().jsonValue(), true);
+        if (group.status() == SbomLicenseStatus.SPDX_EXPRESSION) {
+            stringField(json, 3, "expression", group.label(), true);
+        }
         optionalStringField(json, 3, "url", group.url(), true);
-        components(json, group.components(), annotations);
+        components(json, group.label(), group.components(), annotations);
         json.append('\n');
         indent(json, 2).append("}");
     }
 
     private void components(
             StringBuilder json,
+            String declaration,
             List<LicenseComponentRef> components,
             LicensePolicyAnnotations annotations) {
         indent(json, 3);
@@ -72,7 +76,8 @@ public final class LicenseReportJsonWriter {
             LicenseComponentRef component = components.get(index);
             indent(json, 4).append("{\n");
             stringField(json, 5, "coordinate", component.coordinate(), true);
-            Optional<LicensePolicyFinding> finding = annotations.forCoordinate(component.coordinate());
+            Optional<LicensePolicyFinding> finding =
+                    annotations.forDeclaration(component.coordinate(), declaration);
             stringField(json, 5, "purl", component.purl(), finding.isPresent());
             finding.ifPresent(present -> policy(json, present));
             indent(json, 4).append("}");
@@ -89,9 +94,23 @@ public final class LicenseReportJsonWriter {
         string(json, "policy");
         json.append(": {\n");
         stringField(json, 6, "status", LicensePolicyAnnotations.status(finding.verdict()), true);
+        if (!finding.declaration().equals(finding.license())) {
+            stringField(json, 6, "expression", finding.declaration(), true);
+        }
         stringField(json, 6, "license", finding.license(), true);
-        stringField(json, 6, "reason", finding.reason(), false);
+        stringField(json, 6, "reason", finding.reason(), finding.exceptionMatch().isPresent());
+        finding.exceptionMatch().ifPresent(match -> exception(json, match));
         indent(json, 5).append("}\n");
+    }
+
+    private void exception(StringBuilder json, LicensePolicyExceptionMatch match) {
+        indent(json, 6);
+        string(json, "exception");
+        json.append(": {\n");
+        stringField(json, 7, "dependency", match.dependency(), true);
+        stringField(json, 7, "matchedVersion", match.matchedVersion(), true);
+        stringField(json, 7, "reason", match.reason(), false);
+        indent(json, 6).append("}\n");
     }
 
     private void licensePolicy(StringBuilder json, LicensePolicyAnnotations annotations) {
@@ -105,7 +124,37 @@ public final class LicenseReportJsonWriter {
         rawField(json, 2, "evaluated", Integer.toString(annotations.evaluated()), true);
         rawField(json, 2, "denied", Integer.toString(annotations.denied()), true);
         rawField(json, 2, "unknown", Integer.toString(annotations.unknown()), true);
-        stringField(json, 2, "enforcedBy", "zolt check --check license-policy", false);
+        rawField(json, 2, "permittedByException", Integer.toString(annotations.permittedByException()), true);
+        rawField(json, 2, "staleExceptions", Integer.toString(annotations.staleExceptions()), true);
+        stringField(json, 2, "enforcedBy", "zolt check --check license-policy", true);
+        exceptionAudits(json, annotations.exceptionAudits());
         indent(json, 1).append("}");
+    }
+
+    private void exceptionAudits(StringBuilder json, List<LicenseExceptionAudit> audits) {
+        indent(json, 2);
+        string(json, "exceptions");
+        json.append(": [");
+        if (audits.isEmpty()) {
+            json.append("]\n");
+            return;
+        }
+        json.append('\n');
+        for (int index = 0; index < audits.size(); index++) {
+            LicenseExceptionAudit audit = audits.get(index);
+            indent(json, 3).append("{\n");
+            audit.member().ifPresent(member -> stringField(json, 4, "member", member, true));
+            stringField(json, 4, "dependency", audit.exception().dependency(), true);
+            optionalStringField(json, 4, "version", audit.exception().version(), true);
+            stringField(json, 4, "status", audit.status().jsonValue(), true);
+            optionalStringField(json, 4, "resolvedVersion", audit.resolvedVersion(), true);
+            stringField(json, 4, "reason", audit.exception().reason(), false);
+            indent(json, 3).append('}');
+            if (index + 1 < audits.size()) {
+                json.append(',');
+            }
+            json.append('\n');
+        }
+        indent(json, 2).append("]\n");
     }
 }

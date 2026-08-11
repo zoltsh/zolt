@@ -1766,8 +1766,11 @@ workspace into one BOM: a root workspace component, each member as a library
 component, and external dependencies deduped with member→dependency edges from
 the lockfile.
 
-`zolt licenses` groups dependencies by license, normalizing raw Maven license
-names and URLs to SPDX identifiers. Unrecognized licenses stay `UNMAPPED` (raw
+`zolt licenses` groups dependencies by license. A Maven license name that is an
+SPDX identifier or explicit expression is parsed against Zolt's pinned SPDX
+catalog; otherwise the existing conservative name/URL mappings are applied.
+Multiple Maven `<license>` records remain discrete alternatives because Maven
+does not assign an operator to them. Unrecognized licenses stay `UNMAPPED` (raw
 name kept, never guessed); dependencies with no readable license are `UNKNOWN`.
 `--notices <path>` writes a deterministic `THIRD_PARTY` notices file.
 
@@ -1785,32 +1788,54 @@ dependencies with unresolved licenses.
 
 ```toml
 [dependencyPolicy.licenses]
-allow = ["Apache-2.0", "MIT", "BSD-3-Clause"]
+allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
 deny = ["GPL-3.0-only"]
 unknown = "warn"
+
+[dependencyPolicy.licenses.exceptions."org.example:matchit"]
+allow = ["BSD-3-Clause"]
+version = "0.8.4"
+reason = "Reviewed transitive dependency; declared as MIT AND BSD-3-Clause"
 ```
+
+An exception extends a non-empty global allow-list for one exact
+`group:artifact` only. Its `allow` entries are canonical SPDX terms, `reason` is
+required, and `version` is an optional exact version — blank versions, ranges,
+wildcards, and globally denied terms are rejected. Exceptions cannot permit
+`UNKNOWN` or raw `UNMAPPED` labels and never override `deny`.
 
 `zolt check --check license-policy` (also part of the CI context) fails the build
 when a compile/runtime dependency violates the policy, naming the dependency, the
-license, and the policy line.
+license, and the policy line. It also fails stale exceptions: a configured
+coordinate that is missing, resolves at a different reviewed version, or no
+longer requires its exception must be removed or reviewed again.
 
 With a policy configured, `zolt licenses` shows what it makes of each dependency
-without enforcing anything — offending entries carry a `[denied]` or `[unknown]`
-marker and the evaluator's reason, followed by a summary and a pointer at the
-command that does enforce:
+without enforcing anything. Entries carry `[denied]`, `[unknown]`, or
+`[exception]` when evidence is needed; an exception includes its reviewed reason.
+The report then audits every configured exception, prints aggregate counts, and
+points at the command that does enforce:
 
 ```text
-GPL-3.0-only (1)
-  org.example:lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny
+MIT AND BSD-3-Clause (1)
+  org.example:matchit:0.8.4  [exception] BSD-3-Clause permitted by [dependencyPolicy.licenses.exceptions."org.example:matchit"]
+    reason: Reviewed transitive dependency; declared as MIT AND BSD-3-Clause
 
-License policy: 1 denied, 0 unknown of 12 dependencies.
+License exceptions:
+  org.example:matchit@0.8.4  [used]
+    reason: Reviewed transitive dependency; declared as MIT AND BSD-3-Clause
+
+License policy: 0 denied, 0 unknown of 12 dependencies. 1 permitted by exception; 0 stale exceptions.
 Next: run `zolt check --check license-policy` to enforce it.
 ```
 
 `zolt licenses` still exits 0 — reporting and enforcement stay separate surfaces.
 In `--format json` the same status is additive: each offending component gains a
-`policy` object and the document gains a `licensePolicy` summary; nothing existing
-is renamed or removed. Without a policy configured the output is unchanged.
+`policy` object and the document gains a `licensePolicy` summary plus a sorted
+`exceptions` audit array. Exception-backed policy objects include the matched
+dependency, resolved version, and review reason. Nothing existing is renamed or
+removed. Without a policy configured the output is unchanged, apart from raw
+metadata newly recognized as an explicit SPDX identifier or expression.
 
 Annotations reflect the enforcement scope, which is compile/runtime — exactly what
 `zolt check --check license-policy` evaluates. Entries a wider report lists via
@@ -1828,7 +1853,9 @@ does not depend on a coordinate never affects its verdict. The report therefore
 cannot flag something the command it points at would pass. The summary's
 denominator counts the distinct coordinates in the enforcing scope, not raw
 component entries: one coordinate reached from several members is still one
-dependency.
+dependency. Exception audits remain member-local after aggregation; text and
+JSON identify the owning member so identical stale exceptions cannot collapse or
+be attributed to the wrong policy.
 
 `zolt publish --sbom` attaches a CycloneDX SBOM to the publish as a supplemental
 artifact (classifier `cyclonedx`, extension `json`). It rides the existing

@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.license.SpdxExpressionParser;
 import sh.zolt.lockfile.ZoltLockfile;
 
 final class CycloneDxSbomWriterTest extends SbomTestSupport {
@@ -28,6 +29,7 @@ final class CycloneDxSbomWriterTest extends SbomTestSupport {
         SbomModel model = assembler.assemble(
                 config(), lockfile, SbomScopeSelection.requiredOnly(), Optional.empty(), TOOL_VERSION);
 
+        String json = writer.write(model);
         assertEquals("""
                 {
                   "bomFormat": "CycloneDX",
@@ -97,7 +99,8 @@ final class CycloneDxSbomWriterTest extends SbomTestSupport {
                     }
                   ]
                 }
-                """, writer.write(model));
+                """, json);
+        CycloneDxSchemaValidator.assertValid(json);
     }
 
     @Test
@@ -171,6 +174,54 @@ final class CycloneDxSbomWriterTest extends SbomTestSupport {
                         + "          }\n"
                         + "        }\n"
                         + "      ]"), json);
+        CycloneDxSchemaValidator.assertValid(json);
+    }
+
+    @Test
+    void emitsASoleExplicitExpressionAsCycloneDxExpressionChoice() {
+        ZoltLockfile lockfile = lockfile(
+                Optional.of("sha256:demo-lock-fingerprint"),
+                maven("org.example", "lib-a", "1.0.0", DependencyScope.COMPILE, true, SHA_A, List.of()));
+        SbomLicense expression = SbomLicense.expression(
+                new SpdxExpressionParser().parse("MIT AND BSD-3-Clause"),
+                Optional.of("MIT and BSD-3-Clause"),
+                Optional.of("https://example.com/licenses"));
+        LicenseIndex index = new LicenseIndex(
+                Map.of("org.example:lib-a:1.0.0", List.of(expression)), List.of());
+
+        String json = writer.write(assembler.assemble(
+                config(), lockfile, SbomScopeSelection.requiredOnly(), Optional.empty(), TOOL_VERSION, index));
+
+        assertTrue(json.contains(
+                "      \"licenses\": [\n"
+                        + "        {\n"
+                        + "          \"expression\": \"MIT AND BSD-3-Clause\"\n"
+                        + "        }\n"
+                        + "      ]"), json);
+        CycloneDxSchemaValidator.assertValid(json);
+    }
+
+    @Test
+    void mixedExpressionAndLicenseRecordsUseNamedLicenseFallback() {
+        ZoltLockfile lockfile = lockfile(
+                Optional.of("sha256:demo-lock-fingerprint"),
+                maven("org.example", "lib-a", "1.0.0", DependencyScope.COMPILE, true, SHA_A, List.of()));
+        SbomLicense expression = SbomLicense.expression(
+                new SpdxExpressionParser().parse("MIT AND BSD-3-Clause"),
+                Optional.of("MIT and BSD-3-Clause"),
+                Optional.of("https://example.com/licenses"));
+        LicenseIndex index = new LicenseIndex(
+                Map.of("org.example:lib-a:1.0.0", List.of(expression, SbomLicense.spdx("Apache-2.0"))), List.of());
+
+        String json = writer.write(assembler.assemble(
+                config(), lockfile, SbomScopeSelection.requiredOnly(), Optional.empty(), TOOL_VERSION, index));
+
+        assertTrue(json.contains("\"id\": \"Apache-2.0\""), json);
+        assertTrue(json.contains(
+                "\"name\": \"MIT and BSD-3-Clause\",\n"
+                        + "            \"url\": \"https://example.com/licenses\""), json);
+        assertTrue(!json.contains("\"expression\": \"MIT AND BSD-3-Clause\""), json);
+        CycloneDxSchemaValidator.assertValid(json);
     }
 
     @Test
@@ -190,6 +241,25 @@ final class CycloneDxSbomWriterTest extends SbomTestSupport {
         assertEquals(
                 List.of(SbomLicense.spdx("Apache-2.0")),
                 model.metadataComponent().licenses());
+    }
+
+    @Test
+    void emitsAuthoritativeRootExpressionFromConfig() {
+        ZoltLockfile lockfile = lockfile(Optional.of("sha256:demo-lock-fingerprint"));
+
+        SbomModel model = assembler.assemble(
+                configWithLicense("MIT AND BSD-3-Clause", ""),
+                lockfile,
+                SbomScopeSelection.requiredOnly(),
+                Optional.empty(),
+                TOOL_VERSION,
+                LicenseIndex.empty());
+
+        assertEquals(SbomLicenseStatus.SPDX_EXPRESSION,
+                model.metadataComponent().licenses().getFirst().status());
+        assertEquals("MIT AND BSD-3-Clause",
+                model.metadataComponent().licenses().getFirst().label());
+        assertTrue(writer.write(model).contains("\"expression\": \"MIT AND BSD-3-Clause\""));
     }
 
     private static Clock fixedClock() {

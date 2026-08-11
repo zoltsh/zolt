@@ -131,6 +131,12 @@ public final class CycloneDxSbomWriter {
         indent(json, level);
         string(json, "licenses");
         json.append(": [\n");
+        if (licenses.size() == 1 && licenses.getFirst().status() == SbomLicenseStatus.SPDX_EXPRESSION) {
+            expressionLicense(json, level + 1, licenses.getFirst());
+            json.append('\n');
+            indent(json, level).append("]");
+            return;
+        }
         for (int index = 0; index < licenses.size(); index++) {
             SbomLicense license = licenses.get(index);
             indent(json, level + 1).append("{\n");
@@ -154,6 +160,17 @@ public final class CycloneDxSbomWriter {
             json.append('\n');
         }
         indent(json, level).append("]");
+    }
+
+    private void expressionLicense(StringBuilder json, int level, SbomLicense license) {
+        indent(json, level).append("{\n");
+        stringField(
+                json,
+                level + 1,
+                "expression",
+                license.expression().orElseThrow().canonical(),
+                false);
+        indent(json, level).append("}");
     }
 
     private void hashesArray(StringBuilder json, int level, List<SbomHash> hashes) {

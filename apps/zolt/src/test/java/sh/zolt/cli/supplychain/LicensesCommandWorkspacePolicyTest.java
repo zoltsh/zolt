@@ -112,6 +112,53 @@ final class LicensesCommandWorkspacePolicyTest {
     }
 
     @Test
+    void memberLocalExceptionIsVisibleAndAgreesWithWorkspaceEnforcement() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            addArtifacts(repository);
+            Path workspace = writeWorkspace(
+                    repository,
+                    """
+
+                    [dependencies]
+                    "org.example:matchit" = "1.0.0"
+
+                    [dependencyPolicy.licenses]
+                    allow = ["MIT"]
+                    unknown = "fail"
+
+                    [dependencyPolicy.licenses.exceptions."org.example:matchit"]
+                    allow = ["BSD-3-Clause"]
+                    version = "1.0.0"
+                    reason = "Reviewed matchit for core"
+                    """,
+                    """
+
+                    [dependencies]
+                    "org.example:matchit" = "1.0.0"
+
+                    [dependencyPolicy.licenses]
+                    allow = ["MIT", "BSD-3-Clause"]
+                    unknown = "fail"
+                    """);
+            Path cache = tempDir.resolve("exception-cache");
+            assertEquals(0, resolve(workspace, cache).exitCode());
+
+            CommandResult licenses = execute("licenses", "--workspace",
+                    "--cwd", workspace.toString(), "--cache-root", cache.toString());
+            CommandResult check = execute("check", "--workspace", "--check", "license-policy",
+                    "--cwd", workspace.toString(), "--cache-root", cache.toString());
+
+            assertEquals(0, licenses.exitCode(), licenses.stdout() + licenses.stderr());
+            assertTrue(licenses.stdout().contains(
+                    "org.example:matchit:1.0.0  [exception] BSD-3-Clause permitted by "
+                            + "[dependencyPolicy.licenses.exceptions.\"org.example:matchit\"]"),
+                    licenses.stdout());
+            assertTrue(licenses.stdout().contains("org.example:matchit@1.0.0  [used]"), licenses.stdout());
+            assertEquals(0, check.exitCode(), check.stdout() + check.stderr());
+        }
+    }
+
+    @Test
     void evaluatedCountsTheCoordinatesTheReportActuallyLists() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
             addArtifacts(repository);
@@ -205,11 +252,49 @@ final class LicensesCommandWorkspacePolicyTest {
         }
     }
 
+    @Test
+    void identicalStaleExceptionsKeepMemberAttributionAcrossReportAndEnforcement() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            String stalePolicy = """
+
+                    [dependencyPolicy.licenses]
+                    allow = ["MIT"]
+                    unknown = "fail"
+
+                    [dependencyPolicy.licenses.exceptions."org.example:missing"]
+                    allow = ["BSD-3-Clause"]
+                    reason = "Reviewed dependency"
+                    """;
+            Path workspace = writeWorkspace(repository, stalePolicy, stalePolicy);
+            Path cache = tempDir.resolve("stale-cache");
+            assertEquals(0, resolve(workspace, cache).exitCode());
+
+            CommandResult licenses = execute("licenses", "--workspace", "--format", "json",
+                    "--cwd", workspace.toString(), "--cache-root", cache.toString());
+            CommandResult check = execute("check", "--workspace", "--check", "license-policy",
+                    "--cwd", workspace.toString(), "--cache-root", cache.toString());
+
+            assertEquals(0, licenses.exitCode(), licenses.stdout() + licenses.stderr());
+            assertTrue(licenses.stdout().contains("\"staleExceptions\": 2"), licenses.stdout());
+            assertTrue(licenses.stdout().contains("\"member\": \"apps/admin\""), licenses.stdout());
+            assertTrue(licenses.stdout().contains("\"member\": \"modules/core\""), licenses.stdout());
+            assertEquals(2, occurrences(licenses.stdout(), "\"dependency\": \"org.example:missing\""));
+            assertTrue(check.exitCode() != 0, check.stdout() + check.stderr());
+            String checkOutput = check.stdout() + check.stderr();
+            assertTrue(checkOutput.contains("apps/admin"), checkOutput);
+            assertTrue(checkOutput.contains("modules/core"), checkOutput);
+        }
+    }
+
     private static CommandResult resolve(Path workspace, Path cache) {
         CommandResult resolve = execute("resolve", "--workspace",
                 "--cwd", workspace.toString(), "--cache-root", cache.toString());
         assertEquals(0, resolve.exitCode(), resolve.stdout() + resolve.stderr());
         return resolve;
+    }
+
+    private static int occurrences(String text, String target) {
+        return (text.length() - text.replace(target, "").length()) / target.length();
     }
 
     private Path writeWorkspace(CliTestRepository repository, String coreBody, String adminBody)
@@ -236,6 +321,8 @@ final class LicensesCommandWorkspacePolicyTest {
         repository.addArtifact("org.example", "gpl-lib", "1.0.0", pom("gpl-lib", "GPL-3.0-only"));
         repository.addArtifact("org.example", "mit-lib", "1.0.0", pom("mit-lib", "MIT"));
         repository.addArtifact("org.example", "apache-lib", "1.0.0", pom("apache-lib", "Apache-2.0"));
+        repository.addArtifact(
+                "org.example", "matchit", "1.0.0", pom("matchit", "MIT AND BSD-3-Clause"));
     }
 
     private static String pom(String artifact, String license) {

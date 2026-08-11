@@ -27,13 +27,14 @@ import sh.zolt.maven.repository.RawPomParser;
  * <p>For each package it reads the cached POM at {@code cacheRoot/<pom-path>}; if the POM declares no
  * {@code <licenses>}, it walks the {@code <parent>} coordinates through the cache (nearest ancestor
  * wins, cycle-guarded). A missing cached POM or an empty chain yields {@code UNKNOWN}. Licenses are
- * normalized through {@link SpdxLicenseMapping}; unmatched licenses stay {@code UNMAPPED} with their
- * raw name/url. Results are memoized per coordinate for the duration of a run.
+ * parsed as explicit SPDX expressions first, then normalized through {@link SpdxLicenseMapping};
+ * unmatched licenses stay {@code UNMAPPED} with their raw name/url. Results are memoized per
+ * coordinate for the duration of a run.
  */
 public final class PomLicenseResolver {
     private final Path cacheRoot;
     private final RawPomParser pomParser;
-    private final SpdxLicenseMapping mapping;
+    private final DeclaredLicenseResolver declaredLicenseResolver;
     private final MavenRepositoryPathBuilder pathBuilder;
     private final Map<String, List<SbomLicense>> memo = new HashMap<>();
 
@@ -52,7 +53,7 @@ public final class PomLicenseResolver {
             MavenRepositoryPathBuilder pathBuilder) {
         this.cacheRoot = cacheRoot;
         this.pomParser = pomParser;
-        this.mapping = mapping;
+        this.declaredLicenseResolver = new DeclaredLicenseResolver(new sh.zolt.license.SpdxExpressionParser(), mapping);
         this.pathBuilder = pathBuilder;
     }
 
@@ -116,9 +117,7 @@ public final class PomLicenseResolver {
             if (raw.name().isEmpty() && raw.url().isEmpty()) {
                 continue;
             }
-            licenses.add(mapping.spdxId(raw.name(), raw.url())
-                    .map(SbomLicense::spdx)
-                    .orElseGet(() -> SbomLicense.unmapped(raw.name(), raw.url())));
+            licenses.add(declaredLicenseResolver.resolve(raw.name(), raw.url()));
         }
         return licenses;
     }
