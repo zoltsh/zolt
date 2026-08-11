@@ -108,6 +108,32 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
     }
 
     @Test
+    void explicitlyAllowedUnsupportedAtomicSpdxLikeLabelPassesUnknownFail() throws IOException {
+        Path projectDir = tempDir.resolve("raw-atomic-allow");
+        Path cache = tempDir.resolve("raw-atomic-allow-cache");
+        writePom(cache, "org.example", "lib", "1.0.0", """
+                <project>
+                  <groupId>org.example</groupId>
+                  <artifactId>lib</artifactId>
+                  <version>1.0.0</version>
+                  <licenses><license><name>Net-SNMP</name></license></licenses>
+                </project>
+                """);
+        ProjectConfig config = parseProject(projectDir, """
+
+                [dependencyPolicy.licenses]
+                allow = ["MIT", "Net-SNMP"]
+                unknown = "fail"
+                """);
+        writeLockfile(projectDir, pkg("org.example:lib", "1.0.0", true));
+
+        List<QualityCheckResult> results = check.check(
+                Optional.empty(), projectDir, config, projectDir.resolve("zolt.lock"), false, cache);
+
+        assertTrue(ok(results), results.toString());
+    }
+
+    @Test
     void scopedExceptionPermitsOnlyTheReviewedExpressionTerm() throws IOException {
         Path projectDir = tempDir.resolve("exception-used");
         Path cache = tempDir.resolve("exception-used-cache");

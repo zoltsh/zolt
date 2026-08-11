@@ -1,8 +1,10 @@
 package sh.zolt.project;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -26,9 +28,32 @@ public record LicensePolicySettings(
         allow = allow == null ? List.of() : List.copyOf(allow);
         deny = deny == null ? List.of() : List.copyOf(deny);
         unknown = unknown == null ? UnknownLicensePolicy.WARN : unknown;
-        exceptions = exceptions == null
-                ? Map.of()
-                : Collections.unmodifiableMap(new TreeMap<>(exceptions));
+        Map<String, LicensePolicyException> configured = exceptions == null ? Map.of() : exceptions;
+        if (!configured.isEmpty() && allow.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "License policy exceptions require a non-empty global allow list.");
+        }
+        Set<String> dependencies = new HashSet<>();
+        TreeMap<String, LicensePolicyException> sorted = new TreeMap<>();
+        for (Map.Entry<String, LicensePolicyException> entry : configured.entrySet()) {
+            LicensePolicyException exception = entry.getValue();
+            if (exception == null) {
+                throw new IllegalArgumentException("License policy exception values must not be null.");
+            }
+            if (!dependencies.add(exception.dependency())) {
+                throw new IllegalArgumentException(
+                        "Duplicate license policy exception dependency `" + exception.dependency() + "`.");
+            }
+            if (!exception.dependency().equals(entry.getKey())) {
+                throw new IllegalArgumentException("License policy exception map key `"
+                        + entry.getKey()
+                        + "` must equal embedded dependency `"
+                        + exception.dependency()
+                        + "`.");
+            }
+            sorted.put(entry.getKey(), exception);
+        }
+        exceptions = Collections.unmodifiableMap(sorted);
     }
 
     public static LicensePolicySettings defaults() {

@@ -270,6 +270,28 @@ final class ZoltTomlRepositoryPolicyWriterTest {
     }
 
     @Test
+    void preservesUnsupportedAtomicSpdxLikeGlobalLabels() {
+        ProjectConfig config = parser.parse("""
+                [project]
+                name = "enterprise"
+                version = "0.1.0"
+                group = "com.acme"
+                java = "21"
+
+                [dependencyPolicy.licenses]
+                allow = ["Net-SNMP", "LicenseRef-Internal", "AdditionRef-Custom"]
+                deny = ["DocumentRef-upstream:LicenseRef-Custom", "GPL-2.0+"]
+                """);
+
+        assertEquals(
+                List.of("Net-SNMP", "LicenseRef-Internal", "AdditionRef-Custom"),
+                config.dependencyPolicy().licenses().allow());
+        assertEquals(
+                List.of("DocumentRef-upstream:LicenseRef-Custom", "GPL-2.0+"),
+                config.dependencyPolicy().licenses().deny());
+    }
+
+    @Test
     void rejectsCompoundGlobalAllowWorkaround() {
         ZoltConfigException exception = assertThrows(ZoltConfigException.class, () -> parser.parse("""
                 [project]

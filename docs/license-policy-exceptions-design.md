@@ -91,7 +91,10 @@ LicensePolicySettings
 
 `LicensePolicySettings.isDefault()` returns false when an exception exists.
 The existing three-argument constructor stays as a compatibility overload that
-uses an empty exception map.
+uses an empty exception map. The model constructor enforces the same structural
+boundary as TOML: exceptions require a non-empty global allow-list, every map
+value is non-null, every key equals its embedded dependency, and embedded
+dependency identities are unique.
 
 `DependencyPolicySectionCodec` accepts `exceptions` under the licenses table,
 validates every nested table against exactly `allow`, `version`, and `reason`,
@@ -109,13 +112,16 @@ and writes coordinates in lexical order. Parse-time failures include:
 Global `allow` and `deny` retain their current raw-string compatibility for
 unmapped Maven metadata. SPDX identifiers and `WITH` combinations are
 canonicalized as policy terms. A valid compound `AND`/`OR` expression is not a
-policy term and is rejected with a migration diagnostic that names its terms;
-the same applies to malformed expression-shaped input. In particular, a current
-workaround such as `allow = ["MIT AND BSD-3-Clause"]` must become term-level
-policy plus a scoped exception. This deliberate config break prevents the old
-raw-string escape from bypassing the new AST semantics. The stricter SPDX-only
-rule for exception entries ensures the feature cannot turn unidentified legal
-text into a narrow approval.
+policy term, and malformed SPDX-shaped input that asserts `AND`/`OR` syntax is
+also rejected.
+Unsupported atomic SPDX-like labels such as `Net-SNMP`, `LicenseRef-*`, and
+legacy `+` identifiers remain exact raw global terms so projects can target the
+same `UNMAPPED` evidence without broadening `unknown`. In particular, a current
+workaround such as `allow = ["MIT AND BSD-3-Clause"]` must become term-level policy
+plus a scoped exception. This deliberate config break prevents the old raw-string
+escape from bypassing the new AST semantics. The stricter SPDX-only rule for
+exception entries ensures the feature cannot turn unidentified legal text into
+a narrow approval.
 
 ## SPDX expression model
 
@@ -383,9 +389,10 @@ metadata, but dependency-policy evaluation remains third-party only.
 
 `zolt-sbom` does not gain a workspace dependency. No expression or exception is
 written to `zolt.lock`; cached POM metadata remains the evidence source.
-The source bootstrap copies the `zolt-model` catalog resources into its merged
-classes directory, so source-bootstrap, packaged JVM, and native execution share
-the same pinned identifiers.
+The source bootstrap copies resources from every compiled workspace module and
+app into its merged classes directory, failing on duplicate resource paths.
+Source-bootstrap, packaged JVM, and native execution therefore share both the
+SPDX catalog and the CycloneDX-version boundary.
 
 ## Verification matrix
 

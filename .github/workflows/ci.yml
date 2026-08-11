@@ -64,6 +64,12 @@ jobs:
       - name: Package stage-0 Zolt
         run: scripts/bootstrap-zolt-jvm --no-progress package --workspace --member apps/zolt --cache-root .zolt/cache
 
+      - name: Generate workspace SBOM with source bootstrap
+        if: matrix.name == 'cli-apps'
+        run: |
+          scripts/bootstrap-zolt-jvm --no-progress sbom --workspace --output build/bootstrap-sbom.json --cache-root .zolt/cache
+          test -s build/bootstrap-sbom.json
+
       - name: Sync Zolt-managed Java
         run: scripts/run-zolt-built toolchain sync
 

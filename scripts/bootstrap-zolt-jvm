@@ -280,15 +280,29 @@ fi
 
 javac --release 21 -cp "$classpath" -d "$BOOTSTRAP_CLASSES" @"$SOURCE_LIST"
 
-if [[ -d src/main/resources ]]; then
-  cp -R src/main/resources/. "$BOOTSTRAP_CLASSES"/
-fi
-if [[ -d modules/zolt-model/src/main/resources ]]; then
-  cp -R modules/zolt-model/src/main/resources/. "$BOOTSTRAP_CLASSES"/
-fi
-if [[ -d apps/zolt/src/main/resources ]]; then
-  cp -R apps/zolt/src/main/resources/. "$BOOTSTRAP_CLASSES"/
-fi
+copy_resources() {
+  local resource_root="$1"
+  local resource
+  local relative
+  local target
+
+  [[ -d "$resource_root" ]] || return 0
+  while IFS= read -r -d '' resource; do
+    relative="${resource#"$resource_root"/}"
+    target="${BOOTSTRAP_CLASSES}/${relative}"
+    if [[ -e "$target" ]]; then
+      printf 'error: bootstrap resource collision at %s from %s\n' "$relative" "$resource_root" >&2
+      printf 'hint: give each workspace resource a unique path before retrying\n' >&2
+      return 1
+    fi
+    mkdir -p "$(dirname "$target")"
+    cp "$resource" "$target"
+  done < <(find "$resource_root" -type f -print0)
+}
+
+for resource_root in src/main/resources modules/*/src/main/resources apps/*/src/main/resources; do
+  copy_resources "$resource_root"
+done
 
 jar --create --file "$BOOTSTRAP_RUN_JAR" --main-class sh.zolt.cli.ZoltCli -C "$BOOTSTRAP_CLASSES" .
 cp "$BOOTSTRAP_RUN_JAR" "$BOOTSTRAP_STABLE_JAR_TMP"

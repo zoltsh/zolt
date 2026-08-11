@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 import org.tomlj.TomlTable;
 import sh.zolt.license.SpdxExpression;
 import sh.zolt.license.SpdxExpressionParseException;
@@ -22,6 +23,8 @@ final class LicensePolicySectionCodec {
     private static final String SECTION = "dependencyPolicy.licenses";
     private static final Set<String> KEYS = Set.of("allow", "deny", "unknown", "exceptions");
     private static final Set<String> EXCEPTION_KEYS = Set.of("allow", "version", "reason");
+    private static final Pattern COMPOUND_OPERATOR =
+            Pattern.compile("(?:^|[\\s(])(AND|OR)(?=$|[\\s)])", Pattern.CASE_INSENSITIVE);
     private static final SpdxExpressionParser SPDX = new SpdxExpressionParser();
 
     private LicensePolicySectionCodec() {
@@ -74,7 +77,7 @@ final class LicensePolicySectionCodec {
             try {
                 normalized.add(SPDX.parseTerm(value).canonical());
             } catch (SpdxExpressionParseException exception) {
-                if (SPDX.isExpressionShaped(value)) {
+                if (isCompoundExpressionShaped(value)) {
                     throw new ZoltConfigException("Invalid SPDX license term `"
                             + value
                             + "` in ["
@@ -88,6 +91,10 @@ final class LicensePolicySectionCodec {
             }
         }
         return List.copyOf(normalized);
+    }
+
+    private static boolean isCompoundExpressionShaped(String value) {
+        return COMPOUND_OPERATOR.matcher(value).find() && SPDX.isExpressionShaped(value);
     }
 
     private static UnknownLicensePolicy unknown(TomlTable table) {
