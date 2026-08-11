@@ -98,6 +98,25 @@ final class SpdxExpressionParserTest {
     }
 
     @Test
+    void classifiesDeclaredLicenseSyntaxForSharedFailClosedHandling() {
+        assertEquals(DeclaredLicenseSyntax.VALID_TERM, parser.classify("MIT"));
+        assertEquals(
+                DeclaredLicenseSyntax.VALID_EXPRESSION,
+                parser.classify("MIT AND BSD-3-Clause"));
+        assertEquals(DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC, parser.classify("Net-SNMP"));
+        assertEquals(DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC, parser.classify("LicenseRef-Internal"));
+        assertEquals(DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC, parser.classify("GPL-2.0+"));
+        assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify("GPL-3.0-only MIT"));
+        assertEquals(
+                DeclaredLicenseSyntax.MALFORMED_SPDX,
+                parser.classify("MIT WITH Not-A-Real-Exception"));
+        assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify("(MIT"));
+        assertEquals(DeclaredLicenseSyntax.MALFORMED_SPDX, parser.classify("MIT)"));
+        assertEquals(DeclaredLicenseSyntax.PROSE, parser.classify("The MIT License"));
+        assertEquals(DeclaredLicenseSyntax.PROSE, parser.classify("License With Restrictions"));
+    }
+
+    @Test
     void rejectsExcessiveNesting() {
         String expression = "(".repeat(66) + "MIT" + ")".repeat(66);
 
@@ -110,6 +129,9 @@ final class SpdxExpressionParserTest {
         assertTrue(parser.isExpressionShaped("MIT And BSD-3-Clause"));
         assertTrue(parser.isExpressionShaped("(MIT)"));
         assertTrue(parser.isExpressionShaped("MIT With Restrictions"));
+        assertTrue(parser.isExpressionShaped("GPL-3.0-only MIT"));
+        assertTrue(parser.isExpressionShaped("(MIT"));
+        assertTrue(parser.isExpressionShaped("MIT)"));
         assertTrue(parser.isExpressionShaped("GPL-2.0+"));
         assertTrue(parser.isExpressionShaped("Net-SNMP"));
         assertTrue(parser.isExpressionShaped("LicenseRef-Internal"));

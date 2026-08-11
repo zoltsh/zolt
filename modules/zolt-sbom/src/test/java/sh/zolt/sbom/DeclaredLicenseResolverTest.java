@@ -35,6 +35,10 @@ final class DeclaredLicenseResolverTest {
         assertUnmapped("AdditionRef-Custom", "https://opensource.org/licenses/apache-2.0");
         assertUnmapped("DocumentRef-upstream:LicenseRef-Custom", "https://opensource.org/licenses/MIT");
         assertUnmapped("Net-SNMP", "https://opensource.org/licenses/MIT");
+        assertUnmapped("GPL-3.0-only MIT", "https://opensource.org/licenses/MIT");
+        assertUnmapped("MIT WITH Not-A-Real-Exception", "https://opensource.org/licenses/MIT");
+        assertUnmapped("(MIT", "https://opensource.org/licenses/MIT");
+        assertUnmapped("MIT)", "https://opensource.org/licenses/MIT");
     }
 
     @Test

@@ -1,14 +1,11 @@
 package sh.zolt.license;
 
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 /** Dependency-free parser for the SPDX identifier, WITH, AND, OR, and parentheses subset. */
 public final class SpdxExpressionParser {
     private static final int MAX_LENGTH = 4096;
     private static final int MAX_DEPTH = 64;
-    private static final Pattern EXPRESSION_OPERATOR =
-            Pattern.compile("(?:^|[\\s(])(AND|OR|WITH)(?=$|[\\s)])", Pattern.CASE_INSENSITIVE);
     private final SpdxCatalog catalog;
 
     public SpdxExpressionParser() {
@@ -50,32 +47,72 @@ public final class SpdxExpressionParser {
         return expression;
     }
 
-    public boolean isExpressionShaped(String source) {
-        if (source == null) {
-            return false;
+    public DeclaredLicenseSyntax classify(String source) {
+        if (source == null || source.isBlank()) {
+            return DeclaredLicenseSyntax.PROSE;
+        }
+        Optional<SpdxExpression> parsed = tryParse(source);
+        if (parsed.isPresent()) {
+            SpdxExpression expression = parsed.orElseThrow();
+            return expression instanceof SpdxExpression.And || expression instanceof SpdxExpression.Or
+                    ? DeclaredLicenseSyntax.VALID_EXPRESSION
+                    : DeclaredLicenseSyntax.VALID_TERM;
         }
         String trimmed = source.trim();
-        if (catalog.knownLicense(trimmed).isPresent() || hasSpdxReferencePrefix(trimmed)) {
-            return true;
+        if (isUnsupportedAtomic(trimmed)) {
+            return DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC;
         }
-        if (trimmed.endsWith("+")
-                && catalog.knownLicense(trimmed.substring(0, trimmed.length() - 1)).isPresent()) {
-            return true;
-        }
-        if (source.indexOf('(') < 0
-                        && source.indexOf(')') < 0
-                        && !EXPRESSION_OPERATOR.matcher(source).find()) {
+        return hasMalformedSpdxShape(source)
+                ? DeclaredLicenseSyntax.MALFORMED_SPDX
+                : DeclaredLicenseSyntax.PROSE;
+    }
+
+    public boolean isExpressionShaped(String source) {
+        return classify(source) != DeclaredLicenseSyntax.PROSE;
+    }
+
+    private boolean isUnsupportedAtomic(String source) {
+        if (source.indexOf('(') >= 0
+                || source.indexOf(')') >= 0
+                || source.chars().anyMatch(Character::isWhitespace)) {
             return false;
         }
+        return isSpdxSignal(source);
+    }
+
+    private boolean hasMalformedSpdxShape(String source) {
         Lexer lexer = new Lexer(source);
+        int signals = 0;
+        boolean syntaxMarker = false;
         Token token = lexer.next();
         while (token.type() != TokenType.END) {
-            if (token.type() == TokenType.IDENTIFIER && isKnownLicense(token.text())) {
-                return true;
+            if (token.type() == TokenType.LEFT_PAREN || token.type() == TokenType.RIGHT_PAREN) {
+                syntaxMarker = true;
+            } else if (token.type() == TokenType.AND
+                    || token.type() == TokenType.OR
+                    || token.type() == TokenType.WITH
+                    || isOperatorSpelling(token.text())) {
+                syntaxMarker = true;
+            } else if (token.type() == TokenType.IDENTIFIER && isSpdxSignal(token.text())) {
+                signals++;
             }
             token = lexer.next();
         }
-        return false;
+        return signals > 1 || signals == 1 && syntaxMarker;
+    }
+
+    private boolean isSpdxSignal(String identifier) {
+        if (isKnownLicense(identifier) || hasSpdxReferencePrefix(identifier)) {
+            return true;
+        }
+        return identifier.endsWith("+")
+                && isKnownLicense(identifier.substring(0, identifier.length() - 1));
+    }
+
+    private static boolean isOperatorSpelling(String token) {
+        return "AND".equalsIgnoreCase(token)
+                || "OR".equalsIgnoreCase(token)
+                || "WITH".equalsIgnoreCase(token);
     }
 
     private boolean isKnownLicense(String identifier) {

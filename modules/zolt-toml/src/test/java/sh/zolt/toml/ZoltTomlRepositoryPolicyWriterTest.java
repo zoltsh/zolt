@@ -309,18 +309,25 @@ final class ZoltTomlRepositoryPolicyWriterTest {
 
     @Test
     void rejectsMalformedExpressionShapedGlobalTerm() {
-        ZoltConfigException exception = assertThrows(ZoltConfigException.class, () -> parser.parse("""
-                [project]
-                name = "enterprise"
-                version = "0.1.0"
-                group = "com.acme"
-                java = "21"
+        for (String malformed : List.of(
+                "MIT And BSD-3-Clause",
+                "GPL-3.0-only MIT",
+                "MIT WITH Not-A-Real-Exception",
+                "(MIT",
+                "MIT)")) {
+            ZoltConfigException exception = assertThrows(ZoltConfigException.class, () -> parser.parse("""
+                    [project]
+                    name = "enterprise"
+                    version = "0.1.0"
+                    group = "com.acme"
+                    java = "21"
 
-                [dependencyPolicy.licenses]
-                allow = ["MIT And BSD-3-Clause"]
-                """));
+                    [dependencyPolicy.licenses]
+                    allow = ["%s"]
+                    """.formatted(malformed)));
 
-        assertTrue(exception.getMessage().contains("Invalid SPDX license term"), exception.getMessage());
+            assertTrue(exception.getMessage().contains("Invalid SPDX license term"), exception.getMessage());
+        }
     }
 
     @Test

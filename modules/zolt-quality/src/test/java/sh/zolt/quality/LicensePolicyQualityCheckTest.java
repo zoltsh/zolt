@@ -134,6 +134,37 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
     }
 
     @Test
+    void malformedSpdxNameCannotUseUrlFallbackToHideDeniedLicense() throws IOException {
+        Path projectDir = tempDir.resolve("malformed-license-name");
+        Path cache = tempDir.resolve("malformed-license-name-cache");
+        writePom(cache, "org.example", "lib", "1.0.0", """
+                <project>
+                  <groupId>org.example</groupId>
+                  <artifactId>lib</artifactId>
+                  <version>1.0.0</version>
+                  <licenses><license>
+                    <name>GPL-3.0-only MIT</name>
+                    <url>https://opensource.org/licenses/MIT</url>
+                  </license></licenses>
+                </project>
+                """);
+        ProjectConfig config = parseProject(projectDir, """
+
+                [dependencyPolicy.licenses]
+                allow = ["MIT"]
+                deny = ["GPL-3.0-only"]
+                unknown = "fail"
+                """);
+        writeLockfile(projectDir, pkg("org.example:lib", "1.0.0", true));
+
+        List<QualityCheckResult> results = check.check(
+                Optional.empty(), projectDir, config, projectDir.resolve("zolt.lock"), false, cache);
+
+        assertEquals(1, failures(results).size(), results.toString());
+        assertTrue(failures(results).getFirst().message().contains("GPL-3.0-only MIT"), results.toString());
+    }
+
+    @Test
     void scopedExceptionPermitsOnlyTheReviewedExpressionTerm() throws IOException {
         Path projectDir = tempDir.resolve("exception-used");
         Path cache = tempDir.resolve("exception-used-cache");

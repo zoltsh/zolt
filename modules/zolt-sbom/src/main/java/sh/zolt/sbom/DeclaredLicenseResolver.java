@@ -1,6 +1,7 @@
 package sh.zolt.sbom;
 
 import java.util.Optional;
+import sh.zolt.license.DeclaredLicenseSyntax;
 import sh.zolt.license.SpdxExpression;
 import sh.zolt.license.SpdxExpressionParser;
 
@@ -24,12 +25,17 @@ final class DeclaredLicenseResolver {
         if (curatedName.isPresent()) {
             return fromExpression(parser.parse(curatedName.orElseThrow()), name, url);
         }
-        Optional<SpdxExpression> explicit = declaredName.flatMap(parser::tryParse);
-        if (explicit.isPresent()) {
-            return fromExpression(explicit.orElseThrow(), name, url);
-        }
-        if (declaredName.filter(parser::isExpressionShaped).isPresent()) {
-            return SbomLicense.unmapped(name, url);
+        if (declaredName.isPresent()) {
+            String rawName = declaredName.orElseThrow();
+            DeclaredLicenseSyntax syntax = parser.classify(rawName);
+            if (syntax == DeclaredLicenseSyntax.VALID_TERM
+                    || syntax == DeclaredLicenseSyntax.VALID_EXPRESSION) {
+                return fromExpression(parser.parse(rawName), name, url);
+            }
+            if (syntax == DeclaredLicenseSyntax.UNSUPPORTED_ATOMIC
+                    || syntax == DeclaredLicenseSyntax.MALFORMED_SPDX) {
+                return SbomLicense.unmapped(name, url);
+            }
         }
         Optional<String> mapped = mapping.spdxId(Optional.empty(), url);
         if (mapped.isEmpty()) {

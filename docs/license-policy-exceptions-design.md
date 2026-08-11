@@ -112,8 +112,11 @@ and writes coordinates in lexical order. Parse-time failures include:
 Global `allow` and `deny` retain their current raw-string compatibility for
 unmapped Maven metadata. SPDX identifiers and `WITH` combinations are
 canonicalized as policy terms. A valid compound `AND`/`OR` expression is not a
-policy term, and malformed SPDX-shaped input that asserts `AND`/`OR` syntax is
-also rejected.
+policy term, and malformed SPDX-shaped input is also rejected. One shared
+classifier distinguishes valid terms, valid expressions, unsupported atomic
+labels, malformed SPDX, and prose. Missing operators, malformed `WITH`, and
+unbalanced parentheses therefore fail closed in both configuration and Maven
+evidence handling.
 Unsupported atomic SPDX-like labels such as `Net-SNMP`, `LicenseRef-*`, and
 legacy `+` identifiers remain exact raw global terms so projects can target the
 same `UNMAPPED` evidence without broadening `unknown`. In particular, a current
@@ -172,8 +175,9 @@ not invent legal meaning that the publisher did not provide.
    including deprecated GNU identifiers, retain their canonical meaning.
 2. If the remaining raw name is a valid explicit SPDX expression, preserve its
    AST and canonical expression text.
-3. If that name asserts SPDX syntax but fails parsing, retain it immediately as
-   `UNMAPPED`; its URL cannot rescue or narrow the publisher's declaration.
+3. If that name asserts SPDX syntax but fails parsing, including a missing
+   operator, malformed `WITH`, or unbalanced parentheses, retain it immediately
+   as `UNMAPPED`; its URL cannot rescue or narrow the publisher's declaration.
 4. Otherwise apply the conservative URL mapping to one SPDX term.
 5. Otherwise retain the raw record as `UNMAPPED`.
 6. No readable declaration remains `UNKNOWN` as today.
