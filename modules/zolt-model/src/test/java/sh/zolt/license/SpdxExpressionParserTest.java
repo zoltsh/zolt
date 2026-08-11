@@ -17,6 +17,8 @@ final class SpdxExpressionParserTest {
 
         assertEquals("3.28.0", SpdxCatalog.VERSION);
         assertEquals(727, catalog.licenseCount());
+        assertEquals(695, catalog.licenseIds().size());
+        assertEquals(32, catalog.deprecatedLicenseCount());
         assertEquals(84, catalog.exceptionCount());
         assertEquals("MIT", catalog.canonicalLicense("mit").orElseThrow());
         assertEquals(
@@ -48,10 +50,19 @@ final class SpdxExpressionParserTest {
     }
 
     @Test
-    void normalizesCuratedDeprecatedClasspathAlias() {
+    void normalizesDeterministicDeprecatedIdentifiers() {
+        assertEquals("GPL-2.0-only", parser.parse("GPL-2.0").canonical());
+        assertEquals("LGPL-2.1-only", parser.parse("LGPL-2.1").canonical());
+        assertEquals("LGPL-3.0-only", parser.parse("LGPL-3.0").canonical());
         assertEquals(
                 "GPL-2.0-only WITH Classpath-exception-2.0",
                 parser.parse("GPL-2.0-with-classpath-exception").canonical());
+        assertEquals(
+                "GPL-2.0-only WITH Font-exception-2.0",
+                parser.parse("GPL-2.0-with-font-exception").canonical());
+        assertEquals(
+                "GPL-2.0-only WITH GCC-exception-2.0",
+                parser.parse("GPL-2.0-with-GCC-exception").canonical());
     }
 
     @Test
@@ -75,6 +86,7 @@ final class SpdxExpressionParserTest {
         assertThrows(SpdxExpressionParseException.class, () -> parser.parse("Not-A-Real-License"));
         assertThrows(SpdxExpressionParseException.class, () -> parser.parse("LicenseRef-Internal"));
         assertThrows(SpdxExpressionParseException.class, () -> parser.parse("GPL-2.0+"));
+        assertThrows(SpdxExpressionParseException.class, () -> parser.parse("Net-SNMP"));
     }
 
     @Test
@@ -98,6 +110,11 @@ final class SpdxExpressionParserTest {
         assertTrue(parser.isExpressionShaped("MIT And BSD-3-Clause"));
         assertTrue(parser.isExpressionShaped("(MIT)"));
         assertTrue(parser.isExpressionShaped("MIT With Restrictions"));
+        assertTrue(parser.isExpressionShaped("GPL-2.0+"));
+        assertTrue(parser.isExpressionShaped("Net-SNMP"));
+        assertTrue(parser.isExpressionShaped("LicenseRef-Internal"));
+        assertTrue(parser.isExpressionShaped("AdditionRef-Custom"));
+        assertTrue(parser.isExpressionShaped("DocumentRef-upstream:LicenseRef-Custom"));
         assertFalse(parser.isExpressionShaped("Business Friendly License"));
         assertFalse(parser.isExpressionShaped("Custom Internal License (2025)"));
         assertFalse(parser.isExpressionShaped("License With Restrictions"));

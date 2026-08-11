@@ -104,15 +104,21 @@ cache (nearest-ancestor wins, cycle-guarded); missing cached POM or empty
 chain → UNKNOWN + one stderr warning suggesting `zolt resolve` (never fetch,
 never fail the SBOM). Normalization via curated SpdxLicenseMapping keyed on
 lowercased name AND url (Apache-2.0/MIT/BSD-2/BSD-3/EPL-1/EPL-2/LGPL/GPL
-(+classpath)/CDDL/MPL-2.0/ISC/Unlicense/EDL spellings). A license name that is
-itself an SPDX identifier or expression is parsed first against the source-pinned
-3.28.0 catalog. Status per license: SPDX (→ {"license":{"id"}}),
+(+classpath)/CDDL/MPL-2.0/ISC/Unlicense/EDL spellings). Name-only curated
+mappings run before generic parsing so deprecated GNU aliases retain canonical
+policy meaning. A remaining SPDX-looking name that fails parsing is immediately
+UNMAPPED and cannot fall through to URL mapping. Status per license: SPDX (→
+{"license":{"id"}}),
 SPDX_EXPRESSION, UNMAPPED (raw name+url kept, flagged — never guessed into a
 nearby id), UNKNOWN (component licenses omitted in SBOM, surfaced in
 reports/policy). Multiple Maven license records remain discrete alternatives;
 Zolt never invents an expression because Maven semantics are ambiguous. No
 persisted memoization (POMs are disk-cached; extraction is pure); in-process
 per-run memo only.
+
+The policy parser uses SPDX 3.28, but CycloneDX 1.5 `license.id` uses its pinned
+3.21 enum. Newer identifiers are emitted as named license objects and a
+catalog-wide schema test exercises every active parser identifier.
 
 ## `zolt licenses`
 

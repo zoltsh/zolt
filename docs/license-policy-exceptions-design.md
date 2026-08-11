@@ -148,9 +148,11 @@ the JVM and native CLI read identical catalogs. Catalog updates are explicit
 source changes, not mutable runtime data. Keeping the parser beside the policy
 model lets `zolt-toml` validate configuration and `zolt-sbom` parse evidence
 through their existing dependency on `zolt-model`; putting it in `zolt-sbom`
-would force the TOML layer into a dependency cycle. Deprecated curated aliases such as
-`GPL-2.0-with-classpath-exception` normalize to the canonical expression
-`GPL-2.0-only WITH Classpath-exception-2.0`.
+would force the TOML layer into a dependency cycle. The pinned deprecation list
+is a separate catalog boundary: deterministic replacements such as `GPL-2.0`
+and `GPL-2.0-with-classpath-exception` normalize to `GPL-2.0-only` and
+`GPL-2.0-only WITH Classpath-exception-2.0`; deprecated identifiers without one
+safe replacement remain invalid rather than becoming canonical atomic terms.
 
 ## Maven evidence boundary
 
@@ -160,13 +162,16 @@ not invent legal meaning that the publisher did not provide.
 
 `PomLicenseResolver` therefore applies these rules in order:
 
-1. If a raw license name is a valid explicit SPDX expression, preserve its AST
-   and canonical expression text.
-2. Otherwise apply the existing conservative name/URL mapping to a single SPDX
-   term.
-3. Otherwise retain the raw record as `UNMAPPED`.
-4. No readable declaration remains `UNKNOWN` as today.
-5. Multiple Maven `<license>` records remain alternatives, preserving Zolt's
+1. Apply a conservative name-only mapping first so established Maven aliases,
+   including deprecated GNU identifiers, retain their canonical meaning.
+2. If the remaining raw name is a valid explicit SPDX expression, preserve its
+   AST and canonical expression text.
+3. If that name asserts SPDX syntax but fails parsing, retain it immediately as
+   `UNMAPPED`; its URL cannot rescue or narrow the publisher's declaration.
+4. Otherwise apply the conservative URL mapping to one SPDX term.
+5. Otherwise retain the raw record as `UNMAPPED`.
+6. No readable declaration remains `UNKNOWN` as today.
+7. Multiple Maven `<license>` records remain alternatives, preserving Zolt's
    current behavior. They are not rewritten as an asserted publisher-supplied
    expression.
 
@@ -189,6 +194,12 @@ term, reason, and an optional matched exception record. Globally permitted
 decisions remain implicit in the public result; warnings, violations, and
 permitted-by-exception decisions are retained because they carry evidence or
 require action.
+
+An `AND` retains every branch as structured decision evidence until exception
+auditing is complete. Version-mismatch deduplication suppresses only the
+`ALLOW_LIST` cause for the exact term named by that mismatched exception; a
+separate `GLOBAL_DENY` or other failing branch remains eligible to become the
+reported decisive term. Rendered reason text is not used to classify causes.
 
 Reporting annotations are keyed by coordinate plus rendered declaration label,
 not coordinate alone. A component with several Maven license records must not
@@ -348,6 +359,12 @@ beside any other Maven license record, Zolt emits every record as a named
 license object using its preserved raw name/URL. This is schema-valid and does
 not invent `OR` between records; expression-aware evaluation and the Zolt-native
 report still use the parsed AST.
+
+CycloneDX 1.5 pins an older SPDX enum than Zolt's policy parser. A simple SPDX
+3.28 identifier present in the CycloneDX enum remains a `license.id`; one absent
+from that enum is emitted as a named license instead. A catalog-wide schema test
+renders all active parser identifiers in one BOM, keeping this version boundary
+executable whenever either catalog changes.
 
 `[package.metadata].license` uses the same expression parser for root/member SBOM
 metadata, but dependency-policy evaluation remains third-party only.

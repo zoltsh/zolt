@@ -6,6 +6,12 @@
       },
       {
         "pattern": "\\Qsh/zolt/license/spdx-exception-ids.txt\\E"
+      },
+      {
+        "pattern": "\\Qsh/zolt/license/spdx-deprecated-license-ids.txt\\E"
+      },
+      {
+        "pattern": "\\Qsh/zolt/license/spdx-deprecated-license-replacements.txt\\E"
       }
     ]
   }

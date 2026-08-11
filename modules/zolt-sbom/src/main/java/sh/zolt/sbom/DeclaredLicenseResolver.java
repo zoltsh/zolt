@@ -19,11 +19,19 @@ final class DeclaredLicenseResolver {
     }
 
     SbomLicense resolve(Optional<String> name, Optional<String> url) {
-        Optional<SpdxExpression> explicit = name.flatMap(parser::tryParse);
+        Optional<String> declaredName = name.filter(value -> !value.isBlank());
+        Optional<String> curatedName = mapping.spdxId(declaredName, Optional.empty());
+        if (curatedName.isPresent()) {
+            return fromExpression(parser.parse(curatedName.orElseThrow()), name, url);
+        }
+        Optional<SpdxExpression> explicit = declaredName.flatMap(parser::tryParse);
         if (explicit.isPresent()) {
             return fromExpression(explicit.orElseThrow(), name, url);
         }
-        Optional<String> mapped = mapping.spdxId(name, url);
+        if (declaredName.filter(parser::isExpressionShaped).isPresent()) {
+            return SbomLicense.unmapped(name, url);
+        }
+        Optional<String> mapped = mapping.spdxId(Optional.empty(), url);
         if (mapped.isEmpty()) {
             return SbomLicense.unmapped(name, url);
         }

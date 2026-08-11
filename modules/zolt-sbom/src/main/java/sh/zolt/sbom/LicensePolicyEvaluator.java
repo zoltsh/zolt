@@ -26,7 +26,7 @@ public final class LicensePolicyEvaluator {
             List<SbomComponent> components,
             LicenseIndex index,
             LicensePolicySettings policy) {
-        List<LicensePolicyFinding> findings = new ArrayList<>();
+        List<LicensePolicyDecision> decisions = new ArrayList<>();
         Set<String> usedExceptions = new LinkedHashSet<>();
         Map<String, Set<String>> versionsByDependency = new TreeMap<>();
         for (SbomComponent component : components) {
@@ -39,25 +39,28 @@ public final class LicensePolicyEvaluator {
             if (licenses.isEmpty()) {
                 licenses = List.of(SbomLicense.unknown());
             }
-            Decision decision = dependencyDecision(
+            LicensePolicyDecision decision = dependencyDecision(
                     coordinate,
                     component.purl(),
                     dependency,
                     component.version(),
                     licenses,
                     policy);
-            if (decision.finding().verdict() != LicenseVerdict.PERMITTED) {
-                findings.add(decision.finding());
-            }
+            decisions.add(decision);
             usedExceptions.addAll(decision.usedExceptions());
         }
         List<LicenseExceptionAudit> audits = audits(policy, versionsByDependency, usedExceptions);
-        suppressVersionMismatchDuplicates(findings, policy, audits);
+        Set<String> mismatched = versionMismatchedDependencies(audits);
+        List<LicensePolicyFinding> findings = decisions.stream()
+                .map(decision -> decision.afterVersionMismatchSuppression(policy, mismatched))
+                .flatMap(Optional::stream)
+                .filter(finding -> finding.verdict() != LicenseVerdict.PERMITTED)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         findings.sort(Comparator.comparing(LicensePolicyFinding::coordinate));
         return new LicensePolicyEvaluation(findings, audits, components.size());
     }
 
-    private Decision dependencyDecision(
+    private LicensePolicyDecision dependencyDecision(
             String coordinate,
             String purl,
             String dependency,
@@ -66,13 +69,13 @@ public final class LicensePolicyEvaluator {
             LicensePolicySettings policy) {
         return licenses.stream()
                 .map(license -> licenseDecision(coordinate, purl, dependency, version, license, policy))
-                .min(Comparator.comparing((Decision decision) -> decision.finding().verdict())
+                .min(Comparator.comparing((LicensePolicyDecision decision) -> decision.finding().verdict())
                         .thenComparing(decision -> decision.finding().declaration())
                         .thenComparing(decision -> decision.finding().license()))
                 .orElseGet(() -> decision(unknownFinding(coordinate, purl, "UNKNOWN", "UNKNOWN", policy)));
     }
 
-    private Decision licenseDecision(
+    private LicensePolicyDecision licenseDecision(
             String coordinate,
             String purl,
             String dependency,
@@ -102,7 +105,7 @@ public final class LicensePolicyEvaluator {
         };
     }
 
-    private Decision expressionDecision(
+    private LicensePolicyDecision expressionDecision(
             String coordinate,
             String purl,
             String declaration,
@@ -115,16 +118,16 @@ public final class LicensePolicyEvaluator {
                     coordinate, purl, declaration, dependency, version, expression, policy);
             case SpdxExpression.With ignored -> termDecision(
                     coordinate, purl, declaration, dependency, version, expression, policy);
-            case SpdxExpression.And and -> and(
+            case SpdxExpression.And and -> LicensePolicyDecision.and(
                     expressionDecision(coordinate, purl, declaration, dependency, version, and.left(), policy),
                     expressionDecision(coordinate, purl, declaration, dependency, version, and.right(), policy));
-            case SpdxExpression.Or or -> or(
+            case SpdxExpression.Or or -> LicensePolicyDecision.or(
                     expressionDecision(coordinate, purl, declaration, dependency, version, or.left(), policy),
                     expressionDecision(coordinate, purl, declaration, dependency, version, or.right(), policy));
         };
     }
 
-    private Decision termDecision(
+    private LicensePolicyDecision termDecision(
             String coordinate,
             String purl,
             String declaration,
@@ -141,10 +144,18 @@ public final class LicensePolicyEvaluator {
                     declaration,
                     canonical,
                     LicenseVerdict.VIOLATION,
-                    "denied by [dependencyPolicy.licenses].deny"));
+                    "denied by [dependencyPolicy.licenses].deny",
+                    LicensePolicyFindingCause.GLOBAL_DENY));
         }
         if (policy.allow().isEmpty() || policy.allow().contains(canonical)) {
-            return decision(finding(coordinate, purl, declaration, canonical, LicenseVerdict.PERMITTED, ""));
+            return decision(finding(
+                    coordinate,
+                    purl,
+                    declaration,
+                    canonical,
+                    LicenseVerdict.PERMITTED,
+                    "",
+                    LicensePolicyFindingCause.PERMITTED));
         }
         Optional<LicensePolicyException> exception = matchingException(policy, dependency, version, canonical);
         if (exception.isPresent()) {
@@ -157,8 +168,9 @@ public final class LicensePolicyEvaluator {
                     canonical,
                     LicenseVerdict.PERMITTED_BY_EXCEPTION,
                     "permitted by " + path,
-                    Optional.of(new LicensePolicyExceptionMatch(dependency, version, matched.reason())));
-            return new Decision(finding, Set.of(dependency));
+                    Optional.of(new LicensePolicyExceptionMatch(dependency, version, matched.reason())),
+                    LicensePolicyFindingCause.SCOPED_EXCEPTION);
+            return LicensePolicyDecision.exception(finding, dependency);
         }
         return decision(finding(
                 coordinate,
@@ -166,7 +178,8 @@ public final class LicensePolicyEvaluator {
                 declaration,
                 canonical,
                 LicenseVerdict.VIOLATION,
-                "not in [dependencyPolicy.licenses].allow"));
+                "not in [dependencyPolicy.licenses].allow",
+                LicensePolicyFindingCause.ALLOW_LIST));
     }
 
     private static Optional<LicensePolicyException> matchingException(
@@ -190,10 +203,18 @@ public final class LicensePolicyEvaluator {
             LicensePolicySettings policy) {
         if (policy.deny().contains(raw)) {
             return finding(coordinate, purl, raw, raw, LicenseVerdict.VIOLATION,
-                    "denied by [dependencyPolicy.licenses].deny");
+                    "denied by [dependencyPolicy.licenses].deny",
+                    LicensePolicyFindingCause.GLOBAL_DENY);
         }
         if (policy.allow().contains(raw)) {
-            return finding(coordinate, purl, raw, raw, LicenseVerdict.PERMITTED, "");
+            return finding(
+                    coordinate,
+                    purl,
+                    raw,
+                    raw,
+                    LicenseVerdict.PERMITTED,
+                    "",
+                    LicensePolicyFindingCause.PERMITTED);
         }
         return unknownFinding(coordinate, purl, raw, raw, policy);
     }
@@ -206,38 +227,20 @@ public final class LicensePolicyEvaluator {
             LicensePolicySettings policy) {
         return switch (policy.unknown()) {
             case FAIL -> finding(coordinate, purl, declaration, label, LicenseVerdict.VIOLATION,
-                    "unrecognized license and [dependencyPolicy.licenses].unknown = fail");
+                    "unrecognized license and [dependencyPolicy.licenses].unknown = fail",
+                    LicensePolicyFindingCause.UNRECOGNIZED);
             case WARN -> finding(coordinate, purl, declaration, label, LicenseVerdict.WARN,
-                    "unrecognized license ([dependencyPolicy.licenses].unknown = warn)");
-            case ALLOW -> finding(coordinate, purl, declaration, label, LicenseVerdict.PERMITTED, "");
+                    "unrecognized license ([dependencyPolicy.licenses].unknown = warn)",
+                    LicensePolicyFindingCause.UNRECOGNIZED);
+            case ALLOW -> finding(
+                    coordinate,
+                    purl,
+                    declaration,
+                    label,
+                    LicenseVerdict.PERMITTED,
+                    "",
+                    LicensePolicyFindingCause.PERMITTED);
         };
-    }
-
-    private static Decision and(Decision left, Decision right) {
-        LicensePolicyFinding stricter = stricter(left.finding(), right.finding());
-        Set<String> used = new LinkedHashSet<>(left.usedExceptions());
-        used.addAll(right.usedExceptions());
-        return new Decision(stricter, used);
-    }
-
-    private static Decision or(Decision left, Decision right) {
-        return better(left.finding(), right.finding()) == left.finding() ? left : right;
-    }
-
-    private static LicensePolicyFinding stricter(LicensePolicyFinding left, LicensePolicyFinding right) {
-        int verdict = left.verdict().compareTo(right.verdict());
-        if (verdict != 0) {
-            return verdict > 0 ? left : right;
-        }
-        return left.license().compareTo(right.license()) <= 0 ? left : right;
-    }
-
-    private static LicensePolicyFinding better(LicensePolicyFinding left, LicensePolicyFinding right) {
-        int verdict = left.verdict().compareTo(right.verdict());
-        if (verdict != 0) {
-            return verdict < 0 ? left : right;
-        }
-        return left.license().compareTo(right.license()) <= 0 ? left : right;
     }
 
     private static LicensePolicyFinding finding(
@@ -246,13 +249,14 @@ public final class LicensePolicyEvaluator {
             String declaration,
             String license,
             LicenseVerdict verdict,
-            String reason) {
+            String reason,
+            LicensePolicyFindingCause cause) {
         return new LicensePolicyFinding(
-                coordinate, purl, declaration, license, verdict, reason, Optional.empty());
+                coordinate, purl, declaration, license, verdict, reason, Optional.empty(), cause);
     }
 
-    private static Decision decision(LicensePolicyFinding finding) {
-        return new Decision(finding, Set.of());
+    private static LicensePolicyDecision decision(LicensePolicyFinding finding) {
+        return LicensePolicyDecision.of(finding);
     }
 
     private static List<LicenseExceptionAudit> audits(
@@ -283,27 +287,10 @@ public final class LicensePolicyEvaluator {
         return List.copyOf(audits);
     }
 
-    private static void suppressVersionMismatchDuplicates(
-            List<LicensePolicyFinding> findings,
-            LicensePolicySettings policy,
-            List<LicenseExceptionAudit> audits) {
-        Set<String> mismatched = audits.stream()
+    private static Set<String> versionMismatchedDependencies(List<LicenseExceptionAudit> audits) {
+        return audits.stream()
                 .filter(audit -> audit.status() == LicenseExceptionAuditStatus.VERSION_MISMATCHED)
                 .map(audit -> audit.exception().dependency())
                 .collect(java.util.stream.Collectors.toSet());
-        findings.removeIf(finding -> {
-            String dependency = finding.coordinate().substring(0, finding.coordinate().lastIndexOf(':'));
-            LicensePolicyException exception = policy.exceptions().get(dependency);
-            return mismatched.contains(dependency)
-                    && exception != null
-                    && exception.allow().contains(finding.license())
-                    && !finding.reason().contains(".deny");
-        });
-    }
-
-    private record Decision(LicensePolicyFinding finding, Set<String> usedExceptions) {
-        private Decision {
-            usedExceptions = Set.copyOf(usedExceptions);
-        }
     }
 }

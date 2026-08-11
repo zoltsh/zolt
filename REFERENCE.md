@@ -1766,13 +1766,22 @@ workspace into one BOM: a root workspace component, each member as a library
 component, and external dependencies deduped with member→dependency edges from
 the lockfile.
 
-`zolt licenses` groups dependencies by license. A Maven license name that is an
-SPDX identifier or explicit expression is parsed against Zolt's pinned SPDX
-catalog; otherwise the existing conservative name/URL mappings are applied.
+`zolt licenses` groups dependencies by license. Established Maven license-name
+aliases are normalized first; another name that is an SPDX identifier or
+explicit expression is parsed against Zolt's pinned SPDX catalog, with
+deprecated identifiers mapped only when a deterministic canonical replacement
+exists. An invalid SPDX-looking name remains `UNMAPPED` even when its URL looks
+like a known license. Ordinary prose names can still use the conservative URL
+mapping.
 Multiple Maven `<license>` records remain discrete alternatives because Maven
 does not assign an operator to them. Unrecognized licenses stay `UNMAPPED` (raw
 name kept, never guessed); dependencies with no readable license are `UNKNOWN`.
 `--notices <path>` writes a deterministic `THIRD_PARTY` notices file.
+
+Zolt's parser tracks SPDX 3.28, while CycloneDX 1.5 pins an older SPDX enum.
+Identifiers missing from the CycloneDX enum are emitted as named license objects
+rather than schema-invalid `license.id` values; policy evaluation still uses the
+canonical SPDX 3.28 identity.
 
 ```sh
 zolt licenses

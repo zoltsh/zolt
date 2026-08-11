@@ -1,7 +1,5 @@
 package sh.zolt.license;
 
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -11,10 +9,6 @@ public final class SpdxExpressionParser {
     private static final int MAX_DEPTH = 64;
     private static final Pattern EXPRESSION_OPERATOR =
             Pattern.compile("(?:^|[\\s(])(AND|OR|WITH)(?=$|[\\s)])", Pattern.CASE_INSENSITIVE);
-    private static final Map<String, String> DEPRECATED_ALIASES = Map.of(
-            "gpl-2.0-with-classpath-exception",
-            "GPL-2.0-only WITH Classpath-exception-2.0");
-
     private final SpdxCatalog catalog;
 
     public SpdxExpressionParser() {
@@ -57,10 +51,20 @@ public final class SpdxExpressionParser {
     }
 
     public boolean isExpressionShaped(String source) {
-        if (source == null
-                || (source.indexOf('(') < 0
+        if (source == null) {
+            return false;
+        }
+        String trimmed = source.trim();
+        if (catalog.knownLicense(trimmed).isPresent() || hasSpdxReferencePrefix(trimmed)) {
+            return true;
+        }
+        if (trimmed.endsWith("+")
+                && catalog.knownLicense(trimmed.substring(0, trimmed.length() - 1)).isPresent()) {
+            return true;
+        }
+        if (source.indexOf('(') < 0
                         && source.indexOf(')') < 0
-                        && !EXPRESSION_OPERATOR.matcher(source).find())) {
+                        && !EXPRESSION_OPERATOR.matcher(source).find()) {
             return false;
         }
         Lexer lexer = new Lexer(source);
@@ -75,8 +79,13 @@ public final class SpdxExpressionParser {
     }
 
     private boolean isKnownLicense(String identifier) {
-        return catalog.canonicalLicense(identifier).isPresent()
-                || DEPRECATED_ALIASES.containsKey(identifier.toLowerCase(Locale.ROOT));
+        return catalog.knownLicense(identifier).isPresent();
+    }
+
+    private static boolean hasSpdxReferencePrefix(String source) {
+        return source.startsWith("LicenseRef-")
+                || source.startsWith("AdditionRef-")
+                || source.startsWith("DocumentRef-");
     }
 
     private final class Parser {
@@ -131,13 +140,21 @@ public final class SpdxExpressionParser {
                 return nested;
             }
             Token identifier = require(TokenType.IDENTIFIER, "SPDX license identifier or `(`");
-            String alias = DEPRECATED_ALIASES.get(identifier.text().toLowerCase(Locale.ROOT));
-            if (alias != null) {
-                return SpdxExpressionParser.this.parseTerm(alias);
-            }
             if (identifier.text().endsWith("+")) {
                 throw new SpdxExpressionParseException(
                         "SPDX `+` suffixes are not supported in this release at character "
+                                + identifier.offset()
+                                + ".");
+            }
+            Optional<String> replacement = catalog.deprecatedReplacement(identifier.text());
+            if (replacement.isPresent()) {
+                return SpdxExpressionParser.this.parseTerm(replacement.orElseThrow());
+            }
+            if (catalog.isDeprecatedLicense(identifier.text())) {
+                throw new SpdxExpressionParseException(
+                        "Deprecated SPDX license identifier `"
+                                + identifier.text()
+                                + "` has no safe canonical replacement at character "
                                 + identifier.offset()
                                 + ".");
             }

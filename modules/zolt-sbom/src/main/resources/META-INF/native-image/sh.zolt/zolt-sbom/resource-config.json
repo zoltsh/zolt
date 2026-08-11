@@ -1,0 +1,9 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "\\Qsh/zolt/sbom/cyclonedx-1.5-unsupported-spdx-ids.txt\\E"
+      }
+    ]
+  }
+}

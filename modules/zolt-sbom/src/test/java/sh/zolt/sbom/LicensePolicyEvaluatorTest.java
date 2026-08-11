@@ -21,7 +21,22 @@ final class LicensePolicyEvaluatorTest {
                 spdx("GPL-3.0-only"),
                 new LicensePolicySettings(List.of("GPL-3.0-only"), List.of("GPL-3.0-only"), UnknownLicensePolicy.WARN));
         assertEquals(LicenseVerdict.VIOLATION, finding.verdict());
+        assertEquals(LicensePolicyFindingCause.GLOBAL_DENY, finding.cause());
         assertTrue(finding.reason().contains("deny"));
+    }
+
+    @Test
+    void legacyFindingConstructorDerivesStructuredCause() {
+        LicensePolicyFinding finding = new LicensePolicyFinding(
+                "org.example:lib:1.0.0",
+                "pkg:maven/org.example/lib@1.0.0",
+                "GPL-3.0-only",
+                "GPL-3.0-only",
+                LicenseVerdict.VIOLATION,
+                "denied by [dependencyPolicy.licenses].deny",
+                Optional.empty());
+
+        assertEquals(LicensePolicyFindingCause.GLOBAL_DENY, finding.cause());
     }
 
     @Test
@@ -167,6 +182,43 @@ final class LicensePolicyEvaluatorTest {
         LicenseExceptionAudit audit = evaluation.exceptionAudits().getFirst();
         assertEquals(LicenseExceptionAuditStatus.VERSION_MISMATCHED, audit.status());
         assertEquals(Optional.of("1.0.0"), audit.resolvedVersion());
+    }
+
+    @Test
+    void versionMismatchSuppressionRetainsIndependentDeniedAndBranch() {
+        LicensePolicySettings policy = exceptionPolicy(
+                List.of("Apache-2.0"), List.of("Zlib"), Optional.of("0.9.0"), List.of("MIT"));
+
+        LicensePolicyEvaluation evaluation = detailed(
+                expression("MIT AND Zlib"), policy, component());
+
+        assertEquals(1, evaluation.findings().size(), evaluation.findings().toString());
+        LicensePolicyFinding finding = evaluation.findings().getFirst();
+        assertEquals("Zlib", finding.license());
+        assertEquals(LicensePolicyFindingCause.GLOBAL_DENY, finding.cause());
+        assertEquals(LicenseExceptionAuditStatus.VERSION_MISMATCHED,
+                evaluation.exceptionAudits().getFirst().status());
+    }
+
+    @Test
+    void deprecatedDeclarationCanonicalizationCannotBypassDeny() {
+        Map<String, String> denied = Map.of(
+                "GPL-2.0", "GPL-2.0-only",
+                "LGPL-2.1", "LGPL-2.1-only",
+                "LGPL-3.0", "LGPL-3.0-only",
+                "GPL-2.0-with-font-exception", "GPL-2.0-only",
+                "GPL-2.0-with-GCC-exception", "GPL-2.0-only");
+        DeclaredLicenseResolver resolver = new DeclaredLicenseResolver();
+
+        for (Map.Entry<String, String> entry : denied.entrySet()) {
+            SbomLicense license = resolver.resolve(Optional.of(entry.getKey()), Optional.empty());
+            LicensePolicyFinding finding = onlyFinding(
+                    license,
+                    new LicensePolicySettings(
+                            List.of(), List.of(entry.getValue()), UnknownLicensePolicy.WARN));
+
+            assertEquals(LicensePolicyFindingCause.GLOBAL_DENY, finding.cause(), entry.getKey());
+        }
     }
 
     private static LicensePolicySettings policy(UnknownLicensePolicy unknown) {

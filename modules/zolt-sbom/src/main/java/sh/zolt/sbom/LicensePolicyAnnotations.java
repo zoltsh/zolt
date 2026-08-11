@@ -176,6 +176,10 @@ public record LicensePolicyAnnotations(
         if (verdict != 0) {
             return verdict > 0 ? candidate : current;
         }
+        int cause = Integer.compare(candidate.cause().precedence(), current.cause().precedence());
+        if (cause != 0) {
+            return cause > 0 ? candidate : current;
+        }
         return candidate.license().compareTo(current.license()) < 0 ? candidate : current;
     }
 

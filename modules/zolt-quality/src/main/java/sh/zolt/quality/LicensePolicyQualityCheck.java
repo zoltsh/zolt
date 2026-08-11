@@ -20,6 +20,7 @@ import sh.zolt.sbom.LicenseIndex;
 import sh.zolt.sbom.LicensePolicyEvaluator;
 import sh.zolt.sbom.LicensePolicyEvaluation;
 import sh.zolt.sbom.LicensePolicyFinding;
+import sh.zolt.sbom.LicensePolicyFindingCause;
 import sh.zolt.sbom.LicenseVerdict;
 import sh.zolt.sbom.LockArtifacts;
 import sh.zolt.sbom.LockSbomAssembler;
@@ -180,11 +181,11 @@ final class LicensePolicyQualityCheck {
     }
 
     private static String nextStep(LicensePolicyFinding finding) {
-        if (finding.reason().contains(".deny")) {
+        if (finding.cause() == LicensePolicyFindingCause.GLOBAL_DENY) {
             return "Remove " + finding.coordinate()
                     + " or amend [dependencyPolicy.licenses].deny after review; an exception cannot override deny.";
         }
-        if (finding.reason().startsWith("unrecognized license")) {
+        if (finding.cause() == LicensePolicyFindingCause.UNRECOGNIZED) {
             return "Run `zolt resolve`, verify the dependency's cached POM license metadata, or amend "
                     + "[dependencyPolicy.licenses].unknown after review; scoped exceptions require SPDX terms.";
         }

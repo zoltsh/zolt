@@ -144,7 +144,12 @@ public final class CycloneDxSbomWriter {
             string(json, "license");
             json.append(": {\n");
             if (license.status() == SbomLicenseStatus.SPDX) {
-                stringField(json, level + 3, "id", license.spdxId().orElseThrow(), false);
+                String id = license.spdxId().orElseThrow();
+                if (CycloneDx15SpdxCatalog.supports(id)) {
+                    stringField(json, level + 3, "id", id, false);
+                } else {
+                    stringField(json, level + 3, "name", id, false);
+                }
             } else {
                 boolean hasUrl = license.url().isPresent();
                 stringField(json, level + 3, "name", license.displayName(), hasUrl);
