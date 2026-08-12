@@ -1,29 +1,60 @@
 package sh.zolt.update;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
-/**
- * One reportable row: a single zolt.toml surface, its current version, the discovered update
- * targets, and advisory context. {@code identifier} is the alias name for {@link
- * OutdatedSurface#VERSION_ALIAS} and {@code group:artifact} otherwise. {@code governs} lists the
- * coordinates a version alias governs (empty for other surfaces). {@code members} lists the
- * workspace members that share this surface (empty outside a workspace).
- */
-public record OutdatedEntry(
-        UpdateTarget target,
-        OutdatedStatus status,
-        OutdatedCandidates candidates,
-        Optional<String> sourceRepository,
-        List<String> members,
-        List<String> notes) {
-    public OutdatedEntry {
-        target = java.util.Objects.requireNonNull(target, "target");
-        status = java.util.Objects.requireNonNull(status, "status");
-        candidates = java.util.Objects.requireNonNull(candidates, "candidates");
-        sourceRepository = sourceRepository == null ? Optional.empty() : sourceRepository;
-        members = members == null ? List.of() : List.copyOf(members);
-        notes = notes == null ? List.of() : List.copyOf(notes);
+/** One reportable dependency-version surface and its advisory discovery result. */
+public final class OutdatedEntry {
+    private final UpdateTargetReference reference;
+    private final String lockfilePath;
+    private final String currentVersion;
+    private final boolean updateable;
+    private final Optional<String> updateBlocker;
+    private final OutdatedStatus status;
+    private final OutdatedCandidates candidates;
+    private final Optional<String> sourceRepository;
+    private final List<String> members;
+    private final List<String> notes;
+
+    public OutdatedEntry(
+            UpdateTarget target,
+            OutdatedStatus status,
+            OutdatedCandidates candidates,
+            Optional<String> sourceRepository,
+            List<String> members,
+            List<String> notes) {
+        this(
+                new UpdateTargetReference(target.key(), target.governs()),
+                target.lockfilePath(),
+                target.currentVersion(),
+                target.updateable(),
+                target.updateBlocker(),
+                status,
+                candidates,
+                sourceRepository,
+                members,
+                notes);
+    }
+
+    OutdatedEntry(
+            UpdateTargetCatalog.Entry entry,
+            OutdatedStatus status,
+            OutdatedCandidates candidates,
+            Optional<String> sourceRepository,
+            List<String> members,
+            List<String> notes) {
+        this(
+                entry.reference(),
+                entry.lockfilePath(),
+                entry.request().currentVersion(),
+                entry.updateable(),
+                entry.updateBlocker(),
+                status,
+                candidates,
+                sourceRepository,
+                members,
+                notes);
     }
 
     public OutdatedEntry(
@@ -38,7 +69,13 @@ public record OutdatedEntry(
             List<String> members,
             List<String> notes) {
         this(
-                target(surface, identifier, section, currentVersion, governs),
+                defaultReference(surface, identifier, section, governs),
+                "zolt.lock",
+                currentVersion,
+                UpdateApplicability.isApplicable(surface),
+                UpdateApplicability.isApplicable(surface)
+                        ? Optional.empty()
+                        : Optional.of(UpdateApplicability.reason(surface)),
                 status,
                 candidates,
                 sourceRepository,
@@ -46,29 +83,96 @@ public record OutdatedEntry(
                 notes);
     }
 
+    private OutdatedEntry(
+            UpdateTargetReference reference,
+            String lockfilePath,
+            String currentVersion,
+            boolean updateable,
+            Optional<String> updateBlocker,
+            OutdatedStatus status,
+            OutdatedCandidates candidates,
+            Optional<String> sourceRepository,
+            List<String> members,
+            List<String> notes) {
+        this.reference = Objects.requireNonNull(reference, "reference");
+        this.lockfilePath = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
+        this.currentVersion = Objects.requireNonNull(currentVersion, "currentVersion");
+        this.updateable = updateable;
+        this.updateBlocker = updateBlocker == null ? Optional.empty() : updateBlocker;
+        this.status = Objects.requireNonNull(status, "status");
+        this.candidates = Objects.requireNonNull(candidates, "candidates");
+        this.sourceRepository = sourceRepository == null ? Optional.empty() : sourceRepository;
+        this.members = members == null ? List.of() : List.copyOf(members);
+        this.notes = notes == null ? List.of() : List.copyOf(notes);
+        if (updateable == this.updateBlocker.isPresent()) {
+            throw new IllegalArgumentException(
+                    "An updateable entry cannot have a blocker, and a non-updateable entry must have one.");
+        }
+    }
+
+    /** Creates the public schema-v2 target lazily, keeping legacy paths and identifiers raw. */
+    public UpdateTarget target() {
+        UpdateTargetKey key = reference.key();
+        return new UpdateTarget(
+                UpdateTargetId.create(key.manifestPath(), key.surface(), key.section(), key.identifier()),
+                key.manifestPath(),
+                lockfilePath,
+                key.surface(),
+                key.identifier(),
+                key.section(),
+                currentVersion,
+                updateable,
+                updateBlocker,
+                reference.governs());
+    }
+
     public OutdatedSurface surface() {
-        return target.surface();
+        return reference.surface();
     }
 
     public String identifier() {
-        return target.identifier();
+        return reference.identifier();
     }
 
     public String section() {
-        return target.section();
+        return reference.key().section();
     }
 
     public String currentVersion() {
-        return target.currentVersion();
+        return currentVersion;
+    }
+
+    public OutdatedStatus status() {
+        return status;
+    }
+
+    public OutdatedCandidates candidates() {
+        return candidates;
+    }
+
+    public Optional<String> sourceRepository() {
+        return sourceRepository;
     }
 
     public List<String> governs() {
-        return target.governs();
+        return reference.governs();
+    }
+
+    public List<String> members() {
+        return members;
+    }
+
+    public List<String> notes() {
+        return notes;
     }
 
     OutdatedEntry withMembers(List<String> updatedMembers) {
         return new OutdatedEntry(
-                target,
+                reference,
+                lockfilePath,
+                currentVersion,
+                updateable,
+                updateBlocker,
                 status,
                 candidates,
                 sourceRepository,
@@ -76,26 +180,13 @@ public record OutdatedEntry(
                 notes);
     }
 
-    private static UpdateTarget target(
+    private static UpdateTargetReference defaultReference(
             OutdatedSurface surface,
             String identifier,
             String section,
-            String currentVersion,
             List<String> governs) {
-        boolean updateable = UpdateApplicability.isApplicable(surface);
-        Optional<String> blocker = updateable
-                ? Optional.empty()
-                : Optional.of(UpdateApplicability.reason(surface));
-        return new UpdateTarget(
-                UpdateTargetId.create("zolt.toml", surface, section, identifier),
-                "zolt.toml",
-                "zolt.lock",
-                surface,
-                identifier,
-                section,
-                currentVersion,
-                updateable,
-                blocker,
+        return new UpdateTargetReference(
+                new UpdateTargetKey("zolt.toml", surface, section, identifier),
                 governs);
     }
 }

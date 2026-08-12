@@ -137,4 +137,16 @@ final class RepositoryCoordinateAndArtifactDescriptorTest {
                                 () -> new ArtifactDescriptor(coordinate, Optional.empty(), null))
                         .getMessage());
     }
+
+    @Test
+    void rejectsUnsafeClassifierAndExtensionPathMaterial() {
+        Coordinate coordinate = parser.parse("org.example:metadata:1.0.0");
+
+        assertThrows(
+                CoordinateParseException.class,
+                () -> new ArtifactDescriptor(coordinate, Optional.of("../sources"), "jar"));
+        assertThrows(
+                CoordinateParseException.class,
+                () -> new ArtifactDescriptor(coordinate, Optional.empty(), "jar?download"));
+    }
 }

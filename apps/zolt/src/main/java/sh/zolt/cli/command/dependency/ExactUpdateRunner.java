@@ -83,7 +83,7 @@ final class ExactUpdateRunner {
                     new ScopeExpectation(
                             scope.absoluteManifestPath(),
                             scope.absoluteLockfilePath(),
-                            List.of(targetId));
+                            List.of(selected.plan().target().key()));
             if (scope instanceof ResolvedUpdateScope project) {
                 ManifestEditResult projectEdit = ManifestEditTransaction.execute(
                         project.projectDirectory(),

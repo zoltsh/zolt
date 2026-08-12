@@ -70,14 +70,14 @@ public final class UpdateEngine {
             if (target.isEmpty() || target.orElseThrow().equals(surface.currentVersion())) {
                 continue;
             }
-            recordChange(entry.target(), surface, target.orElseThrow(), edits, skips);
+            recordChange(entry, surface, target.orElseThrow(), edits, skips);
         }
         edits.sort(EDIT_ORDER);
         return new UpdatePlan(edits, skips, aliasFanOutWarnings(edits));
     }
 
     private void recordChange(
-            UpdateTarget updateTarget,
+            UpdateTargetCatalog.Entry updateTarget,
             SurfaceRequest surface,
             String target,
             List<UpdateEdit> edits,

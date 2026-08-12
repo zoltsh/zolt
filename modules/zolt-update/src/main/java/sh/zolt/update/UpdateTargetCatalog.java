@@ -27,7 +27,7 @@ public final class UpdateTargetCatalog {
             ProjectConfig config,
             String manifestPath,
             String lockfilePath,
-            Map<UpdateTargetId, String> blockers) {
+            Map<UpdateTargetKey, String> blockers) {
         return entries(config, manifestPath, lockfilePath, blockers).stream()
                 .map(Entry::target)
                 .toList();
@@ -44,7 +44,7 @@ public final class UpdateTargetCatalog {
             WorkspaceConfig config,
             String manifestPath,
             String lockfilePath,
-            Map<UpdateTargetId, String> blockers) {
+            Map<UpdateTargetKey, String> blockers) {
         return entries(config, manifestPath, lockfilePath, blockers).stream()
                 .map(Entry::target)
                 .toList();
@@ -77,14 +77,13 @@ public final class UpdateTargetCatalog {
             ProjectConfig config,
             String manifestPath,
             String lockfilePath,
-            Map<UpdateTargetId, String> blockers) {
+            Map<UpdateTargetKey, String> blockers) {
         Objects.requireNonNull(config, "config");
-        String canonicalManifest = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
-        String canonicalLockfile = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
-        Map<UpdateTargetId, Entry> entries = new LinkedHashMap<>();
+        String rawManifest = UpdateTargetKey.requirePath(manifestPath, "manifest path");
+        String rawLockfile = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
+        Map<UpdateTargetKey, Entry> entries = new LinkedHashMap<>();
         for (SurfaceRequest request : collector.collect(config)) {
-            UpdateTarget target = contextualTarget(request, canonicalManifest, canonicalLockfile, blockers);
-            addUnique(entries, new Entry(target, request));
+            addUnique(entries, entry(request, rawManifest, rawLockfile, blockers));
         }
         return List.copyOf(entries.values());
     }
@@ -100,22 +99,33 @@ public final class UpdateTargetCatalog {
             WorkspaceConfig config,
             String manifestPath,
             String lockfilePath,
-            Map<UpdateTargetId, String> blockers) {
+            Map<UpdateTargetKey, String> blockers) {
         Objects.requireNonNull(config, "config");
-        String canonicalManifest = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
-        String canonicalLockfile = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
-        Map<UpdateTargetId, Entry> entries = new LinkedHashMap<>();
+        String rawManifest = UpdateTargetKey.requirePath(manifestPath, "manifest path");
+        String rawLockfile = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
+        Map<UpdateTargetKey, Entry> entries = new LinkedHashMap<>();
         for (SurfaceRequest request : collector.collect(config)) {
-            UpdateTarget target = contextualTarget(request, canonicalManifest, canonicalLockfile, blockers);
-            addUnique(entries, new Entry(target, request));
+            addUnique(entries, entry(request, rawManifest, rawLockfile, blockers));
         }
         return List.copyOf(entries.values());
     }
 
-    static void addUnique(Map<UpdateTargetId, Entry> entries, Entry entry) {
-        Entry previous = entries.putIfAbsent(entry.target().targetId(), entry);
+    public List<UpdateTargetReference> references(ProjectConfig config, String manifestPath) {
+        return entries(config, manifestPath, "zolt.lock").stream()
+                .map(Entry::reference)
+                .toList();
+    }
+
+    public List<UpdateTargetReference> references(WorkspaceConfig config, String manifestPath) {
+        return entries(config, manifestPath, "zolt.lock").stream()
+                .map(Entry::reference)
+                .toList();
+    }
+
+    static void addUnique(Map<UpdateTargetKey, Entry> entries, Entry entry) {
+        Entry previous = entries.putIfAbsent(entry.key(), entry);
         if (previous != null) {
-            throw new IllegalStateException("Duplicate Zolt update target ID " + entry.target().targetId() + ".");
+            throw new IllegalStateException("Duplicate Zolt update target identity " + entry.key() + ".");
         }
     }
 
@@ -143,38 +153,53 @@ public final class UpdateTargetCatalog {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown Zolt update target `" + targetId + "`."));
     }
 
-    private UpdateTarget target(
+    private Entry entry(
             SurfaceRequest request,
             String manifestPath,
-            String lockfilePath) {
+            String lockfilePath,
+            Map<UpdateTargetKey, String> blockers) {
+        UpdateTargetKey key = new UpdateTargetKey(
+                manifestPath, request.surface(), request.section(), request.identifier());
         boolean updateable = UpdateApplicability.isApplicable(request.surface());
         Optional<String> blocker = updateable
                 ? Optional.empty()
                 : Optional.of(UpdateApplicability.reason(request.surface()));
-        return new UpdateTarget(
-                UpdateTargetId.create(manifestPath, request.surface(), request.section(), request.identifier()),
-                manifestPath,
+        String contextual = (blockers == null ? Map.<UpdateTargetKey, String>of() : blockers).get(key);
+        if (contextual != null) {
+            updateable = false;
+            blocker = Optional.of(contextual);
+        }
+        return new Entry(
+                new UpdateTargetReference(key, request.governs()),
                 lockfilePath,
-                request.surface(),
-                request.identifier(),
-                request.section(),
-                request.currentVersion(),
+                request,
                 updateable,
-                blocker,
-                request.governs());
+                blocker);
     }
 
-    private UpdateTarget contextualTarget(
-            SurfaceRequest request,
-            String manifestPath,
+    record Entry(
+            UpdateTargetReference reference,
             String lockfilePath,
-            Map<UpdateTargetId, String> blockers) {
-        UpdateTarget target = target(request, manifestPath, lockfilePath);
-        Map<UpdateTargetId, String> contextualBlockers = blockers == null ? Map.of() : blockers;
-        String blocker = contextualBlockers.get(target.targetId());
-        return blocker == null ? target : target.blocked(blocker);
-    }
+            SurfaceRequest request,
+            boolean updateable,
+            Optional<String> updateBlocker) {
+        UpdateTargetKey key() {
+            return reference.key();
+        }
 
-    record Entry(UpdateTarget target, SurfaceRequest request) {
+        UpdateTarget target() {
+            return new UpdateTarget(
+                    UpdateTargetId.create(
+                            key().manifestPath(), key().surface(), key().section(), key().identifier()),
+                    key().manifestPath(),
+                    lockfilePath,
+                    key().surface(),
+                    key().identifier(),
+                    key().section(),
+                    request.currentVersion(),
+                    updateable,
+                    updateBlocker,
+                    reference.governs());
+        }
     }
 }

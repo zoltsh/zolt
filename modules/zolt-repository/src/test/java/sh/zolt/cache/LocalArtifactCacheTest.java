@@ -306,6 +306,32 @@ final class LocalArtifactCacheTest {
     }
 
     @Test
+    void overlayNamespaceCannotEscapeTheArtifactCacheRoot() throws Exception {
+        LocalArtifactCache cache = new LocalArtifactCache(tempDir);
+        Coordinate coordinate = parser.parse("com.example:demo:1.0.0");
+        Path source = tempDir.resolve("demo.pom");
+        Files.writeString(source, "<project/>");
+        Path outside = tempDir.resolveSibling("outside");
+
+        assertThrows(
+                ArtifactCacheException.class,
+                () -> cache.materializeOverlayPom(coordinate, "../../outside", source));
+
+        assertFalse(Files.exists(outside));
+    }
+
+    @Test
+    void relativeCacheRootKeepsReturningRelativeArtifactPaths() {
+        LocalArtifactCache cache = new LocalArtifactCache(Path.of("relative-cache"));
+        Coordinate coordinate = parser.parse("com.example:demo:1.0.0");
+
+        assertFalse(cache.pomPath(coordinate).isAbsolute());
+        assertEquals(
+                Path.of("relative-cache/com/example/demo/1.0.0/demo-1.0.0.pom"),
+                cache.pomPath(coordinate));
+    }
+
+    @Test
     void materializesOverlayClassifierArtifactIntoNamespacedCachePath() throws Exception {
         LocalArtifactCache cache = new LocalArtifactCache(tempDir);
         Coordinate coordinate = parser.parse("io.quarkus:quarkus-custom-deployment:1.0.0");

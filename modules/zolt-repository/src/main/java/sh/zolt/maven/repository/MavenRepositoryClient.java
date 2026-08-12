@@ -199,7 +199,7 @@ public final class MavenRepositoryClient {
             Optional<RepositoryAuthentication> authentication,
             RepositoryDownloadListener downloadListener) {
         Coordinate coordinate = descriptor.coordinate();
-        URI artifactUri = artifactUri(repositoryBaseUri, path);
+        URI artifactUri = RepositoryArtifactUri.resolve(repositoryBaseUri, path);
         HttpRequest request = fetchRequest(artifactUri, authentication, httpPolicy);
 
         IOException lastIoException = null;
@@ -256,7 +256,7 @@ public final class MavenRepositoryClient {
             String path,
             Path source,
             Optional<RepositoryAuthentication> authentication) {
-        URI artifactUri = artifactUri(repositoryBaseUri, path);
+        URI artifactUri = RepositoryArtifactUri.resolve(repositoryBaseUri, path);
         HttpRequest.BodyPublisher bodyPublisher;
         try {
             bodyPublisher = HttpRequest.BodyPublishers.ofFile(source);
@@ -340,11 +340,4 @@ public final class MavenRepositoryClient {
         }
     }
 
-    private static URI artifactUri(URI repositoryBaseUri, String path) {
-        String base = repositoryBaseUri.toString();
-        if (!base.endsWith("/")) {
-            base = base + "/";
-        }
-        return URI.create(base).resolve(path);
-    }
 }

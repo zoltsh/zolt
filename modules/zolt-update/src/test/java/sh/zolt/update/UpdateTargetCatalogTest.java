@@ -250,7 +250,7 @@ final class UpdateTargetCatalogTest {
                         """),
                 "zolt.toml",
                 "zolt.lock").getFirst();
-        Map<UpdateTargetId, UpdateTargetCatalog.Entry> entries = new LinkedHashMap<>();
+        Map<UpdateTargetKey, UpdateTargetCatalog.Entry> entries = new LinkedHashMap<>();
 
         UpdateTargetCatalog.addUnique(entries, entry);
 

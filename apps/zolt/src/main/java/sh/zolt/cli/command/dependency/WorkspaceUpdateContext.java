@@ -5,9 +5,9 @@ import sh.zolt.project.RepositoryCredentialSettings;
 import sh.zolt.project.RepositorySettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.update.OutdatedSurface;
-import sh.zolt.update.UpdateTarget;
 import sh.zolt.update.UpdateTargetCatalog;
-import sh.zolt.update.UpdateTargetId;
+import sh.zolt.update.UpdateTargetKey;
+import sh.zolt.update.UpdateTargetReference;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -19,7 +19,7 @@ import java.util.Map;
 
 /** Workspace-wide context needed to keep schema-v2 discovery and exact routing honest. */
 record WorkspaceUpdateContext(
-        Map<UpdateTargetId, String> targetBlockers,
+        Map<UpdateTargetKey, String> targetBlockers,
         List<RepositoryConfiguration> repositoryConfigurations,
         Map<String, ProjectConfig> effectiveMemberConfigs) {
     private static final String PLATFORM_PREFIX = "[platforms].";
@@ -34,9 +34,9 @@ record WorkspaceUpdateContext(
 
     static WorkspaceUpdateContext from(Workspace workspace) {
         UpdateTargetCatalog catalog = new UpdateTargetCatalog();
-        String rootManifest = CanonicalUpdatePath.relative(workspace.root(), workspace.configPath());
-        Map<String, UpdateTarget> rootsByCoordinate = new LinkedHashMap<>();
-        catalog.collect(workspace.config(), rootManifest, "zolt.lock").stream()
+        String rootManifest = CanonicalUpdatePath.rawRelative(workspace.root(), workspace.configPath());
+        Map<String, UpdateTargetReference> rootsByCoordinate = new LinkedHashMap<>();
+        catalog.references(workspace.config(), rootManifest).stream()
                 .filter(target -> target.surface() == OutdatedSurface.PLATFORM)
                 .forEach(target -> rootsByCoordinate.put(target.identifier(), target));
 
@@ -45,9 +45,9 @@ record WorkspaceUpdateContext(
             if (ownsRootManifest(workspace, member)) {
                 continue;
             }
-            String manifest = CanonicalUpdatePath.relative(
+            String manifest = CanonicalUpdatePath.rawRelative(
                     workspace.root(), member.directory().resolve("zolt.toml"));
-            for (UpdateTarget target : catalog.collect(member.config(), manifest, "zolt.lock")) {
+            for (UpdateTargetReference target : catalog.references(member.config(), manifest)) {
                 for (String coordinate : mirroredCoordinates(target, rootsByCoordinate)) {
                     mirrors.computeIfAbsent(coordinate, ignored -> new ArrayList<>())
                             .add(new MemberTarget(member.path(), target));
@@ -55,7 +55,7 @@ record WorkspaceUpdateContext(
             }
         }
 
-        Map<UpdateTargetId, String> blockers = new LinkedHashMap<>();
+        Map<UpdateTargetKey, String> blockers = new LinkedHashMap<>();
         mirrors.forEach((coordinate, targets) -> {
             String members = String.join(", ", targets.stream()
                     .map(MemberTarget::member)
@@ -64,9 +64,9 @@ record WorkspaceUpdateContext(
                     .toList());
             String blocker = "Platform `" + coordinate + "` is declared in workspace-root [platforms] and member(s) "
                     + members
-                    + "; consolidate the declaration under workspace-root [platforms] before using exact updates.";
-            blockers.put(rootsByCoordinate.get(coordinate).targetId(), blocker);
-            targets.forEach(target -> blockers.put(target.target().targetId(), blocker));
+                    + "; consolidate the declaration under workspace-root [platforms] before using dependency updates.";
+            blockers.put(rootsByCoordinate.get(coordinate).key(), blocker);
+            targets.forEach(target -> blockers.put(target.target().key(), blocker));
         });
 
         WorkspaceMemberPolicyResolver policyResolver = new WorkspaceMemberPolicyResolver();
@@ -94,8 +94,8 @@ record WorkspaceUpdateContext(
     }
 
     private static List<String> mirroredCoordinates(
-            UpdateTarget target,
-            Map<String, UpdateTarget> rootsByCoordinate) {
+            UpdateTargetReference target,
+            Map<String, UpdateTargetReference> rootsByCoordinate) {
         if (target.surface() == OutdatedSurface.PLATFORM && rootsByCoordinate.containsKey(target.identifier())) {
             return List.of(target.identifier());
         }
@@ -116,7 +116,7 @@ record WorkspaceUpdateContext(
         return rootConfig.equals(memberConfig);
     }
 
-    private record MemberTarget(String member, UpdateTarget target) {
+    private record MemberTarget(String member, UpdateTargetReference target) {
     }
 
     private record RepositoryConfigurationKey(

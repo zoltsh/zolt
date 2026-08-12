@@ -11,8 +11,8 @@ public record OutdatedScopeReport(
         List<OutdatedEntry> entries) {
     public OutdatedScopeReport {
         label = Objects.requireNonNull(label, "label");
-        manifestPath = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
-        lockfilePath = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
+        manifestPath = UpdateTargetKey.requirePath(manifestPath, "manifest path");
+        lockfilePath = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
         entries = entries == null ? List.of() : List.copyOf(entries);
     }
 

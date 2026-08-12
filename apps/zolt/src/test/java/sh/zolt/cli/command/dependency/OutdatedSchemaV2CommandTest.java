@@ -188,6 +188,136 @@ final class OutdatedSchemaV2CommandTest {
     }
 
     @Test
+    void schemaV1FromWorkspaceRootAcceptsDecomposedMemberPath() throws IOException {
+        UnicodeWorkspace workspace = writeUnicodeWorkspace(tempDir.resolve("unicode-root"));
+
+        CommandResult result = execute(
+                "outdated",
+                "--format", "json",
+                "--all",
+                "--offline",
+                "--cwd", workspace.root().toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("\"label\": \"" + workspace.memberName() + "\""), result.stdout());
+    }
+
+    @Test
+    void schemaV1FromWorkspaceMemberAcceptsDecomposedMemberPath() throws IOException {
+        UnicodeWorkspace workspace = writeUnicodeWorkspace(tempDir.resolve("unicode-member"));
+
+        CommandResult result = execute(
+                "outdated",
+                "--format", "json",
+                "--all",
+                "--offline",
+                "--cwd", workspace.member().toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("\"identifier\": \"com.example:lib\""), result.stdout());
+    }
+
+    @Test
+    void schemaV1AcceptsDecomposedDependencyIdentifier() throws IOException {
+        String decomposed = "cafe\u0301";
+        Path project = tempDir.resolve("unicode-coordinate");
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [dependencies]
+                "com.example:%s" = "1.0.0"
+                """.formatted(decomposed));
+
+        CommandResult result = execute(
+                "outdated",
+                "--format", "json",
+                "--all",
+                "--offline",
+                "--cwd", project.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("\"identifier\": \"com.example:" + decomposed + "\""), result.stdout());
+    }
+
+    @Test
+    void schemaV2RejectsDecomposedDependencyIdentifierOnlyAtAutomationBoundary() throws IOException {
+        String decomposed = "cafe\u0301";
+        Path project = tempDir.resolve("unicode-coordinate-v2");
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [dependencies]
+                "com.example:%s" = "1.0.0"
+                """.formatted(decomposed));
+
+        CommandResult result = execute(
+                "outdated",
+                "--format", "json",
+                "--schema-version", "2",
+                "--all",
+                "--offline",
+                "--cwd", project.toString());
+
+        assertEquals(1, result.exitCode());
+        assertEquals("", result.stderr());
+        assertTrue(
+                result.stdout().contains("Update target identifier must use Unicode NFC normalization"),
+                result.stdout());
+    }
+
+    @Test
+    void schemaV2RejectsDecomposedMemberPathWithActionableDiagnostic() throws IOException {
+        UnicodeWorkspace workspace = writeUnicodeWorkspace(tempDir.resolve("unicode-v2"));
+
+        CommandResult result = execute(
+                "outdated",
+                "--format", "json",
+                "--schema-version", "2",
+                "--all",
+                "--offline",
+                "--cwd", workspace.root().toString());
+
+        assertEquals(1, result.exitCode());
+        assertEquals("", result.stderr());
+        assertTrue(result.stdout().contains("\"status\": \"failed\""), result.stdout());
+        assertTrue(result.stdout().contains("canonical Unicode NFC path"), result.stdout());
+    }
+
+    @Test
+    void unsafeCoordinateFailsBeforeMetadataDiscovery() throws IOException {
+        Path project = tempDir.resolve("unsafe-coordinate");
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [dependencies]
+                "//metadata:probe" = "1.0.0"
+                """);
+        VersionDiscovery forbidden = (repositories, group, artifact, offline) -> {
+            throw new AssertionError("unsafe coordinate must fail before metadata discovery");
+        };
+
+        InjectedResult result = runInjected(project, forbidden);
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stdout().contains("not safe for repository metadata discovery"), result.stdout());
+    }
+
+    @Test
     void schemaSelectionRequiresJsonAndOneSupportedVersion() throws IOException {
         Path project = writeProject();
 
@@ -226,6 +356,28 @@ final class OutdatedSchemaV2CommandTest {
                 "com.example:lib" = "1.0.0"
                 """);
         return project;
+    }
+
+    private static UnicodeWorkspace writeUnicodeWorkspace(Path root) throws IOException {
+        String memberName = "cafe\u0301";
+        Path member = root.resolve(memberName);
+        Files.createDirectories(member);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "unicode"
+                members = ["%s"]
+                """.formatted(memberName));
+        Files.writeString(member.resolve("zolt.toml"), """
+                [project]
+                name = "unicode-member"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [dependencies]
+                "com.example:lib" = "1.0.0"
+                """);
+        return new UnicodeWorkspace(root, member, memberName);
     }
 
     private static Path writeRepositoryWorkspace(Path root, List<String> repositoryIds) throws IOException {
@@ -288,5 +440,8 @@ final class OutdatedSchemaV2CommandTest {
     }
 
     private record InjectedResult(int exitCode, String stdout, String stderr) {
+    }
+
+    private record UnicodeWorkspace(Path root, Path member, String memberName) {
     }
 }

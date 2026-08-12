@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class CoordinateParserTest {
@@ -94,5 +96,42 @@ final class CoordinateParserTest {
                 () -> parser.parse("com.example:demo:"));
 
         assertEquals("Malformed dependency coordinate `com.example:demo:`. The version segment is empty.", exception.getMessage());
+    }
+
+    @Test
+    void rejectsEveryRepositoryPathEscapeForm() {
+        List<String> unsafe = List.of(
+                "//metadata:probe",
+                "/absolute/path:probe",
+                "../../outside:probe",
+                "com.example:../outside",
+                "com.example:artifact/../../outside",
+                "com.example:artifact?query",
+                "com.example:artifact#fragment",
+                "com.example:artifact\\path");
+
+        for (String coordinate : unsafe) {
+            assertThrows(CoordinateParseException.class, () -> parser.parse(coordinate), coordinate);
+        }
+    }
+
+    @Test
+    void directCoordinateConstructionEnforcesTheSameRepositorySafetyContract() {
+        assertThrows(
+                CoordinateParseException.class,
+                () -> new Coordinate("com.example", "../outside", Optional.of("1.0.0")));
+        assertThrows(
+                CoordinateParseException.class,
+                () -> new Coordinate("com.example", "demo", Optional.of("../../outside")));
+        assertThrows(
+                CoordinateParseException.class,
+                () -> new Coordinate("com.example", "bad\ud800", Optional.of("1.0.0")));
+    }
+
+    @Test
+    void acceptsDecomposedUnicodeArtifactIdentifiers() {
+        String decomposed = "cafe\u0301";
+
+        assertEquals(decomposed, parser.parse("com.example:" + decomposed).artifactId());
     }
 }

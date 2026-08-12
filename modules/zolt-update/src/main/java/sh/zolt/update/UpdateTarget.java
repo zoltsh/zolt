@@ -49,4 +49,8 @@ public record UpdateTarget(
                 Optional.of(Objects.requireNonNull(reason, "reason")),
                 governs);
     }
+
+    public UpdateTargetKey key() {
+        return new UpdateTargetKey(manifestPath, surface, section, identifier);
+    }
 }

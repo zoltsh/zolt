@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.Coordinate;
+import sh.zolt.maven.CoordinateParseException;
 import sh.zolt.maven.CoordinateParser;
 import java.io.IOException;
 import java.net.Authenticator;
@@ -96,6 +97,86 @@ final class MavenRepositoryClientTransportFailureTest {
         assertTrue(exception.getMessage().contains("Could not download com.google.guava:guava:33.4.0-jre"));
         assertTrue(exception.getMessage().contains("after 2 attempts"));
         assertTrue(exception.getMessage().contains("Check your network, proxy, or repository URL and try again."));
+    }
+
+    @Test
+    void authorityEscapeIsRejectedBeforeCredentialsOrNetworkCanCrossOrigins() {
+        FailingHttpClient httpClient = new FailingHttpClient();
+        MavenRepositoryClient client = new MavenRepositoryClient(
+                httpClient,
+                new MavenRepositoryPathBuilder());
+
+        assertThrows(
+                CoordinateParseException.class,
+                () -> client.fetchMetadata(
+                        URI.create("https://repo.company.example/maven/"),
+                        "//metadata",
+                        "probe",
+                        Optional.of(RepositoryAuthentication.bearer("secret"))));
+
+        assertEquals(0, httpClient.sends(), "unsafe authority must be rejected before an HTTP request exists");
+    }
+
+    @Test
+    void explicitRepositoryPathsCannotEscapeTheConfiguredBase() {
+        FailingHttpClient httpClient = new FailingHttpClient();
+        MavenRepositoryClient client = new MavenRepositoryClient(
+                httpClient,
+                new MavenRepositoryPathBuilder());
+
+        for (String path : java.util.List.of(
+                "//metadata/probe",
+                "/absolute/path",
+                "../../outside",
+                "com/example/../outside",
+                "com/example/artifact?query",
+                "com/example/artifact#fragment",
+                "com/example/artifact\\path",
+                "com/example/%2e%2e/outside")) {
+            assertThrows(
+                    RepositoryClientException.class,
+                    () -> client.fetchFile(
+                            URI.create("https://repo.company.example/maven/"),
+                            path,
+                            Optional.of(RepositoryAuthentication.bearer("secret"))),
+                    path);
+        }
+
+        assertEquals(0, httpClient.sends());
+    }
+
+    @Test
+    void safeUnicodeCoordinatesAreEncodedWithoutChangingOriginOrBasePath() {
+        String decomposed = "cafe\u0301";
+        CapturingHttpClient httpClient = new CapturingHttpClient();
+        MavenRepositoryClient client = new MavenRepositoryClient(
+                httpClient,
+                new MavenRepositoryPathBuilder());
+
+        assertTrue(client.fetchMetadata(
+                        URI.create("https://repo.company.example/maven/"),
+                        "com.example",
+                        decomposed,
+                        RepositoryAuthentication.none())
+                .isEmpty());
+
+        URI requestUri = httpClient.requestUri();
+        assertEquals("https", requestUri.getScheme());
+        assertEquals("repo.company.example", requestUri.getRawAuthority());
+        assertTrue(requestUri.getRawPath().startsWith("/maven/com/example/"));
+        assertTrue(requestUri.getRawPath().contains("cafe%CC%81"), requestUri::toString);
+    }
+
+    @Test
+    void repositoryBaseEncodingIsPreservedWhenAddingTheRelativePath() {
+        URI resolved = RepositoryArtifactUri.resolve(
+                URI.create("https://repo.company.example/maven%20repository"),
+                "com/example/demo/1.0.0/demo-1.0.0.pom");
+
+        assertEquals("repo.company.example", resolved.getRawAuthority());
+        assertEquals(
+                "/maven%20repository/com/example/demo/1.0.0/demo-1.0.0.pom",
+                resolved.getRawPath());
     }
 
     @Test
@@ -223,6 +304,24 @@ final class MavenRepositoryClientTransportFailureTest {
 
         int sends() {
             return sends.get();
+        }
+    }
+
+    private static final class CapturingHttpClient extends DelegatingHttpClient {
+        private URI requestUri;
+
+        @Override
+        public <T> HttpResponse<T> send(
+                HttpRequest request,
+                HttpResponse.BodyHandler<T> responseBodyHandler) {
+            requestUri = request.uri();
+            @SuppressWarnings("unchecked")
+            HttpResponse<T> response = (HttpResponse<T>) new StaticHttpResponse(request, 404);
+            return response;
+        }
+
+        URI requestUri() {
+            return requestUri;
         }
     }
 

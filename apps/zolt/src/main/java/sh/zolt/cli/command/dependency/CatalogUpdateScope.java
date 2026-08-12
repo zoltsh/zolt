@@ -1,7 +1,7 @@
 package sh.zolt.cli.command.dependency;
 
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.update.UpdateTargetId;
+import sh.zolt.update.UpdateTargetKey;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -20,7 +20,7 @@ sealed interface CatalogUpdateScope permits ResolvedUpdateScope, ResolvedWorkspa
 
     Optional<ZoltLockfile> lockfile();
 
-    Map<UpdateTargetId, String> targetBlockers();
+    Map<UpdateTargetKey, String> targetBlockers();
 
     default Path absoluteManifestPath() {
         return mutationRoot().resolve(manifestPath()).normalize();

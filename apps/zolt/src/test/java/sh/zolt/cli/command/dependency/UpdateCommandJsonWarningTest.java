@@ -118,6 +118,27 @@ final class UpdateCommandJsonWarningTest {
     }
 
     @Test
+    void policyUpdateAcceptsDecomposedDependencyIdentifier() throws IOException {
+        String decomposed = "cafe\u0301";
+        Path projectDir = tempDir.resolve("unicode-coordinate");
+        Files.createDirectories(projectDir);
+        Path configPath = projectDir.resolve("zolt.toml");
+        Files.writeString(configPath, memberConfig("unicode-coordinate") + """
+
+                [dependencies]
+                "com.example:%s" = "1.0.0"
+                """.formatted(decomposed));
+
+        Result result = runUpdateJson(
+                projectDir,
+                discovery("com.example", decomposed, "1.0.0", "1.1.0"));
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(Files.readString(configPath).contains(
+                "\"com.example:" + decomposed + "\" = \"1.1.0\""));
+    }
+
+    @Test
     void updateRefusesAStalePlanWithoutOverwritingTheConcurrentEdit() throws IOException {
         Path projectDir = tempDir.resolve("stale");
         Files.createDirectories(projectDir);

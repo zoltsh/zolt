@@ -14,9 +14,11 @@ public record ArtifactDescriptor(
         if (classifier.isPresent() && classifier.orElseThrow().isBlank()) {
             throw new CoordinateParseException("Artifact classifier must not be blank.");
         }
+        classifier = classifier.map(MavenRepositoryValue::classifier);
         if (extension == null || extension.isBlank()) {
             throw new CoordinateParseException("Artifact extension is required.");
         }
+        extension = MavenRepositoryValue.extension(extension);
     }
 
     public static ArtifactDescriptor jar(Coordinate coordinate) {

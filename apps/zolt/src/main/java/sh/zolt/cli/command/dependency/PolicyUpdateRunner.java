@@ -14,7 +14,7 @@ import sh.zolt.update.UpdatePlan;
 import sh.zolt.update.UpdatePlanJsonRenderer;
 import sh.zolt.update.UpdatePlanningScope;
 import sh.zolt.update.UpdatePlanTextRenderer;
-import sh.zolt.update.UpdateTargetId;
+import sh.zolt.update.UpdateTargetKey;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -114,7 +114,7 @@ final class PolicyUpdateRunner {
         ScopeExpectation expectation = new ScopeExpectation(
                 scope.absoluteManifestPath(),
                 scope.absoluteLockfilePath(),
-                targetIds(scope, planned.plan()),
+                targetKeys(scope, planned.plan()),
                 Optional.of(scope.discoveryConfig()));
         return ManifestEditTransaction.execute(
                 projectRoot,
@@ -135,9 +135,9 @@ final class PolicyUpdateRunner {
         return engine.apply(current, planned.plan());
     }
 
-    private static List<UpdateTargetId> targetIds(ResolvedUpdateScope scope, UpdatePlan plan) {
+    private static List<UpdateTargetKey> targetKeys(ResolvedUpdateScope scope, UpdatePlan plan) {
         return plan.edits().stream()
-                .map(edit -> UpdateTargetId.create(
+                .map(edit -> new UpdateTargetKey(
                         scope.manifestPath(), edit.surface(), edit.section(), edit.identifier()))
                 .toList();
     }

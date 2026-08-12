@@ -1,5 +1,7 @@
 package sh.zolt.update;
 
+import sh.zolt.maven.Coordinate;
+import sh.zolt.maven.CoordinateParseException;
 import java.util.Optional;
 
 /** The {@code group:artifact} a surface's version listing is discovered under. */
@@ -19,7 +21,14 @@ record DiscoveryCoordinate(String groupId, String artifactId) {
         if (groupId.isBlank() || artifactId.isBlank()) {
             return Optional.empty();
         }
-        return Optional.of(new DiscoveryCoordinate(groupId, artifactId));
+        try {
+            Coordinate validated = new Coordinate(groupId, artifactId, Optional.empty());
+            return Optional.of(new DiscoveryCoordinate(validated.groupId(), validated.artifactId()));
+        } catch (CoordinateParseException exception) {
+            throw new CoordinateParseException(
+                    "Dependency coordinate `" + coordinate + "` is not safe for repository metadata discovery: "
+                            + exception.getMessage());
+        }
     }
 
     String coordinate() {

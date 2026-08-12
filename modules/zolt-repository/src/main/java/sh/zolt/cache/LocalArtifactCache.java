@@ -158,7 +158,13 @@ public final class LocalArtifactCache {
     }
 
     private Path cachePath(String repositoryPath) {
-        return root.resolve(repositoryPath).normalize();
+        Path cacheRoot = root.toAbsolutePath().normalize();
+        Path resolved = root.resolve(repositoryPath).normalize();
+        Path absoluteResolved = resolved.toAbsolutePath().normalize();
+        if (!absoluteResolved.startsWith(cacheRoot) || absoluteResolved.equals(cacheRoot)) {
+            throw new ArtifactCacheException("Refusing artifact cache path outside the configured cache root.");
+        }
+        return resolved;
     }
 
     private static String overlayPath(String overlayId, String repositoryPath) {

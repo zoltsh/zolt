@@ -81,12 +81,12 @@ public final class UpdateTargetId {
     static String requireCanonicalPath(String value, String subject) {
         String canonical = requireCanonicalText(value, subject);
         if (canonical.startsWith("/") || canonical.contains("\\")) {
-            throw new IllegalArgumentException("Update target " + subject + " must be a relative POSIX path.");
+            throw new UpdateTargetIdentityException("Update target " + subject + " must be a relative POSIX path.");
         }
         String[] segments = canonical.split("/", -1);
         for (String segment : segments) {
             if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
-                throw new IllegalArgumentException("Update target " + subject + " must be normalized.");
+                throw new UpdateTargetIdentityException("Update target " + subject + " must be normalized.");
             }
         }
         return canonical;
@@ -94,25 +94,27 @@ public final class UpdateTargetId {
 
     static String requireCanonicalText(String value, String subject) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Update target " + subject + " is required.");
+            throw new UpdateTargetIdentityException("Update target " + subject + " is required.");
         }
         if (!Normalizer.isNormalized(value, Normalizer.Form.NFC)) {
-            throw new IllegalArgumentException("Update target " + subject + " must use Unicode NFC normalization.");
+            throw new UpdateTargetIdentityException(
+                    "Update target " + subject + " must use Unicode NFC normalization.");
         }
         for (int index = 0; index < value.length(); index++) {
             char character = value.charAt(index);
             if (Character.isHighSurrogate(character)) {
                 if (index + 1 >= value.length() || !Character.isLowSurrogate(value.charAt(index + 1))) {
-                    throw new IllegalArgumentException("Update target " + subject + " must contain valid Unicode.");
+                    throw new UpdateTargetIdentityException(
+                            "Update target " + subject + " must contain valid Unicode.");
                 }
                 int codePoint = Character.toCodePoint(character, value.charAt(++index));
                 if (Character.isISOControl(codePoint)) {
-                    throw new IllegalArgumentException("Update target " + subject + " cannot contain controls.");
+                    throw new UpdateTargetIdentityException("Update target " + subject + " cannot contain controls.");
                 }
             } else if (Character.isLowSurrogate(character)) {
-                throw new IllegalArgumentException("Update target " + subject + " must contain valid Unicode.");
+                throw new UpdateTargetIdentityException("Update target " + subject + " must contain valid Unicode.");
             } else if (Character.isISOControl(character)) {
-                throw new IllegalArgumentException("Update target " + subject + " cannot contain controls.");
+                throw new UpdateTargetIdentityException("Update target " + subject + " cannot contain controls.");
             }
         }
         return value;

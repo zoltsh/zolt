@@ -1,7 +1,7 @@
 package sh.zolt.cli.command.dependency;
 
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.update.UpdateTargetId;
+import sh.zolt.update.UpdateTargetKey;
 import sh.zolt.workspace.WorkspaceConfig;
 import java.nio.file.Path;
 import java.util.Map;
@@ -17,7 +17,7 @@ record ResolvedWorkspaceUpdateScope(
         String lockfilePath,
         WorkspaceConfig config,
         Optional<ZoltLockfile> lockfile,
-        Map<UpdateTargetId, String> targetBlockers) implements CatalogUpdateScope {
+        Map<UpdateTargetKey, String> targetBlockers) implements CatalogUpdateScope {
     ResolvedWorkspaceUpdateScope {
         mutationRoot = normalize(mutationRoot, "mutationRoot");
         projectDirectory = normalize(projectDirectory, "projectDirectory");

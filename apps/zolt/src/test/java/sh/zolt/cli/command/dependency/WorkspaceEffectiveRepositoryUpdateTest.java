@@ -87,6 +87,36 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
     }
 
     @Test
+    void policyUpdateAcceptsDecomposedWorkspaceMemberPath() throws IOException {
+        String memberName = "cafe\u0301";
+        Path root = tempDir.resolve("unicode-policy");
+        Path member = root.resolve(memberName);
+        Files.createDirectories(member);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "unicode-policy"
+                members = ["%s"]
+
+                %s
+                """.formatted(memberName, rootRepository(false)));
+        Path memberManifest = member.resolve("zolt.toml");
+        Files.writeString(memberManifest, """
+                [project]
+                name = "unicode-member"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                %s
+                """.formatted(dependency()));
+
+        Result result = policyUpdate(member, listing(false), () -> {});
+
+        assertEquals(0, result.exitCode(), () -> result.stdout() + result.stderr());
+        assertTrue(Files.readString(memberManifest).contains("\"com.example:private-lib\" = \"1.1.0\""));
+    }
+
+    @Test
     void policyUpdateRejectsRootRepositoryChangeAfterPlanning() throws IOException {
         Path root = writeWorkspace(tempDir.resolve("policy-race"), rootRepository(false), dependency());
         Path rootManifest = root.resolve("zolt.toml");

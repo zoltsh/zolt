@@ -6,6 +6,7 @@ import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.net.CommandNetwork;
 import sh.zolt.lockfile.toml.LockfileReadException;
+import sh.zolt.maven.CoordinateParseException;
 import sh.zolt.maven.metadata.MetadataCache;
 import sh.zolt.maven.metadata.RepositoryMetadataService;
 import sh.zolt.maven.repository.RepositoryAccessException;
@@ -17,6 +18,7 @@ import sh.zolt.update.OutdatedJsonRendererV2;
 import sh.zolt.update.OutdatedOptions;
 import sh.zolt.update.OutdatedReport;
 import sh.zolt.update.UpdateReportScope;
+import sh.zolt.update.UpdateTargetIdentityException;
 import sh.zolt.update.OutdatedTextRenderer;
 import sh.zolt.workspace.WorkspaceConfigException;
 import java.util.ArrayList;
@@ -88,8 +90,8 @@ public final class OutdatedCommand implements Runnable {
                     ? renderJson(report, selectedSchema)
                     : new OutdatedTextRenderer().render(report);
             CommandOutput.printAndFlush(spec, output);
-        } catch (LockfileReadException | ZoltConfigException | RepositoryAccessException | ResolveException
-                | WorkspaceConfigException exception) {
+        } catch (CoordinateParseException | LockfileReadException | ZoltConfigException | RepositoryAccessException
+                | ResolveException | UpdateTargetIdentityException | WorkspaceConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
     }

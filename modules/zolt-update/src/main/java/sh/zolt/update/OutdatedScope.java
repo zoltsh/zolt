@@ -18,11 +18,11 @@ public record OutdatedScope(
         ProjectConfig config,
         ProjectConfig discoveryConfig,
         Optional<ZoltLockfile> lockfile,
-        Map<UpdateTargetId, String> targetBlockers) implements UpdateReportScope {
+        Map<UpdateTargetKey, String> targetBlockers) implements UpdateReportScope {
     public OutdatedScope {
         label = Objects.requireNonNull(label, "label");
-        manifestPath = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
-        lockfilePath = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
+        manifestPath = UpdateTargetKey.requirePath(manifestPath, "manifest path");
+        lockfilePath = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
         config = Objects.requireNonNull(config, "config");
         discoveryConfig = discoveryConfig == null ? config : discoveryConfig;
         lockfile = lockfile == null ? Optional.empty() : lockfile;
@@ -44,7 +44,7 @@ public record OutdatedScope(
             String lockfilePath,
             ProjectConfig config,
             Optional<ZoltLockfile> lockfile,
-            Map<UpdateTargetId, String> targetBlockers) {
+            Map<UpdateTargetKey, String> targetBlockers) {
         this(label, manifestPath, lockfilePath, config, config, lockfile, targetBlockers);
     }
 

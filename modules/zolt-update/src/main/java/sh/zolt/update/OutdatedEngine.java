@@ -87,7 +87,7 @@ public final class OutdatedEngine {
                 discoverAcrossRepositorySets(surface, repositorySets, memos, options.offline());
         if (!discovered.resolved()) {
             return entry(
-                    catalogEntry.target(),
+                    catalogEntry,
                     OutdatedStatus.UNKNOWN,
                     OutdatedCandidates.none(),
                     Optional.empty(),
@@ -98,7 +98,7 @@ public final class OutdatedEngine {
         OutdatedStatus status = candidates.updateAvailable() ? OutdatedStatus.UPDATE_AVAILABLE : OutdatedStatus.CURRENT;
         Optional<String> source = candidates.selectedLatest().flatMap(discovered::source);
         return entry(
-                catalogEntry.target(),
+                catalogEntry,
                 status,
                 toCandidates(surface.currentVersion(), candidates),
                 source,
@@ -186,7 +186,7 @@ public final class OutdatedEngine {
     }
 
     private static OutdatedEntry entry(
-            UpdateTarget target,
+            UpdateTargetCatalog.Entry target,
             OutdatedStatus status,
             OutdatedCandidates candidates,
             Optional<String> source,

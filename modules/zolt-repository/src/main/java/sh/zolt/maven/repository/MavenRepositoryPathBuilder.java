@@ -3,6 +3,7 @@ package sh.zolt.maven.repository;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.CoordinateParseException;
+import sh.zolt.maven.MavenRepositoryValue;
 import java.util.Optional;
 
 public final class MavenRepositoryPathBuilder {
@@ -35,7 +36,10 @@ public final class MavenRepositoryPathBuilder {
     }
 
     public String metadataPath(String groupId, String artifactId) {
-        return groupId.replace('.', '/') + "/" + artifactId + "/maven-metadata.xml";
+        return MavenRepositoryValue.groupId(groupId).replace('.', '/')
+                + "/"
+                + MavenRepositoryValue.artifactId(artifactId)
+                + "/maven-metadata.xml";
     }
 
     private String artifactPath(Coordinate coordinate, String extension) {

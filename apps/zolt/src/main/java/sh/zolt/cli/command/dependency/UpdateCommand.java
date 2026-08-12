@@ -9,6 +9,7 @@ import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.net.CommandNetwork;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.toml.LockfileReadException;
+import sh.zolt.maven.CoordinateParseException;
 import sh.zolt.maven.metadata.MetadataCache;
 import sh.zolt.maven.metadata.RepositoryMetadataService;
 import sh.zolt.maven.repository.RepositoryAccessException;
@@ -22,6 +23,7 @@ import sh.zolt.update.UpdateCeiling;
 import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateOptions;
 import sh.zolt.update.UpdateTargetId;
+import sh.zolt.update.UpdateTargetIdentityException;
 import sh.zolt.workspace.WorkspaceConfigException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -154,8 +156,9 @@ public final class UpdateCommand implements Runnable {
                         noResolve,
                         format == Format.JSON);
             }
-        } catch (ActionableException | ArtifactCacheException | BuildException | LockfileReadException
-                | RepositoryAccessException | ResolveException | WorkspaceConfigException
+        } catch (ActionableException | ArtifactCacheException | BuildException | CoordinateParseException
+                | LockfileReadException | RepositoryAccessException | ResolveException
+                | UpdateTargetIdentityException | WorkspaceConfigException
                 | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }

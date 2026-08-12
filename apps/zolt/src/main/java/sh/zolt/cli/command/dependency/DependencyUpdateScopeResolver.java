@@ -94,7 +94,7 @@ final class DependencyUpdateScopeResolver {
                 .findFirst()
                 .orElseThrow(() -> new ZoltConfigException(
                         "Dependency updates require a standalone project or declared workspace member."));
-        return resolvedMemberScope(
+        return resolvedPolicyMemberScope(
                 workspace,
                 member,
                 Optional.empty(),
@@ -184,6 +184,25 @@ final class DependencyUpdateScopeResolver {
             Optional<ZoltLockfile> lockfile,
             WorkspaceUpdateContext context) {
         String manifestPath = CanonicalUpdatePath.relative(
+                workspace.root(), member.directory().resolve("zolt.toml"));
+        return new ResolvedUpdateScope(
+                workspace.root(),
+                member.directory(),
+                member.path(),
+                manifestPath,
+                "zolt.lock",
+                member.config(),
+                context.effectiveConfig(member),
+                lockfile,
+                context.targetBlockers());
+    }
+
+    private ResolvedUpdateScope resolvedPolicyMemberScope(
+            Workspace workspace,
+            WorkspaceMember member,
+            Optional<ZoltLockfile> lockfile,
+            WorkspaceUpdateContext context) {
+        String manifestPath = CanonicalUpdatePath.rawRelative(
                 workspace.root(), member.directory().resolve("zolt.toml"));
         return new ResolvedUpdateScope(
                 workspace.root(),

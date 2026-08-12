@@ -1,6 +1,7 @@
 package sh.zolt.maven.metadata;
 
 import sh.zolt.maven.repository.RepositoryAccess;
+import sh.zolt.maven.MavenRepositoryValue;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -78,12 +79,21 @@ public final class MetadataCache {
 
     private Path metadataFile(RepositoryAccess repository, String groupId, String artifactId) {
         requireCacheable(repository);
-        return root.resolve(METADATA_DIR)
+        String safeGroup = MavenRepositoryValue.groupId(groupId);
+        String safeArtifact = MavenRepositoryValue.artifactId(artifactId);
+        Path namespaceRoot = root.toAbsolutePath().normalize()
+                .resolve(METADATA_DIR)
                 .resolve("v2")
-                .resolve(namespace(repository))
-                .resolve(groupId.replace('.', '/'))
-                .resolve(artifactId)
-                .resolve(FILE_NAME);
+                .resolve(namespace(repository));
+        Path file = namespaceRoot
+                .resolve(safeGroup.replace('.', '/'))
+                .resolve(safeArtifact)
+                .resolve(FILE_NAME)
+                .normalize();
+        if (!file.startsWith(namespaceRoot)) {
+            throw new MetadataCacheException("Refusing metadata cache path outside its repository namespace.");
+        }
+        return file;
     }
 
     private Path fetchedSidecar(RepositoryAccess repository, String groupId, String artifactId) {

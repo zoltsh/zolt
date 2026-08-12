@@ -193,11 +193,11 @@ final class ManifestEditTransaction {
         WorkspaceUpdateContext context = WorkspaceUpdateContext.from(actual.workspace());
         requireExpectedDiscoveryConfig(actual, expected, context);
         var blockers = context.targetBlockers();
-        for (var targetId : expected.targetIds()) {
-            String blocker = blockers.get(targetId);
+        for (var targetKey : expected.targetKeys()) {
+            String blocker = blockers.get(targetKey);
             if (blocker != null) {
                 throw new ActionableException(
-                        "Zolt update target `" + targetId + "` is not updateable.",
+                        "Zolt update target `" + targetKey.identifier() + "` is not updateable.",
                         blocker);
             }
         }

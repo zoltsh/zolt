@@ -1,7 +1,7 @@
 package sh.zolt.cli.command.dependency;
 
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.update.UpdateTargetId;
+import sh.zolt.update.UpdateTargetKey;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -11,17 +11,17 @@ import java.util.Optional;
 record ScopeExpectation(
         Path manifestPath,
         Path lockfilePath,
-        List<UpdateTargetId> targetIds,
+        List<UpdateTargetKey> targetKeys,
         Optional<ProjectConfig> discoveryConfig) {
     ScopeExpectation {
         manifestPath = normalize(manifestPath, "manifestPath");
         lockfilePath = normalize(lockfilePath, "lockfilePath");
-        targetIds = targetIds == null ? List.of() : List.copyOf(targetIds);
+        targetKeys = targetKeys == null ? List.of() : List.copyOf(targetKeys);
         discoveryConfig = discoveryConfig == null ? Optional.empty() : discoveryConfig;
     }
 
-    ScopeExpectation(Path manifestPath, Path lockfilePath, List<UpdateTargetId> targetIds) {
-        this(manifestPath, lockfilePath, targetIds, Optional.empty());
+    ScopeExpectation(Path manifestPath, Path lockfilePath, List<UpdateTargetKey> targetKeys) {
+        this(manifestPath, lockfilePath, targetKeys, Optional.empty());
     }
 
     ScopeExpectation(Path manifestPath, Path lockfilePath) {

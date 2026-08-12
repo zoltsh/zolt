@@ -16,11 +16,11 @@ public record WorkspaceOutdatedScope(
         WorkspaceConfig config,
         Optional<ZoltLockfile> lockfile,
         List<RepositoryConfiguration> repositoryConfigurations,
-        Map<UpdateTargetId, String> targetBlockers) implements UpdateReportScope {
+        Map<UpdateTargetKey, String> targetBlockers) implements UpdateReportScope {
     public WorkspaceOutdatedScope {
         label = Objects.requireNonNull(label, "label");
-        manifestPath = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
-        lockfilePath = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
+        manifestPath = UpdateTargetKey.requirePath(manifestPath, "manifest path");
+        lockfilePath = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
         config = Objects.requireNonNull(config, "config");
         lockfile = lockfile == null ? Optional.empty() : lockfile;
         repositoryConfigurations = repositoryConfigurations == null || repositoryConfigurations.isEmpty()

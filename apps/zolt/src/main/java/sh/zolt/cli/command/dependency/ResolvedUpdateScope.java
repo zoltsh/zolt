@@ -2,7 +2,7 @@ package sh.zolt.cli.command.dependency;
 
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.update.UpdateTargetId;
+import sh.zolt.update.UpdateTargetKey;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
@@ -18,7 +18,7 @@ record ResolvedUpdateScope(
         ProjectConfig config,
         ProjectConfig discoveryConfig,
         Optional<ZoltLockfile> lockfile,
-        Map<UpdateTargetId, String> targetBlockers) implements CatalogUpdateScope {
+        Map<UpdateTargetKey, String> targetBlockers) implements CatalogUpdateScope {
     ResolvedUpdateScope {
         mutationRoot = normalize(mutationRoot, "mutationRoot");
         projectDirectory = normalize(projectDirectory, "projectDirectory");
@@ -50,7 +50,7 @@ record ResolvedUpdateScope(
             String lockfilePath,
             ProjectConfig config,
             Optional<ZoltLockfile> lockfile,
-            Map<UpdateTargetId, String> targetBlockers) {
+            Map<UpdateTargetKey, String> targetBlockers) {
         this(
                 mutationRoot,
                 projectDirectory,

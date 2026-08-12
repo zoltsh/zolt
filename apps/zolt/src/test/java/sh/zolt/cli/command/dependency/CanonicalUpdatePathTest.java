@@ -30,4 +30,14 @@ final class CanonicalUpdatePathTest {
                 ZoltConfigException.class,
                 () -> CanonicalUpdatePath.relative(tempDir, literalBackslash));
     }
+
+    @Test
+    void rawLegacyIdentityPreservesLiteralBackslashesOnUnix() {
+        assumeTrue(File.separatorChar != '\\');
+        Path literalBackslash = tempDir.resolve("member\\name").resolve("zolt.toml");
+
+        assertEquals(
+                "member\\name/zolt.toml",
+                CanonicalUpdatePath.rawRelative(tempDir, literalBackslash));
+    }
 }

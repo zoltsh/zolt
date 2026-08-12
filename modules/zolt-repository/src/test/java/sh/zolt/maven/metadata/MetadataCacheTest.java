@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.maven.CoordinateParseException;
 import sh.zolt.maven.repository.RepositoryAccess;
 import sh.zolt.maven.repository.RepositoryAuthentication;
 import java.net.URI;
@@ -94,6 +95,27 @@ final class MetadataCacheTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new MetadataCache(cacheRoot).write(authenticated, "com.example", "lib", LISTING));
+    }
+
+    @Test
+    void rejectsCoordinateEscapesWithoutWritingOutsideTheCacheRoot() throws java.io.IOException {
+        MetadataCache cache = new MetadataCache(cacheRoot);
+        Path sibling = cacheRoot.resolveSibling("outside");
+
+        assertThrows(
+                CoordinateParseException.class,
+                () -> cache.write(access("central"), "../../outside", "probe", LISTING));
+        assertThrows(
+                CoordinateParseException.class,
+                () -> cache.write(access("central"), "com.example", "../outside", LISTING));
+        assertThrows(
+                CoordinateParseException.class,
+                () -> cache.write(access("central"), "/absolute/path", "probe", LISTING));
+
+        assertFalse(Files.exists(sibling));
+        try (var files = Files.walk(cacheRoot)) {
+            assertEquals(1, files.count(), "rejected coordinates must not create cache files");
+        }
     }
 
     private static RepositoryAccess access(String id) {

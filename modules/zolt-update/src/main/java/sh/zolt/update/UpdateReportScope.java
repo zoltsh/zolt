@@ -14,5 +14,5 @@ public sealed interface UpdateReportScope permits OutdatedScope, WorkspaceOutdat
 
     Optional<ZoltLockfile> lockfile();
 
-    Map<UpdateTargetId, String> targetBlockers();
+    Map<UpdateTargetKey, String> targetBlockers();
 }
