@@ -1,21 +1,21 @@
 package sh.zolt.cli.command.dependency;
 
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.workspace.WorkspaceConfig;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 
-/** One catalogable project plus its canonical paths under the selected mutation root. */
-record ResolvedUpdateScope(
+/** Catalog scope for dependency policy owned directly by the workspace manifest. */
+record ResolvedWorkspaceUpdateScope(
         Path mutationRoot,
         Path projectDirectory,
         String label,
         String manifestPath,
         String lockfilePath,
-        ProjectConfig config,
+        WorkspaceConfig config,
         Optional<ZoltLockfile> lockfile) implements CatalogUpdateScope {
-    ResolvedUpdateScope {
+    ResolvedWorkspaceUpdateScope {
         mutationRoot = normalize(mutationRoot, "mutationRoot");
         projectDirectory = normalize(projectDirectory, "projectDirectory");
         label = Objects.requireNonNull(label, "label");

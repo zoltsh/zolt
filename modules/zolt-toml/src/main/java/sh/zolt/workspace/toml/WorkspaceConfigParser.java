@@ -8,6 +8,7 @@ import sh.zolt.project.RepositorySettings;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.WorkspaceConfigException;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -77,6 +78,19 @@ public final class WorkspaceConfigParser {
 
     public WorkspaceConfig parseRootConfig(String content) {
         return parse(Toml.parse(content), ROOT_CONFIG_FILE, ROOT_TOP_LEVEL_SECTIONS);
+    }
+
+    public WorkspaceManifestDocument parseWorkspaceDocument(Path path) {
+        Path filename = path.getFileName();
+        boolean rootConfig = filename != null && ROOT_CONFIG_FILE.equals(filename.toString());
+        try {
+            String source = Files.readString(path);
+            WorkspaceConfig config = rootConfig ? parseRootConfig(source) : parse(source);
+            return new WorkspaceManifestDocument(source, config, rootConfig);
+        } catch (IOException exception) {
+            throw new WorkspaceConfigException(
+                    "Could not read workspace manifest at " + path + ". Check that it exists and is readable.");
+        }
     }
 
     /**

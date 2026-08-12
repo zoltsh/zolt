@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,6 +46,30 @@ final class ManifestEditTransactionRecoveryTest {
 
         assertEquals("manifest = \"original\"\n", Files.readString(tempDir.resolve("zolt.toml")));
         assertEquals("lock = \"original\"\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertFalse(Files.exists(transaction));
+    }
+
+    @Test
+    void recordedWorkspaceRootScopeRecoversLegacyManifest() throws IOException {
+        Path root = tempDir.resolve("legacy-root-recovery");
+        String encoded = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("@workspace-root:zolt-workspace.toml".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Path transaction = root.resolve(".zolt/manifest-edits").resolve(encoded);
+        Files.createDirectories(transaction);
+        Files.writeString(root.resolve("zolt-workspace.toml"), "platform = \"edited\"\n");
+        Files.writeString(root.resolve("zolt.lock"), "lock = \"original\"\n");
+        Files.writeString(transaction.resolve("manifest-root"), ".\n");
+        Files.writeString(transaction.resolve("manifest-path"), "zolt-workspace.toml\n");
+        Files.writeString(transaction.resolve("zolt.toml.backup"), "platform = \"original\"\n");
+        Files.writeString(transaction.resolve("zolt.toml.staged"), "platform = \"edited\"\n");
+        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
+        Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"edited\"\n");
+        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
+
+        ManifestEditRecovery.recoverAll(root, root);
+
+        assertEquals("platform = \"original\"\n", Files.readString(root.resolve("zolt-workspace.toml")));
+        assertEquals("lock = \"original\"\n", Files.readString(root.resolve("zolt.lock")));
         assertFalse(Files.exists(transaction));
     }
 

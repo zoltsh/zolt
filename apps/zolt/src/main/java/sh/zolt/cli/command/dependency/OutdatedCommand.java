@@ -15,7 +15,7 @@ import sh.zolt.update.OutdatedJsonRenderer;
 import sh.zolt.update.OutdatedJsonRendererV2;
 import sh.zolt.update.OutdatedOptions;
 import sh.zolt.update.OutdatedReport;
-import sh.zolt.update.OutdatedScope;
+import sh.zolt.update.UpdateReportScope;
 import sh.zolt.update.OutdatedTextRenderer;
 import sh.zolt.workspace.WorkspaceConfigException;
 import java.util.ArrayList;
@@ -79,7 +79,8 @@ public final class OutdatedCommand implements Runnable {
     public void run() {
         try {
             int selectedSchema = selectedSchema();
-            List<OutdatedScope> reportScopes = scopeResolver.reportScopes(projectDirectory.path(), selectedSchema);
+            List<? extends UpdateReportScope> reportScopes =
+                    scopeResolver.reportScopes(projectDirectory.path(), selectedSchema);
             OutdatedOptions options = new OutdatedOptions(includePrereleases, all, offline, selectors);
             OutdatedReport report = engine.report(reportScopes, options);
             String output = format == Format.JSON

@@ -1,6 +1,7 @@
 package sh.zolt.update;
 
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.workspace.WorkspaceConfig;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,15 @@ public final class UpdateTargetCatalog {
                 .toList();
     }
 
+    public List<UpdateTarget> collect(
+            WorkspaceConfig config,
+            String manifestPath,
+            String lockfilePath) {
+        return entries(config, manifestPath, lockfilePath).stream()
+                .map(Entry::target)
+                .toList();
+    }
+
     public UpdateTarget require(
             ProjectConfig config,
             String manifestPath,
@@ -32,8 +42,31 @@ public final class UpdateTargetCatalog {
         return requireEntry(config, manifestPath, lockfilePath, targetId).target();
     }
 
+    public UpdateTarget require(
+            WorkspaceConfig config,
+            String manifestPath,
+            String lockfilePath,
+            UpdateTargetId targetId) {
+        return requireEntry(config, manifestPath, lockfilePath, targetId).target();
+    }
+
     List<Entry> entries(
             ProjectConfig config,
+            String manifestPath,
+            String lockfilePath) {
+        Objects.requireNonNull(config, "config");
+        String canonicalManifest = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
+        String canonicalLockfile = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
+        Map<UpdateTargetId, Entry> entries = new LinkedHashMap<>();
+        for (SurfaceRequest request : collector.collect(config)) {
+            UpdateTarget target = target(request, canonicalManifest, canonicalLockfile);
+            addUnique(entries, new Entry(target, request));
+        }
+        return List.copyOf(entries.values());
+    }
+
+    List<Entry> entries(
+            WorkspaceConfig config,
             String manifestPath,
             String lockfilePath) {
         Objects.requireNonNull(config, "config");
@@ -56,6 +89,18 @@ public final class UpdateTargetCatalog {
 
     Entry requireEntry(
             ProjectConfig config,
+            String manifestPath,
+            String lockfilePath,
+            UpdateTargetId targetId) {
+        Objects.requireNonNull(targetId, "targetId");
+        return entries(config, manifestPath, lockfilePath).stream()
+                .filter(entry -> entry.target().targetId().equals(targetId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown Zolt update target `" + targetId + "`."));
+    }
+
+    Entry requireEntry(
+            WorkspaceConfig config,
             String manifestPath,
             String lockfilePath,
             UpdateTargetId targetId) {

@@ -4,6 +4,8 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.update.OutdatedScope;
 import sh.zolt.update.OutdatedScopes;
+import sh.zolt.update.UpdateReportScope;
+import sh.zolt.update.WorkspaceOutdatedScope;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.service.Workspace;
@@ -29,11 +31,11 @@ final class DependencyUpdateScopeResolver {
         this.workspaceDiscovery = workspaceDiscovery;
     }
 
-    List<OutdatedScope> reportScopes(Path start, int schemaVersion) {
+    List<? extends UpdateReportScope> reportScopes(Path start, int schemaVersion) {
         return schemaVersion == 2 ? automationScopes(start) : legacyScopes(start);
     }
 
-    List<ResolvedUpdateScope> catalogScopes(Path start, Path confirmedMutationRoot) {
+    List<CatalogUpdateScope> catalogScopes(Path start, Path confirmedMutationRoot) {
         Path mutationRoot = confirmedMutationRoot.toAbsolutePath().normalize();
         Optional<Workspace> discovered = discoverCatalogWorkspace(start, mutationRoot);
         if (discovered.isEmpty()) {
@@ -56,9 +58,12 @@ final class DependencyUpdateScopeResolver {
             throw changedScope();
         }
         Optional<ZoltLockfile> lockfile = rootLockfile(workspace);
-        return workspace.members().stream()
+        List<CatalogUpdateScope> resolved = new ArrayList<>();
+        resolvedRootScope(workspace, lockfile).ifPresent(resolved::add);
+        workspace.members().stream()
                 .map(member -> resolvedMemberScope(workspace, member, lockfile))
-                .toList();
+                .forEach(resolved::add);
+        return List.copyOf(resolved);
     }
 
     private List<OutdatedScope> legacyScopes(Path start) {
@@ -72,7 +77,7 @@ final class DependencyUpdateScopeResolver {
         return List.of(scopes.fromDirectory(labelFor(start), start));
     }
 
-    private List<OutdatedScope> automationScopes(Path start) {
+    private List<UpdateReportScope> automationScopes(Path start) {
         Optional<Workspace> discovered = discoverAutomationWorkspace(start);
         if (discovered.isEmpty()) {
             return List.of(scopes.fromDirectory(labelFor(start), start));
@@ -86,12 +91,17 @@ final class DependencyUpdateScopeResolver {
                 .findFirst()
                 .orElseThrow(() -> new ZoltConfigException(
                         "Outdated schema v2 requires a standalone project, workspace root, or declared workspace member."));
-        return List.of(memberScope(workspace, member, rootLockfile(workspace)));
+        Optional<ZoltLockfile> lockfile = rootLockfile(workspace);
+        List<UpdateReportScope> reportScopes = new ArrayList<>();
+        rootScope(workspace, lockfile).ifPresent(reportScopes::add);
+        reportScopes.add(memberScope(workspace, member, lockfile));
+        return List.copyOf(reportScopes);
     }
 
-    private List<OutdatedScope> workspaceScopes(Workspace workspace) {
+    private List<UpdateReportScope> workspaceScopes(Workspace workspace) {
         Optional<ZoltLockfile> lockfile = rootLockfile(workspace);
-        List<OutdatedScope> reportScopes = new ArrayList<>();
+        List<UpdateReportScope> reportScopes = new ArrayList<>();
+        rootScope(workspace, lockfile).ifPresent(reportScopes::add);
         for (WorkspaceMember member : workspace.members()) {
             reportScopes.add(memberScope(workspace, member, lockfile));
         }
@@ -122,6 +132,48 @@ final class DependencyUpdateScopeResolver {
                 "zolt.lock",
                 member.config(),
                 lockfile);
+    }
+
+    private Optional<WorkspaceOutdatedScope> rootScope(
+            Workspace workspace,
+            Optional<ZoltLockfile> lockfile) {
+        if (!hasIndependentRootPlatforms(workspace)) {
+            return Optional.empty();
+        }
+        String manifestPath = CanonicalUpdatePath.relative(workspace.root(), workspace.configPath());
+        return Optional.of(new WorkspaceOutdatedScope(
+                "workspace-root",
+                manifestPath,
+                "zolt.lock",
+                workspace.config(),
+                lockfile));
+    }
+
+    private Optional<ResolvedWorkspaceUpdateScope> resolvedRootScope(
+            Workspace workspace,
+            Optional<ZoltLockfile> lockfile) {
+        if (!hasIndependentRootPlatforms(workspace)) {
+            return Optional.empty();
+        }
+        String manifestPath = CanonicalUpdatePath.relative(workspace.root(), workspace.configPath());
+        return Optional.of(new ResolvedWorkspaceUpdateScope(
+                workspace.root(),
+                workspace.root(),
+                "workspace-root",
+                manifestPath,
+                "zolt.lock",
+                workspace.config(),
+                lockfile));
+    }
+
+    private static boolean hasIndependentRootPlatforms(Workspace workspace) {
+        if (workspace.config().platforms().isEmpty()) {
+            return false;
+        }
+        Path configPath = workspace.configPath().toAbsolutePath().normalize();
+        return workspace.members().stream()
+                .map(member -> member.directory().resolve("zolt.toml").toAbsolutePath().normalize())
+                .noneMatch(configPath::equals);
     }
 
     private Optional<ZoltLockfile> rootLockfile(Workspace workspace) {

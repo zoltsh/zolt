@@ -13,7 +13,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-/** Recovery state machine for interrupted standalone and workspace-member manifest edits. */
+/** Recovery state machine for interrupted standalone, member, and workspace-root manifest edits. */
 final class ManifestEditRecovery {
     static final String TRANSACTION_DIRECTORY = "manifest-edit-transaction";
     static final String WORKSPACE_TRANSACTIONS_DIRECTORY = "manifest-edits";
@@ -22,6 +22,8 @@ final class ManifestEditRecovery {
     static final String PREPARED = "PREPARED";
     static final String MANIFEST_COMMITTED = "MANIFEST_COMMITTED";
     static final String COMMITTED = "COMMITTED";
+    private static final String MANIFEST_ROOT = "manifest-root";
+    private static final String MANIFEST_PATH = "manifest-path";
 
     private ManifestEditRecovery() {
     }
@@ -34,6 +36,8 @@ final class ManifestEditRecovery {
         if (!Files.exists(transaction)) {
             return;
         }
+        Path normalizedManifestRoot = manifestRoot.toAbsolutePath().normalize();
+        Path normalizedLockRoot = lockRoot.toAbsolutePath().normalize();
         Path statePath = transaction.resolve(STATE);
         try {
             if (!Files.isRegularFile(statePath)) {
@@ -45,8 +49,11 @@ final class ManifestEditRecovery {
                 deleteRecursively(transaction);
                 return;
             }
-            Path manifest = manifestRoot.resolve("zolt.toml");
-            Path lockfile = lockRoot.resolve("zolt.lock");
+            Path manifest = normalizedManifestRoot.resolve(recordedManifestPath(transaction)).normalize();
+            if (!manifest.startsWith(normalizedManifestRoot)) {
+                throw new IOException("manifest path escapes its recorded root");
+            }
+            Path lockfile = normalizedLockRoot.resolve("zolt.lock");
             String originalManifest = requiredContent(transaction.resolve("zolt.toml.backup"));
             String stagedManifest = requiredContent(transaction.resolve("zolt.toml.staged"));
             String currentManifest = Files.readString(manifest);
@@ -75,12 +82,12 @@ final class ManifestEditRecovery {
                 return;
             }
             throw new IOException(
-                    "live zolt.toml/zolt.lock do not match a recoverable original, partial, or committed transaction state");
+                    "live manifest/zolt.lock do not match a recoverable original, partial, or committed transaction state");
         } catch (IOException exception) {
             throw new ZoltConfigException(
                     "Could not recover an interrupted manifest edit transaction at "
                             + transaction
-                            + ". Preserve that directory and restore zolt.toml/zolt.lock from its backups.");
+                            + ". Preserve that directory and restore the manifest and zolt.lock from its backups.");
         }
     }
 
@@ -130,7 +137,7 @@ final class ManifestEditRecovery {
                 if (!Files.isDirectory(transaction)) {
                     throw new IOException("Unexpected workspace transaction entry " + transaction);
                 }
-                Path memberRoot = decodedMemberRoot(normalizedLockRoot, transaction.getFileName().toString());
+                Path memberRoot = recordedManifestRoot(transaction, normalizedLockRoot);
                 recover(transaction, memberRoot, normalizedLockRoot);
             }
         } catch (IOException | IllegalArgumentException exception) {
@@ -146,6 +153,40 @@ final class ManifestEditRecovery {
             throw new IOException("Workspace transaction member escapes the workspace root");
         }
         return resolved;
+    }
+
+    private static Path recordedManifestRoot(Path transaction, Path workspaceRoot) throws IOException {
+        Path recorded = transaction.resolve(MANIFEST_ROOT);
+        if (!Files.isRegularFile(recorded)) {
+            return decodedMemberRoot(workspaceRoot, transaction.getFileName().toString());
+        }
+        String relative = Files.readString(recorded).strip();
+        if (relative.isBlank()) {
+            throw new IOException("Workspace transaction manifest root is blank");
+        }
+        Path resolved = ".".equals(relative)
+                ? workspaceRoot
+                : workspaceRoot.resolve(relative).normalize();
+        if (!resolved.startsWith(workspaceRoot)) {
+            throw new IOException("Workspace transaction manifest root escapes the workspace root");
+        }
+        return resolved;
+    }
+
+    private static Path recordedManifestPath(Path transaction) throws IOException {
+        Path recorded = transaction.resolve(MANIFEST_PATH);
+        if (!Files.isRegularFile(recorded)) {
+            return Path.of("zolt.toml");
+        }
+        String relative = Files.readString(recorded).strip();
+        if (relative.isBlank()) {
+            throw new IOException("Workspace transaction manifest path is blank");
+        }
+        Path path = Path.of(relative).normalize();
+        if (path.isAbsolute() || path.startsWith("..")) {
+            throw new IOException("Workspace transaction manifest path escapes its root");
+        }
+        return path;
     }
 
     private static FileSnapshot originalLockSnapshot(Path transaction) throws IOException {
@@ -187,13 +228,28 @@ final class ManifestEditRecovery {
 
     static ZoltConfigException recoveryFailure(Path transaction, Exception failure) {
         return new ZoltConfigException(ActionableError.of(
-                "Manifest edit failed and automatic recovery could not safely restore zolt.toml and zolt.lock.",
+                "Manifest edit failed and automatic recovery could not safely restore the manifest and zolt.lock.",
                 "Preserve " + transaction + " and inspect its backups before retrying.",
                 failure));
     }
 
     static void writeState(Path transaction, String state) throws IOException {
         Files.writeString(transaction.resolve(STATE), state + "\n");
+    }
+
+    static void writeScope(Path transaction, ManifestMutationScope scope) throws IOException {
+        Path lockRoot = scope.lockRoot().toAbsolutePath().normalize();
+        Path manifestRoot = scope.manifestRoot().toAbsolutePath().normalize();
+        Path manifestPath = scope.manifestPath().toAbsolutePath().normalize();
+        if (!manifestRoot.startsWith(lockRoot) || !manifestPath.startsWith(manifestRoot)) {
+            throw new IOException("Manifest edit scope escapes its lock or manifest root");
+        }
+        String relativeRoot = lockRoot.equals(manifestRoot)
+                ? "."
+                : lockRoot.relativize(manifestRoot).toString().replace('\\', '/');
+        String relativeManifest = manifestRoot.relativize(manifestPath).toString().replace('\\', '/');
+        Files.writeString(transaction.resolve(MANIFEST_ROOT), relativeRoot + "\n");
+        Files.writeString(transaction.resolve(MANIFEST_PATH), relativeManifest + "\n");
     }
 
     static void deleteRecursively(Path directory) throws IOException {

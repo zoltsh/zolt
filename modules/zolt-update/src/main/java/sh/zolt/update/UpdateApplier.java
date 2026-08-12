@@ -6,6 +6,7 @@ import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.project.DependencySection;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.dependency.ProjectConfigDependencyMutator;
+import sh.zolt.workspace.WorkspaceConfig;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,27 @@ public final class UpdateApplier {
                 plan.changeClass().orElseThrow(),
                 target.governs());
         return apply(config, List.of(edit));
+    }
+
+    public WorkspaceConfig apply(WorkspaceConfig config, ExactUpdatePlan plan) {
+        Objects.requireNonNull(config, "config");
+        Objects.requireNonNull(plan, "plan");
+        if (!plan.changed()) {
+            return config;
+        }
+        UpdateTarget target = plan.target();
+        if (target.surface() != OutdatedSurface.PLATFORM || !"[platforms]".equals(target.section())) {
+            throw new IllegalArgumentException(
+                    "Workspace-root update surface `" + target.surface().jsonName() + "` is not mutable.");
+        }
+        Map<String, String> platforms = new LinkedHashMap<>(config.platforms());
+        String current = platforms.get(target.identifier());
+        if (!plan.fromVersion().equals(current)) {
+            throw new IllegalArgumentException(
+                    "Workspace-root platform `" + target.identifier() + "` no longer matches the update plan.");
+        }
+        platforms.put(target.identifier(), plan.toVersion());
+        return config.withPlatforms(platforms);
     }
 
     private ProjectConfig apply(ProjectConfig config, List<UpdateEdit> edits) {

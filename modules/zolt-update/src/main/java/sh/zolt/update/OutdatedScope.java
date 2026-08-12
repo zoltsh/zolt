@@ -15,7 +15,7 @@ public record OutdatedScope(
         String manifestPath,
         String lockfilePath,
         ProjectConfig config,
-        Optional<ZoltLockfile> lockfile) {
+        Optional<ZoltLockfile> lockfile) implements UpdateReportScope {
     public OutdatedScope {
         label = Objects.requireNonNull(label, "label");
         manifestPath = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");

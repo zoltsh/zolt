@@ -40,20 +40,29 @@ public final class OutdatedEngine {
         this.planner = planner;
     }
 
-    public OutdatedReport report(List<OutdatedScope> scopes, OutdatedOptions options) {
+    public OutdatedReport report(List<? extends UpdateReportScope> scopes, OutdatedOptions options) {
         List<OutdatedScopeReport> scopeReports = new ArrayList<>();
-        for (OutdatedScope scope : scopes) {
+        for (UpdateReportScope scope : scopes) {
             scopeReports.add(reportScope(scope, options));
         }
         return applyWorkspaceDedup(scopeReports);
     }
 
-    private OutdatedScopeReport reportScope(OutdatedScope scope, OutdatedOptions options) {
-        List<RepositoryAccess> repositories = planner.plan(scope.config());
+    private OutdatedScopeReport reportScope(UpdateReportScope scope, OutdatedOptions options) {
+        List<RepositoryAccess> repositories;
+        List<UpdateTargetCatalog.Entry> catalogEntries;
+        if (scope instanceof OutdatedScope project) {
+            repositories = planner.plan(project.config());
+            catalogEntries = catalog.entries(project.config(), scope.manifestPath(), scope.lockfilePath());
+        } else if (scope instanceof WorkspaceOutdatedScope workspace) {
+            repositories = planner.plan(workspace.config());
+            catalogEntries = catalog.entries(workspace.config(), scope.manifestPath(), scope.lockfilePath());
+        } else {
+            throw new IllegalStateException("Unknown outdated scope type " + scope.getClass().getName() + ".");
+        }
         Map<String, MetadataDiscovery> memo = new LinkedHashMap<>();
         List<OutdatedEntry> entries = new ArrayList<>();
-        for (UpdateTargetCatalog.Entry catalogEntry :
-                catalog.entries(scope.config(), scope.manifestPath(), scope.lockfilePath())) {
+        for (UpdateTargetCatalog.Entry catalogEntry : catalogEntries) {
             OutdatedEntry entry = evaluate(catalogEntry, repositories, options, memo);
             if (include(entry, options)) {
                 entries.add(entry);

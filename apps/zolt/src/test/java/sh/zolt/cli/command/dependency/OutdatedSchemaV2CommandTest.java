@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.update.UpdateTargetCatalog;
+import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -72,6 +74,52 @@ final class OutdatedSchemaV2CommandTest {
         assertTrue(result.stdout().contains("\"schemaVersion\": 2"));
         assertTrue(result.stdout().contains("\"status\": \"failed\""));
         assertTrue(result.stdout().contains("missing-member"));
+    }
+
+    @Test
+    void workspaceRootPlatformIsAnAuthoritativeSchemaV2Target() throws IOException {
+        Path root = tempDir.resolve("workspace-root-platform");
+        Files.createDirectories(root.resolve("apps/api"));
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "demo"
+                members = ["apps/api"]
+
+                [platforms]
+                "org.junit:junit-bom" = "5.10.2"
+                """);
+        Files.writeString(root.resolve("apps/api/zolt.toml"), """
+                [project]
+                name = "api"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+                """);
+        String targetId = new UpdateTargetCatalog()
+                .collect(
+                        new WorkspaceConfigParser().parseRootConfig(root.resolve("zolt.toml")),
+                        "zolt.toml",
+                        "zolt.lock")
+                .getFirst()
+                .targetId()
+                .toString();
+
+        CommandResult result = execute(
+                "outdated",
+                "--format", "json",
+                "--schema-version", "2",
+                "--all",
+                "--offline",
+                "--cwd", root.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        int rootScope = result.stdout().indexOf("\"label\": \"workspace-root\"");
+        int memberScope = result.stdout().indexOf("\"label\": \"apps/api\"");
+        assertTrue(rootScope >= 0 && memberScope > rootScope, result.stdout());
+        assertTrue(result.stdout().contains("\"targetId\": \"" + targetId + "\""));
+        assertTrue(result.stdout().contains("\"manifestPath\": \"zolt.toml\""));
+        assertTrue(result.stdout().contains("\"surface\": \"platform\""));
+        assertTrue(result.stdout().contains("\"identifier\": \"org.junit:junit-bom\""));
     }
 
     @Test

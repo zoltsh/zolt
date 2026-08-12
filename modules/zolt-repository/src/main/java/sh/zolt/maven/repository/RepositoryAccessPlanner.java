@@ -1,6 +1,7 @@
 package sh.zolt.maven.repository;
 
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.RepositoryConfiguration;
 import sh.zolt.project.RepositoryCredentialSettings;
 import sh.zolt.project.RepositorySettings;
 import sh.zolt.project.RepositoryUrlPolicy;
@@ -8,6 +9,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -28,7 +30,20 @@ public final class RepositoryAccessPlanner {
     }
 
     public List<RepositoryAccess> plan(ProjectConfig config) {
-        List<RepositorySettings> repositories = config.repositorySettings().values().stream()
+        return plan((RepositoryConfiguration) config);
+    }
+
+    public List<RepositoryAccess> plan(RepositoryConfiguration config) {
+        Map<String, RepositorySettings> settings = config.repositorySettings().isEmpty()
+                ? ProjectConfig.defaultRepositorySettings()
+                : config.repositorySettings();
+        return plan(settings, config.repositoryCredentials());
+    }
+
+    private List<RepositoryAccess> plan(
+            Map<String, RepositorySettings> settings,
+            Map<String, RepositoryCredentialSettings> credentials) {
+        List<RepositorySettings> repositories = settings.values().stream()
                 .sorted(Comparator.comparing(RepositorySettings::id))
                 .toList();
         if (repositories.isEmpty()) {
@@ -41,7 +56,7 @@ public final class RepositoryAccessPlanner {
             access.add(new RepositoryAccess(
                     repository.id(),
                     repositoryUri(repository),
-                    repository.credentials().map(credentialId -> authentication(config, repository, credentialId))));
+                    repository.credentials().map(credentialId -> authentication(credentials, repository, credentialId))));
         }
         return List.copyOf(access);
     }
@@ -58,10 +73,10 @@ public final class RepositoryAccessPlanner {
     }
 
     private RepositoryAuthentication authentication(
-            ProjectConfig config,
+            Map<String, RepositoryCredentialSettings> credentials,
             RepositorySettings repository,
             String credentialId) {
-        RepositoryCredentialSettings credential = config.repositoryCredentials().get(credentialId);
+        RepositoryCredentialSettings credential = credentials.get(credentialId);
         if (credential == null) {
             throw new RepositoryAccessException(
                     "Repository `"

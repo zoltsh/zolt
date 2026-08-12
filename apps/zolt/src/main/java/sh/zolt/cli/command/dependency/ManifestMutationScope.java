@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Base64;
 
-/** Authoritative manifest, lockfile, and journal paths for one standalone or workspace-member edit. */
+/** Authoritative manifest, lockfile, and journal paths for one standalone, member, or root edit. */
 record ManifestMutationScope(
         Path manifestRoot,
         Path manifestPath,
@@ -18,6 +18,33 @@ record ManifestMutationScope(
         Path lockfilePath,
         Path transactionDirectory,
         Workspace workspace) {
+
+    static ManifestMutationScope discoverWorkspaceRoot(
+            Path projectRoot,
+            Path lockRoot,
+            Path expectedManifestPath) {
+        Path normalizedProject = projectRoot.toAbsolutePath().normalize();
+        Path normalizedLockRoot = lockRoot.toAbsolutePath().normalize();
+        if (!normalizedProject.equals(normalizedLockRoot)) {
+            throw changedWorkspaceRoot();
+        }
+        Workspace workspace = new WorkspaceDiscoveryService().load(normalizedProject);
+        if (!workspace.root().toAbsolutePath().normalize().equals(normalizedLockRoot)) {
+            throw changedWorkspaceRoot();
+        }
+        Path manifestPath = workspace.configPath().toAbsolutePath().normalize();
+        if (!manifestPath.equals(expectedManifestPath.toAbsolutePath().normalize())) {
+            throw changedWorkspaceRoot();
+        }
+        String journalKey = "@workspace-root:" + normalizedLockRoot.relativize(manifestPath).toString();
+        return new ManifestMutationScope(
+                normalizedLockRoot,
+                manifestPath,
+                normalizedLockRoot,
+                normalizedLockRoot.resolve("zolt.lock"),
+                workspaceTransaction(normalizedLockRoot, journalKey),
+                workspace);
+    }
 
     static ManifestMutationScope discover(Path projectRoot, Path lockRoot) {
         Path normalizedProject = projectRoot.toAbsolutePath().normalize();
@@ -29,17 +56,12 @@ record ManifestMutationScope(
                     .findFirst()
                     .orElse(null);
             if (member != null) {
-                String encoded = Base64.getUrlEncoder()
-                        .withoutPadding()
-                        .encodeToString(member.path().getBytes(StandardCharsets.UTF_8));
                 return new ManifestMutationScope(
                         normalizedProject,
                         normalizedProject.resolve("zolt.toml"),
                         normalizedLockRoot,
                         normalizedLockRoot.resolve("zolt.lock"),
-                        normalizedLockRoot.resolve(".zolt")
-                                .resolve(ManifestEditRecovery.WORKSPACE_TRANSACTIONS_DIRECTORY)
-                                .resolve(encoded),
+                        workspaceTransaction(normalizedLockRoot, member.path()),
                         workspace);
             }
             throw new ZoltConfigException(ActionableError.of(
@@ -68,5 +90,20 @@ record ManifestMutationScope(
             }
             throw exception;
         }
+    }
+
+    private static Path workspaceTransaction(Path lockRoot, String identity) {
+        String encoded = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(identity.getBytes(StandardCharsets.UTF_8));
+        return lockRoot.resolve(".zolt")
+                .resolve(ManifestEditRecovery.WORKSPACE_TRANSACTIONS_DIRECTORY)
+                .resolve(encoded);
+    }
+
+    private static ZoltConfigException changedWorkspaceRoot() {
+        return new ZoltConfigException(ActionableError.of(
+                "Workspace-root dependency update scope changed before execution. No changes were written.",
+                "Run `zolt outdated --format json --schema-version 2` again and retry with a current targetId."));
     }
 }

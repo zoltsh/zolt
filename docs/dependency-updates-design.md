@@ -123,12 +123,20 @@ no-resolve, and prerelease opt-in. It validates through `VersionPolicy`, rejects
 downgrades and comparator-equivalent rewrites, and never performs metadata
 discovery. Availability is proved by the existing staged resolve transaction.
 
-Workspace lookup catalogs all declared members under one confirmed root lock.
-Execution reacquires that lock, verifies the expected manifest/root-lock paths,
-rebuilds the target from the current manifest, and replans before applying via
-the same `UpdateApplier` as policy mode. A removed/moved target or changed scope
-fails closed; an already-applied destination becomes a no-op. Transaction output
-reports actual manifest and lockfile byte changes in deterministic order.
+Workspace lookup catalogs all declared members plus literal `[platforms]` owned
+by the workspace-root policy manifest under one confirmed root lock. Root policy
+uses its actual canonical path (`zolt.toml` or legacy `zolt-workspace.toml`) in
+target identity. A root project declared as member `.` owns that shared manifest
+once, so its platforms are not duplicated as a second root scope. Schema v1
+selection remains member-only.
+
+Execution reacquires the root lock, verifies the expected manifest/root-lock
+paths, rebuilds the target from the current manifest, and replans before applying
+via the same `UpdateApplier` semantics as policy mode. Workspace-root platform
+edits use the same source-preserving journal, staged workspace resolve, and
+manifest/lock compare-and-set as member edits. A removed/moved target or changed
+scope fails closed; an already-applied destination becomes a no-op. Transaction
+output reports actual manifest and lockfile byte changes in deterministic order.
 
 Exact JSON requires schema v2 and reports `changed`, `applied`, `resolved`,
 `changedFiles`, alias fan-out, and structured diagnostics. Valid machine failures

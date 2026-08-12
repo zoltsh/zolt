@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.WorkspaceConfig;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,26 @@ final class UpdateTargetCatalogTest {
         assertEquals("shared", alias.identifier());
         assertEquals(List.of("[dependencies].com.example:aliased"), alias.governs());
         assertFalse(targets.stream().anyMatch(target -> target.identifier().equals("com.example:aliased")));
+    }
+
+    @Test
+    void collectsOnlyLiteralPlatformsFromWorkspaceRootPolicy() {
+        WorkspaceConfig workspace = new WorkspaceConfig(
+                "demo",
+                List.of("apps/api"),
+                List.of(),
+                Map.of(),
+                Map.of("org.junit:junit-bom", "5.10.2"));
+
+        UpdateTarget target = catalog.collect(workspace, "zolt.toml", "zolt.lock").getFirst();
+
+        assertEquals(OutdatedSurface.PLATFORM, target.surface());
+        assertEquals("org.junit:junit-bom", target.identifier());
+        assertEquals("[platforms]", target.section());
+        assertEquals("zolt.toml", target.manifestPath());
+        assertEquals("zolt.lock", target.lockfilePath());
+        assertTrue(target.updateable());
+        assertEquals(target, catalog.require(workspace, "zolt.toml", "zolt.lock", target.targetId()));
     }
 
     @Test

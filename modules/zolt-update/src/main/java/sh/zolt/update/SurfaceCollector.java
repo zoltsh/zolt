@@ -7,6 +7,7 @@ import sh.zolt.project.ExecToolCoordinate;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.workspace.WorkspaceConfig;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -50,6 +51,28 @@ final class SurfaceCollector {
         collectDependencyMap(config, config.platforms(), "platforms", OutdatedSurface.PLATFORM, requests);
         collectConstraints(config, requests);
         collectGenerated(config, requests);
+        return List.copyOf(requests.values());
+    }
+
+    List<SurfaceRequest> collect(WorkspaceConfig config) {
+        Map<String, SurfaceRequest> requests = new LinkedHashMap<>();
+        config.platforms().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    if (isSnapshot(entry.getValue())) {
+                        return;
+                    }
+                    DiscoveryCoordinate.of(entry.getKey()).ifPresent(discovery -> add(
+                            requests,
+                            new SurfaceRequest(
+                                    OutdatedSurface.PLATFORM,
+                                    entry.getKey(),
+                                    "[platforms]",
+                                    entry.getValue(),
+                                    List.of(discovery),
+                                    false,
+                                    List.of())));
+                });
         return List.copyOf(requests.values());
     }
 

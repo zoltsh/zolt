@@ -70,6 +70,13 @@ or workspace and remain stable when current versions, candidates, fan-out, or
 lockfile paths change. Callers must treat them as opaque and rediscover them from
 the selected Zolt root rather than constructing or decoding them.
 
+For a workspace, schema v2 also emits literal workspace-root `[platforms]` as a
+distinct `workspace-root` scope. Its `manifestPath` is the policy manifest that
+owns the entry (`zolt.toml` or `zolt-workspace.toml`), and its `lockfilePath` is
+the aggregate root `zolt.lock`. When the root manifest is itself member `.`, the
+ordinary member scope owns those entries and no duplicate root target is emitted.
+Schema v1 remains unchanged.
+
 ### Exact update automation schema v2
 
 `zolt update --target-id ID --to VERSION --format json --schema-version 2`

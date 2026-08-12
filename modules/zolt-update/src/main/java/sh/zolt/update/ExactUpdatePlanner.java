@@ -7,6 +7,7 @@ import sh.zolt.dependency.VersionStability;
 import sh.zolt.error.ActionableException;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.VersionPolicy;
+import sh.zolt.workspace.WorkspaceConfig;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,9 +28,22 @@ public final class ExactUpdatePlanner {
         try {
             target = catalog.require(config, manifestPath, lockfilePath, targetId);
         } catch (IllegalArgumentException exception) {
-            throw new ActionableException(
-                    "Unknown Zolt update target `" + targetId + "`.",
-                    "Run `zolt outdated --format json --schema-version 2` again and use a targetId from the current report.");
+            throw unknownTarget(targetId);
+        }
+        return plan(target, options);
+    }
+
+    public ExactUpdatePlan plan(
+            WorkspaceConfig config,
+            String manifestPath,
+            String lockfilePath,
+            UpdateTargetId targetId,
+            ExactUpdateOptions options) {
+        UpdateTarget target;
+        try {
+            target = catalog.require(config, manifestPath, lockfilePath, targetId);
+        } catch (IllegalArgumentException exception) {
+            throw unknownTarget(targetId);
         }
         return plan(target, options);
     }
@@ -87,6 +101,12 @@ public final class ExactUpdatePlanner {
                     "Zolt update target `" + target.targetId() + "` is not updateable.",
                     target.updateBlocker().orElse("Select an updateable target from the current schema-v2 report."));
         }
+    }
+
+    private static ActionableException unknownTarget(UpdateTargetId targetId) {
+        return new ActionableException(
+                "Unknown Zolt update target `" + targetId + "`.",
+                "Run `zolt outdated --format json --schema-version 2` again and use a targetId from the current report.");
     }
 
     private static VersionPolicy.Context contextOf(OutdatedSurface surface) {

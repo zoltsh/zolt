@@ -1,5 +1,6 @@
 package sh.zolt.workspace.toml;
 
+import sh.zolt.toml.AtomicManifestWriter;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.workspace.WorkspaceConfig;
 import java.io.IOException;
@@ -29,6 +30,29 @@ public final class WorkspaceTomlWriter {
         writeStringMap(toml, "repositories", config.repositories());
         writeStringMap(toml, "platforms", config.platforms());
         return toml.toString();
+    }
+
+    public WorkspaceManifestDocument patchDocument(
+            WorkspaceManifestDocument document,
+            WorkspaceConfig updated) {
+        String patched = WorkspaceManifestPatcher.patchPlatforms(
+                document.source(), document.config(), updated);
+        WorkspaceConfigParser parser = new WorkspaceConfigParser();
+        WorkspaceConfig reparsed = document.rootConfig()
+                ? parser.parseRootConfig(patched)
+                : parser.parse(patched);
+        if (!updated.equals(reparsed)) {
+            throw new ZoltConfigException(
+                    "Could not safely edit the workspace manifest because the patched source did not match the requested configuration. No changes were written.");
+        }
+        return new WorkspaceManifestDocument(patched, reparsed, document.rootConfig());
+    }
+
+    public void writePrepared(
+            Path path,
+            WorkspaceManifestDocument original,
+            WorkspaceManifestDocument edited) {
+        AtomicManifestWriter.writePrepared(path, original.source(), edited.source());
     }
 
     private static void writeStringMap(StringBuilder toml, String section, Map<String, String> values) {

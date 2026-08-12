@@ -37,7 +37,7 @@ public record ProjectConfig(
         CompilerSettings compilerSettings,
         PackageSettings packageSettings,
         FrameworkSettings frameworkSettings,
-        Map<String, DependencyMetadata> dependencyMetadata) {
+        Map<String, DependencyMetadata> dependencyMetadata) implements RepositoryConfiguration {
     public static final String MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2";
 
     public ProjectConfig {

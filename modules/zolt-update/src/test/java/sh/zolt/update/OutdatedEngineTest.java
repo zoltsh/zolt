@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.dependency.UpdateClass;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.WorkspaceConfig;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -167,6 +169,38 @@ final class OutdatedEngineTest {
         assertEquals(OutdatedSurface.PLATFORM, entry.surface());
         assertEquals("[platforms]", entry.section());
         assertEquals("1.2.0", entry.candidates().selectedLatest().orElseThrow());
+    }
+
+    @Test
+    void workspaceRootPlatformUsesRootManifestIdentityAndDefaultCentralRepository() {
+        FakeVersionDiscovery discovery = new FakeVersionDiscovery()
+                .listing("org.junit:junit-bom", "central", "5.10.2", "5.11.4");
+        WorkspaceConfig workspace = new WorkspaceConfig(
+                "demo",
+                List.of("apps/api"),
+                List.of(),
+                Map.of(),
+                Map.of("org.junit:junit-bom", "5.10.2"));
+        OutdatedReport report = engine(discovery).report(
+                List.of(new WorkspaceOutdatedScope(
+                        "workspace-root",
+                        "zolt-workspace.toml",
+                        "zolt.lock",
+                        workspace,
+                        Optional.empty())),
+                OutdatedOptions.defaults());
+
+        OutdatedEntry entry = single(report);
+        assertEquals(OutdatedSurface.PLATFORM, entry.surface());
+        assertEquals("5.11.4", entry.candidates().selectedLatest().orElseThrow());
+        assertEquals("zolt-workspace.toml", entry.target().manifestPath());
+        assertEquals(
+                UpdateTargetId.create(
+                        "zolt-workspace.toml",
+                        OutdatedSurface.PLATFORM,
+                        "[platforms]",
+                        "org.junit:junit-bom"),
+                entry.target().targetId());
     }
 
     @Test
