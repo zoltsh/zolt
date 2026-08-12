@@ -16,6 +16,7 @@ public record OutdatedScope(
         String manifestPath,
         String lockfilePath,
         ProjectConfig config,
+        ProjectConfig discoveryConfig,
         Optional<ZoltLockfile> lockfile,
         Map<UpdateTargetId, String> targetBlockers) implements UpdateReportScope {
     public OutdatedScope {
@@ -23,6 +24,7 @@ public record OutdatedScope(
         manifestPath = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
         lockfilePath = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
         config = Objects.requireNonNull(config, "config");
+        discoveryConfig = discoveryConfig == null ? config : discoveryConfig;
         lockfile = lockfile == null ? Optional.empty() : lockfile;
         targetBlockers = targetBlockers == null ? Map.of() : Map.copyOf(targetBlockers);
     }
@@ -33,11 +35,29 @@ public record OutdatedScope(
             String lockfilePath,
             ProjectConfig config,
             Optional<ZoltLockfile> lockfile) {
-        this(label, manifestPath, lockfilePath, config, lockfile, Map.of());
+        this(label, manifestPath, lockfilePath, config, config, lockfile, Map.of());
+    }
+
+    public OutdatedScope(
+            String label,
+            String manifestPath,
+            String lockfilePath,
+            ProjectConfig config,
+            Optional<ZoltLockfile> lockfile,
+            Map<UpdateTargetId, String> targetBlockers) {
+        this(label, manifestPath, lockfilePath, config, config, lockfile, targetBlockers);
     }
 
     public OutdatedScope(String label, ProjectConfig config, Optional<ZoltLockfile> lockfile) {
-        this(label, "zolt.toml", "zolt.lock", config, lockfile, Map.of());
+        this(label, "zolt.toml", "zolt.lock", config, config, lockfile, Map.of());
+    }
+
+    public OutdatedScope(
+            String label,
+            ProjectConfig config,
+            ProjectConfig discoveryConfig,
+            Optional<ZoltLockfile> lockfile) {
+        this(label, "zolt.toml", "zolt.lock", config, discoveryConfig, lockfile, Map.of());
     }
 
     public static OutdatedScope of(String label, ProjectConfig config) {

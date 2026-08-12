@@ -27,6 +27,11 @@ public final class OutdatedScopes {
         return new OutdatedScope(label, config, readLockfile(directory.resolve("zolt.lock")));
     }
 
+    public OutdatedScope fromDirectoryWithoutLock(String label, Path directory) {
+        ProjectConfig config = tomlParser.parse(directory.resolve("zolt.toml"));
+        return new OutdatedScope(label, config, Optional.empty());
+    }
+
     public Optional<ZoltLockfile> readLockfile(Path lockfilePath) {
         if (!Files.isRegularFile(lockfilePath)) {
             return Optional.empty();

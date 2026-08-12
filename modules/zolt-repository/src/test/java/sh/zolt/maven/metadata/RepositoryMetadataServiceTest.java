@@ -9,6 +9,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import sh.zolt.maven.repository.MavenRepositoryClient;
 import sh.zolt.maven.repository.RepositoryAccess;
+import sh.zolt.maven.repository.RepositoryAuthentication;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -107,7 +108,7 @@ final class RepositoryMetadataServiceTest {
 
     @Test
     void fallsBackToCacheWithStalenessNoteOnTransientFailure() {
-        cache.write("flaky", "com.example", "lib", listing("1.0.0", "2.0.0"));
+        cache.write(access("flaky"), "com.example", "lib", listing("1.0.0", "2.0.0"));
         forcedStatus.put("/flaky/com/example/lib/maven-metadata.xml", 503);
 
         MetadataDiscovery discovery =
@@ -122,7 +123,7 @@ final class RepositoryMetadataServiceTest {
 
     @Test
     void offlineUsesCacheOnlyWithoutNetwork() {
-        cache.write("central", "com.example", "lib", listing("1.0.0"));
+        cache.write(access("central"), "com.example", "lib", listing("1.0.0"));
 
         MetadataDiscovery discovery =
                 service().discover(List.of(access("central")), "com.example", "lib", true);
@@ -165,16 +166,90 @@ final class RepositoryMetadataServiceTest {
         assertEquals(List.of("1.0.0", "1.1.0"), offline.versions());
     }
 
+    @Test
+    void offlineCacheDoesNotCrossSameIdWithDifferentRepositoryUrls() {
+        putListingAt("company-a", "com.example", "lib", "1.0.0");
+        RepositoryMetadataService service = service();
+        service.discover(List.of(access("private", "company-a")), "com.example", "lib", false);
+
+        MetadataDiscovery companyB =
+                service.discover(List.of(access("private", "company-b")), "com.example", "lib", true);
+
+        assertFalse(companyB.resolved());
+        assertTrue(companyB.versions().isEmpty());
+    }
+
+    @Test
+    void transientFailureDoesNotFallBackAcrossSameIdWithDifferentRepositoryUrls() {
+        putListingAt("company-a", "com.example", "lib", "1.0.0");
+        forcedStatus.put("/company-b/com/example/lib/maven-metadata.xml", 503);
+        RepositoryMetadataService service = service();
+        service.discover(List.of(access("private", "company-a")), "com.example", "lib", false);
+
+        MetadataDiscovery companyB =
+                service.discover(List.of(access("private", "company-b")), "com.example", "lib", false);
+
+        assertFalse(companyB.resolved());
+        assertTrue(companyB.notes().getFirst().contains("Could not fetch version listing"), companyB.notes().toString());
+    }
+
+    @Test
+    void cacheIdentityDoesNotCollapseRepositoryIdsThatSanitizeTheSame() {
+        putListingAt("shared", "com.example", "lib", "1.0.0");
+        RepositoryMetadataService service = service();
+        service.discover(List.of(access("team/a", "shared")), "com.example", "lib", false);
+
+        MetadataDiscovery other =
+                service.discover(List.of(access("team?a", "shared")), "com.example", "lib", true);
+
+        assertFalse(other.resolved());
+    }
+
+    @Test
+    void authenticatedRepositoryListingsAreNotReusedAcrossCredentialContexts() {
+        putListingAt("secured", "com.example", "lib", "1.0.0");
+        RepositoryMetadataService service = service();
+        service.discover(
+                List.of(authenticatedAccess("private", "secured", "company-a-token")),
+                "com.example",
+                "lib",
+                false);
+
+        MetadataDiscovery companyB = service.discover(
+                List.of(authenticatedAccess("private", "secured", "company-b-token")),
+                "com.example",
+                "lib",
+                true);
+
+        assertFalse(companyB.resolved());
+        assertTrue(companyB.versions().isEmpty());
+    }
+
     private RepositoryMetadataService service() {
         return new RepositoryMetadataService(new MavenRepositoryClient(), cache);
     }
 
     private RepositoryAccess access(String repositoryId) {
-        return new RepositoryAccess(repositoryId, origin.resolve(repositoryId + "/"), Optional.empty());
+        return access(repositoryId, repositoryId);
+    }
+
+    private RepositoryAccess access(String repositoryId, String remoteName) {
+        return new RepositoryAccess(repositoryId, origin.resolve(remoteName + "/"), Optional.empty());
+    }
+
+    private RepositoryAccess authenticatedAccess(String repositoryId, String remoteName, String token) {
+        return new RepositoryAccess(
+                repositoryId,
+                origin.resolve(remoteName + "/"),
+                Optional.of(RepositoryAuthentication.bearer(token)));
     }
 
     private void putListing(String repositoryId, String groupId, String artifactId, String... versions) {
-        bodies.put(metadataPath(repositoryId, groupId, artifactId), listing(versions));
+        putListingAt(repositoryId, groupId, artifactId, versions);
+    }
+
+    private void putListingAt(String remoteName, String groupId, String artifactId, String... versions) {
+        bodies.put(metadataPath(remoteName, groupId, artifactId), listing(versions));
     }
 
     private static String metadataPath(String repositoryId, String groupId, String artifactId) {

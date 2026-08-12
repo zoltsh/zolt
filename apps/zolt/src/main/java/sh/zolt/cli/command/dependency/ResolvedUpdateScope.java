@@ -16,6 +16,7 @@ record ResolvedUpdateScope(
         String manifestPath,
         String lockfilePath,
         ProjectConfig config,
+        ProjectConfig discoveryConfig,
         Optional<ZoltLockfile> lockfile,
         Map<UpdateTargetId, String> targetBlockers) implements CatalogUpdateScope {
     ResolvedUpdateScope {
@@ -25,6 +26,7 @@ record ResolvedUpdateScope(
         manifestPath = Objects.requireNonNull(manifestPath, "manifestPath");
         lockfilePath = Objects.requireNonNull(lockfilePath, "lockfilePath");
         config = Objects.requireNonNull(config, "config");
+        discoveryConfig = discoveryConfig == null ? config : discoveryConfig;
         lockfile = lockfile == null ? Optional.empty() : lockfile;
         targetBlockers = targetBlockers == null ? Map.of() : Map.copyOf(targetBlockers);
     }
@@ -37,7 +39,28 @@ record ResolvedUpdateScope(
             String lockfilePath,
             ProjectConfig config,
             Optional<ZoltLockfile> lockfile) {
-        this(mutationRoot, projectDirectory, label, manifestPath, lockfilePath, config, lockfile, Map.of());
+        this(mutationRoot, projectDirectory, label, manifestPath, lockfilePath, config, config, lockfile, Map.of());
+    }
+
+    ResolvedUpdateScope(
+            Path mutationRoot,
+            Path projectDirectory,
+            String label,
+            String manifestPath,
+            String lockfilePath,
+            ProjectConfig config,
+            Optional<ZoltLockfile> lockfile,
+            Map<UpdateTargetId, String> targetBlockers) {
+        this(
+                mutationRoot,
+                projectDirectory,
+                label,
+                manifestPath,
+                lockfilePath,
+                config,
+                config,
+                lockfile,
+                targetBlockers);
     }
 
     private static Path normalize(Path path, String name) {

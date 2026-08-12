@@ -12,8 +12,12 @@ import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateOptions;
 import sh.zolt.update.UpdatePlan;
 import sh.zolt.update.UpdatePlanJsonRenderer;
+import sh.zolt.update.UpdatePlanningScope;
 import sh.zolt.update.UpdatePlanTextRenderer;
+import sh.zolt.update.UpdateTargetId;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
 import picocli.CommandLine.Model.CommandSpec;
 
 /** Preserves the existing metadata-driven update behavior and schema-v1 output. */
@@ -22,16 +26,22 @@ final class PolicyUpdateRunner {
     private final ZoltTomlWriter tomlWriter;
     private final ResolveService resolveService;
     private final UpdateEngine engine;
+    private final DependencyUpdateScopeResolver scopeResolver;
+    private final Runnable beforeExecution;
 
     PolicyUpdateRunner(
             ZoltTomlParser tomlParser,
             ZoltTomlWriter tomlWriter,
             ResolveService resolveService,
-            UpdateEngine engine) {
+            UpdateEngine engine,
+            DependencyUpdateScopeResolver scopeResolver,
+            Runnable beforeExecution) {
         this.tomlParser = tomlParser;
         this.tomlWriter = tomlWriter;
         this.resolveService = resolveService;
         this.engine = engine;
+        this.scopeResolver = scopeResolver;
+        this.beforeExecution = beforeExecution;
     }
 
     void run(
@@ -42,10 +52,16 @@ final class PolicyUpdateRunner {
             boolean dryRun,
             boolean noResolve,
             boolean json) {
-        PlannedUpdate planned = ManifestEditTransaction.inspect(
-                projectRoot,
-                tomlParser,
-                config -> new PlannedUpdate(config, engine.plan(config, options)));
+        PlannedUpdate planned = ManifestEditTransaction.inspectLocked(projectRoot, lockRoot -> {
+            ResolvedUpdateScope scope = scopeResolver.policyScope(projectRoot, lockRoot);
+            UpdatePlanningScope planningScope = new UpdatePlanningScope(
+                    scope.config(),
+                    scope.discoveryConfig(),
+                    scope.manifestPath(),
+                    scope.lockfilePath(),
+                    scope.targetBlockers());
+            return new PlannedUpdate(scope, engine.plan(planningScope, options));
+        });
         if (json) {
             runJson(spec, projectRoot, cacheRoot, planned, dryRun, noResolve);
         } else {
@@ -93,6 +109,13 @@ final class PolicyUpdateRunner {
             Path cacheRoot,
             PlannedUpdate planned,
             boolean noResolve) {
+        beforeExecution.run();
+        ResolvedUpdateScope scope = planned.scope();
+        ScopeExpectation expectation = new ScopeExpectation(
+                scope.absoluteManifestPath(),
+                scope.absoluteLockfilePath(),
+                targetIds(scope, planned.plan()),
+                Optional.of(scope.discoveryConfig()));
         return ManifestEditTransaction.execute(
                 projectRoot,
                 cacheRoot,
@@ -100,17 +123,25 @@ final class PolicyUpdateRunner {
                 tomlParser,
                 tomlWriter,
                 resolveService,
+                expectation,
                 current -> applyCurrentPlan(current, planned));
     }
 
     private ProjectConfig applyCurrentPlan(ProjectConfig current, PlannedUpdate planned) {
-        if (!current.equals(planned.config())) {
+        if (!current.equals(planned.scope().config())) {
             throw new ZoltConfigException(
                     "zolt.toml changed while dependency updates were being planned. No changes were written; retry against the current manifest.");
         }
         return engine.apply(current, planned.plan());
     }
 
-    private record PlannedUpdate(ProjectConfig config, UpdatePlan plan) {
+    private static List<UpdateTargetId> targetIds(ResolvedUpdateScope scope, UpdatePlan plan) {
+        return plan.edits().stream()
+                .map(edit -> UpdateTargetId.create(
+                        scope.manifestPath(), edit.surface(), edit.section(), edit.identifier()))
+                .toList();
+    }
+
+    private record PlannedUpdate(ResolvedUpdateScope scope, UpdatePlan plan) {
     }
 }

@@ -67,13 +67,63 @@ final class DependencyUpdateScopeResolver {
         return List.copyOf(resolved);
     }
 
+    ResolvedUpdateScope policyScope(Path start, Path confirmedMutationRoot) {
+        Path project = start.toAbsolutePath().normalize();
+        Path mutationRoot = confirmedMutationRoot.toAbsolutePath().normalize();
+        Optional<Workspace> discovered = discoverCatalogWorkspace(start, mutationRoot);
+        if (discovered.isEmpty()) {
+            if (!project.equals(mutationRoot)) {
+                throw changedScope();
+            }
+            OutdatedScope scope = scopes.fromDirectoryWithoutLock(labelFor(project), project);
+            return new ResolvedUpdateScope(
+                    mutationRoot,
+                    project,
+                    scope.label(),
+                    "zolt.toml",
+                    "zolt.lock",
+                    scope.config(),
+                    Optional.empty());
+        }
+        Workspace workspace = discovered.orElseThrow();
+        if (!sameDirectory(workspace.root(), mutationRoot)) {
+            throw changedScope();
+        }
+        WorkspaceMember member = workspace.members().stream()
+                .filter(candidate -> sameDirectory(candidate.directory(), project))
+                .findFirst()
+                .orElseThrow(() -> new ZoltConfigException(
+                        "Dependency updates require a standalone project or declared workspace member."));
+        return resolvedMemberScope(
+                workspace,
+                member,
+                Optional.empty(),
+                WorkspaceUpdateContext.from(workspace));
+    }
+
     private List<OutdatedScope> legacyScopes(Path start) {
         Optional<Workspace> workspace = workspaceDiscovery.discover(start);
         if (workspace.isPresent() && sameDirectory(start, workspace.orElseThrow().root())) {
-            Optional<ZoltLockfile> lockfile = scopes.readLockfile(workspace.orElseThrow().root().resolve("zolt.lock"));
-            return workspace.orElseThrow().members().stream()
-                    .map(member -> new OutdatedScope(member.path(), member.config(), lockfile))
+            Workspace discovered = workspace.orElseThrow();
+            Optional<ZoltLockfile> lockfile = scopes.readLockfile(discovered.root().resolve("zolt.lock"));
+            WorkspaceUpdateContext context = WorkspaceUpdateContext.from(discovered);
+            return discovered.members().stream()
+                    .map(member -> new OutdatedScope(
+                            member.path(), member.config(), context.effectiveConfig(member), lockfile))
                     .toList();
+        }
+        if (workspace.isPresent()) {
+            Workspace discovered = workspace.orElseThrow();
+            Optional<WorkspaceMember> member = discovered.members().stream()
+                    .filter(candidate -> sameDirectory(start, candidate.directory()))
+                    .findFirst();
+            if (member.isPresent()) {
+                WorkspaceUpdateContext context = WorkspaceUpdateContext.from(discovered);
+                Optional<ZoltLockfile> lockfile = scopes.readLockfile(discovered.root().resolve("zolt.lock"));
+                WorkspaceMember selected = member.orElseThrow();
+                return List.of(new OutdatedScope(
+                        labelFor(start), selected.config(), context.effectiveConfig(selected), lockfile));
+            }
         }
         return List.of(scopes.fromDirectory(labelFor(start), start));
     }
@@ -119,7 +169,13 @@ final class DependencyUpdateScopeResolver {
         String manifestPath = CanonicalUpdatePath.relative(
                 workspace.root(), member.directory().resolve("zolt.toml"));
         return new OutdatedScope(
-                member.path(), manifestPath, "zolt.lock", member.config(), lockfile, context.targetBlockers());
+                member.path(),
+                manifestPath,
+                "zolt.lock",
+                member.config(),
+                context.effectiveConfig(member),
+                lockfile,
+                context.targetBlockers());
     }
 
     private ResolvedUpdateScope resolvedMemberScope(
@@ -136,6 +192,7 @@ final class DependencyUpdateScopeResolver {
                 manifestPath,
                 "zolt.lock",
                 member.config(),
+                context.effectiveConfig(member),
                 lockfile,
                 context.targetBlockers());
     }

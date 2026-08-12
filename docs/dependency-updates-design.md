@@ -29,10 +29,16 @@ discovery dependency) and by a test asserting a resolve issues zero
 ## Metadata cache policy (TTL rejected)
 
 Listings are mutable and never touch the immutable artifact cache. Separate
-namespace `~/.zolt/cache/metadata/<repoId>/<groupPath>/<artifactId>/
-maven-metadata.xml` + `.fetched` timestamp sidecar, atomic writes. Online:
-always refetch; on transient failure fall back to cache WITH a staleness note.
-`--offline`: cache only; missing listing → status unknown with note. TTL was
+versioned namespace
+`~/.zolt/cache/metadata/v2/<sha256(repoId, canonicalUri)>/<groupPath>/<artifactId>/
+maven-metadata.xml` + `.fetched` timestamp sidecar, atomic writes. The digest is
+length-delimited and contains no raw credentials. Authenticated repository
+listings are not cached because credential-scoped visibility cannot be verified;
+their offline discovery is unknown and transient failures do not reuse a cached
+listing. Online unauthenticated discovery always refetches; on transient failure
+it falls back only to the matching cache identity WITH a staleness note.
+`--offline`: matching unauthenticated cache only; missing listing → status
+unknown with note. TTL was
 steelmanned (bandwidth, Maven familiarity) and rejected: a TTL silently serves
 a wrong "up to date" inside the window; fallback-only-on-failure is always
 annotated. Conditional GET is a future optimization that preserves
@@ -49,7 +55,10 @@ Repository list + auth + order come from the SAME planner resolve uses —
 promote/extract `RepositoryAccessPlanner` so discovery and resolve share one
 implementation (alphabetical-by-id order preserved). Listings are UNIONED
 across repos (dedup by exact version string; a candidate's `source` = first
-repo in query order listing that version). First-found-only was rejected: it
+repo in query order listing that version). Workspace-root platform discovery
+intersects effective member views and retains `source` only when every view
+attributes the candidate to the same concrete repository view; otherwise
+`source` is null. First-found-only was rejected: it
 hides newer versions that live only in a lower-priority repo. Missing metadata
 degrades to status unknown, never an error.
 
@@ -83,7 +92,11 @@ keys, nulls not omission, `surface` ∈ {versionAlias, dependency, platform,
 annotationProcessor, dependencyConstraint, execToolCoordinate, protobufTool,
 openapiTool}, `status` ∈ {current, update-available, unknown}, candidates by
 class + selectedInMajor/selectedLatest + source repo + governs + members.
-Deterministic ordering (aliases first, then group:artifact sort).
+Deterministic ordering (aliases first, then group:artifact sort). Workspace
+member scopes keep separate raw mutation and effective discovery configurations:
+target collection and edits use the member manifest, while repository planning
+uses workspace-root policy merged with that member. Repository conflicts fail
+closed through the same workspace policy resolver used by resolution.
 
 ## `zolt update`
 
@@ -109,6 +122,13 @@ opts out; `--dry-run` does neither) — matches every sibling mutation command
 and keeps zolt.lock consistent; the steelman (bulk-bump review, CI staging)
 loses because the edit is already saved and `--dry-run` is the review valve.
 `update` has NO zolt.lock read/write path of its own.
+
+Policy planning uses the same raw-mutation/effective-discovery split as
+outdated. Contextual workspace blockers turn a member platform or governing
+version alias mirrored at workspace root into a skip in dry-run, default, and
+`--no-resolve` modes. Before a write, execution reacquires the workspace lock,
+rebuilds those blockers, and rejects either a newly introduced blocker or a
+change to the effective workspace policy used for discovery.
 
 ## Exact target automation amendment
 

@@ -117,14 +117,16 @@ public final class UpdateCommand implements Runnable {
             ZoltTomlWriter tomlWriter,
             ResolveService resolveService,
             UpdateEngine engine,
-            Runnable exactBeforeExecution) {
-        this.policyRunner = new PolicyUpdateRunner(tomlParser, tomlWriter, resolveService, engine);
+            Runnable beforeExecution) {
+        DependencyUpdateScopeResolver scopeResolver = new DependencyUpdateScopeResolver();
+        this.policyRunner = new PolicyUpdateRunner(
+                tomlParser, tomlWriter, resolveService, engine, scopeResolver, beforeExecution);
         this.exactRunner = new ExactUpdateRunner(
                 tomlParser,
                 tomlWriter,
                 resolveService,
-                new DependencyUpdateScopeResolver(),
-                exactBeforeExecution);
+                scopeResolver,
+                beforeExecution);
     }
 
     @Override

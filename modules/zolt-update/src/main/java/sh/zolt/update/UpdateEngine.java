@@ -29,7 +29,7 @@ public final class UpdateEngine {
 
     private final SurfaceDiscovery surfaceDiscovery;
     private final RepositoryAccessPlanner planner;
-    private final SurfaceCollector collector = new SurfaceCollector();
+    private final UpdateTargetCatalog catalog = new UpdateTargetCatalog();
     private final VersionClassifier classifier = new VersionClassifier();
     private final UpdateApplier applier = new UpdateApplier();
 
@@ -43,11 +43,20 @@ public final class UpdateEngine {
     }
 
     public UpdatePlan plan(ProjectConfig config, UpdateOptions options) {
-        List<RepositoryAccess> repositories = planner.plan(config);
+        return plan(UpdatePlanningScope.standalone(config), options);
+    }
+
+    public UpdatePlan plan(UpdatePlanningScope scope, UpdateOptions options) {
+        List<RepositoryAccess> repositories = planner.plan(scope.discoveryConfig());
         Map<String, MetadataDiscovery> memo = new LinkedHashMap<>();
         List<UpdateEdit> edits = new ArrayList<>();
         List<UpdateSkip> skips = new ArrayList<>();
-        for (SurfaceRequest surface : collector.collect(config)) {
+        for (UpdateTargetCatalog.Entry entry : catalog.entries(
+                scope.mutationConfig(),
+                scope.manifestPath(),
+                scope.lockfilePath(),
+                scope.targetBlockers())) {
+            SurfaceRequest surface = entry.request();
             if (!Selectors.matches(surface.identifier(), surface.section(), surface.surface().jsonName(), options.selectors())) {
                 continue;
             }
@@ -61,19 +70,24 @@ public final class UpdateEngine {
             if (target.isEmpty() || target.orElseThrow().equals(surface.currentVersion())) {
                 continue;
             }
-            recordChange(surface, target.orElseThrow(), edits, skips);
+            recordChange(entry.target(), surface, target.orElseThrow(), edits, skips);
         }
         edits.sort(EDIT_ORDER);
         return new UpdatePlan(edits, skips, aliasFanOutWarnings(edits));
     }
 
-    private void recordChange(SurfaceRequest surface, String target, List<UpdateEdit> edits, List<UpdateSkip> skips) {
-        if (!UpdateApplicability.isApplicable(surface.surface())) {
+    private void recordChange(
+            UpdateTarget updateTarget,
+            SurfaceRequest surface,
+            String target,
+            List<UpdateEdit> edits,
+            List<UpdateSkip> skips) {
+        if (!updateTarget.updateable()) {
             skips.add(new UpdateSkip(
                     surface.surface(),
                     surface.identifier(),
                     surface.section(),
-                    UpdateApplicability.reason(surface.surface())));
+                    updateTarget.updateBlocker().orElseThrow()));
             return;
         }
         edits.add(new UpdateEdit(

@@ -596,9 +596,12 @@ when it carries a known qualifier (`alpha`/`a`, `beta`/`b`, `milestone`/`m`,
 `rc`/`cr`, `ea`, `preview`, `dev`, `nightly`, `canary`, `pre`, `experimental`);
 unknown qualifiers such as `-jre`, `-android`, `-incubating`, or calendar
 versions are treated as releases. Listings live in a cache namespace kept separate from
-the immutable artifact cache; online runs always refetch, falling back to the
-cache with a staleness note only when a fetch fails, while `--offline` consults
-the cache only.
+the immutable artifact cache. Unauthenticated repository listings are keyed by
+an opaque digest of the exact repository ID and canonical URI; authenticated
+listings are never cached because Zolt cannot prove that two credentials see the
+same repository contents. Online runs always refetch, falling back to a matching
+unauthenticated cache entry with a staleness note only when a fetch fails, while
+`--offline` consults only matching unauthenticated cache entries.
 
 ### `zolt outdated`
 
@@ -608,9 +611,11 @@ dependencies in every scope, `[platforms]`, `[annotationProcessors]` and their
 test variants, `[dependencyConstraints]`, and `[generated.execTools]` /
 protobuf / openapi tool coordinates. A versionRef-backed entry reports under its
 alias rather than twice; SNAPSHOT literals and workspace-member dependencies are
-ignored. Candidates are grouped by change class (patch, minor, major) with a
-selected in-major target and a latest target. Run at a workspace root it reports
-one block per member and notes coordinates shared across members.
+ignored. Workspace member discovery uses its effective root-plus-member
+repository and credential policy while target identity and edits remain owned by
+the raw member manifest. Candidates are grouped by change class (patch, minor,
+major) with a selected in-major target and a latest target. Run at a workspace
+root it reports one block per member and notes coordinates shared across members.
 
 Flags: `--format text|json` (schema v1 remains the default, with stable keys and
 explicit nulls), `--schema-version 2` with JSON for the automation contract,
@@ -652,7 +657,12 @@ TOML writer re-serializes whole files, so text diffs are noise) and writes
 nothing; `--format json` emits `edits[]`/`skipped[]`. After a successful write,
 `zolt resolve` runs by default to keep `zolt.lock` consistent (`--no-resolve`
 opts out), and a file containing comments is warned about before it is
-rewritten.
+rewritten. In a workspace, policy updates use effective root-plus-member
+repositories for discovery but mutate only the member manifest. A member
+platform or governing alias mirrored by workspace-root `[platforms]` is skipped
+in dry-run, resolved, and `--no-resolve` modes; Zolt recomputes this blocker and
+revalidates the effective workspace policy under the mutation lock before
+writing.
 
     zolt update --dry-run
     zolt update --latest

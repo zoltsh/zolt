@@ -3,6 +3,7 @@ package sh.zolt.cli.command.dependency;
 import sh.zolt.project.RepositoryConfiguration;
 import sh.zolt.project.RepositoryCredentialSettings;
 import sh.zolt.project.RepositorySettings;
+import sh.zolt.project.ProjectConfig;
 import sh.zolt.update.OutdatedSurface;
 import sh.zolt.update.UpdateTarget;
 import sh.zolt.update.UpdateTargetCatalog;
@@ -19,7 +20,8 @@ import java.util.Map;
 /** Workspace-wide context needed to keep schema-v2 discovery and exact routing honest. */
 record WorkspaceUpdateContext(
         Map<UpdateTargetId, String> targetBlockers,
-        List<RepositoryConfiguration> repositoryConfigurations) {
+        List<RepositoryConfiguration> repositoryConfigurations,
+        Map<String, ProjectConfig> effectiveMemberConfigs) {
     private static final String PLATFORM_PREFIX = "[platforms].";
 
     WorkspaceUpdateContext {
@@ -27,6 +29,7 @@ record WorkspaceUpdateContext(
         repositoryConfigurations = repositoryConfigurations == null
                 ? List.of()
                 : List.copyOf(repositoryConfigurations);
+        effectiveMemberConfigs = effectiveMemberConfigs == null ? Map.of() : Map.copyOf(effectiveMemberConfigs);
     }
 
     static WorkspaceUpdateContext from(Workspace workspace) {
@@ -68,15 +71,26 @@ record WorkspaceUpdateContext(
 
         WorkspaceMemberPolicyResolver policyResolver = new WorkspaceMemberPolicyResolver();
         Map<RepositoryConfigurationKey, RepositoryConfiguration> distinctRepositories = new LinkedHashMap<>();
-        workspace.members().stream()
-                .map(member -> (RepositoryConfiguration) policyResolver.merge(workspace, member))
-                .forEach(configuration -> distinctRepositories.putIfAbsent(
-                        RepositoryConfigurationKey.from(configuration), configuration));
+        Map<String, ProjectConfig> effectiveConfigs = new LinkedHashMap<>();
+        for (WorkspaceMember member : workspace.members()) {
+            ProjectConfig effective = policyResolver.merge(workspace, member);
+            effectiveConfigs.put(member.path(), effective);
+            distinctRepositories.putIfAbsent(RepositoryConfigurationKey.from(effective), effective);
+        }
         List<RepositoryConfiguration> repositories = List.copyOf(distinctRepositories.values());
         if (repositories.isEmpty()) {
             repositories = List.of(workspace.config());
         }
-        return new WorkspaceUpdateContext(blockers, repositories);
+        return new WorkspaceUpdateContext(blockers, repositories, effectiveConfigs);
+    }
+
+    ProjectConfig effectiveConfig(WorkspaceMember member) {
+        ProjectConfig effective = effectiveMemberConfigs.get(member.path());
+        if (effective == null) {
+            throw new IllegalStateException("Missing effective update configuration for workspace member "
+                    + member.path() + ".");
+        }
+        return effective;
     }
 
     private static List<String> mirroredCoordinates(

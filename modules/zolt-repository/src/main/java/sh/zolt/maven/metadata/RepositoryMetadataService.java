@@ -56,7 +56,7 @@ public final class RepositoryMetadataService implements VersionDiscovery {
             List<String> notes) {
         String repositoryId = repository.id();
         if (offline) {
-            Optional<MavenMetadata> cached = readCache(repositoryId, groupId, artifactId);
+            Optional<MavenMetadata> cached = readCache(repository, groupId, artifactId);
             if (cached.isPresent()) {
                 record(cached.orElseThrow(), repositoryId, sourceByVersion);
             } else {
@@ -72,13 +72,13 @@ public final class RepositoryMetadataService implements VersionDiscovery {
                 return;
             }
             MavenMetadata parsed = parser.parse(fresh.orElseThrow());
-            cacheQuietly(repositoryId, groupId, artifactId, fresh.orElseThrow());
+            cacheQuietly(repository, groupId, artifactId, fresh.orElseThrow());
             record(parsed, repositoryId, sourceByVersion);
         } catch (RepositoryClientException | MavenMetadataParseException failure) {
-            Optional<MavenMetadata> cached = readCache(repositoryId, groupId, artifactId);
+            Optional<MavenMetadata> cached = readCache(repository, groupId, artifactId);
             if (cached.isPresent()) {
                 record(cached.orElseThrow(), repositoryId, sourceByVersion);
-                notes.add(stalenessNote(repositoryId, groupId, artifactId, failure));
+                notes.add(stalenessNote(repository, groupId, artifactId, failure));
             } else {
                 notes.add("Could not fetch version listing for "
                         + coordinate(groupId, artifactId) + " from repository `" + repositoryId
@@ -87,8 +87,11 @@ public final class RepositoryMetadataService implements VersionDiscovery {
         }
     }
 
-    private Optional<MavenMetadata> readCache(String repositoryId, String groupId, String artifactId) {
-        Optional<byte[]> cached = cache.read(repositoryId, groupId, artifactId);
+    private Optional<MavenMetadata> readCache(RepositoryAccess repository, String groupId, String artifactId) {
+        if (repository.authentication().isPresent()) {
+            return Optional.empty();
+        }
+        Optional<byte[]> cached = cache.read(repository, groupId, artifactId);
         if (cached.isEmpty()) {
             return Optional.empty();
         }
@@ -99,9 +102,12 @@ public final class RepositoryMetadataService implements VersionDiscovery {
         }
     }
 
-    private void cacheQuietly(String repositoryId, String groupId, String artifactId, byte[] bytes) {
+    private void cacheQuietly(RepositoryAccess repository, String groupId, String artifactId, byte[] bytes) {
+        if (repository.authentication().isPresent()) {
+            return;
+        }
         try {
-            cache.write(repositoryId, groupId, artifactId, bytes);
+            cache.write(repository, groupId, artifactId, bytes);
         } catch (MetadataCacheException exception) {
             // Best-effort caching; discovery still returns the fresh listing.
         }
@@ -113,8 +119,10 @@ public final class RepositoryMetadataService implements VersionDiscovery {
         }
     }
 
-    private String stalenessNote(String repositoryId, String groupId, String artifactId, RuntimeException failure) {
-        String fetched = cache.fetchedAt(repositoryId, groupId, artifactId)
+    private String stalenessNote(
+            RepositoryAccess repository, String groupId, String artifactId, RuntimeException failure) {
+        String repositoryId = repository.id();
+        String fetched = cache.fetchedAt(repository, groupId, artifactId)
                 .map(Instant::toString)
                 .map(value -> " (fetched " + value + ")")
                 .orElse("");

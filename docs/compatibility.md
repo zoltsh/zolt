@@ -76,11 +76,26 @@ owns the entry (`zolt.toml` or `zolt-workspace.toml`), and its `lockfilePath` is
 the aggregate root `zolt.lock`. When the root manifest is itself member `.`, the
 ordinary member scope owns those entries and no duplicate root target is emitted.
 Root-platform candidates must be visible through every distinct effective member
-repository configuration; Zolt reports only the intersection. A matching root
+repository configuration; Zolt reports only the intersection. An intersected
+candidate has a non-null `source` only when every effective member view
+attributes it to the same repository identity. A matching root
 and member platform declaration remains valid workspace policy, but schema v2
 marks both the root target and the member literal or version-alias target as not
 updateable until the declaration is consolidated at the workspace root. Schema
 v1 remains unchanged.
+
+Workspace member dependency discovery in schemas v1 and v2 uses effective
+workspace-root-plus-member repositories and credentials. Targets still describe
+and mutate the raw member manifest, and conflicting root/member repository
+definitions fail closed. Unauthenticated metadata cache entries are isolated by
+an opaque digest of repository ID and canonical URI. Authenticated repository
+metadata is not cached, so it is unavailable to offline discovery and is never
+used as transient-failure fallback.
+
+Policy-driven workspace updates apply the same contextual blocker to mirrored
+member platforms and their governing aliases. Dry-run reports them as skipped;
+default and `--no-resolve` execution recompute blockers and revalidate the
+effective workspace policy under the mutation lock before writing.
 
 ### Exact update automation schema v2
 

@@ -22,7 +22,6 @@ import sh.zolt.workspace.toml.WorkspaceTomlWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import picocli.CommandLine.Model.CommandSpec;
 
@@ -84,7 +83,7 @@ final class ExactUpdateRunner {
                     new ScopeExpectation(
                             scope.absoluteManifestPath(),
                             scope.absoluteLockfilePath(),
-                            Optional.of(targetId));
+                            List.of(targetId));
             if (scope instanceof ResolvedUpdateScope project) {
                 ManifestEditResult projectEdit = ManifestEditTransaction.execute(
                         project.projectDirectory(),

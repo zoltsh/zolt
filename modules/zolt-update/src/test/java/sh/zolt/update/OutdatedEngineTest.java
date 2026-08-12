@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.UpdateClass;
+import sh.zolt.maven.metadata.VersionDiscovery;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.WorkspaceConfig;
@@ -204,6 +205,42 @@ final class OutdatedEngineTest {
     }
 
     @Test
+    void workspaceIntersectionOmitsSourceWhenMemberRepositoryIdentitiesDiffer() {
+        VersionDiscovery discovery = (repositories, group, artifact, offline) -> {
+            String host = repositories.getFirst().uri().getHost();
+            List<String> versions = host.startsWith("alpha")
+                    ? List.of("1.0.0", "1.1.0", "1.2.0")
+                    : List.of("1.0.0", "1.1.0");
+            Map<String, String> sources = new java.util.LinkedHashMap<>();
+            versions.forEach(version -> sources.put(version, "private"));
+            return new sh.zolt.maven.metadata.MetadataDiscovery(true, versions, sources, List.of());
+        };
+        WorkspaceConfig workspace = new WorkspaceConfig(
+                "demo",
+                List.of("apps/alpha", "apps/beta"),
+                List.of(),
+                Map.of(),
+                Map.of("com.acme:private-bom", "1.0.0"));
+        ProjectConfig alpha = repositoryConfig("https://alpha.example.test/maven");
+        ProjectConfig beta = repositoryConfig("https://beta.example.test/maven");
+
+        OutdatedReport report = new OutdatedEngine(discovery).report(
+                List.of(new WorkspaceOutdatedScope(
+                        "workspace-root",
+                        "zolt.toml",
+                        "zolt.lock",
+                        workspace,
+                        Optional.empty(),
+                        List.of(alpha, beta),
+                        Map.of())),
+                OutdatedOptions.defaults());
+
+        OutdatedEntry entry = single(report);
+        assertEquals("1.1.0", entry.candidates().selectedLatest().orElseThrow());
+        assertTrue(entry.sourceRepository().isEmpty());
+    }
+
+    @Test
     void workspaceSharedCoordinatesAreAnnotated() {
         FakeVersionDiscovery discovery = new FakeVersionDiscovery()
                 .listing("com.example:lib", "central", "1.0.0", "1.1.0");
@@ -258,6 +295,19 @@ final class OutdatedEngineTest {
 
                 %s
                 """.formatted(body));
+    }
+
+    private ProjectConfig repositoryConfig(String url) {
+        return new ZoltTomlParser().parse("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [repositories]
+                private = "%s"
+                """.formatted(url));
     }
 
     private static OutdatedEntry single(OutdatedReport report) {

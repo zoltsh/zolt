@@ -1,21 +1,30 @@
 package sh.zolt.maven.metadata;
 
+import sh.zolt.maven.repository.RepositoryAccess;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
  * Caches {@code maven-metadata.xml} version listings in a namespace kept strictly separate from the
- * immutable artifact cache: {@code <root>/metadata/<repoId>/<groupPath>/<artifactId>/
- * maven-metadata.xml} plus a {@code .fetched} timestamp sidecar. Version listings are mutable, so
- * they must never enter the artifact cache. Writes are atomic (temp file + atomic move).
+ * immutable artifact cache. Each unauthenticated repository is namespaced by a SHA-256 digest over
+ * its exact ID and canonical URI, preventing unrelated local names and URLs from aliasing. Version
+ * listings are mutable, so they must never enter the artifact cache. Writes are atomic (temp file +
+ * atomic move). Authenticated repository views are intentionally not cacheable.
  */
 public final class MetadataCache {
     private static final String METADATA_DIR = "metadata";
@@ -34,8 +43,8 @@ public final class MetadataCache {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    public Optional<byte[]> read(String repositoryId, String groupId, String artifactId) {
-        Path file = metadataFile(repositoryId, groupId, artifactId);
+    public Optional<byte[]> read(RepositoryAccess repository, String groupId, String artifactId) {
+        Path file = metadataFile(repository, groupId, artifactId);
         if (!Files.isRegularFile(file)) {
             return Optional.empty();
         }
@@ -47,8 +56,8 @@ public final class MetadataCache {
         }
     }
 
-    public Optional<Instant> fetchedAt(String repositoryId, String groupId, String artifactId) {
-        Path sidecar = fetchedSidecar(repositoryId, groupId, artifactId);
+    public Optional<Instant> fetchedAt(RepositoryAccess repository, String groupId, String artifactId) {
+        Path sidecar = fetchedSidecar(repository, groupId, artifactId);
         if (!Files.isRegularFile(sidecar)) {
             return Optional.empty();
         }
@@ -60,40 +69,78 @@ public final class MetadataCache {
         }
     }
 
-    public void write(String repositoryId, String groupId, String artifactId, byte[] bytes) {
-        writeAtomically(metadataFile(repositoryId, groupId, artifactId), bytes);
+    public void write(RepositoryAccess repository, String groupId, String artifactId, byte[] bytes) {
+        writeAtomically(metadataFile(repository, groupId, artifactId), bytes);
         writeAtomically(
-                fetchedSidecar(repositoryId, groupId, artifactId),
+                fetchedSidecar(repository, groupId, artifactId),
                 clock.instant().toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    private Path metadataFile(String repositoryId, String groupId, String artifactId) {
+    private Path metadataFile(RepositoryAccess repository, String groupId, String artifactId) {
+        requireCacheable(repository);
         return root.resolve(METADATA_DIR)
-                .resolve(sanitize(repositoryId))
+                .resolve("v2")
+                .resolve(namespace(repository))
                 .resolve(groupId.replace('.', '/'))
                 .resolve(artifactId)
                 .resolve(FILE_NAME);
     }
 
-    private Path fetchedSidecar(String repositoryId, String groupId, String artifactId) {
-        Path file = metadataFile(repositoryId, groupId, artifactId);
+    private Path fetchedSidecar(RepositoryAccess repository, String groupId, String artifactId) {
+        Path file = metadataFile(repository, groupId, artifactId);
         return file.resolveSibling(file.getFileName().toString() + FETCHED_SUFFIX);
     }
 
-    private static String sanitize(String repositoryId) {
-        StringBuilder builder = new StringBuilder(repositoryId.length());
-        for (int index = 0; index < repositoryId.length(); index++) {
-            char character = repositoryId.charAt(index);
-            boolean safe = (character >= 'A' && character <= 'Z')
-                    || (character >= 'a' && character <= 'z')
-                    || (character >= '0' && character <= '9')
-                    || character == '.'
-                    || character == '_'
-                    || character == '-';
-            builder.append(safe ? character : '_');
+    private static String namespace(RepositoryAccess repository) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            update(digest, "zolt-metadata-cache-v2");
+            update(digest, Objects.requireNonNull(repository.id(), "repository.id"));
+            update(digest, canonicalUri(repository.uri()));
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is required for metadata cache identity.", exception);
         }
-        String result = builder.isEmpty() ? "_" : builder.toString();
-        return result.equals(".") || result.equals("..") ? "_" : result;
+    }
+
+    private static String canonicalUri(URI uri) {
+        URI normalized = Objects.requireNonNull(uri, "repository.uri").normalize();
+        String rawScheme = normalized.getScheme();
+        String rawHost = normalized.getHost();
+        if (rawScheme == null || rawHost == null) {
+            throw new IllegalArgumentException("Repository URI must include a scheme and host: " + uri + ".");
+        }
+        String scheme = rawScheme.toLowerCase(Locale.ROOT);
+        String host = rawHost.toLowerCase(Locale.ROOT);
+        int port = normalized.getPort();
+        if ((scheme.equals("https") && port == 443) || (scheme.equals("http") && port == 80)) {
+            port = -1;
+        }
+        String path = normalized.getRawPath();
+        if (path == null || path.isEmpty()) {
+            path = "/";
+        } else if (!path.endsWith("/")) {
+            path = path + "/";
+        }
+        try {
+            return new URI(scheme, null, host, port, path, normalized.getRawQuery(), normalized.getRawFragment())
+                    .toASCIIString();
+        } catch (URISyntaxException exception) {
+            throw new IllegalArgumentException("Repository URI cannot be canonicalized: " + uri + ".", exception);
+        }
+    }
+
+    private static void update(MessageDigest digest, String value) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+        digest.update(bytes);
+    }
+
+    private static void requireCacheable(RepositoryAccess repository) {
+        Objects.requireNonNull(repository, "repository");
+        if (repository.authentication().isPresent()) {
+            throw new IllegalArgumentException("Authenticated repository metadata is not cacheable.");
+        }
     }
 
     private static void writeAtomically(Path path, byte[] bytes) {

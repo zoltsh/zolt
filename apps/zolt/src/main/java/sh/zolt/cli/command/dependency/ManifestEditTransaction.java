@@ -8,6 +8,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltManifestDocument;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Function;
@@ -186,17 +187,37 @@ final class ManifestEditTransaction {
                     "Dependency update scope changed before execution. No changes were written.",
                     "Run `zolt outdated --format json --schema-version 2` again and retry with a current targetId."));
         }
-        if (actual.workspace() == null || expected.targetId().isEmpty()) {
+        if (actual.workspace() == null) {
             return;
         }
-        var targetId = expected.targetId().orElseThrow();
-        String blocker = WorkspaceUpdateContext.from(actual.workspace())
-                .targetBlockers()
-                .get(targetId);
-        if (blocker != null) {
-            throw new ActionableException(
-                    "Zolt update target `" + targetId + "` is not updateable.",
-                    blocker);
+        WorkspaceUpdateContext context = WorkspaceUpdateContext.from(actual.workspace());
+        requireExpectedDiscoveryConfig(actual, expected, context);
+        var blockers = context.targetBlockers();
+        for (var targetId : expected.targetIds()) {
+            String blocker = blockers.get(targetId);
+            if (blocker != null) {
+                throw new ActionableException(
+                        "Zolt update target `" + targetId + "` is not updateable.",
+                        blocker);
+            }
+        }
+    }
+
+    private static void requireExpectedDiscoveryConfig(
+            ManifestMutationScope actual,
+            ScopeExpectation expected,
+            WorkspaceUpdateContext context) {
+        if (expected.discoveryConfig().isEmpty()) {
+            return;
+        }
+        WorkspaceMember member = actual.workspace().members().stream()
+                .filter(candidate -> candidate.directory().toAbsolutePath().normalize().equals(actual.manifestRoot()))
+                .findFirst()
+                .orElseThrow(() -> new ZoltConfigException(
+                        "Workspace dependency update scope changed before execution. No changes were written."));
+        if (!context.effectiveConfig(member).equals(expected.discoveryConfig().orElseThrow())) {
+            throw new ZoltConfigException(
+                    "Workspace policy changed while dependency updates were being planned. No changes were written; retry against the current workspace.");
         }
     }
 
