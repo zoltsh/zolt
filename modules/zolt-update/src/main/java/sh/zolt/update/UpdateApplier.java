@@ -89,9 +89,7 @@ public final class UpdateApplier {
         constraints.put(
                 coordinate,
                 new DependencyConstraint(coordinate, version, existing.versionRef(), existing.kind(), existing.reason()));
-        DependencyPolicySettings policy = new DependencyPolicySettings(
-                config.dependencyPolicy().exclusions(), constraints, config.dependencyPolicy().failOnVersionConflict());
-        return config.withDependencyPolicy(policy);
+        return config.withDependencyPolicy(config.dependencyPolicy().withConstraints(constraints));
     }
 
     private static DependencySection sectionOf(String section) {

@@ -22,6 +22,7 @@ import sh.zolt.workspace.toml.WorkspaceTomlWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import picocli.CommandLine.Model.CommandSpec;
 
@@ -80,7 +81,10 @@ final class ExactUpdateRunner {
             AtomicReference<ExactUpdatePlan> executedPlan = new AtomicReference<>();
             CatalogUpdateScope scope = selected.scope();
             ScopeExpectation expectation =
-                    new ScopeExpectation(scope.absoluteManifestPath(), scope.absoluteLockfilePath());
+                    new ScopeExpectation(
+                            scope.absoluteManifestPath(),
+                            scope.absoluteLockfilePath(),
+                            Optional.of(targetId));
             if (scope instanceof ResolvedUpdateScope project) {
                 ManifestEditResult projectEdit = ManifestEditTransaction.execute(
                         project.projectDirectory(),
@@ -137,9 +141,11 @@ final class ExactUpdateRunner {
         for (CatalogUpdateScope scope : scopes) {
             List<UpdateTarget> targets;
             if (scope instanceof ResolvedUpdateScope project) {
-                targets = catalog.collect(project.config(), scope.manifestPath(), scope.lockfilePath());
+                targets = catalog.collect(
+                        project.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
             } else if (scope instanceof ResolvedWorkspaceUpdateScope workspace) {
-                targets = catalog.collect(workspace.config(), scope.manifestPath(), scope.lockfilePath());
+                targets = catalog.collect(
+                        workspace.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
             } else {
                 throw new IllegalStateException("Unknown exact-update scope " + scope.getClass().getName() + ".");
             }

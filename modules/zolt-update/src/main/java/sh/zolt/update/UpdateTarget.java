@@ -35,4 +35,18 @@ public record UpdateTarget(
             throw new IllegalArgumentException("Update target ID does not match its canonical identity fields.");
         }
     }
+
+    public UpdateTarget blocked(String reason) {
+        return new UpdateTarget(
+                targetId,
+                manifestPath,
+                lockfilePath,
+                surface,
+                identifier,
+                section,
+                currentVersion,
+                false,
+                Optional.of(Objects.requireNonNull(reason, "reason")),
+                governs);
+    }
 }

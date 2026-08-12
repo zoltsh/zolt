@@ -1,8 +1,10 @@
 package sh.zolt.cli.command.dependency;
 
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.update.UpdateTargetId;
 import sh.zolt.workspace.WorkspaceConfig;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -14,7 +16,8 @@ record ResolvedWorkspaceUpdateScope(
         String manifestPath,
         String lockfilePath,
         WorkspaceConfig config,
-        Optional<ZoltLockfile> lockfile) implements CatalogUpdateScope {
+        Optional<ZoltLockfile> lockfile,
+        Map<UpdateTargetId, String> targetBlockers) implements CatalogUpdateScope {
     ResolvedWorkspaceUpdateScope {
         mutationRoot = normalize(mutationRoot, "mutationRoot");
         projectDirectory = normalize(projectDirectory, "projectDirectory");
@@ -23,6 +26,18 @@ record ResolvedWorkspaceUpdateScope(
         lockfilePath = Objects.requireNonNull(lockfilePath, "lockfilePath");
         config = Objects.requireNonNull(config, "config");
         lockfile = lockfile == null ? Optional.empty() : lockfile;
+        targetBlockers = targetBlockers == null ? Map.of() : Map.copyOf(targetBlockers);
+    }
+
+    ResolvedWorkspaceUpdateScope(
+            Path mutationRoot,
+            Path projectDirectory,
+            String label,
+            String manifestPath,
+            String lockfilePath,
+            WorkspaceConfig config,
+            Optional<ZoltLockfile> lockfile) {
+        this(mutationRoot, projectDirectory, label, manifestPath, lockfilePath, config, lockfile, Map.of());
     }
 
     private static Path normalize(Path path, String name) {

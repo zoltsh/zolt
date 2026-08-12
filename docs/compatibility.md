@@ -75,7 +75,12 @@ distinct `workspace-root` scope. Its `manifestPath` is the policy manifest that
 owns the entry (`zolt.toml` or `zolt-workspace.toml`), and its `lockfilePath` is
 the aggregate root `zolt.lock`. When the root manifest is itself member `.`, the
 ordinary member scope owns those entries and no duplicate root target is emitted.
-Schema v1 remains unchanged.
+Root-platform candidates must be visible through every distinct effective member
+repository configuration; Zolt reports only the intersection. A matching root
+and member platform declaration remains valid workspace policy, but schema v2
+marks both the root target and the member literal or version-alias target as not
+updateable until the declaration is consolidated at the workspace root. Schema
+v1 remains unchanged.
 
 ### Exact update automation schema v2
 
@@ -84,6 +89,13 @@ is the matching stable write contract. The destination is caller-selected and
 must be a supported, strictly newer fixed version. Exact mode does not consult
 repository metadata; the default staged resolve proves availability and rolls
 back both manifest and lockfile if resolution fails.
+
+For workspace writes, the commit step revalidates every captured workspace
+manifest after staged resolution. A concurrent change to the target, another
+member, the workspace policy manifest, or the root lockfile fails closed without
+overwriting that change. Exact execution also recomputes workspace-wide target
+blockers after reacquiring the mutation lock, before either a resolved or
+`--no-resolve` write.
 
 Success output distinguishes the requested semantic change from actual effects
 with `changed`, `applied`, `resolved`, and canonical `changedFiles` fields. It

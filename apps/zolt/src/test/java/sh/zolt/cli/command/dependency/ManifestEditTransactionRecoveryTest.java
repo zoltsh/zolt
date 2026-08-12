@@ -5,10 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.BuildException;
 import sh.zolt.lockfile.toml.AtomicLockfileWriter;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.resolve.ResolveService;
+import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 
 import java.io.IOException;
@@ -331,6 +334,55 @@ final class ManifestEditTransactionRecoveryTest {
         assertEquals(original, Files.readString(tempDir.resolve("zolt.toml")));
     }
 
+    @Test
+    void workspaceEditRejectsConcurrentChangeToAnotherMember() throws IOException {
+        Path root = tempDir.resolve("workspace-input-race");
+        Path api = root.resolve("apps/api");
+        Path core = root.resolve("modules/core");
+        Files.createDirectories(api);
+        Files.createDirectories(core);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "race"
+                members = ["apps/api", "modules/core"]
+                """);
+        writeProject(api, "api");
+        writeProject(core, "core");
+        Path apiManifest = api.resolve("zolt.toml");
+        Path coreManifest = core.resolve("zolt.toml");
+        Files.writeString(apiManifest, Files.readString(apiManifest) + "\n[versions]\nselected = \"1.0.0\"\n");
+        String apiOriginal = Files.readString(apiManifest);
+        String coreConcurrent = Files.readString(coreManifest) + "\n[versions]\nconcurrent = \"2.0.0\"\n";
+        Path cache = root.resolve("cache");
+        ResolveService resolveService = new ResolveService();
+        new WorkspaceResolveService(resolveService).resolve(root, cache, false, false);
+        String lockOriginal = Files.readString(root.resolve("zolt.lock"));
+
+        assertThrows(
+                BuildException.class,
+                () -> ManifestEditTransaction.execute(
+                        api,
+                        cache,
+                        false,
+                        new ZoltTomlParser(),
+                        new ZoltTomlWriter(),
+                        resolveService,
+                        config -> {
+                            var aliases = new LinkedHashMap<>(config.versionAliases());
+                            aliases.put("selected", "1.1.0");
+                            return config.withVersionAliases(aliases);
+                        },
+                        () -> writeUnchecked(coreManifest, coreConcurrent)));
+
+        assertEquals(apiOriginal, Files.readString(apiManifest));
+        assertEquals(coreConcurrent, Files.readString(coreManifest));
+        assertEquals(lockOriginal, Files.readString(root.resolve("zolt.lock")));
+        Path journals = root.resolve(".zolt/manifest-edits");
+        try (var entries = Files.list(journals)) {
+            assertEquals(0, entries.count());
+        }
+    }
+
     private static void writeProject(Path directory, String name) throws IOException {
         Files.writeString(directory.resolve("zolt.toml"), """
                 [project]
@@ -339,6 +391,14 @@ final class ManifestEditTransactionRecoveryTest {
                 group = "com.example"
                 java = "21"
                 """.formatted(name));
+    }
+
+    private static void writeUnchecked(Path path, String content) {
+        try {
+            Files.writeString(path, content);
+        } catch (IOException exception) {
+            throw new java.io.UncheckedIOException(exception);
+        }
     }
 
     private static void assertEditWaitsForLock(Path lockRoot, Path projectRoot) throws Exception {

@@ -2,16 +2,25 @@ package sh.zolt.cli.command.dependency;
 
 import static sh.zolt.cli.CliTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.maven.metadata.MetadataDiscovery;
+import sh.zolt.maven.metadata.VersionDiscovery;
+import sh.zolt.update.OutdatedEngine;
 import sh.zolt.update.UpdateTargetCatalog;
 import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import picocli.CommandLine;
 
 final class OutdatedSchemaV2CommandTest {
     @TempDir
@@ -123,6 +132,34 @@ final class OutdatedSchemaV2CommandTest {
     }
 
     @Test
+    void rootPlatformDiscoveryUsesMemberEffectiveRepository() throws IOException {
+        Path root = writeRepositoryWorkspace(tempDir.resolve("member-repository"), List.of("private"));
+        VersionDiscovery discovery = repositoryDiscovery(Map.of(
+                "private", List.of("1.0.0", "1.1.0")));
+
+        InjectedResult result = runInjected(root, discovery);
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("\"selectedLatest\": \"1.1.0\""), result.stdout());
+        assertTrue(result.stdout().contains("\"source\": \"private\""), result.stdout());
+    }
+
+    @Test
+    void rootPlatformCandidatesIntersectEveryMemberRepositorySet() throws IOException {
+        Path root = writeRepositoryWorkspace(tempDir.resolve("repository-intersection"), List.of("alpha", "beta"));
+        VersionDiscovery discovery = repositoryDiscovery(Map.of(
+                "alpha", List.of("1.0.0", "1.1.0", "1.2.0"),
+                "beta", List.of("1.0.0", "1.1.0")));
+
+        InjectedResult result = runInjected(root, discovery);
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("\"selectedLatest\": \"1.1.0\""), result.stdout());
+        assertTrue(result.stdout().contains("\"minor\": \"1.1.0\""), result.stdout());
+        assertFalse(result.stdout().contains("1.2.0"), result.stdout());
+    }
+
+    @Test
     void schemaV1PreservesDecomposedDisplayLabelsAndVersionText() throws IOException {
         String decomposed = "cafe\u0301";
         Path project = tempDir.resolve(decomposed);
@@ -189,5 +226,67 @@ final class OutdatedSchemaV2CommandTest {
                 "com.example:lib" = "1.0.0"
                 """);
         return project;
+    }
+
+    private static Path writeRepositoryWorkspace(Path root, List<String> repositoryIds) throws IOException {
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "repositories"
+                members = [%s]
+
+                [platforms]
+                "com.acme:private-bom" = "1.0.0"
+                """.formatted(repositoryIds.stream()
+                        .map(id -> "\"apps/" + id + "\"")
+                        .collect(java.util.stream.Collectors.joining(", "))));
+        for (String repositoryId : repositoryIds) {
+            Path member = root.resolve("apps").resolve(repositoryId);
+            Files.createDirectories(member);
+            Files.writeString(member.resolve("zolt.toml"), """
+                    [project]
+                    name = "%s"
+                    version = "0.1.0"
+                    group = "com.example"
+                    java = "21"
+
+                    [repositories]
+                    %s = "https://%s.example.test/maven"
+                    """.formatted(repositoryId, repositoryId, repositoryId));
+        }
+        return root;
+    }
+
+    private static VersionDiscovery repositoryDiscovery(Map<String, List<String>> versionsByRepository) {
+        return (repositories, group, artifact, offline) -> {
+            for (var repository : repositories) {
+                List<String> versions = versionsByRepository.get(repository.id());
+                if (versions != null) {
+                    Map<String, String> sources = new java.util.LinkedHashMap<>();
+                    versions.forEach(version -> sources.put(version, repository.id()));
+                    return new MetadataDiscovery(true, versions, sources, List.of());
+                }
+            }
+            return new MetadataDiscovery(false, List.of(), Map.of(), List.of("not visible"));
+        };
+    }
+
+    private static InjectedResult runInjected(Path root, VersionDiscovery discovery) {
+        OutdatedCommand command =
+                new OutdatedCommand(new OutdatedEngine(discovery), new DependencyUpdateScopeResolver());
+        CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true);
+        StringWriter stdout = new StringWriter();
+        StringWriter stderr = new StringWriter();
+        commandLine.setOut(new PrintWriter(stdout));
+        commandLine.setErr(new PrintWriter(stderr));
+        int exitCode = commandLine.execute(
+                "--format", "json",
+                "--schema-version", "2",
+                "--all",
+                "--directory", root.toString());
+        return new InjectedResult(exitCode, stdout.toString(), stderr.toString());
+    }
+
+    private record InjectedResult(int exitCode, String stdout, String stderr) {
     }
 }

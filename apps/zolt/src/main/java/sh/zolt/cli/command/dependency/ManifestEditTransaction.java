@@ -1,6 +1,7 @@
 package sh.zolt.cli.command.dependency;
 
 import sh.zolt.error.ActionableError;
+import sh.zolt.error.ActionableException;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltConfigException;
@@ -184,6 +185,18 @@ final class ManifestEditTransaction {
             throw new ZoltConfigException(ActionableError.of(
                     "Dependency update scope changed before execution. No changes were written.",
                     "Run `zolt outdated --format json --schema-version 2` again and retry with a current targetId."));
+        }
+        if (actual.workspace() == null || expected.targetId().isEmpty()) {
+            return;
+        }
+        var targetId = expected.targetId().orElseThrow();
+        String blocker = WorkspaceUpdateContext.from(actual.workspace())
+                .targetBlockers()
+                .get(targetId);
+        if (blocker != null) {
+            throw new ActionableException(
+                    "Zolt update target `" + targetId + "` is not updateable.",
+                    blocker);
         }
     }
 

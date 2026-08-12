@@ -20,7 +20,15 @@ public final class UpdateTargetCatalog {
             ProjectConfig config,
             String manifestPath,
             String lockfilePath) {
-        return entries(config, manifestPath, lockfilePath).stream()
+        return collect(config, manifestPath, lockfilePath, Map.of());
+    }
+
+    public List<UpdateTarget> collect(
+            ProjectConfig config,
+            String manifestPath,
+            String lockfilePath,
+            Map<UpdateTargetId, String> blockers) {
+        return entries(config, manifestPath, lockfilePath, blockers).stream()
                 .map(Entry::target)
                 .toList();
     }
@@ -29,7 +37,15 @@ public final class UpdateTargetCatalog {
             WorkspaceConfig config,
             String manifestPath,
             String lockfilePath) {
-        return entries(config, manifestPath, lockfilePath).stream()
+        return collect(config, manifestPath, lockfilePath, Map.of());
+    }
+
+    public List<UpdateTarget> collect(
+            WorkspaceConfig config,
+            String manifestPath,
+            String lockfilePath,
+            Map<UpdateTargetId, String> blockers) {
+        return entries(config, manifestPath, lockfilePath, blockers).stream()
                 .map(Entry::target)
                 .toList();
     }
@@ -54,12 +70,20 @@ public final class UpdateTargetCatalog {
             ProjectConfig config,
             String manifestPath,
             String lockfilePath) {
+        return entries(config, manifestPath, lockfilePath, Map.of());
+    }
+
+    List<Entry> entries(
+            ProjectConfig config,
+            String manifestPath,
+            String lockfilePath,
+            Map<UpdateTargetId, String> blockers) {
         Objects.requireNonNull(config, "config");
         String canonicalManifest = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
         String canonicalLockfile = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
         Map<UpdateTargetId, Entry> entries = new LinkedHashMap<>();
         for (SurfaceRequest request : collector.collect(config)) {
-            UpdateTarget target = target(request, canonicalManifest, canonicalLockfile);
+            UpdateTarget target = contextualTarget(request, canonicalManifest, canonicalLockfile, blockers);
             addUnique(entries, new Entry(target, request));
         }
         return List.copyOf(entries.values());
@@ -69,12 +93,20 @@ public final class UpdateTargetCatalog {
             WorkspaceConfig config,
             String manifestPath,
             String lockfilePath) {
+        return entries(config, manifestPath, lockfilePath, Map.of());
+    }
+
+    List<Entry> entries(
+            WorkspaceConfig config,
+            String manifestPath,
+            String lockfilePath,
+            Map<UpdateTargetId, String> blockers) {
         Objects.requireNonNull(config, "config");
         String canonicalManifest = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
         String canonicalLockfile = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
         Map<UpdateTargetId, Entry> entries = new LinkedHashMap<>();
         for (SurfaceRequest request : collector.collect(config)) {
-            UpdateTarget target = target(request, canonicalManifest, canonicalLockfile);
+            UpdateTarget target = contextualTarget(request, canonicalManifest, canonicalLockfile, blockers);
             addUnique(entries, new Entry(target, request));
         }
         return List.copyOf(entries.values());
@@ -130,6 +162,17 @@ public final class UpdateTargetCatalog {
                 updateable,
                 blocker,
                 request.governs());
+    }
+
+    private UpdateTarget contextualTarget(
+            SurfaceRequest request,
+            String manifestPath,
+            String lockfilePath,
+            Map<UpdateTargetId, String> blockers) {
+        UpdateTarget target = target(request, manifestPath, lockfilePath);
+        Map<UpdateTargetId, String> contextualBlockers = blockers == null ? Map.of() : blockers;
+        String blocker = contextualBlockers.get(target.targetId());
+        return blocker == null ? target : target.blocked(blocker);
     }
 
     record Entry(UpdateTarget target, SurfaceRequest request) {

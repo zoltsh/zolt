@@ -2,6 +2,7 @@ package sh.zolt.update;
 
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -15,17 +16,28 @@ public record OutdatedScope(
         String manifestPath,
         String lockfilePath,
         ProjectConfig config,
-        Optional<ZoltLockfile> lockfile) implements UpdateReportScope {
+        Optional<ZoltLockfile> lockfile,
+        Map<UpdateTargetId, String> targetBlockers) implements UpdateReportScope {
     public OutdatedScope {
         label = Objects.requireNonNull(label, "label");
         manifestPath = UpdateTargetId.requireCanonicalPath(manifestPath, "manifest path");
         lockfilePath = UpdateTargetId.requireCanonicalPath(lockfilePath, "lockfile path");
         config = Objects.requireNonNull(config, "config");
         lockfile = lockfile == null ? Optional.empty() : lockfile;
+        targetBlockers = targetBlockers == null ? Map.of() : Map.copyOf(targetBlockers);
+    }
+
+    public OutdatedScope(
+            String label,
+            String manifestPath,
+            String lockfilePath,
+            ProjectConfig config,
+            Optional<ZoltLockfile> lockfile) {
+        this(label, manifestPath, lockfilePath, config, lockfile, Map.of());
     }
 
     public OutdatedScope(String label, ProjectConfig config, Optional<ZoltLockfile> lockfile) {
-        this(label, "zolt.toml", "zolt.lock", config, lockfile);
+        this(label, "zolt.toml", "zolt.lock", config, lockfile, Map.of());
     }
 
     public static OutdatedScope of(String label, ProjectConfig config) {

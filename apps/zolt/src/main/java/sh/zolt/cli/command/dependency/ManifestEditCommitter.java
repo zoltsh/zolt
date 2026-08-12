@@ -33,6 +33,9 @@ final class ManifestEditCommitter {
             return result(scope, null, false, false);
         }
         if (noResolve) {
+            if (scope.workspace() != null) {
+                scope.workspace().inputs().requireCurrent();
+            }
             writer.write(scope.manifestPath(), originalSource, editedSource);
             return result(scope, null, true, false);
         }
@@ -84,6 +87,9 @@ final class ManifestEditCommitter {
             ManifestEditRecovery.writeState(transaction, ManifestEditRecovery.PREPARED);
 
             beforeLockfileCompareAndSet.run();
+            if (scope.workspace() != null) {
+                scope.workspace().inputs().requireCurrent();
+            }
             try {
                 AtomicLockfileWriter.compareAndSetAtomically(
                         scope.lockfilePath(),

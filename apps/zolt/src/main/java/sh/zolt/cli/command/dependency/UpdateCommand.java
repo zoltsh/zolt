@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.dependency;
 
+import sh.zolt.build.BuildException;
 import sh.zolt.cache.ArtifactCacheException;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cli.command.CommandFailures;
@@ -151,7 +152,7 @@ public final class UpdateCommand implements Runnable {
                         noResolve,
                         format == Format.JSON);
             }
-        } catch (ActionableException | ArtifactCacheException | LockfileReadException
+        } catch (ActionableException | ArtifactCacheException | BuildException | LockfileReadException
                 | RepositoryAccessException | ResolveException | WorkspaceConfigException
                 | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);

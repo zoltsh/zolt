@@ -49,21 +49,26 @@ public final class OutdatedEngine {
     }
 
     private OutdatedScopeReport reportScope(UpdateReportScope scope, OutdatedOptions options) {
-        List<RepositoryAccess> repositories;
+        List<List<RepositoryAccess>> repositorySets;
         List<UpdateTargetCatalog.Entry> catalogEntries;
         if (scope instanceof OutdatedScope project) {
-            repositories = planner.plan(project.config());
-            catalogEntries = catalog.entries(project.config(), scope.manifestPath(), scope.lockfilePath());
+            repositorySets = List.of(planner.plan(project.config()));
+            catalogEntries = catalog.entries(
+                    project.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
         } else if (scope instanceof WorkspaceOutdatedScope workspace) {
-            repositories = planner.plan(workspace.config());
-            catalogEntries = catalog.entries(workspace.config(), scope.manifestPath(), scope.lockfilePath());
+            repositorySets = workspace.repositoryConfigurations().stream()
+                    .map(planner::plan)
+                    .toList();
+            catalogEntries = catalog.entries(
+                    workspace.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
         } else {
             throw new IllegalStateException("Unknown outdated scope type " + scope.getClass().getName() + ".");
         }
-        Map<String, MetadataDiscovery> memo = new LinkedHashMap<>();
+        List<Map<String, MetadataDiscovery>> memos = new ArrayList<>();
+        repositorySets.forEach(ignored -> memos.add(new LinkedHashMap<>()));
         List<OutdatedEntry> entries = new ArrayList<>();
         for (UpdateTargetCatalog.Entry catalogEntry : catalogEntries) {
-            OutdatedEntry entry = evaluate(catalogEntry, repositories, options, memo);
+            OutdatedEntry entry = evaluate(catalogEntry, repositorySets, memos, options);
             if (include(entry, options)) {
                 entries.add(entry);
             }
@@ -74,11 +79,12 @@ public final class OutdatedEngine {
 
     private OutdatedEntry evaluate(
             UpdateTargetCatalog.Entry catalogEntry,
-            List<RepositoryAccess> repositories,
-            OutdatedOptions options,
-            Map<String, MetadataDiscovery> memo) {
+            List<List<RepositoryAccess>> repositorySets,
+            List<Map<String, MetadataDiscovery>> memos,
+            OutdatedOptions options) {
         SurfaceRequest surface = catalogEntry.request();
-        MetadataDiscovery discovered = surfaceDiscovery.discover(surface, repositories, options.offline(), memo);
+        MetadataDiscovery discovered =
+                discoverAcrossRepositorySets(surface, repositorySets, memos, options.offline());
         if (!discovered.resolved()) {
             return entry(
                     catalogEntry.target(),
@@ -97,6 +103,38 @@ public final class OutdatedEngine {
                 toCandidates(surface.currentVersion(), candidates),
                 source,
                 discovered.notes());
+    }
+
+    private MetadataDiscovery discoverAcrossRepositorySets(
+            SurfaceRequest surface,
+            List<List<RepositoryAccess>> repositorySets,
+            List<Map<String, MetadataDiscovery>> memos,
+            boolean offline) {
+        List<String> intersection = null;
+        Map<String, String> sourceByVersion = new LinkedHashMap<>();
+        List<String> notes = new ArrayList<>();
+        boolean allResolved = true;
+        for (int index = 0; index < repositorySets.size(); index++) {
+            MetadataDiscovery discovered = surfaceDiscovery.discover(
+                    surface, repositorySets.get(index), offline, memos.get(index));
+            notes.addAll(discovered.notes());
+            if (!discovered.resolved()) {
+                allResolved = false;
+                continue;
+            }
+            intersection = intersection == null
+                    ? new ArrayList<>(discovered.versions())
+                    : retain(intersection, discovered.versions());
+            discovered.sourceByVersion().forEach(sourceByVersion::putIfAbsent);
+        }
+        List<String> versions = intersection == null ? List.of() : List.copyOf(intersection);
+        return new MetadataDiscovery(allResolved && intersection != null, versions, sourceByVersion, notes);
+    }
+
+    private static List<String> retain(List<String> current, List<String> candidates) {
+        List<String> retained = new ArrayList<>(current);
+        retained.retainAll(candidates);
+        return retained;
     }
 
     private OutdatedCandidates toCandidates(String current, VersionCandidates candidates) {

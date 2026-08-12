@@ -9,6 +9,7 @@ import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.maven.metadata.MetadataCache;
 import sh.zolt.maven.metadata.RepositoryMetadataService;
 import sh.zolt.maven.repository.RepositoryAccessException;
+import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.update.OutdatedEngine;
 import sh.zolt.update.OutdatedJsonRenderer;
@@ -87,7 +88,7 @@ public final class OutdatedCommand implements Runnable {
                     ? renderJson(report, selectedSchema)
                     : new OutdatedTextRenderer().render(report);
             CommandOutput.printAndFlush(spec, output);
-        } catch (LockfileReadException | ZoltConfigException | RepositoryAccessException
+        } catch (LockfileReadException | ZoltConfigException | RepositoryAccessException | ResolveException
                 | WorkspaceConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }

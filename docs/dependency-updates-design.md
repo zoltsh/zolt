@@ -99,7 +99,9 @@ versionRefs, which it misses today); literal deps via
 ProjectConfigDependencyMutator.addDependency in their actual section
 (metadata — exclusions/classifier/type/optional — is preserved by the
 retained-metadata path); platforms via addPlatform; constraints rebuilt
-preserving kind/reason. A versionRef-backed coordinate NEVER gets a literal
+through `DependencyPolicySettings.withConstraints`, preserving exclusions,
+conflict behavior, the complete license policy, kind, and reason. A
+versionRef-backed coordinate NEVER gets a literal
 written — its alias updates instead. Literal execTool coordinate mutation is
 stage 3; until then update reports them as skipped. Comment-rewrite warning
 preserved. After a successful write, resolve runs BY DEFAULT (`--no-resolve`
@@ -128,13 +130,22 @@ by the workspace-root policy manifest under one confirmed root lock. Root policy
 uses its actual canonical path (`zolt.toml` or legacy `zolt-workspace.toml`) in
 target identity. A root project declared as member `.` owns that shared manifest
 once, so its platforms are not duplicated as a second root scope. Schema v1
-selection remains member-only.
+selection remains member-only. Root-platform discovery plans each distinct
+effective member repository configuration and intersects their available
+versions, because a root policy update must remain resolvable by every member.
+When an otherwise valid workspace mirrors a root platform in a member, either
+as a literal or through a version alias, schema v2 marks both mutation roots as
+not updateable and directs the caller to consolidate the declaration at the
+workspace root.
 
 Execution reacquires the root lock, verifies the expected manifest/root-lock
-paths, rebuilds the target from the current manifest, and replans before applying
-via the same `UpdateApplier` semantics as policy mode. Workspace-root platform
+paths, rebuilds the target from the current manifest, rechecks workspace-wide
+contextual blockers, and replans before applying via the same `UpdateApplier`
+semantics as policy mode. Workspace-root platform
 edits use the same source-preserving journal, staged workspace resolve, and
-manifest/lock compare-and-set as member edits. A removed/moved target or changed
+manifest/lock compare-and-set as member edits. Immediately before commit, the
+transaction revalidates every captured workspace input so a concurrent change
+to any non-target member also fails closed. A removed/moved target or changed
 scope fails closed; an already-applied destination becomes a no-op. Transaction
 output reports actual manifest and lockfile byte changes in deterministic order.
 

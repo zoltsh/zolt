@@ -34,4 +34,8 @@ public record DependencyPolicySettings(
     public static DependencyPolicySettings defaults() {
         return new DependencyPolicySettings(List.of(), Map.of(), false, LicensePolicySettings.defaults());
     }
+
+    public DependencyPolicySettings withConstraints(Map<String, DependencyConstraint> updatedConstraints) {
+        return new DependencyPolicySettings(exclusions, updatedConstraints, failOnVersionConflict, licenses);
+    }
 }
