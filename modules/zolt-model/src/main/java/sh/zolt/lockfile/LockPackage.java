@@ -33,11 +33,11 @@ public record LockPackage(
         List<String> policies,
         List<String> toolGroups) {
     public LockPackage {
-        jar = jar == null ? Optional.empty() : jar;
-        pom = pom == null ? Optional.empty() : pom;
+        jar = cachePath("jar", jar);
+        pom = cachePath("pom", pom);
         jarSha256 = jarSha256 == null ? Optional.empty() : jarSha256;
         pomSha256 = pomSha256 == null ? Optional.empty() : pomSha256;
-        artifact = artifact == null ? Optional.empty() : artifact;
+        artifact = cachePath("artifact", artifact);
         artifactType = artifactType == null ? Optional.empty() : artifactType;
         artifactSha256 = artifactSha256 == null ? Optional.empty() : artifactSha256;
         workspace = workspace == null ? Optional.empty() : workspace;
@@ -47,6 +47,29 @@ public record LockPackage(
         exportedBy = exportedBy == null ? List.of() : List.copyOf(exportedBy);
         policies = policies == null ? List.of() : List.copyOf(policies);
         toolGroups = toolGroups == null ? List.of() : List.copyOf(toolGroups);
+    }
+
+    public Optional<CacheRelativePath> jarPath() {
+        return jar.map(CacheRelativePath::new);
+    }
+
+    public Optional<CacheRelativePath> pomPath() {
+        return pom.map(CacheRelativePath::new);
+    }
+
+    public Optional<CacheRelativePath> artifactPath() {
+        return artifact.map(CacheRelativePath::new);
+    }
+
+    private static Optional<String> cachePath(String field, Optional<String> path) {
+        Optional<String> candidate = path == null ? Optional.empty() : path;
+        try {
+            return candidate.map(value -> new CacheRelativePath(value).value());
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    "Invalid lockfile package `" + field + "` path: " + exception.getMessage(),
+                    exception);
+        }
     }
 
     public LockPackage(

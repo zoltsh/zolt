@@ -137,7 +137,7 @@ public final class QuarkusPlanService {
                         lockPackage.packageId(),
                         lockPackage.version(),
                         lockPackage.scope(),
-                        cacheRoot.resolve(lockPackage.jar().orElseThrow()),
+                        lockPackage.jarPath().orElseThrow().resolveWithin(cacheRoot),
                         lockPackage.direct()))
                 .sorted(Comparator.comparing(QuarkusPlanService::bootstrapDependencyKey))
                 .toList();
@@ -153,7 +153,7 @@ public final class QuarkusPlanService {
                 .map(lockPackage -> new QuarkusPlatformPropertiesArtifact(
                         lockPackage.packageId(),
                         lockPackage.version(),
-                        cacheRoot.resolve(lockPackage.artifact().orElseThrow())))
+                        lockPackage.artifactPath().orElseThrow().resolveWithin(cacheRoot)))
                 .sorted(Comparator.comparing(artifact ->
                         artifact.packageId() + ":" + artifact.version() + ":" + artifact.path()))
                 .toList();
@@ -173,7 +173,7 @@ public final class QuarkusPlanService {
             LockPackage runtimePackage,
             Path cacheRoot,
             Map<String, LockPackage> deploymentPackages) {
-        Path runtimePath = cacheRoot.resolve(runtimePackage.jar().orElseThrow());
+        Path runtimePath = runtimePackage.jarPath().orElseThrow().resolveWithin(cacheRoot);
         if (!Files.isRegularFile(runtimePath)) {
             return Optional.empty();
         }
@@ -183,8 +183,8 @@ public final class QuarkusPlanService {
         }
         QuarkusDeploymentArtifact deploymentArtifact = metadata.orElseThrow().deploymentArtifact();
         Optional<Path> deploymentPath = Optional.ofNullable(deploymentPackages.get(deploymentKey(deploymentArtifact)))
-                .flatMap(LockPackage::jar)
-                .map(cacheRoot::resolve);
+                .flatMap(LockPackage::jarPath)
+                .map(path -> path.resolveWithin(cacheRoot));
         return Optional.of(new QuarkusPlanExtension(
                 runtimePackage.packageId(),
                 runtimePath,

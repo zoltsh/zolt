@@ -56,13 +56,15 @@ public final class LockfileClasspathPackageConverter {
                 .map(lockPackage -> {
                     Path classpathPath = lockPackage.workspace().isPresent()
                             ? workspaceClasspathPath(workspaceRoot, lockPackage)
-                            : cacheRoot.resolve(lockPackage.jar().orElseThrow());
+                            : lockPackage.jarPath().orElseThrow().resolveWithin(cacheRoot);
                     return new ResolvedClasspathPackage(
                             new ResolvedPackage(
                                     lockPackage.packageId(),
                                     lockPackage.version(),
                                     lockPackage.direct(),
-                                    lockPackage.pom().map(value -> cacheRoot.resolve(value)).orElse(Path.of("")),
+                                    lockPackage.pomPath()
+                                            .map(value -> value.resolveWithin(cacheRoot))
+                                            .orElse(Path.of("")),
                                     classpathPath,
                                     NestedArtifactIdentity.of(lockPackage)),
                             lockPackage.scope(),
@@ -79,8 +81,10 @@ public final class LockfileClasspathPackageConverter {
                                 lockPackage.packageId(),
                                 lockPackage.version(),
                                 lockPackage.direct(),
-                                lockPackage.pom().map(value -> cacheRoot.resolve(value)).orElse(Path.of("")),
-                                cacheRoot.resolve(lockPackage.jar().orElseThrow()),
+                                lockPackage.pomPath()
+                                        .map(value -> value.resolveWithin(cacheRoot))
+                                        .orElse(Path.of("")),
+                                lockPackage.jarPath().orElseThrow().resolveWithin(cacheRoot),
                                 NestedArtifactIdentity.of(lockPackage)),
                         lockPackage.scope(),
                         lockPackage.toolGroups()))

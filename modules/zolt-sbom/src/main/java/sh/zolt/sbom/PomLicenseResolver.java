@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
@@ -78,7 +79,7 @@ public final class PomLicenseResolver {
     }
 
     private List<SbomLicense> resolveUncached(LockPackage lockPackage) {
-        Optional<RawPom> pom = lockPackage.pom().flatMap(this::readPom);
+        Optional<RawPom> pom = lockPackage.pomPath().flatMap(this::readPom);
         if (pom.isEmpty()) {
             return List.of(SbomLicense.unknown());
         }
@@ -104,8 +105,8 @@ public final class PomLicenseResolver {
             if (!visited.add(parentCoordinate)) {
                 return List.of();
             }
-            current = readPom(pathBuilder.pomPath(
-                    new Coordinate(rawParent.groupId(), rawParent.artifactId(), Optional.of(rawParent.version()))))
+            current = readPom(new CacheRelativePath(pathBuilder.pomPath(
+                    new Coordinate(rawParent.groupId(), rawParent.artifactId(), Optional.of(rawParent.version())))))
                     .orElse(null);
         }
         return List.of();
@@ -122,8 +123,8 @@ public final class PomLicenseResolver {
         return licenses;
     }
 
-    private Optional<RawPom> readPom(String repositoryRelativePath) {
-        Path path = cacheRoot.resolve(repositoryRelativePath).normalize();
+    private Optional<RawPom> readPom(CacheRelativePath repositoryRelativePath) {
+        Path path = repositoryRelativePath.resolveWithin(cacheRoot);
         if (!Files.isRegularFile(path)) {
             return Optional.empty();
         }

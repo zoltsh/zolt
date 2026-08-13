@@ -1,6 +1,6 @@
 package sh.zolt.lockfile.toml;
 
-import  sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import java.util.ArrayList;
@@ -39,26 +39,32 @@ final class LockfilePackageCodec {
 
     private static LockPackage lockPackage(TomlTable table) {
         PackageId packageId = LockfileTomlValues.packageId(LockfileTomlValues.requireString(table, "id"));
-        return new LockPackage(
-                packageId,
-                LockfileTomlValues.requireString(table, "version"),
-                LockfileTomlValues.requireString(table, "source"),
-                scope(LockfileTomlValues.requireString(table, "scope"), packageId),
-                LockfileTomlValues.requireBoolean(table, "direct"),
-                LockfileTomlValues.optionalString(table, "jar"),
-                LockfileTomlValues.optionalString(table, "pom"),
-                LockfileTomlValues.optionalString(table, "jarSha256"),
-                LockfileTomlValues.optionalString(table, "pomSha256"),
-                LockfileTomlValues.optionalString(table, "artifact"),
-                LockfileTomlValues.optionalString(table, "artifactType"),
-                LockfileTomlValues.optionalString(table, "artifactSha256"),
-                LockfileTomlValues.optionalString(table, "workspace"),
-                LockfileTomlValues.optionalString(table, "workspaceOutput"),
-                LockfileTomlValues.stringArray(table, "dependencies"),
-                LockfileTomlValues.optionalStringArray(table, "members"),
-                LockfileTomlValues.optionalStringArray(table, "exportedBy"),
-                LockfileTomlValues.optionalStringArray(table, "policies"),
-                LockfileTomlValues.optionalStringArray(table, "toolGroups"));
+        try {
+            return new LockPackage(
+                    packageId,
+                    LockfileTomlValues.requireString(table, "version"),
+                    LockfileTomlValues.requireString(table, "source"),
+                    scope(LockfileTomlValues.requireString(table, "scope"), packageId),
+                    LockfileTomlValues.requireBoolean(table, "direct"),
+                    LockfileTomlValues.optionalString(table, "jar"),
+                    LockfileTomlValues.optionalString(table, "pom"),
+                    LockfileTomlValues.optionalString(table, "jarSha256"),
+                    LockfileTomlValues.optionalString(table, "pomSha256"),
+                    LockfileTomlValues.optionalString(table, "artifact"),
+                    LockfileTomlValues.optionalString(table, "artifactType"),
+                    LockfileTomlValues.optionalString(table, "artifactSha256"),
+                    LockfileTomlValues.optionalString(table, "workspace"),
+                    LockfileTomlValues.optionalString(table, "workspaceOutput"),
+                    LockfileTomlValues.stringArray(table, "dependencies"),
+                    LockfileTomlValues.optionalStringArray(table, "members"),
+                    LockfileTomlValues.optionalStringArray(table, "exportedBy"),
+                    LockfileTomlValues.optionalStringArray(table, "policies"),
+                    LockfileTomlValues.optionalStringArray(table, "toolGroups"));
+        } catch (IllegalArgumentException exception) {
+            throw new LockfileReadException(
+                    "Invalid cache path for " + packageId + " in zolt.lock: " + exception.getMessage(),
+                    exception);
+        }
     }
 
     private static DependencyScope scope(String value, PackageId packageId) {

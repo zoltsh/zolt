@@ -36,9 +36,9 @@ final class PackageGeneratedSourceClasspath {
                 ? PackageWorkspaceInputPlanner.sourceDirectory(
                         projectRoot,
                         lockPackage)
-                : cacheRoot.resolve(lockPackage.jar().orElseThrow());
-        Path pom = lockPackage.pom()
-                .map(cacheRoot::resolve)
+                : lockPackage.jarPath().orElseThrow().resolveWithin(cacheRoot);
+        Path pom = lockPackage.pomPath()
+                .map(path -> path.resolveWithin(cacheRoot))
                 .orElse(Path.of(""));
         return new ResolvedClasspathPackage(
                 new ResolvedPackage(

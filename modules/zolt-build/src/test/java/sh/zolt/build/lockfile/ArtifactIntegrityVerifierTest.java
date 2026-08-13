@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
@@ -115,6 +116,29 @@ final class ArtifactIntegrityVerifierTest {
 
         assertTrue(exception.getMessage().contains("but found missing file"));
         assertTrue(exception.getMessage().contains("Remove the cache entry or run `zolt resolve`"));
+    }
+
+    @Test
+    void rejectsMatchingArtifactReachedThroughEscapingSymlink() throws IOException {
+        Path cacheRoot = Files.createDirectories(tempDir.resolve("cache"));
+        Path outside = write(tempDir.resolve("outside/demo.jar"), "matching jar bytes");
+        try {
+            Files.createSymbolicLink(cacheRoot.resolve("linked"), outside.getParent());
+        } catch (UnsupportedOperationException | IOException exception) {
+            assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
+        }
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> verifier.verify(lockfile(
+                        Optional.of("linked/demo.jar"),
+                        sha256(outside),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()), cacheRoot));
+
+        assertTrue(exception.getMessage().contains("symbolic link"));
     }
 
     @Test

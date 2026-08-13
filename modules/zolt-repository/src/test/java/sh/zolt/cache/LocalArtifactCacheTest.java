@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import sh.zolt.concurrent.RepositoryExecutionLane;
 import sh.zolt.maven.ArtifactDescriptor;
@@ -318,6 +319,28 @@ final class LocalArtifactCacheTest {
                 () -> cache.materializeOverlayPom(coordinate, "../../outside", source));
 
         assertFalse(Files.exists(outside));
+    }
+
+    @Test
+    void contentAddressedCacheCannotEscapeThroughSymlink() throws Exception {
+        Path cacheRoot = Files.createDirectory(tempDir.resolve("cache"));
+        LocalArtifactCache cache = new LocalArtifactCache(cacheRoot);
+        Coordinate coordinate = parser.parse("com.example:demo:1.0.0");
+        Path source = tempDir.resolve("demo.pom");
+        Files.writeString(source, "<project/>");
+        Path outside = Files.createDirectory(tempDir.resolve("outside"));
+        try {
+            Files.createSymbolicLink(cacheRoot.resolve("blobs"), outside);
+        } catch (UnsupportedOperationException | java.io.IOException exception) {
+            assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
+        }
+
+        assertThrows(
+                ArtifactCacheException.class,
+                () -> cache.materializeOverlayPom(coordinate, "local", source));
+        try (var files = Files.list(outside)) {
+            assertEquals(List.of(), files.toList());
+        }
     }
 
     @Test

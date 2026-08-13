@@ -1,5 +1,6 @@
 package sh.zolt.cache;
 
+import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.RepositoryArtifact;
 import java.io.IOException;
@@ -18,13 +19,11 @@ final class LegacyArtifactCacheStorage {
     }
 
     Path path(String repositoryPath) {
-        Path cacheRoot = root.toAbsolutePath().normalize();
-        Path resolved = root.resolve(repositoryPath).normalize();
-        Path absoluteResolved = resolved.toAbsolutePath().normalize();
-        if (!absoluteResolved.startsWith(cacheRoot) || absoluteResolved.equals(cacheRoot)) {
+        try {
+            return new CacheRelativePath(repositoryPath).resolveWithin(root);
+        } catch (IllegalArgumentException exception) {
             throw new ArtifactCacheException("Refusing artifact cache path outside the configured cache root.");
         }
-        return resolved;
     }
 
     CachedArtifact getOrFetch(Coordinate coordinate, String repositoryPath, ArtifactFetcher fetcher) {

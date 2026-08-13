@@ -1,11 +1,11 @@
 package sh.zolt.workspace.resolve;
 
+import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -27,8 +27,8 @@ final class WorkspaceLockArtifactPresence {
     /** True when {@code cacheRoot} holds every artifact path {@code lockfile} references. */
     static boolean complete(ZoltLockfile lockfile, Path cacheRoot) {
         Path root = cacheRoot.toAbsolutePath().normalize();
-        for (String relativePath : cacheRelativePaths(lockfile)) {
-            if (!Files.isRegularFile(root.resolve(relativePath))) {
+        for (CacheRelativePath relativePath : cacheRelativePaths(lockfile)) {
+            if (!Files.isRegularFile(relativePath.resolveWithin(root))) {
                 return false;
             }
         }
@@ -39,17 +39,13 @@ final class WorkspaceLockArtifactPresence {
      * The distinct cache-relative artifact paths, deduplicated because one artifact is commonly
      * shared by many members and would otherwise be stated once per member.
      */
-    private static Set<String> cacheRelativePaths(ZoltLockfile lockfile) {
-        Set<String> paths = new LinkedHashSet<>();
+    private static Set<CacheRelativePath> cacheRelativePaths(ZoltLockfile lockfile) {
+        Set<CacheRelativePath> paths = new LinkedHashSet<>();
         for (LockPackage lockPackage : lockfile.packages()) {
-            add(paths, lockPackage.jar());
-            add(paths, lockPackage.pom());
-            add(paths, lockPackage.artifact());
+            lockPackage.jarPath().ifPresent(paths::add);
+            lockPackage.pomPath().ifPresent(paths::add);
+            lockPackage.artifactPath().ifPresent(paths::add);
         }
         return paths;
-    }
-
-    private static void add(Set<String> paths, Optional<String> relativePath) {
-        relativePath.filter(value -> !value.isBlank()).ifPresent(paths::add);
     }
 }

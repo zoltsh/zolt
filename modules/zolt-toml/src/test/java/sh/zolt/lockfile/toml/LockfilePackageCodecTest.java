@@ -2,8 +2,9 @@ package sh.zolt.lockfile.toml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import  sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import java.util.List;
@@ -66,5 +67,52 @@ final class LockfilePackageCodecTest {
                         """).getArray("package")));
 
         assertEquals("Invalid scope `unknown` for com.example:demo in zolt.lock.", exception.getMessage());
+    }
+
+    @Test
+    void rejectsUnsafeJarPathAtParseTime() {
+        assertUnsafePath("jar", "../../outside.jar");
+    }
+
+    @Test
+    void rejectsUnsafePomPathAtParseTime() {
+        assertUnsafePath("pom", "/tmp/outside.pom");
+    }
+
+    @Test
+    void rejectsUnsafeClassifierPathAtParseTime() {
+        assertUnsafePath("artifact", "C:/cache/demo-linux.jar");
+    }
+
+    @Test
+    void rejectsUnsafeSecondaryArtifactPathAtParseTime() {
+        assertUnsafePath("artifact", "\\\\server\\share\\platform.properties");
+    }
+
+    @Test
+    void rejectsBackslashesOnEveryPlatform() {
+        assertUnsafePath("jar", "com\\example\\demo.jar");
+    }
+
+    private void assertUnsafePath(String field, String value) {
+        LockfileReadException exception = assertThrows(
+                LockfileReadException.class,
+                () -> codec.packages(Toml.parse("""
+                        [[package]]
+                        id = "com.example:demo"
+                        version = "1.0.0"
+                        source = "central"
+                        scope = "compile"
+                        direct = true
+                        %s = %s
+                        dependencies = []
+                        """.formatted(field, tomlLiteral(value))).getArray("package")));
+
+        assertTrue(exception.getMessage().contains("com.example:demo"));
+        assertTrue(exception.getMessage().contains(field));
+    }
+
+    private static String tomlLiteral(String value) {
+        return "'" + value + "'";
     }
 }

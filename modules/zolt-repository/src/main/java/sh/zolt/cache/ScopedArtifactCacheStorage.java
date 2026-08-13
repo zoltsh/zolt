@@ -1,5 +1,6 @@
 package sh.zolt.cache;
 
+import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.RepositoryArtifact;
 import java.io.IOException;
@@ -136,7 +137,7 @@ final class ScopedArtifactCacheStorage {
     }
 
     private Path indexPath(RepositoryCacheScope scope, String mavenPath) {
-        return contained(root.resolve("indexes").resolve(scope.key()).resolve(mavenPath + ".idx"));
+        return contained("indexes/" + scope.key() + "/" + mavenPath + ".idx");
     }
 
     private Path blobPath(String digest, String mavenPath) {
@@ -144,16 +145,15 @@ final class ScopedArtifactCacheStorage {
         if (fileName == null) {
             throw new ArtifactCacheException("Refusing artifact cache path without a file name.");
         }
-        return contained(root.resolve("blobs").resolve("v2").resolve("sha256").resolve(digest).resolve(fileName));
+        return contained("blobs/v2/sha256/" + digest + "/" + fileName);
     }
 
-    private Path contained(Path candidate) {
-        Path cacheRoot = root.toAbsolutePath().normalize();
-        Path normalized = candidate.toAbsolutePath().normalize();
-        if (!normalized.startsWith(cacheRoot) || normalized.equals(cacheRoot)) {
+    private Path contained(String relativePath) {
+        try {
+            return new CacheRelativePath(relativePath).resolveWithin(root);
+        } catch (IllegalArgumentException exception) {
             throw new ArtifactCacheException("Refusing artifact cache path outside the configured cache root.");
         }
-        return root.isAbsolute() ? normalized : candidate.normalize();
     }
 
     private CachedArtifact cached(Coordinate coordinate, Path blob, byte[] bytes, String source) {
