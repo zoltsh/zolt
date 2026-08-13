@@ -1,4 +1,5 @@
 import { expect, smoke, type SmokeContext } from "smoque";
+import { join } from "node:path";
 
 import { expectCommandFailureContains } from "./support/assertions.mts";
 import { copyFixture } from "./support/fixtures.mts";
@@ -14,7 +15,7 @@ smoke.suite("dependency cache integrity smoke", { tags: ["resolver", "integrity"
 
   await t.step("rejects a cached dependency whose bytes no longer match the lockfile", async () => {
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", app, "--cache-root", cache]);
-    const corrupted = await corruptMavenArtifact(cache, {
+    const corrupted = await corruptMavenArtifact(cache, join(app, "zolt.lock"), {
       group: "com.google.guava",
       artifact: "guava",
       version: "33.4.0-jre",
@@ -24,8 +25,8 @@ smoke.suite("dependency cache integrity smoke", { tags: ["resolver", "integrity"
     await expectCommandFailureContains(
       t,
       zolt,
-      ["--no-progress", "build", "--cwd", app, "--cache-root", cache],
-      "Cached jar integrity check failed for com.google.guava:guava:33.4.0-jre",
+      ["--no-progress", "build", "--offline", "--cwd", app, "--cache-root", cache],
+      "Offline mode found corrupt cached JAR for com.google.guava:guava:33.4.0-jre",
     );
   });
 });

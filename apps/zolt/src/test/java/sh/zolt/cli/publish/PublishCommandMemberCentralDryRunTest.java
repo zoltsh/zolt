@@ -128,7 +128,7 @@ final class PublishCommandMemberCentralDryRunTest {
             String freshLockfile = Files.readString(workspaceDir.resolve("zolt.lock"));
             // Change a resolution input so the root lock no longer matches the workspace config. The
             // repository URL is declared in both files and they must agree, so both move together.
-            String changed = repository.baseUri() + "?changed=true";
+            String changed = repository.baseUri() + "./";
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "family"
@@ -194,7 +194,7 @@ final class PublishCommandMemberCentralDryRunTest {
             assertTrue(Files.exists(outsider.resolve("zolt.lock")));
 
             // Make the WORKSPACE root lock stale; the outsider's own lock is untouched by this.
-            String changed = repository.baseUri() + "?changed=true";
+            String changed = repository.baseUri() + "./";
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "family"

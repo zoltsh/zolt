@@ -56,8 +56,8 @@ final class WorkspaceIdeModelCommandTest {
                     members = ["apps/api"]
 
                     [repositories]
-                    test = "%s?changed=true"
-                    """.formatted(repository.baseUri()));
+                    test = "%s"
+                    """.formatted(repository.baseUri() + "./"));
 
             CommandResult result = execute(
                     "ide",

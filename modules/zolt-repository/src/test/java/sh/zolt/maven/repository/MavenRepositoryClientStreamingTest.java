@@ -16,6 +16,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -157,6 +160,7 @@ final class MavenRepositoryClientStreamingTest extends MavenRepositoryClientTest
             }
         });
         Path downloads = tempDir.resolve("interrupted-downloads");
+        Files.createDirectories(downloads);
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Thread download = new Thread(() -> {
             try (RepositoryArtifact ignored = clientWithLimits(16, 16).fetchJar(
@@ -171,22 +175,27 @@ final class MavenRepositoryClientStreamingTest extends MavenRepositoryClientTest
             }
         }, "interrupted-repository-download");
 
-        try {
-            download.start();
-            assertTrue(firstChunkSent.await(5, TimeUnit.SECONDS));
-            assertTrue(awaitDownloadFile(downloads));
-            download.interrupt();
-            download.join(Duration.ofSeconds(5));
-            assertFalse(download.isAlive());
-            assertNotNull(failure.get());
-            assertTrue(failure.get().getMessage().contains("Download interrupted"));
-        } finally {
-            releaseServer.countDown();
-            download.interrupt();
-            download.join(Duration.ofSeconds(5));
+        try (WatchService downloadsChanged = downloads.getFileSystem().newWatchService()) {
+            downloads.register(
+                    downloadsChanged,
+                    StandardWatchEventKinds.ENTRY_CREATE,
+                    StandardWatchEventKinds.ENTRY_DELETE);
+            try {
+                download.start();
+                assertTrue(firstChunkSent.await(5, TimeUnit.SECONDS));
+                assertTrue(awaitDownloadFile(downloads, downloadsChanged));
+                download.interrupt();
+                download.join(Duration.ofSeconds(5));
+                assertFalse(download.isAlive());
+                assertNotNull(failure.get());
+                assertTrue(failure.get().getMessage().contains("Download interrupted"));
+            } finally {
+                releaseServer.countDown();
+                download.interrupt();
+                download.join(Duration.ofSeconds(5));
+            }
+            assertTrue(awaitDownloadDirectoryEmpty(downloads, downloadsChanged));
         }
-
-        assertTrue(awaitDownloadDirectoryEmpty(downloads));
     }
 
     @Test
@@ -268,8 +277,9 @@ final class MavenRepositoryClientStreamingTest extends MavenRepositoryClientTest
         }
     }
 
-    private static boolean awaitDownloadFile(Path directory) throws Exception {
-        for (int attempt = 0; attempt < 200; attempt++) {
+    private static boolean awaitDownloadFile(Path directory, WatchService changes) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (true) {
             if (Files.isDirectory(directory)) {
                 try (var files = Files.list(directory)) {
                     if (files.findAny().isPresent()) {
@@ -277,19 +287,35 @@ final class MavenRepositoryClientStreamingTest extends MavenRepositoryClientTest
                     }
                 }
             }
-            Thread.sleep(10);
+            if (!awaitChange(changes, deadline)) {
+                return false;
+            }
         }
-        return false;
     }
 
-    private static boolean awaitDownloadDirectoryEmpty(Path directory) throws Exception {
-        for (int attempt = 0; attempt < 200; attempt++) {
+    private static boolean awaitDownloadDirectoryEmpty(Path directory, WatchService changes) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (true) {
             if (downloadDirectoryEmpty(directory)) {
                 return true;
             }
-            Thread.sleep(10);
+            if (!awaitChange(changes, deadline)) {
+                return false;
+            }
         }
-        return false;
+    }
+
+    private static boolean awaitChange(WatchService changes, long deadline) throws InterruptedException {
+        long remaining = deadline - System.nanoTime();
+        if (remaining <= 0L) {
+            return false;
+        }
+        WatchKey key = changes.poll(remaining, TimeUnit.NANOSECONDS);
+        if (key == null) {
+            return false;
+        }
+        key.pollEvents();
+        return key.reset();
     }
 
     private static void assertDownloadDirectoryEmpty(Path directory) throws Exception {
