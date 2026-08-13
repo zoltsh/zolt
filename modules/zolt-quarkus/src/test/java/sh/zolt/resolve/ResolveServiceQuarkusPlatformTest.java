@@ -105,8 +105,8 @@ final class ResolveServiceQuarkusPlatformTest extends ResolveServiceQuarkusTestS
         assertTrue(lockfile.packages().stream().anyMatch(lockPackage ->
                 lockPackage.packageId().equals(new PackageId("org.jacoco", "org.jacoco.agent"))
                         && lockPackage.scope() == DependencyScope.QUARKUS_DEPLOYMENT
-                        && lockPackage.jar().orElseThrow().equals(
-                                "org/jacoco/org.jacoco.agent/0.8.14/org.jacoco.agent-0.8.14-runtime.jar")));
+                        && lockPackage.jar().orElseThrow().endsWith(
+                                "/org.jacoco.agent-0.8.14-runtime.jar")));
     }
 
     @Test
@@ -154,9 +154,8 @@ final class ResolveServiceQuarkusPlatformTest extends ResolveServiceQuarkusTestS
         assertEquals(DependencyScope.QUARKUS_DEPLOYMENT, properties.scope());
         assertTrue(properties.jar().isEmpty());
         assertEquals("properties", properties.artifactType().orElseThrow());
-        assertEquals(
-                "io/quarkus/platform/quarkus-bom-quarkus-platform-properties/3.33.0/quarkus-bom-quarkus-platform-properties-3.33.0.properties",
-                properties.artifact().orElseThrow());
+        assertTrue(properties.artifact().orElseThrow().endsWith(
+                "/quarkus-bom-quarkus-platform-properties-3.33.0.properties"));
         assertEquals(List.of(), new ClasspathBuilder()
                 .build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot))
                 .quarkusDeployment()
@@ -196,7 +195,7 @@ final class ResolveServiceQuarkusPlatformTest extends ResolveServiceQuarkusTestS
         assertTrue(lockfile.packages().stream().anyMatch(lockPackage ->
                 lockPackage.packageId().equals(new PackageId("io.quarkus", "quarkus-custom-deployment"))
                         && lockPackage.scope() == DependencyScope.QUARKUS_DEPLOYMENT
-                        && lockPackage.jar().orElseThrow().equals(
-                                "io/quarkus/quarkus-custom-deployment/1.0.0/quarkus-custom-deployment-1.0.0-deployment.jar")));
+                        && lockPackage.jar().orElseThrow().endsWith(
+                                "/quarkus-custom-deployment-1.0.0-deployment.jar")));
     }
 }

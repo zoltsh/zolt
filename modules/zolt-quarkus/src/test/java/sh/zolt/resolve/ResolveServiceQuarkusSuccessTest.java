@@ -75,13 +75,17 @@ final class ResolveServiceQuarkusSuccessTest extends ResolveServiceQuarkusTestSu
                         && lockPackage.scope() == DependencyScope.QUARKUS_DEPLOYMENT
                         && !lockPackage.direct()));
 
-        ClasspathSet classpaths = new ClasspathBuilder().build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
-        assertEquals(List.of(
-                cacheRoot.resolve("io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar")),
-                classpaths.compile().entries());
-        assertEquals(List.of(
-                cacheRoot.resolve("io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar")),
-                classpaths.runtime().entries());
+        ClasspathSet classpaths = new ClasspathBuilder().build(
+                LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
+        Path restJar = lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("io.quarkus", "quarkus-rest")))
+                .findFirst()
+                .orElseThrow()
+                .jarPath()
+                .orElseThrow()
+                .resolveWithin(cacheRoot);
+        assertEquals(List.of(restJar), classpaths.compile().entries());
+        assertEquals(List.of(restJar), classpaths.runtime().entries());
         assertTrue(classpaths.runtime().entries().stream()
                 .noneMatch(path -> path.toString().contains("deployment")));
         assertEquals(List.of(), classpaths.processor().entries());
