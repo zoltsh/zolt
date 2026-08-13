@@ -43,8 +43,8 @@ final class RepositoryScopedArtifactCacheTest {
         assertEquals("private", privateArtifact.source());
         assertEquals("public", publicArtifact.source());
         assertNotEquals(privateArtifact.repositoryPath(), publicArtifact.repositoryPath());
-        assertArrayEquals(bytes("private bytes"), privateArtifact.bytes());
-        assertArrayEquals(bytes("public bytes"), publicArtifact.bytes());
+        assertArrayEquals(bytes("private bytes"), cachedBytes(privateArtifact));
+        assertArrayEquals(bytes("public bytes"), cachedBytes(publicArtifact));
         assertTrue(privateArtifact.repositoryPath().startsWith("blobs/v2/sha256/"));
         assertEquals("lib-1.0.0.jar", privateArtifact.cachePath().getFileName().toString());
 
@@ -57,7 +57,7 @@ final class RepositoryScopedArtifactCacheTest {
 
         assertEquals(0, unexpectedFetches.get());
         assertEquals("private", cached.source());
-        assertArrayEquals(privateArtifact.bytes(), cached.bytes());
+        assertArrayEquals(cachedBytes(privateArtifact), cachedBytes(cached));
     }
 
     @Test
@@ -78,7 +78,7 @@ final class RepositoryScopedArtifactCacheTest {
 
         assertEquals(1, fetches.get());
         assertEquals("private", artifact.source());
-        assertArrayEquals(bytes("trusted bytes"), artifact.bytes());
+        assertArrayEquals(bytes("trusted bytes"), cachedBytes(artifact));
         assertArrayEquals(bytes("legacy bytes"), Files.readAllBytes(legacy));
     }
 
@@ -95,7 +95,7 @@ final class RepositoryScopedArtifactCacheTest {
 
         assertEquals(online.repositoryPath(), offline.repositoryPath());
         assertEquals("private", offline.source());
-        assertArrayEquals(online.bytes(), offline.bytes());
+        assertArrayEquals(cachedBytes(online), cachedBytes(offline));
     }
 
     @Test
@@ -121,7 +121,7 @@ final class RepositoryScopedArtifactCacheTest {
         });
 
         assertEquals(1, fetches.get());
-        assertArrayEquals(bytes("trusted bytes"), repaired.bytes());
+        assertArrayEquals(bytes("trusted bytes"), cachedBytes(repaired));
         assertArrayEquals(bytes("trusted bytes"), Files.readAllBytes(repaired.cachePath()));
     }
 
@@ -136,5 +136,13 @@ final class RepositoryScopedArtifactCacheTest {
 
     private static byte[] bytes(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] cachedBytes(CachedArtifact artifact) {
+        try {
+            return Files.readAllBytes(artifact.cachePath());
+        } catch (java.io.IOException exception) {
+            throw new AssertionError(exception);
+        }
     }
 }

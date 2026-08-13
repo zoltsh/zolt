@@ -3,6 +3,7 @@ package sh.zolt.maven.repository;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.maven.repository.RepositoryArtifactTestSupport.artifactBytes;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import sh.zolt.maven.Coordinate;
@@ -95,7 +96,7 @@ final class MavenRepositoryClientHttpBehaviorTest extends MavenRepositoryClientT
         RepositoryArtifact artifact = retryingClient.fetchPom(flakyBaseUri, coordinate);
 
         assertEquals(2, attempts.get());
-        assertTrue(new String(artifact.bytes(), StandardCharsets.UTF_8).contains("<project/>"));
+        assertTrue(new String(artifactBytes(artifact), StandardCharsets.UTF_8).contains("<project/>"));
     }
 
     @Test
@@ -159,7 +160,7 @@ final class MavenRepositoryClientHttpBehaviorTest extends MavenRepositoryClientT
                 Optional.of(new RepositoryAuthentication("zolt-user", "zolt-secret")));
 
         assertEquals(1, attempts.get());
-        assertTrue(new String(artifact.bytes(), StandardCharsets.UTF_8).contains("<project/>"));
+        assertTrue(new String(artifactBytes(artifact), StandardCharsets.UTF_8).contains("<project/>"));
     }
 
     @Test
@@ -182,7 +183,7 @@ final class MavenRepositoryClientHttpBehaviorTest extends MavenRepositoryClientT
                 Optional.of(RepositoryAuthentication.bearer("pat-token")));
 
         assertEquals(1, attempts.get());
-        assertTrue(new String(artifact.bytes(), StandardCharsets.UTF_8).contains("<project/>"));
+        assertTrue(new String(artifactBytes(artifact), StandardCharsets.UTF_8).contains("<project/>"));
     }
 
     @Test

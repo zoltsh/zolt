@@ -196,19 +196,40 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
         return artifactMaterializer.getPom(coordinate, this::fetchPom, metricsCollector);
     }
 
-    private sh.zolt.maven.repository.RepositoryArtifact fetchPom(Coordinate coordinate) {
+    private sh.zolt.maven.repository.RepositoryArtifact fetchPom(
+            Coordinate coordinate,
+            Path downloadDirectory) {
         return fetchFromRepositories(access ->
-                repositoryClient.fetchPom(access.uri(), coordinate, access.authentication(), downloadProgressListener));
+                repositoryClient.fetchPom(
+                        access.uri(),
+                        coordinate,
+                        access.authentication(),
+                        downloadProgressListener,
+                        downloadDirectory));
     }
 
-    private sh.zolt.maven.repository.RepositoryArtifact fetchJar(Coordinate coordinate) {
+    private sh.zolt.maven.repository.RepositoryArtifact fetchJar(
+            Coordinate coordinate,
+            Path downloadDirectory) {
         return fetchFromRepositories(access ->
-                repositoryClient.fetchJar(access.uri(), coordinate, access.authentication(), downloadProgressListener));
+                repositoryClient.fetchJar(
+                        access.uri(),
+                        coordinate,
+                        access.authentication(),
+                        downloadProgressListener,
+                        downloadDirectory));
     }
 
-    private sh.zolt.maven.repository.RepositoryArtifact fetchArtifact(ArtifactDescriptor descriptor) {
+    private sh.zolt.maven.repository.RepositoryArtifact fetchArtifact(
+            ArtifactDescriptor descriptor,
+            Path downloadDirectory) {
         return fetchFromRepositories(access ->
-                repositoryClient.fetchArtifact(access.uri(), descriptor, access.authentication(), downloadProgressListener));
+                repositoryClient.fetchArtifact(
+                        access.uri(),
+                        descriptor,
+                        access.authentication(),
+                        downloadProgressListener,
+                        downloadDirectory));
     }
 
     private sh.zolt.maven.repository.RepositoryArtifact fetchFromRepositories(RepositoryFetchAction action) {

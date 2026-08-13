@@ -3,6 +3,7 @@ package sh.zolt.maven.repository;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static sh.zolt.maven.repository.RepositoryArtifactTestSupport.artifactBytes;
 
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
@@ -24,7 +25,7 @@ final class MavenRepositoryClientTest extends MavenRepositoryClientTestSupport {
         assertEquals(
                 baseUri.resolve("com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.pom"),
                 artifact.source());
-        assertArrayEquals("<project/>".getBytes(java.nio.charset.StandardCharsets.UTF_8), artifact.bytes());
+        assertArrayEquals("<project/>".getBytes(java.nio.charset.StandardCharsets.UTF_8), artifactBytes(artifact));
     }
 
     @Test
@@ -35,7 +36,7 @@ final class MavenRepositoryClientTest extends MavenRepositoryClientTestSupport {
 
         RepositoryArtifact artifact = client.fetchJar(baseUri, coordinate);
 
-        assertArrayEquals(jarBytes, artifact.bytes());
+        assertArrayEquals(jarBytes, artifactBytes(artifact));
     }
 
     @Test
@@ -53,7 +54,7 @@ final class MavenRepositoryClientTest extends MavenRepositoryClientTestSupport {
                 (artifactDescriptor, received, total) ->
                         events.add(new ByteEvent(artifactDescriptor, received, total)));
 
-        assertArrayEquals(jarBytes, artifact.bytes());
+        assertArrayEquals(jarBytes, artifactBytes(artifact));
         assertFalse(events.isEmpty(), "known Content-Length should emit byte progress");
         assertEquals(new ByteEvent(descriptor, jarBytes.length, jarBytes.length), events.get(events.size() - 1));
     }
@@ -73,7 +74,7 @@ final class MavenRepositoryClientTest extends MavenRepositoryClientTestSupport {
         assertEquals(
                 "io/quarkus/quarkus-custom-deployment/1.0.0/quarkus-custom-deployment-1.0.0-deployment.jar",
                 artifact.path());
-        assertArrayEquals(jarBytes, artifact.bytes());
+        assertArrayEquals(jarBytes, artifactBytes(artifact));
     }
 
     private record ByteEvent(ArtifactDescriptor descriptor, long received, long total) {

@@ -10,7 +10,11 @@ import sh.zolt.maven.repository.RawPom;
 import sh.zolt.maven.repository.RawPomParser;
 import sh.zolt.resolve.metrics.RawPomLoadMetricsSink;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -19,11 +23,15 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class RawPomMetadataLoaderTest {
     private static final Coordinate APP = new Coordinate("com.example", "app", Optional.of("1.0.0"));
 
     private final RawPomMetadataLoader loader = new RawPomMetadataLoader(new RawPomParser());
+
+    @TempDir
+    private Path tempDir;
 
     @Test
     void parsesAndCachesRawPomByCoordinate() {
@@ -109,7 +117,7 @@ final class RawPomMetadataLoaderTest {
         }
     }
 
-    private static CachedArtifact cachedPom(Coordinate coordinate, String artifactId) {
+    private CachedArtifact cachedPom(Coordinate coordinate, String artifactId) {
         String xml = artifactId.startsWith("<")
                 ? artifactId
                 : """
@@ -123,11 +131,28 @@ final class RawPomMetadataLoaderTest {
                         coordinate.groupId(),
                         artifactId,
                         coordinate.version().orElseThrow());
+        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+        Path path = tempDir.resolve("app-1.0.0.pom");
+        try {
+            Files.write(path, bytes);
+        } catch (java.io.IOException exception) {
+            throw new AssertionError(exception);
+        }
         return new CachedArtifact(
                 coordinate,
                 "com/example/app/1.0.0/app-1.0.0.pom",
-                Path.of("app-1.0.0.pom"),
-                xml.getBytes(StandardCharsets.UTF_8));
+                path,
+                bytes.length,
+                sha256(bytes),
+                "test");
+    }
+
+    private static String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new AssertionError(exception);
+        }
     }
 
     private static final class RecordingMetrics implements RawPomLoadMetricsSink {

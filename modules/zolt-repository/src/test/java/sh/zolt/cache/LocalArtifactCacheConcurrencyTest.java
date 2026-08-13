@@ -54,7 +54,7 @@ final class LocalArtifactCacheConcurrencyTest {
             assertTrue(duplicateJoined.await(2, TimeUnit.SECONDS));
             release.countDown();
 
-            assertArrayEquals(first.get().bytes(), second.get().bytes());
+            assertArrayEquals(bytes(first.get()), bytes(second.get()));
             assertEquals(1, fetchCount.get());
             assertEquals("<project/>", Files.readString(cache.pomPath(coordinate)));
         }
@@ -84,7 +84,7 @@ final class LocalArtifactCacheConcurrencyTest {
                 })));
             }
             for (Future<CachedArtifact> future : futures) {
-                assertArrayEquals(jarBytes, future.get().bytes());
+                assertArrayEquals(jarBytes, bytes(future.get()));
             }
         }
 
@@ -98,6 +98,10 @@ final class LocalArtifactCacheConcurrencyTest {
                 path,
                 URI.create("https://repo.example/" + path),
                 body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private static byte[] bytes(CachedArtifact artifact) throws java.io.IOException {
+        return Files.readAllBytes(artifact.cachePath());
     }
 
     private static void await(CountDownLatch latch) {

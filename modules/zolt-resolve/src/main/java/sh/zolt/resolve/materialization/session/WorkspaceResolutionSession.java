@@ -10,9 +10,6 @@ import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.materialization.MaterializedArtifact;
 import sh.zolt.resolve.ResolveOptions;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -82,8 +79,7 @@ public final class WorkspaceResolutionSession {
     MaterializedArtifact describe(CachedArtifact artifact) {
         return new MaterializedArtifact(
                 artifact.repositoryPath(),
-                artifactDigests.computeIfAbsent(
-                        artifact.repositoryPath(), ignored -> sha256(artifact.bytes())),
+                artifactDigests.computeIfAbsent(artifact.repositoryPath(), ignored -> artifact.sha256()),
                 artifact.source());
     }
 
@@ -112,12 +108,4 @@ public final class WorkspaceResolutionSession {
         }
     }
 
-    private static String sha256(byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new ResolveException(
-                    "Could not compute artifact checksum because SHA-256 is unavailable.", exception);
-        }
-    }
 }

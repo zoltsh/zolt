@@ -42,18 +42,18 @@ final class ScopedArtifactCacheStorage {
         if (!Files.isRegularFile(blob)) {
             return Optional.empty();
         }
-        byte[] bytes = read(blob);
-        if (bytes.length == 0) {
+        long size = size(blob);
+        if (size == 0) {
             throw invalidBlob(blob, "is empty");
         }
-        if (bytes.length != entry.length()) {
-            throw invalidBlob(blob, "has length " + bytes.length + " but its index records " + entry.length());
+        if (size != entry.length()) {
+            throw invalidBlob(blob, "has length " + size + " but its index records " + entry.length());
         }
-        String actualDigest = sha256(bytes);
+        String actualDigest = sha256(blob);
         if (!actualDigest.equals(entry.sha256())) {
             throw invalidBlob(blob, "does not match its content-addressed SHA-256 path");
         }
-        return Optional.of(cached(coordinate, blob, bytes, entry.source()));
+        return Optional.of(cached(coordinate, blob, size, actualDigest, entry.source()));
     }
 
     CachedArtifact store(
@@ -61,32 +61,37 @@ final class ScopedArtifactCacheStorage {
             Coordinate coordinate,
             String mavenPath,
             RepositoryArtifact artifact) {
-        byte[] bytes = artifact.bytes();
-        if (bytes.length == 0) {
-            throw new ArtifactCacheException(
-                    "Downloaded artifact " + coordinate + " is empty. The cache was not updated.");
+        try {
+            if (artifact.size() == 0) {
+                throw new ArtifactCacheException(
+                        "Downloaded artifact " + coordinate + " is empty. The cache was not updated.");
+            }
+            String source = artifact.repositoryId().isBlank()
+                    ? artifact.source().toString()
+                    : artifact.repositoryId();
+            String digest = artifact.sha256();
+            Path blob = blobPath(digest, mavenPath);
+            moveAtomically(artifact.temporaryPath(), blob);
+            writeIndex(scope, mavenPath, new IndexEntry(digest, artifact.size(), source));
+            return cached(coordinate, blob, artifact.size(), digest, source);
+        } finally {
+            artifact.close();
         }
-        String source = artifact.repositoryId().isBlank()
-                ? artifact.source().toString()
-                : artifact.repositoryId();
-        String digest = sha256(bytes);
-        Path blob = blobPath(digest, mavenPath);
-        writeAtomically(blob, bytes);
-        writeIndex(scope, mavenPath, new IndexEntry(digest, bytes.length, source));
-        return cached(coordinate, blob, bytes, source);
     }
 
     CachedArtifact storeLocal(
             Coordinate coordinate,
             String mavenPath,
             String source,
-            byte[] bytes) {
-        if (bytes.length == 0) {
+            Path sourcePath) {
+        long sourceSize = size(sourcePath);
+        if (sourceSize == 0) {
             throw new ArtifactCacheException("Local artifact " + coordinate + " is empty.");
         }
-        Path blob = blobPath(sha256(bytes), mavenPath);
-        writeAtomically(blob, bytes);
-        return cached(coordinate, blob, bytes, source);
+        String digest = sha256(sourcePath);
+        Path blob = blobPath(digest, mavenPath);
+        copyAtomically(sourcePath, blob);
+        return cached(coordinate, blob, sourceSize, digest, source);
     }
 
     void invalidate(RepositoryCacheScope scope, String mavenPath) {
@@ -171,10 +176,15 @@ final class ScopedArtifactCacheStorage {
         }
     }
 
-    private CachedArtifact cached(Coordinate coordinate, Path blob, byte[] bytes, String source) {
+    private CachedArtifact cached(
+            Coordinate coordinate,
+            Path blob,
+            long size,
+            String sha256,
+            String source) {
         Path relative = root.toAbsolutePath().normalize().relativize(blob.toAbsolutePath().normalize());
         String repositoryPath = relative.toString().replace('\\', '/');
-        return new CachedArtifact(coordinate, repositoryPath, blob, bytes, source);
+        return new CachedArtifact(coordinate, repositoryPath, blob, size, sha256, source);
     }
 
     private static String value(String line, String key, Path path) {
@@ -195,21 +205,66 @@ final class ScopedArtifactCacheStorage {
                 "Cached artifact at " + path + " " + detail + ". Delete it and run the command again.");
     }
 
-    private static byte[] read(Path path) {
+    private static long size(Path path) {
         try {
-            return Files.readAllBytes(path);
+            return Files.size(path);
         } catch (IOException exception) {
             throw new ArtifactCacheException(
-                    "Could not read cached artifact at " + path + ". Check filesystem permissions.",
+                    "Could not inspect cached artifact at " + path + ". Check filesystem permissions.",
                     exception);
         }
     }
 
-    private static String sha256(byte[] bytes) {
+    private static String sha256(Path path) {
+        try (var input = Files.newInputStream(path)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (IOException | NoSuchAlgorithmException exception) {
+            throw new ArtifactCacheException("Could not hash cached artifact at " + path + ".", exception);
+        }
+    }
+
+    private static void moveAtomically(Path source, Path path) {
+        Path directory = path.getParent();
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new ArtifactCacheException("Could not cache artifact because SHA-256 is unavailable.", exception);
+            Files.createDirectories(directory);
+            Files.move(source, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException exception) {
+            try {
+                Files.deleteIfExists(source);
+            } catch (IOException ignored) {
+            }
+            throw new ArtifactCacheException(
+                    "Could not move downloaded artifact into cache at " + path + ".",
+                    exception);
+        }
+    }
+
+    private static void copyAtomically(Path source, Path path) {
+        Path directory = path.getParent();
+        try {
+            Files.createDirectories(directory);
+            Path temporary = Files.createTempFile(directory, path.getFileName().toString(), ".tmp");
+            try {
+                Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
+                try (var channel = java.nio.channels.FileChannel.open(
+                        temporary, java.nio.file.StandardOpenOption.WRITE)) {
+                    channel.force(true);
+                }
+                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException exception) {
+                Files.deleteIfExists(temporary);
+                throw exception;
+            }
+        } catch (IOException exception) {
+            throw new ArtifactCacheException(
+                    "Could not write cached artifact at " + path + ". Check filesystem permissions.",
+                    exception);
         }
     }
 

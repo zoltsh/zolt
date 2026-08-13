@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -296,9 +297,8 @@ final class MavenRepositoryClientTransportFailureTest {
                 HttpRequest request,
                 HttpResponse.BodyHandler<T> responseBodyHandler) {
             sends.incrementAndGet();
+            HttpResponse<T> response = response(request, statusCode, responseBodyHandler);
             Thread.currentThread().interrupt();
-            @SuppressWarnings("unchecked")
-            HttpResponse<T> response = (HttpResponse<T>) new StaticHttpResponse(request, statusCode);
             return response;
         }
 
@@ -315,9 +315,7 @@ final class MavenRepositoryClientTransportFailureTest {
                 HttpRequest request,
                 HttpResponse.BodyHandler<T> responseBodyHandler) {
             requestUri = request.uri();
-            @SuppressWarnings("unchecked")
-            HttpResponse<T> response = (HttpResponse<T>) new StaticHttpResponse(request, 404);
-            return response;
+            return response(request, 404, responseBodyHandler);
         }
 
         URI requestUri() {
@@ -325,22 +323,49 @@ final class MavenRepositoryClientTransportFailureTest {
         }
     }
 
-    private record StaticHttpResponse(
+    private static <T> HttpResponse<T> response(
             HttpRequest request,
-            int statusCode) implements HttpResponse<byte[]> {
-        @Override
-        public Optional<HttpResponse<byte[]>> previousResponse() {
-            return Optional.empty();
-        }
+            int statusCode,
+            HttpResponse.BodyHandler<T> responseBodyHandler) {
+        HttpResponse.BodySubscriber<T> subscriber = responseBodyHandler.apply(new StaticResponseInfo(statusCode));
+        subscriber.onSubscribe(new Flow.Subscription() {
+            @Override
+            public void request(long n) {
+            }
 
+            @Override
+            public void cancel() {
+            }
+        });
+        subscriber.onComplete();
+        T body = subscriber.getBody().toCompletableFuture().join();
+        return new StaticHttpResponse<>(request, statusCode, body);
+    }
+
+    private record StaticResponseInfo(int statusCode) implements HttpResponse.ResponseInfo {
         @Override
         public HttpHeaders headers() {
             return HttpHeaders.of(Map.of(), (name, value) -> true);
         }
 
         @Override
-        public byte[] body() {
-            return new byte[0];
+        public HttpClient.Version version() {
+            return HttpClient.Version.HTTP_1_1;
+        }
+    }
+
+    private record StaticHttpResponse<T>(
+            HttpRequest request,
+            int statusCode,
+            T body) implements HttpResponse<T> {
+        @Override
+        public Optional<HttpResponse<T>> previousResponse() {
+            return Optional.empty();
+        }
+
+        @Override
+        public HttpHeaders headers() {
+            return HttpHeaders.of(Map.of(), (name, value) -> true);
         }
 
         @Override

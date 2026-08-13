@@ -33,7 +33,7 @@ final class LocalOverlayMaterializerTest {
                 .materializePom(List.of(RepositoryOverlay.mavenLocal(mavenLocalRoot)), coordinate);
 
         assertTrue(artifact.isPresent());
-        assertArrayEquals(bytes, artifact.orElseThrow().bytes());
+        assertArrayEquals(bytes, Files.readAllBytes(artifact.orElseThrow().cachePath()));
         assertEquals("local-overlay:maven-local", artifact.orElseThrow().source());
         assertTrue(Files.isRegularFile(artifact.orElseThrow().cachePath()));
     }
@@ -49,7 +49,7 @@ final class LocalOverlayMaterializerTest {
                 .materializeArtifact(List.of(RepositoryOverlay.mavenLocal(mavenLocalRoot)), descriptor);
 
         assertTrue(artifact.isPresent());
-        assertArrayEquals(bytes, artifact.orElseThrow().bytes());
+        assertArrayEquals(bytes, Files.readAllBytes(artifact.orElseThrow().cachePath()));
         assertEquals("local-overlay:maven-local", artifact.orElseThrow().source());
         assertTrue(Files.isRegularFile(artifact.orElseThrow().cachePath()));
     }

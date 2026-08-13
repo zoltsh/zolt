@@ -1,44 +1,53 @@
 package sh.zolt.maven.repository;
 
-import static sh.zolt.maven.repository.RepositoryHttpRequests.diagnosticUri;
-import static sh.zolt.maven.repository.RepositoryHttpRequests.fetchRequest;
-import static sh.zolt.maven.repository.RepositoryHttpRequests.uploadRequest;
-
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.net.NetworkTransport;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
 public final class MavenRepositoryClient {
-    private final HttpClient httpClient;
     private final MavenRepositoryPathBuilder pathBuilder;
-    private final RepositoryHttpPolicy httpPolicy;
+    private final RepositoryDownloadLimits downloadLimits;
+    private final RepositoryArtifactDownloader downloader;
+    private final RepositoryArtifactUploader uploader;
 
     public MavenRepositoryClient() {
         this(NetworkTransport.fromEnvironment());
     }
 
     public MavenRepositoryClient(NetworkTransport transport) {
-        this(transport.newHttpClient(), new MavenRepositoryPathBuilder(), RepositoryHttpPolicy.defaults());
+        this(
+                transport.newHttpClient(),
+                new MavenRepositoryPathBuilder(),
+                RepositoryHttpPolicy.defaults(),
+                RepositoryDownloadLimits.defaults());
     }
 
     MavenRepositoryClient(HttpClient httpClient, MavenRepositoryPathBuilder pathBuilder) {
-        this(httpClient, pathBuilder, RepositoryHttpPolicy.defaults());
+        this(httpClient, pathBuilder, RepositoryHttpPolicy.defaults(), RepositoryDownloadLimits.defaults());
     }
 
     MavenRepositoryClient(
             HttpClient httpClient,
             MavenRepositoryPathBuilder pathBuilder,
             RepositoryHttpPolicy httpPolicy) {
-        this.httpClient = httpClient;
+        this(httpClient, pathBuilder, httpPolicy, RepositoryDownloadLimits.defaults());
+    }
+
+    MavenRepositoryClient(
+            HttpClient httpClient,
+            MavenRepositoryPathBuilder pathBuilder,
+            RepositoryHttpPolicy httpPolicy,
+            RepositoryDownloadLimits downloadLimits) {
         this.pathBuilder = pathBuilder;
-        this.httpPolicy = httpPolicy;
+        this.downloadLimits = downloadLimits;
+        this.downloader = new RepositoryArtifactDownloader(httpClient, httpPolicy);
+        this.uploader = new RepositoryArtifactUploader(httpClient, httpPolicy);
     }
 
     public RepositoryArtifact fetchPom(URI repositoryBaseUri, Coordinate coordinate) {
@@ -57,12 +66,24 @@ public final class MavenRepositoryClient {
             Coordinate coordinate,
             Optional<RepositoryAuthentication> authentication,
             RepositoryDownloadListener downloadListener) {
-        return fetch(
+        return fetchPom(repositoryBaseUri, coordinate, authentication, downloadListener, defaultDownloadDirectory());
+    }
+
+    public RepositoryArtifact fetchPom(
+            URI repositoryBaseUri,
+            Coordinate coordinate,
+            Optional<RepositoryAuthentication> authentication,
+            RepositoryDownloadListener downloadListener,
+            Path downloadDirectory) {
+        return downloader.fetch(
                 repositoryBaseUri,
                 new ArtifactDescriptor(coordinate, Optional.empty(), "pom"),
                 pathBuilder.pomPath(coordinate),
                 authentication,
-                downloadListener);
+                downloadListener,
+                downloadDirectory,
+                downloadLimits.pomAndMetadataBytes(),
+                "POM");
     }
 
     public RepositoryArtifact fetchJar(URI repositoryBaseUri, Coordinate coordinate) {
@@ -84,6 +105,20 @@ public final class MavenRepositoryClient {
         return fetchArtifact(repositoryBaseUri, ArtifactDescriptor.jar(coordinate), authentication, downloadListener);
     }
 
+    public RepositoryArtifact fetchJar(
+            URI repositoryBaseUri,
+            Coordinate coordinate,
+            Optional<RepositoryAuthentication> authentication,
+            RepositoryDownloadListener downloadListener,
+            Path downloadDirectory) {
+        return fetchArtifact(
+                repositoryBaseUri,
+                ArtifactDescriptor.jar(coordinate),
+                authentication,
+                downloadListener,
+                downloadDirectory);
+    }
+
     public RepositoryArtifact fetchArtifact(URI repositoryBaseUri, ArtifactDescriptor descriptor) {
         return fetchArtifact(repositoryBaseUri, descriptor, RepositoryAuthentication.none());
     }
@@ -100,12 +135,29 @@ public final class MavenRepositoryClient {
             ArtifactDescriptor descriptor,
             Optional<RepositoryAuthentication> authentication,
             RepositoryDownloadListener downloadListener) {
-        return fetch(
+        return fetchArtifact(
+                repositoryBaseUri,
+                descriptor,
+                authentication,
+                downloadListener,
+                defaultDownloadDirectory());
+    }
+
+    public RepositoryArtifact fetchArtifact(
+            URI repositoryBaseUri,
+            ArtifactDescriptor descriptor,
+            Optional<RepositoryAuthentication> authentication,
+            RepositoryDownloadListener downloadListener,
+            Path downloadDirectory) {
+        return downloader.fetch(
                 repositoryBaseUri,
                 descriptor,
                 pathBuilder.artifactPath(descriptor),
                 authentication,
-                downloadListener);
+                downloadListener,
+                downloadDirectory,
+                downloadLimits.artifactBytes(),
+                "artifact");
     }
 
     /**
@@ -121,13 +173,19 @@ public final class MavenRepositoryClient {
         Coordinate coordinate = new Coordinate(groupId, artifactId, Optional.empty());
         ArtifactDescriptor descriptor = new ArtifactDescriptor(coordinate, Optional.empty(), "xml");
         try {
-            RepositoryArtifact artifact = fetch(
+            try (RepositoryArtifact artifact = downloader.fetch(
                     repositoryBaseUri,
                     descriptor,
                     pathBuilder.metadataPath(groupId, artifactId),
                     authentication,
-                    RepositoryDownloadListener.NOOP);
-            return Optional.of(artifact.bytes());
+                    RepositoryDownloadListener.NOOP,
+                    defaultDownloadDirectory(),
+                    downloadLimits.pomAndMetadataBytes(),
+                    "metadata")) {
+                return Optional.of(Files.readAllBytes(artifact.temporaryPath()));
+            } catch (IOException exception) {
+                throw new RepositoryClientException("Could not read downloaded repository metadata.", exception);
+            }
         } catch (RepositoryMissingArtifactException exception) {
             return Optional.empty();
         }
@@ -147,9 +205,19 @@ public final class MavenRepositoryClient {
         ArtifactDescriptor descriptor =
                 new ArtifactDescriptor(new Coordinate("repository", "file", Optional.empty()), Optional.empty(), "bin");
         try {
-            RepositoryArtifact artifact = fetch(
-                    repositoryBaseUri, descriptor, repositoryPath, authentication, RepositoryDownloadListener.NOOP);
-            return Optional.of(artifact.bytes());
+            try (RepositoryArtifact artifact = downloader.fetch(
+                    repositoryBaseUri,
+                    descriptor,
+                    repositoryPath,
+                    authentication,
+                    RepositoryDownloadListener.NOOP,
+                    defaultDownloadDirectory(),
+                    downloadLimits.repositoryFileBytes(),
+                    "repository file")) {
+                return Optional.of(Files.readAllBytes(artifact.temporaryPath()));
+            } catch (IOException exception) {
+                throw new RepositoryClientException("Could not read downloaded repository file.", exception);
+            }
         } catch (RepositoryMissingArtifactException exception) {
             return Optional.empty();
         }
@@ -164,7 +232,12 @@ public final class MavenRepositoryClient {
             Coordinate coordinate,
             Path source,
             Optional<RepositoryAuthentication> authentication) {
-        upload(repositoryBaseUri, coordinate, pathBuilder.pomPath(coordinate), source, authentication);
+        uploader.upload(
+                repositoryBaseUri,
+                coordinate.toString(),
+                pathBuilder.pomPath(coordinate),
+                source,
+                authentication);
     }
 
     public void uploadArtifact(URI repositoryBaseUri, ArtifactDescriptor descriptor, Path source) {
@@ -176,7 +249,12 @@ public final class MavenRepositoryClient {
             ArtifactDescriptor descriptor,
             Path source,
             Optional<RepositoryAuthentication> authentication) {
-        upload(repositoryBaseUri, descriptor.coordinate(), pathBuilder.artifactPath(descriptor), source, authentication);
+        uploader.upload(
+                repositoryBaseUri,
+                descriptor.coordinate().toString(),
+                pathBuilder.artifactPath(descriptor),
+                source,
+                authentication);
     }
 
     /**
@@ -189,155 +267,11 @@ public final class MavenRepositoryClient {
             String repositoryPath,
             Path source,
             Optional<RepositoryAuthentication> authentication) {
-        send(repositoryBaseUri, repositoryPath, repositoryPath, source, authentication);
+        uploader.upload(repositoryBaseUri, repositoryPath, repositoryPath, source, authentication);
     }
 
-    private RepositoryArtifact fetch(
-            URI repositoryBaseUri,
-            ArtifactDescriptor descriptor,
-            String path,
-            Optional<RepositoryAuthentication> authentication,
-            RepositoryDownloadListener downloadListener) {
-        Coordinate coordinate = descriptor.coordinate();
-        URI artifactUri = RepositoryArtifactUri.resolve(repositoryBaseUri, path);
-        HttpRequest request = fetchRequest(artifactUri, authentication, httpPolicy);
-
-        IOException lastIoException = null;
-        for (int attempt = 1; attempt <= httpPolicy.maxAttempts(); attempt++) {
-            HttpResponse<byte[]> response;
-            try {
-                response = httpClient.send(request, new CountingByteArrayBodyHandler(descriptor, downloadListener));
-            } catch (IOException exception) {
-                lastIoException = exception;
-                if (!hasAttemptsRemaining(attempt)) {
-                    throw RepositoryTransferErrors.download(coordinate.toString(), artifactUri, attempt, exception);
-                }
-                sleepBeforeRetry(coordinate.toString(), artifactUri, attempt);
-                continue;
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                throw new RepositoryClientException(
-                        "Download interrupted while fetching "
-                                + coordinate
-                                + " from "
-                                + diagnosticUri(artifactUri)
-                                + ". Try again.",
-                        exception);
-            }
-
-            if (response.statusCode() == 404) {
-                throw new RepositoryMissingArtifactException(
-                        "Could not find " + coordinate + " at " + diagnosticUri(artifactUri) + ".");
-            }
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                return new RepositoryArtifact(coordinate, path, artifactUri, response.body());
-            }
-            if (!transientStatus(response.statusCode()) || !hasAttemptsRemaining(attempt)) {
-                throw RepositoryTransferErrors.status(coordinate.toString(), artifactUri, response.statusCode(), attempt);
-            }
-            sleepBeforeRetry(coordinate.toString(), artifactUri, attempt);
-        }
-
-        throw RepositoryTransferErrors.download(coordinate.toString(), artifactUri, httpPolicy.maxAttempts(), lastIoException);
-    }
-
-    private void upload(
-            URI repositoryBaseUri,
-            Coordinate coordinate,
-            String path,
-            Path source,
-            Optional<RepositoryAuthentication> authentication) {
-        send(repositoryBaseUri, coordinate.toString(), path, source, authentication);
-    }
-
-    private void send(
-            URI repositoryBaseUri,
-            String subject,
-            String path,
-            Path source,
-            Optional<RepositoryAuthentication> authentication) {
-        URI artifactUri = RepositoryArtifactUri.resolve(repositoryBaseUri, path);
-        HttpRequest.BodyPublisher bodyPublisher;
-        try {
-            bodyPublisher = HttpRequest.BodyPublishers.ofFile(source);
-        } catch (IOException exception) {
-            throw new RepositoryClientException(
-                    "Could not read upload source for "
-                            + subject
-                            + " at "
-                            + source
-                            + ". Check that the file exists and is readable.",
-                    exception);
-        }
-        HttpRequest request = uploadRequest(artifactUri, bodyPublisher, authentication, httpPolicy);
-
-        IOException lastIoException = null;
-        for (int attempt = 1; attempt <= httpPolicy.maxAttempts(); attempt++) {
-            HttpResponse<byte[]> response;
-            try {
-                response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
-            } catch (IOException exception) {
-                lastIoException = exception;
-                if (!hasAttemptsRemaining(attempt)) {
-                    throw RepositoryTransferErrors.upload(subject, artifactUri, attempt, exception);
-                }
-                sleepBeforeRetry("uploading", subject, artifactUri, attempt);
-                continue;
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                throw new RepositoryClientException(
-                        "Upload interrupted while publishing "
-                                + subject
-                                + " to "
-                                + diagnosticUri(artifactUri)
-                                + ". Try again.",
-                        exception);
-            }
-
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                return;
-            }
-            if (!transientStatus(response.statusCode()) || !hasAttemptsRemaining(attempt)) {
-                throw RepositoryTransferErrors.status("uploading", subject, artifactUri, response.statusCode(), attempt);
-            }
-            sleepBeforeRetry("uploading", subject, artifactUri, attempt);
-        }
-
-        throw RepositoryTransferErrors.upload(subject, artifactUri, httpPolicy.maxAttempts(), lastIoException);
-    }
-
-    private boolean hasAttemptsRemaining(int attempt) {
-        return attempt < httpPolicy.maxAttempts();
-    }
-
-    private static boolean transientStatus(int statusCode) {
-        return statusCode == 429 || (statusCode >= 500 && statusCode <= 599);
-    }
-
-    private void sleepBeforeRetry(String subject, URI artifactUri, int attempt) {
-        sleepBeforeRetry("fetching", subject, artifactUri, attempt);
-    }
-
-    private void sleepBeforeRetry(String operation, String subject, URI artifactUri, int attempt) {
-        if (httpPolicy.retryBackoff().isZero()) {
-            return;
-        }
-        try {
-            Thread.sleep(httpPolicy.retryBackoff().toMillis());
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new RepositoryClientException(
-                    "Repository request interrupted while retrying "
-                            + operation
-                            + " "
-                            + subject
-                            + " from "
-                            + diagnosticUri(artifactUri)
-                            + " after attempt "
-                            + attempt
-                            + ". Try again.",
-                    exception);
-        }
+    private static Path defaultDownloadDirectory() {
+        return Path.of(System.getProperty("java.io.tmpdir"), "zolt-repository-downloads");
     }
 
 }

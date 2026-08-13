@@ -2,6 +2,7 @@ package sh.zolt.maven.repository;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.maven.repository.RepositoryArtifactTestSupport.artifactBytes;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.sun.net.httpserver.HttpsConfigurator;
@@ -46,7 +47,7 @@ final class MavenRepositoryClientCustomCaTest {
 
         RepositoryArtifact artifact = client.fetchPom(baseUri, coordinate);
 
-        assertTrue(new String(artifact.bytes(), StandardCharsets.UTF_8).contains("<project/>"));
+        assertTrue(new String(artifactBytes(artifact), StandardCharsets.UTF_8).contains("<project/>"));
     }
 
     @Test

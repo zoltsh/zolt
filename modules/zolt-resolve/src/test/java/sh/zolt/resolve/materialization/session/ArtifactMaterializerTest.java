@@ -15,6 +15,8 @@ import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.metrics.ArtifactLoadMetricsSink;
 import sh.zolt.resolve.progress.ArtifactProgressListener;
 import java.net.URI;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -30,7 +32,7 @@ final class ArtifactMaterializerTest {
     private Path tempDir;
 
     @Test
-    void downloadsMissingJarThenReusesCachedJar() {
+    void downloadsMissingJarThenReusesCachedJar() throws IOException {
         RecordingArtifactProgressListener listener = new RecordingArtifactProgressListener();
         ArtifactMaterializer materializer =
                 materializer(ResolveOptions.defaults().withArtifactProgressListener(listener));
@@ -38,17 +40,17 @@ final class ArtifactMaterializerTest {
         AtomicInteger fetches = new AtomicInteger();
         ArtifactDescriptor descriptor = ArtifactDescriptor.jar(APP);
 
-        CachedArtifact first = materializer.getJar(APP, coordinate -> {
+        CachedArtifact first = materializer.getJar(APP, (coordinate, ignored) -> {
             fetches.incrementAndGet();
             return artifact(coordinate, "com/example/app/1.0.0/app-1.0.0.jar", new byte[] {1, 2, 3});
         }, metrics);
-        CachedArtifact second = materializer.getJar(APP, coordinate -> {
+        CachedArtifact second = materializer.getJar(APP, (coordinate, ignored) -> {
             fetches.incrementAndGet();
             return artifact(coordinate, "com/example/app/1.0.0/app-1.0.0.jar", new byte[] {4});
         }, metrics);
 
-        assertArrayEquals(new byte[] {1, 2, 3}, first.bytes());
-        assertArrayEquals(first.bytes(), second.bytes());
+        assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(first.cachePath()));
+        assertArrayEquals(Files.readAllBytes(first.cachePath()), Files.readAllBytes(second.cachePath()));
         assertEquals(1, fetches.get());
         assertEquals(1, metrics.jarDownloads);
         assertEquals(1, metrics.jarCacheHits);
@@ -60,7 +62,7 @@ final class ArtifactMaterializerTest {
     }
 
     @Test
-    void downloadsMissingPomThenReusesCachedPom() {
+    void downloadsMissingPomThenReusesCachedPom() throws IOException {
         RecordingArtifactProgressListener listener = new RecordingArtifactProgressListener();
         ArtifactMaterializer materializer =
                 materializer(ResolveOptions.defaults().withArtifactProgressListener(listener));
@@ -68,17 +70,17 @@ final class ArtifactMaterializerTest {
         AtomicInteger fetches = new AtomicInteger();
         ArtifactDescriptor descriptor = new ArtifactDescriptor(APP, Optional.empty(), "pom");
 
-        CachedArtifact first = materializer.getPom(APP, coordinate -> {
+        CachedArtifact first = materializer.getPom(APP, (coordinate, ignored) -> {
             fetches.incrementAndGet();
             return artifact(coordinate, "com/example/app/1.0.0/app-1.0.0.pom", new byte[] {1, 2});
         }, metrics);
-        CachedArtifact second = materializer.getPom(APP, coordinate -> {
+        CachedArtifact second = materializer.getPom(APP, (coordinate, ignored) -> {
             fetches.incrementAndGet();
             return artifact(coordinate, "com/example/app/1.0.0/app-1.0.0.pom", new byte[] {3});
         }, metrics);
 
-        assertArrayEquals(new byte[] {1, 2}, first.bytes());
-        assertArrayEquals(first.bytes(), second.bytes());
+        assertArrayEquals(new byte[] {1, 2}, Files.readAllBytes(first.cachePath()));
+        assertArrayEquals(Files.readAllBytes(first.cachePath()), Files.readAllBytes(second.cachePath()));
         assertEquals(1, fetches.get());
         assertEquals(1, metrics.pomDownloads);
         assertEquals(1, metrics.pomCacheHits);
@@ -90,7 +92,7 @@ final class ArtifactMaterializerTest {
     }
 
     @Test
-    void usesCachedTypedArtifactInOfflineMode() {
+    void usesCachedTypedArtifactInOfflineMode() throws IOException {
         ArtifactDescriptor descriptor = new ArtifactDescriptor(APP, Optional.empty(), "properties");
         RecordingArtifactProgressListener onlineListener = new RecordingArtifactProgressListener();
         ArtifactMaterializer online =
@@ -98,7 +100,8 @@ final class ArtifactMaterializerTest {
         RecordingMetrics metrics = new RecordingMetrics();
         online.getArtifact(
                 descriptor,
-                ignored -> artifact(APP, "com/example/app/1.0.0/app-1.0.0.properties", new byte[] {9}),
+                (ignored, downloadDirectory) ->
+                        artifact(APP, "com/example/app/1.0.0/app-1.0.0.properties", new byte[] {9}),
                 metrics);
 
         RecordingArtifactProgressListener offlineListener = new RecordingArtifactProgressListener();
@@ -106,12 +109,12 @@ final class ArtifactMaterializerTest {
                 materializer(ResolveOptions.offline(true).withArtifactProgressListener(offlineListener));
         CachedArtifact artifact = offline.getArtifact(
                 descriptor,
-                ignored -> {
+                (ignored, downloadDirectory) -> {
                     throw new AssertionError("offline materializer should not fetch");
                 },
                 metrics);
 
-        assertArrayEquals(new byte[] {9}, artifact.bytes());
+        assertArrayEquals(new byte[] {9}, Files.readAllBytes(artifact.cachePath()));
         assertEquals(1, metrics.artifactDownloads);
         assertEquals(1, metrics.artifactCacheHits);
         assertEquals(
@@ -133,7 +136,7 @@ final class ArtifactMaterializerTest {
 
         RuntimeException thrown = assertThrows(
                 RuntimeException.class,
-                () -> materializer.getJar(APP, ignored -> {
+                () -> materializer.getJar(APP, (ignored, downloadDirectory) -> {
                     throw failure;
                 }, metrics));
 
@@ -158,7 +161,7 @@ final class ArtifactMaterializerTest {
 
         AssertionError thrown = assertThrows(
                 AssertionError.class,
-                () -> materializer.getJar(APP, ignored -> {
+                () -> materializer.getJar(APP, (ignored, downloadDirectory) -> {
                     throw failure;
                 }, metrics));
 

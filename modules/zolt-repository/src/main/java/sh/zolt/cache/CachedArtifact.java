@@ -2,24 +2,23 @@ package sh.zolt.cache;
 
 import sh.zolt.maven.Coordinate;
 import java.nio.file.Path;
+import java.util.Objects;
 
+/** Immutable metadata for an artifact whose bytes live only at {@link #cachePath()}. */
 public record CachedArtifact(
         Coordinate coordinate,
         String repositoryPath,
         Path cachePath,
-        byte[] bytes,
+        long size,
+        String sha256,
         String source) {
     public CachedArtifact {
-        bytes = bytes.clone();
+        Objects.requireNonNull(coordinate, "coordinate");
+        Objects.requireNonNull(repositoryPath, "repositoryPath");
+        Objects.requireNonNull(cachePath, "cachePath");
         source = source == null ? "" : source;
-    }
-
-    public CachedArtifact(Coordinate coordinate, String repositoryPath, Path cachePath, byte[] bytes) {
-        this(coordinate, repositoryPath, cachePath, bytes, "");
-    }
-
-    @Override
-    public byte[] bytes() {
-        return bytes.clone();
+        if (size < 0 || sha256 == null || !sha256.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("Cached artifact requires a size and SHA-256 digest.");
+        }
     }
 }

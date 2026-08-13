@@ -12,7 +12,9 @@ import sh.zolt.maven.repository.RawPomDependency;
 import sh.zolt.maven.repository.RawPomExclusion;
 import sh.zolt.maven.repository.RawPomParser;
 import sh.zolt.maven.repository.RepositoryArtifact;
+import sh.zolt.maven.repository.RepositoryAuthentication;
 import sh.zolt.maven.repository.RepositoryClientException;
+import sh.zolt.maven.repository.RepositoryDownloadListener;
 import sh.zolt.maven.repository.RepositoryMissingArtifactException;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.metadata.pom.EffectivePomInheritanceBuilder;
@@ -112,17 +114,25 @@ public final class NetworkMavenExternalParentResolver implements MavenExternalPa
         CachedArtifact artifact = cache.getOrFetchPom(
                 scope,
                 coordinate,
-                requested -> fetchFromRepositories(requested, repositories));
+                (requested, downloadDirectory) -> fetchFromRepositories(
+                        requested, repositories, downloadDirectory));
         provenance.record(coordinate, artifact.source());
         return artifact;
     }
 
     private RepositoryArtifact fetchFromRepositories(
-            Coordinate coordinate, List<String> repositories) {
+            Coordinate coordinate,
+            List<String> repositories,
+            Path downloadDirectory) {
         RepositoryClientException failure = null;
         for (String repository : repositories) {
             try {
-                RepositoryArtifact artifact = repositoryClient.fetchPom(URI.create(repository), coordinate);
+                RepositoryArtifact artifact = repositoryClient.fetchPom(
+                        URI.create(repository),
+                        coordinate,
+                        RepositoryAuthentication.none(),
+                        RepositoryDownloadListener.NOOP,
+                        downloadDirectory);
                 return artifact.withRepositoryId(repository);
             } catch (RepositoryClientException exception) {
                 failure = exception;

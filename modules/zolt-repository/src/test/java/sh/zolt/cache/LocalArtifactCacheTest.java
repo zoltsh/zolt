@@ -89,7 +89,7 @@ final class LocalArtifactCacheTest {
         CachedArtifact second = cache.getOrFetchPom(coordinate, fetcher);
 
         assertEquals(1, fetchCount.get());
-        assertArrayEquals(first.bytes(), second.bytes());
+        assertArrayEquals(bytes(first), bytes(second));
         assertEquals(first.cachePath(), second.cachePath());
     }
 
@@ -113,7 +113,7 @@ final class LocalArtifactCacheTest {
         });
 
         assertEquals(1, fetchCount.get());
-        assertArrayEquals(first.bytes(), second.bytes());
+        assertArrayEquals(bytes(first), bytes(second));
     }
 
     @Test
@@ -140,7 +140,7 @@ final class LocalArtifactCacheTest {
         assertEquals(
                 tempDir.resolve("io/quarkus/quarkus-custom-deployment/1.0.0/quarkus-custom-deployment-1.0.0-deployment.jar"),
                 first.cachePath());
-        assertArrayEquals(first.bytes(), second.bytes());
+        assertArrayEquals(bytes(first), bytes(second));
     }
 
     @Test
@@ -167,7 +167,7 @@ final class LocalArtifactCacheTest {
         assertEquals(
                 "com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.jar.sha1",
                 first.repositoryPath());
-        assertArrayEquals(checksumBytes, second.bytes());
+        assertArrayEquals(checksumBytes, bytes(second));
     }
 
     @Test
@@ -180,7 +180,7 @@ final class LocalArtifactCacheTest {
         CachedArtifact artifact = cache.getCachedPom(coordinate);
 
         assertEquals(cache.pomPath(coordinate), artifact.cachePath());
-        assertArrayEquals("<project/>".getBytes(StandardCharsets.UTF_8), artifact.bytes());
+        assertArrayEquals("<project/>".getBytes(StandardCharsets.UTF_8), bytes(artifact));
     }
 
     @Test
@@ -197,7 +197,7 @@ final class LocalArtifactCacheTest {
         assertEquals(
                 "io/quarkus/quarkus-custom-deployment/1.0.0/quarkus-custom-deployment-1.0.0-deployment.jar",
                 artifact.repositoryPath());
-        assertArrayEquals(jarBytes, artifact.bytes());
+        assertArrayEquals(jarBytes, bytes(artifact));
     }
 
     @Test
@@ -226,7 +226,7 @@ final class LocalArtifactCacheTest {
         assertEquals(
                 "com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.jar",
                 artifact.repositoryPath());
-        assertArrayEquals(jarBytes, artifact.bytes());
+        assertArrayEquals(jarBytes, bytes(artifact));
     }
 
     @Test
@@ -303,7 +303,7 @@ final class LocalArtifactCacheTest {
         assertTrue(artifact.repositoryPath().endsWith("/guava-33.4.0-jre.pom"));
         assertEquals("local-overlay:local-m2", artifact.source());
         assertEquals(tempDir.resolve(artifact.repositoryPath()), artifact.cachePath());
-        assertArrayEquals("<project/>".getBytes(StandardCharsets.UTF_8), artifact.bytes());
+        assertArrayEquals("<project/>".getBytes(StandardCharsets.UTF_8), bytes(artifact));
     }
 
     @Test
@@ -338,6 +338,26 @@ final class LocalArtifactCacheTest {
         assertThrows(
                 ArtifactCacheException.class,
                 () -> cache.materializeOverlayPom(coordinate, "local", source));
+        try (var files = Files.list(outside)) {
+            assertEquals(List.of(), files.toList());
+        }
+    }
+
+    @Test
+    void downloadStagingCannotEscapeThroughSymlink() throws Exception {
+        Path cacheRoot = Files.createDirectory(tempDir.resolve("staging-cache"));
+        Path outside = Files.createDirectory(tempDir.resolve("staging-outside"));
+        try {
+            Files.createSymbolicLink(cacheRoot.resolve(".downloads"), outside);
+        } catch (UnsupportedOperationException | java.io.IOException exception) {
+            assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
+        }
+
+        ArtifactCacheException exception = assertThrows(
+                ArtifactCacheException.class,
+                () -> new LocalArtifactCache(cacheRoot));
+
+        assertTrue(exception.getMessage().contains("download staging path"));
         try (var files = Files.list(outside)) {
             assertEquals(List.of(), files.toList());
         }
@@ -396,8 +416,9 @@ final class LocalArtifactCacheTest {
                 ArtifactCacheException.class,
                 () -> cache.materializeOverlayPom(coordinate, "local-m2", directorySource));
 
-        assertTrue(exception.getMessage().contains("Could not read cached artifact at " + directorySource));
-        assertTrue(exception.getMessage().contains("Check filesystem permissions."));
+        assertTrue(exception.getMessage().contains("Local repository overlay POM"));
+        assertTrue(exception.getMessage().contains("is missing at " + directorySource));
+        assertTrue(exception.getMessage().contains("Reinstall the artifact locally or remove it"));
     }
 
     @Test
@@ -421,5 +442,13 @@ final class LocalArtifactCacheTest {
                 path,
                 URI.create("https://repo.example/" + path),
                 body.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static byte[] bytes(CachedArtifact artifact) {
+        try {
+            return Files.readAllBytes(artifact.cachePath());
+        } catch (java.io.IOException exception) {
+            throw new AssertionError(exception);
+        }
     }
 }

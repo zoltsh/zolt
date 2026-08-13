@@ -1,6 +1,7 @@
 package sh.zolt.maven.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static sh.zolt.maven.repository.RepositoryArtifactTestSupport.artifactBytes;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,7 +54,7 @@ final class MavenRepositoryClientProxyAuthTest {
         // The origin host is fictitious: the client dials the proxy and never resolves repo.example.
         RepositoryArtifact artifact = client.fetchPom(URI.create("http://repo.example/maven2/"), coordinate);
 
-        assertEquals("<project/>", new String(artifact.bytes(), StandardCharsets.UTF_8));
+        assertEquals("<project/>", new String(artifactBytes(artifact), StandardCharsets.UTF_8));
         assertFalse(proxyAuthorizationHeaders.isEmpty(), "the proxy never received a Proxy-Authorization header");
         String expected = "Basic " + Base64.getEncoder().encodeToString("alice:s3cr3t".getBytes(StandardCharsets.UTF_8));
         assertTrue(

@@ -6,6 +6,8 @@ import sh.zolt.maven.repository.RawPom;
 import sh.zolt.maven.repository.RawPomParser;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.metrics.RawPomLoadMetricsSink;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +43,7 @@ public final class RawPomMetadataLoader {
         try {
             CachedArtifact pomArtifact = pomArtifactLoader.apply(coordinate);
             long started = System.nanoTime();
-            RawPom parsed = rawPomParser.parse(pomArtifact.bytes());
+            RawPom parsed = rawPomParser.parse(readPom(pomArtifact));
             metrics.recordRawPomParse(elapsedSince(started));
             rawPoms.put(key, parsed);
             pending.complete(parsed);
@@ -80,6 +82,16 @@ public final class RawPomMetadataLoader {
                             + key
                             + ". Try again.",
                     cause);
+        }
+    }
+
+    private static byte[] readPom(CachedArtifact artifact) {
+        try {
+            return Files.readAllBytes(artifact.cachePath());
+        } catch (IOException exception) {
+            throw new ResolveException(
+                    "Could not read cached POM at " + artifact.cachePath() + ".",
+                    exception);
         }
     }
 

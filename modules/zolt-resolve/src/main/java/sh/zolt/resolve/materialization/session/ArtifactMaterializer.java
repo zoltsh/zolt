@@ -3,6 +3,7 @@ package sh.zolt.resolve.materialization.session;
 import sh.zolt.cache.CachedArtifact;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cache.RepositoryCacheScope;
+import sh.zolt.cache.StreamingArtifactFetcher;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.RepositoryArtifact;
@@ -11,7 +12,6 @@ import sh.zolt.resolve.metrics.ArtifactLoadMetricsSink;
 import sh.zolt.resolve.progress.ArtifactProgressListener;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 final class ArtifactMaterializer {
@@ -35,7 +35,7 @@ final class ArtifactMaterializer {
 
     CachedArtifact getPom(
             Coordinate coordinate,
-            Function<Coordinate, RepositoryArtifact> fetchPom,
+            StreamingArtifactFetcher fetchPom,
             ArtifactLoadMetricsSink metrics) {
         long started = System.nanoTime();
         Optional<CachedArtifact> overlayArtifact =
@@ -54,7 +54,9 @@ final class ArtifactMaterializer {
         CachedArtifact artifact = cache.getOrFetchPom(
                 cacheScope,
                 coordinate,
-                ignored -> fetchWithProgress(descriptor, () -> fetchPom.apply(coordinate)));
+                (ignored, downloadDirectory) -> fetchWithProgress(
+                        descriptor,
+                        () -> fetchPom.fetch(coordinate, downloadDirectory)));
         if (cached) {
             metrics.recordPomCacheHit(elapsedSince(started));
         } else {
@@ -65,7 +67,7 @@ final class ArtifactMaterializer {
 
     CachedArtifact getJar(
             Coordinate coordinate,
-            Function<Coordinate, RepositoryArtifact> fetchJar,
+            StreamingArtifactFetcher fetchJar,
             ArtifactLoadMetricsSink metrics) {
         long started = System.nanoTime();
         Optional<CachedArtifact> overlayArtifact =
@@ -84,7 +86,9 @@ final class ArtifactMaterializer {
         CachedArtifact artifact = cache.getOrFetchJar(
                 cacheScope,
                 coordinate,
-                ignored -> fetchWithProgress(descriptor, () -> fetchJar.apply(coordinate)));
+                (ignored, downloadDirectory) -> fetchWithProgress(
+                        descriptor,
+                        () -> fetchJar.fetch(coordinate, downloadDirectory)));
         if (cached) {
             metrics.recordJarCacheHit(elapsedSince(started));
         } else {
@@ -95,7 +99,7 @@ final class ArtifactMaterializer {
 
     CachedArtifact getArtifact(
             ArtifactDescriptor descriptor,
-            Function<ArtifactDescriptor, RepositoryArtifact> fetchArtifact,
+            java.util.function.BiFunction<ArtifactDescriptor, java.nio.file.Path, RepositoryArtifact> fetchArtifact,
             ArtifactLoadMetricsSink metrics) {
         long started = System.nanoTime();
         Optional<CachedArtifact> overlayArtifact =
@@ -114,7 +118,9 @@ final class ArtifactMaterializer {
         CachedArtifact artifact = cache.getOrFetchArtifact(
                 cacheScope,
                 descriptor,
-                ignored -> fetchWithProgress(descriptor, () -> fetchArtifact.apply(descriptor)));
+                (ignored, downloadDirectory) -> fetchWithProgress(
+                        descriptor,
+                        () -> fetchArtifact.apply(descriptor, downloadDirectory)));
         if (cached) {
             metrics.recordArtifactCacheHit(elapsedSince(started));
         } else {
@@ -129,7 +135,7 @@ final class ArtifactMaterializer {
         progressListener.onStart(descriptor);
         try {
             RepositoryArtifact artifact = fetcher.get();
-            progressListener.onComplete(descriptor, artifact.bytes().length);
+            progressListener.onComplete(descriptor, artifact.size());
             return artifact;
         } catch (RuntimeException exception) {
             progressListener.onFailure(descriptor, exception);

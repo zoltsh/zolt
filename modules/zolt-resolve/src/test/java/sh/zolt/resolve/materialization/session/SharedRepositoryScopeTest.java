@@ -12,6 +12,9 @@ import sh.zolt.resolve.materialization.MaterializedArtifact;
 import sh.zolt.resolve.metrics.ResolverMetricsCollector;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -100,10 +103,21 @@ final class SharedRepositoryScopeTest {
     }
 
     private static CachedArtifact cachedArtifact(String repositoryPath, String content) {
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         return new CachedArtifact(
                 new Coordinate("com.example", "artifact", Optional.of("1.0.0")),
                 repositoryPath,
                 Path.of(repositoryPath),
-                content.getBytes(StandardCharsets.UTF_8));
+                bytes.length,
+                sha256(bytes),
+                "test");
+    }
+
+    private static String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new AssertionError(exception);
+        }
     }
 }

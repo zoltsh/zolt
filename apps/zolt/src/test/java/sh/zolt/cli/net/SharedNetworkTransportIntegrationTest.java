@@ -107,8 +107,11 @@ final class SharedNetworkTransportIntegrationTest {
 
         // Surface 1: artifact resolution (zolt resolve / the build path).
         MavenRepositoryClient client = new MavenRepositoryClient(transport);
-        RepositoryArtifact pom = client.fetchPom(repository, coordinate());
-        assertTrue(new String(pom.bytes(), StandardCharsets.UTF_8).contains("<project"), "resolution over TLS");
+        try (RepositoryArtifact pom = client.fetchPom(repository, coordinate())) {
+            assertTrue(
+                    Files.readString(pom.temporaryPath(), StandardCharsets.UTF_8).contains("<project"),
+                    "resolution over TLS");
+        }
 
         // Surface 2: metadata discovery — the zolt outdated / zolt update path.
         RepositoryMetadataService discovery = new RepositoryMetadataService(

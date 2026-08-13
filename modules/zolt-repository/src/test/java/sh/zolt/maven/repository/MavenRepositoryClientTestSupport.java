@@ -14,6 +14,8 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +28,7 @@ abstract class MavenRepositoryClientTestSupport {
 
     protected HttpServer server;
     protected URI baseUri;
+    private ExecutorService serverExecutor;
 
     @BeforeEach
     void startServer() {
@@ -35,6 +38,8 @@ abstract class MavenRepositoryClientTestSupport {
             assumeTrue(false, "local HTTP server sockets are unavailable: " + exception.getMessage());
             return;
         }
+        serverExecutor = Executors.newCachedThreadPool();
+        server.setExecutor(serverExecutor);
         server.createContext("/", this::handle);
         server.start();
         baseUri = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/maven2/");
@@ -44,6 +49,9 @@ abstract class MavenRepositoryClientTestSupport {
     void stopServer() {
         if (server != null) {
             server.stop(0);
+        }
+        if (serverExecutor != null) {
+            serverExecutor.shutdownNow();
         }
     }
 
