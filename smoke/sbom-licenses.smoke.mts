@@ -105,7 +105,9 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     expect.value(annotated.stdout).toContain(
       "com.google.guava:guava:33.4.0-jre  [denied] denied by [dependencyPolicy.licenses].deny",
     );
-    expect.value(annotated.stdout).toMatch(/^License policy: \d+ denied, \d+ unknown of \d+ dependencies\.$/mu);
+    expect.value(annotated.stdout).toMatch(
+      /^License policy: \d+ denied, \d+ unknown of \d+ dependenc(?:y|ies)\. \d+ permitted by exception; \d+ stale exceptions?\.$/mu,
+    );
     expect.value(annotated.stdout).toContain("Next: run `zolt check --check license-policy` to enforce it.");
 
     const annotatedJson = await runZolt(t, zolt, [
@@ -136,7 +138,9 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     expect.value(failure.stdout).toContain(
       "error license-policy com.google.guava:guava:33.4.0-jre Apache-2.0 — denied by [dependencyPolicy.licenses].deny",
     );
-    expect.value(failure.stdout).toContain("add `Apache-2.0` to [dependencyPolicy.licenses].allow");
+    expect.value(failure.stdout).toContain(
+      "next: Remove com.google.guava:guava:33.4.0-jre or amend [dependencyPolicy.licenses].deny after review; an exception cannot override deny.",
+    );
 
     // The annotation claims what `zolt check --check license-policy` enforces, and that command
     // evaluates compile/runtime only. A test-scoped dependency under the same deny list is therefore
