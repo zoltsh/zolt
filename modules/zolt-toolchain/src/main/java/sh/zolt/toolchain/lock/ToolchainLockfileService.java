@@ -40,6 +40,8 @@ public final class ToolchainLockfileService {
             throw new ActionableException(
                     "Invalid Java toolchain metadata in zolt.lock.",
                     "Run `zolt toolchain sync` to rewrite Java toolchain lock metadata.");
+        } catch (IllegalArgumentException exception) {
+            throw invalidJavaArtifact(exception);
         }
     }
 
@@ -71,6 +73,8 @@ public final class ToolchainLockfileService {
             throw new ActionableException(
                     "Invalid Java toolchain metadata in zolt.lock.",
                     "Run `zolt toolchain sync` to rewrite Java toolchain lock metadata.");
+        } catch (IllegalArgumentException exception) {
+            throw invalidJavaArtifact(exception);
         }
     }
 
@@ -244,12 +248,8 @@ public final class ToolchainLockfileService {
         assignment(output, "resolved.version", locked.resolvedVersion());
         assignment(output, "resolved.distribution", locked.resolvedDistribution().id());
         assignment(output, "artifact.catalog", locked.catalog());
-        if (!locked.artifactUri().isBlank()) {
-            assignment(output, "artifact.uri", locked.artifactUri());
-        }
-        if (!locked.artifactSha256().isBlank()) {
-            assignment(output, "artifact.sha256", locked.artifactSha256());
-        }
+        assignment(output, "artifact.uri", locked.artifactUri());
+        assignment(output, "artifact.sha256", locked.artifactSha256());
         assignment(output, "layout.javaHome", locked.layout().javaHome());
         assignment(output, "layout.executables.java", locked.layout().java());
         assignment(output, "layout.executables.javac", locked.layout().javac());
@@ -259,6 +259,12 @@ public final class ToolchainLockfileService {
         }
         output.append('\n');
         return output.toString();
+    }
+
+    private static ActionableException invalidJavaArtifact(IllegalArgumentException exception) {
+        return new ActionableException(
+                "Invalid Java toolchain artifact metadata in zolt.lock: " + exception.getMessage(),
+                "Run `zolt toolchain sync --refresh` to replace legacy or unsafe Java toolchain lock metadata.");
     }
 
     private static void assignment(StringBuilder output, String key, String value) {

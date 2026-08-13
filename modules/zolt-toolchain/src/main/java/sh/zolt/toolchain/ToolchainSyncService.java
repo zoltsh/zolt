@@ -139,7 +139,7 @@ public final class ToolchainSyncService {
         requests.add(request);
         testRequest.ifPresent(requests::add);
 
-        List<LockedJavaToolchain> existingLocks = lockfiles.readJava(lockfile);
+        List<LockedJavaToolchain> existingLocks = refresh ? List.of() : lockfiles.readJava(lockfile);
         LinkedHashSet<LockedJavaToolchain> allLocks = new LinkedHashSet<>();
         LinkedHashMap<JavaToolchainRequest, List<LockedJavaToolchain>> requestLocks = new LinkedHashMap<>();
         for (JavaToolchainRequest each : requests) {

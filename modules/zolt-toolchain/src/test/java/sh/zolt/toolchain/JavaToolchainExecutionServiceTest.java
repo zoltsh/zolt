@@ -236,6 +236,8 @@ final class JavaToolchainExecutionServiceTest {
                 "21",
                 distribution,
                 "builtin:java-" + distribution.id() + "-21",
+                "https://example.test/jdk.tar.gz",
+                "0".repeat(64),
                 JavaToolchainLayout.standard(request.requiresNativeImage()));
     }
 

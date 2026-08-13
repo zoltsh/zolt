@@ -42,7 +42,7 @@ final class JavaToolchainDownloaderMirrorTest {
                 URI.create("https://github.com/adoptium/temurin21-binaries/releases/download/"
                         + "jdk-21.0.11%2B10/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.11_10.tar.gz"),
                 JavaToolchainArchiveFormat.TAR_GZ,
-                Optional.empty(),
+                Optional.of("102c477398d1ad3aac43e974ffd4c88706e5796b0a5c87df64fc7ffdd432f316"),
                 true);
         Path destination = directory.resolve("jdk.tar.gz");
 

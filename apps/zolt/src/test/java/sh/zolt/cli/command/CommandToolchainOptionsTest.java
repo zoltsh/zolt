@@ -107,6 +107,8 @@ final class CommandToolchainOptionsTest {
                 locked.resolvedVersion(),
                 locked.resolvedDistribution(),
                 "test:unrelated",
+                locked.artifactUri(),
+                locked.artifactSha256(),
                 locked.layout());
         lockfiles.writeJava(
                 tempDir.resolve("zolt.lock"),

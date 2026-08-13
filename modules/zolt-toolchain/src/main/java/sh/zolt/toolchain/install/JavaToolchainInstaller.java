@@ -34,6 +34,7 @@ public final class JavaToolchainInstaller {
             LockedJavaToolchain locked,
             JavaToolchainArtifact artifact,
             ToolchainStore store) {
+        requireLockedArtifact(locked, artifact);
         if (store.installed(locked)) {
             return false;
         }
@@ -44,7 +45,7 @@ public final class JavaToolchainInstaller {
             deleteDirectory(staging);
             Files.createDirectories(staging);
             downloader.download(artifact, archive);
-            artifact.sha256().ifPresent(expected -> JavaToolchainChecksum.verifySha256(archive, expected));
+            JavaToolchainChecksum.verifySha256(archive, locked.artifactSha256());
             extractor.extract(archive, artifact.format(), staging, artifact.stripTopLevelDirectory());
             makeExpectedToolsExecutable(locked, staging.resolve(locked.layout().javaHome()));
             if (Files.exists(installRoot)) {
@@ -66,6 +67,18 @@ public final class JavaToolchainInstaller {
                             + (locked.request().requiresNativeImage() ? ", and native-image." : "."));
         }
         return true;
+    }
+
+    private static void requireLockedArtifact(
+            LockedJavaToolchain locked,
+            JavaToolchainArtifact artifact) {
+        String artifactSha256 = artifact.sha256().orElseThrow();
+        if (!artifact.uri().toString().equals(locked.artifactUri())
+                || !artifactSha256.equalsIgnoreCase(locked.artifactSha256())) {
+            throw new ActionableException(
+                    "Java toolchain catalog artifact does not match zolt.lock.",
+                    "Run `zolt toolchain sync --refresh` to replace stale or unsafe toolchain metadata.");
+        }
     }
 
     private static void makeExpectedToolsExecutable(LockedJavaToolchain locked, Path javaHome) {

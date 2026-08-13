@@ -2,6 +2,7 @@ package sh.zolt.toolchain.install;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.URI;
 import org.junit.jupiter.api.Test;
@@ -51,5 +52,17 @@ final class ToolchainDownloadMirrorTest {
     void noneAndBlankAreIdentity() {
         assertSame(TEMURIN, ToolchainDownloadMirror.none().rewrite(TEMURIN));
         assertSame(TEMURIN, ToolchainDownloadMirror.of("   ").rewrite(TEMURIN));
+    }
+
+    @Test
+    void rejectsImplicitOrAmbiguousMirrorUris() {
+        for (String mirror : java.util.List.of(
+                "relative/mirror",
+                "ftp://mirror.example.test/jdks",
+                "https://user:secret@mirror.example.test/jdks",
+                "https://mirror.example.test/jdks?channel=test",
+                "file:///")) {
+            assertThrows(IllegalArgumentException.class, () -> ToolchainDownloadMirror.of(mirror), mirror);
+        }
     }
 }

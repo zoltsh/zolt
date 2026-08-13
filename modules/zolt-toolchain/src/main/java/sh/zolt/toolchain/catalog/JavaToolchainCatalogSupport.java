@@ -56,16 +56,10 @@ final class JavaToolchainCatalogSupport {
     }
 
     static Optional<JavaToolchainArtifact> artifact(LockedJavaToolchain locked) {
-        if (locked.artifactUri().isBlank()) {
-            return Optional.empty();
-        }
-        Optional<String> sha256 = locked.artifactSha256().isBlank()
-                ? Optional.empty()
-                : Optional.of(locked.artifactSha256());
         return Optional.of(new JavaToolchainArtifact(
                 URI.create(locked.artifactUri()),
                 archiveFormat(locked.platform()),
-                sha256,
+                Optional.of(locked.artifactSha256()),
                 true));
     }
 

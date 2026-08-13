@@ -114,6 +114,8 @@ final class NativeCommandToolchainTest {
                 "21",
                 JavaDistribution.GRAALVM_COMMUNITY,
                 "builtin:java-graalvm-community-21-native-image",
+                "https://example.test/jdk.tar.gz",
+                "0".repeat(64),
                 new JavaToolchainLayout(
                         ".",
                         "bin/java",

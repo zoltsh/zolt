@@ -215,6 +215,8 @@ final class BuildCommandToolchainTest {
                 locked.resolvedVersion(),
                 locked.resolvedDistribution(),
                 "test:unrelated",
+                locked.artifactUri(),
+                locked.artifactSha256(),
                 locked.layout());
         lockfiles.writeJava(
                 workspaceDir.resolve("zolt.lock"),

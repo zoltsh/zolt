@@ -39,6 +39,8 @@ final class WorkspaceToolchainLockIndexTest {
                 "21",
                 JavaDistribution.TEMURIN,
                 "builtin:java-temurin-21",
+                "https://example.test/jdk.tar.gz",
+                "0".repeat(64),
                 JavaToolchainLayout.standard(false));
         WorkspaceToolchainLockIndex index =
                 new WorkspaceToolchainLockIndex(java.util.List.of(locked));

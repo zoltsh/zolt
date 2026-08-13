@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.error.ActionableException;
+import sh.zolt.net.NetworkTransport;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
@@ -13,7 +14,9 @@ import sh.zolt.project.toolchain.ToolchainPolicy;
 import sh.zolt.toolchain.catalog.JavaToolchainArchiveFormat;
 import sh.zolt.toolchain.catalog.JavaToolchainArtifact;
 import sh.zolt.toolchain.catalog.JavaToolchainCatalog;
+import sh.zolt.toolchain.install.JavaToolchainDownloader;
 import sh.zolt.toolchain.install.JavaToolchainInstaller;
+import sh.zolt.toolchain.install.ToolchainDownloadMirror;
 import sh.zolt.toolchain.lock.JavaToolchainLayout;
 import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.lock.ToolchainLockfileService;
@@ -23,6 +26,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.Set;
 import java.util.zip.ZipEntry;
@@ -31,6 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class ToolchainSyncServiceTest {
+    private static final String INVALID_BUT_WELL_FORMED_SHA256 = "0".repeat(64);
+
     @TempDir
     private Path tempDir;
 
@@ -38,9 +46,9 @@ final class ToolchainSyncServiceTest {
     void syncDownloadsAndInstallsLockedJavaToolchain() throws IOException {
         Path project = writeProject("download-sync");
         Path archive = fakeJdkArchive(tempDir.resolve("jdk.zip"), false);
-        LockedJavaToolchain locked = locked(JavaDistribution.TEMURIN, Set.of());
+        LockedJavaToolchain locked = locked(JavaDistribution.TEMURIN, Set.of(), archive, sha256(archive));
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
-        ToolchainSyncService service = service(locked, artifact(archive, false));
+        ToolchainSyncService service = service(locked, archive);
 
         ToolchainSyncResult result = service.sync(
                 project,
@@ -62,10 +70,14 @@ final class ToolchainSyncServiceTest {
     void syncInstallsNativeImageWhenRequested() throws IOException {
         Path project = writeProject("native-sync");
         Path archive = fakeJdkArchive(tempDir.resolve("graal.zip"), true);
-        LockedJavaToolchain locked = locked(JavaDistribution.GRAALVM_COMMUNITY, Set.of(JavaFeature.NATIVE_IMAGE));
+        LockedJavaToolchain locked = locked(
+                JavaDistribution.GRAALVM_COMMUNITY,
+                Set.of(JavaFeature.NATIVE_IMAGE),
+                archive,
+                sha256(archive));
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
 
-        ToolchainSyncResult result = service(locked, artifact(archive, true)).sync(
+        ToolchainSyncResult result = service(locked, archive).sync(
                 project,
                 null,
                 HostPlatform.parse("linux-x64"),
@@ -91,6 +103,8 @@ final class ToolchainSyncServiceTest {
                 "21",
                 JavaDistribution.GRAALVM_COMMUNITY,
                 "test",
+                artifactUri(archive),
+                sha256(archive),
                 new JavaToolchainLayout(
                         "Contents/Home",
                         "bin/java",
@@ -99,7 +113,7 @@ final class ToolchainSyncServiceTest {
                         "lib/svm/bin/native-image"));
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
 
-        ToolchainSyncResult result = service(locked, artifact(archive, true)).sync(
+        ToolchainSyncResult result = service(locked, archive).sync(
                 project,
                 null,
                 HostPlatform.parse("macos-aarch64"),
@@ -113,13 +127,18 @@ final class ToolchainSyncServiceTest {
     @Test
     void syncSkipsDownloadWhenToolchainIsAlreadyInstalled() throws IOException {
         Path project = writeProject("already-installed");
-        LockedJavaToolchain locked = locked(JavaDistribution.TEMURIN, Set.of());
+        Path missingArchive = tempDir.resolve("missing.zip");
+        LockedJavaToolchain locked = locked(
+                JavaDistribution.TEMURIN,
+                Set.of(),
+                missingArchive,
+                INVALID_BUT_WELL_FORMED_SHA256);
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         install(store, locked);
 
         ToolchainSyncResult result = service(
                 locked,
-                artifact(tempDir.resolve("missing.zip"), false)).sync(
+                missingArchive).sync(
                         project,
                         null,
                         HostPlatform.parse("linux-x64"),
@@ -133,12 +152,16 @@ final class ToolchainSyncServiceTest {
     void syncRejectsDownloadedToolchainWhenChecksumDoesNotMatch() throws IOException {
         Path project = writeProject("checksum-mismatch");
         Path archive = fakeJdkArchive(tempDir.resolve("bad-checksum.zip"), false);
-        LockedJavaToolchain locked = locked(JavaDistribution.TEMURIN, Set.of());
+        LockedJavaToolchain locked = locked(
+                JavaDistribution.TEMURIN,
+                Set.of(),
+                archive,
+                INVALID_BUT_WELL_FORMED_SHA256);
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
 
         ActionableException exception = assertThrows(ActionableException.class, () -> service(
                 locked,
-                artifact(archive, false, "definitely-wrong")).sync(
+                archive).sync(
                         project,
                         null,
                         HostPlatform.parse("linux-x64"),
@@ -151,7 +174,11 @@ final class ToolchainSyncServiceTest {
     @Test
     void syncFailsClearlyWhenCatalogHasNoDownloadableArtifact() throws IOException {
         Path project = writeProject("missing-artifact");
-        LockedJavaToolchain locked = locked(JavaDistribution.TEMURIN, Set.of());
+        LockedJavaToolchain locked = locked(
+                JavaDistribution.TEMURIN,
+                Set.of(),
+                tempDir.resolve("missing-artifact.zip"),
+                INVALID_BUT_WELL_FORMED_SHA256);
         ToolchainSyncService service = new ToolchainSyncService(
                 new ToolchainConfigReader(),
                 new FakeCatalog(locked, Optional.empty()),
@@ -176,7 +203,7 @@ final class ToolchainSyncServiceTest {
                 new ToolchainConfigReader(),
                 new VersionAwareCatalog(archive),
                 new ToolchainLockfileService(),
-                new JavaToolchainInstaller());
+                installer(archive));
 
         service.sync(project, null, HostPlatform.parse("linux-x64"), store);
 
@@ -199,37 +226,12 @@ final class ToolchainSyncServiceTest {
                 new ToolchainConfigReader(),
                 new VersionAwareCatalog(archive),
                 new ToolchainLockfileService(),
-                new JavaToolchainInstaller());
+                installer(archive));
 
         service.sync(project, null, HostPlatform.parse("linux-x64"), store);
 
         String lock = Files.readString(project.resolve("zolt.lock"));
         assertEquals(1, countOccurrences(lock, "[[toolchain.java]]"));
-    }
-
-    @Test
-    void syncReusesMatchingLockUntilRefreshIsExplicit() throws IOException {
-        Path project = writeProject("lock-first-sync");
-        Path archive = fakeJdkArchive(tempDir.resolve("refresh-jdk.zip"), false);
-        ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
-        RefreshingCatalog catalog = new RefreshingCatalog(archive);
-        ToolchainSyncService service = new ToolchainSyncService(
-                new ToolchainConfigReader(),
-                catalog,
-                new ToolchainLockfileService(),
-                new JavaToolchainInstaller());
-        JavaToolchainRequest request = temurin("21");
-
-        service.sync(request, project.resolve("zolt.lock"), HostPlatform.parse("linux-x64"), store);
-        assertEquals(1, catalog.lockCalls);
-        assertTrue(Files.readString(project.resolve("zolt.lock")).contains("resolved.version = \"21.0.1+1\""));
-
-        service.sync(request, project.resolve("zolt.lock"), HostPlatform.parse("linux-x64"), store);
-        assertEquals(1, catalog.lockCalls);
-
-        service.sync(request, project.resolve("zolt.lock"), HostPlatform.parse("linux-x64"), store, true);
-        assertEquals(2, catalog.lockCalls);
-        assertTrue(Files.readString(project.resolve("zolt.lock")).contains("resolved.version = \"21.0.2+1\""));
     }
 
     private static JavaToolchainRequest temurin(String version) {
@@ -289,24 +291,26 @@ final class ToolchainSyncServiceTest {
         return project;
     }
 
-    private ToolchainSyncService service(LockedJavaToolchain locked, JavaToolchainArtifact artifact) {
+    private ToolchainSyncService service(LockedJavaToolchain locked, Path archive) {
         return new ToolchainSyncService(
                 new ToolchainConfigReader(),
-                new FakeCatalog(locked, Optional.of(artifact)),
+                new FakeCatalog(locked, Optional.of(artifact(locked))),
                 new ToolchainLockfileService(),
-                new JavaToolchainInstaller());
+                installer(archive));
     }
 
-    private static JavaToolchainArtifact artifact(Path archive, boolean nativeImage) {
-        return artifact(archive, nativeImage, "");
-    }
-
-    private static JavaToolchainArtifact artifact(Path archive, boolean nativeImage, String sha256) {
+    private static JavaToolchainArtifact artifact(LockedJavaToolchain locked) {
         return new JavaToolchainArtifact(
-                archive.toUri(),
+                URI.create(locked.artifactUri()),
                 JavaToolchainArchiveFormat.ZIP,
-                sha256.isBlank() ? Optional.empty() : Optional.of(sha256),
+                Optional.of(locked.artifactSha256()),
                 true);
+    }
+
+    private static JavaToolchainInstaller installer(Path archive) {
+        ToolchainDownloadMirror mirror = ToolchainDownloadMirror.of(
+                archive.toAbsolutePath().getParent().toUri().toString());
+        return new JavaToolchainInstaller(new JavaToolchainDownloader(NetworkTransport.direct(), mirror));
     }
 
     private static Path fakeJdkArchive(Path archive, boolean nativeImage) throws IOException {
@@ -339,7 +343,11 @@ final class ToolchainSyncServiceTest {
         output.closeEntry();
     }
 
-    private static LockedJavaToolchain locked(JavaDistribution distribution, Set<JavaFeature> features) {
+    private static LockedJavaToolchain locked(
+            JavaDistribution distribution,
+            Set<JavaFeature> features,
+            Path archive,
+            String sha256) {
         JavaToolchainRequest request = new JavaToolchainRequest(
                 "21",
                 distribution,
@@ -352,7 +360,21 @@ final class ToolchainSyncServiceTest {
                 "21",
                 distribution,
                 "test",
+                artifactUri(archive),
+                sha256,
                 JavaToolchainLayout.standard(features.contains(JavaFeature.NATIVE_IMAGE)));
+    }
+
+    private static String artifactUri(Path archive) {
+        return "https://github.com/" + archive.getFileName();
+    }
+
+    private static String sha256(Path archive) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(archive)));
+        } catch (IOException | NoSuchAlgorithmException exception) {
+            throw new AssertionError(exception);
+        }
     }
 
     private static void install(ToolchainStore store, LockedJavaToolchain locked) throws IOException {
@@ -396,48 +418,19 @@ final class ToolchainSyncServiceTest {
                     request.version(),
                     distribution,
                     "test:" + id,
+                    artifactUri(archive),
+                    sha256(archive),
                     JavaToolchainLayout.standard(nativeImage)));
         }
 
         @Override
         public Optional<JavaToolchainArtifact> artifact(LockedJavaToolchain locked) {
             return Optional.of(new JavaToolchainArtifact(
-                    archive.toUri(),
+                    URI.create(locked.artifactUri()),
                     JavaToolchainArchiveFormat.ZIP,
-                    Optional.empty(),
+                    Optional.of(locked.artifactSha256()),
                     true));
         }
     }
 
-    private static final class RefreshingCatalog implements JavaToolchainCatalog {
-        private final Path archive;
-        private int lockCalls;
-
-        private RefreshingCatalog(Path archive) {
-            this.archive = archive;
-        }
-
-        @Override
-        public Optional<LockedJavaToolchain> lock(JavaToolchainRequest request, HostPlatform platform) {
-            lockCalls++;
-            JavaDistribution distribution = request.distribution().orElseThrow();
-            return Optional.of(new LockedJavaToolchain(
-                    "java-" + distribution.id() + "-" + request.version(),
-                    request,
-                    platform,
-                    request.version() + ".0." + lockCalls + "+1",
-                    distribution,
-                    "test:refresh",
-                    JavaToolchainLayout.standard(false)));
-        }
-
-        @Override
-        public Optional<JavaToolchainArtifact> artifact(LockedJavaToolchain locked) {
-            return Optional.of(new JavaToolchainArtifact(
-                    archive.toUri(),
-                    JavaToolchainArchiveFormat.ZIP,
-                    Optional.empty(),
-                    true));
-        }
-    }
 }

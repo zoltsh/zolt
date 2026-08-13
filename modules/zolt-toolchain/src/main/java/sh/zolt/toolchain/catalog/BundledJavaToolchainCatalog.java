@@ -9,7 +9,6 @@ import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.platform.Architecture;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.platform.OperatingSystem;
-import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -89,29 +88,8 @@ public final class BundledJavaToolchainCatalog implements JavaToolchainCatalog {
 
     @Override
     public Optional<JavaToolchainArtifact> artifact(LockedJavaToolchain locked) {
-        Optional<PinnedArtifact> pinned = pinnedArtifact(locked.resolvedDistribution(), locked.platform());
-        String uri = locked.artifactUri();
-        Optional<String> sha256 = locked.artifactSha256().isBlank()
-                ? Optional.empty()
-                : Optional.of(locked.artifactSha256());
-        if (uri.isBlank()) {
-            uri = pinned.map(PinnedArtifact::uri).orElse("");
-            sha256 = pinned.map(PinnedArtifact::sha256);
-        }
-        if (uri.isBlank()) {
-            return Optional.empty();
-        }
         return switch (locked.resolvedDistribution()) {
-            case TEMURIN -> Optional.of(new JavaToolchainArtifact(
-                    URI.create(uri),
-                    archiveFormat(locked.platform()),
-                    sha256,
-                    true));
-            case GRAALVM_COMMUNITY -> Optional.of(new JavaToolchainArtifact(
-                    URI.create(uri),
-                    archiveFormat(locked.platform()),
-                    sha256,
-                    true));
+            case TEMURIN, GRAALVM_COMMUNITY -> JavaToolchainCatalogSupport.artifact(locked);
             default -> Optional.empty();
         };
     }

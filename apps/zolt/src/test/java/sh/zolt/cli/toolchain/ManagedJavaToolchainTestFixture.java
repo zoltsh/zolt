@@ -64,6 +64,8 @@ public final class ManagedJavaToolchainTestFixture {
                 currentJavaMajorVersion(),
                 JavaDistribution.TEMURIN,
                 "builtin:java-temurin-" + currentJavaMajorVersion(),
+                "https://example.test/jdk.tar.gz",
+                "0".repeat(64),
                 JavaToolchainLayout.standard(false));
     }
 

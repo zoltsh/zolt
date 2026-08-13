@@ -116,6 +116,8 @@ final class ToolchainSyncV2CommandTest {
                 "21.0.2",
                 JavaDistribution.GRAALVM_COMMUNITY,
                 "builtin:java-graalvm-community-21-native-image",
+                "https://example.test/graalvm.tar.gz",
+                "0".repeat(64),
                 new JavaToolchainLayout(
                         ".",
                         "bin/java",
@@ -137,6 +139,8 @@ final class ToolchainSyncV2CommandTest {
                 "21.0.11+10",
                 JavaDistribution.TEMURIN,
                 "builtin:java-temurin-21",
+                "https://example.test/temurin.tar.gz",
+                "0".repeat(64),
                 JavaToolchainLayout.standard(false));
     }
 

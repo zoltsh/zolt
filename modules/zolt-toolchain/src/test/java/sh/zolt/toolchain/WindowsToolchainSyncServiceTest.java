@@ -3,12 +3,15 @@ package sh.zolt.toolchain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.net.NetworkTransport;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toolchain.catalog.BundledJavaToolchainCatalog;
 import sh.zolt.toolchain.catalog.JavaToolchainArchiveFormat;
 import sh.zolt.toolchain.catalog.JavaToolchainArtifact;
 import sh.zolt.toolchain.catalog.JavaToolchainCatalog;
+import sh.zolt.toolchain.install.JavaToolchainDownloader;
 import sh.zolt.toolchain.install.JavaToolchainInstaller;
+import sh.zolt.toolchain.install.ToolchainDownloadMirror;
 import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.lock.ToolchainLockfileService;
 import sh.zolt.toolchain.platform.HostPlatform;
@@ -17,6 +20,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
@@ -39,7 +45,9 @@ final class WindowsToolchainSyncServiceTest {
                 new ToolchainConfigReader(),
                 new LocalBundledCatalog(archive),
                 lockfiles,
-                new JavaToolchainInstaller());
+                new JavaToolchainInstaller(new JavaToolchainDownloader(
+                        NetworkTransport.direct(),
+                        ToolchainDownloadMirror.of(archive.getParent().toUri().toString()))));
 
         ToolchainSyncResult result = service.sync(project, null, windows, store);
 
@@ -92,21 +100,45 @@ final class WindowsToolchainSyncServiceTest {
     private record LocalBundledCatalog(Path archive) implements JavaToolchainCatalog {
         @Override
         public Optional<LockedJavaToolchain> lock(JavaToolchainRequest request, HostPlatform platform) {
-            return new BundledJavaToolchainCatalog().lock(request, platform);
+            return new BundledJavaToolchainCatalog().lock(request, platform).map(this::withLocalArtifact);
         }
 
         @Override
         public List<LockedJavaToolchain> locks(JavaToolchainRequest request, HostPlatform platform) {
-            return new BundledJavaToolchainCatalog().locks(request, platform);
+            return new BundledJavaToolchainCatalog().locks(request, platform).stream()
+                    .map(locked -> locked.platform().equals(platform) ? withLocalArtifact(locked) : locked)
+                    .toList();
         }
 
         @Override
         public Optional<JavaToolchainArtifact> artifact(LockedJavaToolchain locked) {
             return Optional.of(new JavaToolchainArtifact(
-                    archive.toUri(),
+                    java.net.URI.create(locked.artifactUri()),
                     JavaToolchainArchiveFormat.ZIP,
-                    Optional.empty(),
+                    Optional.of(locked.artifactSha256()),
                     true));
+        }
+
+        private LockedJavaToolchain withLocalArtifact(LockedJavaToolchain locked) {
+            return new LockedJavaToolchain(
+                    locked.id(),
+                    locked.request(),
+                    locked.platform(),
+                    locked.resolvedVersion(),
+                    locked.resolvedDistribution(),
+                    locked.catalog(),
+                    "https://github.com/" + archive.getFileName(),
+                    sha256(archive),
+                    locked.layout());
+        }
+
+        private static String sha256(Path path) {
+            try {
+                return HexFormat.of().formatHex(
+                        MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
+            } catch (IOException | NoSuchAlgorithmException exception) {
+                throw new AssertionError(exception);
+            }
         }
     }
 }

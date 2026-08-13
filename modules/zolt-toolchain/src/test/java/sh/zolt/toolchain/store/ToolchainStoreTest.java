@@ -61,6 +61,8 @@ final class ToolchainStoreTest {
                 "21",
                 JavaDistribution.GRAALVM_COMMUNITY,
                 "builtin:java-graalvm-community-21-native-image",
+                "https://example.test/jdk.tar.gz",
+                "0".repeat(64),
                 JavaToolchainLayout.standard(true));
     }
 

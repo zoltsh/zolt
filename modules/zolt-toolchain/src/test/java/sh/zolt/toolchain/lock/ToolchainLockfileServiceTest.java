@@ -1,8 +1,10 @@
 package sh.zolt.toolchain.lock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.error.ActionableException;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
@@ -45,13 +47,13 @@ final class ToolchainLockfileServiceTest {
         assertTrue(content.contains("[[toolchain.java]]"));
         assertTrue(content.contains("request.distribution = \"graalvm-community\""));
         assertTrue(content.contains("artifact.uri = \"https://example.com/graalvm.tar.gz\""));
-        assertTrue(content.contains("artifact.sha256 = \"abc123\""));
+        assertTrue(content.contains("artifact.sha256 = \"" + "a".repeat(64) + "\""));
         assertTrue(content.contains("layout.executables.nativeImage = \"bin/native-image\""));
         List<LockedJavaToolchain> read = lockfiles.readJava(lockfile);
         assertEquals(1, read.size());
         assertEquals("java-graalvm-community-21-native-image", read.getFirst().id());
         assertEquals("https://example.com/graalvm.tar.gz", read.getFirst().artifactUri());
-        assertEquals("abc123", read.getFirst().artifactSha256());
+        assertEquals("a".repeat(64), read.getFirst().artifactSha256());
     }
 
     @Test
@@ -113,10 +115,87 @@ final class ToolchainLockfileServiceTest {
         assertTrue(!content.contains("id = \"stale\""));
     }
 
+    @Test
+    void rejectsChecksumlessLegacyLockWithRefreshRemediation() {
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> lockfiles.readJava(lockContent(
+                        "https://example.test/jdk.tar.gz",
+                        "")));
+
+        assertTrue(exception.getMessage().contains("artifact SHA-256 is required"));
+        assertTrue(exception.getMessage().contains("toolchain sync --refresh"));
+    }
+
+    @Test
+    void rejectsMalformedChecksumAtLockBoundary() {
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> lockfiles.readJava(lockContent(
+                        "https://example.test/jdk.tar.gz",
+                        "artifact.sha256 = \"abc123\"")));
+
+        assertTrue(exception.getMessage().contains("exactly 64 hexadecimal characters"));
+        assertTrue(exception.getMessage().contains("toolchain sync --refresh"));
+    }
+
+    @Test
+    void rejectsHttpAndFileArtifactsAtLockBoundary() {
+        for (String uri : List.of(
+                "http://example.test/jdk.tar.gz",
+                "file:///tmp/jdk.tar.gz")) {
+            ActionableException exception = assertThrows(
+                    ActionableException.class,
+                    () -> lockfiles.readJava(lockContent(
+                            uri,
+                            "artifact.sha256 = \"" + "a".repeat(64) + "\"")),
+                    uri);
+
+            assertTrue(exception.getMessage().contains("must use HTTPS"), uri);
+            assertTrue(exception.getMessage().contains("toolchain sync --refresh"), uri);
+        }
+    }
+
+    @Test
+    void normalizesValidUppercaseChecksum() {
+        String uppercase = "ABCDEF01".repeat(8);
+
+        LockedJavaToolchain locked = lockfiles.readJava(lockContent(
+                "https://example.test/jdk.tar.gz",
+                "artifact.sha256 = \"" + uppercase + "\""))
+                .getFirst();
+
+        assertEquals(uppercase.toLowerCase(java.util.Locale.ROOT), locked.artifactSha256());
+    }
+
     private static void assertBefore(String content, String first, String second) {
         assertTrue(content.indexOf(first) >= 0, first);
         assertTrue(content.indexOf(second) >= 0, second);
         assertTrue(content.indexOf(first) < content.indexOf(second), first + " should appear before " + second);
+    }
+
+    private static String lockContent(String uri, String sha256Assignment) {
+        return """
+                version = 1
+
+                [[toolchain.java]]
+                id = "java-temurin-21"
+                request.version = "21"
+                request.distribution = "temurin"
+                request.features = []
+                request.policy = "require-managed"
+                platform.os = "linux"
+                platform.arch = "x64"
+                resolved.version = "21.0.11+10"
+                resolved.distribution = "temurin"
+                artifact.catalog = "test"
+                artifact.uri = "%s"
+                %s
+                layout.javaHome = "."
+                layout.executables.java = "bin/java"
+                layout.executables.javac = "bin/javac"
+                layout.executables.jar = "bin/jar"
+                """.formatted(uri, sha256Assignment);
     }
 
     private static LockedJavaToolchain locked(String target) {
@@ -133,7 +212,7 @@ final class ToolchainLockfileServiceTest {
                 JavaDistribution.GRAALVM_COMMUNITY,
                 "builtin:java-graalvm-community-21-native-image",
                 "https://example.com/graalvm.tar.gz",
-                "abc123",
+                "a".repeat(64),
                 JavaToolchainLayout.standard(true));
     }
 }

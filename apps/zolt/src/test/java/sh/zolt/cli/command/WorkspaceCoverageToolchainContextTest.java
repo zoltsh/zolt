@@ -212,6 +212,8 @@ final class WorkspaceCoverageToolchainContextTest {
                 javaVersion,
                 JavaDistribution.GRAALVM_COMMUNITY,
                 "test:java-graalvm-community-" + javaVersion,
+                "https://example.test/jdk.tar.gz",
+                "0".repeat(64),
                 JavaToolchainLayout.standard(false));
     }
 

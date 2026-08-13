@@ -37,7 +37,25 @@ public final class ToolchainDownloadMirror {
         while (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
-        return new ToolchainDownloadMirror(Optional.of(normalized));
+        URI uri;
+        try {
+            uri = URI.create(normalized);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Java toolchain mirror URI is invalid.", exception);
+        }
+        String scheme = uri.getScheme();
+        boolean remote = "https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme);
+        boolean local = "file".equalsIgnoreCase(scheme);
+        if ((!remote && !local)
+                || (remote && uri.getHost() == null)
+                || (local && (uri.getPath() == null || uri.getPath().isBlank() || "/".equals(uri.getPath())))
+                || uri.getRawQuery() != null
+                || uri.getRawFragment() != null
+                || uri.getUserInfo() != null) {
+            throw new IllegalArgumentException(
+                    "Java toolchain mirror must be an HTTPS, explicit HTTP, or non-root file URI without credentials, query, or fragment.");
+        }
+        return new ToolchainDownloadMirror(Optional.of(uri.toString()));
     }
 
     public static ToolchainDownloadMirror fromEnvironment() {

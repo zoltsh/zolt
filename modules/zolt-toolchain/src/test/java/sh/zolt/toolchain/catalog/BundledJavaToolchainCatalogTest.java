@@ -1,6 +1,7 @@
 package sh.zolt.toolchain.catalog;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.toolchain.JavaDistribution;
@@ -190,28 +191,25 @@ final class BundledJavaToolchainCatalogTest {
     }
 
     @Test
-    void resolvesLegacyLocksWithoutArtifactFieldsThroughPinnedCatalog() {
+    void legacyLocksCannotBypassArtifactIntegrityAtTheModelBoundary() {
         JavaToolchainRequest request = new JavaToolchainRequest(
                 "21",
                 JavaDistribution.TEMURIN,
                 Set.of(),
                 ToolchainPolicy.PREFER_MANAGED);
-        LockedJavaToolchain legacy = new LockedJavaToolchain(
-                "java-temurin-21",
-                request,
-                HostPlatform.parse("linux-x64"),
-                "21",
-                JavaDistribution.TEMURIN,
-                "builtin:java-temurin-21",
-                JavaToolchainLayout.standard(false));
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> new LockedJavaToolchain(
+                        "java-temurin-21",
+                        request,
+                        HostPlatform.parse("linux-x64"),
+                        "21",
+                        JavaDistribution.TEMURIN,
+                        "builtin:java-temurin-21",
+                        "",
+                        "",
+                        JavaToolchainLayout.standard(false)));
 
-        JavaToolchainArtifact artifact = catalog.artifact(legacy).orElseThrow();
-
-        assertEquals(
-                "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.11%2B10/OpenJDK21U-jdk_x64_linux_hotspot_21.0.11_10.tar.gz",
-                artifact.uri().toString());
-        assertEquals(
-                "4b2220e232a97997b436ca6ab15cbf70171ecff52958a46159dfa5a8c44ca4de",
-                artifact.sha256().orElseThrow());
+        assertTrue(exception.getMessage().contains("artifact URI is required"));
     }
 }

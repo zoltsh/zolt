@@ -14,9 +14,6 @@ final class JavaToolchainChecksum {
     }
 
     static void verifySha256(Path archive, String expected) {
-        if (expected == null || expected.isBlank()) {
-            return;
-        }
         String actual = sha256(archive);
         if (!actual.equalsIgnoreCase(expected.strip())) {
             throw new ActionableException(
