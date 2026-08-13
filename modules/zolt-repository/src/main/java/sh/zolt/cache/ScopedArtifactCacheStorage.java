@@ -11,6 +11,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +55,32 @@ final class ScopedArtifactCacheStorage {
             throw invalidBlob(blob, "does not match its content-addressed SHA-256 path");
         }
         return Optional.of(cached(coordinate, blob, size, actualDigest, entry.source()));
+    }
+
+    List<RepositoryCacheScope> matchingScopes(
+            Coordinate coordinate,
+            String mavenPath,
+            CacheRelativePath cachedPath,
+            String source) {
+        Path indexes = contained("indexes");
+        if (!Files.isDirectory(indexes)) {
+            return List.of();
+        }
+        Path expectedPath = cachedPath.resolveWithin(root).toAbsolutePath().normalize();
+        try (var candidates = Files.list(indexes)) {
+            return candidates
+                    .filter(Files::isDirectory)
+                    .map(path -> path.getFileName().toString())
+                    .filter(key -> key.matches("[0-9a-f]{64}"))
+                    .map(RepositoryCacheScope::new)
+                    .filter(scope -> matches(scope, coordinate, mavenPath, expectedPath, source))
+                    .sorted(Comparator.comparing(RepositoryCacheScope::key))
+                    .toList();
+        } catch (IOException exception) {
+            throw new ArtifactCacheException(
+                    "Could not inspect repository-scoped artifact cache indexes at " + indexes + ".",
+                    exception);
+        }
     }
 
     CachedArtifact store(
@@ -102,6 +129,22 @@ final class ScopedArtifactCacheStorage {
             throw new ArtifactCacheException(
                     "Could not remove corrupt artifact cache index at " + index + ".",
                     exception);
+        }
+    }
+
+    private boolean matches(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            String mavenPath,
+            Path expectedPath,
+            String source) {
+        try {
+            return find(scope, coordinate, mavenPath)
+                    .filter(artifact -> artifact.cachePath().toAbsolutePath().normalize().equals(expectedPath))
+                    .filter(artifact -> artifact.source().equals(source))
+                    .isPresent();
+        } catch (ArtifactCacheException exception) {
+            return false;
         }
     }
 

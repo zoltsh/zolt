@@ -4,14 +4,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import sh.zolt.cache.CachedArtifact;
+import sh.zolt.cache.LocalArtifactCache;
+import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.maven.Coordinate;
+import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
+import sh.zolt.maven.repository.RepositoryArtifact;
 
 final class PomLicenseResolverTest extends SbomTestSupport {
 
@@ -66,6 +75,63 @@ final class PomLicenseResolverTest extends SbomTestSupport {
                 .resolve(maven("org.example", "child", "1.0.0", DependencyScope.COMPILE, true, SHA_A, List.of()));
 
         assertEquals(List.of("MIT"), labels(licenses));
+    }
+
+    @Test
+    void inheritsLicenseFromParentPomInTheLockedRepositoryScope(@TempDir Path root) {
+        LocalArtifactCache cache = new LocalArtifactCache(root);
+        RepositoryCacheScope scope = RepositoryCacheScope.of("central only");
+        Coordinate child = coordinate("org.example", "child", "1.0.0");
+        Coordinate parent = coordinate("org.example", "parent", "2.0.0");
+        CachedArtifact childPom = cachePom(cache, scope, child, "central", """
+                <project>
+                  <parent>
+                    <groupId>org.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>2.0.0</version>
+                  </parent>
+                  <artifactId>child</artifactId>
+                </project>
+                """);
+        cachePom(cache, scope, parent, "central", """
+                <project>
+                  <groupId>org.example</groupId>
+                  <artifactId>parent</artifactId>
+                  <version>2.0.0</version>
+                  <licenses><license><name>MIT License</name></license></licenses>
+                </project>
+                """);
+
+        List<SbomLicense> licenses = new PomLicenseResolver(root).resolve(scopedMaven(childPom));
+
+        assertEquals(List.of("MIT"), labels(licenses));
+    }
+
+    @Test
+    void reportsUnknownWhenMatchingRepositoryScopesDisagreeOnParentBytes(@TempDir Path root) {
+        LocalArtifactCache cache = new LocalArtifactCache(root);
+        RepositoryCacheScope firstScope = RepositoryCacheScope.of("first central URL");
+        RepositoryCacheScope secondScope = RepositoryCacheScope.of("second central URL");
+        Coordinate child = coordinate("org.example", "child", "1.0.0");
+        Coordinate parent = coordinate("org.example", "parent", "2.0.0");
+        String childXml = """
+                <project>
+                  <parent>
+                    <groupId>org.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>2.0.0</version>
+                  </parent>
+                  <artifactId>child</artifactId>
+                </project>
+                """;
+        CachedArtifact childPom = cachePom(cache, firstScope, child, "central", childXml);
+        cachePom(cache, secondScope, child, "central", childXml);
+        cachePom(cache, firstScope, parent, "central", parentPom("MIT License"));
+        cachePom(cache, secondScope, parent, "central", parentPom("Apache License, Version 2.0"));
+
+        List<SbomLicense> licenses = new PomLicenseResolver(root).resolve(scopedMaven(childPom));
+
+        assertEquals(SbomLicenseStatus.UNKNOWN, licenses.getFirst().status());
     }
 
     @Test
@@ -261,5 +327,50 @@ final class PomLicenseResolverTest extends SbomTestSupport {
                 + "/" + artifact + "-" + version + ".pom");
         Files.createDirectories(pom.getParent());
         Files.writeString(pom, xml);
+    }
+
+    private static Coordinate coordinate(String group, String artifact, String version) {
+        return new Coordinate(group, artifact, Optional.of(version));
+    }
+
+    private static CachedArtifact cachePom(
+            LocalArtifactCache cache,
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            String source,
+            String xml) {
+        String path = new MavenRepositoryPathBuilder().pomPath(coordinate);
+        return cache.getOrFetchPom(scope, coordinate, ignored -> new RepositoryArtifact(
+                coordinate,
+                path,
+                URI.create("https://repo.example/" + path),
+                source,
+                xml.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private static LockPackage scopedMaven(CachedArtifact pom) {
+        Coordinate coordinate = pom.coordinate();
+        return new LockPackage(
+                PackageId.from(coordinate),
+                coordinate.version().orElseThrow(),
+                pom.source(),
+                DependencyScope.COMPILE,
+                true,
+                Optional.empty(),
+                Optional.of(pom.repositoryPath()),
+                Optional.empty(),
+                Optional.of(pom.sha256()),
+                List.of());
+    }
+
+    private static String parentPom(String license) {
+        return """
+                <project>
+                  <groupId>org.example</groupId>
+                  <artifactId>parent</artifactId>
+                  <version>2.0.0</version>
+                  <licenses><license><name>%s</name></license></licenses>
+                </project>
+                """.formatted(license);
     }
 }
