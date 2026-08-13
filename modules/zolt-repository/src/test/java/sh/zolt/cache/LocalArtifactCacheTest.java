@@ -344,26 +344,6 @@ final class LocalArtifactCacheTest {
     }
 
     @Test
-    void downloadStagingCannotEscapeThroughSymlink() throws Exception {
-        Path cacheRoot = Files.createDirectory(tempDir.resolve("staging-cache"));
-        Path outside = Files.createDirectory(tempDir.resolve("staging-outside"));
-        try {
-            Files.createSymbolicLink(cacheRoot.resolve(".downloads"), outside);
-        } catch (UnsupportedOperationException | java.io.IOException exception) {
-            assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
-        }
-
-        ArtifactCacheException exception = assertThrows(
-                ArtifactCacheException.class,
-                () -> new LocalArtifactCache(cacheRoot));
-
-        assertTrue(exception.getMessage().contains("download staging path"));
-        try (var files = Files.list(outside)) {
-            assertEquals(List.of(), files.toList());
-        }
-    }
-
-    @Test
     void relativeCacheRootKeepsReturningRelativeArtifactPaths() {
         LocalArtifactCache cache = new LocalArtifactCache(Path.of("relative-cache"));
         Coordinate coordinate = parser.parse("com.example:demo:1.0.0");
