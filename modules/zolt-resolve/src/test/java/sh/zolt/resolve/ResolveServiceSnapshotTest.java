@@ -47,7 +47,8 @@ final class ResolveServiceSnapshotTest extends ResolveServiceTestSupport {
                 .orElseThrow();
         assertEquals("1.0.0-SNAPSHOT", snap.version());
         assertEquals("local-overlay:maven-local", snap.source());
-        assertTrue(snap.jar().orElseThrow().startsWith("overlays/maven-local/"), snap.jar().toString());
+        assertTrue(snap.jar().orElseThrow().startsWith("blobs/v2/sha256/"), snap.jar().toString());
+        assertTrue(snap.jar().orElseThrow().endsWith("/snap-1.0.0-SNAPSHOT.jar"));
         assertTrue(snap.jarSha256().isPresent(), "overlay snapshot jar must be SHA-256 pinned");
         // Never falls through to remote for a SNAPSHOT.
         assertEquals(0, requestCount(pomRepositoryPath("com.example", "snap", "1.0.0-SNAPSHOT")));

@@ -290,7 +290,7 @@ final class LocalArtifactCacheTest {
     }
 
     @Test
-    void materializesOverlayPomIntoNamespacedCachePath() throws Exception {
+    void materializesOverlayPomIntoContentAddressedCachePath() throws Exception {
         LocalArtifactCache cache = new LocalArtifactCache(tempDir);
         Coordinate coordinate = parser.parse("com.google.guava:guava:33.4.0-jre");
         Path source = tempDir.resolve("local-guava.pom");
@@ -298,9 +298,9 @@ final class LocalArtifactCacheTest {
 
         CachedArtifact artifact = cache.materializeOverlayPom(coordinate, "local-m2", source);
 
-        assertEquals(
-                "overlays/local-m2/com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.pom",
-                artifact.repositoryPath());
+        assertTrue(artifact.repositoryPath().startsWith("blobs/v2/sha256/"));
+        assertTrue(artifact.repositoryPath().endsWith("/guava-33.4.0-jre.pom"));
+        assertEquals("local-overlay:local-m2", artifact.source());
         assertEquals(tempDir.resolve(artifact.repositoryPath()), artifact.cachePath());
         assertArrayEquals("<project/>".getBytes(StandardCharsets.UTF_8), artifact.bytes());
     }
@@ -332,7 +332,7 @@ final class LocalArtifactCacheTest {
     }
 
     @Test
-    void materializesOverlayClassifierArtifactIntoNamespacedCachePath() throws Exception {
+    void materializesOverlayClassifierArtifactIntoContentAddressedCachePath() throws Exception {
         LocalArtifactCache cache = new LocalArtifactCache(tempDir);
         Coordinate coordinate = parser.parse("io.quarkus:quarkus-custom-deployment:1.0.0");
         ArtifactDescriptor descriptor = ArtifactDescriptor.jar(coordinate, Optional.of("deployment"));
@@ -342,9 +342,8 @@ final class LocalArtifactCacheTest {
 
         CachedArtifact artifact = cache.materializeOverlayArtifact(descriptor, "local-m2", source);
 
-        assertEquals(
-                "overlays/local-m2/io/quarkus/quarkus-custom-deployment/1.0.0/quarkus-custom-deployment-1.0.0-deployment.jar",
-                artifact.repositoryPath());
+        assertTrue(artifact.repositoryPath().startsWith("blobs/v2/sha256/"));
+        assertTrue(artifact.repositoryPath().endsWith("/quarkus-custom-deployment-1.0.0-deployment.jar"));
         assertArrayEquals(bytes, Files.readAllBytes(artifact.cachePath()));
     }
 

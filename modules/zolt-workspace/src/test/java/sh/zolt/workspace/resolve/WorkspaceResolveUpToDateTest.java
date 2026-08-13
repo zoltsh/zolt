@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveOptions;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -130,10 +132,11 @@ final class WorkspaceResolveUpToDateTest {
     void resolvesAgainWhenTheCacheNoLongerHoldsALockedArtifact() throws IOException {
         writeWorkspace("1.0.0");
         resolve();
-        Files.delete(cacheRoot().resolve("com/example/lib/1.0.0/lib-1.0.0.jar"));
+        Path lockedJar = lockedJar();
+        Files.delete(lockedJar);
 
         assertFalse(resolve().resolutionSkipped());
-        assertTrue(Files.isRegularFile(cacheRoot().resolve("com/example/lib/1.0.0/lib-1.0.0.jar")));
+        assertTrue(Files.isRegularFile(lockedJar));
     }
 
     @Test
@@ -164,6 +167,16 @@ final class WorkspaceResolveUpToDateTest {
 
         assertFalse(coverage.resolutionSkipped());
         assertTrue(Files.readString(lockfilePath()).contains("org.jacoco.agent"));
+    }
+
+    private Path lockedJar() {
+        String path = new ZoltLockfileReader().read(lockfilePath()).packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("com.example", "lib")))
+                .findFirst()
+                .orElseThrow()
+                .jar()
+                .orElseThrow();
+        return cacheRoot().resolve(path);
     }
 
     private WorkspaceResolveSnapshot resolve() {

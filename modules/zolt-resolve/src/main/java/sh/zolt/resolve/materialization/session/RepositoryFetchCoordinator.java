@@ -11,7 +11,7 @@ final class RepositoryFetchCoordinator {
         RepositoryMissingArtifactException lastMissing = null;
         for (RepositoryAccess repository : repositories) {
             try {
-                return action.fetch(repository);
+                return action.fetch(repository).withRepositoryId(repository.id());
             } catch (RepositoryMissingArtifactException exception) {
                 lastMissing = exception;
             }

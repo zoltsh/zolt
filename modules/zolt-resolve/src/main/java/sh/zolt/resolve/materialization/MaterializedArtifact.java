@@ -10,9 +10,14 @@ import java.util.Objects;
  * remember the answer for an artifact many projects select, instead of re-reading and re-hashing the
  * file once per project, without holding every jar of a large workspace in memory to do it.
  */
-public record MaterializedArtifact(String repositoryPath, String sha256) {
+public record MaterializedArtifact(String repositoryPath, String sha256, String source) {
     public MaterializedArtifact {
         Objects.requireNonNull(repositoryPath, "repositoryPath");
         Objects.requireNonNull(sha256, "sha256");
+        Objects.requireNonNull(source, "source");
+    }
+
+    public MaterializedArtifact(String repositoryPath, String sha256) {
+        this(repositoryPath, sha256, "maven-central");
     }
 }

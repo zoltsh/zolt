@@ -60,10 +60,19 @@ final class ResolveServiceGeneratedSourceTest extends ResolveServiceTestSupport 
         assertEquals(List.of(), classpaths.runtime().entries());
         assertEquals(List.of(), classpaths.test().entries());
         assertEquals(List.of(
-                cacheRoot.resolve("com/example/processor-helper/1.0.0/processor-helper-1.0.0.jar"),
-                cacheRoot.resolve("com/example/processor/1.0.0/processor-1.0.0.jar")),
+                cachedJar(lockfile, cacheRoot, "processor-helper"),
+                cachedJar(lockfile, cacheRoot, "processor")),
                 classpaths.processor().entries());
         assertEquals(List.of(), classpaths.testProcessor().entries());
+    }
+
+    private static Path cachedJar(ZoltLockfile lockfile, Path cacheRoot, String artifactId) {
+        return cacheRoot.resolve(lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("com.example", artifactId)))
+                .findFirst()
+                .orElseThrow()
+                .jar()
+                .orElseThrow());
     }
 
     @Test

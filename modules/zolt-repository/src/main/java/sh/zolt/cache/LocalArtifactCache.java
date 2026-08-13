@@ -5,17 +5,14 @@ import sh.zolt.home.UserGlobalDirectory;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
-import sh.zolt.maven.repository.RepositoryArtifact;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
 public final class LocalArtifactCache {
-    private final Path root;
     private final MavenRepositoryPathBuilder pathBuilder;
     private final DownloadCoordinator downloadCoordinator;
+    private final LegacyArtifactCacheStorage legacyStorage;
+    private final ScopedArtifactCacheStorage scopedStorage;
 
     public LocalArtifactCache(Path root) {
         this(root, new MavenRepositoryPathBuilder(), new DownloadCoordinator());
@@ -26,9 +23,11 @@ public final class LocalArtifactCache {
     }
 
     LocalArtifactCache(Path root, MavenRepositoryPathBuilder pathBuilder, DownloadCoordinator downloadCoordinator) {
-        this.root = Objects.requireNonNull(root, "root");
+        Objects.requireNonNull(root, "root");
         this.pathBuilder = Objects.requireNonNull(pathBuilder, "pathBuilder");
         this.downloadCoordinator = Objects.requireNonNull(downloadCoordinator, "downloadCoordinator");
+        this.legacyStorage = new LegacyArtifactCacheStorage(root, downloadCoordinator);
+        this.scopedStorage = new ScopedArtifactCacheStorage(root);
     }
 
     public static Path defaultRoot() {
@@ -44,31 +43,70 @@ public final class LocalArtifactCache {
     }
 
     public Path pomPath(Coordinate coordinate) {
-        return cachePath(pathBuilder.pomPath(coordinate));
+        return legacyStorage.path(pathBuilder.pomPath(coordinate));
     }
 
     public Path jarPath(Coordinate coordinate) {
-        return cachePath(pathBuilder.jarPath(coordinate));
+        return legacyStorage.path(pathBuilder.jarPath(coordinate));
     }
 
     public Path artifactPath(ArtifactDescriptor descriptor) {
-        return cachePath(pathBuilder.artifactPath(descriptor));
+        return legacyStorage.path(pathBuilder.artifactPath(descriptor));
     }
 
     public CachedArtifact getOrFetchPom(Coordinate coordinate, ArtifactFetcher fetcher) {
-        return getOrFetch(coordinate, pathBuilder.pomPath(coordinate), fetcher);
+        return legacyStorage.getOrFetch(coordinate, pathBuilder.pomPath(coordinate), fetcher);
     }
 
     public CachedArtifact getOrFetchJar(Coordinate coordinate, ArtifactFetcher fetcher) {
-        return getOrFetch(coordinate, pathBuilder.jarPath(coordinate), fetcher);
+        return legacyStorage.getOrFetch(coordinate, pathBuilder.jarPath(coordinate), fetcher);
     }
 
     public CachedArtifact getOrFetchArtifact(ArtifactDescriptor descriptor, ArtifactFetcher fetcher) {
-        return getOrFetch(descriptor.coordinate(), pathBuilder.artifactPath(descriptor), fetcher);
+        return legacyStorage.getOrFetch(
+                descriptor.coordinate(), pathBuilder.artifactPath(descriptor), fetcher);
+    }
+
+    public boolean hasPom(RepositoryCacheScope scope, Coordinate coordinate) {
+        return scopedStorage.contains(scope, pathBuilder.pomPath(coordinate));
+    }
+
+    public boolean hasJar(RepositoryCacheScope scope, Coordinate coordinate) {
+        return scopedStorage.contains(scope, pathBuilder.jarPath(coordinate));
+    }
+
+    public boolean hasArtifact(RepositoryCacheScope scope, ArtifactDescriptor descriptor) {
+        return scopedStorage.contains(scope, pathBuilder.artifactPath(descriptor));
+    }
+
+    public CachedArtifact getOrFetchPom(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            ArtifactFetcher fetcher) {
+        return getOrFetch(scope, coordinate, pathBuilder.pomPath(coordinate), fetcher);
+    }
+
+    public CachedArtifact getOrFetchJar(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            ArtifactFetcher fetcher) {
+        return getOrFetch(scope, coordinate, pathBuilder.jarPath(coordinate), fetcher);
+    }
+
+    public CachedArtifact getOrFetchArtifact(
+            RepositoryCacheScope scope,
+            ArtifactDescriptor descriptor,
+            ArtifactFetcher fetcher) {
+        return getOrFetch(scope, descriptor.coordinate(), pathBuilder.artifactPath(descriptor), fetcher);
     }
 
     public CachedArtifact materializeOverlayPom(Coordinate coordinate, String overlayId, Path sourcePath) {
-        return materializeOverlayArtifact(coordinate, overlayPath(overlayId, pathBuilder.pomPath(coordinate)), sourcePath, "POM");
+        return materializeOverlayArtifact(
+                coordinate,
+                pathBuilder.pomPath(coordinate),
+                validatedOverlayId(overlayId),
+                sourcePath,
+                "POM");
     }
 
     public CachedArtifact materializeOverlayArtifact(
@@ -77,71 +115,84 @@ public final class LocalArtifactCache {
             Path sourcePath) {
         return materializeOverlayArtifact(
                 descriptor.coordinate(),
-                overlayPath(overlayId, pathBuilder.artifactPath(descriptor)),
+                pathBuilder.artifactPath(descriptor),
+                validatedOverlayId(overlayId),
                 sourcePath,
                 descriptor.extension().toUpperCase(java.util.Locale.ROOT));
     }
 
     public CachedArtifact getCachedPom(Coordinate coordinate) {
-        return getCached(coordinate, pathBuilder.pomPath(coordinate), "POM");
+        return legacyStorage.getCached(coordinate, pathBuilder.pomPath(coordinate), "POM");
     }
 
     public CachedArtifact getCachedJar(Coordinate coordinate) {
-        return getCached(coordinate, pathBuilder.jarPath(coordinate), "JAR");
+        return legacyStorage.getCached(coordinate, pathBuilder.jarPath(coordinate), "JAR");
     }
 
     public CachedArtifact getCachedArtifact(ArtifactDescriptor descriptor, String artifactKind) {
-        return getCached(descriptor.coordinate(), pathBuilder.artifactPath(descriptor), artifactKind);
+        return legacyStorage.getCached(
+                descriptor.coordinate(), pathBuilder.artifactPath(descriptor), artifactKind);
     }
 
-    private CachedArtifact getOrFetch(Coordinate coordinate, String repositoryPath, ArtifactFetcher fetcher) {
-        Path cachePath = cachePath(repositoryPath);
-        if (Files.isRegularFile(cachePath)) {
-            byte[] bytes = read(cachePath);
-            if (bytes.length > 0) {
-                return new CachedArtifact(coordinate, repositoryPath, cachePath, bytes);
-            }
-            throw new ArtifactCacheException(
-                    "Cached artifact at " + cachePath + " is empty. Delete it and run the command again.");
-        }
+    public CachedArtifact getCachedPom(RepositoryCacheScope scope, Coordinate coordinate) {
+        return getCached(scope, coordinate, pathBuilder.pomPath(coordinate), "POM");
+    }
 
-        return downloadCoordinator.run(repositoryPath, () -> {
-            RepositoryArtifact artifact = fetcher.fetch(coordinate);
-            if (artifact.bytes().length == 0) {
-                throw new ArtifactCacheException(
-                        "Downloaded artifact " + coordinate + " is empty. The cache was not updated.");
+    public CachedArtifact getCachedJar(RepositoryCacheScope scope, Coordinate coordinate) {
+        return getCached(scope, coordinate, pathBuilder.jarPath(coordinate), "JAR");
+    }
+
+    public CachedArtifact getCachedArtifact(
+            RepositoryCacheScope scope,
+            ArtifactDescriptor descriptor,
+            String artifactKind) {
+        return getCached(scope, descriptor.coordinate(), pathBuilder.artifactPath(descriptor), artifactKind);
+    }
+
+    private CachedArtifact getOrFetch(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            String repositoryPath,
+            ArtifactFetcher fetcher) {
+        CachedArtifact cached = scopedStorage.find(scope, coordinate, repositoryPath).orElse(null);
+        if (cached != null) {
+            return cached;
+        }
+        String inFlightKey = scope.key() + ":" + repositoryPath;
+        return downloadCoordinator.run(inFlightKey, () -> {
+            CachedArtifact concurrent = scopedStorage.find(scope, coordinate, repositoryPath).orElse(null);
+            if (concurrent != null) {
+                return concurrent;
             }
-            writeAtomically(cachePath, artifact.bytes());
-            return new CachedArtifact(coordinate, repositoryPath, cachePath, artifact.bytes());
+            return scopedStorage.store(scope, coordinate, repositoryPath, fetcher.fetch(coordinate));
         });
     }
 
-    private CachedArtifact getCached(Coordinate coordinate, String repositoryPath, String artifactKind) {
-        Path cachePath = cachePath(repositoryPath);
-        if (!Files.isRegularFile(cachePath)) {
-            throw new ArtifactCacheException(
-                    "Offline mode requires cached "
-                            + artifactKind
-                            + " for "
-                            + coordinate
-                            + " at "
-                            + cachePath
-                            + ". Run the command without --offline to download it, then retry with --offline.");
-        }
-        byte[] bytes = read(cachePath);
-        if (bytes.length == 0) {
-            throw new ArtifactCacheException(
-                    "Cached artifact at " + cachePath + " is empty. Delete it and run the command again.");
-        }
-        return new CachedArtifact(coordinate, repositoryPath, cachePath, bytes);
+    private CachedArtifact getCached(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            String repositoryPath,
+            String artifactKind) {
+        return scopedStorage.find(scope, coordinate, repositoryPath).orElseThrow(() ->
+                new ArtifactCacheException(
+                        "Offline mode requires cached "
+                                + artifactKind
+                                + " for "
+                                + coordinate
+                                + " at repository path "
+                                + repositoryPath
+                                + " in repository scope "
+                                + scope.key()
+                                + ". Run the command without --offline to download it, then retry with --offline."));
     }
 
     private CachedArtifact materializeOverlayArtifact(
             Coordinate coordinate,
             String repositoryPath,
+            String overlayId,
             Path sourcePath,
             String artifactKind) {
-        byte[] bytes = read(sourcePath);
+        byte[] bytes = LegacyArtifactCacheStorage.read(sourcePath);
         if (bytes.length == 0) {
             throw new ArtifactCacheException(
                     "Local repository overlay "
@@ -152,51 +203,20 @@ public final class LocalArtifactCache {
                             + sourcePath
                             + " is empty. Reinstall the artifact locally or remove it so Zolt can fall back to configured repositories.");
         }
-        Path cachePath = cachePath(repositoryPath);
-        writeAtomically(cachePath, bytes);
-        return new CachedArtifact(coordinate, repositoryPath, cachePath, bytes);
+        return scopedStorage.storeLocal(
+                coordinate,
+                repositoryPath,
+                "local-overlay:" + overlayId,
+                bytes);
     }
 
-    private Path cachePath(String repositoryPath) {
-        Path cacheRoot = root.toAbsolutePath().normalize();
-        Path resolved = root.resolve(repositoryPath).normalize();
-        Path absoluteResolved = resolved.toAbsolutePath().normalize();
-        if (!absoluteResolved.startsWith(cacheRoot) || absoluteResolved.equals(cacheRoot)) {
-            throw new ArtifactCacheException("Refusing artifact cache path outside the configured cache root.");
+    private static String validatedOverlayId(String overlayId) {
+        if (overlayId == null
+                || !overlayId.matches("[A-Za-z0-9._-]+")
+                || overlayId.equals(".")
+                || overlayId.equals("..")) {
+            throw new ArtifactCacheException("Refusing invalid local repository overlay id.");
         }
-        return resolved;
-    }
-
-    private static String overlayPath(String overlayId, String repositoryPath) {
-        return "overlays/" + overlayId + "/" + repositoryPath;
-    }
-
-    private static byte[] read(Path path) {
-        try {
-            return Files.readAllBytes(path);
-        } catch (IOException exception) {
-            throw new ArtifactCacheException(
-                    "Could not read cached artifact at " + path + ". Check filesystem permissions.",
-                    exception);
-        }
-    }
-
-    private static void writeAtomically(Path path, byte[] bytes) {
-        Path directory = path.getParent();
-        try {
-            Files.createDirectories(directory);
-            Path temporary = Files.createTempFile(directory, path.getFileName().toString(), ".tmp");
-            try {
-                Files.write(temporary, bytes);
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (IOException exception) {
-                Files.deleteIfExists(temporary);
-                throw exception;
-            }
-        } catch (IOException exception) {
-            throw new ArtifactCacheException(
-                    "Could not write cached artifact at " + path + ". Check filesystem permissions.",
-                    exception);
-        }
+        return overlayId;
     }
 }

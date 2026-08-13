@@ -68,7 +68,7 @@ final class WorkspaceResolveServiceLockedFailureTest extends WorkspaceResolveSer
                 members = ["apps/api"]
 
                 [repositories]
-                test = "%s?changed=true"
+                test = "%s./"
                 """.formatted(baseUri));
 
         ResolveException exception = assertThrows(

@@ -14,9 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -31,14 +29,12 @@ final class LocalOverlayMaterializerTest {
         Coordinate coordinate = coordinate("com.example", "app", "1.0.0");
         byte[] bytes = "<project/>".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         Path mavenLocalRoot = writeMavenLocal(pathBuilder.pomPath(coordinate), bytes);
-        Map<String, String> sources = new ConcurrentHashMap<>();
-
-        Optional<CachedArtifact> artifact = materializer(sources)
+        Optional<CachedArtifact> artifact = materializer()
                 .materializePom(List.of(RepositoryOverlay.mavenLocal(mavenLocalRoot)), coordinate);
 
         assertTrue(artifact.isPresent());
         assertArrayEquals(bytes, artifact.orElseThrow().bytes());
-        assertEquals("local-overlay:maven-local", sources.get(artifact.orElseThrow().repositoryPath()));
+        assertEquals("local-overlay:maven-local", artifact.orElseThrow().source());
         assertTrue(Files.isRegularFile(artifact.orElseThrow().cachePath()));
     }
 
@@ -49,31 +45,26 @@ final class LocalOverlayMaterializerTest {
                 Optional.of("tests"));
         byte[] bytes = new byte[] {1, 2, 3};
         Path mavenLocalRoot = writeMavenLocal(pathBuilder.artifactPath(descriptor), bytes);
-        Map<String, String> sources = new ConcurrentHashMap<>();
-
-        Optional<CachedArtifact> artifact = materializer(sources)
+        Optional<CachedArtifact> artifact = materializer()
                 .materializeArtifact(List.of(RepositoryOverlay.mavenLocal(mavenLocalRoot)), descriptor);
 
         assertTrue(artifact.isPresent());
         assertArrayEquals(bytes, artifact.orElseThrow().bytes());
-        assertEquals("local-overlay:maven-local", sources.get(artifact.orElseThrow().repositoryPath()));
+        assertEquals("local-overlay:maven-local", artifact.orElseThrow().source());
         assertTrue(Files.isRegularFile(artifact.orElseThrow().cachePath()));
     }
 
     @Test
     void returnsEmptyWhenOverlayDoesNotContainArtifact() {
-        Map<String, String> sources = new ConcurrentHashMap<>();
-
-        Optional<CachedArtifact> artifact = materializer(sources).materializePom(
+        Optional<CachedArtifact> artifact = materializer().materializePom(
                 List.of(RepositoryOverlay.mavenLocal(tempDir.resolve("missing-m2"))),
                 coordinate("com.example", "app", "1.0.0"));
 
         assertTrue(artifact.isEmpty());
-        assertEquals(Map.of(), sources);
     }
 
-    private LocalOverlayMaterializer materializer(Map<String, String> sources) {
-        return new LocalOverlayMaterializer(new LocalArtifactCache(tempDir.resolve("cache")), sources);
+    private LocalOverlayMaterializer materializer() {
+        return new LocalOverlayMaterializer(new LocalArtifactCache(tempDir.resolve("cache")));
     }
 
     private Path writeMavenLocal(String repositoryPath, byte[] bytes) throws IOException {

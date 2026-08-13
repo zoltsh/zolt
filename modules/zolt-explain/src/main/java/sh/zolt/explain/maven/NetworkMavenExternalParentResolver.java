@@ -2,6 +2,7 @@ package sh.zolt.explain.maven;
 
 import sh.zolt.cache.CachedArtifact;
 import sh.zolt.cache.LocalArtifactCache;
+import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.EffectiveRawPom;
 import sh.zolt.maven.repository.MavenRepositoryClient;
@@ -107,25 +108,22 @@ public final class NetworkMavenExternalParentResolver implements MavenExternalPa
     }
 
     private CachedArtifact pom(Coordinate coordinate, List<String> repositories, Provenance provenance) {
-        boolean[] networkFetched = {false};
-        CachedArtifact artifact = cache.getOrFetchPom(coordinate, requested -> {
-            networkFetched[0] = true;
-            return fetchFromRepositories(requested, repositories, provenance);
-        });
-        if (!networkFetched[0]) {
-            provenance.recordCached(coordinate);
-        }
+        RepositoryCacheScope scope = RepositoryCacheScope.of(String.join("\n", repositories));
+        CachedArtifact artifact = cache.getOrFetchPom(
+                scope,
+                coordinate,
+                requested -> fetchFromRepositories(requested, repositories));
+        provenance.record(coordinate, artifact.source());
         return artifact;
     }
 
     private RepositoryArtifact fetchFromRepositories(
-            Coordinate coordinate, List<String> repositories, Provenance provenance) {
+            Coordinate coordinate, List<String> repositories) {
         RepositoryClientException failure = null;
         for (String repository : repositories) {
             try {
                 RepositoryArtifact artifact = repositoryClient.fetchPom(URI.create(repository), coordinate);
-                provenance.recordFetched(coordinate, repository);
-                return artifact;
+                return artifact.withRepositoryId(repository);
             } catch (RepositoryClientException exception) {
                 failure = exception;
             }
@@ -170,12 +168,8 @@ public final class NetworkMavenExternalParentResolver implements MavenExternalPa
     private static final class Provenance {
         private final Map<String, String> sources = new LinkedHashMap<>();
 
-        void recordFetched(Coordinate coordinate, String repository) {
+        void record(Coordinate coordinate, String repository) {
             sources.putIfAbsent(coordinate.toString(), repository);
-        }
-
-        void recordCached(Coordinate coordinate) {
-            sources.putIfAbsent(coordinate.toString(), "local cache");
         }
 
         List<RecoveredArtifact> artifacts() {

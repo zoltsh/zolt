@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import sh.zolt.cache.CachedArtifact;
 import sh.zolt.cache.LocalArtifactCache;
+import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.RepositoryArtifact;
@@ -17,7 +18,6 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -176,8 +176,9 @@ final class ArtifactMaterializerTest {
         LocalArtifactCache cache = new LocalArtifactCache(tempDir.resolve("cache"));
         return new ArtifactMaterializer(
                 cache,
+                RepositoryCacheScope.of("test-repository"),
                 options,
-                new LocalOverlayMaterializer(cache, new ConcurrentHashMap<>()));
+                new LocalOverlayMaterializer(cache));
     }
 
     private static RepositoryArtifact artifact(Coordinate coordinate, String path, byte[] bytes) {

@@ -7,9 +7,15 @@ public record CachedArtifact(
         Coordinate coordinate,
         String repositoryPath,
         Path cachePath,
-        byte[] bytes) {
+        byte[] bytes,
+        String source) {
     public CachedArtifact {
         bytes = bytes.clone();
+        source = source == null ? "" : source;
+    }
+
+    public CachedArtifact(Coordinate coordinate, String repositoryPath, Path cachePath, byte[] bytes) {
+        this(coordinate, repositoryPath, cachePath, bytes, "");
     }
 
     @Override

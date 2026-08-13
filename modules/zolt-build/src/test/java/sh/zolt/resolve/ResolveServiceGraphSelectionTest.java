@@ -78,8 +78,13 @@ final class ResolveServiceGraphSelectionTest extends ResolveServiceTestSupport {
                         && lockPackage.scope() == DependencyScope.PROCESSOR));
 
         ClasspathSet classpaths = new ClasspathBuilder().build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
+        LockPackage shared = lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("com.example", "shared")))
+                .filter(lockPackage -> lockPackage.scope() == DependencyScope.PROCESSOR)
+                .findFirst()
+                .orElseThrow();
         assertTrue(classpaths.processor().entries().contains(
-                cacheRoot.resolve("com/example/shared/2.0.0/shared-2.0.0.jar")));
+                cacheRoot.resolve(shared.jar().orElseThrow())));
     }
 
     @Test
@@ -169,7 +174,11 @@ final class ResolveServiceGraphSelectionTest extends ResolveServiceTestSupport {
                         && lockPackage.version().equals("1.0.0")));
 
         ClasspathSet classpaths = new ClasspathBuilder().build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
+        LockPackage helper = lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("com.example", "helper")))
+                .findFirst()
+                .orElseThrow();
         assertTrue(classpaths.compile().entries().contains(
-                cacheRoot.resolve("com/example/helper/2.0.0/helper-2.0.0.jar")));
+                cacheRoot.resolve(helper.jar().orElseThrow())));
     }
 }

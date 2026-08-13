@@ -57,10 +57,10 @@ final class ResolveServiceScopeTest extends ResolveServiceTestSupport {
 
         ClasspathSet classpaths = new ClasspathBuilder().build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
         assertEquals(List.of(
-                cacheRoot.resolve("jakarta/servlet/jakarta.servlet-api/6.1.0/jakarta.servlet-api-6.1.0.jar")),
+                cachedJar(lockfile, cacheRoot, "jakarta.servlet", "jakarta.servlet-api", DependencyScope.PROVIDED)),
                 classpaths.compile().entries());
         assertEquals(List.of(
-                cacheRoot.resolve("com/example/runtime-tool/1.0.0/runtime-tool-1.0.0.jar")),
+                cachedJar(lockfile, cacheRoot, "com.example", "runtime-tool", DependencyScope.RUNTIME)),
                 classpaths.runtime().entries());
     }
 
@@ -107,8 +107,8 @@ final class ResolveServiceScopeTest extends ResolveServiceTestSupport {
         ClasspathSet classpaths = new ClasspathBuilder().build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
         assertEquals(List.of(), classpaths.compile().entries());
         assertEquals(List.of(
-                cacheRoot.resolve("com/example/dev-helper/1.0.0/dev-helper-1.0.0.jar"),
-                cacheRoot.resolve("com/example/devtools/1.0.0/devtools-1.0.0.jar")),
+                cachedJar(lockfile, cacheRoot, "com.example", "dev-helper", DependencyScope.DEV),
+                cachedJar(lockfile, cacheRoot, "com.example", "devtools", DependencyScope.DEV)),
                 classpaths.runtime().entries());
     }
 
@@ -139,9 +139,8 @@ final class ResolveServiceScopeTest extends ResolveServiceTestSupport {
                 .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("com.example", "native-epoll")))
                 .findFirst()
                 .orElseThrow();
-        assertEquals(
-                Optional.of("com/example/native-epoll/1.0.0/native-epoll-1.0.0-linux-x86_64.jar"),
-                nativePackage.jar());
+        assertTrue(nativePackage.jar().orElseThrow().startsWith("blobs/v2/sha256/"));
+        assertTrue(nativePackage.jar().orElseThrow().endsWith("/native-epoll-1.0.0-linux-x86_64.jar"));
         assertTrue(nativePackage.jarSha256().isPresent());
         assertTrue(nativePackage.direct());
         assertEquals(DependencyScope.COMPILE, nativePackage.scope());
@@ -149,7 +148,7 @@ final class ResolveServiceScopeTest extends ResolveServiceTestSupport {
         ClasspathSet classpaths = new ClasspathBuilder().build(
                 LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
         assertEquals(List.of(
-                cacheRoot.resolve("com/example/native-epoll/1.0.0/native-epoll-1.0.0-linux-x86_64.jar")),
+                cacheRoot.resolve(nativePackage.jar().orElseThrow())),
                 classpaths.compile().entries());
 
         ZoltLockfile reread = lockfileReader.read(result.lockfilePath());
@@ -214,8 +213,10 @@ final class ResolveServiceScopeTest extends ResolveServiceTestSupport {
         ZoltLockfile lockfile = lockfileReader.read(result.lockfilePath());
         LockPackage compileJar = lockPackage(lockfile, DependencyScope.COMPILE);
         LockPackage testJar = lockPackage(lockfile, DependencyScope.TEST);
-        assertEquals(Optional.of("com/example/lib/1.0.0/lib-1.0.0.jar"), compileJar.jar());
-        assertEquals(Optional.of("com/example/lib/1.0.0/lib-1.0.0-tests.jar"), testJar.jar());
+        assertTrue(compileJar.jar().orElseThrow().startsWith("blobs/v2/sha256/"));
+        assertTrue(compileJar.jar().orElseThrow().endsWith("/lib-1.0.0.jar"));
+        assertTrue(testJar.jar().orElseThrow().startsWith("blobs/v2/sha256/"));
+        assertTrue(testJar.jar().orElseThrow().endsWith("/lib-1.0.0-tests.jar"));
     }
 
     private static LockPackage lockPackage(ZoltLockfile lockfile, DependencyScope scope) {
@@ -224,6 +225,21 @@ final class ResolveServiceScopeTest extends ResolveServiceTestSupport {
                 .filter(lockPackage -> lockPackage.scope() == scope)
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private static Path cachedJar(
+            ZoltLockfile lockfile,
+            Path cacheRoot,
+            String groupId,
+            String artifactId,
+            DependencyScope scope) {
+        return cacheRoot.resolve(lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(new PackageId(groupId, artifactId)))
+                .filter(lockPackage -> lockPackage.scope() == scope)
+                .findFirst()
+                .orElseThrow()
+                .jar()
+                .orElseThrow());
     }
 
     private ProjectConfig classifiedDependencyConfig() {

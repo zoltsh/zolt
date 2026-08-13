@@ -1,6 +1,7 @@
 package sh.zolt.resolve.materialization.session;
 
 import sh.zolt.cache.CachedArtifact;
+import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
@@ -11,6 +12,7 @@ import sh.zolt.maven.repository.RawPom;
 import sh.zolt.maven.repository.RawPomParser;
 import sh.zolt.maven.repository.RepositoryAccess;
 import sh.zolt.maven.repository.RepositoryAccessPlanner;
+import sh.zolt.maven.repository.RepositoryConfigurationIdentity;
 import sh.zolt.maven.repository.RepositoryDownloadListener;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveOptions;
@@ -42,6 +44,7 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
     private final ProjectConfig config;
     private final WorkspaceResolutionSession session;
     private final SharedRepositoryScope scope;
+    private final ArtifactMaterializer artifactMaterializer;
     private final RepositoryAccessPlanner repositoryAccessPlanner = new RepositoryAccessPlanner();
     private final RepositoryFetchCoordinator repositoryFetchCoordinator = new RepositoryFetchCoordinator();
     private final MavenRepositoryClient repositoryClient;
@@ -76,6 +79,8 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
         this.config = config;
         this.session = session;
         this.scope = session.scopeFor(config);
+        RepositoryCacheScope cacheScope = RepositoryCacheScope.of(RepositoryConfigurationIdentity.of(config));
+        this.artifactMaterializer = session.artifactMaterializer(cacheScope);
         this.repositoryClient = repositoryClient;
         this.downloadProgressListener = options.artifactProgressListener()::onBytes;
         this.projectPlatformMetadataPlanner = new ProjectPlatformMetadataPlanner(coordinateParser);
@@ -105,16 +110,16 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
     }
 
     public CachedArtifact getJar(Coordinate coordinate) {
-        return session.artifactMaterializer().getJar(coordinate, this::fetchJar, metricsCollector);
+        return artifactMaterializer.getJar(coordinate, this::fetchJar, metricsCollector);
     }
 
     CachedArtifact getArtifact(ArtifactDescriptor descriptor) {
-        return session.artifactMaterializer().getArtifact(descriptor, this::fetchArtifact, metricsCollector);
+        return artifactMaterializer.getArtifact(descriptor, this::fetchArtifact, metricsCollector);
     }
 
     @Override
     public String sourceFor(MaterializedArtifact artifact) {
-        return session.artifactSources().getOrDefault(artifact.repositoryPath(), "maven-central");
+        return artifact.source();
     }
 
     @Override
@@ -188,7 +193,7 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
     }
 
     private CachedArtifact materializePom(Coordinate coordinate) {
-        return session.artifactMaterializer().getPom(coordinate, this::fetchPom, metricsCollector);
+        return artifactMaterializer.getPom(coordinate, this::fetchPom, metricsCollector);
     }
 
     private sh.zolt.maven.repository.RepositoryArtifact fetchPom(Coordinate coordinate) {

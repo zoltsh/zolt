@@ -168,9 +168,8 @@ final class ClassifierArtifactResolutionTest extends ResolveServiceTestSupport {
                 .findFirst()
                 .orElseThrow();
         assertEquals(DependencyScope.RUNTIME, nativeLib.scope());
-        assertEquals(
-                "com/example/native-lib/1.0.0/native-lib-1.0.0-linux-x86_64.jar",
-                nativeLib.jar().orElseThrow());
+        assertTrue(nativeLib.jar().orElseThrow().startsWith("blobs/v2/sha256/"));
+        assertTrue(nativeLib.jar().orElseThrow().endsWith("/native-lib-1.0.0-linux-x86_64.jar"));
         assertEquals(1, requestCount("/maven2/com/example/native-lib/1.0.0/native-lib-1.0.0-linux-x86_64.jar"));
         assertEquals(0, requestCount("/maven2/com/example/native-lib/1.0.0/native-lib-1.0.0.jar"));
     }
@@ -246,8 +245,16 @@ final class ClassifierArtifactResolutionTest extends ResolveServiceTestSupport {
         Path projectDir = tempDir.resolve("offline-project");
         Path cacheRoot = tempDir.resolve("offline-cache");
         createDirectory(projectDir);
-        resolveService.resolve(projectDir, configWithDependencies(Map.of("com.example:app", "1.0.0")), cacheRoot);
-        Files.delete(cacheRoot.resolve("com/example/native-lib/1.0.0/native-lib-1.0.0-linux-x86_64.jar"));
+        ResolveResult resolved = resolveService.resolve(
+                projectDir,
+                configWithDependencies(Map.of("com.example:app", "1.0.0")),
+                cacheRoot);
+        ZoltLockfile resolvedLock = lockfileReader.read(resolved.lockfilePath());
+        LockPackage nativeLib = resolvedLock.packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("com.example", "native-lib")))
+                .findFirst()
+                .orElseThrow();
+        Files.delete(cacheRoot.resolve(nativeLib.jar().orElseThrow()));
 
         ResolveException exception = assertThrows(
                 ResolveException.class,
@@ -371,9 +378,11 @@ final class ClassifierArtifactResolutionTest extends ResolveServiceTestSupport {
                 .findFirst()
                 .orElseThrow();
         assertEquals(version, lockPackage.version());
-        assertTrue(lockPackage.jar().orElseThrow().contains(
-                "/%s/fixture-%s-%s.jar".formatted(version, version, classifier)));
-        assertTrue(lockPackage.pom().orElseThrow().contains(
-                "/%s/fixture-%s.pom".formatted(version, version)));
+        assertTrue(lockPackage.jar().orElseThrow().startsWith("blobs/v2/sha256/"));
+        assertTrue(lockPackage.jar().orElseThrow().endsWith(
+                "/fixture-%s-%s.jar".formatted(version, classifier)));
+        assertTrue(lockPackage.pom().orElseThrow().startsWith("blobs/v2/sha256/"));
+        assertTrue(lockPackage.pom().orElseThrow().endsWith(
+                "/fixture-%s.pom".formatted(version)));
     }
 }

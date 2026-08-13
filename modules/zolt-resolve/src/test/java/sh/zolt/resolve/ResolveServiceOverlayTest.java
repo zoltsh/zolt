@@ -17,7 +17,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class ResolveServiceOverlayTest extends ResolveServiceTestSupport {
@@ -50,14 +49,10 @@ final class ResolveServiceOverlayTest extends ResolveServiceTestSupport {
                 .findFirst()
                 .orElseThrow();
         assertEquals("local-overlay:maven-local", app.source());
-        assertEquals(
-                Optional.of("overlays/maven-local/com/example/app/1.0.0/app-1.0.0.jar"),
-                app.jar());
-        assertEquals(
-                Optional.of("overlays/maven-local/com/example/app/1.0.0/app-1.0.0.pom"),
-                app.pom());
-        assertTrue(app.jar().orElseThrow().startsWith("overlays/maven-local/"));
-        assertTrue(app.pom().orElseThrow().startsWith("overlays/maven-local/"));
+        assertTrue(app.jar().orElseThrow().startsWith("blobs/v2/sha256/"));
+        assertTrue(app.jar().orElseThrow().endsWith("/app-1.0.0.jar"));
+        assertTrue(app.pom().orElseThrow().startsWith("blobs/v2/sha256/"));
+        assertTrue(app.pom().orElseThrow().endsWith("/app-1.0.0.pom"));
         assertTrue(app.jar().orElseThrow().contains("app-1.0.0.jar"));
         assertTrue(app.jar().orElseThrow().indexOf(tempDir.toString()) < 0);
         assertTrue(Files.isRegularFile(cacheRoot.resolve(app.jar().orElseThrow())));
@@ -81,7 +76,7 @@ final class ResolveServiceOverlayTest extends ResolveServiceTestSupport {
         assertEquals(1, requestCount("/maven2/com/example/app/1.0.0/app-1.0.0.pom"));
         ZoltLockfile lockfile = lockfileReader.read(result.lockfilePath());
         assertTrue(lockfile.packages().stream()
-                .allMatch(lockPackage -> "maven-central".equals(lockPackage.source())));
+                .allMatch(lockPackage -> "test".equals(lockPackage.source())));
     }
 
     @Test

@@ -10,18 +10,15 @@ import sh.zolt.resolve.materialization.RepositoryOverlayKind;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 final class LocalOverlayMaterializer {
     private final LocalArtifactCache cache;
-    private final Map<String, String> artifactSources;
     private final MavenRepositoryPathBuilder repositoryPathBuilder = new MavenRepositoryPathBuilder();
 
-    LocalOverlayMaterializer(LocalArtifactCache cache, Map<String, String> artifactSources) {
+    LocalOverlayMaterializer(LocalArtifactCache cache) {
         this.cache = Objects.requireNonNull(cache, "cache");
-        this.artifactSources = Objects.requireNonNull(artifactSources, "artifactSources");
     }
 
     Optional<CachedArtifact> materializePom(List<RepositoryOverlay> overlays, Coordinate coordinate) {
@@ -34,7 +31,6 @@ final class LocalOverlayMaterializer {
                 continue;
             }
             CachedArtifact artifact = cache.materializeOverlayPom(coordinate, overlay.id(), sourcePath);
-            artifactSources.put(artifact.repositoryPath(), overlay.lockfileSource());
             return Optional.of(artifact);
         }
         return Optional.empty();
@@ -50,7 +46,6 @@ final class LocalOverlayMaterializer {
                 continue;
             }
             CachedArtifact artifact = cache.materializeOverlayArtifact(descriptor, overlay.id(), sourcePath);
-            artifactSources.put(artifact.repositoryPath(), overlay.lockfileSource());
             return Optional.of(artifact);
         }
         return Optional.empty();

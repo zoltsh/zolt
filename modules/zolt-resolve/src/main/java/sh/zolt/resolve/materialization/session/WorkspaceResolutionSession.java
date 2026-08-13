@@ -2,6 +2,7 @@ package sh.zolt.resolve.materialization.session;
 
 import sh.zolt.cache.CachedArtifact;
 import sh.zolt.cache.LocalArtifactCache;
+import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.maven.repository.RawPomParser;
 import sh.zolt.maven.repository.RepositoryConfigurationIdentity;
 import sh.zolt.project.ProjectConfig;
@@ -29,14 +30,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li><b>Artifact materialization</b> — one {@link LocalArtifactCache}, so its download coordinator
  *       is the single flight for an artifact across the whole command rather than once per member.
- *       Keyed by cache-relative repository path, which is what the on-disk cache is keyed by.</li>
+ *       Repository fetches are keyed by repository-configuration identity plus Maven path. On disk,
+ *       scoped indexes retain the selected repository source and point to content-addressed blobs.</li>
  *   <li><b>Raw POMs, effective POMs, parent chains, imported BOMs, POM artifacts</b> — keyed by the
  *       {@link RepositoryConfigurationIdentity} they were derived under, because workspace policy
  *       merging lets a member add a repository the root does not declare, and a different repository
  *       set can serve different bytes for the same coordinate.</li>
- *   <li><b>Artifact digests</b> — keyed by cache-relative repository path alone. The digest is a
- *       function of the bytes at that path, and a path resolves to one file in one cache root for the
- *       life of a command, so repository identity cannot change the answer.</li>
+ *   <li><b>Artifact digests</b> — keyed by content-addressed cache path alone. Repository scopes that
+ *       selected identical bytes may share that immutable blob while retaining separate source
+ *       evidence in their indexes.</li>
  * </ul>
  *
  * <p>What is deliberately <em>not</em> shared: the resolution graph, version selection, managed
@@ -52,8 +54,6 @@ public final class WorkspaceResolutionSession {
     private final ResolveOptions options;
     private final RawPomParser rawPomParser;
     private final LocalArtifactCache cache;
-    private final ArtifactMaterializer artifactMaterializer;
-    private final Map<String, String> artifactSources = new ConcurrentHashMap<>();
     private final Map<String, String> artifactDigests = new ConcurrentHashMap<>();
     private final Map<String, SharedRepositoryScope> scopes = new ConcurrentHashMap<>();
 
@@ -62,20 +62,14 @@ public final class WorkspaceResolutionSession {
         this.options = options;
         this.rawPomParser = rawPomParser;
         this.cache = new LocalArtifactCache(cacheRoot);
-        this.artifactMaterializer = new ArtifactMaterializer(
-                cache, options, new LocalOverlayMaterializer(cache, artifactSources));
     }
 
     LocalArtifactCache cache() {
         return cache;
     }
 
-    ArtifactMaterializer artifactMaterializer() {
-        return artifactMaterializer;
-    }
-
-    Map<String, String> artifactSources() {
-        return artifactSources;
+    ArtifactMaterializer artifactMaterializer(RepositoryCacheScope scope) {
+        return new ArtifactMaterializer(cache, scope, options, new LocalOverlayMaterializer(cache));
     }
 
     SharedRepositoryScope scopeFor(ProjectConfig config) {
@@ -89,7 +83,8 @@ public final class WorkspaceResolutionSession {
         return new MaterializedArtifact(
                 artifact.repositoryPath(),
                 artifactDigests.computeIfAbsent(
-                        artifact.repositoryPath(), ignored -> sha256(artifact.bytes())));
+                        artifact.repositoryPath(), ignored -> sha256(artifact.bytes())),
+                artifact.source());
     }
 
     /**

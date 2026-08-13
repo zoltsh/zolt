@@ -1,6 +1,7 @@
 package sh.zolt.resolve.materialization.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,7 +37,11 @@ final class RepositoryFetchCoordinatorTest {
             return expected;
         });
 
-        assertSame(expected, artifact);
+        assertEquals(expected.coordinate(), artifact.coordinate());
+        assertEquals(expected.path(), artifact.path());
+        assertEquals(expected.source(), artifact.source());
+        assertEquals("https://repo.example/two", artifact.repositoryId());
+        assertArrayEquals(expected.bytes(), artifact.bytes());
         assertEquals(List.of(
                 URI.create("https://repo.example/one"),
                 URI.create("https://repo.example/two")), attempted);

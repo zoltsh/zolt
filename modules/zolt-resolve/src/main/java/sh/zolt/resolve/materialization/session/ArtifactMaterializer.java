@@ -2,14 +2,13 @@ package sh.zolt.resolve.materialization.session;
 
 import sh.zolt.cache.CachedArtifact;
 import sh.zolt.cache.LocalArtifactCache;
+import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.RepositoryArtifact;
 import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.metrics.ArtifactLoadMetricsSink;
 import sh.zolt.resolve.progress.ArtifactProgressListener;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
@@ -17,15 +16,18 @@ import java.util.function.Supplier;
 
 final class ArtifactMaterializer {
     private final LocalArtifactCache cache;
+    private final RepositoryCacheScope cacheScope;
     private final ResolveOptions options;
     private final LocalOverlayMaterializer localOverlayMaterializer;
     private final ArtifactProgressListener progressListener;
 
     ArtifactMaterializer(
             LocalArtifactCache cache,
+            RepositoryCacheScope cacheScope,
             ResolveOptions options,
             LocalOverlayMaterializer localOverlayMaterializer) {
         this.cache = cache;
+        this.cacheScope = cacheScope;
         this.options = options;
         this.localOverlayMaterializer = localOverlayMaterializer;
         this.progressListener = options.artifactProgressListener();
@@ -43,14 +45,14 @@ final class ArtifactMaterializer {
             return overlayArtifact.orElseThrow();
         }
         if (options.offline()) {
-            CachedArtifact artifact = cache.getCachedPom(coordinate);
+            CachedArtifact artifact = cache.getCachedPom(cacheScope, coordinate);
             metrics.recordPomCacheHit(elapsedSince(started));
             return artifact;
         }
-        Path before = cache.pomPath(coordinate);
-        boolean cached = Files.isRegularFile(before);
+        boolean cached = cache.hasPom(cacheScope, coordinate);
         ArtifactDescriptor descriptor = new ArtifactDescriptor(coordinate, Optional.empty(), "pom");
         CachedArtifact artifact = cache.getOrFetchPom(
+                cacheScope,
                 coordinate,
                 ignored -> fetchWithProgress(descriptor, () -> fetchPom.apply(coordinate)));
         if (cached) {
@@ -73,14 +75,14 @@ final class ArtifactMaterializer {
             return overlayArtifact.orElseThrow();
         }
         if (options.offline()) {
-            CachedArtifact artifact = cache.getCachedJar(coordinate);
+            CachedArtifact artifact = cache.getCachedJar(cacheScope, coordinate);
             metrics.recordJarCacheHit(elapsedSince(started));
             return artifact;
         }
-        Path before = cache.jarPath(coordinate);
-        boolean cached = Files.isRegularFile(before);
+        boolean cached = cache.hasJar(cacheScope, coordinate);
         ArtifactDescriptor descriptor = ArtifactDescriptor.jar(coordinate);
         CachedArtifact artifact = cache.getOrFetchJar(
+                cacheScope,
                 coordinate,
                 ignored -> fetchWithProgress(descriptor, () -> fetchJar.apply(coordinate)));
         if (cached) {
@@ -104,13 +106,13 @@ final class ArtifactMaterializer {
         }
         if (options.offline()) {
             CachedArtifact artifact =
-                    cache.getCachedArtifact(descriptor, descriptor.extension().toUpperCase(Locale.ROOT));
+                    cache.getCachedArtifact(cacheScope, descriptor, descriptor.extension().toUpperCase(Locale.ROOT));
             metrics.recordArtifactCacheHit(elapsedSince(started));
             return artifact;
         }
-        Path before = cache.artifactPath(descriptor);
-        boolean cached = Files.isRegularFile(before);
+        boolean cached = cache.hasArtifact(cacheScope, descriptor);
         CachedArtifact artifact = cache.getOrFetchArtifact(
+                cacheScope,
                 descriptor,
                 ignored -> fetchWithProgress(descriptor, () -> fetchArtifact.apply(descriptor)));
         if (cached) {

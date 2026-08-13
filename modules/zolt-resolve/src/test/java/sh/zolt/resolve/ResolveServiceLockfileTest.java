@@ -111,7 +111,7 @@ final class ResolveServiceLockfileTest extends ResolveServiceTestSupport {
 
         ResolveException exception = assertThrows(
                 ResolveException.class,
-                () -> resolveService.resolve(projectDir, configWithRepository(baseUri + "?changed=true"), cacheRoot, true));
+                () -> resolveService.resolve(projectDir, configWithRepository(baseUri + "./"), cacheRoot, true));
 
         assertTrue(existingLockfile.contains("projectResolutionFingerprint = \"sha256:"));
         assertTrue(exception.getMessage().contains("zolt.lock is out of date"));

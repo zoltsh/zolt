@@ -174,8 +174,8 @@ final class ResolveServiceToolingTest extends ResolveServiceTestSupport {
                         && lockPackage.version().equals("3.33.2")
                         && lockPackage.scope() == DependencyScope.TEST
                         && lockPackage.direct()
-                        && lockPackage.jar().orElseThrow().equals(
-                                "io/quarkus/quarkus-junit/3.33.2/quarkus-junit-3.33.2.jar")));
+                        && lockPackage.jar().orElseThrow().startsWith("blobs/v2/sha256/")
+                        && lockPackage.jar().orElseThrow().endsWith("/quarkus-junit-3.33.2.jar")));
         assertTrue(lockfile.packages().stream().noneMatch(lockPackage ->
                 lockPackage.packageId().equals(new PackageId("io.quarkus", "quarkus-junit5"))));
     }
