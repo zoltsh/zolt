@@ -14,6 +14,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
 import sh.zolt.maven.repository.RawPom;
@@ -79,7 +81,8 @@ public final class PomLicenseResolver {
     }
 
     private List<SbomLicense> resolveUncached(LockPackage lockPackage) {
-        Optional<RawPom> pom = lockPackage.pomPath().flatMap(this::readPom);
+        Optional<RawPom> pom = LockPackageCachePath.path(lockPackage, LockPackagePathKind.POM)
+                .flatMap(this::readPom);
         if (pom.isEmpty()) {
             return List.of(SbomLicense.unknown());
         }

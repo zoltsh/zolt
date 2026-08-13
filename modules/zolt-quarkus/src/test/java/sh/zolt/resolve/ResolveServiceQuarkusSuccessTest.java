@@ -77,11 +77,12 @@ final class ResolveServiceQuarkusSuccessTest extends ResolveServiceQuarkusTestSu
 
         ClasspathSet classpaths = new ClasspathBuilder().build(
                 LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
-        Path restJar = lockfile.packages().stream()
+        LockPackage rest = lockfile.packages().stream()
                 .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("io.quarkus", "quarkus-rest")))
                 .findFirst()
-                .orElseThrow()
-                .jarPath()
+                .orElseThrow();
+        Path restJar = sh.zolt.lockfile.LockPackageCachePath.path(
+                        rest, sh.zolt.lockfile.LockPackagePathKind.JAR)
                 .orElseThrow()
                 .resolveWithin(cacheRoot);
         assertEquals(List.of(restJar), classpaths.compile().entries());

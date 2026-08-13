@@ -6,6 +6,8 @@ import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectPathException;
@@ -56,13 +58,15 @@ public final class LockfileClasspathPackageConverter {
                 .map(lockPackage -> {
                     Path classpathPath = lockPackage.workspace().isPresent()
                             ? workspaceClasspathPath(workspaceRoot, lockPackage)
-                            : lockPackage.jarPath().orElseThrow().resolveWithin(cacheRoot);
+                            : LockPackageCachePath.path(lockPackage, LockPackagePathKind.JAR)
+                                    .orElseThrow()
+                                    .resolveWithin(cacheRoot);
                     return new ResolvedClasspathPackage(
                             new ResolvedPackage(
                                     lockPackage.packageId(),
                                     lockPackage.version(),
                                     lockPackage.direct(),
-                                    lockPackage.pomPath()
+                                    LockPackageCachePath.path(lockPackage, LockPackagePathKind.POM)
                                             .map(value -> value.resolveWithin(cacheRoot))
                                             .orElse(Path.of("")),
                                     classpathPath,
@@ -81,10 +85,12 @@ public final class LockfileClasspathPackageConverter {
                                 lockPackage.packageId(),
                                 lockPackage.version(),
                                 lockPackage.direct(),
-                                lockPackage.pomPath()
+                                LockPackageCachePath.path(lockPackage, LockPackagePathKind.POM)
                                         .map(value -> value.resolveWithin(cacheRoot))
                                         .orElse(Path.of("")),
-                                lockPackage.jarPath().orElseThrow().resolveWithin(cacheRoot),
+                                LockPackageCachePath.path(lockPackage, LockPackagePathKind.JAR)
+                                        .orElseThrow()
+                                        .resolveWithin(cacheRoot),
                                 NestedArtifactIdentity.of(lockPackage)),
                         lockPackage.scope(),
                         lockPackage.toolGroups()))

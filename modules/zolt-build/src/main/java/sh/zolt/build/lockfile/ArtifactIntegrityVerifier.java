@@ -3,6 +3,8 @@ package sh.zolt.build.lockfile;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex.VerificationResult;
 import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import java.io.IOException;
@@ -92,21 +94,21 @@ public final class ArtifactIntegrityVerifier {
                     lockPackage,
                     normalizedCacheRoot,
                     "jar",
-                    lockPackage.jarPath(),
+                    LockPackageCachePath.path(lockPackage, LockPackagePathKind.JAR),
                     lockPackage.jarSha256());
             addArtifact(
                     verifications,
                     lockPackage,
                     normalizedCacheRoot,
                     "pom",
-                    lockPackage.pomPath(),
+                    LockPackageCachePath.path(lockPackage, LockPackagePathKind.POM),
                     lockPackage.pomSha256());
             addArtifact(
                     verifications,
                     lockPackage,
                     normalizedCacheRoot,
                     lockPackage.artifactType().orElse("artifact"),
-                    lockPackage.artifactPath(),
+                    LockPackageCachePath.path(lockPackage, LockPackagePathKind.SECONDARY),
                     lockPackage.artifactSha256());
         }
         return verifications;

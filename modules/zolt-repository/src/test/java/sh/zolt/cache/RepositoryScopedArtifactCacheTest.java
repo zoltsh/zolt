@@ -3,6 +3,7 @@ package sh.zolt.cache;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.Coordinate;
@@ -95,6 +96,33 @@ final class RepositoryScopedArtifactCacheTest {
         assertEquals(online.repositoryPath(), offline.repositoryPath());
         assertEquals("private", offline.source());
         assertArrayEquals(online.bytes(), offline.bytes());
+    }
+
+    @Test
+    void onlineLookupRepairsCorruptBlobWhileOfflineFailsClosed() throws Exception {
+        RepositoryCacheScope scope = RepositoryCacheScope.of("private repository");
+        LocalArtifactCache cache = new LocalArtifactCache(tempDir);
+        CachedArtifact original = cache.getOrFetchJar(
+                scope,
+                LIB,
+                ignored -> artifact("private", "trusted bytes"));
+        Files.writeString(original.cachePath(), "corrupt bytes");
+
+        ArtifactCacheException offline = assertThrows(
+                ArtifactCacheException.class,
+                () -> new LocalArtifactCache(tempDir).getCachedJar(scope, LIB));
+        assertTrue(offline.getMessage().contains("Offline mode found corrupt cached JAR"));
+        assertTrue(offline.getMessage().contains("Run the command without --offline to repair it"));
+
+        AtomicInteger fetches = new AtomicInteger();
+        CachedArtifact repaired = new LocalArtifactCache(tempDir).getOrFetchJar(scope, LIB, ignored -> {
+            fetches.incrementAndGet();
+            return artifact("private", "trusted bytes");
+        });
+
+        assertEquals(1, fetches.get());
+        assertArrayEquals(bytes("trusted bytes"), repaired.bytes());
+        assertArrayEquals(bytes("trusted bytes"), Files.readAllBytes(repaired.cachePath()));
     }
 
     private static RepositoryArtifact artifact(String repositoryId, String content) {

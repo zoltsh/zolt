@@ -21,6 +21,9 @@ import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.framework.FrameworkPackageAugmenter;
 import sh.zolt.framework.FrameworkPackageResult;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.PackageMode;
 import sh.zolt.quarkus.QuarkusPackagePlanRules;
 import sh.zolt.resolve.ResolveService;
@@ -155,9 +158,19 @@ final class CheckWorkspaceQuarkusPackageContentsCommandTest {
                         new JarOutputStream(Files.newOutputStream(runner))) {
                     // A deterministic empty runner is enough for the package contract seam.
                 }
+                Path runtimeJar = new ZoltLockfileReader()
+                        .read(projectDirectory.getParent().getParent().resolve("zolt.lock"))
+                        .packages()
+                        .stream()
+                        .filter(lockPackage -> lockPackage.packageId().groupId().equals("org.example"))
+                        .filter(lockPackage -> lockPackage.packageId().artifactId().equals("runtime"))
+                        .findFirst()
+                        .flatMap(lockPackage -> LockPackageCachePath.path(
+                                lockPackage, LockPackagePathKind.JAR))
+                        .orElseThrow()
+                        .resolveWithin(cacheRoot);
                 Files.copy(
-                        cacheRoot.resolve(
-                                "org/example/runtime/1.0.0/runtime-1.0.0.jar"),
+                        runtimeJar,
                         libraryDirectory.resolve("runtime-1.0.0.jar"),
                         StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException exception) {

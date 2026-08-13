@@ -59,8 +59,8 @@ final class WorkspaceBuildCommandStaleLockTest {
                     members = ["apps/api"]
 
                     [repositories]
-                    test = "%s?changed=true"
-                    """.formatted(repository.baseUri()));
+                    test = "%s"
+                    """.formatted(repository.baseUri().toString().replace("127.0.0.1", "localhost")));
             Path apiSource = apiDir.resolve("src/main/java/com/example/api/Api.java");
             Files.createDirectories(apiSource.getParent());
             Files.writeString(apiSource, """
@@ -79,7 +79,9 @@ final class WorkspaceBuildCommandStaleLockTest {
             assertEquals(0, resolve.exitCode());
             assertEquals(1, result.exitCode());
             assertTrue(existingLockfile.contains("projectResolutionFingerprint = \"sha256:"));
-            assertTrue(result.stderr().contains("Workspace zolt.lock is out of date"));
+            assertTrue(
+                    result.stderr().contains("Workspace zolt.lock is out of date"),
+                    result.stderr());
             assertEquals(existingLockfile, Files.readString(workspaceDir.resolve("zolt.lock")));
             assertFalse(Files.exists(apiDir.resolve("target/classes/com/example/api/Api.class")));
         }

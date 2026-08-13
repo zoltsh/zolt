@@ -49,18 +49,6 @@ public record LockPackage(
         toolGroups = toolGroups == null ? List.of() : List.copyOf(toolGroups);
     }
 
-    public Optional<CacheRelativePath> jarPath() {
-        return jar.map(CacheRelativePath::new);
-    }
-
-    public Optional<CacheRelativePath> pomPath() {
-        return pom.map(CacheRelativePath::new);
-    }
-
-    public Optional<CacheRelativePath> artifactPath() {
-        return artifact.map(CacheRelativePath::new);
-    }
-
     private static Optional<String> cachePath(String field, Optional<String> path) {
         Optional<String> candidate = path == null ? Optional.empty() : path;
         try {

@@ -1,6 +1,10 @@
 package sh.zolt.cli.command;
 
+import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
+import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveOptions;
@@ -25,9 +29,21 @@ import java.util.Optional;
 public final class CommandLockfiles {
     public static final String WORKSPACE_FRESHNESS_PHASE = "workspace lock freshness";
 
-    private final ResolveService resolveService;
+    private final ProjectResolve projectResolve;
     private final WorkspaceDiscoveryService workspaceDiscoveryService;
     private final WorkspaceLockFreshnessService workspaceLockFreshnessService;
+    private final ZoltLockfileReader lockfileReader;
+    private final ArtifactIntegrityVerifier artifactIntegrityVerifier;
+
+    @FunctionalInterface
+    interface ProjectResolve {
+        void resolve(
+                Path workingDirectory,
+                ProjectConfig config,
+                Path cacheRoot,
+                boolean locked,
+                ResolveOptions options);
+    }
 
     public CommandLockfiles() {
         this(CommandFrameworkServices.resolveCommandServices());
@@ -44,11 +60,28 @@ public final class CommandLockfiles {
             ResolveService resolveService,
             WorkspaceDiscoveryService workspaceDiscoveryService,
             WorkspaceResolveService workspaceResolveService) {
-        this.resolveService = resolveService;
+        this(
+                (workingDirectory, config, cacheRoot, locked, options) -> resolveService.resolve(
+                        workingDirectory, config, cacheRoot, locked, options),
+                workspaceDiscoveryService,
+                workspaceResolveService,
+                new ZoltLockfileReader(),
+                new ArtifactIntegrityVerifier());
+    }
+
+    CommandLockfiles(
+            ProjectResolve projectResolve,
+            WorkspaceDiscoveryService workspaceDiscoveryService,
+            WorkspaceResolveService workspaceResolveService,
+            ZoltLockfileReader lockfileReader,
+            ArtifactIntegrityVerifier artifactIntegrityVerifier) {
+        this.projectResolve = projectResolve;
         this.workspaceDiscoveryService = workspaceDiscoveryService;
         this.workspaceLockFreshnessService = new WorkspaceLockFreshnessService(
                 workspaceDiscoveryService,
                 workspaceResolveService);
+        this.lockfileReader = lockfileReader;
+        this.artifactIntegrityVerifier = artifactIntegrityVerifier;
     }
 
     public void requireFreshLockfile(
@@ -69,11 +102,12 @@ public final class CommandLockfiles {
         if (!Files.isRegularFile(lockfilePath) || !looksGeneratedLockfile(lockfilePath)) {
             return;
         }
-        if (matchesProjectResolutionFingerprint(lockfilePath, config)) {
+        if (matchesProjectResolutionFingerprint(lockfilePath, config)
+                && lockedArtifactsReady(lockfilePath, cacheRoot)) {
             return;
         }
         redirectWorkspaceMemberToWorkspacePath(workingDirectory, retryCommand);
-        resolveService.resolve(
+        projectResolve.resolve(
                 workingDirectory,
                 config,
                 cacheRoot,
@@ -112,7 +146,12 @@ public final class CommandLockfiles {
         if (!Files.isRegularFile(lockfilePath) || !looksGeneratedLockfile(lockfilePath)) {
             return;
         }
-        resolveService.resolve(workingDirectory, config, cacheRoot, false, offline);
+        projectResolve.resolve(
+                workingDirectory,
+                config,
+                cacheRoot,
+                false,
+                ResolveOptions.offline(offline));
     }
 
     public void requireFreshWorkspaceLockfile(Path workingDirectory, Path cacheRoot, boolean offline) {
@@ -167,6 +206,35 @@ public final class CommandLockfiles {
                         "workspaceMembers",
                                 Integer.toString(value.workspace().members().size())))
                 .orElseGet(() -> Map.of("workspaceLockFreshness", "no-workspace"));
+    }
+
+    private boolean lockedArtifactsReady(Path lockfilePath, Path cacheRoot) {
+        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+        if (!recordsEveryArtifactChecksum(lockfile)) {
+            return false;
+        }
+        try {
+            artifactIntegrityVerifier.verify(lockfile, cacheRoot);
+            return true;
+        } catch (LockfileReadException exception) {
+            return false;
+        } catch (IllegalArgumentException exception) {
+            throw LockfileReadException.actionable(
+                    "zolt.lock references an unsafe artifact cache path.",
+                    "Correct the lockfile path or regenerate zolt.lock with `zolt resolve`.",
+                    exception);
+        }
+    }
+
+    private static boolean recordsEveryArtifactChecksum(ZoltLockfile lockfile) {
+        for (LockPackage lockPackage : lockfile.packages()) {
+            if (lockPackage.jar().isPresent() != lockPackage.jarSha256().isPresent()
+                    || lockPackage.pom().isPresent() != lockPackage.pomSha256().isPresent()
+                    || lockPackage.artifact().isPresent() != lockPackage.artifactSha256().isPresent()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean looksGeneratedLockfile(Path lockfilePath) {

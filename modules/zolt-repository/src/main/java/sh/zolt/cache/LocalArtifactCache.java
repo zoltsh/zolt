@@ -154,13 +154,13 @@ public final class LocalArtifactCache {
             Coordinate coordinate,
             String repositoryPath,
             ArtifactFetcher fetcher) {
-        CachedArtifact cached = scopedStorage.find(scope, coordinate, repositoryPath).orElse(null);
+        CachedArtifact cached = repairableLookup(scope, coordinate, repositoryPath);
         if (cached != null) {
             return cached;
         }
         String inFlightKey = scope.key() + ":" + repositoryPath;
         return downloadCoordinator.run(inFlightKey, () -> {
-            CachedArtifact concurrent = scopedStorage.find(scope, coordinate, repositoryPath).orElse(null);
+            CachedArtifact concurrent = repairableLookup(scope, coordinate, repositoryPath);
             if (concurrent != null) {
                 return concurrent;
             }
@@ -168,22 +168,48 @@ public final class LocalArtifactCache {
         });
     }
 
+    private CachedArtifact repairableLookup(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            String repositoryPath) {
+        try {
+            return scopedStorage.find(scope, coordinate, repositoryPath).orElse(null);
+        } catch (CorruptArtifactCacheEntryException exception) {
+            scopedStorage.invalidate(scope, repositoryPath);
+            return null;
+        }
+    }
+
     private CachedArtifact getCached(
             RepositoryCacheScope scope,
             Coordinate coordinate,
             String repositoryPath,
             String artifactKind) {
-        return scopedStorage.find(scope, coordinate, repositoryPath).orElseThrow(() ->
-                new ArtifactCacheException(
-                        "Offline mode requires cached "
-                                + artifactKind
-                                + " for "
-                                + coordinate
-                                + " at repository path "
-                                + repositoryPath
-                                + " in repository scope "
-                                + scope.key()
-                                + ". Run the command without --offline to download it, then retry with --offline."));
+        try {
+            return scopedStorage.find(scope, coordinate, repositoryPath).orElseThrow(() ->
+                    new ArtifactCacheException(
+                            "Offline mode requires cached "
+                                    + artifactKind
+                                    + " for "
+                                    + coordinate
+                                    + " at repository path "
+                                    + repositoryPath
+                                    + " in repository scope "
+                                    + scope.key()
+                                    + ". Run the command without --offline to download it, then retry with --offline."));
+        } catch (CorruptArtifactCacheEntryException exception) {
+            throw new ArtifactCacheException(
+                    "Offline mode found corrupt cached "
+                            + artifactKind
+                            + " for "
+                            + coordinate
+                            + " at repository path "
+                            + repositoryPath
+                            + ". "
+                            + exception.getMessage()
+                            + " Run the command without --offline to repair it, then retry with --offline.",
+                    exception);
+        }
     }
 
     private CachedArtifact materializeOverlayArtifact(

@@ -89,6 +89,17 @@ final class ScopedArtifactCacheStorage {
         return cached(coordinate, blob, bytes, source);
     }
 
+    void invalidate(RepositoryCacheScope scope, String mavenPath) {
+        Path index = indexPath(scope, mavenPath);
+        try {
+            Files.deleteIfExists(index);
+        } catch (IOException exception) {
+            throw new ArtifactCacheException(
+                    "Could not remove corrupt artifact cache index at " + index + ".",
+                    exception);
+        }
+    }
+
     private Optional<IndexEntry> readIndex(RepositoryCacheScope scope, String mavenPath) {
         Path path = indexPath(scope, mavenPath);
         if (!Files.exists(path)) {
@@ -117,7 +128,11 @@ final class ScopedArtifactCacheStorage {
                 throw invalidIndex(path);
             }
             return Optional.of(new IndexEntry(digest, length, source));
-        } catch (IOException | IllegalArgumentException exception) {
+        } catch (IllegalArgumentException exception) {
+            throw new CorruptArtifactCacheEntryException(
+                    "Artifact cache index at " + path + " is invalid. Delete it and retry.",
+                    exception);
+        } catch (IOException exception) {
             throw new ArtifactCacheException(
                     "Could not read artifact cache index at " + path + ". Delete it and retry.",
                     exception);
@@ -170,13 +185,13 @@ final class ScopedArtifactCacheStorage {
         return line.substring(prefix.length());
     }
 
-    private static ArtifactCacheException invalidIndex(Path path) {
-        return new ArtifactCacheException(
+    private static CorruptArtifactCacheEntryException invalidIndex(Path path) {
+        return new CorruptArtifactCacheEntryException(
                 "Artifact cache index at " + path + " is invalid. Delete it and retry.");
     }
 
-    private static ArtifactCacheException invalidBlob(Path path, String detail) {
-        return new ArtifactCacheException(
+    private static CorruptArtifactCacheEntryException invalidBlob(Path path, String detail) {
+        return new CorruptArtifactCacheEntryException(
                 "Cached artifact at " + path + " " + detail + ". Delete it and run the command again.");
     }
 

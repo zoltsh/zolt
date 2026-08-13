@@ -8,6 +8,10 @@ import static sh.zolt.cli.CliTestSupport.execute;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport;
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -206,8 +210,14 @@ final class WorkspaceLockFreshnessCommandTest {
     }
 
     private Path cachedJar(String version) {
-        return cacheRoot().resolve(
-                "com/example/app/" + version + "/app-" + version + ".jar");
+        var locked = new ZoltLockfileReader().read(lockfilePath()).packages().stream()
+                .filter(lockPackage -> lockPackage.packageId().equals(new PackageId("com.example", "app")))
+                .filter(lockPackage -> lockPackage.version().equals(version))
+                .findFirst()
+                .orElseThrow();
+        return LockPackageCachePath.path(locked, LockPackagePathKind.JAR)
+                .orElseThrow()
+                .resolveWithin(cacheRoot());
     }
 
     private void writeWorkspace(CliTestRepository repository, String version) throws IOException {

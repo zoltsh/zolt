@@ -2,6 +2,8 @@ package sh.zolt.workspace.resolve;
 
 import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,9 +44,9 @@ final class WorkspaceLockArtifactPresence {
     private static Set<CacheRelativePath> cacheRelativePaths(ZoltLockfile lockfile) {
         Set<CacheRelativePath> paths = new LinkedHashSet<>();
         for (LockPackage lockPackage : lockfile.packages()) {
-            lockPackage.jarPath().ifPresent(paths::add);
-            lockPackage.pomPath().ifPresent(paths::add);
-            lockPackage.artifactPath().ifPresent(paths::add);
+            LockPackageCachePath.path(lockPackage, LockPackagePathKind.JAR).ifPresent(paths::add);
+            LockPackageCachePath.path(lockPackage, LockPackagePathKind.POM).ifPresent(paths::add);
+            LockPackageCachePath.path(lockPackage, LockPackagePathKind.SECONDARY).ifPresent(paths::add);
         }
         return paths;
     }

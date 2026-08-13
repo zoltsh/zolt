@@ -4,6 +4,8 @@ import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.nio.file.Path;
 import java.util.List;
@@ -36,8 +38,10 @@ final class PackageGeneratedSourceClasspath {
                 ? PackageWorkspaceInputPlanner.sourceDirectory(
                         projectRoot,
                         lockPackage)
-                : lockPackage.jarPath().orElseThrow().resolveWithin(cacheRoot);
-        Path pom = lockPackage.pomPath()
+                : LockPackageCachePath.path(lockPackage, LockPackagePathKind.JAR)
+                        .orElseThrow()
+                        .resolveWithin(cacheRoot);
+        Path pom = LockPackageCachePath.path(lockPackage, LockPackagePathKind.POM)
                 .map(path -> path.resolveWithin(cacheRoot))
                 .orElse(Path.of(""));
         return new ResolvedClasspathPackage(

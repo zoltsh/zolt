@@ -6,6 +6,8 @@ import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
@@ -137,7 +139,9 @@ public final class QuarkusPlanService {
                         lockPackage.packageId(),
                         lockPackage.version(),
                         lockPackage.scope(),
-                        lockPackage.jarPath().orElseThrow().resolveWithin(cacheRoot),
+                        LockPackageCachePath.path(lockPackage, LockPackagePathKind.JAR)
+                                .orElseThrow()
+                                .resolveWithin(cacheRoot),
                         lockPackage.direct()))
                 .sorted(Comparator.comparing(QuarkusPlanService::bootstrapDependencyKey))
                 .toList();
@@ -153,7 +157,9 @@ public final class QuarkusPlanService {
                 .map(lockPackage -> new QuarkusPlatformPropertiesArtifact(
                         lockPackage.packageId(),
                         lockPackage.version(),
-                        lockPackage.artifactPath().orElseThrow().resolveWithin(cacheRoot)))
+                        LockPackageCachePath.path(lockPackage, LockPackagePathKind.SECONDARY)
+                                .orElseThrow()
+                                .resolveWithin(cacheRoot)))
                 .sorted(Comparator.comparing(artifact ->
                         artifact.packageId() + ":" + artifact.version() + ":" + artifact.path()))
                 .toList();
@@ -173,7 +179,9 @@ public final class QuarkusPlanService {
             LockPackage runtimePackage,
             Path cacheRoot,
             Map<String, LockPackage> deploymentPackages) {
-        Path runtimePath = runtimePackage.jarPath().orElseThrow().resolveWithin(cacheRoot);
+        Path runtimePath = LockPackageCachePath.path(runtimePackage, LockPackagePathKind.JAR)
+                .orElseThrow()
+                .resolveWithin(cacheRoot);
         if (!Files.isRegularFile(runtimePath)) {
             return Optional.empty();
         }
@@ -183,7 +191,7 @@ public final class QuarkusPlanService {
         }
         QuarkusDeploymentArtifact deploymentArtifact = metadata.orElseThrow().deploymentArtifact();
         Optional<Path> deploymentPath = Optional.ofNullable(deploymentPackages.get(deploymentKey(deploymentArtifact)))
-                .flatMap(LockPackage::jarPath)
+                .flatMap(lockPackage -> LockPackageCachePath.path(lockPackage, LockPackagePathKind.JAR))
                 .map(path -> path.resolveWithin(cacheRoot));
         return Optional.of(new QuarkusPlanExtension(
                 runtimePackage.packageId(),
