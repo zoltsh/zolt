@@ -166,8 +166,7 @@ public final class RunCommand implements Runnable {
                 }
                 for (WorkspaceRunResult.MemberRunResult member : result.members()) {
                     JavaRunResult javaRunResult = member.result().javaRunResult();
-                    String processOutput = javaRunResult.output();
-                    if (!processOutput.isEmpty() && !processOutput.endsWith("\n")) {
+                    if (!javaRunResult.diagnosticTail().isEmpty() && !javaRunResult.endedWithNewline()) {
                         output.blankLine();
                     }
                     if (javaRunResult.signalled()) {
@@ -202,8 +201,7 @@ public final class RunCommand implements Runnable {
                     CommandRunAttributes::run);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             JavaRunResult javaRunResult = result.javaRunResult();
-            String processOutput = javaRunResult.output();
-            if (!processOutput.isEmpty() && !processOutput.endsWith("\n")) {
+            if (!javaRunResult.diagnosticTail().isEmpty() && !javaRunResult.endedWithNewline()) {
                 output.blankLine();
             }
             if (javaRunResult.signalled()) {

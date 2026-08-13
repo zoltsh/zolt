@@ -1,11 +1,13 @@
 package sh.zolt.build.run;
 
 import sh.zolt.build.JavaRunException;
-import sh.zolt.cancel.BuildCancellation;
-import sh.zolt.cancel.ProcessCancellation;
 import sh.zolt.classpath.Classpath;
+import sh.zolt.process.ProcessExitInterpreter;
+import sh.zolt.process.ProcessInputPolicy;
+import sh.zolt.process.ProcessSupervisor;
+import sh.zolt.process.SupervisedProcessResult;
+import sh.zolt.process.SupervisedProcessSpec;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -123,21 +125,29 @@ public final class JavaRunner {
         return result(mainClass, result);
     }
 
-    private static final int SIGNAL_EXIT_BASE = 128;
-
     private static JavaRunResult result(String mainClass, ProcessResult result) {
         int exitCode = result.exitCode();
-        if (exitCode >= SIGNAL_EXIT_BASE) {
-            return new JavaRunResult(mainClass, result.output(), exitCode - SIGNAL_EXIT_BASE);
+        if (result.signalled()) {
+            return new JavaRunResult(
+                    mainClass,
+                    result.diagnosticTail(),
+                    result.endedWithNewline(),
+                    result.signal(),
+                    result.terminationInitiatedByZolt());
         }
         if (exitCode != 0) {
             throw new JavaRunException(
                     "java exited with code "
                             + exitCode
                             + ". Check the application output and try again.\n"
-                            + result.output().stripTrailing());
+                            + result.diagnosticTail().stripTrailing());
         }
-        return new JavaRunResult(mainClass, result.output());
+        return new JavaRunResult(
+                mainClass,
+                result.diagnosticTail(),
+                result.endedWithNewline(),
+                result.signal(),
+                result.terminationInitiatedByZolt());
     }
 
     private List<String> command(
@@ -183,25 +193,18 @@ public final class JavaRunner {
             Map<String, String> environment,
             Consumer<String> outputConsumer) {
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder(command).redirectErrorStream(true);
-            if (environment != null && !environment.isEmpty()) {
-                processBuilder.environment().putAll(environment);
-            }
-            Process process = processBuilder.start();
-            try (BuildCancellation.Registration ignored =
-                    ProcessCancellation.register(process)) {
-                StringBuilder output = new StringBuilder();
-                byte[] buffer = new byte[8192];
-                int read = process.getInputStream().read(buffer);
-                while (read >= 0) {
-                    String chunk = new String(buffer, 0, read, StandardCharsets.UTF_8);
-                    output.append(chunk);
-                    outputConsumer.accept(chunk);
-                    read = process.getInputStream().read(buffer);
-                }
-                int exitCode = process.waitFor();
-                return new ProcessResult(exitCode, output.toString());
-            }
+            SupervisedProcessResult result = new ProcessSupervisor().run(
+                    SupervisedProcessSpec.builder(command)
+                            .environment(environment == null ? Map.of() : environment)
+                            .inputPolicy(ProcessInputPolicy.INHERIT)
+                            .stdoutConsumer(outputConsumer)
+                            .build());
+            return new ProcessResult(
+                    result.exitCode(),
+                    result.diagnosticTail(),
+                    result.endedWithNewline(),
+                    result.signal(),
+                    result.terminationInitiatedByZolt());
         } catch (IOException exception) {
             throw new JavaRunException(
                     "Could not run java. Check that the configured JDK is installed and readable.",
@@ -224,6 +227,29 @@ public final class JavaRunner {
         }
     }
 
-    public record ProcessResult(int exitCode, String output) {
+    public record ProcessResult(
+            int exitCode,
+            String diagnosticTail,
+            boolean endedWithNewline,
+            int signal,
+            boolean terminationInitiatedByZolt) {
+        private static final int NOT_SIGNALLED = -1;
+
+        public ProcessResult(int exitCode, String output) {
+            this(
+                    exitCode,
+                    output,
+                    output != null && !output.isEmpty() && output.endsWith("\n"),
+                    ProcessExitInterpreter.signal(exitCode),
+                    false);
+        }
+
+        public boolean signalled() {
+            return signal != NOT_SIGNALLED;
+        }
+
+        public String output() {
+            return diagnosticTail;
+        }
     }
 }

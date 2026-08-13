@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -131,7 +132,18 @@ final class ExecProcessRunnerServiceTest {
     void timeoutTerminatesHangingStepWithActionableError() throws IOException {
         seedInput();
         writeScript(binDir, "zoltprobe", "echo 1.0.0");
-        writeScript(binDir, "zoltgen", "sleep 30");
+        writeScript(binDir, "zoltgen", """
+                echo $$ > "$ZOLT_PROJECT_ROOT/parent.pid"
+                (
+                  trap '' TERM
+                  sleep 30 &
+                  echo $! > "$ZOLT_PROJECT_ROOT/grandchild.pid"
+                  wait
+                ) &
+                echo $! > "$ZOLT_PROJECT_ROOT/child.pid"
+                while [ ! -s "$ZOLT_PROJECT_ROOT/grandchild.pid" ]; do :; done
+                wait
+                """);
         ProjectConfig config = config(processTool("allowUnpinnedTool = true"), "timeoutSeconds = 1");
 
         BuildException exception = assertThrows(
@@ -140,6 +152,7 @@ final class ExecProcessRunnerServiceTest {
         assertTrue(exception.getMessage().contains("terminated"), exception.getMessage());
         assertTrue(exception.getMessage().contains("1s"), exception.getMessage());
         assertTrue(exception.getMessage().contains("exec-main-build-assets.log"), exception.getMessage());
+        assertStopped("parent.pid", "child.pid", "grandchild.pid");
     }
 
     @Test
@@ -178,6 +191,23 @@ final class ExecProcessRunnerServiceTest {
     private int runCount() throws IOException {
         Path log = projectDir.resolve("target/generated/assets/log.txt");
         return Files.exists(log) ? (int) Files.readString(log).lines().count() : 0;
+    }
+
+    private void assertStopped(String... pidFiles) {
+        for (String pidFile : pidFiles) {
+            try {
+                long pid = Long.parseLong(Files.readString(projectDir.resolve(pidFile)).strip());
+                ProcessHandle handle = ProcessHandle.of(pid).orElse(null);
+                if (handle != null && handle.isAlive()) {
+                    handle.onExit().get(5, TimeUnit.SECONDS);
+                }
+                assertTrue(
+                        ProcessHandle.of(pid).map(process -> !process.isAlive()).orElse(true),
+                        "Timed-out generated tool descendant is still alive: " + pid);
+            } catch (Exception exception) {
+                throw new AssertionError("Could not verify stopped process from " + pidFile, exception);
+            }
+        }
     }
 
     private static String processTool(String toolExtras) {

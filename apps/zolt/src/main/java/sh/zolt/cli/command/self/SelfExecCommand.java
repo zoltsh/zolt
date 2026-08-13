@@ -5,12 +5,10 @@ import sh.zolt.release.update.NativeUpdateException;
 import sh.zolt.release.update.NativeVersionExecPlan;
 import sh.zolt.release.update.NativeVersionExecRequest;
 import sh.zolt.release.update.NativeVersionExecService;
-import java.io.BufferedReader;
+import sh.zolt.process.ProcessInputPolicy;
+import sh.zolt.process.ProcessSupervisor;
+import sh.zolt.process.SupervisedProcessSpec;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -61,29 +59,18 @@ public final class SelfExecCommand extends SelfCommand.NativeSelfOptions impleme
         ArrayList<String> command = new ArrayList<>();
         command.add(plan.executable().toString());
         command.addAll(plan.arguments());
-        Process process = new ProcessBuilder(command).start();
-        Thread stdout = pipe(process.getInputStream(), spec.commandLine().getOut());
-        Thread stderr = pipe(process.getErrorStream(), spec.commandLine().getErr());
-        int exitCode = process.waitFor();
-        stdout.join();
-        stderr.join();
-        return exitCode;
+        return new ProcessSupervisor().run(
+                        SupervisedProcessSpec.builder(command)
+                                .mergeErrorStream(false)
+                                .inputPolicy(ProcessInputPolicy.INHERIT)
+                                .stdoutConsumer(chunk -> write(spec.commandLine().getOut(), chunk))
+                                .stderrConsumer(chunk -> write(spec.commandLine().getErr(), chunk))
+                                .build())
+                .exitCode();
     }
 
-    private static Thread pipe(InputStream input, PrintWriter output) {
-        Thread thread = new Thread(() -> {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-                String line = reader.readLine();
-                while (line != null) {
-                    output.println(line);
-                    output.flush();
-                    line = reader.readLine();
-                }
-            } catch (IOException exception) {
-                // The child process has already exited or closed the stream; keep exec best-effort.
-            }
-        });
-        thread.start();
-        return thread;
+    private static void write(java.io.PrintWriter writer, String chunk) {
+        writer.write(chunk);
+        writer.flush();
     }
 }

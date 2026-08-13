@@ -4,19 +4,18 @@ import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.command.CommandTask;
+import sh.zolt.process.ProcessInputPolicy;
+import sh.zolt.process.ProcessSupervisor;
+import sh.zolt.process.SupervisedProcessResult;
+import sh.zolt.process.SupervisedProcessSpec;
 import sh.zolt.toml.ZoltConfigException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicReference;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
@@ -64,15 +63,20 @@ public final class TaskCommand implements Callable<Integer> {
         List<String> command = new ArrayList<>(task.cmd());
         command.addAll(passthrough);
 
-        ProcessBuilder builder = new ProcessBuilder(command);
-        builder.directory(cwd.toFile());
-        builder.environment().putAll(task.env());
-        builder.environment().put("ZOLT_TASK_NAME", task.name());
-        builder.environment().put("ZOLT_PROJECT_ROOT", loaded.root().toString());
-
-        Process process;
+        java.util.Map<String, String> environment = new java.util.HashMap<>(task.env());
+        environment.put("ZOLT_TASK_NAME", task.name());
+        environment.put("ZOLT_PROJECT_ROOT", loaded.root().toString());
+        SupervisedProcessResult result;
         try {
-            process = builder.start();
+            result = new ProcessSupervisor().run(
+                    SupervisedProcessSpec.builder(command)
+                            .directory(cwd)
+                            .environment(environment)
+                            .mergeErrorStream(false)
+                            .inputPolicy(ProcessInputPolicy.INHERIT)
+                            .stdoutConsumer(chunk -> write(spec.commandLine().getOut(), chunk))
+                            .stderrConsumer(chunk -> write(spec.commandLine().getErr(), chunk))
+                            .build());
         } catch (IOException exception) {
             throw CommandFailures.user(
                     spec,
@@ -84,27 +88,11 @@ public final class TaskCommand implements Callable<Integer> {
                             + cwd
                             + ". Check that the executable exists and is runnable.",
                     exception);
-        }
-
-        AtomicReference<IOException> streamFailure = new AtomicReference<>();
-        Thread stdout = forward(process.getInputStream(), spec.commandLine().getOut(), streamFailure);
-        Thread stderr = forward(process.getErrorStream(), spec.commandLine().getErr(), streamFailure);
-
-        int exitCode;
-        try {
-            exitCode = process.waitFor();
-            stdout.join();
-            stderr.join();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            process.destroyForcibly();
             throw CommandFailures.user(spec, "Task `" + task.name() + "` was interrupted.", exception);
         }
-
-        IOException streamException = streamFailure.get();
-        if (streamException != null) {
-            throw CommandFailures.user(spec, "Could not stream output for task `" + task.name() + "`.", streamException);
-        }
+        int exitCode = result.exitCode();
         if (exitCode != 0) {
             CommandHumanOutput.errors(spec).error("Task `" + task.name() + "` exited with code " + exitCode + ".");
         }
@@ -172,24 +160,8 @@ public final class TaskCommand implements Callable<Integer> {
                         + " Run `zolt tasks` to list configured tasks.");
     }
 
-    private static Thread forward(
-            InputStream input,
-            PrintWriter writer,
-            AtomicReference<IOException> failure) {
-        Thread thread = new Thread(() -> {
-            try (InputStreamReader reader = new InputStreamReader(input, StandardCharsets.UTF_8)) {
-                char[] buffer = new char[8192];
-                int read;
-                while ((read = reader.read(buffer)) >= 0) {
-                    writer.write(buffer, 0, read);
-                    writer.flush();
-                }
-            } catch (IOException exception) {
-                failure.compareAndSet(null, exception);
-            }
-        });
-        thread.setDaemon(true);
-        thread.start();
-        return thread;
+    private static void write(java.io.PrintWriter writer, String chunk) {
+        writer.write(chunk);
+        writer.flush();
     }
 }

@@ -8,6 +8,10 @@ import sh.zolt.error.ActionableException;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectVersionOverride;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
+import sh.zolt.process.ProcessInputPolicy;
+import sh.zolt.process.ProcessSupervisor;
+import sh.zolt.process.SupervisedProcessResult;
+import sh.zolt.process.SupervisedProcessSpec;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.toolchain.JavaToolchainEnvironment;
@@ -16,15 +20,13 @@ import sh.zolt.toolchain.ToolchainConfigReader;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
@@ -91,15 +93,12 @@ public final class ExecCommand implements java.util.concurrent.Callable<Integer>
         Path projectRoot = projectDirectory.path();
         try {
             JavaToolchainEnvironment environment = environment(projectRoot);
-            ProcessResult result = processLauncher.run(command, projectRoot, environment);
-            if (!result.stdout().isEmpty()) {
-                spec.commandLine().getOut().print(result.stdout());
-                spec.commandLine().getOut().flush();
-            }
-            if (!result.stderr().isEmpty()) {
-                spec.commandLine().getErr().print(result.stderr());
-                spec.commandLine().getErr().flush();
-            }
+            ProcessResult result = processLauncher.run(
+                    command,
+                    projectRoot,
+                    environment,
+                    chunk -> write(spec.commandLine().getOut(), chunk),
+                    chunk -> write(spec.commandLine().getErr(), chunk));
             return result.exitCode();
         } catch (ActionableException | UserGlobalConfigException | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
@@ -144,18 +143,23 @@ public final class ExecCommand implements java.util.concurrent.Callable<Integer>
     private static ProcessResult runProcess(
             List<String> command,
             Path projectRoot,
-            JavaToolchainEnvironment environment) {
+            JavaToolchainEnvironment environment,
+            Consumer<String> stdoutConsumer,
+            Consumer<String> stderrConsumer) {
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder(resolveCommand(command, environment))
-                    .directory(projectRoot.toFile());
-            Map<String, String> childEnvironment = processBuilder.environment();
+            Map<String, String> childEnvironment = new HashMap<>();
             childEnvironment.put("JAVA_HOME", environment.javaHome().toString());
-            childEnvironment.put("PATH", pathWithToolchainBin(childEnvironment.get("PATH"), environment.bin()));
-            Process process = processBuilder.start();
-            CompletableFuture<String> stdout = CompletableFuture.supplyAsync(() -> read(process.getInputStream()));
-            CompletableFuture<String> stderr = CompletableFuture.supplyAsync(() -> read(process.getErrorStream()));
-            int exitCode = process.waitFor();
-            return new ProcessResult(exitCode, join(stdout), join(stderr));
+            childEnvironment.put("PATH", pathWithToolchainBin(System.getenv("PATH"), environment.bin()));
+            SupervisedProcessResult result = new ProcessSupervisor().run(
+                    SupervisedProcessSpec.builder(resolveCommand(command, environment))
+                            .directory(projectRoot)
+                            .environment(childEnvironment)
+                            .mergeErrorStream(false)
+                            .inputPolicy(ProcessInputPolicy.INHERIT)
+                            .stdoutConsumer(stdoutConsumer)
+                            .stderrConsumer(stderrConsumer)
+                            .build());
+            return new ProcessResult(result.exitCode());
         } catch (IOException exception) {
             throw new ActionableException(
                     "Could not run command through zolt exec.",
@@ -205,32 +209,21 @@ public final class ExecCommand implements java.util.concurrent.Callable<Integer>
         return value.contains("/") || value.contains("\\");
     }
 
-    private static String read(java.io.InputStream stream) {
-        try {
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException exception) {
-            throw new UncheckedIOException(exception);
-        }
-    }
-
-    private static String join(CompletableFuture<String> output) {
-        try {
-            return output.join();
-        } catch (CompletionException exception) {
-            if (exception.getCause() instanceof UncheckedIOException ioException) {
-                throw new ActionableException(
-                        "Could not read zolt exec process output.",
-                        "Run the command again and check the child process output stream.");
-            }
-            throw exception;
-        }
+    private static void write(java.io.PrintWriter writer, String chunk) {
+        writer.write(chunk);
+        writer.flush();
     }
 
     @FunctionalInterface
     interface ProcessLauncher {
-        ProcessResult run(List<String> command, Path projectRoot, JavaToolchainEnvironment environment);
+        ProcessResult run(
+                List<String> command,
+                Path projectRoot,
+                JavaToolchainEnvironment environment,
+                Consumer<String> stdoutConsumer,
+                Consumer<String> stderrConsumer);
     }
 
-    record ProcessResult(int exitCode, String stdout, String stderr) {
+    record ProcessResult(int exitCode) {
     }
 }
