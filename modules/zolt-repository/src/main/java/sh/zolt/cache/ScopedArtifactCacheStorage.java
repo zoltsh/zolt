@@ -4,6 +4,7 @@ import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.RepositoryArtifact;
 import java.io.IOException;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -137,15 +138,7 @@ final class ScopedArtifactCacheStorage {
     void invalidate(RepositoryCacheScope scope, String mavenPath) {
         Path index = indexPath(scope, mavenPath);
         try {
-            if (Files.isDirectory(index, LinkOption.NOFOLLOW_LINKS)) {
-                try (var paths = Files.walk(index)) {
-                    for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
-                        Files.deleteIfExists(path);
-                    }
-                }
-            } else {
-                Files.deleteIfExists(index);
-            }
+            deleteCachePath(index);
         } catch (IOException exception) {
             throw new ArtifactCacheException(
                     "Could not remove corrupt artifact cache index at " + index + ".",
@@ -198,6 +191,10 @@ final class ScopedArtifactCacheStorage {
                 throw invalidIndex(path);
             }
             return Optional.of(new IndexEntry(digest, length, source));
+        } catch (CharacterCodingException exception) {
+            throw new CorruptArtifactCacheEntryException(
+                    "Artifact cache index at " + path + " contains invalid UTF-8. Delete it and retry.",
+                    exception);
         } catch (IllegalArgumentException exception) {
             throw new CorruptArtifactCacheEntryException(
                     "Artifact cache index at " + path + " is invalid. Delete it and retry.",
@@ -298,6 +295,9 @@ final class ScopedArtifactCacheStorage {
         Path directory = path.getParent();
         try {
             Files.createDirectories(directory);
+            if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+                deleteCachePath(path);
+            }
             Files.move(source, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException exception) {
             try {
@@ -327,6 +327,18 @@ final class ScopedArtifactCacheStorage {
                     "Could not write cached artifact at " + path + ". Check filesystem permissions.",
                     exception);
         }
+    }
+
+    private static void deleteCachePath(Path path) throws IOException {
+        if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+            try (var paths = Files.walk(path)) {
+                for (Path nested : paths.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(nested);
+                }
+            }
+            return;
+        }
+        Files.deleteIfExists(path);
     }
 
     private record IndexEntry(String sha256, long length, String source) {

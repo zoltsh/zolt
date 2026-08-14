@@ -179,9 +179,21 @@ final class RepositoryScopedArtifactCacheTest {
                         (index, blob) -> replaceIndexLine(index, "source=", "source=%%%"),
                         "is invalid"),
                 new CorruptionCase(
+                        "invalid-index-utf8",
+                        (index, blob) -> Files.write(index, new byte[] {(byte) 0xc3, 0x28}),
+                        "contains invalid UTF-8"),
+                new CorruptionCase(
                         "missing-blob",
                         (index, blob) -> Files.delete(blob),
                         "is missing"),
+                new CorruptionCase(
+                        "blob-directory",
+                        (index, blob) -> {
+                            Files.delete(blob);
+                            Files.createDirectory(blob);
+                            Files.writeString(blob.resolve("unexpected-entry"), "corrupt");
+                        },
+                        "is not a regular file"),
                 new CorruptionCase(
                         "blob-length-mismatch",
                         (index, blob) -> replaceIndexLine(index, "length=", "length=999"),
