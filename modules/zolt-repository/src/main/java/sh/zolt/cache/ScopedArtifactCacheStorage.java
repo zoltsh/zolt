@@ -21,9 +21,15 @@ import java.util.Optional;
 final class ScopedArtifactCacheStorage {
     private static final String INDEX_VERSION = "1";
     private final Path root;
+    private final LocalArtifactSnapshotter localSnapshots;
 
     ScopedArtifactCacheStorage(Path root) {
+        this(root, new LocalArtifactSnapshotter());
+    }
+
+    ScopedArtifactCacheStorage(Path root, LocalArtifactSnapshotter localSnapshots) {
         this.root = root;
+        this.localSnapshots = localSnapshots;
     }
 
     Optional<CachedArtifact> find(
@@ -111,15 +117,21 @@ final class ScopedArtifactCacheStorage {
             String mavenPath,
             String source,
             Path sourcePath) {
-        long sourceSize = size(sourcePath);
-        if (sourceSize == 0) {
-            throw new ArtifactCacheException("Local artifact " + coordinate + " is empty.");
+        StagedLocalArtifact staged = localSnapshots.snapshot(
+                sourcePath,
+                contained("staging/local-overlay"),
+                coordinate);
+        try {
+            if (staged.length() == 0) {
+                throw new ArtifactCacheException("Local artifact " + coordinate + " is empty.");
+            }
+            Path blob = blobPath(staged.sha256(), mavenPath);
+            moveAtomically(staged.path(), blob);
+            writeIndex(scope, mavenPath, new IndexEntry(staged.sha256(), staged.length(), source));
+            return cached(coordinate, blob, staged.length(), staged.sha256(), source);
+        } finally {
+            staged.deleteIfPresent();
         }
-        String digest = sha256(sourcePath);
-        Path blob = blobPath(digest, mavenPath);
-        copyAtomically(sourcePath, blob);
-        writeIndex(scope, mavenPath, new IndexEntry(digest, sourceSize, source));
-        return cached(coordinate, blob, sourceSize, digest, source);
     }
 
     void invalidate(RepositoryCacheScope scope, String mavenPath) {
@@ -294,29 +306,6 @@ final class ScopedArtifactCacheStorage {
             }
             throw new ArtifactCacheException(
                     "Could not move downloaded artifact into cache at " + path + ".",
-                    exception);
-        }
-    }
-
-    private static void copyAtomically(Path source, Path path) {
-        Path directory = path.getParent();
-        try {
-            Files.createDirectories(directory);
-            Path temporary = Files.createTempFile(directory, path.getFileName().toString(), ".tmp");
-            try {
-                Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
-                try (var channel = java.nio.channels.FileChannel.open(
-                        temporary, java.nio.file.StandardOpenOption.WRITE)) {
-                    channel.force(true);
-                }
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (IOException exception) {
-                Files.deleteIfExists(temporary);
-                throw exception;
-            }
-        } catch (IOException exception) {
-            throw new ArtifactCacheException(
-                    "Could not write cached artifact at " + path + ". Check filesystem permissions.",
                     exception);
         }
     }
