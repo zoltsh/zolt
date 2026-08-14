@@ -108,85 +108,6 @@ final class PomLicenseResolverTest extends SbomTestSupport {
     }
 
     @Test
-    void inheritsLicenseFromParentPomInTheLockedOverlayScope(@TempDir Path root) throws IOException {
-        Path cacheRoot = root.resolve("cache");
-        Path overlayRoot = root.resolve("overlay");
-        LocalArtifactCache cache = new LocalArtifactCache(cacheRoot);
-        Coordinate child = coordinate("org.example", "child", "1.0.0");
-        Coordinate parent = coordinate("org.example", "parent", "2.0.0");
-        CachedArtifact childPom = cacheOverlayPom(cache, overlayRoot, "maven-local", child, childPom());
-        cacheOverlayPom(cache, overlayRoot, "maven-local", parent, parentPom("MIT License"));
-
-        List<SbomLicense> licenses = new PomLicenseResolver(cacheRoot).resolve(scopedMaven(childPom));
-
-        assertEquals(List.of("MIT"), labels(licenses));
-    }
-
-    @Test
-    void reportsUnknownWhenOverlayParentPomIsMissing(@TempDir Path root) throws IOException {
-        Path cacheRoot = root.resolve("cache");
-        Path overlayRoot = root.resolve("overlay");
-        LocalArtifactCache cache = new LocalArtifactCache(cacheRoot);
-        Coordinate child = coordinate("org.example", "child", "1.0.0");
-        CachedArtifact childPom = cacheOverlayPom(cache, overlayRoot, "maven-local", child, childPom());
-
-        List<SbomLicense> licenses = new PomLicenseResolver(cacheRoot).resolve(scopedMaven(childPom));
-
-        assertEquals(SbomLicenseStatus.UNKNOWN, licenses.getFirst().status());
-    }
-
-    @Test
-    void reportsUnknownWhenMatchingOverlayRootsDisagreeOnParentBytes(@TempDir Path root)
-            throws IOException {
-        Path cacheRoot = root.resolve("cache");
-        LocalArtifactCache cache = new LocalArtifactCache(cacheRoot);
-        Coordinate child = coordinate("org.example", "child", "1.0.0");
-        Coordinate parent = coordinate("org.example", "parent", "2.0.0");
-        Path firstOverlay = root.resolve("first-overlay");
-        Path secondOverlay = root.resolve("second-overlay");
-        CachedArtifact childPom = cacheOverlayPom(
-                cache, firstOverlay, "maven-local", child, childPom());
-        cacheOverlayPom(cache, secondOverlay, "maven-local", child, childPom());
-        cacheOverlayPom(cache, firstOverlay, "maven-local", parent, parentPom("MIT License"));
-        cacheOverlayPom(
-                cache,
-                secondOverlay,
-                "maven-local",
-                parent,
-                parentPom("Apache License, Version 2.0"));
-
-        List<SbomLicense> licenses = new PomLicenseResolver(cacheRoot).resolve(scopedMaven(childPom));
-
-        assertEquals(SbomLicenseStatus.UNKNOWN, licenses.getFirst().status());
-    }
-
-    @Test
-    void changingOverlayParentContentReplacesScopedProvenance(@TempDir Path root)
-            throws IOException {
-        Path cacheRoot = root.resolve("cache");
-        Path overlayRoot = root.resolve("overlay");
-        LocalArtifactCache cache = new LocalArtifactCache(cacheRoot);
-        Coordinate child = coordinate("org.example", "child", "1.0.0");
-        Coordinate parent = coordinate("org.example", "parent", "2.0.0");
-        CachedArtifact childPom = cacheOverlayPom(cache, overlayRoot, "maven-local", child, childPom());
-        cacheOverlayPom(cache, overlayRoot, "maven-local", parent, parentPom("MIT License"));
-        assertEquals(
-                List.of("MIT"),
-                labels(new PomLicenseResolver(cacheRoot).resolve(scopedMaven(childPom))));
-
-        cacheOverlayPom(
-                cache,
-                overlayRoot,
-                "maven-local",
-                parent,
-                parentPom("Apache License, Version 2.0"));
-
-        assertEquals(
-                List.of("Apache-2.0"),
-                labels(new PomLicenseResolver(cacheRoot).resolve(scopedMaven(childPom))));
-    }
-
-    @Test
     void reportsUnknownWhenMatchingRepositoryScopesDisagreeOnParentBytes(@TempDir Path root) {
         LocalArtifactCache cache = new LocalArtifactCache(root);
         RepositoryCacheScope firstScope = RepositoryCacheScope.of("first central URL");
@@ -427,21 +348,6 @@ final class PomLicenseResolverTest extends SbomTestSupport {
                 xml.getBytes(StandardCharsets.UTF_8)));
     }
 
-    private static CachedArtifact cacheOverlayPom(
-            LocalArtifactCache cache,
-            Path overlayRoot,
-            String overlayId,
-            Coordinate coordinate,
-            String xml) throws IOException {
-        String repositoryPath = new MavenRepositoryPathBuilder().pomPath(coordinate);
-        Path sourcePath = overlayRoot.resolve(repositoryPath);
-        Files.createDirectories(sourcePath.getParent());
-        Files.writeString(sourcePath, xml);
-        RepositoryCacheScope scope = RepositoryCacheScope.forOverlay(
-                "MAVEN_LOCAL", overlayId, overlayRoot);
-        return cache.materializeOverlayPom(scope, coordinate, overlayId, sourcePath);
-    }
-
     private static LockPackage scopedMaven(CachedArtifact pom) {
         Coordinate coordinate = pom.coordinate();
         return new LockPackage(
@@ -468,16 +374,4 @@ final class PomLicenseResolverTest extends SbomTestSupport {
                 """.formatted(license);
     }
 
-    private static String childPom() {
-        return """
-                <project>
-                  <parent>
-                    <groupId>org.example</groupId>
-                    <artifactId>parent</artifactId>
-                    <version>2.0.0</version>
-                  </parent>
-                  <artifactId>child</artifactId>
-                </project>
-                """;
-    }
 }

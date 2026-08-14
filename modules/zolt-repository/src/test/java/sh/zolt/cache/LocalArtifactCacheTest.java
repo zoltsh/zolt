@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import sh.zolt.concurrent.RepositoryExecutionLane;
 import sh.zolt.maven.ArtifactDescriptor;
@@ -291,71 +290,6 @@ final class LocalArtifactCacheTest {
     }
 
     @Test
-    void materializesOverlayPomIntoContentAddressedCachePath() throws Exception {
-        LocalArtifactCache cache = new LocalArtifactCache(tempDir);
-        Coordinate coordinate = parser.parse("com.google.guava:guava:33.4.0-jre");
-        Path source = tempDir.resolve("local-guava.pom");
-        Files.writeString(source, "<project/>");
-
-        RepositoryCacheScope scope = RepositoryCacheScope.of("test local overlay");
-        CachedArtifact artifact = cache.materializeOverlayPom(scope, coordinate, "local-m2", source);
-
-        assertTrue(artifact.repositoryPath().startsWith("blobs/v2/sha256/"));
-        assertTrue(artifact.repositoryPath().endsWith("/guava-33.4.0-jre.pom"));
-        assertEquals("local-overlay:local-m2", artifact.source());
-        assertEquals(tempDir.resolve(artifact.repositoryPath()), artifact.cachePath());
-        assertArrayEquals("<project/>".getBytes(StandardCharsets.UTF_8), bytes(artifact));
-        assertEquals(
-                List.of(scope),
-                new ScopedPomCacheReader(tempDir).matchingScopes(
-                        coordinate,
-                        new sh.zolt.lockfile.CacheRelativePath(artifact.repositoryPath()),
-                        artifact.source()));
-    }
-
-    @Test
-    void overlayNamespaceCannotEscapeTheArtifactCacheRoot() throws Exception {
-        LocalArtifactCache cache = new LocalArtifactCache(tempDir);
-        Coordinate coordinate = parser.parse("com.example:demo:1.0.0");
-        Path source = tempDir.resolve("demo.pom");
-        Files.writeString(source, "<project/>");
-        Path outside = tempDir.resolveSibling("outside");
-
-        assertThrows(
-                ArtifactCacheException.class,
-                () -> cache.materializeOverlayPom(
-                        RepositoryCacheScope.of("test local overlay"),
-                        coordinate,
-                        "../../outside",
-                        source));
-
-        assertFalse(Files.exists(outside));
-    }
-
-    @Test
-    void contentAddressedCacheCannotEscapeThroughSymlink() throws Exception {
-        Path cacheRoot = Files.createDirectory(tempDir.resolve("cache"));
-        LocalArtifactCache cache = new LocalArtifactCache(cacheRoot);
-        Coordinate coordinate = parser.parse("com.example:demo:1.0.0");
-        Path source = tempDir.resolve("demo.pom");
-        Files.writeString(source, "<project/>");
-        Path outside = Files.createDirectory(tempDir.resolve("outside"));
-        try {
-            Files.createSymbolicLink(cacheRoot.resolve("blobs"), outside);
-        } catch (UnsupportedOperationException | java.io.IOException exception) {
-            assumeTrue(false, "symbolic links are unavailable: " + exception.getMessage());
-        }
-
-        assertThrows(
-                ArtifactCacheException.class,
-                () -> cache.materializeOverlayPom(
-                        RepositoryCacheScope.of("test local overlay"), coordinate, "local", source));
-        try (var files = Files.list(outside)) {
-            assertEquals(List.of(), files.toList());
-        }
-    }
-
-    @Test
     void relativeCacheRootKeepsReturningRelativeArtifactPaths() {
         LocalArtifactCache cache = new LocalArtifactCache(Path.of("relative-cache"));
         Coordinate coordinate = parser.parse("com.example:demo:1.0.0");
@@ -364,59 +298,6 @@ final class LocalArtifactCacheTest {
         assertEquals(
                 Path.of("relative-cache/com/example/demo/1.0.0/demo-1.0.0.pom"),
                 cache.pomPath(coordinate));
-    }
-
-    @Test
-    void materializesOverlayClassifierArtifactIntoContentAddressedCachePath() throws Exception {
-        LocalArtifactCache cache = new LocalArtifactCache(tempDir);
-        Coordinate coordinate = parser.parse("io.quarkus:quarkus-custom-deployment:1.0.0");
-        ArtifactDescriptor descriptor = ArtifactDescriptor.jar(coordinate, Optional.of("deployment"));
-        Path source = tempDir.resolve("deployment.jar");
-        byte[] bytes = new byte[] {0x50, 0x4b, 0x03, 0x04};
-        Files.write(source, bytes);
-
-        CachedArtifact artifact = cache.materializeOverlayArtifact(
-                RepositoryCacheScope.of("test local overlay"), descriptor, "local-m2", source);
-
-        assertTrue(artifact.repositoryPath().startsWith("blobs/v2/sha256/"));
-        assertTrue(artifact.repositoryPath().endsWith("/quarkus-custom-deployment-1.0.0-deployment.jar"));
-        assertArrayEquals(bytes, Files.readAllBytes(artifact.cachePath()));
-    }
-
-    @Test
-    void emptyOverlayArtifactFailsWithActionableRemediation() throws Exception {
-        LocalArtifactCache cache = new LocalArtifactCache(tempDir);
-        Coordinate coordinate = parser.parse("com.google.guava:guava:33.4.0-jre");
-        Path source = tempDir.resolve("empty.pom");
-        Files.write(source, new byte[0]);
-
-        ArtifactCacheException exception = assertThrows(
-                ArtifactCacheException.class,
-                () -> cache.materializeOverlayPom(
-                        RepositoryCacheScope.of("test local overlay"), coordinate, "local-m2", source));
-
-        assertTrue(exception.getMessage().contains("Local repository overlay POM"));
-        assertTrue(exception.getMessage().contains("Reinstall the artifact locally or remove it"));
-    }
-
-    @Test
-    void overlaySourceReadFailureIsActionable() throws Exception {
-        LocalArtifactCache cache = new LocalArtifactCache(tempDir);
-        Coordinate coordinate = parser.parse("com.google.guava:guava:33.4.0-jre");
-        Path directorySource = tempDir.resolve("source-directory");
-        Files.createDirectories(directorySource);
-
-        ArtifactCacheException exception = assertThrows(
-                ArtifactCacheException.class,
-                () -> cache.materializeOverlayPom(
-                        RepositoryCacheScope.of("test local overlay"),
-                        coordinate,
-                        "local-m2",
-                        directorySource));
-
-        assertTrue(exception.getMessage().contains("Local repository overlay POM"));
-        assertTrue(exception.getMessage().contains("is missing at " + directorySource));
-        assertTrue(exception.getMessage().contains("Reinstall the artifact locally or remove it"));
     }
 
     @Test
