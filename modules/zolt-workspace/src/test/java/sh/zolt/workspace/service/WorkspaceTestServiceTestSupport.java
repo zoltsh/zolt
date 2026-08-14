@@ -4,6 +4,7 @@ import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
+import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +38,11 @@ final class WorkspaceTestServiceTestSupport {
         Path source = tempDir.resolve(path);
         Files.createDirectories(source.getParent());
         Files.writeString(source, content);
+    }
+
+    static void lock(Path tempDir, String content) throws IOException {
+        WorkspaceContentAddressedLockTestSupport.write(
+                tempDir.resolve("zolt.lock"), tempDir.resolve("cache"), content);
     }
 
     static void createFakeConsoleJar(Path tempDir, Path jar) throws IOException {

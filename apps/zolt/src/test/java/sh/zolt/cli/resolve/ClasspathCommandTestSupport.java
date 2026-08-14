@@ -1,5 +1,7 @@
 package sh.zolt.cli.resolve;
 
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,9 +48,10 @@ final class ClasspathCommandTestSupport {
 
     static void writeLockfile(
             Path projectDir,
+            Path cacheRoot,
             String lockfileContents) throws IOException {
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), lockfileContents);
+        write(projectDir.resolve("zolt.lock"), cacheRoot, lockfileContents);
     }
 
     static String currentJavaMajorVersion() {

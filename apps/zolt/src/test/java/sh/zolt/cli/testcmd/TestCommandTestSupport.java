@@ -1,14 +1,15 @@
 package sh.zolt.cli.testcmd;
 
 import static sh.zolt.cli.CliTestSupport.memberConfig;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 public abstract class TestCommandTestSupport {
-    protected static void writeJUnitConsoleLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+    protected static void writeJUnitConsoleLockfile(Path projectDir, Path cacheRoot) throws IOException {
+        write(projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]

@@ -150,6 +150,7 @@ final class WorkspaceTestWorkersCommandTest {
         }
         WorkspaceTestCommandTestSupport.writeWorkspaceTestLockfile(
                 workspaceDir,
+                cacheRoot,
                 memberPaths.toArray(String[]::new));
         return new Workspace(workspaceDir, cacheRoot, memberPaths);
     }

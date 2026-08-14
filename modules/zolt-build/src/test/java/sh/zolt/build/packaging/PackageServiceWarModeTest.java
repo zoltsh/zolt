@@ -38,7 +38,8 @@ final class PackageServiceWarModeTest {
         createJarWithEntry(runtimeJar, "com/example/runtime/RuntimeLib.class");
         createJarWithEntry(providedJar, "jakarta/servlet/Servlet.class");
         createJarWithEntry(devJar, "com/example/dev/DevTools.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]

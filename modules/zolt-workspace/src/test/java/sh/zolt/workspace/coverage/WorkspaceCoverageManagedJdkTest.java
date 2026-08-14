@@ -14,6 +14,7 @@ import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Files;
@@ -74,8 +75,9 @@ final class WorkspaceCoverageManagedJdkTest {
                             requiredVersion);
                 });
 
-        ZoltLockfile lockfile = coverageLockfile();
         writeTooling(cacheRoot);
+        ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(
+                cacheRoot, coverageLockfile());
         var tooling = reporter.lockedCoverageTooling(lockfile, cacheRoot);
         Path execFile = root.resolve("target/coverage/jacoco.exec");
         Files.createDirectories(execFile.getParent());

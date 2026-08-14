@@ -15,6 +15,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,7 +53,7 @@ final class WorkspaceClasspathBoundaryTest {
 
         ClasspathSet classpaths = service.classpathsFor(
                 workspace,
-                new ZoltLockfile(3, packages, List.of()),
+                lock(packages),
                 tempDir.resolve("cache"),
                 "apps/api");
 
@@ -88,7 +89,7 @@ final class WorkspaceClasspathBoundaryTest {
 
         ClasspathSet classpaths = service.classpathsFor(
                 workspace,
-                new ZoltLockfile(3, packages, List.of()),
+                lock(packages),
                 tempDir.resolve("cache"),
                 "apps/api");
 
@@ -133,7 +134,7 @@ final class WorkspaceClasspathBoundaryTest {
         materializeJars(packages);
         ZoltLockfile memberLock = service.packageLocksForMembers(
                         workspace,
-                        new ZoltLockfile(3, packages, List.of()),
+                        lock(packages),
                         List.of("apps/app"))
                 .get("apps/app");
 
@@ -241,6 +242,11 @@ final class WorkspaceClasspathBoundaryTest {
             Files.createDirectories(jar.getParent());
             Files.writeString(jar, "");
         }
+    }
+
+    private ZoltLockfile lock(List<LockPackage> packages) throws IOException {
+        return WorkspaceContentAddressedLockTestSupport.migrate(
+                tempDir.resolve("cache"), new ZoltLockfile(3, packages, List.of()));
     }
 
     private Workspace workspace(

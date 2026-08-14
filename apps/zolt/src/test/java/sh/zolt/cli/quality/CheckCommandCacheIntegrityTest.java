@@ -17,11 +17,12 @@ final class CheckCommandCacheIntegrityTest extends CheckCommandTestSupport {
     void checkCacheIntegrityReportsCorruptedLockedArtifact() throws IOException {
         Path projectDir = createProject("check-cache-integrity");
         Path cacheRoot = tempDir.resolve("cache-integrity-cache");
-        Path jar = cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar");
+        String checksum = "0".repeat(64);
+        Path jar = cacheRoot.resolve("blobs/v2/sha256/" + checksum + "/runtime-lib-1.0.0.jar");
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "corrupted runtime jar bytes");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -29,10 +30,10 @@ final class CheckCommandCacheIntegrityTest extends CheckCommandTestSupport {
                 source = "maven-central"
                 scope = "runtime"
                 direct = true
-                jar = "com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"
-                jarSha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+                jar = "blobs/v2/sha256/%s/runtime-lib-1.0.0.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted(checksum, checksum));
 
         CommandResult result = execute(
                 "check",

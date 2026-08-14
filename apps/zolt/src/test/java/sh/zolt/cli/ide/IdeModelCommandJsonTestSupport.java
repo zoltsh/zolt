@@ -1,5 +1,7 @@
 package sh.zolt.cli.ide;
 
+import static sh.zolt.cli.ContentAddressedLockTestSupport.migrate;
+
 import static sh.zolt.cli.ide.IdeModelCommandTestSupport.currentJavaMajorVersion;
 import static sh.zolt.cli.ide.IdeModelCommandTestSupport.jsonPath;
 import static sh.zolt.cli.ide.IdeModelCommandTestSupport.writeProjectConfig;
@@ -7,12 +9,13 @@ import static sh.zolt.cli.ide.IdeModelCommandTestSupport.writeProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 
 abstract class IdeModelCommandJsonTestSupport {
     protected static final String APP_JAR_PATH =
-            "blobs/v2/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/app-1.0.0.jar";
+            "com/example/app/1.0.0/app-1.0.0.jar";
     protected static final String TEST_JAR_PATH =
-            "blobs/v2/sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/test-lib-1.0.0.jar";
+            "com/example/test-lib/1.0.0/test-lib-1.0.0.jar";
 
     protected static Path writeProject(Path tempDir) throws IOException {
         Path projectDir = tempDir.resolve("demo");
@@ -36,9 +39,9 @@ abstract class IdeModelCommandJsonTestSupport {
         return jsonPath(path);
     }
 
-    protected static void writeLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+    protected static void writeLockfile(Path projectDir, Path cacheRoot) throws IOException {
+        new ZoltLockfileWriter().write(projectDir.resolve("zolt.lock"), migrate(cacheRoot, """
+                version = 1
 
                 [[package]]
                 id = "com.example:app"
@@ -57,6 +60,6 @@ abstract class IdeModelCommandJsonTestSupport {
                 direct = true
                 jar = "%s"
                 dependencies = []
-                """.formatted(APP_JAR_PATH, TEST_JAR_PATH));
+                """.formatted(APP_JAR_PATH, TEST_JAR_PATH)));
     }
 }

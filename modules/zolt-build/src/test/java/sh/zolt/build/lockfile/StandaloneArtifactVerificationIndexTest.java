@@ -28,8 +28,8 @@ final class StandaloneArtifactVerificationIndexTest {
     @Test
     void freshnessAndClasspathProjectionUseOneHashPerPath() throws IOException {
         Path cacheRoot = tempDir.resolve("cache");
-        Path jar = write(cacheRoot.resolve("blobs/jar"), "jar bytes");
-        Path pom = write(cacheRoot.resolve("blobs/pom"), "pom bytes");
+        Path jar = contentAddressed(cacheRoot, write(cacheRoot.resolve("staging/jar"), "jar bytes"));
+        Path pom = contentAddressed(cacheRoot, write(cacheRoot.resolve("staging/pom"), "pom bytes"));
         ZoltLockfile lockfile = lockfile(cacheRoot, jar, pom);
         VerifiedArtifactIndex index = new VerifiedArtifactIndex();
         AtomicInteger hashes = new AtomicInteger();
@@ -77,6 +77,14 @@ final class StandaloneArtifactVerificationIndexTest {
         Files.createDirectories(path.getParent());
         Files.writeString(path, content, StandardCharsets.UTF_8);
         return path;
+    }
+
+    private static Path contentAddressed(Path cacheRoot, Path artifact) throws IOException {
+        String digest = sha256(artifact);
+        Path target = cacheRoot.resolve(
+                "blobs/v2/sha256/" + digest + "/" + artifact.getFileName());
+        Files.createDirectories(target.getParent());
+        return Files.move(artifact, target);
     }
 
     private static Optional<String> relative(Path root, Path path) {

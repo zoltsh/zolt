@@ -1,6 +1,8 @@
 package sh.zolt.cli.ide;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.cachedJar;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -172,7 +174,7 @@ final class CliMachineReadableContractTest {
         Path projectDir = tempDir.resolve("classpath-contract");
         Path cacheRoot = tempDir.resolve("cache");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -194,7 +196,10 @@ final class CliMachineReadableContractTest {
                 "compile");
 
         assertEquals(0, result.exitCode());
-        assertEquals(cacheRoot.resolve("com/example/app/1.0.0/app-1.0.0.jar") + System.lineSeparator(), result.stdout());
+        assertEquals(
+                cachedJar(projectDir.resolve("zolt.lock"), cacheRoot, "com.example:app")
+                        + System.lineSeparator(),
+                result.stdout());
         assertEquals("", result.stderr());
         assertNoAnsi(result.stdout());
         assertNoProgressText(result.stdout());

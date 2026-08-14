@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,7 +30,6 @@ final class WorkspaceClasspathArtifactIndexTest {
     private static final String SHARED_POM_BYTES = "shared pom bytes";
 
     private final WorkspaceClasspathService service = new WorkspaceClasspathService();
-    private final ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
 
     @TempDir
     private Path tempDir;
@@ -90,11 +89,11 @@ final class WorkspaceClasspathArtifactIndexTest {
         Path cacheRoot = tempDir.resolve("cache");
         writeFile(cacheRoot.resolve("org/example/shared/1.0.0/shared-1.0.0.jar"), SHARED_JAR_BYTES);
         writeFile(cacheRoot.resolve("org/example/shared/1.0.0/shared-1.0.0.pom"), SHARED_POM_BYTES);
-        return new WorkspaceExecutionContext(workspace(), lockfile(), cacheRoot);
+        return new WorkspaceExecutionContext(workspace(), lockfile(cacheRoot), cacheRoot);
     }
 
-    private ZoltLockfile lockfile() {
-        return lockfileReader.read("""
+    private ZoltLockfile lockfile(Path cacheRoot) throws IOException {
+        return WorkspaceContentAddressedLockTestSupport.migrate(cacheRoot, """
                 version = 5
 
                 [[package]]

@@ -40,7 +40,8 @@ final class PackageServiceRuntimeClasspathTest {
         createJarWithEntry(providedJar, "com/example/provided/ProvidedApi.class");
         createJarWithEntry(devJar, "com/example/dev/DevTools.class");
         createJarWithEntry(processorJar, "com/example/processor/Processor.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -93,10 +94,10 @@ final class PackageServiceRuntimeClasspathTest {
         Path runtimeClasspathPath = projectDir.resolve("target/demo-0.1.0.runtime-classpath");
         assertEquals(Optional.of(runtimeClasspathPath), result.runtimeClasspathPath());
         String runtimeClasspath = Files.readString(runtimeClasspathPath);
-        assertTrue(runtimeClasspath.contains(dependencyJar.toString()));
-        assertFalse(runtimeClasspath.contains(providedJar.toString()));
-        assertFalse(runtimeClasspath.contains(devJar.toString()));
-        assertFalse(runtimeClasspath.contains(processorJar.toString()));
+        assertTrue(runtimeClasspath.contains("lib-1.0.0.jar"));
+        assertFalse(runtimeClasspath.contains("provided-api-1.0.0.jar"));
+        assertFalse(runtimeClasspath.contains("devtools-1.0.0.jar"));
+        assertFalse(runtimeClasspath.contains("processor-1.0.0.jar"));
 
         try (JarFile jar = new JarFile(result.jarPath().toFile())) {
             assertNotNull(jar.getEntry("com/example/Main.class"));
@@ -113,7 +114,8 @@ final class PackageServiceRuntimeClasspathTest {
         Path devJar = cacheRoot.resolve("com/example/devtools/1.0.0/devtools-1.0.0.jar");
         createJarWithEntry(runtimeJar, "com/example/runtime/RuntimeLib.class");
         createJarWithEntry(devJar, "com/example/dev/DevTools.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -151,9 +153,10 @@ final class PackageServiceRuntimeClasspathTest {
         Path runtimeClasspathPath = projectDir.resolve("target/demo-0.1.0.runtime-classpath");
         assertEquals(Optional.of(runtimeClasspathPath), result.runtimeClasspathPath());
         String runtimeClasspath = Files.readString(runtimeClasspathPath);
-        assertTrue(buildResult.classpaths().runtime().entries().contains(devJar));
-        assertTrue(runtimeClasspath.contains(runtimeJar.toString()));
-        assertFalse(runtimeClasspath.contains(devJar.toString()));
+        assertTrue(buildResult.classpaths().runtime().entries().stream()
+                .anyMatch(path -> path.getFileName().toString().equals("devtools-1.0.0.jar")));
+        assertTrue(runtimeClasspath.contains("runtime-lib-1.0.0.jar"));
+        assertFalse(runtimeClasspath.contains("devtools-1.0.0.jar"));
     }
 
     @Test

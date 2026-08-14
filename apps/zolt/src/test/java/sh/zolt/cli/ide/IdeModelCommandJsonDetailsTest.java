@@ -1,9 +1,8 @@
 package sh.zolt.cli.ide;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.cachedJar;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.cacheRoot;
-import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.APP_JAR_PATH;
-import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.TEST_JAR_PATH;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.jsonPathValue;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.root;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.writeLockfile;
@@ -25,7 +24,7 @@ final class IdeModelCommandJsonDetailsTest {
     void ideModelPrintsClasspathFrameworkAndDiagnosticsDetailsInJson() throws IOException {
         Path projectDir = writeProject(tempDir);
         Path cacheRoot = cacheRoot(tempDir);
-        writeLockfile(projectDir);
+        writeLockfile(projectDir, cacheRoot);
 
         CommandResult result = execute(
                 "ide",
@@ -35,14 +34,14 @@ final class IdeModelCommandJsonDetailsTest {
                 "--format", "json");
 
         Path projectRoot = root(projectDir);
-        Path appJar = cacheRoot.toAbsolutePath().normalize().resolve(APP_JAR_PATH);
-        Path testJar = cacheRoot.toAbsolutePath().normalize().resolve(TEST_JAR_PATH);
+        Path appJar = cachedJar(projectDir.resolve("zolt.lock"), cacheRoot, "com.example:app");
+        Path testJar = cachedJar(projectDir.resolve("zolt.lock"), cacheRoot, "com.example:test-lib");
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         String json = result.stdout();
         assertTrue(json.contains("\"classpaths\": {\n    \"compile\": ["));
         assertTrue(json.contains(jsonPathValue(appJar)));
-        assertTrue(json.contains(jsonPathValue(testJar)));
+        assertTrue(json.contains(jsonPathValue(testJar)), json);
         assertTrue(json.contains("\"frameworks\": {\n    \"quarkus\": {"));
         assertTrue(json.contains("\"augmentationStatus\": \"disabled\""));
         assertTrue(json.contains("\"diagnostics\": [\n    {\n      \"severity\": \"error\""));

@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -126,8 +127,9 @@ final class WorkspaceLockLaneAdmissionTest {
      * alone, with its cached jar present and matching, exactly as a resolve would leave it.
      */
     private void writeAttributedPackage(String version, String member) throws IOException {
-        String jarPath = "org/example/attributed/" + version + "/attributed-" + version + ".jar";
-        Path jar = tempDir.resolve("cache").resolve(jarPath);
+        String legacyJarPath = "org/example/attributed/" + version + "/attributed-" + version + ".jar";
+        Path cacheRoot = tempDir.resolve("cache");
+        Path jar = cacheRoot.resolve(legacyJarPath);
         Files.createDirectories(jar.getParent());
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             output.putNextEntry(new JarEntry("org/example/attributed/marker.txt"));
@@ -135,6 +137,10 @@ final class WorkspaceLockLaneAdmissionTest {
             output.closeEntry();
         }
         String jarSha256 = sha256(Files.readAllBytes(jar));
+        String jarPath = "blobs/v2/sha256/" + jarSha256 + "/" + jar.getFileName();
+        Path cachedJar = cacheRoot.resolve(jarPath);
+        Files.createDirectories(cachedJar.getParent());
+        Files.copy(jar, cachedJar, StandardCopyOption.REPLACE_EXISTING);
         Path lock = tempDir.resolve("zolt.lock");
         String content = Files.readString(lock);
         int marker = content.indexOf("\n# attributed-package\n");

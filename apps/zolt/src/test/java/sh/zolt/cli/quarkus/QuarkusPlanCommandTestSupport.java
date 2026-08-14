@@ -1,6 +1,7 @@
 package sh.zolt.cli.quarkus;
 
 import static sh.zolt.cli.CliTestSupport.memberConfig;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -65,8 +66,8 @@ final class QuarkusPlanCommandTestSupport {
                 .substring("Input fingerprint: ".length());
     }
 
-    static void writeQuarkusPlanLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+    static void writeQuarkusPlanLockfile(Path projectDir, Path cacheRoot) throws IOException {
+        write(projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]

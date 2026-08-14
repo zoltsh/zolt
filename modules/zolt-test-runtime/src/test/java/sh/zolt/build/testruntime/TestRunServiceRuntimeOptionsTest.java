@@ -110,12 +110,13 @@ final class TestRunServiceRuntimeOptionsTest {
     @Test
     void failsBeforeLaunchingTestsWhenCachedTestJarDoesNotMatchLockfileHash() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
+        String checksum = "0".repeat(64);
         Path jar = cacheRoot.resolve(
-                "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar");
+                "blobs/v2/sha256/" + checksum + "/junit-platform-console-standalone-1.11.4.jar");
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "corrupted console jar bytes");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "org.junit.platform:junit-platform-console-standalone"
@@ -123,10 +124,10 @@ final class TestRunServiceRuntimeOptionsTest {
                 source = "maven-central"
                 scope = "test"
                 direct = false
-                jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
-                jarSha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+                jar = "blobs/v2/sha256/%s/junit-platform-console-standalone-1.11.4.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted(checksum, checksum));
         source(projectDir, "src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         source(projectDir, "src/test/java/com/example/MainTest.java", "package com.example; public final class MainTest {}\n");
         TestRunService service = service((command, outputConsumer) -> {

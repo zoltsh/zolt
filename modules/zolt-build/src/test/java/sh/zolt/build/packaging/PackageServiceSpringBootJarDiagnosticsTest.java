@@ -36,7 +36,8 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
         createJarWithEntry(
                 cacheRoot.resolve("org/springframework/boot/spring-boot/4.0.6/spring-boot-4.0.6.jar"),
                 "org/springframework/boot/SpringApplication.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -81,7 +82,8 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
                 cacheRoot.resolve(
                         "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"),
                 "fixtures/LoaderTests.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -139,7 +141,8 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
         createJarWithEntry(springBootJar, "org/springframework/boot/SpringApplication.class");
         createJarWithEntry(loaderJar, "org/springframework/boot/loader/launch/JarLauncher.class");
         createJarWithEntry(dependencyJar, "com/example/runtime/RuntimeLib.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]

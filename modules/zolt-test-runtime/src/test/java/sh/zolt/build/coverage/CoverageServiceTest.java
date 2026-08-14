@@ -1,5 +1,7 @@
 package sh.zolt.build.coverage;
 
+import static sh.zolt.build.TestContentAddressedLockSupport.write;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -274,7 +276,7 @@ final class CoverageServiceTest {
     }
 
     private void writeCoverageLockfile() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir, """
                 version = 1
 
                 [[package]]

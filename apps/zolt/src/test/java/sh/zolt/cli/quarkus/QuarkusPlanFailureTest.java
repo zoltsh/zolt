@@ -1,6 +1,7 @@
 package sh.zolt.cli.quarkus;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 import static sh.zolt.cli.quarkus.QuarkusPlanCommandTestSupport.createJarWithTextEntry;
 import static sh.zolt.cli.quarkus.QuarkusPlanCommandTestSupport.enableQuarkus;
 import static sh.zolt.cli.quarkus.QuarkusPlanCommandTestSupport.writeProjectConfig;
@@ -42,7 +43,11 @@ final class QuarkusPlanFailureTest {
         Path cacheRoot = tempDir.resolve("cache");
         writeProjectConfig(projectDir);
         enableQuarkus(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        createJarWithTextEntry(
+                cacheRoot.resolve("com/example/app/1.0.0/app-1.0.0.jar"),
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\n");
+        write(projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -62,7 +67,7 @@ final class QuarkusPlanFailureTest {
                 "--cache-root", cacheRoot.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("Status: not ready"));
+        assertTrue(result.stdout().contains("Status: not ready"), result.stdout() + result.stderr());
         assertTrue(result.stdout().contains("Deployment classpath entries: 0"));
         assertTrue(result.stderr().contains("No Quarkus deployment artifacts were found in zolt.lock"));
         assertTrue(result.stderr().contains("run `zolt resolve`"));
@@ -74,7 +79,7 @@ final class QuarkusPlanFailureTest {
         Path cacheRoot = tempDir.resolve("cache");
         writeProjectConfig(projectDir);
         enableQuarkus(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        String lockFixture = """
                 version = 1
 
                 [[package]]
@@ -94,12 +99,13 @@ final class QuarkusPlanFailureTest {
                 direct = false
                 jar = "io/quarkus/quarkus-arc-deployment/3.33.0/quarkus-arc-deployment-3.33.0.jar"
                 dependencies = []
-                """);
+                """;
         Path runtimeJar = cacheRoot.resolve("io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar");
         createJarWithTextEntry(
                 runtimeJar,
                 "META-INF/quarkus-extension.properties",
                 "deployment-artifact=io.quarkus:quarkus-rest-deployment:3.33.0\n");
+        write(projectDir.resolve("zolt.lock"), cacheRoot, lockFixture);
 
         CommandResult result = execute(
                 "quarkus",

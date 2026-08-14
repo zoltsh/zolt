@@ -254,7 +254,8 @@ final class BuildServiceExecGeneratedSourceTest {
     }
 
     private void writeLockfile(String content) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), content);
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), projectDir.resolve("cache"), content);
     }
 
     private static String currentJavaMajorVersion() {

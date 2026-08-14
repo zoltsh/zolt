@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
+import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.io.TempDir;
 
 abstract class RunPackageServiceTestSupport {
@@ -34,7 +35,11 @@ abstract class RunPackageServiceTestSupport {
     }
 
     protected void writeRuntimeLockfile() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        Path cacheRoot = projectDir.resolve("cache");
+        emptyJar(cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"));
+        emptyJar(cacheRoot.resolve("com/example/processor/1.0.0/processor-1.0.0.jar"));
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -55,6 +60,16 @@ abstract class RunPackageServiceTestSupport {
                 jar = "com/example/processor/1.0.0/processor-1.0.0.jar"
                 dependencies = []
                 """);
+    }
+
+    private static void emptyJar(Path path) throws IOException {
+        if (Files.isRegularFile(path)) {
+            return;
+        }
+        Files.createDirectories(path.getParent());
+        try (JarOutputStream ignored = new JarOutputStream(Files.newOutputStream(path))) {
+            // Valid empty jar used only as a classpath lane marker.
+        }
     }
 
     protected void source(String path, String content) throws IOException {

@@ -43,7 +43,8 @@ abstract class RunPackageServiceSpringBootTestSupport {
         createJarWithEntry(
                 cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"),
                 "com/example/runtime/RuntimeLib.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -85,7 +86,8 @@ abstract class RunPackageServiceSpringBootTestSupport {
         createJarWithEntry(
                 cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"),
                 "com/example/runtime/RuntimeLib.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]

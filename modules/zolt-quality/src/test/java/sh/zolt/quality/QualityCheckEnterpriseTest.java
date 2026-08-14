@@ -52,9 +52,10 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
                 source = "local-overlay:maven-local"
                 scope = "compile"
                 direct = true
-                jar = "overlays/maven-local/com/example/local-lib/1.0.0/local-lib-1.0.0.jar"
+                jar = "blobs/v2/sha256/%s/local-lib-1.0.0.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted("0".repeat(64), "0".repeat(64)));
 
         QualityCheckReport report = check(
                 projectDir,

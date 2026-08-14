@@ -56,9 +56,10 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
-                jar = "com/example/stale/1.0.0/stale-1.0.0.jar"
+                jar = "blobs/v2/sha256/%s/stale-1.0.0.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted("0".repeat(64), "0".repeat(64)));
 
         QualityCheckResult result = check.checkProjectLockfile(request(projectDir), config);
 
@@ -206,12 +207,13 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
     void cacheIntegrityReportsChecksumMismatchWithCacheRefreshNextStep() throws IOException {
         Path projectDir = tempDir.resolve("cache-checksum-mismatch");
         Path cacheRoot = tempDir.resolve("cache");
-        Path jar = cacheRoot.resolve("com/example/mismatch/1.0.0/mismatch-1.0.0.jar");
+        String checksum = "0".repeat(64);
+        Path jar = cacheRoot.resolve("blobs/v2/sha256/" + checksum + "/mismatch-1.0.0.jar");
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "actual cached bytes\n");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "com.example:mismatch"
@@ -219,10 +221,10 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
-                jar = "com/example/mismatch/1.0.0/mismatch-1.0.0.jar"
-                jarSha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+                jar = "blobs/v2/sha256/%s/mismatch-1.0.0.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted(checksum, checksum));
 
         QualityCheckResult result = check.checkProjectCacheIntegrity(request(projectDir));
 

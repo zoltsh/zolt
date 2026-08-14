@@ -1,6 +1,7 @@
 package sh.zolt.cli.command;
 
 import static sh.zolt.cli.CliTestSupport.writeFakeConsoleJar;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -82,7 +83,7 @@ final class WorkspaceCoverageToolchainContextTest {
                 """);
         writeFakeConsoleJar(cacheRoot.resolve(
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
-        Files.writeString(root.resolve("zolt.lock"), """
+        write(root.resolve("zolt.lock"), cacheRoot, """
                 version = 5
 
                 [[package]]

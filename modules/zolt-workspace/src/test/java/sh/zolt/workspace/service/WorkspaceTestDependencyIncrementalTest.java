@@ -1,5 +1,7 @@
 package sh.zolt.workspace.service;
 
+import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.lock;
+
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.member;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.workspace;
@@ -110,7 +112,7 @@ final class WorkspaceTestDependencyIncrementalTest {
     }
 
     private void writeLockfile(String version) throws IOException {
-        Files.writeString(tempDir.resolve("zolt.lock"), """
+        lock(tempDir, """
                 version = 5
 
                 [[package]]

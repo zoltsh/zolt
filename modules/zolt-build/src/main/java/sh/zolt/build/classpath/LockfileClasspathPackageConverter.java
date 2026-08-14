@@ -5,6 +5,7 @@ import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
+import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPackageCachePath;
 import sh.zolt.lockfile.LockPackagePathKind;
@@ -20,6 +21,7 @@ public final class LockfileClasspathPackageConverter {
     }
 
     public static List<ResolvedClasspathPackage> classpathPackages(ZoltLockfile lockfile) {
+        requireArtifactCachePaths(lockfile);
         return toClasspathPackages(lockfile, Path.of(""));
     }
 
@@ -35,6 +37,7 @@ public final class LockfileClasspathPackageConverter {
             ZoltLockfile lockfile,
             Path cacheRoot,
             VerifiedArtifactIndex artifactIndex) {
+        requireArtifactCachePaths(lockfile);
         new ArtifactIntegrityVerifier(artifactIndex).verify(lockfile, cacheRoot);
         return toClasspathPackages(lockfile, cacheRoot);
     }
@@ -51,6 +54,7 @@ public final class LockfileClasspathPackageConverter {
             Path cacheRoot,
             Path workspaceRoot,
             VerifiedArtifactIndex artifactIndex) {
+        requireArtifactCachePaths(lockfile);
         new ArtifactIntegrityVerifier(artifactIndex).verify(lockfile, cacheRoot);
         return lockfile.packages().stream()
                 .filter(lockPackage -> lockPackage.jar().isPresent()
@@ -75,6 +79,10 @@ public final class LockfileClasspathPackageConverter {
                             lockPackage.toolGroups());
                 })
                 .toList();
+    }
+
+    private static void requireArtifactCachePaths(ZoltLockfile lockfile) {
+        ContentAddressedLockCapability.requireArtifactCachePaths(lockfile, "zolt resolve");
     }
 
     private static List<ResolvedClasspathPackage> toClasspathPackages(ZoltLockfile lockfile, Path cacheRoot) {

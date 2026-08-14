@@ -121,7 +121,16 @@ public final class ArtifactIntegrityVerifier {
             String kind,
             Optional<CacheRelativePath> relativePath,
             Optional<String> expectedHash) {
-        if (relativePath.isEmpty() || expectedHash.isEmpty()) {
+        if (relativePath.isPresent() != expectedHash.isPresent()) {
+            throw new LockfileReadException(
+                    "Lockfile artifact integrity metadata is incomplete for "
+                            + coordinate(lockPackage)
+                            + " `"
+                            + kind
+                            + "`: cache path and SHA-256 checksum must be recorded together. "
+                            + "Regenerate zolt.lock with `zolt resolve`.");
+        }
+        if (relativePath.isEmpty()) {
             return;
         }
         Path artifactPath = relativePath.orElseThrow().resolveWithin(cacheRoot);

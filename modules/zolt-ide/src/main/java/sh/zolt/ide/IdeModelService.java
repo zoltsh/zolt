@@ -5,6 +5,8 @@ import sh.zolt.error.ActionableException;
 import sh.zolt.generated.GeneratedSourceEvidenceService;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
+import sh.zolt.lockfile.ContentAddressedLockCapability;
+import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveService;
@@ -174,7 +176,20 @@ public final class IdeModelService {
             return;
         }
         try {
-            lockfileReader.read(lockfilePath);
+            ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+            if (!ContentAddressedLockCapability.supportsArtifactCachePaths(lockfile)) {
+                diagnostics.add(new IdeModel.Diagnostic(
+                        "error",
+                        "LOCKFILE_MIGRATION_REQUIRED",
+                        "zolt.lock version "
+                                + lockfile.version()
+                                + " predates the version "
+                                + ContentAddressedLockCapability.MINIMUM_VERSION
+                                + " content-addressed artifact cache path contract required by this Zolt.",
+                        lockfilePath,
+                        "Run zolt resolve."));
+                return;
+            }
         } catch (LockfileReadException exception) {
             return;
         }

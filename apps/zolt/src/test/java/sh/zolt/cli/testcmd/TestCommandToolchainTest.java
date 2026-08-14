@@ -25,7 +25,7 @@ final class TestCommandToolchainTest extends TestCommandTestSupport {
         Path cacheRoot = tempDir.resolve("cache");
         writeFakeConsoleJar(cacheRoot.resolve(
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         LockedJavaToolchain locked = ManagedJavaToolchainTestFixture.locked();
         new ToolchainLockfileService().writeJava(projectDir.resolve("zolt.lock"), locked);
         writeDemoTestSource(projectDir);
@@ -52,7 +52,7 @@ final class TestCommandToolchainTest extends TestCommandTestSupport {
     @Test
     void testFailsClearlyWhenStrictManagedToolchainIsMissing() throws IOException {
         Path projectDir = ManagedJavaToolchainTestFixture.writeProject(tempDir, "missing-test-demo");
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, tempDir.resolve("cache"));
         writeDemoTestSource(projectDir);
 
         var result = execute(

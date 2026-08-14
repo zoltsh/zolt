@@ -1,8 +1,10 @@
 package sh.zolt.workspace.resolve;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.toml.LockfileSidecars;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
@@ -104,11 +106,33 @@ final class WorkspaceLockFreshnessServiceTest {
     }
 
     @Test
-    void doesNothingForALockfileThatWasNotGeneratedByResolve(@TempDir Path root) throws IOException {
+    void ignoresLegacyEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
         writeWorkspace(root);
         Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
 
         assertEquals(WorkspaceLockFreshness.Outcome.NOT_GENERATED, requireFresh(root).outcome());
+        assertEquals(List.of(), verifications);
+    }
+
+    @Test
+    void rejectsStrippedVersionSixArtifactMetadata(@TempDir Path root) throws IOException {
+        writeWorkspace(root);
+        Files.writeString(root.resolve("zolt.lock"), """
+                version = 6
+
+                [[package]]
+                id = "com.example:demo"
+                version = "1.0.0"
+                source = "test"
+                scope = "compile"
+                direct = true
+                jar = "blobs/v2/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/demo.jar"
+                dependencies = []
+                """);
+
+        ActionableException exception = assertThrows(ActionableException.class, () -> requireFresh(root));
+
+        assertTrue(exception.getMessage().contains("`jar` and `jarSha256` must be recorded together"));
         assertEquals(List.of(), verifications);
     }
 

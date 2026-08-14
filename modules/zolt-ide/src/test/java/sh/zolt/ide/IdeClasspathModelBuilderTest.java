@@ -2,6 +2,8 @@ package sh.zolt.ide;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.ide.IdeContentAddressedLockTestSupport.cachedJar;
+import static sh.zolt.ide.IdeContentAddressedLockTestSupport.write;
 
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
@@ -26,7 +28,7 @@ final class IdeClasspathModelBuilderTest {
         Path cacheRoot = tempDir.resolve("cache");
         Files.createDirectories(projectDir);
         Files.copy(exampleProjectConfig(), projectDir.resolve("zolt.toml"));
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -85,27 +87,26 @@ final class IdeClasspathModelBuilderTest {
 
         Path root = projectDir.toAbsolutePath().normalize();
         Path absoluteCache = cacheRoot.toAbsolutePath().normalize();
+        Path lockfile = projectDir.resolve("zolt.lock");
+        Path springBoot = cachedJar(
+                lockfile, absoluteCache, "org.springframework.boot:spring-boot-starter-webmvc");
+        Path springWebMvc = cachedJar(lockfile, absoluteCache, "org.springframework:spring-webmvc");
+        Path lombok = cachedJar(lockfile, absoluteCache, "org.projectlombok:lombok");
+        Path testProcessor = cachedJar(lockfile, absoluteCache, "com.example:test-processor");
+        Path quarkusDeployment = cachedJar(
+                lockfile, absoluteCache, "io.quarkus:quarkus-rest-deployment");
         assertEquals(List.of(
-                absoluteCache.resolve(
-                        "org/springframework/boot/spring-boot-starter-webmvc/4.0.6/spring-boot-starter-webmvc-4.0.6.jar"),
-                absoluteCache.resolve("org/springframework/spring-webmvc/7.0.5/spring-webmvc-7.0.5.jar")),
+                springBoot,
+                springWebMvc),
                 classpaths.compile());
         assertEquals(List.of(
                 root.resolve("target/classes"),
-                absoluteCache.resolve(
-                        "org/springframework/boot/spring-boot-starter-webmvc/4.0.6/spring-boot-starter-webmvc-4.0.6.jar"),
-                absoluteCache.resolve("org/springframework/spring-webmvc/7.0.5/spring-webmvc-7.0.5.jar")),
+                springBoot,
+                springWebMvc),
                 classpaths.runtime());
-        assertEquals(
-                List.of(absoluteCache.resolve("org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar")),
-                classpaths.processor());
-        assertEquals(
-                List.of(absoluteCache.resolve("com/example/test-processor/1.0.0/test-processor-1.0.0.jar")),
-                classpaths.testProcessor());
-        assertEquals(
-                List.of(absoluteCache.resolve(
-                        "io/quarkus/quarkus-rest-deployment/3.33.2/quarkus-rest-deployment-3.33.2.jar")),
-                classpaths.quarkusDeployment());
+        assertEquals(List.of(lombok), classpaths.processor());
+        assertEquals(List.of(testProcessor), classpaths.testProcessor());
+        assertEquals(List.of(quarkusDeployment), classpaths.quarkusDeployment());
         assertEquals(List.of(), diagnostics);
 
         String json = new IdeModelJsonWriter().write(modelWith(classpaths, diagnostics));
@@ -119,7 +120,8 @@ final class IdeClasspathModelBuilderTest {
         Path projectDir = tempDir.resolve("corrupted-cache-model");
         Path cacheRoot = tempDir.resolve("cache-corrupted");
         Files.createDirectories(projectDir);
-        Path jar = cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar");
+        String checksum = "0".repeat(64);
+        Path jar = cacheRoot.resolve("blobs/v2/sha256/" + checksum + "/runtime-lib-1.0.0.jar");
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "corrupted runtime jar bytes");
         Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -130,7 +132,7 @@ final class IdeClasspathModelBuilderTest {
                 java = "21"
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -138,10 +140,10 @@ final class IdeClasspathModelBuilderTest {
                 source = "maven-central"
                 scope = "runtime"
                 direct = true
-                jar = "com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"
-                jarSha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+                jar = "blobs/v2/sha256/%s/runtime-lib-1.0.0.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted(checksum, checksum));
         List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
 
         IdeModel.ClasspathInfo classpaths = builder.build(

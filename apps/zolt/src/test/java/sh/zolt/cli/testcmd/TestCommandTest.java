@@ -27,7 +27,7 @@ final class TestCommandTest extends TestCommandTestSupport {
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("reports-demo"));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeDemoTestSource(projectDir);
         CommandResult result = execute(
                 "--progress=always",
@@ -56,7 +56,7 @@ final class TestCommandTest extends TestCommandTestSupport {
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("events-demo"));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeDemoTestSource(projectDir);
         CommandResult result = execute(
                 "test",
@@ -78,7 +78,7 @@ final class TestCommandTest extends TestCommandTestSupport {
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("color-demo"));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeDemoTestSource(projectDir);
         CommandResult result = execute(
                 "--color=always",
@@ -107,7 +107,7 @@ final class TestCommandTest extends TestCommandTestSupport {
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("directory-demo"));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeDemoTestSource(projectDir);
         CommandResult result = execute(
                 "test",
@@ -140,8 +140,11 @@ final class TestCommandTest extends TestCommandTestSupport {
     @Test
     void testSuiteRejectsUnknownSuiteClearly() throws IOException {
         Path projectDir = tempDir.resolve("unknown-suite-demo");
+        Path cacheRoot = tempDir.resolve("cache");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        writeJUnitConsoleLockfile(projectDir);
+        writeFakeConsoleJar(cacheRoot.resolve(
+                "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeMainSource(projectDir, "package com.example; public final class Main {}\n");
         writeDemoTestSource(projectDir);
 
@@ -149,10 +152,10 @@ final class TestCommandTest extends TestCommandTestSupport {
                 "test",
                 "--suite", "missing",
                 "--cwd", projectDir.toString(),
-                "--cache-root", tempDir.resolve("cache").toString());
+                "--cache-root", cacheRoot.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("Unknown test suite `missing`"));
+        assertTrue(result.stderr().contains("Unknown test suite `missing`"), result.stderr());
         assertTrue(result.stderr().contains("Add [test.suites.missing] to zolt.toml"));
     }
 
@@ -168,7 +171,7 @@ final class TestCommandTest extends TestCommandTestSupport {
                 [test.suites.fast]
                 includeClassname = ["*Test"]
                 """, StandardOpenOption.APPEND);
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeMainSource(projectDir, "package com.example; public final class Main {}\n");
         writeTestSource(projectDir, "AlphaTest");
         writeTestSource(projectDir, "BetaTest");

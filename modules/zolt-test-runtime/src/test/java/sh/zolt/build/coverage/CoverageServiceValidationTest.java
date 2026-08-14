@@ -1,5 +1,7 @@
 package sh.zolt.build.coverage;
 
+import static sh.zolt.build.TestContentAddressedLockSupport.write;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -88,7 +90,7 @@ final class CoverageServiceValidationTest {
 
     @Test
     void nonCoverageScopedToolingIsIgnoredWithRefreshGuidance() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir, """
                 version = 1
 
                 [[package]]
@@ -121,7 +123,7 @@ final class CoverageServiceValidationTest {
 
     @Test
     void missingCoverageAgentExplainsHowToRefreshLockfile() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir, """
                 version = 1
 
                 [[package]]
@@ -155,7 +157,7 @@ final class CoverageServiceValidationTest {
 
     @Test
     void nonRuntimeJacocoAgentExplainsHowToRefreshLockfile() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir, """
                 version = 1
 
                 [[package]]
@@ -197,7 +199,7 @@ final class CoverageServiceValidationTest {
 
     @Test
     void missingCoverageCliExplainsHowToRefreshLockfile() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir, """
                 version = 1
 
                 [[package]]

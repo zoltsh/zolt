@@ -1,6 +1,7 @@
 package sh.zolt.build.testruntime;
 
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static sh.zolt.build.TestContentAddressedLockSupport.write;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,7 +12,7 @@ final class TestRunServiceLockfileTestSupport {
     }
 
     static void writeConsoleLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir, """
                 version = 1
 
                 [[package]]
@@ -26,7 +27,7 @@ final class TestRunServiceLockfileTestSupport {
     }
 
     static void writeConsoleAndJbossLogManagerLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir, """
                 version = 1
 
                 [[package]]
@@ -50,7 +51,7 @@ final class TestRunServiceLockfileTestSupport {
     }
 
     static void writeNonStandaloneConsoleLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir, """
                 version = 1
 
                 [[package]]

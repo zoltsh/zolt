@@ -1,6 +1,7 @@
 package sh.zolt.cli.testcmd;
 
 import static sh.zolt.cli.CliTestSupport.writeFakeConsoleJar;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -59,9 +60,7 @@ final class GeneratedTestCommandFixture {
                                 ? "GeneratedIT"
                                 : "GeneratedTest"));
         Files.writeString(root.resolve("fixtures.txt"), "seed\n");
-        Files.writeString(
-                root.resolve("zolt.lock"),
-                lockfile(null, true, false, false));
+        write(root.resolve("zolt.lock"), cache, lockfile(null, true, false, false));
         return root;
     }
 
@@ -102,9 +101,7 @@ final class GeneratedTestCommandFixture {
                                 ? "GeneratedIT"
                                 : "GeneratedTest"));
         Files.writeString(member.resolve("fixtures.txt"), "seed\n");
-        Files.writeString(
-                workspace.resolve("zolt.lock"),
-                lockfile("apps/app", true, false, false));
+        write(workspace.resolve("zolt.lock"), cache, lockfile("apps/app", true, false, false));
         return member;
     }
 
@@ -149,9 +146,7 @@ final class GeneratedTestCommandFixture {
                 root,
                 "src/test/openapi/api.yaml",
                 "openapi: 3.1.0\ninfo:\n  title: Test\n  version: 1\npaths: {}\n");
-        Files.writeString(
-                root.resolve("zolt.lock"),
-                lockfile(null, false, true, false));
+        write(root.resolve("zolt.lock"), cache, lockfile(null, false, true, false));
         return root;
     }
 
@@ -205,9 +200,7 @@ final class GeneratedTestCommandFixture {
                 root,
                 "src/test/java/com/example/ProjectRunnerTest.java",
                 "package com.example; final class ProjectRunnerTest {}\n");
-        Files.writeString(
-                root.resolve("zolt.lock"),
-                lockfile(null, false, false, true));
+        write(root.resolve("zolt.lock"), cache, lockfile(null, false, false, true));
         return root;
     }
 

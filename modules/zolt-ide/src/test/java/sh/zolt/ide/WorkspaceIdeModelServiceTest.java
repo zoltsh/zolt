@@ -2,6 +2,8 @@ package sh.zolt.ide;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.ide.IdeContentAddressedLockTestSupport.cachedJar;
+import static sh.zolt.ide.IdeContentAddressedLockTestSupport.write;
 
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.io.IOException;
@@ -76,7 +78,8 @@ final class WorkspaceIdeModelServiceTest {
                 "com.acme:core" = { workspace = "modules/core" }
                 """);
         member("modules/core", "core");
-        Files.writeString(tempDir.resolve("zolt.lock"), """
+        Path cacheRoot = tempDir.resolve("cache");
+        write(tempDir.resolve("zolt.lock"), cacheRoot, """
                 version = 5
 
                 [[package]]
@@ -121,7 +124,7 @@ final class WorkspaceIdeModelServiceTest {
                 dependencies = []
                 """);
 
-        WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), false, false);
+        WorkspaceIdeModel model = service.export(tempDir, cacheRoot, false, false);
 
         IdeModel apiModel = model.projects().stream()
                 .filter(project -> project.member().equals("apps/api"))
@@ -134,20 +137,16 @@ final class WorkspaceIdeModelServiceTest {
                 .toAbsolutePath()
                 .normalize()));
         assertEquals(
-                List.of(tempDir.resolve("cache/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar")
-                        .toAbsolutePath()
-                        .normalize()),
+                List.of(cachedJar(tempDir.resolve("zolt.lock"), cacheRoot, "org.projectlombok:lombok")),
                 apiModel.classpaths().processor());
         assertEquals(
-                List.of(tempDir.resolve("cache/com/example/test-processor/1.0.0/test-processor-1.0.0.jar")
-                        .toAbsolutePath()
-                        .normalize()),
+                List.of(cachedJar(tempDir.resolve("zolt.lock"), cacheRoot, "com.example:test-processor")),
                 apiModel.classpaths().testProcessor());
         assertEquals(
-                List.of(tempDir.resolve(
-                                "cache/io/quarkus/quarkus-rest-deployment/3.33.2/quarkus-rest-deployment-3.33.2.jar")
-                        .toAbsolutePath()
-                        .normalize()),
+                List.of(cachedJar(
+                        tempDir.resolve("zolt.lock"),
+                        cacheRoot,
+                        "io.quarkus:quarkus-rest-deployment")),
                 apiModel.classpaths().quarkusDeployment());
         assertEquals(List.of(), apiModel.diagnostics());
         assertEquals(List.of(), model.diagnostics());

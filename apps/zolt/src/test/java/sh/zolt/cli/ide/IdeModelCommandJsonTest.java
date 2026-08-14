@@ -23,7 +23,7 @@ final class IdeModelCommandJsonTest {
     void ideModelPrintsCoreModelJsonFromProjectAndLockfile() throws IOException {
         Path projectDir = writeProject(tempDir);
         Path cacheRoot = cacheRoot(tempDir);
-        writeLockfile(projectDir);
+        writeLockfile(projectDir, cacheRoot);
 
         CommandResult result = execute(
                 "ide",

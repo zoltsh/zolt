@@ -45,7 +45,8 @@ final class RunServiceFailureTest extends RunServiceTestSupport {
         Path runtimeJar = cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar");
         Files.createDirectories(runtimeJar.getParent());
         Files.writeString(runtimeJar, "corrupted runtime jar bytes");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]

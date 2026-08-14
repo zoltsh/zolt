@@ -1,6 +1,7 @@
 package sh.zolt.workspace.service;
 
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.createFakeConsoleJar;
+import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.lock;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.executable;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.member;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
@@ -68,7 +69,7 @@ final class WorkspaceTestServiceJdkDetectionTest {
                     }
                 }
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), """
+        lock(tempDir, """
                 version = 5
 
                 [[package]]

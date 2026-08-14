@@ -1,11 +1,17 @@
 package sh.zolt.build;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.lockfile.LockPackageCachePath;
+import sh.zolt.lockfile.LockPackagePathKind;
+import sh.zolt.lockfile.toml.LockfileReadException;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,7 +60,7 @@ final class BuildServiceGeneratedSourceFingerprintTest {
     }
 
     @Test
-    void processorClasspathChangeInvalidatesMainBuildFingerprint() throws IOException {
+    void processorClasspathCorruptionFailsClosed() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
         Path processorJar = cacheRoot.resolve("com/example/processor/1.0.0/processor-1.0.0.jar");
         Files.createDirectories(processorJar.getParent());
@@ -73,11 +79,18 @@ final class BuildServiceGeneratedSourceFingerprintTest {
                 }
                 """);
         buildService.build(projectDir, config(), cacheRoot);
-        appendJarEntry(processorJar, "zolt-marker.txt", "changed\n");
+        Path lockedProcessor = LockPackageCachePath.path(
+                        new ZoltLockfileReader().read(projectDir.resolve("zolt.lock")).packages().getFirst(),
+                        LockPackagePathKind.JAR)
+                .orElseThrow()
+                .resolveWithin(cacheRoot);
+        appendJarEntry(lockedProcessor, "zolt-marker.txt", "changed\n");
 
-        BuildResult result = buildService.build(projectDir, config(), cacheRoot);
+        LockfileReadException exception = assertThrows(
+                LockfileReadException.class,
+                () -> buildService.build(projectDir, config(), cacheRoot));
 
-        assertFalse(result.mainCompilationSkipped());
+        assertTrue(exception.getMessage().contains("Cached jar integrity check failed"));
     }
 
     private static ProjectConfig config() {
@@ -102,7 +115,10 @@ final class BuildServiceGeneratedSourceFingerprintTest {
     }
 
     private void writeProcessorLockfile() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"),
+                projectDir.resolve("cache"),
+                """
                 version = 1
 
                 [[package]]

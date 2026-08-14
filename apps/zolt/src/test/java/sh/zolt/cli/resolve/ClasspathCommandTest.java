@@ -6,6 +6,7 @@ import sh.zolt.cli.CliTestSupport;
 import sh.zolt.cli.CliTestRepository;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.cachedJar;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -73,7 +74,7 @@ final class ClasspathCommandTest {
         Path projectDir = tempDir.resolve("demo");
         Path cacheRoot = tempDir.resolve("cache");
         Files.createDirectories(projectDir);
-        ClasspathCommandTestSupport.writeLockfile(projectDir, """
+        ClasspathCommandTestSupport.writeLockfile(projectDir, cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -131,14 +132,14 @@ final class ClasspathCommandTest {
                 dependencies = []
                 """);
 
-        Path compileJar = cacheRoot.resolve("com/example/compile-lib/1.0.0/compile-lib-1.0.0.jar");
-        Path runtimeJar = cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar");
-        Path testJar = cacheRoot.resolve("com/example/test-lib/1.0.0/test-lib-1.0.0.jar");
-        Path processorJar = cacheRoot.resolve("com/example/processor-lib/1.0.0/processor-lib-1.0.0.jar");
-        Path testProcessorJar = cacheRoot.resolve(
-                "com/example/test-processor-lib/1.0.0/test-processor-lib-1.0.0.jar");
-        Path quarkusDeploymentJar = cacheRoot.resolve(
-                "io/quarkus/quarkus-rest-deployment/3.33.0/quarkus-rest-deployment-3.33.0.jar");
+        Path lockfile = projectDir.resolve("zolt.lock");
+        Path compileJar = cachedJar(lockfile, cacheRoot, "com.example:compile-lib");
+        Path runtimeJar = cachedJar(lockfile, cacheRoot, "com.example:runtime-lib");
+        Path testJar = cachedJar(lockfile, cacheRoot, "com.example:test-lib");
+        Path processorJar = cachedJar(lockfile, cacheRoot, "com.example:processor-lib");
+        Path testProcessorJar = cachedJar(lockfile, cacheRoot, "com.example:test-processor-lib");
+        Path quarkusDeploymentJar = cachedJar(
+                lockfile, cacheRoot, "io.quarkus:quarkus-rest-deployment");
 
         CommandResult compile = CliTestSupport.execute(
                 "classpath",

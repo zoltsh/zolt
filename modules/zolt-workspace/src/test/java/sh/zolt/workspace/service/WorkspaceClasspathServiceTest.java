@@ -3,18 +3,16 @@ package sh.zolt.workspace.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport.sha256;
+import static sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport.writeArtifact;
 
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,7 +21,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class WorkspaceClasspathServiceTest {
     private final WorkspaceClasspathService service = new WorkspaceClasspathService();
-    private final ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
 
     @TempDir
     private Path tempDir;
@@ -41,11 +38,11 @@ final class WorkspaceClasspathServiceTest {
         Path coreApiJar = tempDir.resolve("cache/org/example/core-api/1.0.0/core-api-1.0.0.jar");
         Path workerHelperJar = tempDir.resolve("cache/org/example/worker-helper/1.0.0/worker-helper-1.0.0.jar");
         Path legacyJar = tempDir.resolve("cache/org/example/legacy/1.0.0/legacy-1.0.0.jar");
-        createEmptyFile(coreHelperJar);
-        createEmptyFile(coreApiJar);
-        createEmptyFile(workerHelperJar);
-        createEmptyFile(legacyJar);
-        ZoltLockfile lockfile = lockfileReader.read("""
+        writeArtifact(coreHelperJar, "");
+        writeArtifact(coreApiJar, "");
+        writeArtifact(workerHelperJar, "");
+        writeArtifact(legacyJar, "");
+        ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), """
                 version = 5
 
                 [[package]]
@@ -110,6 +107,10 @@ final class WorkspaceClasspathServiceTest {
                 jar = "org/example/legacy/1.0.0/legacy-1.0.0.jar"
                 dependencies = []
                 """);
+        coreHelperJar = cached(coreHelperJar);
+        coreApiJar = cached(coreApiJar);
+        workerHelperJar = cached(workerHelperJar);
+        legacyJar = cached(legacyJar);
 
         ClasspathSet apiClasspaths = service.classpathsFor(workspace, lockfile, tempDir.resolve("cache"), "apps/api");
         ClasspathSet workerClasspaths = service.classpathsFor(workspace, lockfile, tempDir.resolve("cache"), "apps/worker");
@@ -177,10 +178,10 @@ final class WorkspaceClasspathServiceTest {
                 tempDir.resolve("cache/org/example/processor-helper/1.0.0/processor-helper-1.0.0.jar");
         Path externalIgnoredJar =
                 tempDir.resolve("cache/org/example/ignored/1.0.0/ignored-1.0.0.jar");
-        createEmptyFile(externalApiProcessorJar);
-        createEmptyFile(externalProcessorHelperJar);
-        createEmptyFile(externalIgnoredJar);
-        ZoltLockfile lockfile = lockfileReader.read("""
+        writeArtifact(externalApiProcessorJar, "");
+        writeArtifact(externalProcessorHelperJar, "");
+        writeArtifact(externalIgnoredJar, "");
+        ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), """
                 version = 5
 
                 [[package]]
@@ -246,6 +247,9 @@ final class WorkspaceClasspathServiceTest {
                 members = ["modules/unrelated"]
                 dependencies = []
                 """);
+        externalApiProcessorJar = cached(externalApiProcessorJar);
+        externalProcessorHelperJar = cached(externalProcessorHelperJar);
+        externalIgnoredJar = cached(externalIgnoredJar);
 
         ClasspathSet apiClasspaths = service.classpathsFor(workspace, lockfile, tempDir.resolve("cache"), "apps/api");
 
@@ -277,9 +281,9 @@ final class WorkspaceClasspathServiceTest {
         Path osxJar = tempDir.resolve(
                 "cache/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-osx-aarch_64.jar");
         // Distinguishable bytes per variant, with matching hashes so the integrity verifier participates.
-        writeFile(linuxJar, "linux-native-bytes");
-        writeFile(osxJar, "osx-native-bytes");
-        ZoltLockfile lockfile = lockfileReader.read(("""
+        writeArtifact(linuxJar, "linux-native-bytes");
+        writeArtifact(osxJar, "osx-native-bytes");
+        ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), ("""
                 version = 5
 
                 [[package]]
@@ -306,6 +310,8 @@ final class WorkspaceClasspathServiceTest {
                 """)
                 .replace("LINUX_SHA", sha256("linux-native-bytes"))
                 .replace("OSX_SHA", sha256("osx-native-bytes")));
+        linuxJar = cached(linuxJar);
+        osxJar = cached(osxJar);
 
         ClasspathSet apiClasspaths = service.classpathsFor(workspace, lockfile, tempDir.resolve("cache"), "apps/api");
         ClasspathSet workerClasspaths = service.classpathsFor(workspace, lockfile, tempDir.resolve("cache"), "apps/worker");
@@ -326,8 +332,8 @@ final class WorkspaceClasspathServiceTest {
                         "apps/api", "modules/core", "compile", "com.acme:core")));
         Path linuxJar = tempDir.resolve(
                 "cache/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-x86_64.jar");
-        writeFile(linuxJar, "linux-api-bytes");
-        ZoltLockfile lockfile = lockfileReader.read(("""
+        writeArtifact(linuxJar, "linux-api-bytes");
+        ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), ("""
                 version = 5
 
                 [[package]]
@@ -342,6 +348,7 @@ final class WorkspaceClasspathServiceTest {
                 exportedBy = ["modules/core"]
                 dependencies = []
                 """).replace("LINUX_SHA", sha256("linux-api-bytes")));
+        linuxJar = cached(linuxJar);
 
         ClasspathSet classpaths =
                 service.classpathsFor(workspace, lockfile, tempDir.resolve("cache"), "apps/api");
@@ -359,10 +366,10 @@ final class WorkspaceClasspathServiceTest {
         Path linuxJar =
                 tempDir.resolve("cache/com/example/fixture/1.0.0/fixture-1.0.0-linux-x86_64.jar");
         Path plainJar = tempDir.resolve("cache/com/example/fixture/1.0.0/fixture-1.0.0.jar");
-        writeFile(apiJar, "api-lib-bytes");
-        writeFile(linuxJar, "linux-transitive-bytes");
-        writeFile(plainJar, "plain-transitive-bytes");
-        ZoltLockfile lockfile = lockfileReader.read(("""
+        writeArtifact(apiJar, "api-lib-bytes");
+        writeArtifact(linuxJar, "linux-transitive-bytes");
+        writeArtifact(plainJar, "plain-transitive-bytes");
+        ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), ("""
                 version = 2
 
                 [[package]]
@@ -402,6 +409,9 @@ final class WorkspaceClasspathServiceTest {
                 .replace("API_SHA", sha256("api-lib-bytes"))
                 .replace("PLAIN_SHA", sha256("plain-transitive-bytes"))
                 .replace("LINUX_SHA", sha256("linux-transitive-bytes")));
+        apiJar = cached(apiJar);
+        linuxJar = cached(linuxJar);
+        plainJar = cached(plainJar);
 
         ClasspathSet classpaths =
                 service.classpathsFor(workspace, lockfile, tempDir.resolve("cache"), "apps/api");
@@ -429,22 +439,8 @@ final class WorkspaceClasspathServiceTest {
                 members);
     }
 
-    private static void createEmptyFile(Path path) throws IOException {
-        Files.createDirectories(path.getParent());
-        Files.writeString(path, "");
-    }
-
-    private static void writeFile(Path path, String content) throws IOException {
-        Files.createDirectories(path.getParent());
-        Files.writeString(path, content);
-    }
-
-    private static String sha256(String content) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(content.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(exception);
-        }
+    private Path cached(Path legacyArtifact) throws IOException {
+        return WorkspaceContentAddressedLockTestSupport.cachedArtifact(
+                tempDir.resolve("cache"), legacyArtifact);
     }
 }

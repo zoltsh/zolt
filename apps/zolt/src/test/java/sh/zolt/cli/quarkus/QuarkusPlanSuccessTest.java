@@ -1,6 +1,7 @@
 package sh.zolt.cli.quarkus;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.cachedJar;
 import static sh.zolt.cli.quarkus.QuarkusPlanCommandTestSupport.createJarWithTextEntry;
 import static sh.zolt.cli.quarkus.QuarkusPlanCommandTestSupport.enableQuarkus;
 import static sh.zolt.cli.quarkus.QuarkusPlanCommandTestSupport.quarkusInputFingerprint;
@@ -26,15 +27,16 @@ final class QuarkusPlanSuccessTest {
         Path cacheRoot = tempDir.resolve("cache");
         writeProjectConfig(projectDir, ".zolt/build");
         enableQuarkus(projectDir);
-        writeQuarkusPlanLockfile(projectDir);
         Path root = projectDir.toAbsolutePath().normalize();
-        Path runtimeJar = cacheRoot.resolve("io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar");
-        Path deploymentJar = cacheRoot.resolve(
-                "io/quarkus/quarkus-rest-deployment/3.33.0/quarkus-rest-deployment-3.33.0.jar");
+        Path legacyRuntimeJar = cacheRoot.resolve("io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar");
         createJarWithTextEntry(
-                runtimeJar,
+                legacyRuntimeJar,
                 "META-INF/quarkus-extension.properties",
                 "deployment-artifact=io.quarkus:quarkus-rest-deployment:3.33.0\n");
+        writeQuarkusPlanLockfile(projectDir, cacheRoot);
+        Path runtimeJar = cachedJar(projectDir.resolve("zolt.lock"), cacheRoot, "io.quarkus:quarkus-rest");
+        Path deploymentJar = cachedJar(
+                projectDir.resolve("zolt.lock"), cacheRoot, "io.quarkus:quarkus-rest-deployment");
 
         CommandResult result = execute(
                 "quarkus",
@@ -82,12 +84,12 @@ final class QuarkusPlanSuccessTest {
         Path cacheRoot = tempDir.resolve("cache");
         writeProjectConfig(projectDir);
         enableQuarkus(projectDir);
-        writeQuarkusPlanLockfile(projectDir);
         Path runtimeJar = cacheRoot.resolve("io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar");
         createJarWithTextEntry(
                 runtimeJar,
                 "META-INF/quarkus-extension.properties",
                 "deployment-artifact=io.quarkus:quarkus-rest-deployment:3.33.0\n");
+        writeQuarkusPlanLockfile(projectDir, cacheRoot);
         String fingerprint = quarkusInputFingerprint(execute(
                 "quarkus",
                 "plan",
@@ -112,12 +114,12 @@ final class QuarkusPlanSuccessTest {
         Path cacheRoot = tempDir.resolve("cache");
         writeProjectConfig(projectDir);
         enableQuarkus(projectDir);
-        writeQuarkusPlanLockfile(projectDir);
         Path runtimeJar = cacheRoot.resolve("io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar");
         createJarWithTextEntry(
                 runtimeJar,
                 "META-INF/quarkus-extension.properties",
                 "deployment-artifact=io.quarkus:quarkus-rest-deployment:3.33.0\n");
+        writeQuarkusPlanLockfile(projectDir, cacheRoot);
         writeQuarkusAugmentationMetadata(projectDir, "sha256:" + "0".repeat(64));
 
         CommandResult result = execute(

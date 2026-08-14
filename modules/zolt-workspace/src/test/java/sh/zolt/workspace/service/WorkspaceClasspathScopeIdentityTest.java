@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +17,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class WorkspaceClasspathScopeIdentityTest {
     private final WorkspaceClasspathService service = new WorkspaceClasspathService();
-    private final ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
 
     @TempDir
     private Path tempDir;
@@ -29,7 +28,7 @@ final class WorkspaceClasspathScopeIdentityTest {
         Path helperJar = tempDir.resolve("cache/com/example/helper/1.0.0/helper-1.0.0.jar");
         createFile(apiJar);
         createFile(helperJar);
-        ZoltLockfile lockfile = lockfileReader.read("""
+        ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), """
                 version = 3
 
                 [[package]]
@@ -63,6 +62,8 @@ final class WorkspaceClasspathScopeIdentityTest {
                 members = ["modules/core"]
                 dependencies = []
                 """);
+        apiJar = WorkspaceContentAddressedLockTestSupport.cachedArtifact(tempDir.resolve("cache"), apiJar);
+        helperJar = WorkspaceContentAddressedLockTestSupport.cachedArtifact(tempDir.resolve("cache"), helperJar);
 
         ClasspathSet classpaths =
                 service.classpathsFor(workspace, lockfile, tempDir.resolve("cache"), "apps/api");

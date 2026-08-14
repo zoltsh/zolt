@@ -89,7 +89,7 @@ final class WorkspaceTestCommandSelectionTest {
                 }
                 """);
         WorkspaceTestCommandTestSupport.writeWorkspaceTestLockfile(
-                workspaceDir, "apps/api", "modules/core", "apps/worker");
+                workspaceDir, cacheRoot, "apps/api", "modules/core", "apps/worker");
 
         CommandResult result = execute(
                 "test",
@@ -252,6 +252,6 @@ final class WorkspaceTestCommandSelectionTest {
                 }
                 """);
         WorkspaceTestCommandTestSupport.writeWorkspaceTestLockfile(
-                workspaceDir, "apps/api", "modules/core");
+                workspaceDir, cacheRoot, "apps/api", "modules/core");
     }
 }

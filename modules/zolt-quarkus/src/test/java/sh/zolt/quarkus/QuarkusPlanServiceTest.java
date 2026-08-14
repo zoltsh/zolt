@@ -20,6 +20,10 @@ import sh.zolt.project.QuarkusSettings;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,8 +54,14 @@ final class QuarkusPlanServiceTest {
                 "deployment-artifact=io.quarkus:quarkus-rest-deployment:3.33.2\n");
         writeJar(cacheRoot.resolve(restDeploymentJar), "META-INF/MANIFEST.MF", "");
         writeJar(cacheRoot.resolve(utilityJar), "META-INF/MANIFEST.MF", "");
+        writeJar(cacheRoot.resolve(missingRuntimeJar), "META-INF/MANIFEST.MF", "");
         Files.createDirectories(cacheRoot.resolve(platformProperties).getParent());
         Files.writeString(cacheRoot.resolve(platformProperties), "quarkus.platform.version=3.33.2\n");
+        CachedArtifact rest = cacheArtifact(cacheRoot, restJar);
+        CachedArtifact restDeployment = cacheArtifact(cacheRoot, restDeploymentJar);
+        CachedArtifact utility = cacheArtifact(cacheRoot, utilityJar);
+        CachedArtifact missingRuntime = cacheArtifact(cacheRoot, missingRuntimeJar);
+        CachedArtifact platform = cacheArtifact(cacheRoot, platformProperties);
 
         ZoltLockfile lockfile = new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
@@ -62,13 +72,13 @@ final class QuarkusPlanServiceTest {
                                 "3.33.2",
                                 DependencyScope.QUARKUS_DEPLOYMENT,
                                 false,
-                                restDeploymentJar),
+                                restDeployment),
                         artifactPackage(
                                 "io.quarkus.platform",
                                 "quarkus-bom-quarkus-platform-properties",
                                 "3.33.2",
                                 DependencyScope.QUARKUS_DEPLOYMENT,
-                                platformProperties,
+                                platform,
                                 "properties"),
                         jarPackage(
                                 "io.quarkus",
@@ -76,21 +86,21 @@ final class QuarkusPlanServiceTest {
                                 "3.33.2",
                                 DependencyScope.COMPILE,
                                 true,
-                                restJar),
+                                rest),
                         jarPackage(
                                 "com.example",
                                 "utility",
                                 "1.0.0",
                                 DependencyScope.COMPILE,
                                 true,
-                                utilityJar),
+                                utility),
                         jarPackage(
                                 "com.example",
                                 "missing-runtime",
                                 "1.0.0",
                                 DependencyScope.RUNTIME,
                                 false,
-                                missingRuntimeJar)),
+                                missingRuntime)),
                 List.of());
 
         QuarkusPlan plan = new QuarkusPlanService().plan(projectDir, config(), lockfile, cacheRoot);
@@ -98,12 +108,12 @@ final class QuarkusPlanServiceTest {
         assertTrue(plan.hasDeploymentInputs());
         assertTrue(plan.allExtensionDeploymentsResolved());
         assertEquals(List.of(
-                cacheRoot.resolve(missingRuntimeJar),
-                cacheRoot.resolve(utilityJar),
-                cacheRoot.resolve(restJar)), plan.runtimeClasspath());
-        assertEquals(List.of(cacheRoot.resolve(restDeploymentJar)), plan.deploymentClasspath());
+                cacheRoot.resolve(missingRuntime.path()),
+                cacheRoot.resolve(utility.path()),
+                cacheRoot.resolve(rest.path())), plan.runtimeClasspath());
+        assertEquals(List.of(cacheRoot.resolve(restDeployment.path())), plan.deploymentClasspath());
         assertEquals(
-                List.of(cacheRoot.resolve(platformProperties)),
+                List.of(cacheRoot.resolve(platform.path())),
                 plan.platformPropertiesArtifacts().stream()
                         .map(artifact -> artifact.path())
                         .toList());
@@ -121,11 +131,11 @@ final class QuarkusPlanServiceTest {
         assertEquals(1, plan.extensions().size());
         QuarkusPlanExtension extension = plan.extensions().getFirst();
         assertEquals(new PackageId("io.quarkus", "quarkus-rest"), extension.runtimePackage());
-        assertEquals(cacheRoot.resolve(restJar), extension.runtimeArtifact());
+        assertEquals(cacheRoot.resolve(rest.path()), extension.runtimeArtifact());
         assertEquals(
                 QuarkusDeploymentArtifact.parse("io.quarkus:quarkus-rest-deployment:3.33.2"),
                 extension.deploymentArtifact());
-        assertEquals(Optional.of(cacheRoot.resolve(restDeploymentJar)), extension.deploymentArtifactPath());
+        assertEquals(Optional.of(cacheRoot.resolve(restDeployment.path())), extension.deploymentArtifactPath());
         assertTrue(plan.inputFingerprint().startsWith("sha256:"));
     }
 
@@ -155,6 +165,7 @@ final class QuarkusPlanServiceTest {
                 cacheRoot.resolve(badExtensionJar),
                 "META-INF/quarkus-extension.properties",
                 "deployment-artifact=io.quarkus:quarkus-broken-deployment\n");
+        CachedArtifact badExtension = cacheArtifact(cacheRoot, badExtensionJar);
         ZoltLockfile lockfile = new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
                 List.of(jarPackage(
@@ -163,7 +174,7 @@ final class QuarkusPlanServiceTest {
                         "1.0.0",
                         DependencyScope.COMPILE,
                         true,
-                        badExtensionJar)),
+                        badExtension)),
                 List.of());
 
         QuarkusPlanException exception = assertThrows(
@@ -177,12 +188,13 @@ final class QuarkusPlanServiceTest {
     @Test
     void failsBeforePlanningWorkerInputsWhenDeploymentJarDoesNotMatchLockfileHash() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
+        String checksum = "0".repeat(64);
         Path deploymentJar = cacheRoot.resolve(
-                "io/quarkus/quarkus-rest-deployment/3.33.2/quarkus-rest-deployment-3.33.2.jar");
+                "blobs/v2/sha256/" + checksum + "/quarkus-rest-deployment-3.33.2.jar");
         Files.createDirectories(deploymentJar.getParent());
         Files.writeString(deploymentJar, "corrupted deployment jar bytes");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "io.quarkus:quarkus-rest-deployment"
@@ -190,10 +202,10 @@ final class QuarkusPlanServiceTest {
                 source = "maven-central"
                 scope = "quarkus-deployment"
                 direct = false
-                jar = "io/quarkus/quarkus-rest-deployment/3.33.2/quarkus-rest-deployment-3.33.2.jar"
-                jarSha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+                jar = "blobs/v2/sha256/%s/quarkus-rest-deployment-3.33.2.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted(checksum, checksum));
 
         LockfileReadException exception = assertThrows(
                 LockfileReadException.class,
@@ -267,16 +279,16 @@ final class QuarkusPlanServiceTest {
             String version,
             DependencyScope scope,
             boolean direct,
-            String jar) {
+            CachedArtifact jar) {
         return new LockPackage(
                 new PackageId(groupId, artifactId),
                 version,
                 "maven-central",
                 scope,
                 direct,
-                Optional.of(jar),
+                Optional.of(jar.path()),
                 Optional.empty(),
-                Optional.empty(),
+                Optional.of(jar.sha256()),
                 Optional.empty(),
                 List.of());
     }
@@ -286,7 +298,7 @@ final class QuarkusPlanServiceTest {
             String artifactId,
             String version,
             DependencyScope scope,
-            String artifact,
+            CachedArtifact artifact,
             String artifactType) {
         return new LockPackage(
                 new PackageId(groupId, artifactId),
@@ -298,11 +310,34 @@ final class QuarkusPlanServiceTest {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(artifact),
+                Optional.of(artifact.path()),
                 Optional.of(artifactType),
-                Optional.empty(),
+                Optional.of(artifact.sha256()),
                 List.of());
     }
+
+    private static CachedArtifact cacheArtifact(Path cacheRoot, String relativePath) throws IOException {
+        Path source = cacheRoot.resolve(relativePath);
+        String sha256 = sha256(Files.readAllBytes(source));
+        String contentAddressedPath = "blobs/v2/sha256/"
+                + sha256
+                + "/"
+                + source.getFileName();
+        Path target = cacheRoot.resolve(contentAddressedPath);
+        Files.createDirectories(target.getParent());
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        return new CachedArtifact(contentAddressedPath, sha256);
+    }
+
+    private static String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private record CachedArtifact(String path, String sha256) {}
 
     private static void writeJar(Path jarPath, String entryName, String content) throws IOException {
         Files.createDirectories(jarPath.getParent());

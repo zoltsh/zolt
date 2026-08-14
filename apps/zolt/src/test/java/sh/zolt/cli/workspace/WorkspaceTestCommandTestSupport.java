@@ -1,5 +1,7 @@
 package sh.zolt.cli.workspace;
 
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -7,9 +9,9 @@ import java.nio.file.Path;
 final class WorkspaceTestCommandTestSupport {
     private WorkspaceTestCommandTestSupport() {}
 
-    static void writeWorkspaceTestLockfile(Path workspaceDir, String... members) throws IOException {
+    static void writeWorkspaceTestLockfile(Path workspaceDir, Path cacheRoot, String... members) throws IOException {
         String memberList = String.join("\", \"", members);
-        Files.writeString(workspaceDir.resolve("zolt.lock"), """
+        write(workspaceDir.resolve("zolt.lock"), cacheRoot, """
                 version = 5
 
                 [[package]]

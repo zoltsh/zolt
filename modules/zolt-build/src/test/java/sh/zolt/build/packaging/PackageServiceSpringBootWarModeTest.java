@@ -43,7 +43,8 @@ final class PackageServiceSpringBootWarModeTest {
         createJarWithEntry(runtimeJar, "com/example/runtime/RuntimeLib.class");
         createJarWithEntry(providedJar, "org/apache/catalina/startup/Tomcat.class");
         createJarWithEntry(devJar, "com/example/dev/DevTools.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -175,7 +176,8 @@ final class PackageServiceSpringBootWarModeTest {
                 cacheRoot.resolve(
                         "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"),
                 "fixtures/LoaderTests.class");
-        Files.writeString(root.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                root.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]

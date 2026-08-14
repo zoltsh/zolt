@@ -79,7 +79,8 @@ final class PackageNestedArtifactAuthorityTest {
                                                 .nestedJarName());
             }
         }
-        Files.writeString(projectRoot.resolve("zolt.lock"), lockfile(packages));
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectRoot.resolve("zolt.lock"), cacheRoot, lockfile(packages));
         source(projectRoot, "src/main/java/com/example/Main.java", """
                 package com.example;
 

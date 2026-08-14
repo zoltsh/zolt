@@ -192,6 +192,8 @@ final class ResolveLockfilePersistenceTest {
     }
 
     private static ZoltLockfile lockfile(String source, DependencyScope scope, String version) {
+        String jarSha256 = "a".repeat(64);
+        String pomSha256 = "b".repeat(64);
         return new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
                 List.of(new LockPackage(
@@ -200,10 +202,10 @@ final class ResolveLockfilePersistenceTest {
                         source,
                         scope,
                         true,
-                        Optional.of("com/example/app/" + version + "/app-" + version + ".jar"),
-                        Optional.of("com/example/app/" + version + "/app-" + version + ".pom"),
-                        Optional.of("jar-sha"),
-                        Optional.of("pom-sha"),
+                        Optional.of("blobs/v2/sha256/" + jarSha256 + "/app-" + version + ".jar"),
+                        Optional.of("blobs/v2/sha256/" + pomSha256 + "/app-" + version + ".pom"),
+                        Optional.of(jarSha256),
+                        Optional.of(pomSha256),
                         List.of())),
                 List.of());
     }

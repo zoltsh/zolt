@@ -71,11 +71,12 @@ final class ClasspathCommandErrorTest {
         Path projectDir = tempDir.resolve("demo-corrupted-cache");
         Path cacheRoot = tempDir.resolve("cache-corrupted");
         Files.createDirectories(projectDir);
-        Path jar = cacheRoot.resolve("com/example/compile-lib/1.0.0/compile-lib-1.0.0.jar");
+        String checksum = "0".repeat(64);
+        Path jar = cacheRoot.resolve("blobs/v2/sha256/" + checksum + "/compile-lib-1.0.0.jar");
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "corrupted jar bytes");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "com.example:compile-lib"
@@ -83,10 +84,10 @@ final class ClasspathCommandErrorTest {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
-                jar = "com/example/compile-lib/1.0.0/compile-lib-1.0.0.jar"
-                jarSha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+                jar = "blobs/v2/sha256/%s/compile-lib-1.0.0.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted(checksum, checksum));
 
         CommandResult result = execute(
                 "classpath",

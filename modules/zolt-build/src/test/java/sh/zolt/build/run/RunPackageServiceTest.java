@@ -41,27 +41,22 @@ final class RunPackageServiceTest extends RunPackageServiceTestSupport {
                 List.of("one", "two"));
 
         Path jarPath = projectDir.resolve("target/demo-0.1.0.jar");
-        Path dependencyJar = cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar");
-        Path processorJar = cacheRoot.resolve("com/example/processor/1.0.0/processor-1.0.0.jar");
         assertEquals(jarPath, result.packageResult().jarPath());
         assertEquals("hello\n", result.javaRunResult().output());
         assertTrue(Files.exists(jarPath));
-        assertFalse(commands.getFirst().get(2).contains(processorJar.toString()));
-        assertEquals(List.of(
-                commands.getFirst().get(0),
-                "-classpath",
-                jarPath + ":" + dependencyJar,
-                "com.example.Main",
-                "one",
-                "two"), commands.getFirst());
+        assertFalse(commands.getFirst().get(2).contains("processor-1.0.0.jar"));
+        assertTrue(commands.getFirst().get(2).contains(jarPath.toString()));
+        assertTrue(commands.getFirst().get(2).contains("runtime-lib-1.0.0.jar"));
+        assertEquals("com.example.Main", commands.getFirst().get(3));
+        assertEquals(List.of("one", "two"), commands.getFirst().subList(4, 6));
     }
 
     @Test
     void runsUberJarWithJavaJarAndArguments() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
-        writeRuntimeLockfile();
         writeJar(cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"), Map.of(
                 "com/example/runtime/RuntimeLib.class", "runtime"));
+        writeRuntimeLockfile();
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 

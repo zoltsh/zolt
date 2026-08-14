@@ -1,5 +1,7 @@
 package sh.zolt.build.testruntime.compile;
 
+import static sh.zolt.build.TestContentAddressedLockSupport.write;
+
 import sh.zolt.classpath.Classpath;
 import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.project.BuildSettings;
@@ -36,7 +38,7 @@ final class TestCompileServiceTestSupport {
     }
 
     static void writeLockfile(Path projectDir, String content) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), content);
+        write(projectDir, content);
     }
 
     static void createHelperJar(Path projectDir, Path jar) throws IOException {

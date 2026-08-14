@@ -1,6 +1,7 @@
 package sh.zolt.workspace.service;
 
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.createFakeConsoleJar;
+import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.lock;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.member;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.oneTestSuccessfulSummary;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
@@ -80,7 +81,7 @@ final class WorkspaceTestServiceTest {
                     }
                 }
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), """
+        lock(tempDir, """
                 version = 5
 
                 [[package]]
@@ -183,7 +184,7 @@ final class WorkspaceTestServiceTest {
                 public final class Worker {
                 }
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), """
+        lock(tempDir, """
                 version = 5
 
                 [[package]]
@@ -259,7 +260,7 @@ final class WorkspaceTestServiceTest {
                     }
                 }
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), """
+        lock(tempDir, """
                 version = 5
 
                 [[package]]

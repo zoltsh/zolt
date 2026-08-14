@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.lockfile.toml.LockfileReadException;
+import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import java.io.IOException;
@@ -29,7 +30,7 @@ final class LockfileClasspathPackageConverterTest {
 
     @Test
     void ignoresNonJarArtifacts() {
-        ZoltLockfile lockfile = reader.read("""
+        ZoltLockfile lockfile = migrate(tempDir.resolve("cache"), """
                 version = 1
 
                 [[package]]
@@ -50,9 +51,55 @@ final class LockfileClasspathPackageConverterTest {
     }
 
     @Test
+    void directConverterRefusesLegacyArtifactPaths() {
+        ZoltLockfile legacy = reader.read("""
+                version = 5
+
+                [[package]]
+                id = "com.example:demo"
+                version = "1.0.0"
+                source = "test"
+                scope = "compile"
+                direct = true
+                jar = "com/example/demo/1.0.0/demo.jar"
+                dependencies = []
+                """);
+
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> LockfileClasspathPackageConverter.classpathPackages(legacy));
+
+        assertTrue(exception.getMessage().contains("version 5 predates the version 6"));
+    }
+
+    @Test
+    void directConverterRefusesMalformedVersionSixPaths() {
+        String digest = "a".repeat(64);
+        ZoltLockfile malformed = reader.read("""
+                version = 6
+
+                [[package]]
+                id = "com.example:demo"
+                version = "1.0.0"
+                source = "test"
+                scope = "compile"
+                direct = true
+                jar = "com/example/demo/1.0.0/demo.jar"
+                jarSha256 = "%s"
+                dependencies = []
+                """.formatted(digest));
+
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> LockfileClasspathPackageConverter.classpathPackages(malformed));
+
+        assertTrue(exception.getMessage().contains("must start with `blobs/v2/sha256/`"));
+    }
+
+    @Test
     void reconstructsClasspathInputsFromLockfileData() throws IOException {
         List<ResolvedClasspathPackage> packages = LockfileClasspathPackageConverter.classpathPackages(
-                reader.read(golden()));
+                migrate(tempDir.resolve("cache"), golden()));
 
         assertEquals(3, packages.size());
         ResolvedClasspathPackage guava = packages.stream()
@@ -66,7 +113,15 @@ final class LockfileClasspathPackageConverterTest {
 
     @Test
     void reconstructsClasspathInputsUnderCacheRoot() {
-        List<ResolvedClasspathPackage> packages = LockfileClasspathPackageConverter.classpathPackages(reader.read("""
+        Path cacheRoot = tempDir.resolve("cache");
+        try {
+            write(cacheRoot.resolve("com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.jar"), "jar");
+            write(cacheRoot.resolve("com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.pom"), "pom");
+        } catch (IOException exception) {
+            throw new AssertionError(exception);
+        }
+        List<ResolvedClasspathPackage> packages = LockfileClasspathPackageConverter.classpathPackages(
+                migrate(cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -78,23 +133,22 @@ final class LockfileClasspathPackageConverterTest {
                 jar = "com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.jar"
                 pom = "com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.pom"
                 dependencies = []
-                """), Path.of("cache"));
+                """), cacheRoot);
 
         ResolvedClasspathPackage guava = packages.stream()
                 .filter(candidate -> candidate.resolvedPackage().packageId().equals(new PackageId("com.google.guava", "guava")))
                 .findFirst()
                 .orElseThrow();
 
-        assertEquals(
-                Path.of("cache/com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.jar"),
-                guava.resolvedPackage().jarPath());
+        assertTrue(guava.resolvedPackage().jarPath().startsWith(cacheRoot));
+        assertEquals("guava-33.4.0-jre.jar", guava.resolvedPackage().jarPath().getFileName().toString());
     }
 
     @Test
     void verifiesArtifactIntegrityBeforeReconstructingCachedClasspathInputs() throws IOException {
         Path cacheRoot = tempDir.resolve("cache");
         Path jar = write(cacheRoot.resolve("com/example/demo/1.0.0/demo-1.0.0.jar"), "actual jar bytes");
-        ZoltLockfile lockfile = reader.read("""
+        ZoltLockfile lockfile = migrate(cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -115,7 +169,8 @@ final class LockfileClasspathPackageConverterTest {
         assertTrue(exception.getMessage().contains("Cached jar integrity check failed for com.example:demo:1.0.0"));
         assertTrue(exception.getMessage().contains("Expected " + sha256("expected jar bytes")));
         assertTrue(exception.getMessage().contains("but found " + sha256(jar)));
-        assertTrue(exception.getMessage().contains(jar.toAbsolutePath().normalize().toString()));
+        assertTrue(exception.getMessage().contains(cacheRoot.toAbsolutePath().normalize().toString()));
+        assertTrue(exception.getMessage().contains("demo-1.0.0.jar"));
         assertTrue(exception.getMessage().contains("Remove the cache entry or run `zolt resolve`"));
     }
 
@@ -209,6 +264,14 @@ final class LockfileClasspathPackageConverterTest {
                         .getResourceAsStream("/golden/zolt-lock-writer.golden")
                         .readAllBytes(),
                 StandardCharsets.UTF_8);
+    }
+
+    private static ZoltLockfile migrate(Path cacheRoot, String content) {
+        try {
+            return sh.zolt.build.lockfile.ContentAddressedLockTestSupport.migrate(cacheRoot, content);
+        } catch (IOException exception) {
+            throw new AssertionError(exception);
+        }
     }
 
     private static Path write(Path path, String content) throws IOException {

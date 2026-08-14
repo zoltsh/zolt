@@ -1,6 +1,7 @@
 package sh.zolt.workspace.service;
 
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.createFakeConsoleJar;
+import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.lock;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.member;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.oneTestSuccessfulSummary;
 import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.source;
@@ -110,7 +111,7 @@ final class WorkspaceTestServiceAggregatorTest {
                     }
                 }
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), aggregatorLockfile());
+        lock(tempDir, aggregatorLockfile());
     }
 
     private static String aggregatorTestDependencies() {

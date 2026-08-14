@@ -3,7 +3,6 @@ package sh.zolt.cli.command;
 import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.ContentAddressedLockCapability;
-import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -101,11 +100,16 @@ public final class CommandLockfiles {
             boolean offline,
             String retryCommand) {
         Path lockfilePath = workingDirectory.resolve("zolt.lock");
-        if (!Files.isRegularFile(lockfilePath) || !looksGeneratedLockfile(lockfilePath)) {
+        if (!Files.isRegularFile(lockfilePath)) {
             return artifactIndex;
         }
-        if (matchesProjectResolutionFingerprint(lockfilePath, config)
-                && lockedArtifactsReady(lockfilePath, cacheRoot)) {
+        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+        ContentAddressedLockCapability.requireArtifactCachePaths(lockfile, "zolt resolve");
+        if (placeholderLock(lockfile) || legacyMetadataOnlyLock(lockfile)) {
+            return artifactIndex;
+        }
+        boolean artifactsReady = lockedArtifactsReady(lockfile, cacheRoot);
+        if (matchesProjectResolutionFingerprint(lockfilePath, config) && artifactsReady) {
             return artifactIndex;
         }
         redirectWorkspaceMemberToWorkspacePath(workingDirectory, retryCommand);
@@ -139,24 +143,6 @@ public final class CommandLockfiles {
                         + ", whose lockfile a member-directory build never refreshes. "
                         + "Run `" + retryCommand + " --workspace --member " + memberPath
                         + "` to build it through the workspace lock.");
-    }
-
-    public void refreshExistingLockfile(
-            Path workingDirectory,
-            ProjectConfig config,
-            Path cacheRoot,
-            boolean offline) {
-        Path lockfilePath = workingDirectory.resolve("zolt.lock");
-        if (!Files.isRegularFile(lockfilePath) || !looksGeneratedLockfile(lockfilePath)) {
-            return;
-        }
-        projectResolve.resolve(
-                workingDirectory,
-                config,
-                cacheRoot,
-                false,
-                ResolveOptions.offline(offline));
-        artifactIndex = new VerifiedArtifactIndex();
     }
 
     public void requireFreshWorkspaceLockfile(Path workingDirectory, Path cacheRoot, boolean offline) {
@@ -213,12 +199,7 @@ public final class CommandLockfiles {
                 .orElseGet(() -> Map.of("workspaceLockFreshness", "no-workspace"));
     }
 
-    private boolean lockedArtifactsReady(Path lockfilePath, Path cacheRoot) {
-        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
-        ContentAddressedLockCapability.requireArtifactCachePaths(lockfile, "zolt resolve");
-        if (!recordsEveryArtifactChecksum(lockfile)) {
-            return false;
-        }
+    private boolean lockedArtifactsReady(ZoltLockfile lockfile, Path cacheRoot) {
         try {
             new ArtifactIntegrityVerifier(artifactIndex).verify(lockfile, cacheRoot);
             return true;
@@ -232,34 +213,21 @@ public final class CommandLockfiles {
         }
     }
 
-    private static boolean recordsEveryArtifactChecksum(ZoltLockfile lockfile) {
-        for (LockPackage lockPackage : lockfile.packages()) {
-            if (lockPackage.jar().isPresent() != lockPackage.jarSha256().isPresent()
-                    || lockPackage.pom().isPresent() != lockPackage.pomSha256().isPresent()
-                    || lockPackage.artifact().isPresent() != lockPackage.artifactSha256().isPresent()) {
-                return false;
-            }
-        }
-        return true;
+    private static boolean placeholderLock(ZoltLockfile lockfile) {
+        return lockfile.packages().isEmpty()
+                && lockfile.projectResolutionFingerprint().isEmpty()
+                && lockfile.workspaceResolutionInputFingerprint().isEmpty();
     }
 
-    private static boolean looksGeneratedLockfile(Path lockfilePath) {
-        try (BufferedReader lines = Files.newBufferedReader(lockfilePath)) {
-            String line;
-            while ((line = lines.readLine()) != null) {
-                if (line.contains("Sha256 = ")
-                        || line.contains("aliasFingerprint = ")
-                        || line.contains("projectResolutionFingerprint = ")) {
-                    return true;
-                }
-            }
-            return false;
-        } catch (IOException exception) {
-            throw LockfileReadException.actionable(
-                    "Could not read zolt.lock at " + lockfilePath + " while checking lockfile freshness.",
-                    "Check that the file exists and is readable.",
-                    exception);
-        }
+    private static boolean legacyMetadataOnlyLock(ZoltLockfile lockfile) {
+        return lockfile.version() < ContentAddressedLockCapability.MINIMUM_VERSION
+                && lockfile.packages().stream().noneMatch(lockPackage -> lockPackage.jar().isPresent()
+                        || lockPackage.pom().isPresent()
+                        || lockPackage.jarSha256().isPresent()
+                        || lockPackage.pomSha256().isPresent()
+                        || lockPackage.artifact().isPresent()
+                        || lockPackage.artifactType().isPresent()
+                        || lockPackage.artifactSha256().isPresent());
     }
 
     static boolean matchesProjectResolutionFingerprint(Path lockfilePath, ProjectConfig config) {

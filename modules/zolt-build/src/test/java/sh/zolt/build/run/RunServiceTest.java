@@ -51,7 +51,8 @@ final class RunServiceTest extends RunServiceTestSupport {
         Path runtimeJar = cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar");
         Files.createDirectories(runtimeJar.getParent());
         Files.writeString(runtimeJar, "runtime jar placeholder");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -75,7 +76,7 @@ final class RunServiceTest extends RunServiceTestSupport {
         RunResult result = service.run(projectDir, config, cacheRoot, List.of());
 
         assertTrue(command.contains("-classpath"));
-        assertTrue(command.stream().anyMatch(entry -> entry.contains(runtimeJar.toString())));
+        assertTrue(command.stream().anyMatch(entry -> entry.contains("runtime-lib-1.0.0.jar")));
         assertTrue(command.contains("com.example.Main"));
         assertEquals("com.example.Main", result.javaRunResult().mainClass());
     }

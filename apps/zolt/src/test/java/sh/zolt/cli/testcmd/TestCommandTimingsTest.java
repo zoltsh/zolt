@@ -28,7 +28,7 @@ final class TestCommandTimingsTest extends TestCommandTestSupport {
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), CliTestSupport.memberConfig("demo"));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeDemoTestSource(projectDir);
 
         CommandResult result = execute(
@@ -116,7 +116,7 @@ final class TestCommandTimingsTest extends TestCommandTestSupport {
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), CliTestSupport.memberConfig("demo"));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeDemoTestSource(projectDir);
 
         CommandResult result = execute(

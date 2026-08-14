@@ -1,5 +1,7 @@
 package sh.zolt.build.testruntime.compile;
 
+import static sh.zolt.build.TestContentAddressedLockSupport.write;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -116,6 +118,6 @@ final class TestCompileServiceGroovyTest extends TestCompileServiceGroovyTestSup
     }
 
     static void writeLockfile(Path projectDir, String content) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), content);
+        write(projectDir, content);
     }
 }

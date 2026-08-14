@@ -36,7 +36,6 @@ final class PackageServiceUberTest {
     @Test
     void packagesApplicationAndRuntimeDependenciesIntoDeterministicUberJar() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
-        writeUberLockfile(projectDir);
         writeJar(cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"), Map.of(
                 "com/example/runtime/RuntimeLib.class", "runtime",
                 "META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n",
@@ -46,6 +45,7 @@ final class PackageServiceUberTest {
                 "jakarta/servlet/Servlet.class", "provided"));
         writeJar(cacheRoot.resolve("com/example/processor/1.0.0/processor-1.0.0.jar"), Map.of(
                 "com/example/Processor.class", "processor"));
+        writeUberLockfile(projectDir, cacheRoot);
         source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -80,9 +80,9 @@ final class PackageServiceUberTest {
     @Test
     void duplicateUberJarEntriesFailClearly() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
-        writeUberLockfile(projectDir);
         writeJar(cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"), Map.of(
                 "config/app.properties", "dependency value"));
+        writeUberLockfile(projectDir, cacheRoot);
         source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -104,7 +104,6 @@ final class PackageServiceUberTest {
     @Test
     void recordsUberMergeDecisionsInPackageEvidenceDeterministically() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
-        writeUberMergeLockfile(projectDir);
         writeJar(cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"), Map.of(
                 "META-INF/services/com.example.Plugin", "com.example.RuntimePlugin\n",
                 "META-INF/io.netty.versions.properties", "netty-common.version=4.1.115.Final\n",
@@ -115,6 +114,7 @@ final class PackageServiceUberTest {
                 "META-INF/io.netty.versions.properties", "netty-buffer.version=4.1.115.Final\n",
                 "META-INF/NOTICE", "notice",
                 "META-INF/versions/9/module-info.class", "module"));
+        writeUberMergeLockfile(projectDir, cacheRoot);
         source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -152,8 +152,15 @@ final class PackageServiceUberTest {
                 .withPackageSettings(new PackageSettings(PackageMode.UBER));
     }
 
-    private static void writeUberLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+    private static void writeUberLockfile(Path projectDir, Path cacheRoot) throws IOException {
+        writeJarIfMissing(
+                cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"));
+        writeJarIfMissing(
+                cacheRoot.resolve("jakarta/servlet/jakarta.servlet-api/6.1.0/jakarta.servlet-api-6.1.0.jar"));
+        writeJarIfMissing(
+                cacheRoot.resolve("com/example/processor/1.0.0/processor-1.0.0.jar"));
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -185,8 +192,9 @@ final class PackageServiceUberTest {
                 """);
     }
 
-    private static void writeUberMergeLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+    private static void writeUberMergeLockfile(Path projectDir, Path cacheRoot) throws IOException {
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -217,6 +225,12 @@ final class PackageServiceUberTest {
                 output.write(entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 output.closeEntry();
             }
+        }
+    }
+
+    private static void writeJarIfMissing(Path jarPath) throws IOException {
+        if (Files.notExists(jarPath)) {
+            writeJar(jarPath, Map.of());
         }
     }
 }

@@ -215,17 +215,38 @@ final class ArtifactIntegrityVerifierTest {
     }
 
     @Test
-    void skipsArtifactsWithoutRecordedChecksums() throws IOException {
+    void rejectsArtifactsWithoutRecordedChecksums() throws IOException {
         Path cacheRoot = tempDir.resolve("cache");
         Path jar = write(cacheRoot.resolve("com/example/demo/1.0.0/demo-1.0.0.jar"), "jar bytes");
 
-        assertDoesNotThrow(() -> verifier.verify(lockfile(
-                relative(cacheRoot, jar),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()), cacheRoot));
+        LockfileReadException exception = assertThrows(
+                LockfileReadException.class,
+                () -> verifier.verify(lockfile(
+                        relative(cacheRoot, jar),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()), cacheRoot));
+
+        assertTrue(exception.getMessage().contains("cache path and SHA-256 checksum must be recorded together"));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
+    }
+
+    @Test
+    void rejectsChecksumsWithoutRecordedArtifactPaths() {
+        LockfileReadException exception = assertThrows(
+                LockfileReadException.class,
+                () -> verifier.verify(lockfile(
+                        Optional.empty(),
+                        sha256("jar bytes"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()), tempDir.resolve("cache")));
+
+        assertTrue(exception.getMessage().contains("cache path and SHA-256 checksum must be recorded together"));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
     }
 
     @Test

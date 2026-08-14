@@ -43,7 +43,7 @@ final class IntegrationTestCommandTest extends TestCommandTestSupport {
                 resources = ["src/it/resources"]
                 output = "target/it-classes"
                 """.formatted(currentJavaMajorVersion()));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         Path mainSource = projectDir.resolve("src/main/java/com/example/App.java");
         Files.createDirectories(mainSource.getParent());
         Files.writeString(mainSource, "package com.example; public final class App { public static String ok() { return \"ok\"; } }\n");
@@ -105,7 +105,7 @@ final class IntegrationTestCommandTest extends TestCommandTestSupport {
                 sources = ["src/it/java"]
                 output = "target/it-classes"
                 """.formatted(currentJavaMajorVersion()));
-        writeJUnitConsoleLockfile(projectDir);
+        writeJUnitConsoleLockfile(projectDir, cacheRoot);
         Path integrationTest = projectDir.resolve("src/it/java/com/example/AppIT.java");
         Files.createDirectories(integrationTest.getParent());
         Files.writeString(integrationTest, "package com.example; public final class AppIT {}\n");

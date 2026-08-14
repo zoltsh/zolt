@@ -46,7 +46,8 @@ final class PackageServiceSpringBootJarModeTest {
         createJarWithEntry(dependencyJar, "com/example/runtime/RuntimeLib.class");
         createJarWithEntry(devJar, "com/example/dev/DevTools.class");
         createJarWithEntry(processorJar, "com/example/processor/Processor.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
+                projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
