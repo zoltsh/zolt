@@ -106,6 +106,7 @@ final class ScopedArtifactCacheStorage {
     }
 
     CachedArtifact storeLocal(
+            RepositoryCacheScope scope,
             Coordinate coordinate,
             String mavenPath,
             String source,
@@ -117,6 +118,7 @@ final class ScopedArtifactCacheStorage {
         String digest = sha256(sourcePath);
         Path blob = blobPath(digest, mavenPath);
         copyAtomically(sourcePath, blob);
+        writeIndex(scope, mavenPath, new IndexEntry(digest, sourceSize, source));
         return cached(coordinate, blob, sourceSize, digest, source);
     }
 

@@ -1,6 +1,7 @@
 package sh.zolt.cache;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -28,5 +29,27 @@ public record RepositoryCacheScope(String key) {
                     "Could not identify the repository cache scope because SHA-256 is unavailable.",
                     exception);
         }
+    }
+
+    /** Stable identity for one local repository overlay at its canonical filesystem location. */
+    public static RepositoryCacheScope forOverlay(String kind, String id, Path root) {
+        Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(root, "root");
+        try {
+            String realRoot = root.toRealPath().toString();
+            return of("local-overlay-v1\n"
+                    + encoded(kind)
+                    + encoded(id)
+                    + encoded(realRoot));
+        } catch (java.io.IOException exception) {
+            throw new ArtifactCacheException(
+                    "Could not identify local repository overlay root at " + root + ".",
+                    exception);
+        }
+    }
+
+    private static String encoded(String value) {
+        return value.length() + ":" + value;
     }
 }

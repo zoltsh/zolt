@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cache.CachedArtifact;
 import sh.zolt.cache.LocalArtifactCache;
+import sh.zolt.cache.RepositoryCacheScope;
+import sh.zolt.cache.ScopedPomCacheReader;
+import sh.zolt.lockfile.CacheRelativePath;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
@@ -29,13 +32,21 @@ final class LocalOverlayMaterializerTest {
         Coordinate coordinate = coordinate("com.example", "app", "1.0.0");
         byte[] bytes = "<project/>".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         Path mavenLocalRoot = writeMavenLocal(pathBuilder.pomPath(coordinate), bytes);
-        Optional<CachedArtifact> artifact = materializer()
+        Path cacheRoot = tempDir.resolve("cache");
+        Optional<CachedArtifact> artifact = new LocalOverlayMaterializer(new LocalArtifactCache(cacheRoot))
                 .materializePom(List.of(RepositoryOverlay.mavenLocal(mavenLocalRoot)), coordinate);
 
         assertTrue(artifact.isPresent());
         assertArrayEquals(bytes, Files.readAllBytes(artifact.orElseThrow().cachePath()));
         assertEquals("local-overlay:maven-local", artifact.orElseThrow().source());
         assertTrue(Files.isRegularFile(artifact.orElseThrow().cachePath()));
+        assertEquals(
+                List.of(RepositoryCacheScope.forOverlay(
+                        "MAVEN_LOCAL", "maven-local", mavenLocalRoot)),
+                new ScopedPomCacheReader(cacheRoot).matchingScopes(
+                        coordinate,
+                        new CacheRelativePath(artifact.orElseThrow().repositoryPath()),
+                        artifact.orElseThrow().source()));
     }
 
     @Test

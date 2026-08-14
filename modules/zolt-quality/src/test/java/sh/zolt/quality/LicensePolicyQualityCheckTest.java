@@ -11,7 +11,12 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
+import sh.zolt.cache.CachedArtifact;
+import sh.zolt.cache.LocalArtifactCache;
+import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
+import sh.zolt.maven.Coordinate;
+import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
 import sh.zolt.project.ProjectConfig;
 
 final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport {
@@ -105,6 +110,45 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 Optional.empty(), projectDir, config, projectDir.resolve("zolt.lock"), false, cache);
 
         assertTrue(ok(results));
+    }
+
+    @Test
+    void strictPolicyAcceptsInheritedLicenseFromLockedOverlayScope() throws IOException {
+        Path projectDir = tempDir.resolve("overlay-parent-license");
+        Path cacheRoot = tempDir.resolve("overlay-parent-license-cache");
+        Path overlayRoot = tempDir.resolve("overlay-parent-license-m2");
+        LocalArtifactCache cache = new LocalArtifactCache(cacheRoot);
+        Coordinate child = coordinate("child", "1.0.0");
+        CachedArtifact childPom = cacheOverlayPom(cache, overlayRoot, child, """
+                <project>
+                  <parent>
+                    <groupId>org.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>2.0.0</version>
+                  </parent>
+                  <artifactId>child</artifactId>
+                </project>
+                """);
+        cacheOverlayPom(cache, overlayRoot, coordinate("parent", "2.0.0"), """
+                <project>
+                  <groupId>org.example</groupId>
+                  <artifactId>parent</artifactId>
+                  <version>2.0.0</version>
+                  <licenses><license><name>MIT License</name></license></licenses>
+                </project>
+                """);
+        ProjectConfig config = parseProject(projectDir, """
+
+                [dependencyPolicy.licenses]
+                allow = ["MIT"]
+                unknown = "fail"
+                """);
+        writeLockfile(projectDir, scopedPkg(childPom));
+
+        List<QualityCheckResult> results = check.check(
+                Optional.empty(), projectDir, config, projectDir.resolve("zolt.lock"), false, cacheRoot);
+
+        assertTrue(ok(results), results.toString());
     }
 
     @Test
@@ -245,6 +289,46 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 + "jar = \"" + base + ".jar\"\n"
                 + pomLine
                 + "dependencies = []\n";
+    }
+
+    private static String scopedPkg(CachedArtifact pom) {
+        Coordinate coordinate = pom.coordinate();
+        return """
+
+                [[package]]
+                id = "%s:%s"
+                version = "%s"
+                source = "%s"
+                scope = "compile"
+                direct = true
+                jar = "%s"
+                pom = "%s"
+                dependencies = []
+                """.formatted(
+                coordinate.groupId(),
+                coordinate.artifactId(),
+                coordinate.version().orElseThrow(),
+                pom.source(),
+                pom.repositoryPath().replace(".pom", ".jar"),
+                pom.repositoryPath());
+    }
+
+    private static CachedArtifact cacheOverlayPom(
+            LocalArtifactCache cache,
+            Path overlayRoot,
+            Coordinate coordinate,
+            String xml) throws IOException {
+        String repositoryPath = new MavenRepositoryPathBuilder().pomPath(coordinate);
+        Path sourcePath = overlayRoot.resolve(repositoryPath);
+        Files.createDirectories(sourcePath.getParent());
+        Files.writeString(sourcePath, xml);
+        RepositoryCacheScope scope = RepositoryCacheScope.forOverlay(
+                "MAVEN_LOCAL", "maven-local", overlayRoot);
+        return cache.materializeOverlayPom(scope, coordinate, "maven-local", sourcePath);
+    }
+
+    private static Coordinate coordinate(String artifact, String version) {
+        return new Coordinate("org.example", artifact, Optional.of(version));
     }
 
     private static String exceptionPolicy(String version, String license) {

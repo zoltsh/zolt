@@ -14,6 +14,7 @@ public final class LocalArtifactCache {
     private final DownloadCoordinator downloadCoordinator;
     private final LegacyArtifactCacheStorage legacyStorage;
     private final ScopedArtifactCacheStorage scopedStorage;
+    private final LocalOverlayCacheStorage overlayStorage;
     private final Path downloadDirectory;
 
     public LocalArtifactCache(Path root) {
@@ -30,6 +31,7 @@ public final class LocalArtifactCache {
         this.downloadCoordinator = Objects.requireNonNull(downloadCoordinator, "downloadCoordinator");
         this.legacyStorage = new LegacyArtifactCacheStorage(root, downloadCoordinator);
         this.scopedStorage = new ScopedArtifactCacheStorage(root);
+        this.overlayStorage = new LocalOverlayCacheStorage(scopedStorage);
         try {
             this.downloadDirectory = new CacheRelativePath(".downloads").resolveWithin(root);
         } catch (IllegalArgumentException exception) {
@@ -179,23 +181,30 @@ public final class LocalArtifactCache {
         return getOrFetch(scope, descriptor.coordinate(), pathBuilder.artifactPath(descriptor), fetcher);
     }
 
-    public CachedArtifact materializeOverlayPom(Coordinate coordinate, String overlayId, Path sourcePath) {
-        return materializeOverlayArtifact(
+    public CachedArtifact materializeOverlayPom(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            String overlayId,
+            Path sourcePath) {
+        return overlayStorage.store(
+                scope,
                 coordinate,
                 pathBuilder.pomPath(coordinate),
-                validatedOverlayId(overlayId),
+                overlayId,
                 sourcePath,
                 "POM");
     }
 
     public CachedArtifact materializeOverlayArtifact(
+            RepositoryCacheScope scope,
             ArtifactDescriptor descriptor,
             String overlayId,
             Path sourcePath) {
-        return materializeOverlayArtifact(
+        return overlayStorage.store(
+                scope,
                 descriptor.coordinate(),
                 pathBuilder.artifactPath(descriptor),
-                validatedOverlayId(overlayId),
+                overlayId,
                 sourcePath,
                 descriptor.extension().toUpperCase(java.util.Locale.ROOT));
     }
@@ -299,50 +308,6 @@ public final class LocalArtifactCache {
                             + " Run the command without --offline to repair it, then retry with --offline.",
                     exception);
         }
-    }
-
-    private CachedArtifact materializeOverlayArtifact(
-            Coordinate coordinate,
-            String repositoryPath,
-            String overlayId,
-            Path sourcePath,
-            String artifactKind) {
-        if (!java.nio.file.Files.isRegularFile(sourcePath)) {
-            throw new ArtifactCacheException(
-                    "Local repository overlay " + artifactKind + " for " + coordinate + " is missing at "
-                            + sourcePath + ". Reinstall the artifact locally or remove it so Zolt can fall back to configured repositories.");
-        }
-        try {
-            if (java.nio.file.Files.size(sourcePath) == 0) {
-                throw new ArtifactCacheException(
-                        "Local repository overlay "
-                                + artifactKind
-                                + " for "
-                                + coordinate
-                                + " at "
-                                + sourcePath
-                                + " is empty. Reinstall the artifact locally or remove it so Zolt can fall back to configured repositories.");
-            }
-        } catch (java.io.IOException exception) {
-            throw new ArtifactCacheException(
-                    "Could not inspect local repository overlay at " + sourcePath + ".",
-                    exception);
-        }
-        return scopedStorage.storeLocal(
-                coordinate,
-                repositoryPath,
-                "local-overlay:" + overlayId,
-                sourcePath);
-    }
-
-    private static String validatedOverlayId(String overlayId) {
-        if (overlayId == null
-                || !overlayId.matches("[A-Za-z0-9._-]+")
-                || overlayId.equals(".")
-                || overlayId.equals("..")) {
-            throw new ArtifactCacheException("Refusing invalid local repository overlay id.");
-        }
-        return overlayId;
     }
 
     private record RepairableLookup(CachedArtifact artifact, boolean repairRequired) {}

@@ -297,13 +297,20 @@ final class LocalArtifactCacheTest {
         Path source = tempDir.resolve("local-guava.pom");
         Files.writeString(source, "<project/>");
 
-        CachedArtifact artifact = cache.materializeOverlayPom(coordinate, "local-m2", source);
+        RepositoryCacheScope scope = RepositoryCacheScope.of("test local overlay");
+        CachedArtifact artifact = cache.materializeOverlayPom(scope, coordinate, "local-m2", source);
 
         assertTrue(artifact.repositoryPath().startsWith("blobs/v2/sha256/"));
         assertTrue(artifact.repositoryPath().endsWith("/guava-33.4.0-jre.pom"));
         assertEquals("local-overlay:local-m2", artifact.source());
         assertEquals(tempDir.resolve(artifact.repositoryPath()), artifact.cachePath());
         assertArrayEquals("<project/>".getBytes(StandardCharsets.UTF_8), bytes(artifact));
+        assertEquals(
+                List.of(scope),
+                new ScopedPomCacheReader(tempDir).matchingScopes(
+                        coordinate,
+                        new sh.zolt.lockfile.CacheRelativePath(artifact.repositoryPath()),
+                        artifact.source()));
     }
 
     @Test
@@ -316,7 +323,11 @@ final class LocalArtifactCacheTest {
 
         assertThrows(
                 ArtifactCacheException.class,
-                () -> cache.materializeOverlayPom(coordinate, "../../outside", source));
+                () -> cache.materializeOverlayPom(
+                        RepositoryCacheScope.of("test local overlay"),
+                        coordinate,
+                        "../../outside",
+                        source));
 
         assertFalse(Files.exists(outside));
     }
@@ -337,7 +348,8 @@ final class LocalArtifactCacheTest {
 
         assertThrows(
                 ArtifactCacheException.class,
-                () -> cache.materializeOverlayPom(coordinate, "local", source));
+                () -> cache.materializeOverlayPom(
+                        RepositoryCacheScope.of("test local overlay"), coordinate, "local", source));
         try (var files = Files.list(outside)) {
             assertEquals(List.of(), files.toList());
         }
@@ -363,7 +375,8 @@ final class LocalArtifactCacheTest {
         byte[] bytes = new byte[] {0x50, 0x4b, 0x03, 0x04};
         Files.write(source, bytes);
 
-        CachedArtifact artifact = cache.materializeOverlayArtifact(descriptor, "local-m2", source);
+        CachedArtifact artifact = cache.materializeOverlayArtifact(
+                RepositoryCacheScope.of("test local overlay"), descriptor, "local-m2", source);
 
         assertTrue(artifact.repositoryPath().startsWith("blobs/v2/sha256/"));
         assertTrue(artifact.repositoryPath().endsWith("/quarkus-custom-deployment-1.0.0-deployment.jar"));
@@ -379,7 +392,8 @@ final class LocalArtifactCacheTest {
 
         ArtifactCacheException exception = assertThrows(
                 ArtifactCacheException.class,
-                () -> cache.materializeOverlayPom(coordinate, "local-m2", source));
+                () -> cache.materializeOverlayPom(
+                        RepositoryCacheScope.of("test local overlay"), coordinate, "local-m2", source));
 
         assertTrue(exception.getMessage().contains("Local repository overlay POM"));
         assertTrue(exception.getMessage().contains("Reinstall the artifact locally or remove it"));
@@ -394,7 +408,11 @@ final class LocalArtifactCacheTest {
 
         ArtifactCacheException exception = assertThrows(
                 ArtifactCacheException.class,
-                () -> cache.materializeOverlayPom(coordinate, "local-m2", directorySource));
+                () -> cache.materializeOverlayPom(
+                        RepositoryCacheScope.of("test local overlay"),
+                        coordinate,
+                        "local-m2",
+                        directorySource));
 
         assertTrue(exception.getMessage().contains("Local repository overlay POM"));
         assertTrue(exception.getMessage().contains("is missing at " + directorySource));

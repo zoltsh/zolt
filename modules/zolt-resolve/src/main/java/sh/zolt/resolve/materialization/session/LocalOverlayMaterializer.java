@@ -2,6 +2,7 @@ package sh.zolt.resolve.materialization.session;
 
 import sh.zolt.cache.CachedArtifact;
 import sh.zolt.cache.LocalArtifactCache;
+import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
@@ -30,7 +31,8 @@ final class LocalOverlayMaterializer {
             if (!Files.isRegularFile(sourcePath)) {
                 continue;
             }
-            CachedArtifact artifact = cache.materializeOverlayPom(coordinate, overlay.id(), sourcePath);
+            CachedArtifact artifact = cache.materializeOverlayPom(
+                    scope(overlay), coordinate, overlay.id(), sourcePath);
             return Optional.of(artifact);
         }
         return Optional.empty();
@@ -45,9 +47,15 @@ final class LocalOverlayMaterializer {
             if (!Files.isRegularFile(sourcePath)) {
                 continue;
             }
-            CachedArtifact artifact = cache.materializeOverlayArtifact(descriptor, overlay.id(), sourcePath);
+            CachedArtifact artifact = cache.materializeOverlayArtifact(
+                    scope(overlay), descriptor, overlay.id(), sourcePath);
             return Optional.of(artifact);
         }
         return Optional.empty();
+    }
+
+    private static RepositoryCacheScope scope(RepositoryOverlay overlay) {
+        return RepositoryCacheScope.forOverlay(
+                overlay.kind().name(), overlay.id(), overlay.root());
     }
 }
