@@ -9,6 +9,7 @@ import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.NativeImageException;
 import sh.zolt.build.packaging.PackageResult;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.build.springboot.SpringBootAotNativeInputs;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
@@ -21,6 +22,37 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
+    @Test
+    void packageAndFinalClasspathShareOneArtifactHash() throws IOException {
+        Path cacheRoot = projectDir.resolve("cache");
+        writeRuntimeLockfile();
+        source("src/main/java/com/example/Main.java", """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        VerifiedArtifactIndex index = new VerifiedArtifactIndex();
+        NativeBuildService service = service(command -> {
+            writeNativeBinary(Path.of(command.getLast()));
+            return new NativeImageRunner.ProcessResult(0, "native ok\n");
+        });
+
+        service.buildNative(
+                projectDir,
+                config(Optional.of("com.example.Main")),
+                cacheRoot,
+                Path.of("native-image"),
+                () -> {},
+                index);
+
+        assertEquals(1, index.metrics().hashes());
+        assertEquals(1, index.metrics().paths());
+        assertTrue(index.metrics().cacheHits() >= 1);
+    }
+
     @Test
     void forwardsNativeImageProgressFromBuildServiceToRunner() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");

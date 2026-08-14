@@ -7,11 +7,11 @@ import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
 import java.util.List;
 
-final class NativePackagePolicy {
+public final class NativePackagePolicy {
     private NativePackagePolicy() {
     }
 
-    static ProjectConfig packageConfig(ProjectConfig config) {
+    public static ProjectConfig packageConfig(ProjectConfig config) {
         return config.packageSettings().mode() == PackageMode.UBER
                 ? config
                 : config.withPackageSettings(PackageSettings.defaults());

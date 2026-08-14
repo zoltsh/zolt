@@ -24,7 +24,6 @@ final class NativeBuildServiceUberJarTest extends NativeBuildServiceTestSupport 
     void preservesConfiguredUberJarWhenBuildingNativeImage() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
         writeRuntimeLockfile();
-        writeRuntimeJar(cacheRoot);
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 

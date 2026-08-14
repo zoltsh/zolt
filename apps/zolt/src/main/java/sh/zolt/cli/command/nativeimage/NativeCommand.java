@@ -9,6 +9,7 @@ import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.build.nativeimage.NativeBuildResult;
 import sh.zolt.build.nativeimage.NativeBuildService;
+import sh.zolt.build.nativeimage.NativePackagePolicy;
 import sh.zolt.build.NativeImageException;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.CommandProgress;
@@ -149,13 +150,21 @@ public final class NativeCommand implements Runnable {
             }
             ProjectConfig config = ProjectVersionOverride.apply(
                     tomlParser.parse(projectRoot.resolve("zolt.toml")));
+            ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
+            var artifactIndex = lockfiles.requireFreshLockfile(
+                    projectRoot,
+                    packageConfig,
+                    cacheRoot,
+                    false,
+                    "zolt native");
             progress.start("Building native image");
             NativeBuildResult result = nativeBuildService.buildNative(
                     projectRoot,
                     config,
                     cacheRoot,
                     resolvedNativeImage(projectRoot, config),
-                    nativeImageProgress(progress));
+                    nativeImageProgress(progress),
+                    artifactIndex);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             if (result.packageResult().buildResult().resolvedLockfile()) {
                 output.success("Resolved dependencies because zolt.lock was missing");

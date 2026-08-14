@@ -3,6 +3,7 @@ package sh.zolt.build.packaging;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -133,6 +134,15 @@ public final class PackageService {
     }
 
     public PackageResult packageJar(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
+        return packageJar(projectDirectory, config, cacheRoot, new VerifiedArtifactIndex());
+    }
+
+    /** Packages with the command's shared artifact verification index. */
+    public PackageResult packageJar(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex) {
         Path projectRoot = projectRoot(projectDirectory);
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
@@ -141,7 +151,8 @@ public final class PackageService {
                 projectRoot,
                 config,
                 cacheRoot,
-                false);
+                false,
+                artifactIndex);
         return packageJar(projectRoot, config, buildResult, cacheRoot);
     }
 

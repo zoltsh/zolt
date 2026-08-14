@@ -13,6 +13,9 @@ import sh.zolt.project.ProjectMetadata;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,8 +44,12 @@ abstract class NativeBuildServiceTestSupport {
     }
 
     protected void writeRuntimeLockfile() throws IOException {
+        Path cacheRoot = projectDir.resolve("cache");
+        Path jar = writeRuntimeJar(cacheRoot);
+        String digest = sha256(jar);
+        String relativeJar = cacheRoot.relativize(jar).toString().replace('\\', '/');
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -50,20 +57,34 @@ abstract class NativeBuildServiceTestSupport {
                 source = "maven-central"
                 scope = "runtime"
                 direct = false
-                jar = "com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"
+                jar = "%s"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted(relativeJar, digest));
     }
 
     protected static Path writeRuntimeJar(Path cacheRoot) throws IOException {
-        Path jar = cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar");
-        Files.createDirectories(jar.getParent());
-        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+        Path staging = cacheRoot.resolve("runtime-lib.jar.staging");
+        Files.createDirectories(staging.getParent());
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(staging))) {
             output.putNextEntry(new JarEntry("com/example/runtime/RuntimeLib.class"));
             output.write("runtime".getBytes(java.nio.charset.StandardCharsets.UTF_8));
             output.closeEntry();
         }
+        String digest = sha256(staging);
+        Path jar = cacheRoot.resolve("blobs/v2/sha256/" + digest + "/runtime-lib-1.0.0.jar");
+        Files.createDirectories(jar.getParent());
+        Files.move(staging, jar, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         return jar;
+    }
+
+    private static String sha256(Path path) throws IOException {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     protected void source(String path, String content) throws IOException {
