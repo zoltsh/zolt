@@ -267,7 +267,7 @@ final class WorkspaceIdeModelServiceTest {
                 [dependencyPolicy]
                 exclude = [{ group = "com.acme", artifact = "blocked", reason = "fixture" }]
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 6\n");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
@@ -276,7 +276,7 @@ final class WorkspaceIdeModelServiceTest {
         assertTrue(diagnostic.message().contains("Dependency policy excludes direct dependency `com.acme:blocked`"));
         assertEquals(tempDir.resolve("zolt.lock").toAbsolutePath().normalize(), diagnostic.path());
         assertEquals("Run zolt resolve --workspace.", diagnostic.nextStep());
-        assertEquals("version = 5\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertEquals("version = 6\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
 
     @Test

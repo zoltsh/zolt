@@ -1,6 +1,7 @@
 package sh.zolt.ide;
 
 import sh.zolt.cache.ArtifactCacheException;
+import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.WorkspaceGraphLockCapability;
@@ -243,6 +244,13 @@ public final class WorkspaceIdeModelService {
                     exception.getMessage(),
                     lockfilePath,
                     "Run zolt resolve --workspace without --offline to seed the cache, then retry zolt ide model --workspace --offline."));
+        } catch (ActionableException exception) {
+            diagnostics.add(new IdeModel.Diagnostic(
+                    "error",
+                    "LOCKFILE_MIGRATION_REQUIRED",
+                    exception.getMessage(),
+                    lockfilePath,
+                    "Run zolt resolve --workspace."));
         }
     }
 
