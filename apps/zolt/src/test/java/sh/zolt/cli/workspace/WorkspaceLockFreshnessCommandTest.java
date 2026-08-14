@@ -63,7 +63,10 @@ final class WorkspaceLockFreshnessCommandTest {
 
             assertEquals(1, result.exitCode());
             assertTrue(
-                    result.stderr().contains("Offline mode requires cached"),
+                    result.stderr().contains("Offline mode found corrupt cached JAR"),
+                    result.stderr());
+            assertTrue(
+                    result.stderr().contains("Run the command without --offline to repair it"),
                     result.stderr());
             assertFalse(result.stderr().contains("integrity check failed"), result.stderr());
         }

@@ -114,7 +114,11 @@ final class StandaloneLockFreshnessCommandTest {
             CommandResult result = execute(command(List.of("build", "--offline")));
 
             assertEquals(1, result.exitCode());
-            assertTrue(result.stderr().contains("Offline mode requires cached JAR"), result.stderr());
+            assertTrue(result.stderr().contains("Offline mode found corrupt cached JAR"), result.stderr());
+            assertTrue(result.stderr().contains("is missing"), result.stderr());
+            assertTrue(
+                    result.stderr().contains("Run the command without --offline to repair it"),
+                    result.stderr());
             assertTrue(result.stderr().contains("com.example:dependency:1.0.0"), result.stderr());
             assertFalse(result.stderr().contains("integrity check failed"), result.stderr());
         }
