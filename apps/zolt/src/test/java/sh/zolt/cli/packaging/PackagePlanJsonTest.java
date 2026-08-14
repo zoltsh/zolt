@@ -30,7 +30,8 @@ final class PackagePlanJsonTest extends PackagePlanCommandTestSupport {
                 "package",
                 "--plan",
                 "--format", "json",
-                "--cwd", projectDir.toString());
+                "--cwd", projectDir.toString(),
+                "--cache-root", projectDir.resolve(".zolt/cache").toString());
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());

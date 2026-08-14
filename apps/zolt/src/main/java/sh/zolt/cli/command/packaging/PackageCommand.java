@@ -267,9 +267,6 @@ public final class PackageCommand implements Runnable {
                         () -> tomlParser.parse(projectRoot.resolve("zolt.toml"))),
                 packageModeOverride);
         if (!planOnly) {
-            if (packageModeOverride.isPresent()) {
-                lockfiles.refreshExistingLockfile(projectRoot, config, cacheRoot, false);
-            }
             packageService.preparePackageToolingIfNeeded(projectRoot, config, cacheRoot);
         }
         var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);

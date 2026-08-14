@@ -1,5 +1,7 @@
 package sh.zolt.cli.packaging;
 
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
+
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.dependency.PackageId;
 import java.io.IOException;
@@ -62,8 +64,8 @@ final class PackageSpringBootCommandTestSupport {
                 .nestedJarName();
     }
 
-    static void writeSpringBootWarProvidedTomcatLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+    static void writeSpringBootWarProvidedTomcatLockfile(Path projectDir, Path cacheRoot) throws IOException {
+        write(projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]
@@ -142,7 +144,7 @@ final class PackageSpringBootCommandTestSupport {
         createJarWithEntry(
                 cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"),
                 "com/example/runtime/RuntimeLib.class");
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir.resolve("zolt.lock"), cacheRoot, """
                 version = 1
 
                 [[package]]

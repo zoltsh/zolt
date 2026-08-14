@@ -62,7 +62,7 @@ final class PackageCommandTest extends PackageCommandTestSupport {
     }
 
     @Test
-    void packageModeOverrideUsesThinForCurrentCommandOnly() throws IOException {
+    void packageModeOverrideRejectsResolutionChangingModeForCurrentCommandOnly() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
@@ -86,10 +86,12 @@ final class PackageCommandTest extends PackageCommandTestSupport {
                 "--cwd", projectDir.toString(),
                 "--cache-root", tempDir.resolve("cache").toString());
 
-        assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("Packaged 1 compiled files as thin jar"));
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains("changes dependency-resolution tooling"));
+        assertTrue(result.stderr().contains("Set `[package].mode = \"thin\"`"));
+        assertTrue(result.stderr().contains("run `zolt resolve`"));
         assertTrue(Files.readString(projectDir.resolve("zolt.toml")).contains("mode = \"spring-boot\""));
-        assertTrue(Files.exists(projectDir.resolve("target/demo-0.1.0.jar")));
+        assertFalse(Files.exists(projectDir.resolve("target/demo-0.1.0.jar")));
     }
 
     @Test
@@ -145,7 +147,7 @@ final class PackageCommandTest extends PackageCommandTestSupport {
     }
 
     @Test
-    void packageModeOverrideRefreshesExistingLockfileForCurrentCommand() throws IOException {
+    void packageModeOverrideLeavesExistingLockfileUnchangedForCurrentCommand() throws IOException {
         Path projectDir = tempDir.resolve("demo-existing-lock");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         writeMainSource(projectDir, """
@@ -172,7 +174,7 @@ final class PackageCommandTest extends PackageCommandTestSupport {
 
         assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("Packaged 1 compiled files as uber jar"));
-        assertFalse(Files.readString(projectDir.resolve("zolt.lock")).equals(thinLockfile));
+        assertEquals(thinLockfile, Files.readString(projectDir.resolve("zolt.lock")));
     }
 
 

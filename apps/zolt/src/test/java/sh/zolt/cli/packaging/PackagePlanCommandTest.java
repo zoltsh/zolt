@@ -2,6 +2,7 @@ package sh.zolt.cli.packaging;
 
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.nestedJarName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,7 +33,8 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         CommandResult result = execute(
                 "package",
                 "--plan",
-                "--cwd", projectDir.toString());
+                "--cwd", projectDir.toString(),
+                "--cache-root", projectDir.resolve(".zolt/cache").toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Package plan"));
@@ -70,7 +72,7 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
                 [framework.quarkus]
                 enabled = true
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir.resolve("zolt.lock"), projectDir.resolve(".zolt/cache"), """
                 version = 1
 
                 [[package]]
@@ -95,7 +97,8 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         CommandResult result = execute(
                 "package",
                 "--plan",
-                "--cwd", projectDir.toString());
+                "--cwd", projectDir.toString(),
+                "--cache-root", projectDir.resolve(".zolt/cache").toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Mode: quarkus"));
@@ -123,7 +126,8 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         CommandResult result = execute(
                 "package",
                 "--plan",
-                "--cwd", projectDir.toString());
+                "--cwd", projectDir.toString(),
+                "--cache-root", projectDir.resolve(".zolt/cache").toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Mode: uber"));
@@ -152,7 +156,8 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         CommandResult result = execute(
                 "package",
                 "--plan",
-                "--cwd", projectDir.toString());
+                "--cwd", projectDir.toString(),
+                "--cache-root", projectDir.resolve(".zolt/cache").toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains(

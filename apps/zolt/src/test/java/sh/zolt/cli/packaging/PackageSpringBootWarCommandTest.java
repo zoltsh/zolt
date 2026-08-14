@@ -34,6 +34,9 @@ final class PackageSpringBootWarCommandTest {
                 projectDir.resolve("zolt.toml"),
                 """
 
+                [package]
+                mode = "spring-boot-war"
+
                 [provided.dependencies]
                 "org.apache.tomcat.embed:tomcat-embed-core" = "10.1.40"
                 """,
@@ -66,7 +69,7 @@ final class PackageSpringBootWarCommandTest {
         createJarWithEntry(
                 cacheRoot.resolve("com/example/processor/1.0.0/processor-1.0.0.jar"),
                 "com/example/processor/Processor.class");
-        writeSpringBootWarProvidedTomcatLockfile(projectDir);
+        writeSpringBootWarProvidedTomcatLockfile(projectDir, cacheRoot);
 
         CommandResult result = execute(
                 "package",

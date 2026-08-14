@@ -4,6 +4,7 @@ import sh.zolt.build.PackageException;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.resolve.fingerprint.ProjectResolutionFingerprint;
 import java.util.Optional;
 
 final class PackageCommandModes {
@@ -25,9 +26,24 @@ final class PackageCommandModes {
     static ProjectConfig withPackageModeOverride(
             ProjectConfig config,
             Optional<PackageMode> packageModeOverride) {
-        return packageModeOverride
-                .map(mode -> config.withPackageSettings(config.packageSettings().withMode(mode)))
-                .orElse(config);
+        if (packageModeOverride.isEmpty()) {
+            return config;
+        }
+        PackageMode mode = packageModeOverride.orElseThrow();
+        ProjectConfig overridden = config.withPackageSettings(config.packageSettings().withMode(mode));
+        if (!ProjectResolutionFingerprint.fingerprint(config)
+                .equals(ProjectResolutionFingerprint.fingerprint(overridden))) {
+            throw PackageException.actionable(
+                    "Package mode override `"
+                            + mode.configValue()
+                            + "` changes dependency-resolution tooling from configured mode `"
+                            + config.packageSettings().mode().configValue()
+                            + "`.",
+                    "Set `[package].mode = \""
+                            + mode.configValue()
+                            + "\"` in zolt.toml, run `zolt resolve`, then retry without `--mode`.");
+        }
+        return overridden;
     }
 
     static void rejectWorkspaceModeOverride(

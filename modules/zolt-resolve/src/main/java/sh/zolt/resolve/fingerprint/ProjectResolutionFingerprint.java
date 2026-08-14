@@ -5,6 +5,7 @@ import sh.zolt.project.DependencyExclusionSpec;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.DependencyPolicyExclusion;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.RepositoryCredentialSettings;
 import sh.zolt.project.RepositorySettings;
@@ -74,9 +75,16 @@ public final class ProjectResolutionFingerprint {
                 config.dependencyPolicy().failOnVersionConflict());
         generatedSourceInputs(inputs, "generatedMain", config.build().generatedMainSources());
         generatedSourceInputs(inputs, "generatedTest", config.build().generatedTestSources());
-        line(inputs, "package", "mode", config.packageSettings().mode().configValue());
+        line(inputs, "package", "mode", resolutionPackageMode(config.packageSettings().mode()));
         inputs.addAll(config.frameworkSettings().resolutionFingerprintInputs());
         return List.copyOf(inputs);
+    }
+
+    /** Only Spring Boot archive modes contribute package tooling to dependency resolution. */
+    private static String resolutionPackageMode(PackageMode mode) {
+        return mode == PackageMode.SPRING_BOOT || mode == PackageMode.SPRING_BOOT_WAR
+                ? PackageMode.SPRING_BOOT.configValue()
+                : PackageMode.THIN.configValue();
     }
 
     private static void repositoryInputs(List<String> inputs, Map<String, RepositorySettings> repositories) {

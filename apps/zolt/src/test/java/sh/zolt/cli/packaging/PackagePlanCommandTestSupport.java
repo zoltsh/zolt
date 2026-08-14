@@ -1,6 +1,7 @@
 package sh.zolt.cli.packaging;
 
 import static sh.zolt.cli.CliTestSupport.memberConfig;
+import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,7 +30,7 @@ abstract class PackagePlanCommandTestSupport {
                 dependencies = []
                 """
                 : "";
-        Files.writeString(projectDir.resolve("zolt.lock"), """
+        write(projectDir.resolve("zolt.lock"), projectDir.resolve(".zolt/cache"), """
                 version = 1
 
                 [[package]]

@@ -42,7 +42,7 @@ final class ProjectResolutionFingerprintTest {
                 new Case("processor", baseToml().replace("1.6.3", "1.6.4")),
                 new Case("generated source tool", baseToml().replace("7.11.0", "7.12.0")),
                 new Case("generated source required flag", baseToml().replace("required = true", "required = false")),
-                new Case("package mode", baseToml().replace("mode = \"spring-boot\"", "mode = \"thin\"")),
+                new Case("package tooling mode", baseToml().replace("mode = \"spring-boot\"", "mode = \"thin\"")),
                 new Case("spring boot native setting", baseToml().replace(
                         "enabled = false\n\n[framework.quarkus]",
                         "enabled = true\n\n[framework.quarkus]")),
@@ -55,6 +55,23 @@ final class ProjectResolutionFingerprintTest {
                     ProjectResolutionFingerprint.fingerprint(parse(testCase.toml())),
                     testCase.name());
         }
+    }
+
+    @Test
+    void archiveModesWithoutResolutionToolingShareTheThinFingerprint() {
+        String thin = baseToml().replace("mode = \"spring-boot\"", "mode = \"thin\"");
+        String uber = baseToml().replace("mode = \"spring-boot\"", "mode = \"uber\"");
+        assertEquals(
+                ProjectResolutionFingerprint.fingerprint(parse(thin)),
+                ProjectResolutionFingerprint.fingerprint(parse(uber)));
+    }
+
+    @Test
+    void springBootJarAndWarShareTheSameResolutionFingerprint() {
+        assertEquals(
+                ProjectResolutionFingerprint.fingerprint(parse(baseToml())),
+                ProjectResolutionFingerprint.fingerprint(parse(
+                        baseToml().replace("mode = \"spring-boot\"", "mode = \"spring-boot-war\""))));
     }
 
     @Test
