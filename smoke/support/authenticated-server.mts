@@ -13,6 +13,11 @@ export interface AuthenticatedFileServer {
   url(path?: string): string;
 }
 
+export interface BearerRepositoryPartition {
+  readonly root: string;
+  readonly token: string;
+}
+
 export async function startAuthenticatedFileServer(
   t: SmokeContext,
   root: string,
@@ -30,20 +35,42 @@ export async function startBearerAuthenticatedFileServer(
   return await startAuthorizationFileServer(t, root, `Bearer ${token}`, 'Bearer realm="zolt-smoke"');
 }
 
+export async function startBearerPartitionedFileServer(
+  t: SmokeContext,
+  partitions: readonly BearerRepositoryPartition[],
+): Promise<AuthenticatedFileServer> {
+  return await startRoutedFileServer(t, (authorization) => {
+    const partition = partitions.find((candidate) => authorization === `Bearer ${candidate.token}`);
+    return partition?.root;
+  }, 'Bearer realm="zolt-smoke"');
+}
+
 async function startAuthorizationFileServer(
   t: SmokeContext,
   root: string,
   authorization: string,
   challenge: string,
 ): Promise<AuthenticatedFileServer> {
-  const repositoryRoot = resolve(root);
+  return await startRoutedFileServer(
+    t,
+    (candidate) => candidate === authorization ? root : undefined,
+    challenge,
+  );
+}
+
+async function startRoutedFileServer(
+  t: SmokeContext,
+  rootForAuthorization: (authorization: string | undefined) => string | undefined,
+  challenge: string,
+): Promise<AuthenticatedFileServer> {
   const requests: string[] = [];
   const server = createServer(async (request, response) => {
     const method = request.method ?? "GET";
     const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
     requests.push(`${method} ${pathname}`);
 
-    if (request.headers.authorization !== authorization) {
+    const selectedRoot = rootForAuthorization(request.headers.authorization);
+    if (selectedRoot === undefined) {
       response.writeHead(401, { "WWW-Authenticate": challenge });
       response.end();
       return;
@@ -54,6 +81,7 @@ async function startAuthorizationFileServer(
       return;
     }
 
+    const repositoryRoot = resolve(selectedRoot);
     const file = resolve(repositoryRoot, `.${pathname}`);
     if (file !== repositoryRoot && !file.startsWith(`${repositoryRoot}${sep}`)) {
       response.writeHead(404);

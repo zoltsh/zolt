@@ -1,7 +1,6 @@
 package sh.zolt.resolve.materialization.session;
 
 import sh.zolt.cache.CachedArtifact;
-import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.maven.ArtifactDescriptor;
 import sh.zolt.maven.Coordinate;
@@ -12,7 +11,6 @@ import sh.zolt.maven.repository.RawPom;
 import sh.zolt.maven.repository.RawPomParser;
 import sh.zolt.maven.repository.RepositoryAccess;
 import sh.zolt.maven.repository.RepositoryAccessPlanner;
-import sh.zolt.maven.repository.RepositoryConfigurationIdentity;
 import sh.zolt.maven.repository.RepositoryDownloadListener;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveOptions;
@@ -46,6 +44,7 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
     private final SharedRepositoryScope scope;
     private final ArtifactMaterializer artifactMaterializer;
     private final RepositoryAccessPlanner repositoryAccessPlanner = new RepositoryAccessPlanner();
+    private final List<RepositoryAccess> repositoryAccesses;
     private final RepositoryFetchCoordinator repositoryFetchCoordinator = new RepositoryFetchCoordinator();
     private final MavenRepositoryClient repositoryClient;
     private final RepositoryDownloadListener downloadProgressListener;
@@ -79,8 +78,8 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
         this.config = config;
         this.session = session;
         this.scope = session.scopeFor(config);
-        RepositoryCacheScope cacheScope = RepositoryCacheScope.of(RepositoryConfigurationIdentity.of(config));
-        this.artifactMaterializer = session.artifactMaterializer(cacheScope);
+        this.repositoryAccesses = repositoryAccessPlanner.plan(config);
+        this.artifactMaterializer = session.artifactMaterializer(session.cacheScopeFor(config, repositoryAccesses));
         this.repositoryClient = repositoryClient;
         this.downloadProgressListener = options.artifactProgressListener()::onBytes;
         this.projectPlatformMetadataPlanner = new ProjectPlatformMetadataPlanner(coordinateParser);
@@ -237,6 +236,6 @@ public final class RepositorySession implements DependencyMetadataSource, Resolv
     }
 
     private List<RepositoryAccess> repositoryAccesses() {
-        return repositoryAccessPlanner.plan(config);
+        return repositoryAccesses;
     }
 }

@@ -3,13 +3,16 @@ package sh.zolt.resolve.materialization.session;
 import sh.zolt.cache.CachedArtifact;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cache.RepositoryCacheScope;
+import sh.zolt.cache.RepositoryCacheScopeResolver;
 import sh.zolt.maven.repository.RawPomParser;
+import sh.zolt.maven.repository.RepositoryAccess;
 import sh.zolt.maven.repository.RepositoryConfigurationIdentity;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.materialization.MaterializedArtifact;
 import sh.zolt.resolve.ResolveOptions;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,12 +30,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li><b>Artifact materialization</b> — one {@link LocalArtifactCache}, so its download coordinator
  *       is the single flight for an artifact across the whole command rather than once per member.
- *       Repository fetches are keyed by repository-configuration identity plus Maven path. On disk,
- *       scoped indexes retain the selected repository source and point to content-addressed blobs.</li>
+ *       Repository fetches are keyed by repository-configuration identity, resolved credential
+ *       context, and Maven path. On disk, scoped indexes retain the selected repository source and
+ *       point to content-addressed blobs.</li>
  *   <li><b>Raw POMs, effective POMs, parent chains, imported BOMs, POM artifacts</b> — keyed by the
- *       {@link RepositoryConfigurationIdentity} they were derived under, because workspace policy
- *       merging lets a member add a repository the root does not declare, and a different repository
- *       set can serve different bytes for the same coordinate.</li>
+ *       {@link RepositoryConfigurationIdentity} they were derived under within this invocation,
+ *       because workspace policy merging lets a member add a repository the root does not declare,
+ *       and a different repository set can serve different bytes for the same coordinate. Their
+ *       artifact reads still use the resolved persistent scope described above.</li>
  *   <li><b>Artifact digests</b> — keyed by content-addressed cache path alone. Repository scopes that
  *       selected identical bytes may share that immutable blob while retaining separate source
  *       evidence in their indexes.</li>
@@ -51,6 +56,7 @@ public final class WorkspaceResolutionSession {
     private final ResolveOptions options;
     private final RawPomParser rawPomParser;
     private final LocalArtifactCache cache;
+    private final RepositoryCacheScopeResolver cacheScopeResolver;
     private final Map<String, String> artifactDigests = new ConcurrentHashMap<>();
     private final Map<String, SharedRepositoryScope> scopes = new ConcurrentHashMap<>();
 
@@ -59,6 +65,7 @@ public final class WorkspaceResolutionSession {
         this.options = options;
         this.rawPomParser = rawPomParser;
         this.cache = new LocalArtifactCache(cacheRoot);
+        this.cacheScopeResolver = new RepositoryCacheScopeResolver(cacheRoot);
     }
 
     LocalArtifactCache cache() {
@@ -67,6 +74,10 @@ public final class WorkspaceResolutionSession {
 
     ArtifactMaterializer artifactMaterializer(RepositoryCacheScope scope) {
         return new ArtifactMaterializer(cache, scope, options, new LocalOverlayMaterializer(cache));
+    }
+
+    RepositoryCacheScope cacheScopeFor(ProjectConfig config, List<RepositoryAccess> repositories) {
+        return cacheScopeResolver.resolve(RepositoryConfigurationIdentity.of(config), repositories);
     }
 
     SharedRepositoryScope scopeFor(ProjectConfig config) {

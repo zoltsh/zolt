@@ -18,8 +18,9 @@ import java.util.Map;
  * a member free to add a repository the workspace root does not declare.
  *
  * <p>Only repository ids, URLs, and the <em>names</em> of the credential environment variables enter
- * the identity, never a secret value: {@link RepositoryCredentialSettings} stores names alone, and
- * the identity is derived from configuration rather than from the resolved authentication.
+ * this in-process derivation identity, never a secret value. Persistent artifact caching combines it
+ * with keyed resolved-credential context through {@code RepositoryCacheScopeResolver}; this value
+ * alone is deliberately insufficient for authenticated cross-process cache reuse.
  *
  * <p>The ordering mirrors {@link RepositoryAccessPlanner}: repositories sorted by id, because that is
  * the order the planner queries them in and therefore the order that decides which repository serves
