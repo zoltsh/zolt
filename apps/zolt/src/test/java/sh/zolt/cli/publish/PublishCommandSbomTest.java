@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
+import sh.zolt.lockfile.ZoltLockfile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -137,7 +138,9 @@ final class PublishCommandSbomTest {
         assertNotEquals(0, result.exitCode());
         assertTrue(result.stderr().contains("ambiguous"), result.stderr());
         assertTrue(result.stderr().contains("zolt resolve"), result.stderr());
-        assertTrue(result.stderr().contains("version 5"), result.stderr());
+        assertTrue(
+                result.stderr().contains("version " + ZoltLockfile.CURRENT_VERSION),
+                result.stderr());
         assertFalse(Files.exists(projectDir.resolve("target/publish")));
     }
 }
