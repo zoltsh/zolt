@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -125,6 +126,107 @@ final class RepositoryScopedArtifactCacheTest {
         assertArrayEquals(bytes("trusted bytes"), Files.readAllBytes(repaired.cachePath()));
     }
 
+    @Test
+    void reportsActualDownloadHitAndRepairOutcomes() throws Exception {
+        RepositoryCacheScope scope = RepositoryCacheScope.of("outcome repository");
+        LocalArtifactCache cache = new LocalArtifactCache(tempDir);
+
+        CacheLookupResult downloaded = cache.getOrFetchJarResult(
+                scope,
+                LIB,
+                (ignored, downloadDirectory) -> artifact("private", "trusted bytes"));
+        CacheLookupResult hit = cache.getOrFetchJarResult(
+                scope,
+                LIB,
+                (ignored, downloadDirectory) -> {
+                    throw new AssertionError("cache hit must not fetch");
+                });
+        Files.writeString(indexPath(tempDir, scope), "version=1\n");
+        CacheLookupResult repaired = cache.getOrFetchJarResult(
+                scope,
+                LIB,
+                (ignored, downloadDirectory) -> artifact("private", "trusted bytes"));
+
+        assertEquals(CacheOutcome.DOWNLOADED, downloaded.outcome());
+        assertEquals(CacheOutcome.HIT, hit.outcome());
+        assertEquals(CacheOutcome.REPAIRED, repaired.outcome());
+    }
+
+    @Test
+    void onlineRepairsEveryMalformedIndexAndBlobCaseWhileOfflineFailsClosed() throws Exception {
+        List<CorruptionCase> cases = List.of(
+                new CorruptionCase(
+                        "truncated-index",
+                        (index, blob) -> Files.writeString(index, "version=1\n"),
+                        "is invalid"),
+                new CorruptionCase(
+                        "index-directory",
+                        (index, blob) -> {
+                            Files.delete(index);
+                            Files.createDirectory(index);
+                        },
+                        "is not a regular file"),
+                new CorruptionCase(
+                        "invalid-digest",
+                        (index, blob) -> replaceIndexLine(index, "sha256=", "sha256=invalid"),
+                        "is invalid"),
+                new CorruptionCase(
+                        "invalid-length",
+                        (index, blob) -> replaceIndexLine(index, "length=", "length=0"),
+                        "is invalid"),
+                new CorruptionCase(
+                        "invalid-source-base64",
+                        (index, blob) -> replaceIndexLine(index, "source=", "source=%%%"),
+                        "is invalid"),
+                new CorruptionCase(
+                        "missing-blob",
+                        (index, blob) -> Files.delete(blob),
+                        "is missing"),
+                new CorruptionCase(
+                        "blob-length-mismatch",
+                        (index, blob) -> replaceIndexLine(index, "length=", "length=999"),
+                        "has length"),
+                new CorruptionCase(
+                        "blob-digest-mismatch",
+                        (index, blob) -> Files.writeString(blob, "altered bytes"),
+                        "does not match its content-addressed SHA-256 path"));
+
+        for (CorruptionCase corruption : cases) {
+            Path root = tempDir.resolve(corruption.name());
+            RepositoryCacheScope scope = RepositoryCacheScope.of("matrix repository");
+            CachedArtifact original = new LocalArtifactCache(root).getOrFetchJar(
+                    scope,
+                    LIB,
+                    ignored -> artifact("private", "trusted bytes"));
+            Path index = indexPath(root, scope);
+            corruption.mutator().apply(index, original.cachePath());
+
+            ArtifactCacheException offline = assertThrows(
+                    ArtifactCacheException.class,
+                    () -> new LocalArtifactCache(root).getCachedJar(scope, LIB),
+                    corruption.name());
+            assertTrue(offline.getMessage().contains("Offline mode found corrupt cached JAR"), corruption.name());
+            assertTrue(offline.getMessage().contains(corruption.diagnostic()), offline.getMessage());
+            assertTrue(offline.getMessage().contains("Run the command without --offline to repair it"));
+
+            AtomicInteger fetches = new AtomicInteger();
+            CacheLookupResult repaired = new LocalArtifactCache(root).getOrFetchJarResult(
+                    scope,
+                    LIB,
+                    (ignored, downloadDirectory) -> {
+                        fetches.incrementAndGet();
+                        return artifact("private", "trusted bytes");
+                    });
+
+            assertEquals(1, fetches.get(), corruption.name());
+            assertEquals(CacheOutcome.REPAIRED, repaired.outcome(), corruption.name());
+            assertArrayEquals(bytes("trusted bytes"), Files.readAllBytes(repaired.artifact().cachePath()));
+            assertArrayEquals(
+                    bytes("trusted bytes"),
+                    Files.readAllBytes(new LocalArtifactCache(root).getCachedJar(scope, LIB).cachePath()));
+        }
+    }
+
     private static RepositoryArtifact artifact(String repositoryId, String content) {
         return new RepositoryArtifact(
                 LIB,
@@ -132,6 +234,18 @@ final class RepositoryScopedArtifactCacheTest {
                 URI.create("https://" + repositoryId + ".example/lib.jar"),
                 repositoryId,
                 bytes(content));
+    }
+
+    private static Path indexPath(Path root, RepositoryCacheScope scope) {
+        String mavenPath = new MavenRepositoryPathBuilder().jarPath(LIB);
+        return root.resolve("indexes").resolve(scope.key()).resolve(mavenPath + ".idx");
+    }
+
+    private static void replaceIndexLine(Path index, String prefix, String replacement) throws Exception {
+        List<String> lines = Files.readAllLines(index).stream()
+                .map(line -> line.startsWith(prefix) ? replacement : line)
+                .toList();
+        Files.write(index, lines);
     }
 
     private static byte[] bytes(String value) {
@@ -144,5 +258,15 @@ final class RepositoryScopedArtifactCacheTest {
         } catch (java.io.IOException exception) {
             throw new AssertionError(exception);
         }
+    }
+
+    private record CorruptionCase(
+            String name,
+            CacheCorruption mutator,
+            String diagnostic) {}
+
+    @FunctionalInterface
+    private interface CacheCorruption {
+        void apply(Path index, Path blob) throws Exception;
     }
 }

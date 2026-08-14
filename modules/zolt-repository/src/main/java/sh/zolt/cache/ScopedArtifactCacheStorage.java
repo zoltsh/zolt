@@ -6,6 +6,7 @@ import sh.zolt.maven.repository.RepositoryArtifact;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
@@ -25,11 +26,6 @@ final class ScopedArtifactCacheStorage {
         this.root = root;
     }
 
-    boolean contains(RepositoryCacheScope scope, String mavenPath) {
-        Optional<IndexEntry> entry = readIndex(scope, mavenPath);
-        return entry.isPresent() && Files.isRegularFile(blobPath(entry.orElseThrow().sha256(), mavenPath));
-    }
-
     Optional<CachedArtifact> find(
             RepositoryCacheScope scope,
             Coordinate coordinate,
@@ -40,8 +36,11 @@ final class ScopedArtifactCacheStorage {
         }
         IndexEntry entry = indexed.orElseThrow();
         Path blob = blobPath(entry.sha256(), mavenPath);
-        if (!Files.isRegularFile(blob)) {
-            return Optional.empty();
+        if (!Files.exists(blob, LinkOption.NOFOLLOW_LINKS)) {
+            throw invalidBlob(blob, "is missing");
+        }
+        if (!Files.isRegularFile(blob, LinkOption.NOFOLLOW_LINKS)) {
+            throw invalidBlob(blob, "is not a regular file");
         }
         long size = size(blob);
         if (size == 0) {
@@ -124,7 +123,15 @@ final class ScopedArtifactCacheStorage {
     void invalidate(RepositoryCacheScope scope, String mavenPath) {
         Path index = indexPath(scope, mavenPath);
         try {
-            Files.deleteIfExists(index);
+            if (Files.isDirectory(index, LinkOption.NOFOLLOW_LINKS)) {
+                try (var paths = Files.walk(index)) {
+                    for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                        Files.deleteIfExists(path);
+                    }
+                }
+            } else {
+                Files.deleteIfExists(index);
+            }
         } catch (IOException exception) {
             throw new ArtifactCacheException(
                     "Could not remove corrupt artifact cache index at " + index + ".",
@@ -150,11 +157,12 @@ final class ScopedArtifactCacheStorage {
 
     private Optional<IndexEntry> readIndex(RepositoryCacheScope scope, String mavenPath) {
         Path path = indexPath(scope, mavenPath);
-        if (!Files.exists(path)) {
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
             return Optional.empty();
         }
-        if (!Files.isRegularFile(path)) {
-            throw new ArtifactCacheException("Artifact cache index at " + path + " is not a regular file.");
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+            throw new CorruptArtifactCacheEntryException(
+                    "Artifact cache index at " + path + " is not a regular file. Delete it and retry.");
         }
         try {
             List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);

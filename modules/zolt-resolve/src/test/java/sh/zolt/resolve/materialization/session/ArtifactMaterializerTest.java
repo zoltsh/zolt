@@ -27,6 +27,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ArtifactMaterializerTest {
     private static final Coordinate APP = new Coordinate("com.example", "app", Optional.of("1.0.0"));
+    private static final RepositoryCacheScope SCOPE = RepositoryCacheScope.of("test-repository");
 
     @TempDir
     private Path tempDir;
@@ -175,11 +176,46 @@ final class ArtifactMaterializerTest {
                 listener.events());
     }
 
+    @Test
+    void repairedIndexIsRecordedAsADownloadWithoutAPreflightFailure() throws IOException {
+        ArtifactMaterializer initial = materializer(ResolveOptions.defaults());
+        initial.getJar(
+                APP,
+                (coordinate, ignored) -> artifact(
+                        coordinate,
+                        "com/example/app/1.0.0/app-1.0.0.jar",
+                        new byte[] {1, 2, 3}),
+                new RecordingMetrics());
+        Files.writeString(
+                tempDir.resolve("cache/indexes")
+                        .resolve(SCOPE.key())
+                        .resolve("com/example/app/1.0.0/app-1.0.0.jar.idx"),
+                "version=1\n");
+        AtomicInteger fetches = new AtomicInteger();
+        RecordingMetrics repairMetrics = new RecordingMetrics();
+
+        CachedArtifact repaired = materializer(ResolveOptions.defaults()).getJar(
+                APP,
+                (coordinate, ignored) -> {
+                    fetches.incrementAndGet();
+                    return artifact(
+                            coordinate,
+                            "com/example/app/1.0.0/app-1.0.0.jar",
+                            new byte[] {1, 2, 3});
+                },
+                repairMetrics);
+
+        assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(repaired.cachePath()));
+        assertEquals(1, fetches.get());
+        assertEquals(1, repairMetrics.jarDownloads);
+        assertEquals(0, repairMetrics.jarCacheHits);
+    }
+
     private ArtifactMaterializer materializer(ResolveOptions options) {
         LocalArtifactCache cache = new LocalArtifactCache(tempDir.resolve("cache"));
         return new ArtifactMaterializer(
                 cache,
-                RepositoryCacheScope.of("test-repository"),
+                SCOPE,
                 options,
                 new LocalOverlayMaterializer(cache));
     }

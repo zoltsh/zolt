@@ -1,6 +1,8 @@
 package sh.zolt.resolve.materialization.session;
 
 import sh.zolt.cache.CachedArtifact;
+import sh.zolt.cache.CacheOutcome;
+import sh.zolt.cache.CacheLookupResult;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cache.RepositoryCacheScope;
 import sh.zolt.cache.StreamingArtifactFetcher;
@@ -49,20 +51,19 @@ final class ArtifactMaterializer {
             metrics.recordPomCacheHit(elapsedSince(started));
             return artifact;
         }
-        boolean cached = cache.hasPom(cacheScope, coordinate);
         ArtifactDescriptor descriptor = new ArtifactDescriptor(coordinate, Optional.empty(), "pom");
-        CachedArtifact artifact = cache.getOrFetchPom(
+        CacheLookupResult result = cache.getOrFetchPomResult(
                 cacheScope,
                 coordinate,
                 (ignored, downloadDirectory) -> fetchWithProgress(
                         descriptor,
                         () -> fetchPom.fetch(coordinate, downloadDirectory)));
-        if (cached) {
+        if (result.outcome() == CacheOutcome.HIT) {
             metrics.recordPomCacheHit(elapsedSince(started));
         } else {
             metrics.recordPomDownload(elapsedSince(started));
         }
-        return artifact;
+        return result.artifact();
     }
 
     CachedArtifact getJar(
@@ -81,20 +82,19 @@ final class ArtifactMaterializer {
             metrics.recordJarCacheHit(elapsedSince(started));
             return artifact;
         }
-        boolean cached = cache.hasJar(cacheScope, coordinate);
         ArtifactDescriptor descriptor = ArtifactDescriptor.jar(coordinate);
-        CachedArtifact artifact = cache.getOrFetchJar(
+        CacheLookupResult result = cache.getOrFetchJarResult(
                 cacheScope,
                 coordinate,
                 (ignored, downloadDirectory) -> fetchWithProgress(
                         descriptor,
                         () -> fetchJar.fetch(coordinate, downloadDirectory)));
-        if (cached) {
+        if (result.outcome() == CacheOutcome.HIT) {
             metrics.recordJarCacheHit(elapsedSince(started));
         } else {
             metrics.recordJarDownload(elapsedSince(started));
         }
-        return artifact;
+        return result.artifact();
     }
 
     CachedArtifact getArtifact(
@@ -114,19 +114,18 @@ final class ArtifactMaterializer {
             metrics.recordArtifactCacheHit(elapsedSince(started));
             return artifact;
         }
-        boolean cached = cache.hasArtifact(cacheScope, descriptor);
-        CachedArtifact artifact = cache.getOrFetchArtifact(
+        CacheLookupResult result = cache.getOrFetchArtifactResult(
                 cacheScope,
                 descriptor,
                 (ignored, downloadDirectory) -> fetchWithProgress(
                         descriptor,
                         () -> fetchArtifact.apply(descriptor, downloadDirectory)));
-        if (cached) {
+        if (result.outcome() == CacheOutcome.HIT) {
             metrics.recordArtifactCacheHit(elapsedSince(started));
         } else {
             metrics.recordArtifactDownload(elapsedSince(started));
         }
-        return artifact;
+        return result.artifact();
     }
 
     private RepositoryArtifact fetchWithProgress(

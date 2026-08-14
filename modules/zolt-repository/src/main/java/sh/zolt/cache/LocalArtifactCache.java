@@ -104,18 +104,6 @@ public final class LocalArtifactCache {
                 descriptor.coordinate(), pathBuilder.artifactPath(descriptor), fetcher, downloadDirectory);
     }
 
-    public boolean hasPom(RepositoryCacheScope scope, Coordinate coordinate) {
-        return scopedStorage.contains(scope, pathBuilder.pomPath(coordinate));
-    }
-
-    public boolean hasJar(RepositoryCacheScope scope, Coordinate coordinate) {
-        return scopedStorage.contains(scope, pathBuilder.jarPath(coordinate));
-    }
-
-    public boolean hasArtifact(RepositoryCacheScope scope, ArtifactDescriptor descriptor) {
-        return scopedStorage.contains(scope, pathBuilder.artifactPath(descriptor));
-    }
-
     public CachedArtifact getOrFetchPom(
             RepositoryCacheScope scope,
             Coordinate coordinate,
@@ -124,10 +112,17 @@ public final class LocalArtifactCache {
                 scope,
                 coordinate,
                 pathBuilder.pomPath(coordinate),
-                (requested, ignored) -> fetcher.fetch(requested));
+                (requested, ignored) -> fetcher.fetch(requested)).artifact();
     }
 
     public CachedArtifact getOrFetchPom(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            StreamingArtifactFetcher fetcher) {
+        return getOrFetchPomResult(scope, coordinate, fetcher).artifact();
+    }
+
+    public CacheLookupResult getOrFetchPomResult(
             RepositoryCacheScope scope,
             Coordinate coordinate,
             StreamingArtifactFetcher fetcher) {
@@ -142,10 +137,17 @@ public final class LocalArtifactCache {
                 scope,
                 coordinate,
                 pathBuilder.jarPath(coordinate),
-                (requested, ignored) -> fetcher.fetch(requested));
+                (requested, ignored) -> fetcher.fetch(requested)).artifact();
     }
 
     public CachedArtifact getOrFetchJar(
+            RepositoryCacheScope scope,
+            Coordinate coordinate,
+            StreamingArtifactFetcher fetcher) {
+        return getOrFetchJarResult(scope, coordinate, fetcher).artifact();
+    }
+
+    public CacheLookupResult getOrFetchJarResult(
             RepositoryCacheScope scope,
             Coordinate coordinate,
             StreamingArtifactFetcher fetcher) {
@@ -160,10 +162,17 @@ public final class LocalArtifactCache {
                 scope,
                 descriptor.coordinate(),
                 pathBuilder.artifactPath(descriptor),
-                (requested, ignored) -> fetcher.fetch(requested));
+                (requested, ignored) -> fetcher.fetch(requested)).artifact();
     }
 
     public CachedArtifact getOrFetchArtifact(
+            RepositoryCacheScope scope,
+            ArtifactDescriptor descriptor,
+            StreamingArtifactFetcher fetcher) {
+        return getOrFetchArtifactResult(scope, descriptor, fetcher).artifact();
+    }
+
+    public CacheLookupResult getOrFetchArtifactResult(
             RepositoryCacheScope scope,
             ArtifactDescriptor descriptor,
             StreamingArtifactFetcher fetcher) {
@@ -219,38 +228,44 @@ public final class LocalArtifactCache {
         return getCached(scope, descriptor.coordinate(), pathBuilder.artifactPath(descriptor), artifactKind);
     }
 
-    private CachedArtifact getOrFetch(
+    private CacheLookupResult getOrFetch(
             RepositoryCacheScope scope,
             Coordinate coordinate,
             String repositoryPath,
             StreamingArtifactFetcher fetcher) {
-        CachedArtifact cached = repairableLookup(scope, coordinate, repositoryPath);
-        if (cached != null) {
-            return cached;
+        RepairableLookup initial = repairableLookup(scope, coordinate, repositoryPath);
+        if (initial.artifact() != null) {
+            return new CacheLookupResult(initial.artifact(), CacheOutcome.HIT);
         }
         String inFlightKey = scope.key() + ":" + repositoryPath;
         return downloadCoordinator.run(inFlightKey, () -> {
-            CachedArtifact concurrent = repairableLookup(scope, coordinate, repositoryPath);
-            if (concurrent != null) {
-                return concurrent;
+            RepairableLookup concurrent = repairableLookup(scope, coordinate, repositoryPath);
+            if (concurrent.artifact() != null) {
+                return new CacheLookupResult(concurrent.artifact(), CacheOutcome.HIT);
             }
-            return scopedStorage.store(
+            CachedArtifact downloaded = scopedStorage.store(
                     scope,
                     coordinate,
                     repositoryPath,
                     fetcher.fetch(coordinate, downloadDirectory));
+            CacheOutcome outcome = initial.repairRequired() || concurrent.repairRequired()
+                    ? CacheOutcome.REPAIRED
+                    : CacheOutcome.DOWNLOADED;
+            return new CacheLookupResult(downloaded, outcome);
         });
     }
 
-    private CachedArtifact repairableLookup(
+    private RepairableLookup repairableLookup(
             RepositoryCacheScope scope,
             Coordinate coordinate,
             String repositoryPath) {
         try {
-            return scopedStorage.find(scope, coordinate, repositoryPath).orElse(null);
+            return new RepairableLookup(
+                    scopedStorage.find(scope, coordinate, repositoryPath).orElse(null),
+                    false);
         } catch (CorruptArtifactCacheEntryException exception) {
             scopedStorage.invalidate(scope, repositoryPath);
-            return null;
+            return new RepairableLookup(null, true);
         }
     }
 
@@ -329,4 +344,6 @@ public final class LocalArtifactCache {
         }
         return overlayId;
     }
+
+    private record RepairableLookup(CachedArtifact artifact, boolean repairRequired) {}
 }
