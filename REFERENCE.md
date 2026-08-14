@@ -523,19 +523,21 @@ ambient or historically shaped:
   sweep of the cache: `zolt build --workspace` succeeding says every artifact the
   build used was intact, not that every artifact in `zolt.lock` is. Use `zolt
   resolve --locked` to check the whole lock.
-- `zolt.lock` version 5 is deterministic: no timestamps, no absolute paths,
+- `zolt.lock` version 6 is deterministic: no timestamps, no absolute paths,
   stable ordering, and LF line endings. Version 2 added variant-qualified
   dependency edges and conflict identities; version 3 added source-scope-qualified
   dependency edges; version 4 adds member-qualified workspace dependency and
   policy graph facts so identical artifacts can retain different exclusion
   closures per member; version 5 carries optional-boundary and member-attributed
   conflict evidence and requires complete member graph facts for every qualified
-  identity. Zolt still reads version 1 through 4 locks for compatible
-  non-graph data, but graph commands refuse ambiguous legacy edges and direct you
-  to regenerate the lock. Newly resolved locks use version 5 so older binaries
-  cannot silently misread variant-, scope-, member-, or optional-qualified graphs. Newer
-  lockfile versions require a newer Zolt before `zolt resolve --locked` can
-  verify them.
+  identity; version 6 makes content-addressed `blobs/v2/sha256/...` artifact
+  cache paths part of the schema contract. Zolt still reads version 1 through 5
+  locks for compatible metadata and diagnostics, but graph commands refuse
+  ambiguous legacy edges and commands that materialize locked artifacts refuse
+  pre-v6 cache paths. Run `zolt resolve` (or `zolt resolve --workspace`) once to
+  migrate. Newly resolved locks use version 6 so older binaries cannot silently
+  misread either graph evidence or artifact cache paths. Newer lockfile versions
+  require a newer Zolt before `zolt resolve --locked` can verify them.
 - Manifest mutation commands preserve unrelated comments, formatting, and
   configuration byte-for-byte and fail closed if the source changes during an
   edit. Editable dependency, platform, and constraint declarations must use a
@@ -1286,17 +1288,18 @@ fallback reports the ordinary offline error naming the missing artifact rather
 than reaching the network. A fresh clone against a cold cache therefore builds,
 instead of failing later with a cached-artifact integrity error.
 
-The annotation does not change the lock schema. It stays `version = 5`, older
-Zolt versions ignore the unknown key when reading, and it is excluded from the
-bytes `--locked` compares so a lock predating it still verifies unchanged. A
-full locked verification that passes has proved the lock is what the current
-inputs derive, so the gate records the fingerprint it just computed, in the same
-position and bytes an ordinary `zolt resolve --workspace` would write. Without
-that, a lock written before the annotation existed -- or one whose configs took
-a comment-only edit -- would make every later command repeat the full resolve
-for the life of the lock. The write is an optimisation and never a requirement:
-a lock the process may not write, such as a read-only checkout, keeps taking the
-slow path rather than failing a command that has already succeeded.
+The annotation did not change the lock schema when it was introduced in version
+5: older Zolt versions ignore the unknown key when reading, and it is excluded
+from the bytes `--locked` compares. Newly resolved locks are now version 6 for
+the separate content-addressed cache-path contract. A full locked verification
+that passes has proved the lock is what the current inputs derive, so the gate
+records the fingerprint it just computed, in the same position and bytes an
+ordinary `zolt resolve --workspace` would write. Without that, a lock written
+before the annotation existed -- or one whose configs took a comment-only edit
+-- would make every later command repeat the full resolve for the life of the
+lock. The write is an optimisation and never a requirement: a lock the process
+may not write, such as a read-only checkout, keeps taking the slow path rather
+than failing a command that has already succeeded.
 
 `zolt resolve --workspace` takes the same gate. A resolve of unchanged inputs is
 a byte-identical rewrite of the lock it started from, so when the recorded

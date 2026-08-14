@@ -156,7 +156,7 @@ final class WorkspaceLockFreshnessServiceTest {
 
     private static String lockBody() {
         return """
-                version = 5
+                version = 6
                 projectResolutionFingerprint = "sha256:abc"
                 """;
     }

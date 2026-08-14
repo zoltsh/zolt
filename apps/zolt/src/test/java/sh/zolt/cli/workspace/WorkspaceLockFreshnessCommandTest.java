@@ -15,6 +15,7 @@ import sh.zolt.lockfile.LockPackagePathKind;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -65,6 +66,30 @@ final class WorkspaceLockFreshnessCommandTest {
                     result.stderr().contains("Offline mode requires cached"),
                     result.stderr());
             assertFalse(result.stderr().contains("integrity check failed"), result.stderr());
+        }
+    }
+
+    @Test
+    void versionFiveMavenLayoutLockRequiresExplicitMigrationBeforeColdBuild() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            writeWorkspace(repository, LOCKED_VERSION);
+            assertEquals(0, resolve().exitCode());
+            Files.writeString(lockfilePath(), legacyVersionFiveLock(Files.readString(lockfilePath())));
+            deleteTree(cacheRoot());
+            repository.clearAuthorizations();
+
+            CommandResult rejected = build();
+
+            assertEquals(1, rejected.exitCode());
+            assertTrue(
+                    rejected.stderr().contains("version 5 predates the version 6 content-addressed artifact cache path"),
+                    rejected.stderr());
+            assertTrue(rejected.stderr().contains("zolt resolve --workspace"), rejected.stderr());
+            assertEquals(java.util.Map.of(), repository.authorizations(), "migration gate must run before network work");
+
+            assertEquals(0, resolve().exitCode());
+            assertTrue(Files.readString(lockfilePath()).startsWith("version = 6\n"));
+            assertEquals(0, build().exitCode());
         }
     }
 
@@ -149,6 +174,31 @@ final class WorkspaceLockFreshnessCommandTest {
         writeWorkspace(repository, LOCKED_VERSION);
         Files.writeString(lockfilePath(), current);
         return withRecordedFingerprintOf(swapped, current);
+    }
+
+    private static String legacyVersionFiveLock(String current) {
+        String legacy = current
+                .replaceFirst("version = 6", "version = 5")
+                .replaceFirst(
+                        "jar = \\\"blobs/v2/sha256/[^\\\"]+/app-1\\.0\\.0\\.jar\\\"",
+                        "jar = \\\"com/example/app/1.0.0/app-1.0.0.jar\\\"")
+                .replaceFirst(
+                        "pom = \\\"blobs/v2/sha256/[^\\\"]+/app-1\\.0\\.0\\.pom\\\"",
+                        "pom = \\\"com/example/app/1.0.0/app-1.0.0.pom\\\"");
+        assertTrue(legacy.contains("jar = \"com/example/app/1.0.0/app-1.0.0.jar\""));
+        assertTrue(legacy.contains("pom = \"com/example/app/1.0.0/app-1.0.0.pom\""));
+        return legacy;
+    }
+
+    private static void deleteTree(Path root) throws IOException {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (var paths = Files.walk(root)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        }
     }
 
     private static String withRecordedFingerprintOf(String swapped, String current) {

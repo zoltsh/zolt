@@ -2,9 +2,11 @@ package sh.zolt.cli.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
+import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveOptions;
@@ -24,6 +26,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class CommandLockfilesTest {
+    private static final byte[] JAR_BYTES = "jar bytes".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] POM_BYTES = "pom bytes".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] SECONDARY_BYTES = "secondary bytes".getBytes(StandardCharsets.UTF_8);
+    private static final String JAR_PATH = cachePath("demo.jar", JAR_BYTES);
+    private static final String POM_PATH = cachePath("demo.pom", POM_BYTES);
+    private static final String SECONDARY_PATH = cachePath("demo.properties", SECONDARY_BYTES);
+
     @TempDir
     Path tempDir;
 
@@ -77,24 +86,24 @@ final class CommandLockfilesTest {
 
     @Test
     void matchingLockWithOnlyJarMissingRequiresLockedMaterialization() throws Exception {
-        assertMissingArtifactRequiresMaterialization("cache/demo.jar");
+        assertMissingArtifactRequiresMaterialization(JAR_PATH);
     }
 
     @Test
     void matchingLockWithOnlyPomMissingRequiresLockedMaterialization() throws Exception {
-        assertMissingArtifactRequiresMaterialization("cache/demo.pom");
+        assertMissingArtifactRequiresMaterialization(POM_PATH);
     }
 
     @Test
     void matchingLockWithSecondaryArtifactMissingRequiresLockedMaterialization() throws Exception {
-        assertMissingArtifactRequiresMaterialization("cache/demo.properties");
+        assertMissingArtifactRequiresMaterialization(SECONDARY_PATH);
     }
 
     @Test
     void matchingLockWithCorruptBytesRequiresLockedMaterialization() throws Exception {
         ProjectConfig config = config("1.0.0");
         Path project = writeLock(config, true);
-        Files.writeString(cacheRoot().resolve("cache/demo.jar"), "corrupt");
+        Files.writeString(cacheRoot().resolve(JAR_PATH), "corrupt");
         AtomicInteger resolves = new AtomicInteger();
 
         lockfiles(resolves, new AtomicReference<>())
@@ -116,6 +125,28 @@ final class CommandLockfilesTest {
         assertEquals(1, resolves.get());
         assertTrue(options.get().offline());
         assertEquals("zolt build", options.get().retryCommand());
+    }
+
+    @Test
+    void versionFiveLockRequiresMigrationBeforeLockedMaterialization() throws Exception {
+        ProjectConfig config = config("1.0.0");
+        Path project = writeLock(config, false);
+        Path lockfile = project.resolve("zolt.lock");
+        Files.writeString(lockfile, Files.readString(lockfile)
+                .replaceFirst("version = 6", "version = 5")
+                .replace(JAR_PATH, "com/example/demo/1.0.0/demo-1.0.0.jar")
+                .replace(POM_PATH, "com/example/demo/1.0.0/demo-1.0.0.pom")
+                .replace(SECONDARY_PATH, "com/example/demo/1.0.0/demo-1.0.0.properties"));
+        AtomicInteger resolves = new AtomicInteger();
+
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> lockfiles(resolves, new AtomicReference<>())
+                        .requireFreshLockfile(project, config, cacheRoot(), false));
+
+        assertTrue(exception.getMessage().contains("version 5 predates the version 6 content-addressed"));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
+        assertEquals(0, resolves.get());
     }
 
     private void assertMissingArtifactRequiresMaterialization(String relativePath) throws Exception {
@@ -148,16 +179,13 @@ final class CommandLockfilesTest {
     private Path writeLock(ProjectConfig config, boolean materialize) throws Exception {
         Path project = tempDir.resolve("locked-project");
         Files.createDirectories(project);
-        byte[] jar = "jar bytes".getBytes(StandardCharsets.UTF_8);
-        byte[] pom = "pom bytes".getBytes(StandardCharsets.UTF_8);
-        byte[] artifact = "secondary bytes".getBytes(StandardCharsets.UTF_8);
         if (materialize) {
-            writeCacheArtifact("cache/demo.jar", jar);
-            writeCacheArtifact("cache/demo.pom", pom);
-            writeCacheArtifact("cache/demo.properties", artifact);
+            writeCacheArtifact(JAR_PATH, JAR_BYTES);
+            writeCacheArtifact(POM_PATH, POM_BYTES);
+            writeCacheArtifact(SECONDARY_PATH, SECONDARY_BYTES);
         }
         Files.writeString(project.resolve("zolt.lock"), """
-                version = 5
+                version = 6
                 projectResolutionFingerprint = "%s"
 
                 [[package]]
@@ -166,19 +194,22 @@ final class CommandLockfilesTest {
                 source = "test"
                 scope = "compile"
                 direct = true
-                jar = "cache/demo.jar"
-                pom = "cache/demo.pom"
+                jar = "%s"
+                pom = "%s"
                 jarSha256 = "%s"
                 pomSha256 = "%s"
-                artifact = "cache/demo.properties"
+                artifact = "%s"
                 artifactType = "properties"
                 artifactSha256 = "%s"
                 dependencies = []
                 """.formatted(
                 ProjectResolutionFingerprint.fingerprint(config),
-                sha256(jar),
-                sha256(pom),
-                sha256(artifact)));
+                JAR_PATH,
+                POM_PATH,
+                sha256(JAR_BYTES),
+                sha256(POM_BYTES),
+                SECONDARY_PATH,
+                sha256(SECONDARY_BYTES)));
         return project;
     }
 
@@ -198,6 +229,10 @@ final class CommandLockfilesTest {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }
+    }
+
+    private static String cachePath(String filename, byte[] bytes) {
+        return "blobs/v2/sha256/" + sha256(bytes) + "/" + filename;
     }
 
     private ProjectConfig config(String dependencyVersion) throws Exception {

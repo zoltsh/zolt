@@ -245,13 +245,14 @@ final class WorkspaceLockFreshnessRecoveryTest {
     }
 
     private static Path cachedArtifact(Path root, String version, String extension) {
+        String digest = extension.equals("jar") ? "1".repeat(64) : "2".repeat(64);
         return cacheRoot(root).resolve(
-                "org/slf4j/slf4j-api/" + version + "/slf4j-api-" + version + "." + extension);
+                "blobs/v2/sha256/" + digest + "/slf4j-api-" + version + "." + extension);
     }
 
     private static String lockBody(String version) {
         return """
-                version = 5
+                version = 6
                 projectResolutionFingerprint = "sha256:abc"
 
                 [[package]]
@@ -260,8 +261,8 @@ final class WorkspaceLockFreshnessRecoveryTest {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
-                jar = "org/slf4j/slf4j-api/%1$s/slf4j-api-%1$s.jar"
-                pom = "org/slf4j/slf4j-api/%1$s/slf4j-api-%1$s.pom"
+                jar = "blobs/v2/sha256/1111111111111111111111111111111111111111111111111111111111111111/slf4j-api-%1$s.jar"
+                pom = "blobs/v2/sha256/2222222222222222222222222222222222222222222222222222222222222222/slf4j-api-%1$s.pom"
                 jarSha256 = "1111111111111111111111111111111111111111111111111111111111111111"
                 pomSha256 = "2222222222222222222222222222222222222222222222222222222222222222"
                 members = ["lib"]

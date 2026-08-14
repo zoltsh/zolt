@@ -179,7 +179,7 @@ final class IdeModelLockDiagnosticCommandTest {
                 "https://repo.maven.apache.org/maven2",
                 Map.of("com.example:missing", "1.0.0"),
                 Map.of());
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
 
         CommandResult result = execute(
                 "ide",
@@ -195,6 +195,6 @@ final class IdeModelLockDiagnosticCommandTest {
         assertTrue(result.stdout().contains("\"code\": \"LOCKFILE_CHECK_UNAVAILABLE\""));
         assertTrue(result.stdout().contains("Offline mode requires cached POM"));
         assertTrue(result.stdout().contains("retry zolt ide model --offline"));
-        assertEquals("version = 1\n", Files.readString(projectDir.resolve("zolt.lock")));
+        assertEquals("version = 6\n", Files.readString(projectDir.resolve("zolt.lock")));
     }
 }

@@ -2,6 +2,8 @@ package sh.zolt.cli.ide;
 
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.cacheRoot;
+import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.APP_JAR_PATH;
+import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.TEST_JAR_PATH;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.jsonPathValue;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.root;
 import static sh.zolt.cli.ide.IdeModelCommandJsonTestSupport.writeLockfile;
@@ -33,8 +35,8 @@ final class IdeModelCommandJsonDetailsTest {
                 "--format", "json");
 
         Path projectRoot = root(projectDir);
-        Path appJar = cacheRoot.toAbsolutePath().normalize().resolve("com/example/app/1.0.0/app-1.0.0.jar");
-        Path testJar = cacheRoot.toAbsolutePath().normalize().resolve("com/example/test-lib/1.0.0/test-lib-1.0.0.jar");
+        Path appJar = cacheRoot.toAbsolutePath().normalize().resolve(APP_JAR_PATH);
+        Path testJar = cacheRoot.toAbsolutePath().normalize().resolve(TEST_JAR_PATH);
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         String json = result.stdout();

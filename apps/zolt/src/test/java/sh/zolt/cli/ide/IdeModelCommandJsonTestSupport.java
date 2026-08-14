@@ -9,6 +9,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 abstract class IdeModelCommandJsonTestSupport {
+    protected static final String APP_JAR_PATH =
+            "blobs/v2/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/app-1.0.0.jar";
+    protected static final String TEST_JAR_PATH =
+            "blobs/v2/sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/test-lib-1.0.0.jar";
+
     protected static Path writeProject(Path tempDir) throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
@@ -33,7 +38,7 @@ abstract class IdeModelCommandJsonTestSupport {
 
     protected static void writeLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "com.example:app"
@@ -41,7 +46,7 @@ abstract class IdeModelCommandJsonTestSupport {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
-                jar = "com/example/app/1.0.0/app-1.0.0.jar"
+                jar = "%s"
                 dependencies = []
 
                 [[package]]
@@ -50,8 +55,8 @@ abstract class IdeModelCommandJsonTestSupport {
                 source = "maven-central"
                 scope = "test"
                 direct = true
-                jar = "com/example/test-lib/1.0.0/test-lib-1.0.0.jar"
+                jar = "%s"
                 dependencies = []
-                """);
+                """.formatted(APP_JAR_PATH, TEST_JAR_PATH));
     }
 }

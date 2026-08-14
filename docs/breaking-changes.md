@@ -3,6 +3,23 @@
 Breaking changes to Zolt's CLI and configuration, newest first. Each entry names
 the old behavior, the new behavior, and how to migrate.
 
+## Lockfile version 6 binds content-addressed artifact cache paths
+
+- **Old behavior:** version-5 locks could name Maven-layout cache paths such as
+  `org/example/lib/1.0/lib-1.0.jar`, while newly generated version-5 locks named
+  content-addressed `blobs/v2/sha256/...` paths. A cold cache exposed the two
+  incompatible meanings only after a locked resolve had already downloaded the
+  artifacts and failed the lock comparison.
+- **New behavior:** newly resolved locks use version 6, which explicitly means
+  every repository artifact path is content-addressed. Versions 1 through 5
+  remain readable for compatible metadata and diagnostics, but commands refuse
+  to materialize their legacy cache paths and report the migration command
+  before cache or network work.
+- **Migration:** run `zolt resolve` for a project lock or
+  `zolt resolve --workspace` for a workspace lock, then commit the regenerated
+  version 6 `zolt.lock` before building, testing, packaging, or using
+  `--locked`.
+
 ## Workspace tree schema 3 binds member identities and graph roots
 
 - **Old behavior:** `zolt tree --workspace --format json` emitted schema 2 with

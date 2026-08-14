@@ -1,5 +1,6 @@
 package sh.zolt.workspace.resolve;
 
+import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -84,6 +85,9 @@ public final class WorkspaceLockFreshnessService {
                     discoveryNanos));
         }
         Optional<ZoltLockfile> lockfile = parse(content.orElseThrow());
+        lockfile.ifPresent(value -> ContentAddressedLockCapability.requireArtifactCachePaths(
+                value,
+                "zolt resolve --workspace"));
         if (skippable(workspace, lockfile, content.orElseThrow(), cacheRoot)) {
             return Optional.of(freshness(
                     workspace,

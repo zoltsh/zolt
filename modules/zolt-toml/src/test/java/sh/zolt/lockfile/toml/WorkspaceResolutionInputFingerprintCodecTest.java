@@ -44,9 +44,9 @@ final class WorkspaceResolutionInputFingerprintCodecTest {
     }
 
     @Test
-    void keepsTheLockfileVersionAtFive() {
-        assertEquals(5, ZoltLockfile.CURRENT_VERSION);
-        assertEquals(5, reader.read(writer.write(lockfile(Optional.of(FINGERPRINT)))).version());
+    void doesNotChangeTheCurrentLockfileVersion() {
+        assertEquals(6, ZoltLockfile.CURRENT_VERSION);
+        assertEquals(6, reader.read(writer.write(lockfile(Optional.of(FINGERPRINT)))).version());
     }
 
     @Test

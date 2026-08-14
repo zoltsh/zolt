@@ -146,7 +146,7 @@ final class RootWorkspaceEnterpriseCommandTest {
         LockPackage optional = packageById(lockfile, "optional");
         LockPackage leaf = packageById(lockfile, "leaf");
 
-        assertEquals(5, lockfile.version());
+        assertEquals(6, lockfile.version());
         assertEquals(java.util.List.of("."), api.members());
         assertEquals(java.util.List.of("."), api.exportedBy());
         assertEquals(java.util.List.of("."), optional.members());

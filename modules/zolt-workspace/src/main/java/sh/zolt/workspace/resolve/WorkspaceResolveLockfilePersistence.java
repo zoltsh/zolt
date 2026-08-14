@@ -1,6 +1,7 @@
 package sh.zolt.workspace.resolve;
 
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.LockfileFreshnessSummary;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.AtomicLockfileWriter;
@@ -25,7 +26,12 @@ final class WorkspaceResolveLockfilePersistence {
         this.writer = writer;
     }
 
-    ResolveOptions prepare(Path path, ResolveOptions options) {
+    ResolveOptions prepare(Path path, ResolveOptions options, boolean locked) {
+        if (locked) {
+            ContentAddressedLockCapability.requireArtifactCachePaths(
+                    reader.read(path),
+                    "zolt resolve --workspace");
+        }
         if (!options.includeCoverageTooling()
                 && existingLockfileHasCoverageTooling(path)) {
             return options.withCoverageTooling();

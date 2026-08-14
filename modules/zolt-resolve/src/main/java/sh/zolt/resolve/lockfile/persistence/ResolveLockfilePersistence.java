@@ -1,6 +1,7 @@
 package sh.zolt.resolve.lockfile.persistence;
 
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.LockfileFreshnessSummary;
 import sh.zolt.lockfile.toml.AtomicLockfileWriter;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -32,6 +33,11 @@ public final class ResolveLockfilePersistence {
             throw ResolveException.actionable(
                     "Locked resolve requires zolt.lock at " + lockfilePath + ".",
                     "Run `zolt resolve` to create it, then retry `zolt resolve --locked`.");
+        }
+        if (locked) {
+            ContentAddressedLockCapability.requireArtifactCachePaths(
+                    lockfileReader.read(lockfilePath),
+                    "zolt resolve");
         }
         if (locked && options.rejectLocalOverlays()) {
             rejectExistingLocalOverlayLockfile(lockfilePath);

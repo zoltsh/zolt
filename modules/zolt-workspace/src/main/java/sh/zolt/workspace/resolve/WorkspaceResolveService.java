@@ -182,7 +182,7 @@ public final class WorkspaceResolveService {
                 return current.orElseThrow();
             }
         }
-        options = lockfilePersistence.prepare(lockfilePath, options)
+        options = lockfilePersistence.prepare(lockfilePath, options, locked)
                 .withWorkspaceMemberCoordinates(workspaceMemberCoordinates(workspace));
 
         Map<String, WorkspaceMember> membersByPath = membersByPath(workspace);

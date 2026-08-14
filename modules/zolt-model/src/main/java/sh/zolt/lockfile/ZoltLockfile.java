@@ -14,15 +14,16 @@ public record ZoltLockfile(
         List<LockMemberGraph> memberGraphs,
         Optional<String> workspaceResolutionInputFingerprint) {
     /**
-     * Version 5 adds optional-boundary and conflict-provenance facts to the member-qualified graph
-     * introduced in version 4. Version 3 introduced scope-qualified dependency edges, and version 2
-     * introduced variant-qualified edges and conflict identities.
+     * Version 6 makes content-addressed artifact cache paths part of the lock contract. Version 5
+     * adds optional-boundary and conflict-provenance facts to the member-qualified graph introduced
+     * in version 4. Version 3 introduced scope-qualified dependency edges, and version 2 introduced
+     * variant-qualified edges and conflict identities.
      *
      * <p>{@code workspaceResolutionInputFingerprint} is an optional annotation rather than a schema
      * change: readers that predate it ignore the unknown key, and locks written before it are still
      * read, verified, and built without it.
      */
-    public static final int CURRENT_VERSION = 5;
+    public static final int CURRENT_VERSION = 6;
 
     public ZoltLockfile(
             int version,

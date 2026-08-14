@@ -1,6 +1,7 @@
 package sh.zolt.cli.command;
 
 import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
+import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -210,6 +211,7 @@ public final class CommandLockfiles {
 
     private boolean lockedArtifactsReady(Path lockfilePath, Path cacheRoot) {
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+        ContentAddressedLockCapability.requireArtifactCachePaths(lockfile, "zolt resolve");
         if (!recordsEveryArtifactChecksum(lockfile)) {
             return false;
         }
