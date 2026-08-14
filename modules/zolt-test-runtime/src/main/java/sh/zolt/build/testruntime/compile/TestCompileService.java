@@ -7,6 +7,7 @@ import sh.zolt.build.BuildException;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildResultWithClasspaths;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.cache.BuildCacheKey;
 import sh.zolt.build.cache.BuildCacheRestoreResult;
@@ -150,11 +151,20 @@ public final class TestCompileService {
     }
 
     public BuildResultWithClasspaths buildTestInputs(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
+        return buildTestInputs(projectDirectory, config, cacheRoot, new VerifiedArtifactIndex());
+    }
+
+    public BuildResultWithClasspaths buildTestInputs(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex) {
         return buildService.buildWithClasspaths(
                 projectDirectory,
                 config,
                 cacheRoot,
-                false);
+                false,
+                artifactIndex);
     }
 
     public TestCompileResult compileTests(

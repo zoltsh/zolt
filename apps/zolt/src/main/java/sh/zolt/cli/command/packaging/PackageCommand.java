@@ -10,7 +10,7 @@ import sh.zolt.build.PackageException;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanFormatter;
 import sh.zolt.build.packageplan.PackagePlanService;
-import sh.zolt.build.packaging.PackageResult;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.build.packaging.PackageService;
 import sh.zolt.build.ResourceCopyException;
 import sh.zolt.build.SourceDiscoveryException;
@@ -248,7 +248,7 @@ public final class PackageCommand implements Runnable {
             output.success("Resolved workspace dependencies because zolt.lock was missing");
         }
         for (WorkspacePackageResult.MemberPackageResult member : result.members()) {
-            printPackageResult(member.result(), " in " + member.member());
+            packageResultWriter.print(CommandHumanOutput.of(spec), member.result(), " in " + member.member());
         }
         String workspaceSummary = CommandPackageResultWriter.workspaceSummary(result);
         output.success(workspaceSummary);
@@ -272,9 +272,9 @@ public final class PackageCommand implements Runnable {
             }
             packageService.preparePackageToolingIfNeeded(projectRoot, config, cacheRoot);
         }
-        lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
         if (config.packageSettings().mode() == PackageMode.BOM) {
-            runSingleProjectBomPackage(projectRoot, config);
+            runSingleProjectBomPackage(projectRoot, config, artifactIndex);
             return;
         }
         if (planOnly) {
@@ -295,7 +295,7 @@ public final class PackageCommand implements Runnable {
         }
         ProgressWriter progress = CommandProgress.human(spec);
         progress.start("Packaging project");
-        PackageResult result = timings.measure(
+        var result = timings.measure(
                 "package",
                 () -> {
                     BuildResultWithClasspaths buildResult = timings.measure(
@@ -309,7 +309,8 @@ public final class PackageCommand implements Runnable {
                                     projectRoot,
                                     config,
                                     cacheRoot,
-                                    false),
+                                    false,
+                                    artifactIndex),
                             resultWithClasspaths -> CommandBuildAttributes.build(resultWithClasspaths.buildResult()));
                     return timings.measure(
                             "assemble package",
@@ -321,11 +322,13 @@ public final class PackageCommand implements Runnable {
         if (result.buildResult().resolvedLockfile()) {
             output.success("Resolved dependencies because zolt.lock was missing");
         }
-        printPackageResult(result, "");
+        packageResultWriter.print(CommandHumanOutput.of(spec), result, "");
         output.provenance(CommandBuildProvenance.read(projectRoot));
         progress.result("Packaged " + result.jarPath());
     }
-    private void runSingleProjectBomPackage(Path projectRoot, ProjectConfig config) {
+
+    private void runSingleProjectBomPackage(
+            Path projectRoot, ProjectConfig config, VerifiedArtifactIndex artifactIndex) {
         if (planOnly) {
             CommandOutput.printAndFlush(spec, "Package mode: bom\nArtifact: "
                     + config.project().name() + "-" + config.project().version()
@@ -337,14 +340,10 @@ public final class PackageCommand implements Runnable {
         BuildResultWithClasspaths buildResult = buildService
                 .withJdkChecker(toolchainOptions.jdkChecker(projectRoot, config, "package"))
                 .withBuildCache(CommandBuildCache.service(noBuildCache, false))
-                .buildWithClasspaths(projectRoot, config, cacheRoot, false);
+                .buildWithClasspaths(projectRoot, config, cacheRoot, false, artifactIndex);
         // A standalone BOM resolves no workspace family; use zolt package --workspace for a family BOM.
-        PackageResult result = bomPackager.packageStandaloneBom(projectRoot, config, buildResult.buildResult());
-        printPackageResult(result, "");
+        var result = bomPackager.packageStandaloneBom(projectRoot, config, buildResult.buildResult());
+        packageResultWriter.print(CommandHumanOutput.of(spec), result, "");
         progress.result("Packaged " + result.jarPath());
-    }
-
-    private void printPackageResult(PackageResult result, String suffix) {
-        packageResultWriter.print(CommandHumanOutput.of(spec), result, suffix);
     }
 }

@@ -243,7 +243,7 @@ public final class IntegrationTestCommand implements Runnable {
         ProjectConfig config = timings.measure(
                 "config read",
                 () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
-        lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
         ProjectConfig integrationConfig = config.withBuildSettings(config.build().asIntegrationTestBuild());
         var compileChecker = toolchainOptions.jdkChecker(projectRoot, integrationConfig, "integration-test");
         TestRunService projectTestRunService =
@@ -262,7 +262,8 @@ public final class IntegrationTestCommand implements Runnable {
                                         () -> projectTestRunService.buildTestInputs(
                                                 projectRoot,
                                                 integrationConfig,
-                                                cacheRoot),
+                                                cacheRoot,
+                                                artifactIndex),
                                         resultWithClasspaths -> CommandBuildAttributes.build(
                                                 resultWithClasspaths.buildResult()));
                                 TestCompileResult testCompileResult = timings.measure(

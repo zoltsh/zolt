@@ -277,7 +277,7 @@ public final class TestCommand implements Runnable {
                                 compileChecker,
                                 toolchainOptions.testRuntimeRunChecker(projectRoot, config, compileChecker))
                         .withBuildCache(CommandBuildCache.service(noBuildCache, false));
-        lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
         progress.start("Testing project");
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         output.work("Testing " + config.project().name());
@@ -292,7 +292,8 @@ public final class TestCommand implements Runnable {
                                         () -> projectTestRunService.buildTestInputs(
                                                 projectRoot,
                                                 config,
-                                                cacheRoot),
+                                                cacheRoot,
+                                                artifactIndex),
                                         resultWithClasspaths -> CommandBuildAttributes.build(
                                                 resultWithClasspaths.buildResult()));
                                 TestCompileResult testCompileResult = timings.measure(

@@ -4,6 +4,7 @@ import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildResultWithClasspaths;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.build.run.JavaRunner;
 import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.build.testruntime.compile.TestCompileResultWithClasspaths;
@@ -241,6 +242,14 @@ public final class TestRunService extends CompiledTestRunService {
 
     public BuildResultWithClasspaths buildTestInputs(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
         return testCompileService.buildTestInputs(projectDirectory, config, cacheRoot);
+    }
+
+    public BuildResultWithClasspaths buildTestInputs(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex) {
+        return testCompileService.buildTestInputs(projectDirectory, config, cacheRoot, artifactIndex);
     }
 
     public TestRunResult runTests(

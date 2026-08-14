@@ -119,7 +119,7 @@ final class TestCompileCommandRunner {
                         compileChecker,
                         toolchainOptions.testRuntimeRunChecker(projectRoot, config, compileChecker))
                 .withBuildCache(CommandBuildCache.service(noBuildCache, false));
-        lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
         progress.start("Compiling tests");
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         output.work("Compiling tests for " + config.project().name());
@@ -128,7 +128,8 @@ final class TestCompileCommandRunner {
                 () -> {
                     BuildResultWithClasspaths buildResult = timings.measure(
                             "build test inputs",
-                            () -> projectTestRunService.buildTestInputs(projectRoot, config, cacheRoot),
+                            () -> projectTestRunService.buildTestInputs(
+                                    projectRoot, config, cacheRoot, artifactIndex),
                             value -> CommandBuildAttributes.build(value.buildResult()));
                     return timings.measure(
                             "compile test sources",

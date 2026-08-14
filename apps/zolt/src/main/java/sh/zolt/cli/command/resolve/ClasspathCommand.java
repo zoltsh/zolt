@@ -6,6 +6,7 @@ import sh.zolt.build.classpath.ClasspathFormatter;
 import sh.zolt.build.classpath.ClasspathLaneAuditFormatter;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandLockfiles;
 import sh.zolt.cli.command.CommandOutput;
@@ -120,8 +121,24 @@ public final class ClasspathCommand implements Runnable {
             Path configPath = projectRoot.resolve("zolt.toml");
             if (Files.isRegularFile(configPath)) {
                 ProjectConfig config = tomlParser.parse(configPath);
-                lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+                var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+                printClasspath(projectRoot, cacheRoot, artifactIndex);
+                return;
             }
+            printClasspath(projectRoot, cacheRoot, new VerifiedArtifactIndex());
+        } catch (ArtifactCacheException
+                | ClasspathCommandException
+                | LockfileReadException
+                | ResolveException
+                | ZoltConfigException exception) {
+            throw CommandFailures.user(spec, exception);
+        }
+    }
+
+    private void printClasspath(
+            Path projectRoot,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex) {
             ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
             Kind parsedKind = Kind.parse(kind);
             if (parsedKind == Kind.AUDIT) {
@@ -136,7 +153,8 @@ public final class ClasspathCommand implements Runnable {
                         "`zolt classpath --format json` is supported for `audit` only. "
                                 + "Use `zolt classpath audit --format json`.");
             }
-            ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
+            ClasspathSet classpaths = classpathBuilder.build(
+                    LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot, artifactIndex));
             String output = classpathFormatter.format(switch (parsedKind) {
                 case COMPILE -> classpaths.compile();
                 case RUNTIME -> classpaths.runtime();
@@ -147,13 +165,6 @@ public final class ClasspathCommand implements Runnable {
                 case AUDIT -> throw new ClasspathCommandException("Classpath audit should be handled before formatting.");
             });
             CommandOutput.printAndFlush(spec, output);
-        } catch (ArtifactCacheException
-                | ClasspathCommandException
-                | LockfileReadException
-                | ResolveException
-                | ZoltConfigException exception) {
-            throw CommandFailures.user(spec, exception);
-        }
     }
 
     private static final class ClasspathCommandException extends RuntimeException {

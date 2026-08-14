@@ -51,7 +51,7 @@ public final class ArtifactIntegrityVerifier {
         this(new VerifiedArtifactIndex(), concurrency, artifactHasher);
     }
 
-    private ArtifactIntegrityVerifier(
+    ArtifactIntegrityVerifier(
             VerifiedArtifactIndex index,
             int concurrency,
             ArtifactHasher artifactHasher) {

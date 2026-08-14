@@ -86,6 +86,14 @@ public final class VerifiedArtifactIndex {
     }
 
     /**
+     * Drops command-local verification outcomes after this command changes the lock or cache.
+     * Counters remain cumulative so command diagnostics still report the physical work performed.
+     */
+    public void invalidateAll() {
+        entries.clear();
+    }
+
+    /**
      * Completes the entry on every path out, including one nobody planned for.
      *
      * <p>Everything between the hash and the completion — the counters, the {@code Files.size} call —

@@ -13,6 +13,7 @@ import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.ExecGeneratedSourceService;
 import sh.zolt.build.generatedsource.OpenApiGeneratedSourceService;
 import sh.zolt.build.incremental.IncrementalCompileStateRecorder;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
@@ -108,11 +109,20 @@ public final class BuildService {
     }
 
     public BuildResult build(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
-        return build(new BuildRequest(projectDirectory, config, cacheRoot, false));
+        return build(projectDirectory, config, cacheRoot, false, new VerifiedArtifactIndex());
     }
 
     public BuildResult build(Path projectDirectory, ProjectConfig config, Path cacheRoot, boolean offline) {
-        return build(new BuildRequest(projectDirectory, config, cacheRoot, offline));
+        return build(projectDirectory, config, cacheRoot, offline, new VerifiedArtifactIndex());
+    }
+
+    public BuildResult build(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            boolean offline,
+            VerifiedArtifactIndex artifactIndex) {
+        return build(new BuildRequest(projectDirectory, config, cacheRoot, offline, artifactIndex));
     }
 
     private BuildResult build(BuildRequest request) {
@@ -124,7 +134,22 @@ public final class BuildService {
             ProjectConfig config,
             Path cacheRoot,
             boolean offline) {
-        return buildWithClasspaths(new BuildRequest(projectDirectory, config, cacheRoot, offline));
+        return buildWithClasspaths(
+                projectDirectory,
+                config,
+                cacheRoot,
+                offline,
+                new VerifiedArtifactIndex());
+    }
+
+    public BuildResultWithClasspaths buildWithClasspaths(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            boolean offline,
+            VerifiedArtifactIndex artifactIndex) {
+        return buildWithClasspaths(
+                new BuildRequest(projectDirectory, config, cacheRoot, offline, artifactIndex));
     }
 
     private BuildResultWithClasspaths buildWithClasspaths(BuildRequest request) {
@@ -150,10 +175,15 @@ public final class BuildService {
                     ResolveOptions.offline(request.offline()).withRetryCommand("zolt build")));
         }
 
+        if (resolveResult.isPresent()) {
+            request.artifactIndex().invalidateAll();
+        }
+
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         List<ResolvedClasspathPackage> classpathPackages = LockfileClasspathPackageConverter.classpathPackages(
                 lockfile,
-                request.cacheRoot());
+                request.cacheRoot(),
+                request.artifactIndex());
         ClasspathSet classpaths = classpathBuilder.build(classpathPackages);
         openApiGeneratedSourceService.generateMain(request.projectDirectory(), request.config(), classpathPackages);
         try {
@@ -316,16 +346,4 @@ public final class BuildService {
         return path;
     }
 
-}
-
-record BuildRequest(
-        Path projectDirectory,
-        ProjectConfig config,
-        Path cacheRoot,
-        boolean offline) {
-    BuildRequest {
-        Objects.requireNonNull(projectDirectory, "projectDirectory");
-        Objects.requireNonNull(config, "config");
-        Objects.requireNonNull(cacheRoot, "cacheRoot");
-    }
 }

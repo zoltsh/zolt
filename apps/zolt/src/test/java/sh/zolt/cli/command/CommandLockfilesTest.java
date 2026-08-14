@@ -5,7 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
+import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
@@ -70,6 +71,23 @@ final class CommandLockfilesTest {
                 .requireFreshLockfile(project, config, cacheRoot(), false);
 
         assertEquals(0, resolves.get());
+    }
+
+    @Test
+    void returnsTheFreshnessIndexForDownstreamClasspathProjection() throws Exception {
+        ProjectConfig config = config("1.0.0");
+        Path project = writeLock(config, true);
+        CommandLockfiles lockfiles = lockfiles(new AtomicInteger(), new AtomicReference<>());
+
+        VerifiedArtifactIndex index = lockfiles.requireFreshLockfile(
+                project, config, cacheRoot(), false);
+        LockfileClasspathPackageConverter.classpathPackages(
+                new ZoltLockfileReader().read(project.resolve("zolt.lock")),
+                cacheRoot(),
+                index);
+
+        assertEquals(3, index.metrics().hashes());
+        assertEquals(3, index.metrics().cacheHits());
     }
 
     @Test
@@ -173,7 +191,7 @@ final class CommandLockfilesTest {
                 new WorkspaceDiscoveryService(),
                 new WorkspaceResolveService(),
                 new ZoltLockfileReader(),
-                new ArtifactIntegrityVerifier());
+                new VerifiedArtifactIndex());
     }
 
     private Path writeLock(ProjectConfig config, boolean materialize) throws Exception {

@@ -1,6 +1,7 @@
 package sh.zolt.cli.command;
 
 import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -34,7 +35,7 @@ public final class CommandLockfiles {
     private final WorkspaceDiscoveryService workspaceDiscoveryService;
     private final WorkspaceLockFreshnessService workspaceLockFreshnessService;
     private final ZoltLockfileReader lockfileReader;
-    private final ArtifactIntegrityVerifier artifactIntegrityVerifier;
+    private VerifiedArtifactIndex artifactIndex;
 
     @FunctionalInterface
     interface ProjectResolve {
@@ -67,7 +68,7 @@ public final class CommandLockfiles {
                 workspaceDiscoveryService,
                 workspaceResolveService,
                 new ZoltLockfileReader(),
-                new ArtifactIntegrityVerifier());
+                new VerifiedArtifactIndex());
     }
 
     CommandLockfiles(
@@ -75,25 +76,25 @@ public final class CommandLockfiles {
             WorkspaceDiscoveryService workspaceDiscoveryService,
             WorkspaceResolveService workspaceResolveService,
             ZoltLockfileReader lockfileReader,
-            ArtifactIntegrityVerifier artifactIntegrityVerifier) {
+            VerifiedArtifactIndex artifactIndex) {
         this.projectResolve = projectResolve;
         this.workspaceDiscoveryService = workspaceDiscoveryService;
         this.workspaceLockFreshnessService = new WorkspaceLockFreshnessService(
                 workspaceDiscoveryService,
                 workspaceResolveService);
         this.lockfileReader = lockfileReader;
-        this.artifactIntegrityVerifier = artifactIntegrityVerifier;
+        this.artifactIndex = artifactIndex;
     }
 
-    public void requireFreshLockfile(
+    public VerifiedArtifactIndex requireFreshLockfile(
             Path workingDirectory,
             ProjectConfig config,
             Path cacheRoot,
             boolean offline) {
-        requireFreshLockfile(workingDirectory, config, cacheRoot, offline, "zolt resolve");
+        return requireFreshLockfile(workingDirectory, config, cacheRoot, offline, "zolt resolve");
     }
 
-    public void requireFreshLockfile(
+    public VerifiedArtifactIndex requireFreshLockfile(
             Path workingDirectory,
             ProjectConfig config,
             Path cacheRoot,
@@ -101,11 +102,11 @@ public final class CommandLockfiles {
             String retryCommand) {
         Path lockfilePath = workingDirectory.resolve("zolt.lock");
         if (!Files.isRegularFile(lockfilePath) || !looksGeneratedLockfile(lockfilePath)) {
-            return;
+            return artifactIndex;
         }
         if (matchesProjectResolutionFingerprint(lockfilePath, config)
                 && lockedArtifactsReady(lockfilePath, cacheRoot)) {
-            return;
+            return artifactIndex;
         }
         redirectWorkspaceMemberToWorkspacePath(workingDirectory, retryCommand);
         projectResolve.resolve(
@@ -114,6 +115,8 @@ public final class CommandLockfiles {
                 cacheRoot,
                 true,
                 ResolveOptions.offline(offline).withRetryCommand(retryCommand));
+        artifactIndex = new VerifiedArtifactIndex();
+        return artifactIndex;
     }
 
     private void redirectWorkspaceMemberToWorkspacePath(Path workingDirectory, String retryCommand) {
@@ -153,6 +156,7 @@ public final class CommandLockfiles {
                 cacheRoot,
                 false,
                 ResolveOptions.offline(offline));
+        artifactIndex = new VerifiedArtifactIndex();
     }
 
     public void requireFreshWorkspaceLockfile(Path workingDirectory, Path cacheRoot, boolean offline) {
@@ -216,7 +220,7 @@ public final class CommandLockfiles {
             return false;
         }
         try {
-            artifactIntegrityVerifier.verify(lockfile, cacheRoot);
+            new ArtifactIntegrityVerifier(artifactIndex).verify(lockfile, cacheRoot);
             return true;
         } catch (LockfileReadException exception) {
             return false;

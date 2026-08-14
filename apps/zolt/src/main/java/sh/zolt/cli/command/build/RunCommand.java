@@ -189,7 +189,7 @@ public final class RunCommand implements Runnable {
             ProjectConfig config = timings.measure(
                     "config read",
                     () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
-            lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+            var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
             RunResult result = timings.measure(
                     "run application",
                     () -> runService.withJdkChecker(toolchainOptions.jdkChecker(projectRoot, config, "run")).run(
@@ -197,7 +197,8 @@ public final class RunCommand implements Runnable {
                             config,
                             cacheRoot,
                             arguments,
-                            output -> CommandOutput.printAndFlush(spec, output)),
+                            output -> CommandOutput.printAndFlush(spec, output),
+                            artifactIndex),
                     CommandRunAttributes::run);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             JavaRunResult javaRunResult = result.javaRunResult();

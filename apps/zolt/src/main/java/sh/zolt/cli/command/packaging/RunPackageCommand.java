@@ -223,14 +223,15 @@ public final class RunPackageCommand implements Runnable {
                         "config read",
                         () -> tomlParser.parse(projectRoot.resolve("zolt.toml"))),
                 packageModeOverride);
-        lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
         RunPackageResult result = timings.measure(
                 "run packaged application",
                 () -> runPackageService.runPackage(
                         projectRoot,
                         config,
                         cacheRoot,
-                        arguments),
+                        arguments,
+                        artifactIndex),
                 CommandRunPackageAttributes::runPackage);
         String output = result.javaRunResult().output();
         CommandOutput.printAndFlush(spec, output);

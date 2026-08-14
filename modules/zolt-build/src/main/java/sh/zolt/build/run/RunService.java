@@ -3,6 +3,7 @@ package sh.zolt.build.run;
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
 import sh.zolt.build.RunException;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
@@ -78,6 +79,22 @@ public final class RunService {
             Path cacheRoot,
             List<String> arguments,
             Consumer<String> outputConsumer) {
+        return run(
+                projectDirectory,
+                config,
+                cacheRoot,
+                arguments,
+                outputConsumer,
+                new VerifiedArtifactIndex());
+    }
+
+    public RunResult run(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            List<String> arguments,
+            Consumer<String> outputConsumer,
+            VerifiedArtifactIndex artifactIndex) {
         if (config.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
             throw new RunException(
                     "Package mode `bom` publishes a dependencyManagement POM and has nothing to run. "
@@ -92,7 +109,8 @@ public final class RunService {
                 projectDirectory,
                 config,
                 cacheRoot,
-                false);
+                false,
+                artifactIndex);
         Optional<FrameworkRunResult> frameworkRunResult =
                 frameworkRunAugmenter.augmentIfEnabled(projectDirectory, config, cacheRoot);
 

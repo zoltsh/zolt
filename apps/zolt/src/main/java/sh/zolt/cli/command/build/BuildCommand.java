@@ -192,7 +192,8 @@ public final class BuildCommand implements Runnable {
             ProjectConfig config = timings.measure(
                     "config read",
                     () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
-            lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, offline, "zolt build");
+            var artifactIndex = lockfiles.requireFreshLockfile(
+                    projectRoot, config, cacheRoot, offline, "zolt build");
             progress.start("Building project");
             output.work("Building " + config.project().name());
             BuildResult result = timings.measure(
@@ -204,7 +205,8 @@ public final class BuildCommand implements Runnable {
                                     projectRoot,
                                     config,
                                     cacheRoot,
-                                    offline),
+                                    offline,
+                                    artifactIndex),
                     CommandBuildAttributes::build);
             if (result.resolvedLockfile()) {
                 output.detail("Resolved dependencies because zolt.lock was missing");

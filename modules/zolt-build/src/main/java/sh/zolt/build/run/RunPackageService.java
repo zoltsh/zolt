@@ -7,6 +7,7 @@ import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageService;
 import sh.zolt.build.RunPackageException;
 import sh.zolt.build.classpath.ClasspathBuilder;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkDetector;
@@ -108,6 +109,20 @@ public final class RunPackageService {
             ProjectConfig config,
             Path cacheRoot,
             List<String> arguments) {
+        return runPackage(
+                projectDirectory,
+                config,
+                cacheRoot,
+                arguments,
+                new VerifiedArtifactIndex());
+    }
+
+    public RunPackageResult runPackage(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            List<String> arguments,
+            VerifiedArtifactIndex artifactIndex) {
         PackageLaunchPolicy.Decision launchPolicy =
                 PackageLaunchPolicy.forMode(config.packageSettings().mode());
         if (launchPolicy.strategy() == PackageLaunchPolicy.Strategy.REJECT) {
@@ -120,7 +135,8 @@ public final class RunPackageService {
                 projectDirectory,
                 config,
                 cacheRoot,
-                false);
+                false,
+                artifactIndex);
         PackageResult packageResult = packageService.packageJar(projectDirectory, config, buildResult, cacheRoot);
         JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
         if (!jdkStatus.ok()) {
