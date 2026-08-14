@@ -78,7 +78,7 @@ final class QualityCheckServiceRoutingTest {
                 """);
         writeProject(workspaceDir.resolve("apps/api"), "api");
         writeProject(workspaceDir.resolve("modules/core"), "core");
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 6\n");
 
         QualityCheckReport report = new QualityCheckService(Map.<String, String>of()::get).check(request(
                 workspaceDir,

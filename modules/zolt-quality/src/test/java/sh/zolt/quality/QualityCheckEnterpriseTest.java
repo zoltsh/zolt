@@ -44,7 +44,7 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
         Files.createDirectories(projectDir.resolve("src/main/openapi"));
         Files.writeString(projectDir.resolve("src/main/openapi/api.yaml"), "openapi: 3.1.0\n");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "com.example:local-lib"
@@ -70,7 +70,7 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
         assertEquals(List.of(
                         "execution-context|com.example:local-lib:1.0.0|CI context rejects local repository overlay origin `local-overlay:maven-local`.",
                         "execution-context|[repositoryCredentials.company-artifactory]|CI context requires environment variable ARTIFACTORY_ACCESS_TOKEN for repository `company` credentials `company-artifactory` before resolve/build work starts.",
-                        "lockfile|zolt.lock|zolt.lock is out of date. Run `zolt resolve` to refresh it, then retry `zolt resolve --locked`.",
+                        "lockfile|zolt.lock|Repository `company` requires credentials `company-artifactory`, but environment variables ARTIFACTORY_USERNAME, ARTIFACTORY_ACCESS_TOKEN are not set. Set the variables and retry. Secret values are never written to zolt.lock or command output.",
                         "generated-sources|[generated.main.openapi]|Generated source root `target/generated/sources/openapi` is missing."),
                 failures.stream()
                         .map(check -> check.id() + "|" + check.subject() + "|" + check.message())

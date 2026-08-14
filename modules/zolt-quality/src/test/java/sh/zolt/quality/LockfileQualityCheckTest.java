@@ -48,7 +48,7 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
         Path projectDir = tempDir.resolve("stale-project-lock");
         ProjectConfig config = parseProject(projectDir, "");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 6
 
                 [[package]]
                 id = "com.example:stale"
@@ -73,7 +73,7 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
     void projectLockfileOfflineFailureUsesOfflineRetryAction() throws IOException {
         Path projectDir = tempDir.resolve("offline-cache-missing");
         ProjectConfig config = parseProject(projectDir, dependencyBody());
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
 
         QualityCheckResult result = check.checkProjectLockfile(request(projectDir, true, false), config);
 
@@ -90,7 +90,7 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
     void projectLockfileRequireOfflineReadyFailureUsesCiRetryAction() throws IOException {
         Path projectDir = tempDir.resolve("require-offline-ready-missing-cache");
         ProjectConfig config = parseProject(projectDir, dependencyBody());
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
 
         QualityCheckResult result = check.checkProjectLockfile(request(projectDir, false, true), config);
 

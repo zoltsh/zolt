@@ -9,6 +9,7 @@ import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.maven.repository.RepositoryAccessException;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.service.Workspace;
@@ -68,6 +69,8 @@ final class LockfileQualityCheck {
                     requireOfflineReady
                             ? "Run `zolt resolve` to seed the cache, then retry `zolt check --context ci --require-offline-ready`."
                             : "Run `zolt resolve` without --offline to seed the cache, then retry `zolt check --check lockfile --offline`.");
+        } catch (RepositoryAccessException exception) {
+            return repositoryAccessFailure(exception, false);
         }
     }
 
@@ -124,7 +127,22 @@ final class LockfileQualityCheck {
                     requireOfflineReady
                             ? "Run `zolt resolve --workspace` to seed the cache, then retry `zolt check --workspace --context ci --require-offline-ready`."
                             : "Run `zolt resolve --workspace` without --offline to seed the cache, then retry `zolt check --workspace --check lockfile --offline`.");
+        } catch (RepositoryAccessException exception) {
+            return repositoryAccessFailure(exception, true);
         }
+    }
+
+    private static QualityCheckResult repositoryAccessFailure(
+            RepositoryAccessException exception,
+            boolean workspace) {
+        return QualityCheckResult.failed(
+                LOCKFILE,
+                Optional.empty(),
+                "zolt.lock",
+                exception.getMessage(),
+                workspace
+                        ? "Fix repository access, then run `zolt resolve --workspace`."
+                        : "Fix repository access, then run `zolt resolve`.");
     }
 
     private QualityCheckResult checkCacheIntegrity(
