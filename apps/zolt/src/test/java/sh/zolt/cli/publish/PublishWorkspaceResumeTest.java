@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,49 @@ import org.junit.jupiter.api.io.TempDir;
  * and {@code --allow-mixed-versions}.
  */
 final class PublishWorkspaceResumeTest {
+    private static final String CORE_JAR =
+            "/maven2/com/acme/acme-core/1.0.0/acme-core-1.0.0.jar";
+
+    @Test
+    void matchingLargeWorkspaceArtifactResumesAndDifferentContentConflicts(@TempDir Path tempDir)
+            throws IOException {
+        ImmutableRepository repository = ImmutableRepository.start();
+        try {
+            Path family = tempDir.resolve("large-platform-family");
+            copyTree(exampleRoot().resolve("platform-family"), family);
+            for (String member : new String[] {"acme-core", "acme-http", "acme-bom"}) {
+                rewrite(family.resolve(member).resolve("zolt.toml"),
+                        "https://repo.example.test/releases", repository.baseUri());
+            }
+            Path resource = family.resolve("acme-core/src/main/resources/large.bin");
+            Files.createDirectories(resource.getParent());
+            byte[] bytes = new byte[9 * 1024 * 1024];
+            new Random(42L).nextBytes(bytes);
+            Files.write(resource, bytes);
+            Path cache = tempDir.resolve("cache");
+            run(family, cache, "resolve", "--workspace");
+            run(family, cache, "build", "--workspace");
+            run(family, cache, "package", "--workspace");
+            assertTrue(Files.size(family.resolve("acme-core/target/acme-core-1.0.0.jar")) > 8L * 1024L * 1024L);
+
+            CliTestSupport.CommandResult first = executeIn(family, cache, "publish", "--workspace");
+            CliTestSupport.CommandResult matchingResume = executeIn(family, cache, "publish", "--workspace");
+
+            assertEquals(0, first.exitCode(), first.stdout() + first.stderr());
+            assertEquals(0, matchingResume.exitCode(), matchingResume.stdout() + matchingResume.stderr());
+            assertEquals(1, repository.putCount(CORE_JAR), "matching large workspace JAR must not be re-PUT");
+
+            repository.changeOneByte(CORE_JAR);
+            CliTestSupport.CommandResult conflict = executeIn(family, cache, "publish", "--workspace");
+
+            assertEquals(1, conflict.exitCode(), conflict.stdout() + conflict.stderr());
+            assertTrue(conflict.stdout().contains("already holds different content"), conflict.stdout());
+            assertEquals(1, repository.putCount(CORE_JAR), "conflicting large workspace JAR must not be overwritten");
+        } finally {
+            repository.close();
+        }
+    }
+
     @Test
     void resumeUploadsRemainingMembersExactlyWithoutRePuttingTheProvider(@TempDir Path tempDir) throws IOException {
         ImmutableRepository repository = ImmutableRepository.start();
@@ -354,6 +398,14 @@ final class PublishWorkspaceResumeTest {
 
         int putCount(String path) {
             return putCounts.getOrDefault(path, 0);
+        }
+
+        void changeOneByte(String path) {
+            store.compute(path, (ignored, bytes) -> {
+                byte[] changed = bytes.clone();
+                changed[0] ^= 1;
+                return changed;
+            });
         }
 
         private void handle(HttpExchange exchange) throws IOException {

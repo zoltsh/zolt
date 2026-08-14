@@ -1,18 +1,18 @@
 package sh.zolt.publish;
 
 import sh.zolt.maven.repository.MavenRepositoryClient;
+import sh.zolt.maven.repository.RemoteFileComparison;
 import sh.zolt.maven.repository.RepositoryAuthentication;
 import sh.zolt.maven.repository.RepositoryClientException;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.RepositoryUrlPolicy;
 import sh.zolt.toml.ZoltTomlParser;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -143,18 +143,32 @@ public final class PublishUploadService {
             URI repositoryUri,
             StagedPublicationFile file,
             Optional<RepositoryAuthentication> authentication) {
-        Optional<byte[]> existing =
-                repositoryClient.fetchFile(repositoryUri, file.repositoryPath(), authentication);
-        if (existing.isEmpty()) {
+        RemoteFileComparison existing = repositoryClient.compareFile(
+                repositoryUri,
+                file.repositoryPath(),
+                authentication,
+                size(file),
+                file.sha256());
+        if (existing == RemoteFileComparison.ABSENT) {
             repositoryClient.uploadFile(
                     repositoryUri, file.repositoryPath(), file.source(), authentication);
             return;
         }
-        if (!file.sha256().equals(sha256(existing.orElseThrow()))) {
+        if (existing == RemoteFileComparison.DIFFERENT) {
             throw new PublishException(
                     "Release path `"
                             + file.repositoryPath()
                             + "` already holds different content. Next: bump the version or remove the stale path.");
+        }
+    }
+
+    private static long size(StagedPublicationFile file) {
+        try {
+            return Files.size(file.source());
+        } catch (IOException exception) {
+            throw new PublishException(
+                    "Could not inspect staged publication file `" + file.repositoryPath() + "`.",
+                    exception);
         }
     }
 
@@ -200,12 +214,4 @@ public final class PublishUploadService {
         return PublishRepositoryAuthentication.resolve(repository, config.repositoryCredentials(), environment);
     }
 
-    private static String sha256(byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new PublishException("SHA-256 is unavailable.", exception);
-        }
-    }
 }

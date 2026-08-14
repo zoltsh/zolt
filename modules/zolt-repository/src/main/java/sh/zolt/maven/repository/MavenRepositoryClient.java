@@ -192,11 +192,8 @@ public final class MavenRepositoryClient {
     }
 
     /**
-     * Fetches the bytes stored at an explicit repository-relative {@code repositoryPath}, or empty when
-     * the repository returns 404. Symmetric with {@link #uploadFile}: it makes a re-PUT idempotent — an
-     * already-landed artifact, checksum, or signature is confirmed present (and its bytes compared)
-     * before re-uploading, so a resumed publish never re-PUTs a path an immutable release repository
-     * would reject. Transient failures throw per the existing retry policy.
+     * Fetches a small repository document at an explicit relative path, or empty on 404. Publication
+     * artifact comparisons must use {@link #compareFile} so large bodies are never retained in memory.
      */
     public Optional<byte[]> fetchFile(
             URI repositoryBaseUri,
@@ -220,6 +217,51 @@ public final class MavenRepositoryClient {
             }
         } catch (RepositoryMissingArtifactException exception) {
             return Optional.empty();
+        }
+    }
+
+    /**
+     * Compares an immutable publication path by streaming its bytes into SHA-256. The response is
+     * bounded by the larger of the expected local length and the small-response ceiling (so a normal
+     * 404 body can still be classified), retained only in a temporary file, and removed before
+     * returning. A different length or digest is {@link RemoteFileComparison#DIFFERENT}; a 404 is
+     * {@link RemoteFileComparison#ABSENT}.
+     */
+    public RemoteFileComparison compareFile(
+            URI repositoryBaseUri,
+            String repositoryPath,
+            Optional<RepositoryAuthentication> authentication,
+            long expectedLength,
+            String expectedSha256) {
+        if (expectedLength < 0) {
+            throw new IllegalArgumentException("Expected repository file length cannot be negative.");
+        }
+        if (expectedSha256 == null || !expectedSha256.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("Expected repository file SHA-256 must be 64 lowercase hex characters.");
+        }
+        ArtifactDescriptor descriptor =
+                new ArtifactDescriptor(new Coordinate("repository", "file", Optional.empty()), Optional.empty(), "bin");
+        try {
+            try (RepositoryArtifact artifact = downloader.fetch(
+                    repositoryBaseUri,
+                    descriptor,
+                    repositoryPath,
+                    authentication,
+                    RepositoryDownloadListener.NOOP,
+                    defaultDownloadDirectory(),
+                    Math.max(downloadLimits.repositoryFileBytes(), expectedLength),
+                    "publication file")) {
+                return artifact.size() == expectedLength && artifact.sha256().equals(expectedSha256)
+                        ? RemoteFileComparison.MATCHING
+                        : RemoteFileComparison.DIFFERENT;
+            }
+        } catch (RepositoryMissingArtifactException exception) {
+            return RemoteFileComparison.ABSENT;
+        } catch (RepositoryClientException exception) {
+            if (RepositoryArtifactDownloader.responseTooLarge(exception)) {
+                return RemoteFileComparison.DIFFERENT;
+            }
+            throw exception;
         }
     }
 

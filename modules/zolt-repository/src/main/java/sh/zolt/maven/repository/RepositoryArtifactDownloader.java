@@ -49,7 +49,7 @@ final class RepositoryArtifactDownloader {
                                 maximumBytes,
                                 responseKind));
             } catch (IOException exception) {
-                if (tooLarge(exception)) {
+                if (responseTooLarge(exception)) {
                     throw new RepositoryClientException(
                             "Could not download " + coordinate + " from " + diagnosticUri(artifactUri)
                                     + ": " + rootMessage(exception),
@@ -122,7 +122,7 @@ final class RepositoryArtifactDownloader {
         }
     }
 
-    private static boolean tooLarge(Throwable failure) {
+    static boolean responseTooLarge(Throwable failure) {
         Throwable current = failure;
         while (current != null) {
             if (current instanceof RepositoryResponseTooLargeException) {

@@ -1,13 +1,11 @@
 package sh.zolt.workspace.publish;
 
 import sh.zolt.maven.repository.MavenRepositoryClient;
+import sh.zolt.maven.repository.RemoteFileComparison;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -106,12 +104,25 @@ public final class WorkspaceRepositoryUploader {
      */
     private boolean verifiedPresent(RepositoryTarget target, StagedArtifact artifact) throws IOException {
         String path = artifact.repositoryPath();
-        Optional<String> remoteHash = remoteHash(target, path);
-        if (remoteHash.isEmpty()) {
-            return false; // never landed, or a completed path deleted remotely — (re)upload it
+        if (target.local()) {
+            Optional<String> remoteHash = localHash(target, path);
+            if (remoteHash.isEmpty()) {
+                return false;
+            }
+            requireSameHash(path, artifact.stagedSha256(), remoteHash.orElseThrow());
+            return true;
         }
-        requireSameHash(path, artifact.stagedSha256(), remoteHash.orElseThrow());
-        return true;
+        RemoteFileComparison comparison = repositoryClient.compareFile(
+                target.uri(),
+                path,
+                target.authentication(),
+                Files.size(artifact.source()),
+                artifact.stagedSha256());
+        return switch (comparison) {
+            case ABSENT -> false;
+            case MATCHING -> true;
+            case DIFFERENT -> throw new MismatchedArtifactException(path);
+        };
     }
 
     /**
@@ -119,13 +130,9 @@ public final class WorkspaceRepositoryUploader {
      * target is stream-hashed off disk; a remote one is fetched once and hashed. The staged side is a
      * recorded digest, never the original mutable publication source.
      */
-    private Optional<String> remoteHash(RepositoryTarget target, String path) throws IOException {
-        if (target.local()) {
-            Path file = target.directory().resolve(path).normalize();
-            return Files.exists(file) ? Optional.of(Sha256.hex(file)) : Optional.empty();
-        }
-        return repositoryClient.fetchFile(target.uri(), path, target.authentication())
-                .map(WorkspaceRepositoryUploader::sha256Hex);
+    private Optional<String> localHash(RepositoryTarget target, String path) throws IOException {
+        Path file = target.directory().resolve(path).normalize();
+        return Files.exists(file) ? Optional.of(Sha256.hex(file)) : Optional.empty();
     }
 
     private void uploadArtifact(RepositoryTarget target, StagedArtifact artifact) throws IOException {
@@ -166,14 +173,6 @@ public final class WorkspaceRepositoryUploader {
     private static void requireSameHash(String repositoryPath, String stagedSha256, String remoteSha256) {
         if (!stagedSha256.equalsIgnoreCase(remoteSha256.trim())) {
             throw new MismatchedArtifactException(repositoryPath);
-        }
-    }
-
-    private static String sha256Hex(byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
     }
 
