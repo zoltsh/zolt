@@ -73,6 +73,7 @@ jobs:
       - name: Validate benchmark contracts
         run: |
           scripts/benchmark-statistics-test
+          scripts/benchmark-shard-summaries-test
           scripts/benchmark-profile-test
           scripts/benchmark-suite-test
           scripts/benchmark-openai-summary-test
@@ -362,16 +363,12 @@ jobs:
 
       - name: Aggregate lane summaries
         run: |
-          mapfile -t summaries < <(
-            find target/downloaded-benchmark-shards \
-              -type f \
-              -path '*/benchmark-shard-summaries/*.json' \
-              | sort
-          )
-          if [[ "${#summaries[@]}" -eq 0 ]]; then
-            printf 'error: no benchmark lane summaries were downloaded\n' >&2
-            exit 1
-          fi
+          summary_list="$RUNNER_TEMP/benchmark-lane-summaries.txt"
+          scripts/benchmark-shard-summaries \
+            --root target/downloaded-benchmark-shards \
+            --expected-count "${{ needs.plan.outputs.lane_count }}" \
+            > "$summary_list"
+          mapfile -t summaries < "$summary_list"
           args=(
             --skip-generated
             --work-dir "$BENCHMARK_DIR"
@@ -381,16 +378,10 @@ jobs:
             args+=(--lane-summary "$summary")
           done
           scripts/benchmark-suite "${args[@]}"
-          actual_lane_count="${#summaries[@]}"
-          expected_lane_count="${{ needs.plan.outputs.lane_count }}"
-          if [[ "$actual_lane_count" != "$expected_lane_count" ]]; then
-            printf 'error: aggregated %s of %s expected benchmark lanes\n' \
-              "$actual_lane_count" "$expected_lane_count" >&2
-            exit 1
-          fi
 
       - name: Prepare model benchmark summary
         if: always() && env.BENCHMARK_AI_SUMMARY == 'true'
+        continue-on-error: true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |

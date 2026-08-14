@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+ARTIFACT_ROOT=""
+EXPECTED_COUNT=""
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/benchmark-shard-summaries --root DIR --expected-count COUNT
+
+Lists the direct benchmark lane summary files downloaded from lane artifacts.
+Nested summaries from prior combined artifacts are intentionally ignored.
+EOF
+}
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --root)
+      [[ "$#" -ge 2 ]] || fail "--root requires a value"
+      ARTIFACT_ROOT="$2"
+      shift 2
+      ;;
+    --expected-count)
+      [[ "$#" -ge 2 ]] || fail "--expected-count requires a value"
+      EXPECTED_COUNT="$2"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown argument: $1"
+      ;;
+  esac
+done
+
+[[ -n "$ARTIFACT_ROOT" ]] || fail "--root is required"
+[[ "$EXPECTED_COUNT" =~ ^[1-9][0-9]*$ ]] \
+  || fail "--expected-count must be a positive integer"
+
+summary_dir="$ARTIFACT_ROOT/target/benchmark-shard-summaries"
+[[ -d "$summary_dir" ]] \
+  || fail "benchmark lane summary directory not found: $summary_dir"
+
+summaries="$(
+  find "$summary_dir" -maxdepth 1 -type f -name '*.json' -print | sort
+)"
+if [[ -n "$summaries" ]]; then
+  actual_count="$(printf '%s\n' "$summaries" | wc -l | tr -d ' ')"
+else
+  actual_count=0
+fi
+if [[ "$actual_count" != "$EXPECTED_COUNT" ]]; then
+  fail "found $actual_count of $EXPECTED_COUNT expected direct benchmark lane summaries"
+fi
+
+printf '%s\n' "$summaries"

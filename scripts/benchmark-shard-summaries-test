@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+WORK_DIR="target/benchmark-shard-summaries-test"
+rm -rf "$WORK_DIR"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+direct_dir="$WORK_DIR/downloaded/target/benchmark-shard-summaries"
+nested_dir="$WORK_DIR/downloaded/target/downloaded-benchmark-shards/target/benchmark-shard-summaries"
+mkdir -p "$direct_dir" "$nested_dir"
+
+printf '{}\n' > "$direct_dir/lane-a.json"
+printf '{}\n' > "$direct_dir/lane-b.json"
+printf '{}\n' > "$nested_dir/lane-a.json"
+printf '{}\n' > "$nested_dir/lane-b.json"
+
+expected=$(printf '%s\n' \
+  "$direct_dir/lane-a.json" \
+  "$direct_dir/lane-b.json")
+actual=$(scripts/benchmark-shard-summaries \
+  --root "$WORK_DIR/downloaded" \
+  --expected-count 2)
+
+[[ "$actual" == "$expected" ]] \
+  || fail "summary selection included nested combined-artifact files"
+
+if scripts/benchmark-shard-summaries \
+  --root "$WORK_DIR/downloaded" \
+  --expected-count 3 \
+  >/dev/null 2>&1; then
+  fail "summary selection accepted the wrong direct lane count"
+fi
+
+if scripts/benchmark-shard-summaries \
+  --root "$WORK_DIR/missing" \
+  --expected-count 2 \
+  >/dev/null 2>&1; then
+  fail "summary selection accepted a missing lane directory"
+fi
+
+printf 'benchmark shard summary selection test passed\n'
