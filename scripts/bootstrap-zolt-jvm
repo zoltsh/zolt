@@ -104,39 +104,57 @@ missing_artifact_block() {
   local coordinate="$1"
   local jar_path="$2"
   local expected_sha="$3"
+  local repository_path="$4"
   local artifact="${CACHE_ROOT}/${jar_path}"
 
   printf 'missing bootstrap artifact:\n'
   printf '  coordinate: %s\n' "$coordinate"
   printf '  cache: %s\n' "$artifact"
-  printf '  source: %s/%s\n' "$MAVEN_CENTRAL" "$jar_path"
+  printf '  source: %s/%s\n' "$MAVEN_CENTRAL" "$repository_path"
   printf '  sha256: %s\n' "$expected_sha"
+}
+
+maven_jar_path() {
+  local package_id="$1"
+  local package_version="$2"
+  local jar_path="$3"
+  local group_id="${package_id%%:*}"
+  local artifact_id="${package_id#*:}"
+  local filename="${jar_path##*/}"
+
+  if [[ "$group_id" == "$package_id" || -z "$group_id" || -z "$artifact_id" || -z "$package_version" || -z "$filename" ]]; then
+    printf 'error: cannot derive bootstrap repository path for %s:%s at %s\n' \
+      "$package_id" "$package_version" "$jar_path" >&2
+    exit 1
+  fi
+  printf '%s/%s/%s/%s' "${group_id//.//}" "$artifact_id" "$package_version" "$filename"
 }
 
 ensure_artifact() {
   local coordinate="$1"
   local jar_path="$2"
   local expected_sha="$3"
+  local repository_path="$4"
   local artifact="${CACHE_ROOT}/${jar_path}"
 
   if [[ ! -f "$artifact" ]]; then
     if [[ "$BOOTSTRAP_LIST_MISSING" == true || "$BOOTSTRAP_OFFLINE" == true ]]; then
-      missing_artifact_block "$coordinate" "$jar_path" "$expected_sha"
+      missing_artifact_block "$coordinate" "$jar_path" "$expected_sha" "$repository_path"
       missing_count=$((missing_count + 1))
       return 0
     fi
     if ! command -v curl >/dev/null 2>&1; then
       printf 'error: bootstrap artifact is missing and curl is not available: %s\n' "$artifact" >&2
-      missing_artifact_block "$coordinate" "$jar_path" "$expected_sha" >&2
+      missing_artifact_block "$coordinate" "$jar_path" "$expected_sha" "$repository_path" >&2
       printf 'hint: seed %s or install curl before scripts/bootstrap-zolt-jvm\n' "$CACHE_ROOT" >&2
       printf 'hint: run scripts/bootstrap-zolt-jvm --bootstrap-list-missing to list missing cache entries\n' >&2
       exit 1
     fi
     mkdir -p "$(dirname "$artifact")"
-    if ! curl -fsSL "${MAVEN_CENTRAL}/${jar_path}" -o "$artifact"; then
+    if ! curl -fsSL "${MAVEN_CENTRAL}/${repository_path}" -o "$artifact"; then
       rm -f "$artifact"
       printf 'error: could not download bootstrap artifact for %s\n' "$coordinate" >&2
-      missing_artifact_block "$coordinate" "$jar_path" "$expected_sha" >&2
+      missing_artifact_block "$coordinate" "$jar_path" "$expected_sha" "$repository_path" >&2
       printf 'hint: clean source bootstrap requires Maven Central/network access or a seeded %s cache\n' "$CACHE_ROOT" >&2
       printf 'hint: run scripts/bootstrap-zolt-jvm --bootstrap-list-missing to list cache entries to seed\n' >&2
       exit 1
@@ -164,7 +182,8 @@ while IFS='|' read -r scope package_id package_version jar_path jar_sha; do
   if [[ -n "$package_version" ]]; then
     coordinate="${coordinate}:${package_version}"
   fi
-  ensure_artifact "$coordinate" "$jar_path" "$jar_sha"
+  repository_path="$(maven_jar_path "$package_id" "$package_version" "$jar_path")"
+  ensure_artifact "$coordinate" "$jar_path" "$jar_sha" "$repository_path"
   artifact="${CACHE_ROOT}/${jar_path}"
   [[ -f "$artifact" ]] || continue
   if [[ -z "$classpath" ]]; then
