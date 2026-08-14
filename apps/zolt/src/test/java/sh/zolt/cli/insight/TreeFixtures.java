@@ -125,7 +125,7 @@ final class TreeFixtures {
      */
     static String workspaceLock() {
         return """
-                version = 5
+                version = 6
 
                 [[package]]
                 id = "com.example:core"

@@ -21,7 +21,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                   "schemaVersion": 3,
                   "command": "tree",
                   "mode": "workspace",
-                  "lockVersion": 5,
+                  "lockVersion": 6,
                   "workspace": {
                     "name": "demo-workspace",
                     "members": [
@@ -177,7 +177,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                   "schemaVersion": 3,
                   "command": "tree",
                   "mode": "workspace",
-                  "lockVersion": 5,
+                  "lockVersion": 6,
                   "workspace": {
                     "name": "empty",
                     "members": []

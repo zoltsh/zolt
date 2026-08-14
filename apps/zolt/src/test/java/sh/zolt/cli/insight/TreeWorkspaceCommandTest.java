@@ -57,7 +57,7 @@ final class TreeWorkspaceCommandTest {
 
         assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("\"mode\": \"workspace\""), result.stdout());
-        assertTrue(result.stdout().contains("\"lockVersion\": 5"), result.stdout());
+        assertTrue(result.stdout().contains("\"lockVersion\": 6"), result.stdout());
     }
 
     @Test
@@ -119,7 +119,7 @@ final class TreeWorkspaceCommandTest {
         TreeFixtures.workspaceMembersAndLock(workspace);
         Files.writeString(
                 workspace.resolve("zolt.lock"),
-                TreeFixtures.workspaceLock().replaceFirst("version = 5", "version = 4"));
+                TreeFixtures.workspaceLock().replaceFirst("version = 6", "version = 4"));
 
         CommandResult result = execute("tree", "--workspace", "--format", "json", "--cwd", workspace.toString());
 
