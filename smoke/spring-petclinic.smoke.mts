@@ -24,7 +24,7 @@ smoke.suite("Spring Boot PetClinic smoke", { tags: ["framework", "spring-boot", 
     expect.value(`${nonWeb.stdout}\n${nonWeb.stderr}`).toContain("Started PetClinicLiteApplication");
 
     await runZolt(t, zolt, [
-      "--no-progress", "package", "--mode", "spring-boot", "--cwd", project, "--cache-root", zolt.cacheRoot,
+      "--no-progress", "package", "--cwd", project, "--cache-root", zolt.cacheRoot,
     ]);
     const jar = await singleJar(join(project, "target"));
     await expect.archive(jar).toContainEntries([...PETCLINIC_ARCHIVE_ENTRIES]);

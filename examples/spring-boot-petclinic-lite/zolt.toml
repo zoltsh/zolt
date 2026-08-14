@@ -38,3 +38,6 @@ reproducible = true
 [resources]
 main = ["src/main/resources", "target/generated/resources"]
 test = ["src/test/resources"]
+
+[package]
+mode = "spring-boot"
