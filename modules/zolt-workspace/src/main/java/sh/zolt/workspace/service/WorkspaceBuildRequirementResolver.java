@@ -15,7 +15,8 @@ final class WorkspaceBuildRequirementResolver {
         boolean packageInputs = requested.packageInputs()
                 || requiresPackageInputs(config.build().generatedMainSources())
                 || (requested.testCompileClasspath()
-                        && requiresPackageInputs(config.build().generatedTestSources()));
+                        && requiresPackageInputs(config.build().generatedTestSources()))
+                || config.frameworkSettings().springBoot().nativeEnabled();
         return requested.withPackageInputs(packageInputs);
     }
 

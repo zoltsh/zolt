@@ -173,45 +173,25 @@ public final class WorkspacePackageService {
         return workspaceBuildService.build(plan, cacheRoot, WorkspaceBuildRequirements.mainBuild());
     }
 
+    WorkspaceBuildResult buildNativeInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
+        return workspaceBuildService.build(plan, cacheRoot, WorkspaceBuildRequirements.nativeBuild());
+    }
+
     public WorkspacePackageResult packageBuiltJars(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
             Optional<PackageMode> packageModeOverride) {
-        return packageBuiltJars(plan, buildResult, Optional.empty(), packageModeOverride);
+        return packageBuiltJars(
+                plan,
+                buildResult,
+                plan.executionContext().cacheRoot(),
+                packageModeOverride);
     }
 
     WorkspacePackageResult packageBuiltJars(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
-            UnaryOperator<ProjectConfig> packageConfigResolver) {
-        return packageBuiltJars(plan, buildResult, Optional.empty(), packageConfigResolver);
-    }
-
-    public WorkspacePackageResult packageBuiltJars(
-            WorkspaceBuildPlan plan,
-            WorkspaceBuildResult buildResult,
             Path cacheRoot,
-            Optional<PackageMode> packageModeOverride) {
-        return packageBuiltJars(plan, buildResult, Optional.of(cacheRoot), packageModeOverride);
-    }
-
-    private WorkspacePackageResult packageBuiltJars(
-            WorkspaceBuildPlan plan,
-            WorkspaceBuildResult buildResult,
-            Optional<Path> cacheRoot,
-            Optional<PackageMode> packageModeOverride) {
-        return packageBuiltJars(
-                plan,
-                buildResult,
-                cacheRoot,
-                config -> config.withPackageSettings(config.packageSettings().withMode(
-                        packageModeOverride.orElse(config.packageSettings().mode()))));
-    }
-
-    private WorkspacePackageResult packageBuiltJars(
-            WorkspaceBuildPlan plan,
-            WorkspaceBuildResult buildResult,
-            Optional<Path> cacheRoot,
             UnaryOperator<ProjectConfig> packageConfigResolver) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
@@ -223,10 +203,23 @@ public final class WorkspacePackageService {
         }
     }
 
+    public WorkspacePackageResult packageBuiltJars(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Path cacheRoot,
+            Optional<PackageMode> packageModeOverride) {
+        return packageBuiltJars(
+                plan,
+                buildResult,
+                cacheRoot,
+                config -> config.withPackageSettings(config.packageSettings().withMode(
+                        packageModeOverride.orElse(config.packageSettings().mode()))));
+    }
+
     private WorkspacePackageResult packageBuiltJarsLocked(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
-            Optional<Path> cacheRoot,
+            Path cacheRoot,
             UnaryOperator<ProjectConfig> packageConfigResolver) {
         Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
@@ -267,7 +260,7 @@ public final class WorkspacePackageService {
             WorkspaceMember member,
             WorkspaceBuildResult.MemberBuildResult memberBuild,
             ProjectConfig memberConfig,
-            Optional<Path> cacheRoot,
+            Path cacheRoot,
             PackageOutputFingerprintIndex outputFingerprints) {
         if (memberConfig.packageSettings().mode() == PackageMode.BOM) {
             return new PackagedMember(
@@ -285,19 +278,12 @@ public final class WorkspacePackageService {
                         plan.executionContext(),
                         member.path(),
                         memberConfig.packageSettings().tests());
-        PackagePlan packagePlan = cacheRoot
-                .map(root -> packagePlanService.plan(
-                        member.directory(),
-                        memberConfig,
-                        packageInputs.lockfile(),
-                        root,
-                        outputFingerprints))
-                .orElseGet(() -> packagePlanService.plan(
-                        member.directory(),
-                        memberConfig,
-                        packageInputs.lockfile(),
-                        sh.zolt.cache.LocalArtifactCache.defaultRoot(),
-                        outputFingerprints));
+        PackagePlan packagePlan = packagePlanService.plan(
+                member.directory(),
+                memberConfig,
+                packageInputs.lockfile(),
+                cacheRoot,
+                outputFingerprints);
         return new PackagedMember(
                 new WorkspacePackageResult.MemberPackageResult(
                         member.path(),
@@ -305,7 +291,7 @@ public final class WorkspacePackageService {
                                 member.directory(),
                                 memberConfig,
                                 memberBuild.result(),
-                                cacheRoot,
+                                Optional.of(cacheRoot),
                                 packageInputs.classpaths(),
                                 packageInputs.packages(),
                                 packagePlan,

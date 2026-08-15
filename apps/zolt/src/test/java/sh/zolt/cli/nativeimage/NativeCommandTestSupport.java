@@ -200,6 +200,40 @@ final class NativeCommandTestSupport {
                 Files.readAllBytes(compiled));
     }
 
+    static byte[] fakeSpringBootRecordingAotJar(Path workDirectory) throws IOException {
+        Path source = workDirectory.resolve("src/org/springframework/boot/SpringApplicationAotProcessor.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                package org.springframework.boot;
+
+                public final class SpringApplicationAotProcessor {
+                    public static void main(String[] args) throws Exception {
+                        java.nio.file.Path sources = java.nio.file.Path.of(args[1]);
+                        java.nio.file.Files.createDirectories(sources);
+                        java.nio.file.Files.writeString(
+                                sources.resolve("aot-classpath.txt"),
+                                System.getProperty("java.class.path", ""));
+                        java.nio.file.Path generated = sources
+                                .resolve("com/example/Main__BeanDefinitions.java");
+                        java.nio.file.Files.createDirectories(generated.getParent());
+                        java.nio.file.Files.writeString(
+                                generated,
+                                "package com.example; final class Main__BeanDefinitions {}\\n");
+                    }
+                }
+                """);
+        Path classes = workDirectory.resolve("classes");
+        new JavacRunner().compile(
+                currentJavac(),
+                List.of(source),
+                new Classpath(List.of()),
+                classes);
+        return jarWithEntry(
+                "org/springframework/boot/SpringApplicationAotProcessor.class",
+                Files.readAllBytes(classes.resolve(
+                        "org/springframework/boot/SpringApplicationAotProcessor.class")));
+    }
+
     private static byte[] jarWithEntry(String name, byte[] content) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (JarOutputStream output = new JarOutputStream(bytes)) {

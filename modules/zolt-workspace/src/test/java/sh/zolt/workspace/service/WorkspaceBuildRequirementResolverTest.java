@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.toml.ZoltTomlParser;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +36,24 @@ final class WorkspaceBuildRequirementResolverTest {
                 List.of(step(GeneratedSourceKind.PROTOBUF))));
         assertFalse(WorkspaceBuildRequirementResolver.requiresPackageInputs(
                 List.of(step(GeneratedSourceKind.DECLARED_ROOT))));
+    }
+
+    @Test
+    void springBootNativeBuildsRequestAotToolPackageMetadata() {
+        var config = new ZoltTomlParser().parse("""
+                [project]
+                name = "app"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+
+                [framework.springBoot.native]
+                enabled = true
+                """);
+
+        assertTrue(new WorkspaceBuildRequirementResolver()
+                .forMember(WorkspaceBuildRequirements.mainBuild(), config)
+                .packageInputs());
     }
 
     private static GeneratedSourceStep step(GeneratedSourceKind kind) {

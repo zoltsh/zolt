@@ -182,6 +182,21 @@ public final class BuildService {
         return build(projectDirectory, config, classpaths, Optional.empty(), List.of(), false);
     }
 
+    /** Builds a projected workspace member with the package identities needed by tooling lanes. */
+    public BuildResult build(
+            Path projectDirectory,
+            ProjectConfig config,
+            ClasspathSet classpaths,
+            List<ResolvedClasspathPackage> classpathPackages) {
+        return build(
+                projectDirectory,
+                config,
+                classpaths,
+                Optional.empty(),
+                classpathPackages == null ? List.of() : List.copyOf(classpathPackages),
+                false);
+    }
+
     public int ensureCleanMemberOutputsCurrent(
             Path projectDirectory,
             ProjectConfig config,

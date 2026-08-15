@@ -3,6 +3,7 @@ package sh.zolt.workspace.packaging;
 import sh.zolt.build.nativeimage.NativeBuildResult;
 import sh.zolt.build.nativeimage.NativeBuildService;
 import sh.zolt.build.nativeimage.NativePackagePolicy;
+import sh.zolt.build.nativeimage.NativeOutputPlan;
 import sh.zolt.build.NativeImageException;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.framework.FrameworkPackageAugmenter;
@@ -117,8 +118,12 @@ public final class WorkspaceNativeBuildService {
             Runnable progress) {
         return WorkspaceMutationLock.withWorkspaceLock(target.startDirectory(), () -> {
             WorkspaceBuildPlan plan = planNative(target, cacheRoot, selectionRequest);
+            preflightNativeOutputs(plan);
             WorkspaceBuildResult buildResult = buildNativeInputs(plan, cacheRoot);
-            WorkspacePackageResult packageResult = packageNativeInputs(plan, buildResult);
+            WorkspacePackageResult packageResult = packageNativeInputs(
+                    plan,
+                    buildResult,
+                    plan.executionContext().cacheRoot());
             return buildNativeImages(plan, packageResult, nativeImageExecutableResolver, progress);
         });
     }
@@ -138,14 +143,24 @@ public final class WorkspaceNativeBuildService {
     }
 
     public WorkspaceBuildResult buildNativeInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
-        return workspacePackageService.buildPackageInputs(plan, cacheRoot);
+        return workspacePackageService.buildNativeInputs(plan, cacheRoot);
     }
 
     public WorkspacePackageResult packageNativeInputs(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult) {
+        return packageNativeInputs(plan, buildResult, plan.executionContext().cacheRoot());
+    }
+
+    public WorkspacePackageResult packageNativeInputs(
+            WorkspaceBuildPlan plan,
+            WorkspaceBuildResult buildResult,
+            Path cacheRoot) {
         return workspacePackageService.packageBuiltJars(
-                plan, buildResult, NativePackagePolicy::packageConfig);
+                plan,
+                buildResult,
+                cacheRoot,
+                NativePackagePolicy::packageConfig);
     }
 
     public WorkspaceNativeBuildResult buildNativeImages(
@@ -187,7 +202,11 @@ public final class WorkspaceNativeBuildService {
                     member.directory(),
                     config,
                     memberPackage.result(),
-                    memberBuild.classpaths().runtime().entries(),
+                    NativePackagePolicy.runtimeClasspath(
+                            config,
+                            memberPackage.result(),
+                            memberBuild.classpaths().runtime().entries(),
+                            memberBuild.classpathPackages()),
                     nativeImageExecutable,
                     progress);
             results.add(new WorkspaceNativeBuildResult.MemberNativeBuildResult(member.path(), result));
@@ -196,6 +215,17 @@ public final class WorkspaceNativeBuildService {
                 packageResult.resolveResult(),
                 packageResult.builtMembers(),
                 results);
+    }
+
+    private static void preflightNativeOutputs(WorkspaceBuildPlan plan) {
+        Map<String, WorkspaceMember> members = membersByPath(plan.workspace());
+        for (String memberPath : plan.selection().selectedMembers()) {
+            WorkspaceMember member = members.get(memberPath);
+            requireMainClass(member);
+            NativeOutputPlan.plan(
+                    member.directory(),
+                    ProjectVersionOverride.apply(member.config()));
+        }
     }
 
     @FunctionalInterface

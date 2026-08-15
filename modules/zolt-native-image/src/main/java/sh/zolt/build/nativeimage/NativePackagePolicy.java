@@ -9,7 +9,9 @@ import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public final class NativePackagePolicy {
     private NativePackagePolicy() {
@@ -39,6 +41,27 @@ public final class NativePackagePolicy {
             return List.of();
         }
         return runtimeClasspath;
+    }
+
+    /** Applies the standalone identity-based exclusions to an already projected workspace runtime. */
+    public static List<Path> runtimeClasspath(
+            ProjectConfig config,
+            PackageResult packageResult,
+            List<Path> runtimeClasspath,
+            List<ResolvedClasspathPackage> classpathPackages) {
+        List<Path> selected = runtimeClasspath(packageResult, runtimeClasspath);
+        Predicate<ResolvedClasspathPackage> included = classpathFilter(config);
+        Set<Path> excluded = classpathPackages.stream()
+                .filter(included.negate())
+                .map(dependency -> normalized(dependency.resolvedPackage().jarPath()))
+                .collect(Collectors.toUnmodifiableSet());
+        return selected.stream()
+                .filter(path -> !excluded.contains(normalized(path)))
+                .toList();
+    }
+
+    private static Path normalized(Path path) {
+        return path.toAbsolutePath().normalize();
     }
 
     private static boolean implicitSpringBootLoader(ResolvedClasspathPackage dependency) {

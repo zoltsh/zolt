@@ -172,6 +172,7 @@ final class WorkspaceMemberBuildExecutor {
             WorkspaceMemberClasspaths classpaths,
             WorkspaceExecutionContext context) {
         ClasspathSet memberClasspaths = classpaths.forMember(member.path());
+        var memberPackages = classpaths.packagesForMember(member.path());
         try {
             return new WorkspaceBuildResult.MemberBuildResult(
                     member.path(),
@@ -183,9 +184,10 @@ final class WorkspaceMemberBuildExecutor {
                             .build(
                                     member.directory(),
                                     member.config(),
-                                    memberClasspaths),
+                                    memberClasspaths,
+                                    memberPackages),
                     memberClasspaths,
-                    classpaths.packagesForMember(member.path()));
+                    memberPackages);
         } catch (JavacException exception) {
             throw new JavacException(
                     exception.getMessage()

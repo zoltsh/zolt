@@ -75,6 +75,17 @@ public record WorkspaceBuildRequirements(
                 true);
     }
 
+    public static WorkspaceBuildRequirements nativeBuild() {
+        return new WorkspaceBuildRequirements(
+                true,
+                true,
+                false,
+                false,
+                true,
+                false,
+                true);
+    }
+
     public WorkspaceBuildRequirements withPackageInputs(boolean required) {
         if (packageInputs == required) {
             return this;

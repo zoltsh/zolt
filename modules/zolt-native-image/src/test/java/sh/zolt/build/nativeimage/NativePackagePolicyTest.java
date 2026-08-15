@@ -1,5 +1,6 @@
 package sh.zolt.build.nativeimage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,6 +11,7 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class NativePackagePolicyTest {
@@ -54,6 +56,43 @@ final class NativePackagePolicyTest {
                 "spring-boot-loader",
                 false,
                 DependencyScope.RUNTIME)));
+    }
+
+    @Test
+    void workspaceRuntimeFilteringDropsOnlyTheImplicitLoaderByPackageIdentity() {
+        var implicitLoader = dependency(
+                "org.springframework.boot",
+                "spring-boot-loader",
+                false,
+                DependencyScope.RUNTIME);
+        var declaredLoader = dependency(
+                "org.springframework.boot",
+                "spring-boot-loader",
+                true,
+                DependencyScope.COMPILE);
+        Path application = Path.of("demo.jar");
+        var packageResult = new sh.zolt.build.packaging.PackageResult(
+                null,
+                sh.zolt.project.PackageMode.SPRING_BOOT,
+                application,
+                java.util.Optional.empty(),
+                1,
+                true);
+
+        assertEquals(
+                List.of(),
+                NativePackagePolicy.runtimeClasspath(
+                        springBootNativeConfig(),
+                        packageResult,
+                        List.of(implicitLoader.resolvedPackage().jarPath()),
+                        List.of(implicitLoader)));
+        assertEquals(
+                List.of(declaredLoader.resolvedPackage().jarPath()),
+                NativePackagePolicy.runtimeClasspath(
+                        springBootNativeConfig(),
+                        packageResult,
+                        List.of(declaredLoader.resolvedPackage().jarPath()),
+                        List.of(declaredLoader)));
     }
 
     private static ResolvedClasspathPackage dependency(
