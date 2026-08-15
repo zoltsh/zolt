@@ -6,6 +6,7 @@ import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.nestedJa
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeMainSource;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeProjectConfig;
 import static sh.zolt.cli.packaging.PackageSpringBootCommandTestSupport.writeSpringBootLockfile;
+import static sh.zolt.cli.CliTestSupport.writeCurrentProjectLock;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -109,7 +110,7 @@ final class PackageSpringBootJarCommandTest {
                 mode = "spring-boot"
                 """);
         writeMainSource(projectDir, "package com.example; public final class Main {}\n");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
 
         CommandResult result = execute(
                 "package",

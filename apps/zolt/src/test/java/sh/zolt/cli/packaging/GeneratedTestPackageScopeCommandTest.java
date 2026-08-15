@@ -3,6 +3,7 @@ package sh.zolt.cli.packaging;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.CliTestSupport.writeCurrentProjectLock;
 
 import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.BuildService;
@@ -162,7 +163,7 @@ final class GeneratedTestPackageScopeCommandTest {
         Path project = tempDir.resolve(name);
         Files.createDirectories(project);
         writeProject(project, name, generatedConfig);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(project);
         return project;
     }
 

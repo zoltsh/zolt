@@ -1,6 +1,7 @@
 package sh.zolt.cli.nativeimage;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.CliTestSupport.writeCurrentProjectLock;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -85,7 +86,7 @@ final class NativeCommandToolchainTest {
                 features = ["native-image"]
                 policy = "%s"
                 """.formatted(policy.id()));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n\n");
+        writeCurrentProjectLock(projectDir);
     }
 
     private static void source(Path projectDir) throws IOException {

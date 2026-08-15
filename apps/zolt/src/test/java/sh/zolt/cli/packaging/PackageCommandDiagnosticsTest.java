@@ -1,6 +1,7 @@
 package sh.zolt.cli.packaging;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.CliTestSupport.writeCurrentProjectLock;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,7 +21,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
     void packageCommandPrintsNestedJsonTimingsWhenRequested() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 
@@ -65,7 +66,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
     void packageCommandEmitsSparseProgressWhenEnabled() throws IOException {
         Path projectDir = tempDir.resolve("progress-demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 
@@ -92,7 +93,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
     void packageProgressColorsOnlyLeadFragmentsWhenForced() throws IOException {
         Path projectDir = tempDir.resolve("color-progress-demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, "package com.example; public final class Main {}\n");
 
         CommandResult result = execute(
@@ -113,7 +114,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
     void packageColorsOnlyHumanSummaryLeadFragmentsWhenForced() throws IOException {
         Path projectDir = tempDir.resolve("color-demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 
@@ -189,7 +190,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
     void packageAcceptsVisibleProjectDirectoryOption() throws IOException {
         Path projectDir = tempDir.resolve("directory-package");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 

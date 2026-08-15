@@ -7,6 +7,7 @@ import static sh.zolt.cli.build.BuildCommandTestSupport.currentJavaMajorVersion;
 import static sh.zolt.cli.build.BuildCommandTestSupport.writeMainSource;
 import static sh.zolt.cli.build.BuildCommandTestSupport.writeProjectConfig;
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.CliTestSupport.writeCurrentProjectLock;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -135,7 +136,7 @@ final class BuildCommandDiagnosticsTest {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         enableQuarkus(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
 
         CommandResult result = execute(
                 "build",
@@ -153,7 +154,7 @@ final class BuildCommandDiagnosticsTest {
     void buildCommandPrintsJsonTimingsWithIncrementalDiagnosticsWhenRequested() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 

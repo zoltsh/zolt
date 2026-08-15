@@ -104,10 +104,7 @@ public final class CommandLockfiles {
             return artifactIndex;
         }
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
-        ContentAddressedLockCapability.requireArtifactCachePaths(lockfile, "zolt resolve");
-        if (placeholderLock(lockfile) || legacyMetadataOnlyLock(lockfile)) {
-            return artifactIndex;
-        }
+        ContentAddressedLockCapability.requireExecutableLockfile(lockfile, "zolt resolve");
         boolean artifactsReady = lockedArtifactsReady(lockfile, cacheRoot);
         if (matchesProjectResolutionFingerprint(lockfilePath, config) && artifactsReady) {
             return artifactIndex;
@@ -211,23 +208,6 @@ public final class CommandLockfiles {
                     "Correct the lockfile path or regenerate zolt.lock with `zolt resolve`.",
                     exception);
         }
-    }
-
-    private static boolean placeholderLock(ZoltLockfile lockfile) {
-        return lockfile.packages().isEmpty()
-                && lockfile.projectResolutionFingerprint().isEmpty()
-                && lockfile.workspaceResolutionInputFingerprint().isEmpty();
-    }
-
-    private static boolean legacyMetadataOnlyLock(ZoltLockfile lockfile) {
-        return lockfile.version() < ContentAddressedLockCapability.MINIMUM_VERSION
-                && lockfile.packages().stream().noneMatch(lockPackage -> lockPackage.jar().isPresent()
-                        || lockPackage.pom().isPresent()
-                        || lockPackage.jarSha256().isPresent()
-                        || lockPackage.pomSha256().isPresent()
-                        || lockPackage.artifact().isPresent()
-                        || lockPackage.artifactType().isPresent()
-                        || lockPackage.artifactSha256().isPresent());
     }
 
     static boolean matchesProjectResolutionFingerprint(Path lockfilePath, ProjectConfig config) {

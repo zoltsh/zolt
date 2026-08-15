@@ -85,17 +85,9 @@ public final class WorkspaceLockFreshnessService {
                     discoveryNanos));
         }
         Optional<ZoltLockfile> lockfile = parse(content.orElseThrow());
-        lockfile.ifPresent(value -> ContentAddressedLockCapability.requireArtifactCachePaths(
+        lockfile.ifPresent(value -> ContentAddressedLockCapability.requireExecutableLockfile(
                 value,
                 "zolt resolve --workspace"));
-        if (lockfile.filter(value -> placeholderLock(value) || legacyMetadataOnlyLock(value)).isPresent()) {
-            return Optional.of(freshness(
-                    workspace,
-                    lockfilePath,
-                    lockfile,
-                    WorkspaceLockFreshness.Outcome.NOT_GENERATED,
-                    discoveryNanos));
-        }
         if (skippable(workspace, lockfile, content.orElseThrow(), cacheRoot)) {
             return Optional.of(freshness(
                     workspace,
@@ -112,23 +104,6 @@ public final class WorkspaceLockFreshnessService {
                 lockfile,
                 WorkspaceLockFreshness.Outcome.VERIFIED,
                 discoveryNanos));
-    }
-
-    private static boolean placeholderLock(ZoltLockfile lockfile) {
-        return lockfile.packages().isEmpty()
-                && lockfile.projectResolutionFingerprint().isEmpty()
-                && lockfile.workspaceResolutionInputFingerprint().isEmpty();
-    }
-
-    private static boolean legacyMetadataOnlyLock(ZoltLockfile lockfile) {
-        return lockfile.version() < ContentAddressedLockCapability.MINIMUM_VERSION
-                && lockfile.packages().stream().noneMatch(lockPackage -> lockPackage.jar().isPresent()
-                        || lockPackage.pom().isPresent()
-                        || lockPackage.jarSha256().isPresent()
-                        || lockPackage.pomSha256().isPresent()
-                        || lockPackage.artifact().isPresent()
-                        || lockPackage.artifactType().isPresent()
-                        || lockPackage.artifactSha256().isPresent());
     }
 
     /**

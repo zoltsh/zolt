@@ -59,6 +59,14 @@ public final class CliTestSupport {
                 """.formatted(name, currentJavaMajorVersion());
     }
 
+    /** Writes a current empty dependency lock carrying the project's real resolution fingerprint. */
+    public static void writeCurrentProjectLock(Path projectDirectory) throws IOException {
+        ContentAddressedLockTestSupport.write(
+                projectDirectory.resolve("zolt.lock"),
+                projectDirectory.resolve(".test-cache"),
+                "version = 6\n");
+    }
+
     public static String generatedSourceConfig(
             String scope,
             String id,

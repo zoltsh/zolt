@@ -103,6 +103,37 @@ final class CommandLockfilesTest {
     }
 
     @Test
+    void versionSixPlaceholderRequiresLockedVerification() throws Exception {
+        ProjectConfig config = config("1.0.0");
+        Path project = tempDir.resolve("placeholder-project");
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.lock"), "version = 6\n");
+        AtomicInteger resolves = new AtomicInteger();
+
+        lockfiles(resolves, new AtomicReference<>())
+                .requireFreshLockfile(project, config, cacheRoot(), false);
+
+        assertEquals(1, resolves.get());
+    }
+
+    @Test
+    void legacyMetadataOnlyLockRequiresLockedVerification() throws Exception {
+        ProjectConfig config = config("1.0.0");
+        Path project = tempDir.resolve("legacy-metadata-project");
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.lock"), "version = 5\n");
+        AtomicInteger resolves = new AtomicInteger();
+
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> lockfiles(resolves, new AtomicReference<>())
+                        .requireFreshLockfile(project, config, cacheRoot(), false));
+
+        assertTrue(exception.getMessage().contains("version 5 predates the version 6 executable lock contract"));
+        assertEquals(0, resolves.get());
+    }
+
+    @Test
     void matchingLockWithOnlyJarMissingRequiresLockedMaterialization() throws Exception {
         assertMissingArtifactRequiresMaterialization(JAR_PATH);
     }

@@ -106,12 +106,23 @@ final class WorkspaceLockFreshnessServiceTest {
     }
 
     @Test
-    void ignoresLegacyEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
+    void rejectsLegacyEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
         writeWorkspace(root);
         Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
 
-        assertEquals(WorkspaceLockFreshness.Outcome.NOT_GENERATED, requireFresh(root).outcome());
+        ActionableException exception = assertThrows(ActionableException.class, () -> requireFresh(root));
+
+        assertTrue(exception.getMessage().contains("version 5 predates the version 6 executable lock contract"));
         assertEquals(List.of(), verifications);
+    }
+
+    @Test
+    void verifiesVersionSixEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
+        writeWorkspace(root);
+        Files.writeString(root.resolve("zolt.lock"), "version = 6\n");
+
+        assertEquals(WorkspaceLockFreshness.Outcome.VERIFIED, requireFresh(root).outcome());
+        assertEquals(List.of("verify:zolt build --workspace"), verifications);
     }
 
     @Test

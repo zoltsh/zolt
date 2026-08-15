@@ -3,6 +3,7 @@ package sh.zolt.cli.build;
 import sh.zolt.cli.CliTestRepository;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.CliTestSupport.writeCurrentProjectLock;
 import static sh.zolt.cli.build.BuildCommandTestSupport.enableQuarkus;
 import static sh.zolt.cli.build.BuildCommandTestSupport.writeMainSource;
 import static sh.zolt.cli.build.BuildCommandTestSupport.writeProjectConfig;
@@ -137,7 +138,7 @@ final class BuildCommandTest {
     void buildQuietSuppressesVerboseProvenance() throws IOException {
         Path projectDir = tempDir.resolve("quiet-verbose-demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 
@@ -160,7 +161,7 @@ final class BuildCommandTest {
     void buildAcceptsVisibleProjectDirectoryOption() throws IOException {
         Path projectDir = tempDir.resolve("directory-build");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 
@@ -182,7 +183,7 @@ final class BuildCommandTest {
     void buildOfflineUsesExistingLockfileAndCache() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 
@@ -208,7 +209,7 @@ final class BuildCommandTest {
     void buildColorsOnlyHumanSummaryLeadFragmentsWhenForced() throws IOException {
         Path projectDir = tempDir.resolve("color-demo");
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        writeCurrentProjectLock(projectDir);
         writeMainSource(projectDir, """
                 package com.example;
 

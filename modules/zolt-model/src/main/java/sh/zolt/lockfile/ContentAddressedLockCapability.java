@@ -39,6 +39,20 @@ public final class ContentAddressedLockCapability {
         }
     }
 
+    /** Refuses every pre-v6 lock before an executable command can resolve, compile, or package. */
+    public static void requireExecutableLockfile(ZoltLockfile lockfile, String migrationCommand) {
+        requireArtifactCachePaths(lockfile, migrationCommand);
+        if (!supportsArtifactCachePaths(lockfile)) {
+            throw new ActionableException(ActionableError.of(
+                    "zolt.lock version "
+                            + lockfile.version()
+                            + " predates the version "
+                            + MINIMUM_VERSION
+                            + " executable lock contract required by this Zolt.",
+                    remediation(migrationCommand)));
+        }
+    }
+
     private static boolean usesArtifactCachePaths(ZoltLockfile lockfile) {
         return lockfile.packages().stream().anyMatch(lockPackage -> lockPackage.jar().isPresent()
                 || lockPackage.pom().isPresent()

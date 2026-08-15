@@ -164,6 +164,51 @@ final class WorkspaceLockFreshnessCommandTest {
         }
     }
 
+    @Test
+    void workspaceBuildCannotBypassResolutionThroughAnEmptyVersionSixRootLock() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            writeWorkspace(repository, LOCKED_VERSION);
+            String placeholder = "version = 6\n";
+            Files.writeString(lockfilePath(), placeholder);
+
+            CommandResult result = build();
+
+            assertEquals(1, result.exitCode(), result.stderr());
+            assertEquals(placeholder, Files.readString(lockfilePath()));
+            assertFalse(Files.isDirectory(apiDir().resolve("target/classes")));
+        }
+    }
+
+    @Test
+    void legacyMetadataOnlyLockCannotHideAChangedWorkspaceEdge() throws IOException {
+        Path root = tempDir.resolve("workspace-edge");
+        Path library = root.resolve("modules/lib");
+        Path application = root.resolve("apps/app");
+        writeWorkspaceEdgeProject(root, library, application);
+        CommandResult resolved = execute(
+                "resolve", "--workspace",
+                "--cwd", application.toString(),
+                "--cache-root", tempDir.resolve("workspace-edge-cache").toString());
+        assertEquals(0, resolved.exitCode(), resolved.stderr());
+        Path lockfile = root.resolve("zolt.lock");
+        String legacyLock = Files.readString(lockfile).replaceFirst("version = 6", "version = 5");
+        Files.writeString(lockfile, legacyLock);
+        Files.writeString(
+                application.resolve("zolt.toml"),
+                CliTestSupport.memberConfig("app"));
+
+        CommandResult result = execute(
+                "build", "--workspace", "--all",
+                "--cwd", application.toString(),
+                "--cache-root", tempDir.resolve("workspace-edge-cache").toString());
+
+        assertEquals(1, result.exitCode(), result.stderr());
+        assertTrue(result.stderr().contains("version 5 predates the version 6 executable lock contract"), result.stderr());
+        assertTrue(result.stderr().contains("zolt resolve --workspace"), result.stderr());
+        assertEquals(legacyLock, Files.readString(lockfile));
+        assertFalse(Files.isDirectory(application.resolve("target/classes")));
+    }
+
     /**
      * Package blocks for another version, with their real hashes, under the header this config
      * produced — exactly what a botched merge or a lockfile-only pull request leaves behind. Nothing
@@ -303,5 +348,30 @@ final class WorkspaceLockFreshnessCommandTest {
                 public final class Api {
                 }
                 """);
+    }
+
+    private static void writeWorkspaceEdgeProject(
+            Path root,
+            Path library,
+            Path application) throws IOException {
+        Files.createDirectories(library);
+        Files.createDirectories(application);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "workspace-edge"
+                members = ["modules/lib", "apps/app"]
+                """);
+        Files.writeString(library.resolve("zolt.toml"), CliTestSupport.memberConfig("lib"));
+        Files.writeString(application.resolve("zolt.toml"), CliTestSupport.memberConfig("app") + """
+
+                [dependencies]
+                "com.example:lib" = { workspace = "modules/lib" }
+                """);
+        Path librarySource = library.resolve("src/main/java/com/example/Lib.java");
+        Files.createDirectories(librarySource.getParent());
+        Files.writeString(librarySource, "package com.example; public final class Lib {}\n");
+        Path applicationSource = application.resolve("src/main/java/com/example/App.java");
+        Files.createDirectories(applicationSource.getParent());
+        Files.writeString(applicationSource, "package com.example; public final class App {}\n");
     }
 }

@@ -17,7 +17,7 @@ final class WorkspaceLegacyGraphLockCommandTest {
     private Path tempDir;
 
     @Test
-    void workspaceGraphCommandsRefuseAV4LockWithMissingOptionalEvidence()
+    void workspaceGraphCommandsRefuseAV4LockBeforeExecution()
             throws IOException {
         Path workspace = writeWorkspace();
 
@@ -70,13 +70,23 @@ final class WorkspaceLegacyGraphLockCommandTest {
                 test,
                 packageResult,
                 run,
-                nativeResult,
+                nativeResult
+        }) {
+            assertEquals(1, result.exitCode(), result.stderr());
+            assertTrue(result.stderr().contains("version 4"), result.stderr());
+            assertTrue(result.stderr().contains("executable lock contract"), result.stderr());
+            assertTrue(result.stderr().contains("zolt resolve --workspace"), result.stderr());
+        }
+        for (CommandResult result : new CommandResult[] {
                 publish,
                 sbom
         }) {
             assertEquals(1, result.exitCode(), result.stderr());
             assertTrue(result.stderr().contains("version 4"), result.stderr());
-            assertTrue(result.stderr().contains("optional-boundary"), result.stderr());
+            assertTrue(
+                    result.stderr().contains("executable lock contract")
+                            || result.stderr().contains("optional-boundary"),
+                    result.stderr());
             assertTrue(result.stderr().contains("zolt resolve --workspace"), result.stderr());
         }
         assertEquals(0, ide.exitCode(), ide.stderr());

@@ -142,6 +142,53 @@ final class StandaloneLockFreshnessCommandTest {
         }
     }
 
+    @ParameterizedTest(name = "placeholder lock with {0}")
+    @MethodSource("placeholderResolutionInputs")
+    void buildCannotBypassResolutionThroughAnEmptyVersionSixLock(
+            String displayName,
+            String resolutionInput) throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            Path project = tempDir.resolve("placeholder-" + displayName);
+            Files.createDirectories(project);
+            Files.writeString(project.resolve("zolt.toml"), """
+                    [project]
+                    name = "placeholder-%s"
+                    version = "0.1.0"
+                    group = "com.example"
+                    java = "%s"
+
+                    [repositories]
+                    test = "%s"
+
+                    %s
+                    """.formatted(
+                    displayName,
+                    currentJavaMajorVersion(),
+                    repository.baseUri(),
+                    resolutionInput));
+            Path source = project.resolve("src/main/java/com/example/Main.java");
+            Files.createDirectories(source.getParent());
+            Files.writeString(source, """
+                    package com.example;
+
+                    public final class Main {
+                    }
+                    """);
+            Path lockfile = project.resolve("zolt.lock");
+            String placeholder = "version = 6\n";
+            Files.writeString(lockfile, placeholder);
+
+            CommandResult result = execute(
+                    "build",
+                    "--cwd", project.toString(),
+                    "--cache-root", tempDir.resolve("placeholder-cache-" + displayName).toString());
+
+            assertEquals(1, result.exitCode(), result.stderr());
+            assertEquals(placeholder, Files.readString(lockfile));
+            assertFalse(Files.isDirectory(project.resolve("target/classes")));
+        }
+    }
+
     private static Stream<Arguments> commandsUsingFreshnessGate() {
         return Stream.of(
                 Arguments.of("build", List.of("build")),
@@ -149,6 +196,25 @@ final class StandaloneLockFreshnessCommandTest {
                 Arguments.of("package", List.of("package")),
                 Arguments.of("classpath", List.of("classpath", "runtime")),
                 Arguments.of("test compile", List.of("test", "--compile-only")));
+    }
+
+    private static Stream<Arguments> placeholderResolutionInputs() {
+        return Stream.of(
+                Arguments.of("runtime", """
+                        [runtime.dependencies]
+                        "com.example:missing-runtime" = "1.0.0"
+                        """),
+                Arguments.of("processor", """
+                        [annotationProcessors]
+                        "com.example:missing-processor" = "1.0.0"
+                        """),
+                Arguments.of("package-only", """
+                        [package]
+                        mode = "spring-boot"
+
+                        [platforms]
+                        "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
+                        """));
     }
 
     private void prepareProject(CliTestRepository repository) throws IOException {

@@ -1,6 +1,7 @@
 package sh.zolt.cli.toolchain;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.cli.CliTestSupport.writeCurrentProjectLock;
 
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
@@ -36,7 +37,7 @@ public final class ManagedJavaToolchainTestFixture {
                 features = []
                 policy = "require-managed"
                 """.formatted(name, currentJavaMajorVersion(), currentJavaMajorVersion()));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n\n");
+        writeCurrentProjectLock(projectDir);
         Path source = projectDir.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, """

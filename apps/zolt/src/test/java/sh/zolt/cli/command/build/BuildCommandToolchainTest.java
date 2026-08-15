@@ -79,6 +79,7 @@ final class BuildCommandToolchainTest {
                     }
                 }
                 """);
+        resolveWorkspaceLock(workspaceDir);
         new ToolchainLockfileService().writeJava(workspaceDir.resolve("zolt.lock"), locked);
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         Path javacMarker = workspaceDir.resolve("javac-marker.txt");
@@ -136,6 +137,7 @@ final class BuildCommandToolchainTest {
                     }
                 }
                 """);
+        resolveWorkspaceLock(workspaceDir);
         new ToolchainLockfileService().writeJava(workspaceDir.resolve("zolt.lock"), locked);
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         Path javacMarker = workspaceDir.resolve("javac-marker.txt");
@@ -191,6 +193,7 @@ final class BuildCommandToolchainTest {
                 }
                 """);
         ToolchainLockfileService lockfiles = new ToolchainLockfileService();
+        resolveWorkspaceLock(workspaceDir);
         lockfiles.writeJava(workspaceDir.resolve("zolt.lock"), locked);
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         Path javacMarker = workspaceDir.resolve("javac-marker.txt");
@@ -276,6 +279,15 @@ final class BuildCommandToolchainTest {
                 "--timings-format", "json",
                 "--toolchain-target", "linux-x64",
                 "--toolchain-install-root", tempDir.resolve("toolchains").toString());
+    }
+
+    private void resolveWorkspaceLock(Path workspaceDir) {
+        CommandResult result = execute(
+                "resolve",
+                "--workspace",
+                "--cwd", workspaceDir.toString(),
+                "--cache-root", tempDir.resolve("cache").toString());
+        assertEquals(0, result.exitCode(), result.stderr());
     }
 
     private static void assertPipelineInvocations(
