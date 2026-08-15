@@ -1,18 +1,18 @@
 package sh.zolt.build.nativeimage;
 
 import sh.zolt.build.NativeImageException;
+import sh.zolt.process.ProcessInputPolicy;
+import sh.zolt.process.ProcessSupervisor;
+import sh.zolt.process.SupervisedProcessResult;
+import sh.zolt.process.SupervisedProcessSpec;
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public final class NativeImageRunner {
     private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(60);
@@ -23,11 +23,15 @@ public final class NativeImageRunner {
     public NativeImageRunner() {
         this(
                 java.io.File.pathSeparator,
-                (command, progress) -> runProcess(command, progress, HEARTBEAT_INTERVAL));
+                (command, progress, output) -> runProcess(command, progress, output, HEARTBEAT_INTERVAL));
     }
 
     NativeImageRunner(String pathSeparator, ProcessRunner processRunner) {
-        this(pathSeparator, (command, progress) -> processRunner.run(command));
+        this(pathSeparator, (command, progress, output) -> {
+            ProcessResult result = processRunner.run(command);
+            output.accept(result.output());
+            return result;
+        });
     }
 
     NativeImageRunner(String pathSeparator, ProcessLauncher processLauncher) {
@@ -36,31 +40,43 @@ public final class NativeImageRunner {
     }
 
     public NativeImageResult build(NativeImageRequest request) {
-        return build(request, () -> {
-        });
+        return build(request, () -> {});
     }
 
     public NativeImageResult build(NativeImageRequest request, Runnable progress) {
-        validate(request);
-        createDirectories(request.outputBinary(), request.logFile());
-        removeExistingOutputBinary(request.outputBinary());
-        List<String> command = command(request);
-        ProcessResult result = processLauncher.run(command, progress);
-        writeLog(request.logFile(), result.output());
-        if (result.exitCode() != 0) {
-            throw new NativeImageException(
-                    "native-image failed with exit code "
-                            + result.exitCode()
-                            + ". Review "
-                            + request.logFile()
-                            + ", fix the Native Image errors, and try again.\n"
-                            + result.output().stripTrailing());
-        }
-        requireOutputBinary(request.outputBinary());
-        return new NativeImageResult(request.outputBinary(), request.logFile(), result.output());
+        return build(request, progress, ignored -> {});
     }
 
-    private List<String> command(NativeImageRequest request) {
+    NativeImageResult build(
+            NativeImageRequest request,
+            Runnable progress,
+            Consumer<NativeImageResult> acceptance) {
+        validate(request);
+        createDirectories(request.outputBinary(), request.logFile());
+        Path stagingBinary = NativeBinaryPublication.stagingPath(request.outputBinary());
+        try {
+            ProcessResult result;
+            try (NativeImageLog log = NativeImageLog.open(request.logFile())) {
+                result = processLauncher.run(
+                        command(request, stagingBinary),
+                        progress,
+                        log::append);
+                requireSuccessfulExit(request, result);
+                NativeBinaryPublication.requireCandidate(stagingBinary, request.outputBinary());
+            }
+            NativeImageResult nativeResult = new NativeImageResult(
+                    request.outputBinary(),
+                    request.logFile(),
+                    result.output());
+            acceptance.accept(nativeResult);
+            NativeBinaryPublication.publish(stagingBinary, request.outputBinary());
+            return nativeResult;
+        } finally {
+            NativeBinaryPublication.removeStaging(stagingBinary);
+        }
+    }
+
+    private List<String> command(NativeImageRequest request, Path stagingBinary) {
         List<String> command = new ArrayList<>();
         command.add(request.executable().toString());
         command.addAll(request.arguments());
@@ -68,7 +84,7 @@ public final class NativeImageRunner {
         command.add(joinedClasspath(request));
         command.add(request.mainClass());
         command.add("-o");
-        command.add(request.outputBinary().toString());
+        command.add(stagingBinary.toString());
         return List.copyOf(command);
     }
 
@@ -94,8 +110,7 @@ public final class NativeImageRunner {
         if (request.logFile() == null) {
             throw new NativeImageException("Native Image log path is missing. Check the native output directory.");
         }
-        if (request.outputBinary().toAbsolutePath().normalize()
-                .equals(request.logFile().toAbsolutePath().normalize())) {
+        if (NativePathOwnership.overlaps(request.outputBinary(), request.logFile())) {
             throw new NativeImageException(
                     "Native Image output binary and log must be distinct paths. "
                             + "Change [native].imageName or [native].output.");
@@ -117,82 +132,46 @@ public final class NativeImageRunner {
         }
     }
 
-    private static void removeExistingOutputBinary(Path outputBinary) {
-        try {
-            Files.deleteIfExists(outputBinary);
-        } catch (IOException exception) {
-            throw new NativeImageException(
-                    "Could not remove existing Native Image output binary at "
-                            + outputBinary
-                            + ". Check filesystem permissions and retry.",
-                    exception);
+    private static void requireSuccessfulExit(NativeImageRequest request, ProcessResult result) {
+        if (result.exitCode() == 0) {
+            return;
         }
-    }
-
-    private static void requireOutputBinary(Path outputBinary) {
-        if (!Files.isRegularFile(outputBinary)) {
-            throw new NativeImageException(
-                    "Native Image completed but did not create expected binary at "
-                            + outputBinary
-                            + ". Review the native-image output and retry.");
-        }
-    }
-
-    private static void writeLog(Path logFile, String output) {
-        try {
-            Files.writeString(logFile, output, StandardCharsets.UTF_8);
-        } catch (IOException exception) {
-            throw new NativeImageException(
-                    "Could not write Native Image log at "
-                            + logFile
-                            + ". Check that the output directory is writable.",
-                    exception);
-        }
+        throw new NativeImageException(
+                "native-image failed with exit code "
+                        + result.exitCode()
+                        + ". Review "
+                        + request.logFile()
+                        + ", fix the Native Image errors, and try again.\n"
+                        + result.output().stripTrailing());
     }
 
     private static ProcessResult runProcess(
             List<String> command,
             Runnable progress,
+            Consumer<String> output,
             Duration heartbeatInterval) {
         try {
-            Process process = new ProcessBuilder(command)
-                    .redirectErrorStream(true)
-                    .start();
-            CompletableFuture<String> output = CompletableFuture.supplyAsync(() -> readProcessOutput(process));
-            while (!process.waitFor(heartbeatInterval.toMillis(), TimeUnit.MILLISECONDS)) {
-                progress.run();
+            SupervisedProcessResult result = new ProcessSupervisor().run(
+                    SupervisedProcessSpec.builder(command)
+                            .inputPolicy(ProcessInputPolicy.CLOSED)
+                            .stdoutConsumer(output)
+                            .build(),
+                    heartbeatInterval,
+                    progress);
+            if (result.terminationInitiatedByZolt()) {
+                throw new NativeImageException(
+                        "native-image was cancelled. The previous native binary was preserved; try the native build again.");
             }
-            int exitCode = process.exitValue();
-            return resultFrom(exitCode, output);
+            return new ProcessResult(result.exitCode(), result.diagnosticTail());
         } catch (IOException exception) {
             throw new NativeImageException(
                     "Could not run native-image. Install GraalVM Native Image or configure the native-image executable.",
                     exception);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new NativeImageException("native-image was interrupted. Try the native build again.", exception);
-        }
-    }
-
-    private static String readProcessOutput(Process process) {
-        try {
-            return new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException exception) {
-            throw new UncheckedIOException(exception);
-        }
-    }
-
-    private static ProcessResult resultFrom(int exitCode, CompletableFuture<String> output) {
-        try {
-            return new ProcessResult(exitCode, output.join());
-        } catch (CompletionException exception) {
-            Throwable cause = exception.getCause();
-            if (cause instanceof UncheckedIOException ioException) {
-                throw new NativeImageException(
-                        "Could not read native-image output. Check process output permissions.",
-                        ioException.getCause());
-            }
-            throw exception;
+            throw new NativeImageException(
+                    "native-image was interrupted. The previous native binary was preserved; try the native build again.",
+                    exception);
         }
     }
 
@@ -203,7 +182,7 @@ public final class NativeImageRunner {
 
     @FunctionalInterface
     interface ProcessLauncher {
-        ProcessResult run(List<String> command, Runnable progress);
+        ProcessResult run(List<String> command, Runnable progress, Consumer<String> output);
     }
 
     record ProcessResult(int exitCode, String output) {

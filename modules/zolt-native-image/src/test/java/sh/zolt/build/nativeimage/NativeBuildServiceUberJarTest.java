@@ -74,7 +74,8 @@ final class NativeBuildServiceUberJarTest extends NativeBuildServiceTestSupport 
                 "-cp",
                 nativeInputJar.toString(),
                 "com.example.Main",
-                "-o",
-                outputBinary.toString()), commands.getFirst());
+                "-o"), commands.getFirst().subList(0, 8));
+        assertTrue(commands.getFirst().getLast().startsWith(
+                outputBinary.getParent().resolve(".demo-native.zolt-staging-").toString()));
     }
 }

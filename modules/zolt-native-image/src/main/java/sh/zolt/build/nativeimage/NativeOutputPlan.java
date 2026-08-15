@@ -7,8 +7,6 @@ import sh.zolt.build.packageplan.PackagePlanOutputs;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPaths;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -31,6 +29,14 @@ public record NativeOutputPlan(
     }
 
     public static NativeOutputPlan plan(Path projectDirectory, ProjectConfig config) {
+        return plan(projectDirectory, config, null, null);
+    }
+
+    public static NativeOutputPlan plan(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            Path nativeImageExecutable) {
         Path root = ProjectPaths.root(projectDirectory);
         String output = config.nativeSettings().output();
         ProjectPaths.output(root, "[native].output", output);
@@ -43,11 +49,15 @@ public record NativeOutputPlan(
                 ProjectPaths.output(root, "Spring Boot native evidence", output + "/" + EVIDENCE_NAME),
                 ProjectPaths.output(root, "native package input", output + "/" + INPUT_NAME),
                 configuredPackageOutputs(root, config));
-        plan.validate();
+        plan.validate(root, config, cacheRoot, nativeImageExecutable);
         return plan;
     }
 
-    private void validate() {
+    private void validate(
+            Path root,
+            ProjectConfig config,
+            Path cacheRoot,
+            Path nativeImageExecutable) {
         Map<String, Path> nativeOutputs = new LinkedHashMap<>();
         nativeOutputs.put("native binary", binary);
         nativeOutputs.put("native log", log);
@@ -55,23 +65,65 @@ public record NativeOutputPlan(
         nativeOutputs.put("native package input", inputDirectory);
         requirePairwiseDistinct(nativeOutputs);
 
-        Path ownedBinary = ownershipPath(binary);
-        Path ownedInput = ownershipPath(inputDirectory);
+        Path ownedBinary = NativePathOwnership.ownershipPath(binary);
+        Path ownedInput = NativePathOwnership.ownershipPath(inputDirectory);
         if (ownedBinary.startsWith(ownedInput)) {
             throw conflict("native binary", binary, "native package input", inputDirectory);
         }
 
         for (Path configured : configuredPackageOutputs) {
-            Path ownedConfigured = ownershipPath(configured);
-            rejectSame("native binary", binary, ownedBinary, configured, ownedConfigured);
-            rejectSame("native log", log, ownershipPath(log), configured, ownedConfigured);
-            rejectSame("Spring Boot native evidence", evidence, ownershipPath(evidence), configured, ownedConfigured);
+            Path ownedConfigured = NativePathOwnership.ownershipPath(configured);
+            rejectSame("native binary", binary, configured);
+            rejectSame("native log", log, configured);
+            rejectSame("Spring Boot native evidence", evidence, configured);
             if (ownedConfigured.startsWith(ownedInput) || ownedInput.startsWith(ownedConfigured)) {
                 throw conflict(
                         "native package input",
                         inputDirectory,
                         "configured package output",
                         configured);
+            }
+        }
+        Path outputDirectory = binary.getParent();
+        for (NativeProtectedPaths.ProtectedPath protectedPath : NativeProtectedPaths.collect(
+                root,
+                config,
+                cacheRoot,
+                nativeImageExecutable,
+                configuredPackageOutputs)) {
+            if (NativePathOwnership.overlaps(outputDirectory, protectedPath.path())) {
+                throw conflict(
+                        "native output directory",
+                        outputDirectory,
+                        protectedPath.kind(),
+                        protectedPath.path());
+            }
+            for (Path managed : List.of(binary, log, evidence, inputDirectory)) {
+                if (NativePathOwnership.overlaps(managed, protectedPath.path())) {
+                    throw conflict(
+                            "native managed path",
+                            managed,
+                            protectedPath.kind(),
+                            protectedPath.path());
+                }
+            }
+        }
+    }
+
+    void validateReadInputs(List<Path> inputs) {
+        Path outputDirectory = binary.getParent();
+        for (Path input : inputs) {
+            if (NativePathOwnership.ownershipPath(input)
+                    .startsWith(NativePathOwnership.ownershipPath(inputDirectory))) {
+                continue;
+            }
+            if (NativePathOwnership.overlaps(outputDirectory, input)) {
+                throw conflict("native output directory", outputDirectory, "native-image input", input);
+            }
+            for (Path managed : List.of(binary, log, evidence, inputDirectory)) {
+                if (NativePathOwnership.overlaps(managed, input)) {
+                    throw conflict("native managed path", managed, "native-image input", input);
+                }
             }
         }
     }
@@ -82,7 +134,7 @@ public record NativeOutputPlan(
             for (int right = left + 1; right < entries.size(); right++) {
                 var first = entries.get(left);
                 var second = entries.get(right);
-                if (ownershipPath(first.getValue()).equals(ownershipPath(second.getValue()))) {
+                if (NativePathOwnership.overlaps(first.getValue(), second.getValue())) {
                     throw conflict(first.getKey(), first.getValue(), second.getKey(), second.getValue());
                 }
             }
@@ -92,12 +144,8 @@ public record NativeOutputPlan(
     private static void rejectSame(
             String nativeKind,
             Path nativePath,
-            Path ownedNative,
-            Path configured,
-            Path ownedConfigured) {
-        if (ownedNative.equals(ownedConfigured)
-                || ownedNative.startsWith(ownedConfigured)
-                || ownedConfigured.startsWith(ownedNative)) {
+            Path configured) {
+        if (NativePathOwnership.overlaps(nativePath, configured)) {
             throw conflict(nativeKind, nativePath, "configured package output", configured);
         }
     }
@@ -117,28 +165,7 @@ public record NativeOutputPlan(
                         + " `"
                         + second
                         + "`. Choose distinct [native].output and [native].imageName values that do not overlap "
-                        + "configured package outputs.");
-    }
-
-    /** Resolves existing symlink ancestors so lexically different paths cannot claim one destination. */
-    private static Path ownershipPath(Path path) {
-        Path absolute = path.toAbsolutePath().normalize();
-        Path existing = absolute;
-        while (existing != null && !Files.exists(existing)) {
-            existing = existing.getParent();
-        }
-        if (existing == null) {
-            return absolute;
-        }
-        try {
-            return existing.toRealPath().resolve(existing.relativize(absolute)).normalize();
-        } catch (IOException exception) {
-            throw new NativeImageException(
-                    "Could not validate Native Image output ownership at "
-                            + path
-                            + ". Check that the path and its ancestors are readable.",
-                    exception);
-        }
+                        + "project inputs, build outputs, package outputs, caches, and the configured native-image executable.");
     }
 
     private static List<Path> configuredPackageOutputs(Path root, ProjectConfig config) {

@@ -186,6 +186,7 @@ final class WorkspaceNativeBuildServiceTest {
 
                 mkdir -p "$(dirname "$output")"
                 printf 'native\\n' > "$output"
+                chmod +x "$output"
                 printf 'executable=%s\\n' "$0"
                 printf 'classpath=%s\\n' "$classpath"
                 printf 'output=%s\\n' "$output"

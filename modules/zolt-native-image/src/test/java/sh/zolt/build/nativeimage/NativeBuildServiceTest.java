@@ -66,9 +66,10 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
                 }
                 """);
         List<String> progressEvents = new ArrayList<>();
-        NativeBuildService service = serviceLauncher((command, progress) -> {
+        NativeBuildService service = serviceLauncher((command, progress, output) -> {
             progress.run();
             writeNativeBinary(Path.of(command.getLast()));
+            output.accept("native ok\n");
             return new NativeImageRunner.ProcessResult(0, "native ok\n");
         });
 
@@ -322,7 +323,8 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
         assertEquals(projectDir.resolve(".zolt/build/native/demo"), result.nativeImageResult().outputBinary());
         assertEquals(projectDir.resolve(".zolt/build/native/native-image.log"), result.nativeImageResult().logFile());
         assertTrue(Files.exists(projectDir.resolve(".zolt/build/native/demo")));
-        assertTrue(commands.getFirst().contains(projectDir.resolve(".zolt/build/native/demo").toString()));
+        assertTrue(commands.getFirst().getLast().startsWith(
+                projectDir.resolve(".zolt/build/native/.demo.zolt-staging-").toString()));
     }
 
     @Test
@@ -368,6 +370,10 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
                     }
                 }
                 """);
+        Path previousBinary = projectDir.resolve("target/native-custom/demo-native");
+        Files.createDirectories(previousBinary.getParent());
+        Files.writeString(previousBinary, "last-known-good");
+        previousBinary.toFile().setExecutable(true, false);
         NativeBuildService service = service(command -> {
             writeNativeBinary(Path.of(command.getLast()));
             return new NativeImageRunner.ProcessResult(
@@ -387,6 +393,7 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
         assertTrue(exception.getMessage().contains(projectDir.resolve("target/native-custom/native-image.log").toString()));
         assertTrue(exception.getMessage().contains("Warning: unsupported reflection configuration"));
         assertTrue(Files.exists(projectDir.resolve("target/native-custom/native-image.log")));
+        assertEquals("last-known-good", Files.readString(previousBinary));
     }
 
     private static ProjectConfig springBootNativeConfig() {

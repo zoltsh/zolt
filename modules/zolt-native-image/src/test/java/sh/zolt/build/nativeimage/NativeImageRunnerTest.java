@@ -24,7 +24,7 @@ final class NativeImageRunnerTest {
         Path logFile = tempDir.resolve("target/native/native-image.log");
         NativeImageRunner runner = new NativeImageRunner(":", command -> {
             commands.add(command);
-            writeNativeBinary(outputBinary, "native");
+            writeNativeBinary(Path.of(command.getLast()), "native");
             return new NativeImageRunner.ProcessResult(0, "native ok\n");
         });
 
@@ -49,8 +49,9 @@ final class NativeImageRunnerTest {
                 "-cp",
                 "target/demo.jar:cache/lib.jar",
                 "com.example.Main",
-                "-o",
-                outputBinary.toString()), commands.getFirst());
+                "-o"), commands.getFirst().subList(0, 7));
+        assertTrue(commands.getFirst().getLast().startsWith(
+                outputBinary.getParent().resolve(".demo.zolt-staging-").toString()));
     }
 
     @Test
@@ -59,7 +60,7 @@ final class NativeImageRunnerTest {
         Path outputBinary = tempDir.resolve("demo");
         NativeImageRunner runner = new NativeImageRunner(":", command -> {
             commands.add(command);
-            writeNativeBinary(outputBinary, "native");
+            writeNativeBinary(Path.of(command.getLast()), "native");
             return new NativeImageRunner.ProcessResult(0, "");
         });
 
@@ -79,9 +80,10 @@ final class NativeImageRunnerTest {
     void forwardsProgressHeartbeatToNativeImageProcessExecution() throws IOException {
         List<String> progressEvents = new ArrayList<>();
         Path outputBinary = tempDir.resolve("target/native/demo");
-        NativeImageRunner runner = new NativeImageRunner(":", (command, progress) -> {
+        NativeImageRunner runner = new NativeImageRunner(":", (command, progress, output) -> {
             progress.run();
-            writeNativeBinary(outputBinary, "native");
+            writeNativeBinary(Path.of(command.getLast()), "native");
+            output.accept("native ok\n");
             return new NativeImageRunner.ProcessResult(0, "native ok\n");
         });
 
@@ -101,13 +103,13 @@ final class NativeImageRunnerTest {
     }
 
     @Test
-    void removesExistingOutputBinaryBeforeNativeImageRuns() throws IOException {
+    void preservesExistingOutputBinaryUntilAtomicPublication() throws IOException {
         Path outputBinary = tempDir.resolve("target/native/demo");
         Files.createDirectories(outputBinary.getParent());
         Files.writeString(outputBinary, "stale");
         NativeImageRunner runner = new NativeImageRunner(":", command -> {
-            assertTrue(Files.notExists(outputBinary));
-            writeNativeBinary(outputBinary, "fresh");
+            assertEquals("stale", readString(outputBinary));
+            writeNativeBinary(Path.of(command.getLast()), "fresh");
             return new NativeImageRunner.ProcessResult(0, "native ok\n");
         });
 
@@ -216,6 +218,15 @@ final class NativeImageRunnerTest {
     private static void writeNativeBinary(Path outputBinary, String content) {
         try {
             Files.writeString(outputBinary, content);
+            outputBinary.toFile().setExecutable(true, false);
+        } catch (IOException exception) {
+            throw new AssertionError(exception);
+        }
+    }
+
+    private static String readString(Path path) {
+        try {
+            return Files.readString(path);
         } catch (IOException exception) {
             throw new AssertionError(exception);
         }

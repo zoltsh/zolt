@@ -96,6 +96,7 @@ abstract class NativeBuildServiceTestSupport {
     protected static void writeNativeBinary(Path outputBinary) {
         try {
             Files.writeString(outputBinary, "native");
+            outputBinary.toFile().setExecutable(true, false);
         } catch (IOException exception) {
             throw new AssertionError("Could not write fake native binary", exception);
         }
