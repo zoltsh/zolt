@@ -23,7 +23,6 @@ import sh.zolt.resolve.ResolveService;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 public final class PackageService {
     private final BuildService buildService;
@@ -157,25 +156,28 @@ public final class PackageService {
         return packageJar(projectRoot, config, buildResult, cacheRoot);
     }
 
-    /** Packages against a command-specific projection of the fully verified lockfile packages. */
+    /**
+     * Builds with the declared project semantics, then packages into an explicitly separate output
+     * configuration. Native compilation uses this to keep its JVM input private without hiding the
+     * configured Spring Boot mode from AOT generation.
+     */
     public PackageResult packageJar(
             Path projectDirectory,
-            ProjectConfig config,
+            ProjectConfig buildConfig,
+            ProjectConfig packageConfig,
             Path cacheRoot,
-            VerifiedArtifactIndex artifactIndex,
-            Predicate<ResolvedClasspathPackage> packageFilter) {
+            VerifiedArtifactIndex artifactIndex) {
         Path projectRoot = projectRoot(projectDirectory);
-        PackageMode mode = config.packageSettings().mode();
+        PackageMode mode = packageConfig.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
-        preparePackageToolingIfNeeded(projectRoot, config, cacheRoot);
+        preparePackageToolingIfNeeded(projectRoot, packageConfig, cacheRoot);
         BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
                 projectRoot,
-                config,
+                buildConfig,
                 cacheRoot,
                 false,
-                artifactIndex,
-                packageFilter);
-        return packageJar(projectRoot, config, buildResult, cacheRoot);
+                artifactIndex);
+        return packageJar(projectRoot, packageConfig, buildResult, cacheRoot);
     }
 
     public void preparePackageToolingIfNeeded(Path projectDirectory, ProjectConfig config, Path cacheRoot) {

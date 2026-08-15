@@ -1,6 +1,7 @@
 package sh.zolt.cli.nativeimage;
 
 import static sh.zolt.cli.CliTestSupport.execute;
+import static sh.zolt.cli.CliTestSupport.sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,6 +10,8 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -74,5 +77,47 @@ final class NativeCommandWorkspaceTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains("Use either --all or member selection for workspace selection, not both."));
+    }
+
+    @Test
+    void workspaceNativeKeepsConfiguredMemberPackageOutputsByteIdentical() throws IOException {
+        Path workspaceDir = tempDir.resolve("workspace-native-package-isolation");
+        NativeCommandTestSupport.writeWorkspaceNativeFixture(workspaceDir);
+        Path cache = tempDir.resolve("workspace-native-package-cache");
+        Path nativeImage = NativeCommandTestSupport.writeFakeNativeImage(
+                tempDir.resolve("workspace-native-package-image"));
+        CommandResult packaged = execute(
+                "package", "--workspace", "--member", "apps/api",
+                "--cwd", workspaceDir.toString(),
+                "--cache-root", cache.toString());
+        assertEquals(0, packaged.exitCode(), packaged.stderr());
+        Path target = workspaceDir.resolve("apps/api/target");
+        Map<String, String> before = packageOutputHashes(target);
+
+        for (int run = 0; run < 2; run++) {
+            CommandResult result = execute(
+                    "native", "--workspace", "--member", "apps/api",
+                    "--cwd", workspaceDir.toString(),
+                    "--cache-root", cache.toString(),
+                    "--native-image", nativeImage.toString());
+            assertEquals(0, result.exitCode(), result.stderr());
+            assertEquals(before, packageOutputHashes(target));
+        }
+        assertTrue(Files.isRegularFile(target.resolve("native/input/api-0.1.0.jar")));
+        assertTrue(Files.isRegularFile(target.resolve(
+                "native/input/api-0.1.0.jar.zolt-package.json")));
+    }
+
+    private static Map<String, String> packageOutputHashes(Path target) throws IOException {
+        Map<String, String> hashes = new LinkedHashMap<>();
+        try (var paths = Files.list(target)) {
+            for (Path path : paths.filter(Files::isRegularFile)
+                    .filter(candidate -> candidate.getFileName().toString().startsWith("api-0.1.0"))
+                    .sorted()
+                    .toList()) {
+                hashes.put(path.getFileName().toString(), sha256(path));
+            }
+        }
+        return hashes;
     }
 }

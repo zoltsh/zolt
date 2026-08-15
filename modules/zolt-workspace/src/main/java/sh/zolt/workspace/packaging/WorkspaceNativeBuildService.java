@@ -2,10 +2,10 @@ package sh.zolt.workspace.packaging;
 
 import sh.zolt.build.nativeimage.NativeBuildResult;
 import sh.zolt.build.nativeimage.NativeBuildService;
+import sh.zolt.build.nativeimage.NativePackagePolicy;
 import sh.zolt.build.NativeImageException;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.framework.FrameworkPackageAugmenter;
-import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectVersionOverride;
 import sh.zolt.provenance.BuildProvenanceSource;
@@ -73,10 +73,10 @@ public final class WorkspaceNativeBuildService {
             WorkspaceSelectionRequest selectionRequest,
             Path nativeImageExecutable) {
         return buildNative(
-                startDirectory,
+                WorkspacePlanTarget.at(startDirectory),
                 cacheRoot,
                 selectionRequest,
-                nativeImageExecutable,
+                NativeImageExecutableResolver.fixed(nativeImageExecutable),
                 () -> {
                 });
     }
@@ -88,7 +88,7 @@ public final class WorkspaceNativeBuildService {
             Path nativeImageExecutable,
             Runnable progress) {
         return buildNative(
-                startDirectory,
+                WorkspacePlanTarget.at(startDirectory),
                 cacheRoot,
                 selectionRequest,
                 NativeImageExecutableResolver.fixed(nativeImageExecutable),
@@ -101,8 +101,22 @@ public final class WorkspaceNativeBuildService {
             WorkspaceSelectionRequest selectionRequest,
             NativeImageExecutableResolver nativeImageExecutableResolver,
             Runnable progress) {
-        return WorkspaceMutationLock.withWorkspaceLock(startDirectory, () -> {
-            WorkspaceBuildPlan plan = planNative(startDirectory, cacheRoot, selectionRequest);
+        return buildNative(
+                WorkspacePlanTarget.at(startDirectory),
+                cacheRoot,
+                selectionRequest,
+                nativeImageExecutableResolver,
+                progress);
+    }
+
+    public WorkspaceNativeBuildResult buildNative(
+            WorkspacePlanTarget target,
+            Path cacheRoot,
+            WorkspaceSelectionRequest selectionRequest,
+            NativeImageExecutableResolver nativeImageExecutableResolver,
+            Runnable progress) {
+        return WorkspaceMutationLock.withWorkspaceLock(target.startDirectory(), () -> {
+            WorkspaceBuildPlan plan = planNative(target, cacheRoot, selectionRequest);
             WorkspaceBuildResult buildResult = buildNativeInputs(plan, cacheRoot);
             WorkspacePackageResult packageResult = packageNativeInputs(plan, buildResult);
             return buildNativeImages(plan, packageResult, nativeImageExecutableResolver, progress);
@@ -113,8 +127,14 @@ public final class WorkspaceNativeBuildService {
             Path startDirectory,
             Path cacheRoot,
             WorkspaceSelectionRequest selectionRequest) {
-        return workspacePackageService.planPackages(
-                WorkspacePlanTarget.at(startDirectory), cacheRoot, selectionRequest);
+        return planNative(WorkspacePlanTarget.at(startDirectory), cacheRoot, selectionRequest);
+    }
+
+    public WorkspaceBuildPlan planNative(
+            WorkspacePlanTarget target,
+            Path cacheRoot,
+            WorkspaceSelectionRequest selectionRequest) {
+        return workspacePackageService.planPackages(target, cacheRoot, selectionRequest);
     }
 
     public WorkspaceBuildResult buildNativeInputs(WorkspaceBuildPlan plan, Path cacheRoot) {
@@ -125,9 +145,7 @@ public final class WorkspaceNativeBuildService {
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult) {
         return workspacePackageService.packageBuiltJars(
-                plan,
-                buildResult,
-                WorkspaceNativeBuildService::nativePackageMode);
+                plan, buildResult, NativePackagePolicy::packageConfig);
     }
 
     public WorkspaceNativeBuildResult buildNativeImages(
@@ -196,10 +214,6 @@ public final class WorkspaceNativeBuildService {
                             + member.path()
                             + "` has no main class configured. Add [project].main to its zolt.toml or choose an application member.");
         }
-    }
-
-    private static PackageMode nativePackageMode(PackageMode configuredMode) {
-        return configuredMode == PackageMode.UBER ? PackageMode.UBER : PackageMode.THIN;
     }
 
     private static Map<String, WorkspaceBuildResult.MemberBuildResult> buildsByPath(WorkspacePackageResult result) {

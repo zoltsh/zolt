@@ -88,3 +88,6 @@ examples/ to answer support questions from current repository evidence.
 Package `--mode` is temporary and only supports resolution-equivalent layouts.
 Persist `[package].mode` and run `zolt resolve` when entering or leaving the
 Spring Boot archive family.
+Native JVM inputs are private under `[native].output/input` (default
+`target/native/input`); `zolt native` does not overwrite artifacts or evidence
+created by `zolt package`.

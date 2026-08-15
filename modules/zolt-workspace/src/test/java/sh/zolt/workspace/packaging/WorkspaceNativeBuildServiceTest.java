@@ -95,8 +95,12 @@ final class WorkspaceNativeBuildServiceTest {
                 .map(WorkspaceNativeBuildResult.MemberNativeBuildResult::member)
                 .toList());
         assertEquals(PackageMode.UBER, result.members().getFirst().result().packageResult().mode());
+        Path nativeInputJar = tempDir.resolve("apps/api/target/native/input/api-0.1.0.jar");
+        assertEquals(
+                nativeInputJar,
+                result.members().getFirst().result().packageResult().jarPath());
         assertArrayEquals(packagedBytes, Files.readAllBytes(jar));
-        try (JarFile archive = new JarFile(jar.toFile())) {
+        try (JarFile archive = new JarFile(nativeInputJar.toFile())) {
             assertNotNull(archive.getEntry("com/acme/api/Api.class"));
             assertNotNull(archive.getEntry("com/acme/core/Core.class"));
         }
@@ -105,7 +109,7 @@ final class WorkspaceNativeBuildServiceTest {
         assertFalse(Files.exists(tempDir.resolve("modules/core/target/native/core")));
         String log = Files.readString(tempDir.resolve("apps/api/target/native/native-image.log"));
         assertTrue(log.contains("executable=" + nativeImage));
-        assertTrue(log.contains("classpath=" + jar));
+        assertTrue(log.contains("classpath=" + nativeInputJar));
         assertFalse(log.contains(tempDir.resolve("modules/core/target/classes").toString()));
     }
 

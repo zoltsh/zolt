@@ -16,9 +16,13 @@ public final class NativePackagePolicy {
     }
 
     public static ProjectConfig packageConfig(ProjectConfig config) {
-        return config.packageSettings().mode() == PackageMode.UBER
+        ProjectConfig packageConfig = config.packageSettings().mode() == PackageMode.UBER
                 ? config
                 : config.withPackageSettings(PackageSettings.defaults());
+        return packageConfig.withBuildSettings(
+                NativePackageInputSettings.withOutputRoot(
+                        packageConfig.build(),
+                        config.nativeSettings().output() + "/input"));
     }
 
     static Predicate<ResolvedClasspathPackage> classpathFilter(ProjectConfig config) {

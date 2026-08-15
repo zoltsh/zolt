@@ -183,8 +183,8 @@ public final class WorkspacePackageService {
     WorkspacePackageResult packageBuiltJars(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
-            UnaryOperator<PackageMode> packageModeResolver) {
-        return packageBuiltJars(plan, buildResult, Optional.empty(), packageModeResolver);
+            UnaryOperator<ProjectConfig> packageConfigResolver) {
+        return packageBuiltJars(plan, buildResult, Optional.empty(), packageConfigResolver);
     }
 
     public WorkspacePackageResult packageBuiltJars(
@@ -204,21 +204,22 @@ public final class WorkspacePackageService {
                 plan,
                 buildResult,
                 cacheRoot,
-                configured -> packageModeOverride.orElse(configured));
+                config -> config.withPackageSettings(config.packageSettings().withMode(
+                        packageModeOverride.orElse(config.packageSettings().mode()))));
     }
 
     private WorkspacePackageResult packageBuiltJars(
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
             Optional<Path> cacheRoot,
-            UnaryOperator<PackageMode> packageModeResolver) {
+            UnaryOperator<ProjectConfig> packageConfigResolver) {
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(plan.workspace().root())) {
             return packageBuiltJarsLocked(
                     plan,
                     buildResult,
                     cacheRoot,
-                    packageModeResolver);
+                    packageConfigResolver);
         }
     }
 
@@ -226,7 +227,7 @@ public final class WorkspacePackageService {
             WorkspaceBuildPlan plan,
             WorkspaceBuildResult buildResult,
             Optional<Path> cacheRoot,
-            UnaryOperator<PackageMode> packageModeResolver) {
+            UnaryOperator<ProjectConfig> packageConfigResolver) {
         Workspace workspace = plan.requireInputsCurrent().workspace();
         WorkspaceSelection selection = plan.selection();
         Map<String, WorkspaceMember> membersByPath = WorkspacePackagingIndex.membersByPath(workspace);
@@ -238,9 +239,7 @@ public final class WorkspacePackageService {
         for (String memberPath : selection.selectedMembers()) {
             WorkspaceMember member = membersByPath.get(memberPath);
             WorkspaceBuildResult.MemberBuildResult memberBuild = buildsByPath.get(memberPath);
-            PackageMode packageMode = packageModeResolver.apply(member.config().packageSettings().mode());
-            ProjectConfig memberConfig = member.config().withPackageSettings(
-                    member.config().packageSettings().withMode(packageMode));
+            ProjectConfig memberConfig = packageConfigResolver.apply(member.config());
             tasks.add(() -> packageMember(
                     workspace,
                     plan,

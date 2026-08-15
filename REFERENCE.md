@@ -143,7 +143,10 @@ mode = "spring-boot"
 Run `zolt resolve` after changing the setting, then run `zolt package` without
 `--mode`. Workspace packaging always uses each member's persistent mode. Native
 builds validate the same declared lock; Spring Boot native packaging derives a
-loader-free native classpath view without rewriting `zolt.lock`.
+loader-free native classpath view without rewriting `zolt.lock`. Native-only
+JVM inputs and their evidence are staged below `[native].output/input` (default
+`target/native/input`); configured package outputs remain byte-identical when
+native builds run before or after `zolt package`.
 
 Thin packaging writes a `.runtime-classpath` sidecar beside the application
 jar. That file is a checkout-local launch convenience: its entries are the

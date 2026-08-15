@@ -94,14 +94,15 @@ public final class NativeBuildService {
         NativeFrameworkPolicy.rejectUnsupported(config);
         nativeMainClass(config);
         preflightNativeImageExecutable(nativeImageExecutable);
+        nativeOutputDirectory(projectDirectory, config);
         ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
         var packageFilter = NativePackagePolicy.classpathFilter(config);
         PackageResult packageResult = packageService.packageJar(
                 projectDirectory,
+                config,
                 packageConfig,
                 cacheRoot,
-                artifactIndex,
-                packageFilter);
+                artifactIndex);
         ZoltLockfile lockfile = lockfileReader.read(projectDirectory.resolve("zolt.lock"));
         ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
                         lockfile,
@@ -147,7 +148,7 @@ public final class NativeBuildService {
         preflightNativeImageExecutable(nativeImageExecutable);
         NativeSettings nativeSettings = config.nativeSettings().withDefaultImageName(config.project().name());
         Path projectRoot = ProjectPaths.root(projectDirectory);
-        Path outputDirectory = ProjectPaths.output(projectRoot, "[native].output", nativeSettings.output());
+        Path outputDirectory = nativeOutputDirectory(projectRoot, config);
         String imageName = ProjectPaths.filenameComponent("[native].imageName", nativeSettings.imageName());
         Optional<Path> springBootAotEvidencePath = Optional.empty();
         List<Path> springBootAotClasspath = config.frameworkSettings().springBoot().nativeEnabled()
@@ -183,6 +184,14 @@ public final class NativeBuildService {
         arguments.add("-J-D" + ProjectVersionOverride.BUILD_PROPERTY + "=" + config.project().version());
         arguments.addAll(nativeSettings.args());
         return List.copyOf(arguments);
+    }
+
+    private static Path nativeOutputDirectory(Path projectDirectory, ProjectConfig config) {
+        Path projectRoot = ProjectPaths.root(projectDirectory);
+        return ProjectPaths.output(
+                projectRoot,
+                "[native].output",
+                config.nativeSettings().output());
     }
 
     private static String nativeMainClass(ProjectConfig config) {

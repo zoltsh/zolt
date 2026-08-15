@@ -156,7 +156,11 @@ use the same resolution tooling. Thin, uber, WAR, and Quarkus layouts are in one
 resolution family; Spring Boot jar and Spring Boot WAR are another. Crossing
 between those families fails closed: persist `[package].mode`, run
 `zolt resolve`, and retry without `--mode`. Native builds validate that same
-declared lock and use the resolved GraalVM toolchain.
+declared lock and use the resolved GraalVM toolchain. Their intermediate JVM
+input and package evidence live under `[native].output/input` (by default
+`target/native/input`), so `zolt native` never replaces the configured package
+artifact, sidecar, supplemental artifacts, or evidence produced by
+`zolt package`.
 
 ## Publish
 

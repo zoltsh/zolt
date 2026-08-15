@@ -49,17 +49,18 @@ final class NativeBuildServiceUberJarTest extends NativeBuildServiceTestSupport 
                 cacheRoot,
                 Path.of("custom-native-image"));
 
-        Path jarPath = projectDir.resolve("target/demo-0.1.0.jar");
+        Path publicJarPath = projectDir.resolve("target/demo-0.1.0.jar");
+        Path nativeInputJar = projectDir.resolve("target/native-custom/input/demo-0.1.0.jar");
         Path outputBinary = projectDir.resolve("target/native-custom/demo-native");
         Path logFile = projectDir.resolve("target/native-custom/native-image.log");
-        assertEquals(jarPath, result.packageResult().jarPath());
+        assertEquals(nativeInputJar, result.packageResult().jarPath());
         assertEquals(PackageMode.UBER, result.packageResult().mode());
         assertTrue(result.packageResult().runtimeClasspathPath().isEmpty());
         assertEquals(outputBinary, result.nativeImageResult().outputBinary());
         assertEquals(logFile, result.nativeImageResult().logFile());
-        assertTrue(Files.exists(jarPath));
-        assertArrayEquals(packagedBytes, Files.readAllBytes(jarPath));
-        try (JarFile jar = new JarFile(jarPath.toFile())) {
+        assertTrue(Files.exists(publicJarPath));
+        assertArrayEquals(packagedBytes, Files.readAllBytes(publicJarPath));
+        try (JarFile jar = new JarFile(nativeInputJar.toFile())) {
             assertNotNull(jar.getJarEntry("com/example/Main.class"));
             assertNotNull(jar.getJarEntry("com/example/runtime/RuntimeLib.class"));
         }
@@ -71,7 +72,7 @@ final class NativeBuildServiceUberJarTest extends NativeBuildServiceTestSupport 
                 "--no-fallback",
                 "--native-image-info",
                 "-cp",
-                jarPath.toString(),
+                nativeInputJar.toString(),
                 "com.example.Main",
                 "-o",
                 outputBinary.toString()), commands.getFirst());
