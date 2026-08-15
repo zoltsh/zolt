@@ -133,7 +133,8 @@ public final class WorkspaceBuildService {
                                 cacheRoot,
                                 offline,
                                 selectionRequest,
-                                includeTestLanes)))
+                                includeTestLanes,
+                                target.artifactIndex())))
                 .orElseGet(() -> WorkspaceMutationLock.withWorkspaceLock(
                         target.startDirectory(),
                         () -> buildPlanner.plan(
@@ -278,7 +279,10 @@ public final class WorkspaceBuildService {
             return plan.executionContext();
         }
         return new WorkspaceExecutionContext(
-                plan.workspace(), plan.lockfile(), requestedCacheRoot);
+                plan.workspace(),
+                plan.lockfile(),
+                requestedCacheRoot,
+                plan.executionContext().artifactIndex());
     }
 
     private static long elapsedSince(long started) {

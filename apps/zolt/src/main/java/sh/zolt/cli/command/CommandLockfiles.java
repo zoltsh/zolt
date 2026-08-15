@@ -154,6 +154,20 @@ public final class CommandLockfiles {
         workspaceLockFreshnessService.requireFresh(workingDirectory, cacheRoot, offline, retryCommand);
     }
 
+    public WorkspacePlanTarget requireFreshWorkspacePlanTarget(
+            Path workingDirectory,
+            Path cacheRoot,
+            boolean offline,
+            String retryCommand) {
+        return workspaceLockFreshnessService.requireFresh(
+                        workingDirectory, cacheRoot, offline, retryCommand)
+                .map(freshness -> WorkspacePlanTarget.of(
+                        freshness.workspace(),
+                        freshness.discoveryNanos(),
+                        freshness.artifactIndex()))
+                .orElseGet(() -> WorkspacePlanTarget.at(workingDirectory));
+    }
+
     public WorkspacePlanTarget requireFreshWorkspaceLockfile(
             TimingRecorder timings,
             Path workingDirectory,
@@ -180,7 +194,9 @@ public final class CommandLockfiles {
                                 workingDirectory, cacheRoot, offline, retryCommand),
                         CommandLockfiles::freshnessAttributes)
                 .map(freshness -> WorkspacePlanTarget.of(
-                        freshness.workspace(), freshness.discoveryNanos()))
+                        freshness.workspace(),
+                        freshness.discoveryNanos(),
+                        freshness.artifactIndex()))
                 .orElseGet(() -> WorkspacePlanTarget.at(workingDirectory));
     }
 

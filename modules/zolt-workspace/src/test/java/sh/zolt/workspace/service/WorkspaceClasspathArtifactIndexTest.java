@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
+import sh.zolt.build.lockfile.ArtifactIntegrityVerifier;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
@@ -63,6 +64,23 @@ final class WorkspaceClasspathArtifactIndexTest {
 
         assertEquals(2, hashesAfterFirstPass);
         assertEquals(hashesAfterFirstPass, context.metrics().artifactIntegrity().hashes());
+    }
+
+    @Test
+    void reusesTheIndexPopulatedByWorkspaceFreshnessAcrossEveryMember() throws IOException {
+        Path cacheRoot = tempDir.resolve("freshness-cache");
+        writeFile(cacheRoot.resolve("org/example/shared/1.0.0/shared-1.0.0.jar"), SHARED_JAR_BYTES);
+        writeFile(cacheRoot.resolve("org/example/shared/1.0.0/shared-1.0.0.pom"), SHARED_POM_BYTES);
+        ZoltLockfile lockfile = lockfile(cacheRoot);
+        VerifiedArtifactIndex index = new VerifiedArtifactIndex();
+        new ArtifactIntegrityVerifier(index).verify(lockfile, cacheRoot);
+        WorkspaceExecutionContext context = new WorkspaceExecutionContext(
+                workspace(), lockfile, cacheRoot, index);
+
+        service.classpathsForMembers(context, MEMBERS, testRunRequirements());
+
+        assertEquals(2, context.metrics().artifactIntegrity().hashes());
+        assertTrue(context.metrics().artifactIntegrity().cacheHits() > 0);
     }
 
     @Test

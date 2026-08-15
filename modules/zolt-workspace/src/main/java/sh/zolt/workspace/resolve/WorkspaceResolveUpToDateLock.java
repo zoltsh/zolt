@@ -1,5 +1,6 @@
 package sh.zolt.workspace.resolve;
 
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -21,9 +22,8 @@ import java.util.Optional;
  * as current instead of rewriting it. This is the same gate {@code zolt build} has taken since the
  * fingerprint was introduced; standalone {@code zolt resolve --workspace} simply did not consult it.
  *
- * <p>Artifact presence is proved as well, for the reason {@link WorkspaceLockArtifactPresence}
- * documents: the resolve is also what materializes locked artifacts, so a cold or evicted cache still
- * needs it.
+ * <p>Artifact integrity is proved as well: the resolve is also what repairs locked artifacts, so a
+ * cold, evicted, or corrupt cache still needs it.
  *
  * <p>Any change forces the full resolve, because any change breaks the digest: an edit to any
  * captured config file (a comment is enough), a member added or removed, a changed coordinate, a
@@ -54,7 +54,8 @@ final class WorkspaceResolveUpToDateLock {
         if (lockfile.isEmpty() || !matches(workspace, lockfile.orElseThrow(), content.orElseThrow())) {
             return Optional.empty();
         }
-        if (!WorkspaceLockArtifactPresence.complete(lockfile.orElseThrow(), cacheRoot)) {
+        if (!WorkspaceLockArtifactIntegrity.valid(
+                lockfile.orElseThrow(), cacheRoot, new VerifiedArtifactIndex())) {
             return Optional.empty();
         }
         return Optional.of(new WorkspaceResolveSnapshot(

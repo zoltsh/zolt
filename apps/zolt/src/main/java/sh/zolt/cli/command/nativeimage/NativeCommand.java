@@ -122,10 +122,14 @@ public final class NativeCommand implements Runnable {
                 WorkspaceNativeBuildResult result = WorkspaceMutationLock.withWorkspaceLock(
                         projectRoot,
                         () -> {
-                            lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, false);
+                            var target = lockfiles.requireFreshWorkspacePlanTarget(
+                                    projectRoot,
+                                    cacheRoot,
+                                    false,
+                                    "zolt native --workspace");
                             progress.start("Building workspace native images");
                             return projectWorkspaceNativeBuildService.buildNative(
-                                    projectRoot,
+                                    target,
                                     cacheRoot,
                                     CommandWorkspaceSelections.from(all, members, memberGroups),
                                     workspaceNativeImageResolver(),

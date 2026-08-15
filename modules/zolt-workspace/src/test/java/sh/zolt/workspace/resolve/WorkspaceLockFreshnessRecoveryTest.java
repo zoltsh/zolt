@@ -24,6 +24,8 @@ import org.junit.jupiter.api.io.TempDir;
  */
 final class WorkspaceLockFreshnessRecoveryTest {
     private static final String LOCKED_VERSION = "2.0.17";
+    private static final String JAR_SHA = "0163f1eea7894350060624d315234d40c508ab251ba121714e234503045faadd";
+    private static final String POM_SHA = "60c24224bbc16801180850bc99d8f099e79aaf26ddaac8fedaab553ecce43f20";
 
     private final List<String> verifications = new ArrayList<>();
 
@@ -192,8 +194,14 @@ final class WorkspaceLockFreshnessRecoveryTest {
     private WorkspaceLockFreshnessService service() {
         return new WorkspaceLockFreshnessService(
                 new WorkspaceDiscoveryService(),
-                (workspace, cacheRoot, offline, retryCommand) ->
-                        verifications.add("verify:offline=" + offline),
+                (workspace, cacheRoot, offline, retryCommand) -> {
+                    verifications.add("verify:offline=" + offline);
+                    try {
+                        cacheArtifacts(workspace.root(), declaredVersion(workspace.root()));
+                    } catch (IOException exception) {
+                        throw new IllegalStateException(exception);
+                    }
+                },
                 new ZoltLockfileReader());
     }
 
@@ -245,7 +253,7 @@ final class WorkspaceLockFreshnessRecoveryTest {
     }
 
     private static Path cachedArtifact(Path root, String version, String extension) {
-        String digest = extension.equals("jar") ? "1".repeat(64) : "2".repeat(64);
+        String digest = extension.equals("jar") ? JAR_SHA : POM_SHA;
         return cacheRoot(root).resolve(
                 "blobs/v2/sha256/" + digest + "/slf4j-api-" + version + "." + extension);
     }
@@ -261,13 +269,13 @@ final class WorkspaceLockFreshnessRecoveryTest {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
-                jar = "blobs/v2/sha256/1111111111111111111111111111111111111111111111111111111111111111/slf4j-api-%1$s.jar"
-                pom = "blobs/v2/sha256/2222222222222222222222222222222222222222222222222222222222222222/slf4j-api-%1$s.pom"
-                jarSha256 = "1111111111111111111111111111111111111111111111111111111111111111"
-                pomSha256 = "2222222222222222222222222222222222222222222222222222222222222222"
+                jar = "blobs/v2/sha256/%2$s/slf4j-api-%1$s.jar"
+                pom = "blobs/v2/sha256/%3$s/slf4j-api-%1$s.pom"
+                jarSha256 = "%2$s"
+                pomSha256 = "%3$s"
                 members = ["lib"]
                 dependencies = []
-                """.formatted(version);
+                """.formatted(version, JAR_SHA, POM_SHA);
     }
 
     private static void writeWorkspace(Path root, String version) throws IOException {

@@ -1,5 +1,6 @@
 package sh.zolt.workspace.resolve;
 
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -17,11 +18,11 @@ import java.util.Optional;
  *
  * <p>The workspace is discovered once and the root lock is read once. The lock is current by
  * construction when it records a {@link WorkspaceResolutionInputFingerprint} equal to the one its
- * current inputs and its own content produce, <em>and</em> every artifact it names is already in the
- * cache; the command then continues without resolving anything. Otherwise — a changed input, a
- * hand-edited lock, a cold cache, or a lock written before the fingerprint existed — the previous
- * behaviour runs unchanged: a full locked workspace resolve, which materializes what the cache is
- * missing and fails with the existing actionable stale-lock error when the lock no longer matches.
+ * current inputs and its own content produce, <em>and</em> every artifact it names matches its locked
+ * checksum; the command then continues without resolving anything. Otherwise — a changed input, a
+ * hand-edited lock, a cold or corrupt cache, or a lock written before the fingerprint existed — the
+ * previous behaviour runs unchanged: a full locked workspace resolve, which repairs materialized
+ * artifacts and fails with the existing actionable stale-lock error when the lock no longer matches.
  *
  * <p>A locked resolve that passes has proved the lock is derived from these inputs, so the gate
  * records the fingerprint it just computed. Without that, an input edit the verification forgives —
@@ -74,6 +75,7 @@ public final class WorkspaceLockFreshnessService {
             return Optional.empty();
         }
         Workspace workspace = discovered.orElseThrow();
+        VerifiedArtifactIndex artifactIndex = new VerifiedArtifactIndex();
         Path lockfilePath = workspace.root().resolve("zolt.lock");
         Optional<String> content = readLockfile(lockfilePath);
         if (content.isEmpty()) {
@@ -82,43 +84,55 @@ public final class WorkspaceLockFreshnessService {
                     lockfilePath,
                     Optional.empty(),
                     WorkspaceLockFreshness.Outcome.NOT_GENERATED,
-                    discoveryNanos));
+                    discoveryNanos,
+                    artifactIndex));
         }
         Optional<ZoltLockfile> lockfile = parse(content.orElseThrow());
         lockfile.ifPresent(value -> ContentAddressedLockCapability.requireExecutableLockfile(
                 value,
                 "zolt resolve --workspace"));
-        if (skippable(workspace, lockfile, content.orElseThrow(), cacheRoot)) {
+        if (skippable(workspace, lockfile, content.orElseThrow(), cacheRoot, artifactIndex)) {
             return Optional.of(freshness(
                     workspace,
                     lockfilePath,
                     lockfile,
                     WorkspaceLockFreshness.Outcome.FINGERPRINT_MATCHED,
-                    discoveryNanos));
+                    discoveryNanos,
+                    artifactIndex));
         }
+        artifactIndex.invalidateAll();
         lockedResolve.verify(workspace, cacheRoot, offline, retryCommand);
         WorkspaceLockFingerprintRecorder.record(workspace, lockfilePath);
+        ZoltLockfile verifiedLockfile = lockfileReader.read(lockfilePath);
+        ContentAddressedLockCapability.requireExecutableLockfile(
+                verifiedLockfile,
+                "zolt resolve --workspace");
+        artifactIndex.invalidateAll();
+        WorkspaceLockArtifactIntegrity.verify(verifiedLockfile, cacheRoot, artifactIndex);
         return Optional.of(freshness(
                 workspace,
                 lockfilePath,
-                lockfile,
+                Optional.of(verifiedLockfile),
                 WorkspaceLockFreshness.Outcome.VERIFIED,
-                discoveryNanos));
+                discoveryNanos,
+                artifactIndex));
     }
 
     /**
      * Whether the locked resolve can be skipped. A matching fingerprint alone is not enough: that
-     * resolve is also the only step that materializes locked artifacts, so a cache missing any of
-     * them still needs it — and under {@code --offline} it is the resolve that reports the missing
+     * resolve is also the only step that materializes locked artifacts, so a cache missing or
+     * corrupt copy still needs it — and under {@code --offline} it is the resolve that reports the
      * artifact with the actionable offline error rather than reaching the network.
      */
     private boolean skippable(
             Workspace workspace,
             Optional<ZoltLockfile> lockfile,
             String content,
-            Path cacheRoot) {
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex) {
         return matchesResolutionInputs(workspace, lockfile, content)
-                && WorkspaceLockArtifactPresence.complete(lockfile.orElseThrow(), cacheRoot);
+                && WorkspaceLockArtifactIntegrity.valid(
+                        lockfile.orElseThrow(), cacheRoot, artifactIndex);
     }
 
     private boolean matchesResolutionInputs(
@@ -140,9 +154,10 @@ public final class WorkspaceLockFreshnessService {
             Path lockfilePath,
             Optional<ZoltLockfile> lockfile,
             WorkspaceLockFreshness.Outcome outcome,
-            long discoveryNanos) {
+            long discoveryNanos,
+            VerifiedArtifactIndex artifactIndex) {
         return new WorkspaceLockFreshness(
-                workspace, lockfilePath, lockfile, outcome, discoveryNanos);
+                workspace, lockfilePath, lockfile, outcome, discoveryNanos, artifactIndex);
     }
 
     /** Absent rather than fatal for an unreadable lock, so the full resolve reports the problem. */

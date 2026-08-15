@@ -1,6 +1,7 @@
 package sh.zolt.workspace.service;
 
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.WorkspaceGraphLockCapability;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveException;
@@ -66,7 +67,8 @@ final class WorkspaceBuildPlanner {
                 cacheRoot,
                 offline,
                 selectionRequest,
-                includeTestLanes);
+                includeTestLanes,
+                new VerifiedArtifactIndex());
     }
 
     /**
@@ -80,7 +82,8 @@ final class WorkspaceBuildPlanner {
             Path cacheRoot,
             boolean offline,
             WorkspaceSelectionRequest selectionRequest,
-            boolean includeTestLanes) {
+            boolean includeTestLanes,
+            VerifiedArtifactIndex artifactIndex) {
         Workspace workspace = discovered;
         long selectionStarted = System.nanoTime();
         WorkspaceSelection selection = includeTestLanes
@@ -121,7 +124,8 @@ final class WorkspaceBuildPlanner {
                 new WorkspaceExecutionContext(
                         workspace,
                         lockfile,
-                        cacheRoot),
+                        cacheRoot,
+                        artifactIndex),
                 inputSnapshot,
                 new WorkspacePlanMetrics(
                         discoveryNanos,

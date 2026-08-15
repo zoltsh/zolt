@@ -32,7 +32,7 @@ public final class WorkspaceExecutionContext {
      * the command makes verifies an artifact through the same index, so each file is hashed once,
      * while a later command starts empty and re-reads anything modified in between.
      */
-    private final VerifiedArtifactIndex artifactIndex = new VerifiedArtifactIndex();
+    private final VerifiedArtifactIndex artifactIndex;
     private final long graphConstructionNanos;
     private final Map<ClasspathKey, ClasspathSet> classpaths =
             new ConcurrentHashMap<>();
@@ -46,9 +46,18 @@ public final class WorkspaceExecutionContext {
             Workspace workspace,
             ZoltLockfile lockfile,
             Path cacheRoot) {
+        this(workspace, lockfile, cacheRoot, new VerifiedArtifactIndex());
+    }
+
+    public WorkspaceExecutionContext(
+            Workspace workspace,
+            ZoltLockfile lockfile,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex) {
         this.workspace = workspace;
         this.lockfile = lockfile;
         this.cacheRoot = cacheRoot.toAbsolutePath().normalize();
+        this.artifactIndex = artifactIndex == null ? new VerifiedArtifactIndex() : artifactIndex;
         long started = System.nanoTime();
         this.memberGraph = new WorkspaceClasspathMemberGraph(workspace);
         this.abiIndex = new WorkspaceAbiIndex();

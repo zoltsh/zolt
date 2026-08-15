@@ -1,5 +1,6 @@
 package sh.zolt.workspace.resolve;
 
+import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.workspace.service.Workspace;
 import java.nio.file.Path;
@@ -7,7 +8,8 @@ import java.util.Optional;
 
 /**
  * The workspace, its root lock, and how the lock was found to be current, returned together so a
- * command does not rediscover the workspace to plan the work it just gated.
+ * command does not rediscover the workspace or re-hash the artifacts it just gated when planning
+ * and executing the work.
  *
  * <p>{@code discoveryNanos} is what that one discovery actually cost. Planning reuses this snapshot
  * rather than walking the member configs again, so this is the only place the cost can be measured
@@ -18,7 +20,8 @@ public record WorkspaceLockFreshness(
         Path lockfilePath,
         Optional<ZoltLockfile> lockfile,
         Outcome outcome,
-        long discoveryNanos) {
+        long discoveryNanos,
+        VerifiedArtifactIndex artifactIndex) {
     public enum Outcome {
         /** The recorded resolution-input fingerprint matched, so no resolution work ran. */
         FINGERPRINT_MATCHED("matched"),
@@ -41,6 +44,7 @@ public record WorkspaceLockFreshness(
     public WorkspaceLockFreshness {
         lockfile = lockfile == null ? Optional.empty() : lockfile;
         discoveryNanos = Math.max(0L, discoveryNanos);
+        artifactIndex = artifactIndex == null ? new VerifiedArtifactIndex() : artifactIndex;
     }
 
     public boolean resolutionSkipped() {
