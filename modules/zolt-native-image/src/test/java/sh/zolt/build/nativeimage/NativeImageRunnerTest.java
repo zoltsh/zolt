@@ -189,6 +189,30 @@ final class NativeImageRunnerTest {
         assertTrue(exception.getMessage().contains("Add [project].main"));
     }
 
+    @Test
+    void rejectsOnePathForBinaryAndLogBeforeMutationOrProcessExecution() throws IOException {
+        Path output = tempDir.resolve("target/native/native-image.log");
+        Files.createDirectories(output.getParent());
+        Files.writeString(output, "existing");
+        NativeImageRunner runner = new NativeImageRunner(":", command -> {
+            throw new AssertionError("native-image should not run");
+        });
+
+        NativeImageException exception = assertThrows(
+                NativeImageException.class,
+                () -> runner.build(new NativeImageRequest(
+                        Path.of("native-image"),
+                        Path.of("target/demo.jar"),
+                        List.of(),
+                        "com.example.Main",
+                        output,
+                        output,
+                        List.of())));
+
+        assertTrue(exception.getMessage().contains("binary and log must be distinct"));
+        assertEquals("existing", Files.readString(output));
+    }
+
     private static void writeNativeBinary(Path outputBinary, String content) {
         try {
             Files.writeString(outputBinary, content);

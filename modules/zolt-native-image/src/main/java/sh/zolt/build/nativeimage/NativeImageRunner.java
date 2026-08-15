@@ -94,6 +94,12 @@ public final class NativeImageRunner {
         if (request.logFile() == null) {
             throw new NativeImageException("Native Image log path is missing. Check the native output directory.");
         }
+        if (request.outputBinary().toAbsolutePath().normalize()
+                .equals(request.logFile().toAbsolutePath().normalize())) {
+            throw new NativeImageException(
+                    "Native Image output binary and log must be distinct paths. "
+                            + "Change [native].imageName or [native].output.");
+        }
     }
 
     private static void createDirectories(Path outputBinary, Path logFile) {

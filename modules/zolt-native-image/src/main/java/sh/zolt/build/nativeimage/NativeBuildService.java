@@ -94,7 +94,7 @@ public final class NativeBuildService {
         NativeFrameworkPolicy.rejectUnsupported(config);
         nativeMainClass(config);
         preflightNativeImageExecutable(nativeImageExecutable);
-        nativeOutputDirectory(projectDirectory, config);
+        NativeOutputPlan outputPlan = NativeOutputPlan.plan(projectDirectory, config);
         ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
         var packageFilter = NativePackagePolicy.classpathFilter(config);
         PackageResult packageResult = packageService.packageJar(
@@ -117,7 +117,8 @@ public final class NativeBuildService {
                 packageResult,
                 classpaths.runtime().entries(),
                 nativeImageExecutable,
-                progress);
+                progress,
+                outputPlan);
     }
 
     public NativeBuildResult buildNativeImage(
@@ -143,13 +144,29 @@ public final class NativeBuildService {
             List<Path> runtimeClasspath,
             Path nativeImageExecutable,
             Runnable progress) {
+        return buildNativeImage(
+                projectDirectory,
+                config,
+                packageResult,
+                runtimeClasspath,
+                nativeImageExecutable,
+                progress,
+                NativeOutputPlan.plan(projectDirectory, config));
+    }
+
+    private NativeBuildResult buildNativeImage(
+            Path projectDirectory,
+            ProjectConfig config,
+            PackageResult packageResult,
+            List<Path> runtimeClasspath,
+            Path nativeImageExecutable,
+            Runnable progress,
+            NativeOutputPlan outputPlan) {
         NativeFrameworkPolicy.rejectUnsupported(config);
         String mainClass = nativeMainClass(config);
         preflightNativeImageExecutable(nativeImageExecutable);
         NativeSettings nativeSettings = config.nativeSettings().withDefaultImageName(config.project().name());
         Path projectRoot = ProjectPaths.root(projectDirectory);
-        Path outputDirectory = nativeOutputDirectory(projectRoot, config);
-        String imageName = ProjectPaths.filenameComponent("[native].imageName", nativeSettings.imageName());
         Optional<Path> springBootAotEvidencePath = Optional.empty();
         List<Path> springBootAotClasspath = config.frameworkSettings().springBoot().nativeEnabled()
                 ? new SpringBootAotNativeInputs(
@@ -162,7 +179,7 @@ public final class NativeBuildService {
             springBootAotEvidencePath = Optional.of(new SpringBootAotOutputEvidenceService().write(
                     projectRoot,
                     config.build().outputRoot(),
-                    outputDirectory.resolve("spring-aot-evidence.json")));
+                    outputPlan.evidence()));
         }
         List<Path> nativeRuntimeClasspath =
                 new ArrayList<>(NativePackagePolicy.runtimeClasspath(packageResult, runtimeClasspath));
@@ -172,8 +189,8 @@ public final class NativeBuildService {
                 packageResult.jarPath(),
                 nativeRuntimeClasspath,
                 mainClass,
-                outputDirectory.resolve(imageName),
-                outputDirectory.resolve("native-image.log"),
+                outputPlan.binary(),
+                outputPlan.log(),
                 nativeImageArguments(config, nativeSettings)), progress);
         reportSeriousWarnings(nativeImageResult);
         return new NativeBuildResult(packageResult, nativeImageResult, springBootAotEvidencePath);
@@ -184,14 +201,6 @@ public final class NativeBuildService {
         arguments.add("-J-D" + ProjectVersionOverride.BUILD_PROPERTY + "=" + config.project().version());
         arguments.addAll(nativeSettings.args());
         return List.copyOf(arguments);
-    }
-
-    private static Path nativeOutputDirectory(Path projectDirectory, ProjectConfig config) {
-        Path projectRoot = ProjectPaths.root(projectDirectory);
-        return ProjectPaths.output(
-                projectRoot,
-                "[native].output",
-                config.nativeSettings().output());
     }
 
     private static String nativeMainClass(ProjectConfig config) {

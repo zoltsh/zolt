@@ -58,6 +58,37 @@ final class NativePackageOutputIsolationCommandTest {
         }
     }
 
+    @Test
+    void nativeRejectsReservedAndConfiguredOutputCollisionsBeforeReplacingAnything() throws IOException {
+        Path nativeImage = NativeCommandTestSupport.writeFakeNativeImage(
+                tempDir.resolve("collision-native-image"));
+        for (Collision collision : List.of(
+                new Collision("uber", "target/native", "native-image.log"),
+                new Collision("uber", "target/native", "spring-aot-evidence.json"),
+                new Collision("uber", "target/native", "input"),
+                new Collision("uber", "target", "demo-0.1.0.jar"),
+                new Collision("war", "target", "demo-0.1.0.war"),
+                new Collision("uber", "target", "demo-0.1.0.jar.zolt-package.json"))) {
+            Path project = writeCollisionProject(collision);
+            Path cache = tempDir.resolve("collision-cache-" + collision.id());
+            assertSuccess(execute(
+                    "resolve",
+                    "--cwd", project.toString(),
+                    "--cache-root", cache.toString()));
+            assertSuccess(execute(
+                    "package",
+                    "--cwd", project.toString(),
+                    "--cache-root", cache.toString()));
+            Map<String, String> before = configuredOutputHashes(project);
+
+            CommandResult result = nativeCommand(project, cache, nativeImage);
+
+            assertEquals(1, result.exitCode(), collision.toString());
+            assertTrue(result.stderr().contains("Native output ownership conflict"), result.stderr());
+            assertEquals(before, configuredOutputHashes(project), collision.toString());
+        }
+    }
+
     private Path writeProject(String mode, String repositoryUrl) throws IOException {
         Path project = tempDir.resolve("project-" + mode);
         Files.createDirectories(project);
@@ -92,6 +123,42 @@ final class NativePackageOutputIsolationCommandTest {
                 [publish.repositories.test-releases]
                 url = "https://repo.example.test/releases"
                 """.formatted(Runtime.version().feature(), repositoryUrl, mode, spring));
+        Path source = project.resolve("src/main/java/com/example/Main.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+        return project;
+    }
+
+    private Path writeCollisionProject(Collision collision) throws IOException {
+        Path project = tempDir.resolve("collision-" + collision.id());
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "%s"
+                main = "com.example.Main"
+
+                [package]
+                mode = "%s"
+                sources = true
+
+                [native]
+                output = "%s"
+                imageName = "%s"
+                """.formatted(
+                Runtime.version().feature(),
+                collision.mode(),
+                collision.output(),
+                collision.imageName()));
         Path source = project.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, """
@@ -213,5 +280,11 @@ final class NativePackageOutputIsolationCommandTest {
                   </dependencyManagement>
                 </project>
                 """;
+    }
+
+    private record Collision(String mode, String output, String imageName) {
+        String id() {
+            return mode + "-" + output.replace('/', '-') + "-" + imageName.replace('.', '-');
+        }
     }
 }
