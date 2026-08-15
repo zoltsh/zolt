@@ -71,8 +71,17 @@ public final class NativeImageRunner {
             acceptance.accept(nativeResult);
             NativeBinaryPublication.publish(stagingBinary, request.outputBinary());
             return nativeResult;
-        } finally {
+        } catch (RuntimeException | Error failure) {
+            removeFailedStaging(stagingBinary, failure);
+            throw failure;
+        }
+    }
+
+    private static void removeFailedStaging(Path stagingBinary, Throwable failure) {
+        try {
             NativeBinaryPublication.removeStaging(stagingBinary);
+        } catch (RuntimeException cleanupFailure) {
+            failure.addSuppressed(cleanupFailure);
         }
     }
 
