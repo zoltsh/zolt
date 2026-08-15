@@ -7,6 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.cli.CliTestRepository;
+import sh.zolt.dependency.DependencyScope;
+import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.SpringBootLoaderArtifact;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,7 +52,8 @@ final class NativeCommandValidationTest {
         assertTrue(result.stderr().contains("Spring Boot native images require `[framework.springBoot.native] enabled = true`"));
         assertTrue(result.stderr().contains("Spring Boot JVM build, test, run, and executable packaging"));
         assertTrue(result.stderr().contains("explicit Zolt-owned Spring Boot AOT/native canary path"));
-        assertTrue(result.stderr().contains("zolt package --mode spring-boot"));
+        assertTrue(result.stderr().contains("[package].mode = \"spring-boot\""));
+        assertTrue(result.stderr().contains("zolt resolve"));
         assertFalse(result.stderr().contains("not supported by Zolt yet"));
     }
 
@@ -188,13 +193,122 @@ final class NativeCommandValidationTest {
         }
     }
 
-    private static String pom(String version) {
+    @Test
+    void persistentSpringBootPackageAndNativeCommandsShareOneStableLock() throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start()) {
+            repository.addArtifact(
+                    "org.springframework.boot",
+                    "spring-boot-dependencies",
+                    "3.3.6",
+                    springBootPlatformPom());
+            repository.addArtifact(
+                    "org.springframework.boot",
+                    "spring-boot-loader",
+                    "3.3.6",
+                    pom("org.springframework.boot", "spring-boot-loader", "3.3.6"),
+                    NativeCommandTestSupport.fakeSpringBootLoaderJar());
+            repository.addArtifact(
+                    "org.springframework.boot",
+                    "spring-boot",
+                    "3.3.6",
+                    pom("org.springframework.boot", "spring-boot", "3.3.6"),
+                    NativeCommandTestSupport.fakeSpringBootAotJar(tempDir.resolve("fake-spring-aot")));
+            Path projectDir = tempDir.resolve("stable-spring-native");
+            Path cacheRoot = tempDir.resolve("stable-spring-cache");
+            NativeCommandTestSupport.writePersistentSpringBootNativeProjectConfig(
+                    projectDir,
+                    repository.baseUri().toString());
+            CommandResult resolved = execute(
+                    "resolve",
+                    "--cwd", projectDir.toString(),
+                    "--cache-root", cacheRoot.toString());
+            assertEquals(0, resolved.exitCode(), resolved.stderr());
+            Path lockfile = projectDir.resolve("zolt.lock");
+            String stableLock = Files.readString(lockfile);
+            var locked = new ZoltLockfileReader().read(lockfile);
+            assertEquals(1, locked.packages().stream()
+                    .filter(lockPackage -> lockPackage.packageId().equals(new PackageId(
+                            "org.springframework.boot", "spring-boot-loader")))
+                    .count());
+            var loader = locked.packages().stream()
+                    .filter(lockPackage -> lockPackage.packageId().equals(new PackageId(
+                            "org.springframework.boot", "spring-boot-loader")))
+                    .filter(lockPackage -> lockPackage.scope() == DependencyScope.RUNTIME)
+                    .findFirst()
+                    .orElseThrow();
+            assertFalse(loader.direct(), loader.toString());
+            assertTrue(SpringBootLoaderArtifact.isDefaultLoader(loader), loader.toString());
+            assertTrue(locked.packages().stream().anyMatch(lockPackage ->
+                    lockPackage.packageId().equals(new PackageId(
+                            "org.springframework.boot", "spring-boot"))
+                            && lockPackage.scope() == DependencyScope.TOOL_SPRING_AOT));
+            Path nativeImage = NativeCommandTestSupport.writeFakeNativeImage(
+                    tempDir.resolve("stable-spring-native-image"));
+
+            CommandResult firstNative = nativeCommand(projectDir, cacheRoot, nativeImage);
+            assertEquals(0, firstNative.exitCode(), firstNative.stderr());
+            assertEquals(stableLock, Files.readString(lockfile));
+            String nativeLog = Files.readString(projectDir.resolve("target/native/native-image.log"));
+            assertFalse(nativeLog.contains("spring-boot-loader"), nativeLog);
+            assertTrue(nativeLog.contains("spring-aot/main/classes"), nativeLog);
+
+            CommandResult packaged = execute(
+                    "package",
+                    "--cwd", projectDir.toString(),
+                    "--cache-root", cacheRoot.toString());
+            assertEquals(0, packaged.exitCode(), packaged.stderr());
+            assertEquals(stableLock, Files.readString(lockfile));
+
+            CommandResult secondNative = nativeCommand(projectDir, cacheRoot, nativeImage);
+            assertEquals(0, secondNative.exitCode(), secondNative.stderr());
+            assertEquals(stableLock, Files.readString(lockfile));
+        }
+    }
+
+    private static CommandResult nativeCommand(Path projectDir, Path cacheRoot, Path nativeImage) {
+        return execute(
+                "native",
+                "--native-image", nativeImage.toString(),
+                "--cwd", projectDir.toString(),
+                "--cache-root", cacheRoot.toString());
+    }
+
+    private static String springBootPlatformPom() {
         return """
                 <project>
-                  <groupId>com.example</groupId>
-                  <artifactId>dependency</artifactId>
+                  <groupId>org.springframework.boot</groupId>
+                  <artifactId>spring-boot-dependencies</artifactId>
+                  <version>3.3.6</version>
+                  <packaging>pom</packaging>
+                  <dependencyManagement>
+                    <dependencies>
+                      <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-loader</artifactId>
+                        <version>3.3.6</version>
+                      </dependency>
+                      <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot</artifactId>
+                        <version>3.3.6</version>
+                      </dependency>
+                    </dependencies>
+                  </dependencyManagement>
+                </project>
+                """;
+    }
+
+    private static String pom(String version) {
+        return pom("com.example", "dependency", version);
+    }
+
+    private static String pom(String group, String artifact, String version) {
+        return """
+                <project>
+                  <groupId>%s</groupId>
+                  <artifactId>%s</artifactId>
                   <version>%s</version>
                 </project>
-                """.formatted(version);
+                """.formatted(group, artifact, version);
     }
 }

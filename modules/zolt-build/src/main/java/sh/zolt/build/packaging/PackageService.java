@@ -23,6 +23,7 @@ import sh.zolt.resolve.ResolveService;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 public final class PackageService {
     private final BuildService buildService;
@@ -153,6 +154,27 @@ public final class PackageService {
                 cacheRoot,
                 false,
                 artifactIndex);
+        return packageJar(projectRoot, config, buildResult, cacheRoot);
+    }
+
+    /** Packages against a command-specific projection of the fully verified lockfile packages. */
+    public PackageResult packageJar(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            VerifiedArtifactIndex artifactIndex,
+            Predicate<ResolvedClasspathPackage> packageFilter) {
+        Path projectRoot = projectRoot(projectDirectory);
+        PackageMode mode = config.packageSettings().mode();
+        PackageModeValidator.ensureSupported(mode);
+        preparePackageToolingIfNeeded(projectRoot, config, cacheRoot);
+        BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
+                projectRoot,
+                config,
+                cacheRoot,
+                false,
+                artifactIndex,
+                packageFilter);
         return packageJar(projectRoot, config, buildResult, cacheRoot);
     }
 

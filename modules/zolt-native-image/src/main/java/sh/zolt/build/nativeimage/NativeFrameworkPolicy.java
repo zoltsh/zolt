@@ -19,7 +19,7 @@ final class NativeFrameworkPolicy {
                     "Spring Boot native images require `[framework.springBoot.native] enabled = true`. "
                             + "Zolt supports Spring Boot JVM build, test, run, and executable packaging, "
                             + "and supports an explicit Zolt-owned Spring Boot AOT/native canary path when that flag is enabled. "
-                            + "Use `zolt package --mode spring-boot` or `zolt run` for JVM apps, or enable the typed Spring Boot native path.");
+                            + "For the JVM path, set `[package].mode = \"spring-boot\"`, run `zolt resolve`, then use `zolt package` or `zolt run`; otherwise enable the typed Spring Boot native path.");
         }
         if (config.frameworkSettings().springBoot().nativeEnabled()) {
             rejectUnsupportedSpringBootBaseline(config);
@@ -45,7 +45,7 @@ final class NativeFrameworkPolicy {
             throw new NativeImageException(
                     "Spring Boot native support is currently proven for Java 21 projects. Found [project].java = "
                             + config.project().java()
-                            + ". Set [project].java to 21 or use `zolt package --mode spring-boot` for the JVM Spring Boot path.");
+                            + ". Set [project].java to 21, or keep the JVM Spring Boot path by setting `[package].mode = \"spring-boot\"`, running `zolt resolve`, then running `zolt package`.");
         }
         springBootVersion(config).ifPresent(version -> {
             if (!version.startsWith("3.3.")) {

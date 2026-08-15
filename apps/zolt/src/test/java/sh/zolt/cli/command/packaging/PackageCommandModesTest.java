@@ -3,6 +3,7 @@ package sh.zolt.cli.command.packaging;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.cli.CliTestSupport.execute;
 
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,15 @@ final class PackageCommandModesTest {
         assertTrue(exception.getMessage().contains("changes dependency-resolution tooling"));
         assertTrue(exception.getMessage().contains("[package].mode = \"spring-boot\""));
         assertTrue(exception.getMessage().contains("zolt resolve"));
+    }
+
+    @Test
+    void packageHelpExplainsThePersistentSpringBootTransition() {
+        String help = execute("package", "--help").stdout();
+
+        assertTrue(help.contains("Temporary package mode override"));
+        assertTrue(help.contains("Persist [package].mode"));
+        assertTrue(help.contains("zolt resolve"));
     }
 
     private ProjectConfig config(PackageMode mode) {

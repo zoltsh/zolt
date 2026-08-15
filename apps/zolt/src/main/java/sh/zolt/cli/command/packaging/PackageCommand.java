@@ -70,7 +70,7 @@ public final class PackageCommand implements Runnable {
     @Option(names = "--members", split = ",", description = "Select comma-separated workspace members by declared path.")
     private List<String> memberGroups = List.of();
 
-    @Option(names = "--mode", description = "Package mode: thin, spring-boot, war, spring-boot-war, quarkus, or uber.")
+    @Option(names = "--mode", description = "Temporary package mode override when resolution tooling is unchanged. Persist [package].mode and run zolt resolve for Spring Boot transitions.")
     private String mode;
 
     @Option(names = "--plan", description = "Print the package content plan without building or writing the archive.")

@@ -2,9 +2,15 @@ package sh.zolt.cli.nativeimage;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.compile.JavacRunner;
+import sh.zolt.classpath.Classpath;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 final class NativeCommandTestSupport {
     private NativeCommandTestSupport() {
@@ -114,6 +120,94 @@ final class NativeCommandTestSupport {
                 output = "target/classes"
                 testOutput = "target/test-classes"
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
+    }
+
+    static void writePersistentSpringBootNativeProjectConfig(Path projectDir, String repositoryUrl) throws IOException {
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = "%s"
+                main = "com.example.Main"
+
+                [repositories]
+                test = "%s"
+
+                [platforms]
+                "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
+
+                [package]
+                mode = "spring-boot"
+
+                [framework.springBoot.native]
+                enabled = true
+
+                [build]
+                source = "src/main/java"
+                test = "src/test/java"
+                output = "target/classes"
+                testOutput = "target/test-classes"
+                """.formatted(currentJavaMajorVersion(), repositoryUrl));
+        Path source = projectDir.resolve("src/main/java/com/example/Main.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                package com.example;
+
+                public final class Main {
+                    public static void main(String[] args) {
+                    }
+                }
+                """);
+    }
+
+    static byte[] fakeSpringBootLoaderJar() throws IOException {
+        return jarWithEntry("org/springframework/boot/loader/launch/JarLauncher.class", new byte[] {0});
+    }
+
+    static byte[] fakeSpringBootAotJar(Path workDirectory) throws IOException {
+        Path source = workDirectory.resolve("src/org/springframework/boot/SpringApplicationAotProcessor.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                package org.springframework.boot;
+
+                public final class SpringApplicationAotProcessor {
+                    public static void main(String[] args) throws Exception {
+                        String classpath = System.getProperty("java.class.path", "");
+                        if (classpath.contains("spring-boot-loader")) {
+                            throw new IllegalStateException(
+                                    "native AOT classpath contains archive loader: " + classpath);
+                        }
+                        java.nio.file.Path generated = java.nio.file.Path.of(args[1])
+                                .resolve("com/example/Main__BeanDefinitions.java");
+                        java.nio.file.Files.createDirectories(generated.getParent());
+                        java.nio.file.Files.writeString(
+                                generated,
+                                "package com.example; final class Main__BeanDefinitions {}\\n");
+                    }
+                }
+                """);
+        Path classes = workDirectory.resolve("classes");
+        new JavacRunner().compile(
+                currentJavac(),
+                List.of(source),
+                new Classpath(List.of()),
+                classes);
+        Path compiled = classes.resolve("org/springframework/boot/SpringApplicationAotProcessor.class");
+        return jarWithEntry(
+                "org/springframework/boot/SpringApplicationAotProcessor.class",
+                Files.readAllBytes(compiled));
+    }
+
+    private static byte[] jarWithEntry(String name, byte[] content) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (JarOutputStream output = new JarOutputStream(bytes)) {
+            output.putNextEntry(new JarEntry(name));
+            output.write(content);
+            output.closeEntry();
+        }
+        return bytes.toByteArray();
     }
 
     static void writeWorkspaceNativeFixture(Path workspaceDir) throws IOException {
@@ -288,5 +382,17 @@ final class NativeCommandTestSupport {
             return parts[1];
         }
         return parts[0];
+    }
+
+    private static Path currentJavac() {
+        return Path.of(System.getProperty("java.home"))
+                .resolve("bin")
+                .resolve(executable("javac"));
+    }
+
+    private static String executable(String name) {
+        return System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")
+                ? name + ".exe"
+                : name;
     }
 }

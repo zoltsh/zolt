@@ -95,16 +95,19 @@ public final class NativeBuildService {
         nativeMainClass(config);
         preflightNativeImageExecutable(nativeImageExecutable);
         ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
+        var packageFilter = NativePackagePolicy.classpathFilter(config);
         PackageResult packageResult = packageService.packageJar(
                 projectDirectory,
                 packageConfig,
                 cacheRoot,
-                artifactIndex);
+                artifactIndex,
+                packageFilter);
         ZoltLockfile lockfile = lockfileReader.read(projectDirectory.resolve("zolt.lock"));
         ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
                         lockfile,
                         cacheRoot,
                         artifactIndex).stream()
+                .filter(packageFilter)
                 .filter(dependency -> dependency.scope().packagedByDefault())
                 .toList());
         return buildNativeImage(

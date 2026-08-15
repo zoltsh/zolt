@@ -6,7 +6,6 @@ import sh.zolt.build.run.JavaRunner;
 import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.build.compile.JavacRunnerTestSupport;
 import sh.zolt.classpath.Classpath;
-import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
@@ -33,7 +32,7 @@ final class SpringBootAotGenerationServiceTest {
                 projectDir,
                 springBootNativeConfig(),
                 jdkStatus(),
-                emptyClasspaths(),
+                emptyClasspath(),
                 new Classpath(List.of(projectDir.resolve("cache/spring-boot-aot.jar"))));
 
         Path metadataRoot = projectDir.resolve("target/spring-aot/main/resources/META-INF/native-image/com.example/demo");
@@ -52,7 +51,7 @@ final class SpringBootAotGenerationServiceTest {
                 projectDir,
                 springBootNativeConfig(),
                 jdkStatus(),
-                emptyClasspaths(),
+                emptyClasspath(),
                 new Classpath(List.of(projectDir.resolve("cache/spring-boot-aot.jar"))));
 
         assertTrue(Files.exists(beanDefinitions));
@@ -119,9 +118,8 @@ final class SpringBootAotGenerationServiceTest {
         });
     }
 
-    private static ClasspathSet emptyClasspaths() {
-        Classpath empty = new Classpath(List.of());
-        return new ClasspathSet(empty, empty, empty, empty, empty, empty);
+    private static Classpath emptyClasspath() {
+        return new Classpath(List.of());
     }
 
     private static JdkStatus jdkStatus() {

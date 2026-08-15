@@ -115,8 +115,6 @@ Packaging, publishing, and release commands:
 
 ```sh
 zolt package --mode thin
-zolt package --mode spring-boot
-zolt package --mode spring-boot-war
 zolt package --mode quarkus
 zolt package --mode uber
 zolt package --plan --format json
@@ -131,6 +129,21 @@ zolt licenses --notices THIRD_PARTY.txt
 zolt native
 zolt native --workspace --member apps/zolt
 ```
+
+`--mode` is temporary and is accepted only when it preserves the configured
+dependency-resolution tooling. Thin, uber, WAR, and Quarkus layouts are
+resolution-equivalent; Spring Boot jar and Spring Boot WAR are
+resolution-equivalent. A transition between those families must be persistent:
+
+```toml
+[package]
+mode = "spring-boot"
+```
+
+Run `zolt resolve` after changing the setting, then run `zolt package` without
+`--mode`. Workspace packaging always uses each member's persistent mode. Native
+builds validate the same declared lock; Spring Boot native packaging derives a
+loader-free native classpath view without rewriting `zolt.lock`.
 
 Thin packaging writes a `.runtime-classpath` sidecar beside the application
 jar. That file is a checkout-local launch convenience: its entries are the

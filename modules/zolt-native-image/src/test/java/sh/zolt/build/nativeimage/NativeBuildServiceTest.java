@@ -103,7 +103,8 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
         assertTrue(exception.getMessage().contains("Spring Boot native images require `[framework.springBoot.native] enabled = true`"));
         assertTrue(exception.getMessage().contains("Spring Boot JVM build, test, run, and executable packaging"));
         assertTrue(exception.getMessage().contains("explicit Zolt-owned Spring Boot AOT/native canary path"));
-        assertTrue(exception.getMessage().contains("zolt package --mode spring-boot"));
+        assertTrue(exception.getMessage().contains("[package].mode = \"spring-boot\""));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
         assertFalse(exception.getMessage().contains("not supported by Zolt yet"));
         assertTrue(commands.isEmpty());
     }

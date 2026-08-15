@@ -150,10 +150,9 @@ public final class NativeCommand implements Runnable {
             }
             ProjectConfig config = ProjectVersionOverride.apply(
                     tomlParser.parse(projectRoot.resolve("zolt.toml")));
-            ProjectConfig packageConfig = NativePackagePolicy.packageConfig(config);
             var artifactIndex = lockfiles.requireFreshLockfile(
                     projectRoot,
-                    packageConfig,
+                    config,
                     cacheRoot,
                     false,
                     "zolt native");

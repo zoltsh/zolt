@@ -84,7 +84,8 @@ final class NativeBuildServiceSpringNativeFailureModeTest extends NativeBuildSer
 
         assertTrue(exception.getMessage().contains("Spring Boot native support is currently proven for Java 21"));
         assertTrue(exception.getMessage().contains("[project].java = 17"));
-        assertTrue(exception.getMessage().contains("zolt package --mode spring-boot"));
+        assertTrue(exception.getMessage().contains("[package].mode = \"spring-boot\""));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
         assertFalse(Files.exists(projectDir.resolve("target/demo-0.1.0.jar")));
     }
 

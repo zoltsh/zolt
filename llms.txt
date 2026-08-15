@@ -66,7 +66,8 @@ zolt policy --format json
 zolt plan --target package --format json
 zolt test --suite smoke --shard 1/4 --reports-dir target/test-reports
 zolt coverage --xml-report target/coverage/jacoco.xml
-zolt package --mode spring-boot
+zolt resolve
+zolt package
 zolt package --plan --format json
 zolt publish --dry-run
 zolt explain --source gradle --scorecard
@@ -84,3 +85,6 @@ Zolt is Java-focused and opinionated. It has broad implemented lanes, but it is
 not a promise that every custom Maven or Gradle plugin behavior is already a
 drop-in replacement. Use USAGE.md, REFERENCE.md, zolt explain, zolt plan, and
 examples/ to answer support questions from current repository evidence.
+Package `--mode` is temporary and only supports resolution-equivalent layouts.
+Persist `[package].mode` and run `zolt resolve` when entering or leaving the
+Spring Boot archive family.

@@ -10,12 +10,15 @@ import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.lockfile.SpringBootLoaderArtifact;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 final class BuildOutputFinalizer {
     private final JdkChecker jdkChecker;
@@ -53,7 +56,7 @@ final class BuildOutputFinalizer {
                 projectDirectory,
                 config,
                 jdkStatus,
-                classpaths,
+                springBootAotRuntimeClasspath(config, classpaths.runtime(), classpathPackages),
                 springBootAotClasspath(config, classpathPackages));
         return result;
     }
@@ -104,6 +107,33 @@ final class BuildOutputFinalizer {
         return new Classpath(classpathPackages.stream()
                 .filter(dependency -> dependency.scope() == DependencyScope.TOOL_SPRING_AOT)
                 .map(dependency -> dependency.resolvedPackage().jarPath())
+                .toList());
+    }
+
+    private static Classpath springBootAotRuntimeClasspath(
+            ProjectConfig config,
+            Classpath runtimeClasspath,
+            List<ResolvedClasspathPackage> classpathPackages) {
+        PackageMode mode = config.packageSettings().mode();
+        if (!config.frameworkSettings().springBoot().nativeEnabled()
+                || (mode != PackageMode.SPRING_BOOT && mode != PackageMode.SPRING_BOOT_WAR)) {
+            return runtimeClasspath;
+        }
+        Set<Path> implicitLoaders = classpathPackages.stream()
+                .filter(dependency -> dependency.scope() == DependencyScope.RUNTIME)
+                .filter(dependency -> !dependency.resolvedPackage().direct())
+                .filter(dependency -> {
+                    var resolved = dependency.resolvedPackage();
+                    var identity = resolved.artifactIdentity();
+                    return SpringBootLoaderArtifact.isDefaultLoader(
+                            resolved.packageId(),
+                            identity.extension(),
+                            identity.classifier());
+                })
+                .map(dependency -> dependency.resolvedPackage().jarPath())
+                .collect(Collectors.toUnmodifiableSet());
+        return new Classpath(runtimeClasspath.entries().stream()
+                .filter(path -> !implicitLoaders.contains(path))
                 .toList());
     }
 

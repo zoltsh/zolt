@@ -2,7 +2,6 @@ package sh.zolt.build;
 
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
-import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.cache.BuildCacheService;
 import sh.zolt.build.compile.MainCompileSourceExecutor;
@@ -19,12 +18,9 @@ import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.generated.GeneratedSourceException;
 import sh.zolt.generated.ProtobufGeneratedSourceService;
-import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveResult;
-import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.ResolveService;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,8 +30,7 @@ import java.util.Optional;
 
 public final class BuildService {
     private final BuildServiceDependencies dependencies;
-    private final ResolveService resolveService;
-    private final ZoltLockfileReader lockfileReader;
+    private final BuildClasspathResolver buildClasspathResolver;
     private final ClasspathBuilder classpathBuilder;
     private final SourceDiscoverer sourceDiscoverer;
     private final BuildFingerprintService buildFingerprintService;
@@ -77,8 +72,8 @@ public final class BuildService {
 
     BuildService(BuildServiceDependencies dependencies) {
         this.dependencies = dependencies;
-        this.resolveService = dependencies.resolveService();
-        this.lockfileReader = dependencies.lockfileReader();
+        this.buildClasspathResolver =
+                new BuildClasspathResolver(dependencies.resolveService(), dependencies.lockfileReader());
         this.classpathBuilder = dependencies.classpathBuilder();
         this.sourceDiscoverer = dependencies.sourceDiscoverer();
         this.buildFingerprintService = dependencies.buildFingerprintService();
@@ -152,38 +147,21 @@ public final class BuildService {
                 new BuildRequest(projectDirectory, config, cacheRoot, offline, artifactIndex));
     }
 
+    /** Builds against a command-specific projection of the fully verified lockfile packages. */
+    public BuildResultWithClasspaths buildWithClasspaths(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path cacheRoot,
+            boolean offline,
+            VerifiedArtifactIndex artifactIndex,
+            java.util.function.Predicate<ResolvedClasspathPackage> packageFilter) {
+        return buildWithClasspaths(
+                new BuildRequest(projectDirectory, config, cacheRoot, offline, artifactIndex, packageFilter));
+    }
+
     private BuildResultWithClasspaths buildWithClasspaths(BuildRequest request) {
-        Path lockfilePath = request.projectDirectory().resolve("zolt.lock");
-        Optional<ResolveResult> resolveResult = Optional.empty();
-        if (!Files.isRegularFile(lockfilePath)) {
-            resolveResult = Optional.of(resolveService.resolve(
-                    request.projectDirectory(),
-                    request.config(),
-                    request.cacheRoot(),
-                    false,
-                    ResolveOptions.offline(request.offline()).withRetryCommand("zolt build")));
-        }
-        if (GeneratedSourceToolingGate.openApiToolingMissing(
-                        lockfileReader, request.projectDirectory(), request.config(), request.offline())
-                || GeneratedSourceToolingGate.execToolingMissing(
-                        lockfileReader, request.projectDirectory(), request.config(), request.offline())) {
-            resolveResult = Optional.of(resolveService.resolve(
-                    request.projectDirectory(),
-                    request.config(),
-                    request.cacheRoot(),
-                    false,
-                    ResolveOptions.offline(request.offline()).withRetryCommand("zolt build")));
-        }
-
-        if (resolveResult.isPresent()) {
-            request.artifactIndex().invalidateAll();
-        }
-
-        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
-        List<ResolvedClasspathPackage> classpathPackages = LockfileClasspathPackageConverter.classpathPackages(
-                lockfile,
-                request.cacheRoot(),
-                request.artifactIndex());
+        BuildClasspathResolver.Result resolved = buildClasspathResolver.resolve(request);
+        List<ResolvedClasspathPackage> classpathPackages = resolved.packages();
         ClasspathSet classpaths = classpathBuilder.build(classpathPackages);
         openApiGeneratedSourceService.generateMain(request.projectDirectory(), request.config(), classpathPackages);
         try {
@@ -194,7 +172,7 @@ public final class BuildService {
         execGeneratedSourceService.generateMain(
                 request.projectDirectory(), request.config(), classpathPackages, request.offline());
         return new BuildResultWithClasspaths(
-                build(request.projectDirectory(), request.config(), classpaths, resolveResult, classpathPackages,
+                build(request.projectDirectory(), request.config(), classpaths, resolved.resolveResult(), classpathPackages,
                         request.offline()),
                 classpaths,
                 classpathPackages);

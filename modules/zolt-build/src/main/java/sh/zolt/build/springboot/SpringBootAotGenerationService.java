@@ -6,7 +6,6 @@ import sh.zolt.build.run.JavaRunner;
 import sh.zolt.build.JavacException;
 import sh.zolt.build.compile.JavacRunner;
 import sh.zolt.classpath.Classpath;
-import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectPathException;
@@ -38,7 +37,7 @@ public final class SpringBootAotGenerationService {
             Path projectDirectory,
             ProjectConfig config,
             JdkStatus jdkStatus,
-            ClasspathSet classpaths,
+            Classpath applicationRuntimeClasspath,
             Classpath springBootAotClasspath) {
         if (!config.frameworkSettings().springBoot().nativeEnabled()) {
             return;
@@ -59,7 +58,11 @@ public final class SpringBootAotGenerationService {
         FilesCreateDirectories.create(sourcesRoot);
         FilesCreateDirectories.create(resourcesRoot);
         FilesCreateDirectories.create(classesRoot);
-        Classpath processorClasspath = processorClasspath(projectDirectory, config, classpaths, springBootAotClasspath);
+        Classpath processorClasspath = processorClasspath(
+                projectDirectory,
+                config,
+                applicationRuntimeClasspath,
+                springBootAotClasspath);
         runProcessor(
                 jdkStatus,
                 processorClasspath,
@@ -117,11 +120,11 @@ public final class SpringBootAotGenerationService {
     private static Classpath processorClasspath(
             Path projectDirectory,
             ProjectConfig config,
-            ClasspathSet classpaths,
+            Classpath applicationRuntimeClasspath,
             Classpath springBootAotClasspath) {
         List<Path> entries = new ArrayList<>();
         entries.add(projectDirectory.resolve(config.build().output()).normalize());
-        entries.addAll(classpaths.runtime().entries());
+        entries.addAll(applicationRuntimeClasspath.entries());
         entries.addAll(springBootAotClasspath.entries());
         return new Classpath(entries);
     }

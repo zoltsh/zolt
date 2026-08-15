@@ -124,12 +124,17 @@ Zolt includes packaging or generated-source paths for Spring Boot, Quarkus,
 OpenAPI, and Protobuf, with documented Micronaut and Vert.x examples.
 
 ```sh
-zolt package --mode spring-boot
-zolt package --mode spring-boot-war
+zolt resolve
+zolt package
 zolt package --mode quarkus
 zolt quarkus plan
 zolt quarkus test-plan
 ```
+
+Spring Boot archive modes are resolution inputs because they add locked loader
+tooling. Set `[package].mode = "spring-boot"` (or `"spring-boot-war"`) in
+`zolt.toml`, run `zolt resolve`, then use `zolt package`. The Spring Boot
+examples already declare their package modes this way.
 
 See [Frameworks](./REFERENCE.md#frameworks-and-generated-sources) and the
 [examples](./examples/).
@@ -141,13 +146,17 @@ zolt package --plan
 zolt package --mode thin
 zolt package --mode uber
 zolt package --mode war
-zolt package --mode spring-boot
 zolt package --mode quarkus
 zolt native
 ```
 
 Packages support sources, Javadoc, manifests, Maven metadata, and evidence.
-Native builds use the resolved GraalVM toolchain.
+`--mode` is a one-command override only when the configured and requested modes
+use the same resolution tooling. Thin, uber, WAR, and Quarkus layouts are in one
+resolution family; Spring Boot jar and Spring Boot WAR are another. Crossing
+between those families fails closed: persist `[package].mode`, run
+`zolt resolve`, and retry without `--mode`. Native builds validate that same
+declared lock and use the resolved GraalVM toolchain.
 
 ## Publish
 
