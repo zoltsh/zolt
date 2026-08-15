@@ -51,7 +51,7 @@ smoke.suite("Spring Boot native AOT handoff smoke", { tags: ["native", "spring-b
         `${target}/spring-aot/main/classes`,
         `${target}/spring-aot/main/resources`,
         "com.example.Main",
-        `${target}/native/spring-boot-native-aot-canary`,
+        `${target}/native/.spring-boot-native-aot-canary.zolt-staging-`,
       ],
       excludes: ["BOOT-INF", configuredPackage],
     });
