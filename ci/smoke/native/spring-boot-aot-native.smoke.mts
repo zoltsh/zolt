@@ -42,18 +42,20 @@ smoke.suite("Spring Boot native AOT handoff smoke", { tags: ["native", "spring-b
     await expect.file(`${target}/spring-aot/main/sources/com/example/Main__ApplicationContextInitializer.java`).toExist();
     await expect.file(`${target}/spring-aot/main/classes/com/example/Main__ApplicationContextInitializer.class`).toExist();
     await expect.file(`${target}/spring-aot/main/resources/META-INF/native-image/com.example/spring-boot-native-aot-canary/native-image.properties`).toExist();
+    const nativeInput = `${target}/native/input/spring-boot-native-aot-canary-0.1.0.jar`;
+    const configuredPackage = `${target}/spring-boot-native-aot-canary-0.1.0.jar`;
 
     await expectTextFile(fake.argsLog, {
       contains: [
-        `${target}/spring-boot-native-aot-canary-0.1.0.jar`,
+        nativeInput,
         `${target}/spring-aot/main/classes`,
         `${target}/spring-aot/main/resources`,
         "com.example.Main",
         `${target}/native/spring-boot-native-aot-canary`,
       ],
-      excludes: ["BOOT-INF"],
+      excludes: ["BOOT-INF", configuredPackage],
     });
-    const entries = await listJarEntries(t, `${target}/spring-boot-native-aot-canary-0.1.0.jar`);
+    const entries = await listJarEntries(t, nativeInput);
     expect.value(entries.some((entry) => entry.startsWith("BOOT-INF/"))).toBeFalsy();
   });
 });
