@@ -180,7 +180,7 @@ final class BuildPlanServiceNativeTest {
                 "Spring Boot native images require `[framework.springBoot.native] enabled = true`.",
                 blocker.message());
         assertEquals(
-                "Use `zolt package --mode spring-boot` or `zolt run` for JVM apps, "
+                "Set `[package].mode = \"spring-boot\"`, run `zolt resolve`, then use `zolt package` or `zolt run` for JVM apps, "
                         + "or enable the typed Spring Boot native path.",
                 blocker.nextStep());
     }

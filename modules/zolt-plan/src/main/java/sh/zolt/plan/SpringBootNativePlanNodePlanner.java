@@ -47,7 +47,7 @@ final class SpringBootNativePlanNodePlanner {
             blockers.add(new PlanBlocker(
                     "spring-boot-native-disabled",
                     "Spring Boot native images require `[framework.springBoot.native] enabled = true`.",
-                    "Use `zolt package --mode spring-boot` or `zolt run` for JVM apps, or enable the typed Spring Boot native path."));
+                    "Set `[package].mode = \"spring-boot\"`, run `zolt resolve`, then use `zolt package` or `zolt run` for JVM apps, or enable the typed Spring Boot native path."));
         }
         if (nativeEnabled && !"21".equals(config.project().java())) {
             blockers.add(new PlanBlocker(

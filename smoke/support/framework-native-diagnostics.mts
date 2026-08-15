@@ -17,7 +17,7 @@ export const FRAMEWORK_NATIVE_DIAGNOSTIC_CONTRACTS: readonly FrameworkNativeDiag
   {
     framework: "spring-boot",
     mode: "Spring Boot native images require `[framework.springBoot.native] enabled = true`",
-    nextStep: "zolt package --mode spring-boot",
+    nextStep: "`[package].mode = \"spring-boot\"`, run `zolt resolve`",
   },
   {
     framework: "micronaut",

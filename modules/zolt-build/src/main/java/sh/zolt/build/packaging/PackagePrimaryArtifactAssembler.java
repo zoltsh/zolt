@@ -98,7 +98,7 @@ final class PackageModePackagerRegistry {
                 artifactPathPlanner.jarPath(request.projectDirectory(), request.config()),
                 requiredCacheRoot(
                         request.cacheRoot(),
-                        "Spring Boot package mode requires dependency jar access from zolt.lock. Use single-project `zolt package --mode spring-boot` for now; workspace Spring Boot packaging is not wired yet."),
+                        "Spring Boot package mode requires dependency jar access from zolt.lock. Persist `[package].mode = \"spring-boot\"`, run `zolt resolve`, then run `zolt package`."),
                 request.classpathPackages()));
         packagers.put(PackageMode.WAR, request -> archiveModePackager.packageWar(
                 request.projectDirectory(),
@@ -119,7 +119,7 @@ final class PackageModePackagerRegistry {
                 artifactPathPlanner.archivePath(request.projectDirectory(), request.config(), "war"),
                 requiredCacheRoot(
                         request.cacheRoot(),
-                        "Spring Boot WAR package mode requires dependency jar access from zolt.lock. Use single-project `zolt package --mode spring-boot-war` for now; workspace Spring Boot WAR packaging is not wired yet."),
+                        "Spring Boot WAR package mode requires dependency jar access from zolt.lock. Persist `[package].mode = \"spring-boot-war\"`, run `zolt resolve`, then run `zolt package`."),
                 request.classpathPackages()));
         packagers.put(PackageMode.QUARKUS, request -> archiveModePackager.packageFrameworkJar(
                 request.projectDirectory(),
