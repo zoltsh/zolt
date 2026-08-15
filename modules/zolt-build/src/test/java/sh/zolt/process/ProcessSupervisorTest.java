@@ -42,6 +42,20 @@ final class ProcessSupervisorTest {
     }
 
     @Test
+    void emitsHeartbeatsWhileAQuietProcessIsStillRunning() throws Exception {
+        AtomicInteger heartbeats = new AtomicInteger();
+
+        SupervisedProcessResult result = new ProcessSupervisor().run(
+                SupervisedProcessSpec.builder(javaCommand(SleepProcess.class, "150"))
+                        .build(),
+                java.time.Duration.ofMillis(10),
+                heartbeats::incrementAndGet);
+
+        assertEquals(0, result.exitCode());
+        assertTrue(heartbeats.get() > 0, Integer.toString(heartbeats.get()));
+    }
+
+    @Test
     void timeoutTerminatesParentChildAndGrandchildIncludingTermIgnoringChild() throws Exception {
         assumeFalse(isWindows(), "POSIX signal fixtures require /bin/sh");
         ProcessTreeFixture tree = writeProcessTreeFixture("timeout");
@@ -174,6 +188,12 @@ final class ProcessSupervisorTest {
                             .inputPolicy(ProcessInputPolicy.INHERIT)
                             .stdoutConsumer(System.out::print)
                             .build());
+        }
+    }
+
+    public static final class SleepProcess {
+        public static void main(String[] arguments) throws InterruptedException {
+            new CountDownLatch(1).await(Long.parseLong(arguments[0]), TimeUnit.MILLISECONDS);
         }
     }
 

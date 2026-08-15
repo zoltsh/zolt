@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,6 +22,17 @@ public final class ProcessSupervisor {
     private static final long PUMP_JOIN_MILLIS = 1000L;
 
     public SupervisedProcessResult run(SupervisedProcessSpec spec) throws IOException, InterruptedException {
+        return run(spec, null, () -> {});
+    }
+
+    public SupervisedProcessResult run(
+            SupervisedProcessSpec spec,
+            Duration heartbeatInterval,
+            Runnable heartbeat) throws IOException, InterruptedException {
+        if (heartbeatInterval != null && (heartbeatInterval.isZero() || heartbeatInterval.isNegative())) {
+            throw new IllegalArgumentException("Process heartbeat interval must be positive.");
+        }
+        Objects.requireNonNull(heartbeat, "Process heartbeat is required.");
         Process process = start(spec);
         AtomicBoolean terminationInitiated = new AtomicBoolean();
         BoundedProcessOutput output = new BoundedProcessOutput(spec.diagnosticTailCharacters());
@@ -31,7 +43,19 @@ public final class ProcessSupervisor {
                 process,
                 () -> terminationInitiated.set(true))) {
             try {
-                if (!waitFor(process, spec.timeout())) {
+                boolean completed;
+                try {
+                    completed = waitFor(
+                            process,
+                            spec.timeout(),
+                            heartbeatInterval,
+                            heartbeat);
+                } catch (RuntimeException exception) {
+                    terminationInitiated.set(true);
+                    ProcessCancellation.terminate(process);
+                    throw exception;
+                }
+                if (!completed) {
                     timedOut = true;
                     terminationInitiated.set(true);
                     ProcessCancellation.terminate(process);
@@ -133,13 +157,34 @@ public final class ProcessSupervisor {
         }
     }
 
-    private static boolean waitFor(Process process, Duration timeout) throws InterruptedException {
-        if (timeout == null) {
+    private static boolean waitFor(
+            Process process,
+            Duration timeout,
+            Duration heartbeatInterval,
+            Runnable heartbeat) throws InterruptedException {
+        if (heartbeatInterval == null && timeout == null) {
             process.waitFor();
             return true;
         }
-        long timeoutMillis = Math.max(1L, timeout.toMillis());
-        return process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS);
+        if (heartbeatInterval == null) {
+            return process.waitFor(Math.max(1L, timeout.toMillis()), TimeUnit.MILLISECONDS);
+        }
+        long heartbeatNanos = Math.max(1L, heartbeatInterval.toNanos());
+        long deadline = timeout == null ? Long.MAX_VALUE : System.nanoTime() + timeout.toNanos();
+        while (true) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0L) {
+                return false;
+            }
+            long waitNanos = Math.min(heartbeatNanos, remaining);
+            if (process.waitFor(waitNanos, TimeUnit.NANOSECONDS)) {
+                return true;
+            }
+            if (System.nanoTime() >= deadline) {
+                return false;
+            }
+            heartbeat.run();
+        }
     }
 
     private static void finishPumps(List<Pump> pumps) throws InterruptedException {
