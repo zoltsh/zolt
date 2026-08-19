@@ -34,6 +34,22 @@ final class GeneratedProcessToolTest {
                         List.of("npm", "--version"),
                         new GeneratedVersionExpectation(">=10"),
                         false));
+
+        assertEquals(
+                List.of("npm", ""),
+                new AuthoredGeneratedTool.Process(
+                                new GeneratedProcessBinary("npm"),
+                                List.of("npm", ""),
+                                new GeneratedVersionExpectation(">=10"),
+                                true)
+                        .versionCommand());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredGeneratedTool.Process(
+                        new GeneratedProcessBinary("npm"),
+                        List.of("npm", "bad\0argument"),
+                        new GeneratedVersionExpectation(">=10"),
+                        true));
     }
 
     @Test

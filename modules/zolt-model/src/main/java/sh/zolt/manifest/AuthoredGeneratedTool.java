@@ -65,9 +65,10 @@ public sealed interface AuthoredGeneratedTool
                         "A generated process tool requires a nonempty version command.");
             }
             for (String argument : versionCommand) {
-                ManifestModelValues.requireNonBlank(argument, "Generated process version-command argument");
-                ManifestModelValues.rejectControlCharacters(
-                        argument, "Generated process version-command argument");
+                if (argument.indexOf('\0') >= 0) {
+                    throw new IllegalArgumentException(
+                            "Generated process version-command arguments must not contain NUL.");
+                }
             }
             if (!versionCommand.getFirst().equals(binary.value())) {
                 throw new IllegalArgumentException(
