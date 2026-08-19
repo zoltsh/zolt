@@ -1,6 +1,7 @@
 package sh.zolt.manifest;
 
 import java.util.Objects;
+import javax.lang.model.SourceVersion;
 
 /** An exact Java binary class name used by an exclusive test-suite lock. */
 public record JavaBinaryClassName(String value) implements Comparable<JavaBinaryClassName> {
@@ -15,6 +16,11 @@ public record JavaBinaryClassName(String value) implements Comparable<JavaBinary
         if (value.indexOf('/') >= 0 || value.indexOf('\\') >= 0) {
             throw new IllegalArgumentException(
                     "Invalid Java binary class name `" + value + "`: use binary-name dots, not path separators.");
+        }
+        if (value.indexOf('.') < 0
+                || !SourceVersion.isName(value, SourceVersion.RELEASE_21)) {
+            throw new IllegalArgumentException(
+                    "Invalid Java binary class name `" + value + "`: use a fully qualified Java 21 binary name.");
         }
     }
 
