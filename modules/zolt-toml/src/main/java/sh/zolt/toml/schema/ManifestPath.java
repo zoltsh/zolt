@@ -33,6 +33,14 @@ public record ManifestPath(List<String> segments) implements Comparable<Manifest
         return new ManifestPath(childSegments);
     }
 
+    /** Placeholder names in source order, without their surrounding angle brackets. */
+    public List<String> placeholderNames() {
+        return segments.stream()
+                .filter(ManifestPath::isPlaceholder)
+                .map(segment -> segment.substring(1, segment.length() - 1))
+                .toList();
+    }
+
     @Override
     public int compareTo(ManifestPath other) {
         Objects.requireNonNull(other, "Manifest path to compare is required.");
@@ -62,5 +70,9 @@ public record ManifestPath(List<String> segments) implements Comparable<Manifest
             throw new IllegalArgumentException("Manifest path segments must not contain control characters.");
         }
         return segment;
+    }
+
+    static boolean isPlaceholder(String segment) {
+        return segment.length() > 2 && segment.startsWith("<") && segment.endsWith(">");
     }
 }

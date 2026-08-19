@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -95,10 +96,92 @@ final class ManifestSchemaRegistryTest {
                         ManifestValueKind.STRING,
                         FormattingPolicy.DEFAULT,
                         MutationPolicy.NONE,
-                        -1));
+                        -1,
+                        Optional.empty(),
+                        ManifestValidationCategory.NONE,
+                        Map.of()));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new ManifestSection(ManifestPath.of("project"), SectionKind.SINGLETON, -1, Set.of()));
+                () -> new ManifestSection(
+                        ManifestPath.of("project"),
+                        SectionKind.SINGLETON,
+                        -1,
+                        Set.of(),
+                        Map.of()));
+    }
+
+    @Test
+    void validatesSemanticMetadataAndCopiesDynamicKeyGrammars() {
+        LinkedHashMap<String, ManifestDynamicKeyGrammar> dynamicKeys =
+                new LinkedHashMap<>(Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID));
+        ManifestField dynamic = new ManifestField(
+                path("versions.<id>"),
+                ManifestValueKind.STRING,
+                FormattingPolicy.ONE_LINE,
+                MutationPolicy.REPLACE_ENTRY,
+                10,
+                Optional.of("version-symbol"),
+                ManifestValidationCategory.NONE,
+                dynamicKeys);
+        dynamicKeys.clear();
+
+        assertEquals(Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID), dynamic.dynamicKeyGrammars());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> dynamic.dynamicKeyGrammars().put("other", ManifestDynamicKeyGrammar.LOCAL_ID));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ManifestField(
+                        path("versions.<id>"),
+                        ManifestValueKind.STRING,
+                        FormattingPolicy.ONE_LINE,
+                        MutationPolicy.REPLACE_ENTRY,
+                        10,
+                        Optional.empty(),
+                        ManifestValidationCategory.NONE,
+                        Map.of()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ManifestSection(
+                        ManifestPath.of("project"),
+                        SectionKind.SINGLETON,
+                        10,
+                        Set.of(),
+                        Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ManifestField(
+                        ManifestPath.of("project", "java"),
+                        ManifestValueKind.INTEGER,
+                        FormattingPolicy.DEFAULT,
+                        MutationPolicy.NONE,
+                        10,
+                        Optional.empty(),
+                        ManifestValidationCategory.MANIFEST_RELATIVE_PATH,
+                        Map.of()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ManifestField(
+                        ManifestPath.of("project", "java"),
+                        ManifestValueKind.INTEGER,
+                        FormattingPolicy.DEFAULT,
+                        MutationPolicy.NONE,
+                        10,
+                        Optional.of("version-symbol"),
+                        ManifestValidationCategory.NONE,
+                        Map.of()));
+
+        ManifestSymbolFamily versionSymbols =
+                new ManifestSymbolFamily("version-symbol", List.of("fixed"));
+        ManifestSchemaRegistry registry = new ManifestSchemaRegistry(
+                List.of(dynamic),
+                List.of(),
+                new ManifestSymbolRegistry(List.of(versionSymbols)));
+        assertEquals(dynamic, registry.fields().getFirst());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ManifestSchemaRegistry(
+                        List.of(dynamic), List.of(), new ManifestSymbolRegistry(List.of())));
     }
 
     private static ManifestField field(String section, String name, int order) {
@@ -107,7 +190,10 @@ final class ManifestSchemaRegistryTest {
                 ManifestValueKind.STRING,
                 FormattingPolicy.DEFAULT,
                 MutationPolicy.REPLACE_VALUE,
-                order);
+                order,
+                Optional.empty(),
+                ManifestValidationCategory.NONE,
+                Map.of());
     }
 
     private static ManifestField field(String dottedPath, int order) {
@@ -116,7 +202,12 @@ final class ManifestSchemaRegistryTest {
                 ManifestValueKind.STRING,
                 FormattingPolicy.DEFAULT,
                 MutationPolicy.NONE,
-                order);
+                order,
+                Optional.empty(),
+                ManifestValidationCategory.NONE,
+                dottedPath.contains("<id>")
+                        ? Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID)
+                        : Map.of());
     }
 
     private static ManifestSection section(String name, int order, Set<String> reservedChildren) {
@@ -124,7 +215,8 @@ final class ManifestSchemaRegistryTest {
                 ManifestPath.of(name),
                 SectionKind.SINGLETON,
                 order,
-                reservedChildren);
+                reservedChildren,
+                Map.of());
     }
 
     private static ManifestSection section(String dottedPath, int order) {
@@ -132,7 +224,10 @@ final class ManifestSchemaRegistryTest {
                 path(dottedPath),
                 dottedPath.contains("<") ? SectionKind.NAMED_ITEM : SectionKind.SINGLETON,
                 order,
-                Set.of());
+                Set.of(),
+                dottedPath.contains("<id>")
+                        ? Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID)
+                        : Map.of());
     }
 
     private static ManifestPath path(String dottedPath) {

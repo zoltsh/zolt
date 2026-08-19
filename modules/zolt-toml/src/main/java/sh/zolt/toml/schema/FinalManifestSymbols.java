@@ -61,12 +61,18 @@ public final class FinalManifestSymbols {
 
     private static final ManifestSymbolRegistry REGISTRY = new ManifestSymbolRegistry(List.of(
             family("package-mode", "jar", "uber-jar", "war", "spring-boot", "spring-boot-war", "quarkus"),
+            family("package-duplicate-policy", "fail", "first-wins"),
             family("toolchain-distribution", "temurin", "graalvm-community"),
             family("toolchain-policy", "prefer-managed", "require-managed", "allow-system"),
             family("toolchain-feature", "native-image"),
             family("conflict-policy", "resolve", "warn", "fail"),
+            family("unknown-license-policy", "allow", "warn", "fail"),
+            family("resource-filter-target", "main", "test"),
+            family("resource-missing-policy", "fail", "keep"),
             family("generated-tool-kind", "openapi", "protobuf", "jvm", "process"),
+            family("generated-preset-kind", "openapi"),
             family("generated-step-kind", "openapi", "protobuf", "exec", "declared-root"),
+            family("generated-language", "java"),
             family("generated-lane", "java-sources", "test-sources", "resources", "test-resources", "intermediate"),
             family("generated-cache-policy", "content", "none"),
             family("signing-method", "gpg"),

@@ -17,7 +17,14 @@ final class ManifestPathTest {
         assertEquals(List.of("dependencies"), path.segments());
         assertEquals(ManifestPath.of("dependencies", "api"), path.child("api"));
         assertEquals("dependencies.api", path.child("api").toString());
+        assertEquals(List.of(), path.placeholderNames());
+        assertEquals(
+                List.of("id", "coordinate"),
+                ManifestPath.of("generated", "<id>", "<coordinate>").placeholderNames());
         assertThrows(UnsupportedOperationException.class, () -> path.segments().add("test"));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> ManifestPath.of("generated", "<id>").placeholderNames().add("other"));
     }
 
     @Test

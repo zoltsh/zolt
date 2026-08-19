@@ -39,6 +39,13 @@ public final class ManifestSchemaRegistry {
             if (mutableFields.putIfAbsent(value.path(), value) != null) {
                 throw duplicate("field", value.path());
             }
+            value.symbolFamily().ifPresent(name -> {
+                if (this.symbols.family(name).isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Manifest field `" + value.path()
+                                    + "` references unknown symbol family `" + name + "`.");
+                }
+            });
         }
 
         LinkedHashMap<ManifestPath, ManifestSection> mutableSections = new LinkedHashMap<>();
@@ -124,17 +131,13 @@ public final class ManifestSchemaRegistry {
         for (int index = 0; index < pattern.segments().size(); index++) {
             String expected = pattern.segments().get(index);
             String observed = actual.segments().get(index);
-            if (isPlaceholder(expected)) {
+            if (ManifestPath.isPlaceholder(expected)) {
                 bindings.put(expected.substring(1, expected.length() - 1), observed);
             } else if (!expected.equals(observed)) {
                 return null;
             }
         }
         return bindings;
-    }
-
-    private static boolean isPlaceholder(String segment) {
-        return segment.length() > 2 && segment.startsWith("<") && segment.endsWith(">");
     }
 
     private static IllegalArgumentException duplicate(String kind, ManifestPath path) {

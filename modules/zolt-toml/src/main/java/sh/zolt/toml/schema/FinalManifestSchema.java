@@ -70,14 +70,19 @@ public final class FinalManifestSchema {
     private static final ManifestPath TASK = ManifestPath.of("tasks", "<id>");
     private static final ManifestPath ALIASES = ManifestPath.of("aliases");
 
-    private static final ManifestSchemaRegistry REGISTRY =
-            new ManifestSchemaRegistry(fields(), sections(), FinalManifestSymbols.registry());
+    private static final ManifestSchemaRegistry REGISTRY = createRegistry();
 
     private FinalManifestSchema() {
     }
 
     public static ManifestSchemaRegistry registry() {
         return REGISTRY;
+    }
+
+    private static ManifestSchemaRegistry createRegistry() {
+        List<ManifestField> fields = fields();
+        FinalManifestFieldSemantics.validateCatalog(fields);
+        return new ManifestSchemaRegistry(fields, sections(), FinalManifestSymbols.registry());
     }
 
     private static List<ManifestSection> sections() {
@@ -461,12 +466,17 @@ public final class FinalManifestSchema {
             String name,
             ManifestValueKind kind,
             int canonicalOrder) {
+        ManifestPath path = section.child(name);
+        FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
         return new ManifestField(
-                section.child(name),
+                path,
                 kind,
                 FormattingPolicy.DEFAULT,
                 MutationPolicy.NONE,
-                canonicalOrder);
+                canonicalOrder,
+                semantics.symbolFamily(),
+                semantics.validation(),
+                FinalManifestFieldSemantics.dynamicKeys(path));
     }
 
     private static ManifestField oneLineField(
@@ -474,12 +484,17 @@ public final class FinalManifestSchema {
             String name,
             ManifestValueKind kind,
             int canonicalOrder) {
+        ManifestPath path = section.child(name);
+        FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
         return new ManifestField(
-                section.child(name),
+                path,
                 kind,
                 FormattingPolicy.ONE_LINE,
                 MutationPolicy.NONE,
-                canonicalOrder);
+                canonicalOrder,
+                semantics.symbolFamily(),
+                semantics.validation(),
+                FinalManifestFieldSemantics.dynamicKeys(path));
     }
 
     private static ManifestField mutableMapEntry(
@@ -487,12 +502,17 @@ public final class FinalManifestSchema {
             String name,
             ManifestValueKind kind,
             int canonicalOrder) {
+        ManifestPath path = section.child(name);
+        FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
         return new ManifestField(
-                section.child(name),
+                path,
                 kind,
                 FormattingPolicy.ONE_LINE,
                 MutationPolicy.REPLACE_ENTRY,
-                canonicalOrder);
+                canonicalOrder,
+                semantics.symbolFamily(),
+                semantics.validation(),
+                FinalManifestFieldSemantics.dynamicKeys(path));
     }
 
     private static ManifestField generatedStepField(
@@ -508,6 +528,11 @@ public final class FinalManifestSchema {
             SectionKind kind,
             int canonicalOrder,
             Set<String> reservedChildren) {
-        return new ManifestSection(path, kind, canonicalOrder, reservedChildren);
+        return new ManifestSection(
+                path,
+                kind,
+                canonicalOrder,
+                reservedChildren,
+                FinalManifestFieldSemantics.dynamicKeys(path));
     }
 }
