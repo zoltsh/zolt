@@ -1,0 +1,69 @@
+Zolt Unicode workspace portability data
+=======================================
+
+Identity: unicode-17.0.0-nfc-full-default-case-fold
+Format: deterministic Zolt binary format version 1
+
+Generated from the Unicode Consortium's Unicode Character Database 17.0.0:
+
+https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt
+SHA-256: 2e1efc1dcb59c575eedf5ccae60f95229f706ee6d031835247d843c11d96470c
+
+https://www.unicode.org/Public/17.0.0/ucd/CompositionExclusions.txt
+SHA-256: 2f239196ef3b5b61db5cc476e9bd80f534d15aa1b74e1be1dea5d042a344c85f
+
+https://www.unicode.org/Public/17.0.0/ucd/CaseFolding.txt
+SHA-256: ff8d8fefbf123574205085d6714c36149eb946d717a0c585c27f0f4ef58c4183
+
+The checked-in runtime table is unicode-17.0.0-portability.bin.
+SHA-256: 80ca0e4cae87a07641b8d48547d8201d70e35bd0e9649f2e7fcfa780e873183b
+
+The complete NFC conformance resource is generated from:
+
+https://www.unicode.org/Public/17.0.0/ucd/NormalizationTest.txt
+SHA-256: 5019ffd530751a741900c849c0e010332f142a3612234639bd200b82138a87db
+
+The checked-in conformance table is unicode-17.0.0-nfc-conformance.bin.
+SHA-256: ab5a6f2e8bd5e446066ae2ce4f2265028195fb722365499bf7252b374a8147fb
+
+Regenerate or verify both tables with scripts/generate-unicode17-portability-data.
+
+UNICODE LICENSE V3
+
+COPYRIGHT AND PERMISSION NOTICE
+
+Copyright © 1991-2025 Unicode, Inc.
+
+NOTICE TO USER: Carefully read the following legal agreement. BY
+DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of data files and any associated documentation (the "Data Files") or
+software and any associated documentation (the "Software") to deal in
+the Data Files or Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute,
+and/or sell copies of the Data Files or Software, and to permit persons to
+whom the Data Files or Software are furnished to do so, provided that
+either (a) this copyright and permission notice appear with all copies of
+the Data Files or Software, or (b) this copyright and permission notice
+appear in associated Documentation.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+THIRD PARTY RIGHTS.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or other
+dealings in these Data Files or Software without prior written
+authorization of the copyright holder.

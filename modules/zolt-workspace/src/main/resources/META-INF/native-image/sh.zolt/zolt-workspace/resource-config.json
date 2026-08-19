@@ -1,0 +1,9 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "\\Qsh/zolt/workspace/unicode/unicode-17.0.0-portability.bin\\E"
+      }
+    ]
+  }
+}
