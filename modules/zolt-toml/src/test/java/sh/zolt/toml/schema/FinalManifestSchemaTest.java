@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 final class FinalManifestSchemaTest {
@@ -51,6 +52,10 @@ final class FinalManifestSchemaTest {
                         "resources",
                         "resources.filter",
                         "resources.tokens",
+                        "generated.tools.<id>",
+                        "generated.presets.<id>",
+                        "generated.main.<id>",
+                        "generated.test.<id>",
                         "test.sources",
                         "test.runtime",
                         "test.integration",
@@ -94,6 +99,10 @@ final class FinalManifestSchemaTest {
                         6_200,
                         6_210,
                         6_220,
+                        6_300,
+                        6_400,
+                        6_500,
+                        6_600,
                         6_700,
                         6_710,
                         6_720,
@@ -137,6 +146,10 @@ final class FinalManifestSchemaTest {
                         Map.entry("resources", SectionKind.SINGLETON),
                         Map.entry("resources.filter", SectionKind.SINGLETON),
                         Map.entry("resources.tokens", SectionKind.COLLECTION),
+                        Map.entry("generated.tools.<id>", SectionKind.NAMED_ITEM),
+                        Map.entry("generated.presets.<id>", SectionKind.NAMED_ITEM),
+                        Map.entry("generated.main.<id>", SectionKind.NAMED_ITEM),
+                        Map.entry("generated.test.<id>", SectionKind.NAMED_ITEM),
                         Map.entry("test.sources", SectionKind.SINGLETON),
                         Map.entry("test.runtime", SectionKind.SINGLETON),
                         Map.entry("test.integration", SectionKind.SINGLETON),
@@ -165,9 +178,12 @@ final class FinalManifestSchemaTest {
         assertEquals(Set.of("metadata", "output"), section("build").reservedChildren());
         assertEquals(Set.of("generated", "test"), section("compiler").reservedChildren());
         assertEquals(Set.of("filter", "tokens"), section("resources").reservedChildren());
+        assertEquals(
+                Set.of("openapi", "project", "protobuf"),
+                section("generated.tools.<id>").reservedChildren());
         assertEquals(Set.of("all"), section("test.suites.<id>").reservedChildren());
         assertEquals(
-                30,
+                33,
                 registry.sections().stream()
                         .filter(section -> section.reservedChildren().isEmpty())
                         .count());
@@ -257,6 +273,107 @@ final class FinalManifestSchemaTest {
                         "resources.filter.include",
                         "resources.filter.missing",
                         "resources.tokens.<id>",
+                        "generated.tools.<id>.kind",
+                        "generated.tools.<id>.coordinate",
+                        "generated.tools.<id>.version",
+                        "generated.tools.<id>.versionRef",
+                        "generated.tools.<id>.protocCoordinate",
+                        "generated.tools.<id>.protocVersion",
+                        "generated.tools.<id>.protocVersionRef",
+                        "generated.tools.<id>.grpcCoordinate",
+                        "generated.tools.<id>.grpcVersion",
+                        "generated.tools.<id>.grpcVersionRef",
+                        "generated.tools.<id>.coordinates",
+                        "generated.tools.<id>.mainClass",
+                        "generated.tools.<id>.binary",
+                        "generated.tools.<id>.versionCommand",
+                        "generated.tools.<id>.versionExpect",
+                        "generated.tools.<id>.allowUnpinnedTool",
+                        "generated.presets.<id>.kind",
+                        "generated.presets.<id>.generator",
+                        "generated.presets.<id>.library",
+                        "generated.presets.<id>.apiPackage",
+                        "generated.presets.<id>.modelPackage",
+                        "generated.presets.<id>.invokerPackage",
+                        "generated.presets.<id>.config",
+                        "generated.presets.<id>.templateDir",
+                        "generated.presets.<id>.validateSpec",
+                        "generated.presets.<id>.options",
+                        "generated.presets.<id>.additionalProperties",
+                        "generated.presets.<id>.configOptions",
+                        "generated.presets.<id>.globalProperties",
+                        "generated.presets.<id>.typeMappings",
+                        "generated.presets.<id>.importMappings",
+                        "generated.main.<id>.kind",
+                        "generated.main.<id>.language",
+                        "generated.main.<id>.tool",
+                        "generated.main.<id>.mainClass",
+                        "generated.main.<id>.args",
+                        "generated.main.<id>.input",
+                        "generated.main.<id>.inputs",
+                        "generated.main.<id>.output",
+                        "generated.main.<id>.produces",
+                        "generated.main.<id>.into",
+                        "generated.main.<id>.preset",
+                        "generated.main.<id>.generator",
+                        "generated.main.<id>.library",
+                        "generated.main.<id>.apiPackage",
+                        "generated.main.<id>.modelPackage",
+                        "generated.main.<id>.invokerPackage",
+                        "generated.main.<id>.config",
+                        "generated.main.<id>.templateDir",
+                        "generated.main.<id>.validateSpec",
+                        "generated.main.<id>.options",
+                        "generated.main.<id>.additionalProperties",
+                        "generated.main.<id>.configOptions",
+                        "generated.main.<id>.globalProperties",
+                        "generated.main.<id>.typeMappings",
+                        "generated.main.<id>.importMappings",
+                        "generated.main.<id>.javaPackage",
+                        "generated.main.<id>.grpc",
+                        "generated.main.<id>.cache",
+                        "generated.main.<id>.cwd",
+                        "generated.main.<id>.env",
+                        "generated.main.<id>.secretEnv",
+                        "generated.main.<id>.inheritEnv",
+                        "generated.main.<id>.timeoutSeconds",
+                        "generated.main.<id>.required",
+                        "generated.main.<id>.clean",
+                        "generated.test.<id>.kind",
+                        "generated.test.<id>.language",
+                        "generated.test.<id>.tool",
+                        "generated.test.<id>.mainClass",
+                        "generated.test.<id>.args",
+                        "generated.test.<id>.input",
+                        "generated.test.<id>.inputs",
+                        "generated.test.<id>.output",
+                        "generated.test.<id>.produces",
+                        "generated.test.<id>.into",
+                        "generated.test.<id>.preset",
+                        "generated.test.<id>.generator",
+                        "generated.test.<id>.library",
+                        "generated.test.<id>.apiPackage",
+                        "generated.test.<id>.modelPackage",
+                        "generated.test.<id>.invokerPackage",
+                        "generated.test.<id>.config",
+                        "generated.test.<id>.templateDir",
+                        "generated.test.<id>.validateSpec",
+                        "generated.test.<id>.options",
+                        "generated.test.<id>.additionalProperties",
+                        "generated.test.<id>.configOptions",
+                        "generated.test.<id>.globalProperties",
+                        "generated.test.<id>.typeMappings",
+                        "generated.test.<id>.importMappings",
+                        "generated.test.<id>.javaPackage",
+                        "generated.test.<id>.grpc",
+                        "generated.test.<id>.cache",
+                        "generated.test.<id>.cwd",
+                        "generated.test.<id>.env",
+                        "generated.test.<id>.secretEnv",
+                        "generated.test.<id>.inheritEnv",
+                        "generated.test.<id>.timeoutSeconds",
+                        "generated.test.<id>.required",
+                        "generated.test.<id>.clean",
                         "test.sources.java",
                         "test.sources.groovy",
                         "test.runtime.jvmArgs",
@@ -397,6 +514,106 @@ final class FinalManifestSchemaTest {
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.branch"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.instruction"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.method"));
+    }
+
+    @Test
+    void recordsExactGeneratedFieldShapesAndDomainOrder() {
+        assertEquals(
+                List.of(
+                        Map.entry("kind", ManifestValueKind.STRING),
+                        Map.entry("coordinate", ManifestValueKind.STRING),
+                        Map.entry("version", ManifestValueKind.STRING),
+                        Map.entry("versionRef", ManifestValueKind.STRING),
+                        Map.entry("protocCoordinate", ManifestValueKind.STRING),
+                        Map.entry("protocVersion", ManifestValueKind.STRING),
+                        Map.entry("protocVersionRef", ManifestValueKind.STRING),
+                        Map.entry("grpcCoordinate", ManifestValueKind.STRING),
+                        Map.entry("grpcVersion", ManifestValueKind.STRING),
+                        Map.entry("grpcVersionRef", ManifestValueKind.STRING),
+                        Map.entry("coordinates", ManifestValueKind.INLINE_TABLE_ARRAY),
+                        Map.entry("mainClass", ManifestValueKind.STRING),
+                        Map.entry("binary", ManifestValueKind.STRING),
+                        Map.entry("versionCommand", ManifestValueKind.STRING_ARRAY),
+                        Map.entry("versionExpect", ManifestValueKind.STRING),
+                        Map.entry("allowUnpinnedTool", ManifestValueKind.BOOLEAN)),
+                fieldShapes("generated.tools.<id>"));
+        assertEquals(
+                List.of(
+                        Map.entry("kind", ManifestValueKind.STRING),
+                        Map.entry("generator", ManifestValueKind.STRING),
+                        Map.entry("library", ManifestValueKind.STRING),
+                        Map.entry("apiPackage", ManifestValueKind.STRING),
+                        Map.entry("modelPackage", ManifestValueKind.STRING),
+                        Map.entry("invokerPackage", ManifestValueKind.STRING),
+                        Map.entry("config", ManifestValueKind.STRING),
+                        Map.entry("templateDir", ManifestValueKind.STRING),
+                        Map.entry("validateSpec", ManifestValueKind.BOOLEAN),
+                        Map.entry("options", ManifestValueKind.INLINE_TABLE),
+                        Map.entry("additionalProperties", ManifestValueKind.INLINE_TABLE),
+                        Map.entry("configOptions", ManifestValueKind.INLINE_TABLE),
+                        Map.entry("globalProperties", ManifestValueKind.INLINE_TABLE),
+                        Map.entry("typeMappings", ManifestValueKind.INLINE_TABLE),
+                        Map.entry("importMappings", ManifestValueKind.INLINE_TABLE)),
+                fieldShapes("generated.presets.<id>"));
+
+        List<Map.Entry<String, ManifestValueKind>> stepShape = List.of(
+                Map.entry("kind", ManifestValueKind.STRING),
+                Map.entry("language", ManifestValueKind.STRING),
+                Map.entry("tool", ManifestValueKind.STRING),
+                Map.entry("mainClass", ManifestValueKind.STRING),
+                Map.entry("args", ManifestValueKind.STRING_ARRAY),
+                Map.entry("input", ManifestValueKind.STRING),
+                Map.entry("inputs", ManifestValueKind.STRING_ARRAY),
+                Map.entry("output", ManifestValueKind.STRING),
+                Map.entry("produces", ManifestValueKind.STRING),
+                Map.entry("into", ManifestValueKind.STRING),
+                Map.entry("preset", ManifestValueKind.STRING),
+                Map.entry("generator", ManifestValueKind.STRING),
+                Map.entry("library", ManifestValueKind.STRING),
+                Map.entry("apiPackage", ManifestValueKind.STRING),
+                Map.entry("modelPackage", ManifestValueKind.STRING),
+                Map.entry("invokerPackage", ManifestValueKind.STRING),
+                Map.entry("config", ManifestValueKind.STRING),
+                Map.entry("templateDir", ManifestValueKind.STRING),
+                Map.entry("validateSpec", ManifestValueKind.BOOLEAN),
+                Map.entry("options", ManifestValueKind.INLINE_TABLE),
+                Map.entry("additionalProperties", ManifestValueKind.INLINE_TABLE),
+                Map.entry("configOptions", ManifestValueKind.INLINE_TABLE),
+                Map.entry("globalProperties", ManifestValueKind.INLINE_TABLE),
+                Map.entry("typeMappings", ManifestValueKind.INLINE_TABLE),
+                Map.entry("importMappings", ManifestValueKind.INLINE_TABLE),
+                Map.entry("javaPackage", ManifestValueKind.STRING),
+                Map.entry("grpc", ManifestValueKind.BOOLEAN),
+                Map.entry("cache", ManifestValueKind.STRING),
+                Map.entry("cwd", ManifestValueKind.STRING),
+                Map.entry("env", ManifestValueKind.INLINE_TABLE),
+                Map.entry("secretEnv", ManifestValueKind.INLINE_TABLE),
+                Map.entry("inheritEnv", ManifestValueKind.STRING_ARRAY),
+                Map.entry("timeoutSeconds", ManifestValueKind.INTEGER),
+                Map.entry("required", ManifestValueKind.BOOLEAN),
+                Map.entry("clean", ManifestValueKind.BOOLEAN));
+        assertEquals(stepShape, fieldShapes("generated.main.<id>"));
+        assertEquals(stepShape, fieldShapes("generated.test.<id>"));
+
+        assertEquals(IntStream.rangeClosed(6_301, 6_316).boxed().toList(), fieldOrders("generated.tools.<id>"));
+        assertEquals(IntStream.rangeClosed(6_401, 6_415).boxed().toList(), fieldOrders("generated.presets.<id>"));
+        assertEquals(IntStream.rangeClosed(6_501, 6_535).boxed().toList(), fieldOrders("generated.main.<id>"));
+        assertEquals(IntStream.rangeClosed(6_601, 6_635).boxed().toList(), fieldOrders("generated.test.<id>"));
+    }
+
+    @Test
+    void matchesConcreteGeneratedIdsToTheirNamedSchemaItems() {
+        ManifestSchemaMatch<ManifestSection> tool = registry
+                .matchSection(path("generated.tools.openapi"))
+                .orElseThrow();
+        assertEquals("generated.tools.<id>", tool.descriptor().path().toString());
+        assertEquals(Map.of("id", "openapi"), tool.bindings());
+
+        ManifestSchemaMatch<ManifestField> input = registry
+                .matchField(path("generated.main.public-api.input"))
+                .orElseThrow();
+        assertEquals("generated.main.<id>.input", input.descriptor().path().toString());
+        assertEquals(Map.of("id", "public-api"), input.bindings());
     }
 
     @Test
@@ -552,6 +769,24 @@ final class FinalManifestSchemaTest {
 
     private ManifestField field(String path) {
         return registry.field(path(path)).orElseThrow();
+    }
+
+    private List<Map.Entry<String, ManifestValueKind>> fieldShapes(String section) {
+        String prefix = section + ".";
+        return registry.fields().stream()
+                .filter(field -> field.path().toString().startsWith(prefix))
+                .map(field -> Map.entry(
+                        field.path().toString().substring(prefix.length()),
+                        field.valueKind()))
+                .toList();
+    }
+
+    private List<Integer> fieldOrders(String section) {
+        String prefix = section + ".";
+        return registry.fields().stream()
+                .filter(field -> field.path().toString().startsWith(prefix))
+                .map(ManifestField::canonicalOrder)
+                .toList();
     }
 
     private static ManifestPath path(String dotted) {
