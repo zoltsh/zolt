@@ -1,0 +1,21 @@
+[workspace]
+name = "zolt"
+
+[workspace.members]
+default = ["apps/zolt"]
+include = ["apps/*", "modules/*"]
+
+[workspace.project]
+group = "sh.zolt"
+version = "0.1.0-SNAPSHOT"
+java = 21
+license = "Apache-2.0"
+
+[toolchain.java]
+distribution = "graalvm-community"
+features = ["native-image"]
+policy = "require-managed"
+
+[coverage]
+line = 88
+branch = 74
