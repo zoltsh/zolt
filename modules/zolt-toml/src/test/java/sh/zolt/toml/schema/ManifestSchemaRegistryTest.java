@@ -20,7 +20,8 @@ final class ManifestSchemaRegistryTest {
         ArrayList<ManifestField> inputFields = new ArrayList<>(List.of(version, name));
         ArrayList<ManifestSection> inputSections = new ArrayList<>(List.of(dependencies, project));
 
-        ManifestSchemaRegistry registry = new ManifestSchemaRegistry(inputFields, inputSections);
+        ManifestSchemaRegistry registry = new ManifestSchemaRegistry(
+                inputFields, inputSections, new ManifestSymbolRegistry(List.of()));
         inputFields.clear();
         inputSections.clear();
 
@@ -39,10 +40,12 @@ final class ManifestSchemaRegistryTest {
 
         IllegalArgumentException duplicateField = assertThrows(
                 IllegalArgumentException.class,
-                () -> new ManifestSchemaRegistry(List.of(field, field), List.of(section)));
+                () -> new ManifestSchemaRegistry(
+                        List.of(field, field), List.of(section), new ManifestSymbolRegistry(List.of())));
         IllegalArgumentException duplicateSection = assertThrows(
                 IllegalArgumentException.class,
-                () -> new ManifestSchemaRegistry(List.of(field), List.of(section, section)));
+                () -> new ManifestSchemaRegistry(
+                        List.of(field), List.of(section, section), new ManifestSymbolRegistry(List.of())));
 
         assertEquals("Duplicate manifest field path `project.name`.", duplicateField.getMessage());
         assertEquals("Duplicate manifest section path `project`.", duplicateSection.getMessage());

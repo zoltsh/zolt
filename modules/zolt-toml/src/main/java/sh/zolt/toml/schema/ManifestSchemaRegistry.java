@@ -22,12 +22,15 @@ public final class ManifestSchemaRegistry {
     private final List<ManifestSection> sections;
     private final Map<ManifestPath, ManifestField> fieldsByPath;
     private final Map<ManifestPath, ManifestSection> sectionsByPath;
+    private final ManifestSymbolRegistry symbols;
 
     public ManifestSchemaRegistry(
             Collection<ManifestField> fields,
-            Collection<ManifestSection> sections) {
+            Collection<ManifestSection> sections,
+            ManifestSymbolRegistry symbols) {
         Objects.requireNonNull(fields, "Manifest fields are required.");
         Objects.requireNonNull(sections, "Manifest sections are required.");
+        this.symbols = Objects.requireNonNull(symbols, "Manifest symbols are required.");
 
         LinkedHashMap<ManifestPath, ManifestField> mutableFields = new LinkedHashMap<>();
         for (ManifestField field : fields) {
@@ -70,6 +73,10 @@ public final class ManifestSchemaRegistry {
     public Optional<ManifestSection> section(ManifestPath path) {
         return Optional.ofNullable(
                 sectionsByPath.get(Objects.requireNonNull(path, "Manifest section path is required.")));
+    }
+
+    public ManifestSymbolRegistry symbols() {
+        return symbols;
     }
 
     private static IllegalArgumentException duplicate(String kind, ManifestPath path) {

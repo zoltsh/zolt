@@ -21,7 +21,8 @@ public final class FinalManifestSchema {
     private static final ManifestPath PLATFORMS = ManifestPath.of("platforms");
     private static final ManifestPath COVERAGE = ManifestPath.of("coverage");
 
-    private static final ManifestSchemaRegistry REGISTRY = new ManifestSchemaRegistry(fields(), sections());
+    private static final ManifestSchemaRegistry REGISTRY =
+            new ManifestSchemaRegistry(fields(), sections(), FinalManifestSymbols.registry());
 
     private FinalManifestSchema() {
     }
