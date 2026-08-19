@@ -5,7 +5,13 @@ import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 
-/** Schema metadata for one accepted manifest section path. */
+/**
+ * Schema metadata for one accepted manifest section path.
+ *
+ * <p>For a {@link SectionKind#NAMED_ITEM} path, {@code reservedChildren} names
+ * reserved values of the dynamic path segment. For every other section kind,
+ * it names reserved structural children beneath the section.
+ */
 public record ManifestSection(
         ManifestPath path,
         SectionKind kind,

@@ -32,6 +32,19 @@ public final class FinalManifestSchema {
     private static final ManifestPath DEPENDENCY_LICENSE_POLICY = DEPENDENCY_POLICY.child("licenses");
     private static final ManifestPath DEPENDENCY_LICENSE_EXCEPTION =
             DEPENDENCIES.child("license-exceptions").child("<coordinate>");
+    private static final ManifestPath BUILD = ManifestPath.of("build");
+    private static final ManifestPath BUILD_OUTPUT = BUILD.child("output");
+    private static final ManifestPath BUILD_METADATA = BUILD.child("metadata");
+    private static final ManifestPath COMPILER = ManifestPath.of("compiler");
+    private static final ManifestPath COMPILER_TEST = COMPILER.child("test");
+    private static final ManifestPath COMPILER_GENERATED = COMPILER.child("generated");
+    private static final ManifestPath RESOURCES = ManifestPath.of("resources");
+    private static final ManifestPath RESOURCES_FILTER = RESOURCES.child("filter");
+    private static final ManifestPath RESOURCES_TOKENS = RESOURCES.child("tokens");
+    private static final ManifestPath TEST_SOURCES = ManifestPath.of("test", "sources");
+    private static final ManifestPath TEST_RUNTIME = ManifestPath.of("test", "runtime");
+    private static final ManifestPath TEST_INTEGRATION = ManifestPath.of("test", "integration");
+    private static final ManifestPath TEST_SUITE = ManifestPath.of("test", "suites", "<id>");
     private static final ManifestPath COVERAGE = ManifestPath.of("coverage");
 
     private static final ManifestSchemaRegistry REGISTRY =
@@ -86,6 +99,19 @@ public final class FinalManifestSchema {
                 section(DEPENDENCY_POLICY, SectionKind.SINGLETON, 5_090, Set.of("licenses")),
                 section(DEPENDENCY_LICENSE_POLICY, SectionKind.SINGLETON, 5_100, Set.of()),
                 section(DEPENDENCY_LICENSE_EXCEPTION, SectionKind.NAMED_ITEM, 5_110, Set.of()),
+                section(BUILD, SectionKind.SINGLETON, 6_000, Set.of("metadata", "output")),
+                section(BUILD_OUTPUT, SectionKind.SINGLETON, 6_010, Set.of()),
+                section(BUILD_METADATA, SectionKind.SINGLETON, 6_020, Set.of()),
+                section(COMPILER, SectionKind.SINGLETON, 6_100, Set.of("generated", "test")),
+                section(COMPILER_TEST, SectionKind.SINGLETON, 6_110, Set.of()),
+                section(COMPILER_GENERATED, SectionKind.SINGLETON, 6_120, Set.of()),
+                section(RESOURCES, SectionKind.SINGLETON, 6_200, Set.of("filter", "tokens")),
+                section(RESOURCES_FILTER, SectionKind.SINGLETON, 6_210, Set.of()),
+                section(RESOURCES_TOKENS, SectionKind.COLLECTION, 6_220, Set.of()),
+                section(TEST_SOURCES, SectionKind.SINGLETON, 6_700, Set.of()),
+                section(TEST_RUNTIME, SectionKind.SINGLETON, 6_710, Set.of()),
+                section(TEST_INTEGRATION, SectionKind.SINGLETON, 6_720, Set.of()),
+                section(TEST_SUITE, SectionKind.NAMED_ITEM, 6_730, Set.of("all")),
                 section(COVERAGE, SectionKind.SINGLETON, 6_900, Set.of()));
     }
 
@@ -194,6 +220,41 @@ public final class FinalManifestSchema {
                 field(DEPENDENCY_LICENSE_EXCEPTION, "allow", ManifestValueKind.STRING_ARRAY, 5_111),
                 field(DEPENDENCY_LICENSE_EXCEPTION, "version", ManifestValueKind.STRING, 5_112),
                 field(DEPENDENCY_LICENSE_EXCEPTION, "reason", ManifestValueKind.STRING, 5_113),
+                field(BUILD, "sources", ManifestValueKind.STRING_ARRAY, 6_001),
+                field(BUILD_OUTPUT, "root", ManifestValueKind.STRING, 6_011),
+                field(BUILD_OUTPUT, "main", ManifestValueKind.STRING, 6_012),
+                field(BUILD_OUTPUT, "test", ManifestValueKind.STRING, 6_013),
+                field(BUILD_OUTPUT, "integration", ManifestValueKind.STRING, 6_014),
+                field(BUILD_METADATA, "buildInfo", ManifestValueKind.BOOLEAN, 6_021),
+                field(BUILD_METADATA, "git", ManifestValueKind.BOOLEAN, 6_022),
+                field(BUILD_METADATA, "reproducible", ManifestValueKind.BOOLEAN, 6_023),
+                field(COMPILER, "encoding", ManifestValueKind.STRING, 6_101),
+                field(COMPILER, "jdkApi", ManifestValueKind.STRING, 6_102),
+                field(COMPILER, "args", ManifestValueKind.STRING_ARRAY, 6_103),
+                field(COMPILER_TEST, "jdkApi", ManifestValueKind.STRING, 6_111),
+                field(COMPILER_TEST, "args", ManifestValueKind.STRING_ARRAY, 6_112),
+                field(COMPILER_GENERATED, "main", ManifestValueKind.STRING, 6_121),
+                field(COMPILER_GENERATED, "test", ManifestValueKind.STRING, 6_122),
+                field(RESOURCES, "main", ManifestValueKind.STRING_ARRAY, 6_201),
+                field(RESOURCES, "test", ManifestValueKind.STRING_ARRAY, 6_202),
+                field(RESOURCES_FILTER, "targets", ManifestValueKind.STRING_ARRAY, 6_211),
+                field(RESOURCES_FILTER, "include", ManifestValueKind.STRING_ARRAY, 6_212),
+                field(RESOURCES_FILTER, "missing", ManifestValueKind.STRING, 6_213),
+                oneLineField(RESOURCES_TOKENS, "<id>", ManifestValueKind.INLINE_TABLE, 6_221),
+                field(TEST_SOURCES, "java", ManifestValueKind.STRING_ARRAY, 6_701),
+                field(TEST_SOURCES, "groovy", ManifestValueKind.STRING_ARRAY, 6_702),
+                field(TEST_RUNTIME, "jvmArgs", ManifestValueKind.STRING_ARRAY, 6_711),
+                field(TEST_RUNTIME, "properties", ManifestValueKind.INLINE_TABLE, 6_712),
+                field(TEST_RUNTIME, "env", ManifestValueKind.INLINE_TABLE, 6_713),
+                field(TEST_RUNTIME, "events", ManifestValueKind.STRING_ARRAY, 6_714),
+                field(TEST_INTEGRATION, "sources", ManifestValueKind.STRING_ARRAY, 6_721),
+                field(TEST_INTEGRATION, "resources", ManifestValueKind.STRING_ARRAY, 6_722),
+                field(TEST_SUITE, "classes", ManifestValueKind.STRING_ARRAY, 6_731),
+                field(TEST_SUITE, "excludeClasses", ManifestValueKind.STRING_ARRAY, 6_732),
+                field(TEST_SUITE, "tags", ManifestValueKind.STRING_ARRAY, 6_733),
+                field(TEST_SUITE, "excludeTags", ManifestValueKind.STRING_ARRAY, 6_734),
+                field(TEST_SUITE, "workers", ManifestValueKind.INTEGER, 6_735),
+                field(TEST_SUITE, "locks", ManifestValueKind.INLINE_TABLE_ARRAY, 6_736),
                 field(COVERAGE, "line", ManifestValueKind.NUMBER, 6_910),
                 field(COVERAGE, "branch", ManifestValueKind.NUMBER, 6_920),
                 field(COVERAGE, "instruction", ManifestValueKind.NUMBER, 6_930),

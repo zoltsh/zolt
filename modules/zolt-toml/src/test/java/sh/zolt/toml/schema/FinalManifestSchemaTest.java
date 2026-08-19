@@ -42,6 +42,19 @@ final class FinalManifestSchemaTest {
                         "dependencies.policy",
                         "dependencies.policy.licenses",
                         "dependencies.license-exceptions.<coordinate>",
+                        "build",
+                        "build.output",
+                        "build.metadata",
+                        "compiler",
+                        "compiler.test",
+                        "compiler.generated",
+                        "resources",
+                        "resources.filter",
+                        "resources.tokens",
+                        "test.sources",
+                        "test.runtime",
+                        "test.integration",
+                        "test.suites.<id>",
                         "coverage"),
                 sectionPaths());
         assertEquals(
@@ -72,6 +85,19 @@ final class FinalManifestSchemaTest {
                         5_090,
                         5_100,
                         5_110,
+                        6_000,
+                        6_010,
+                        6_020,
+                        6_100,
+                        6_110,
+                        6_120,
+                        6_200,
+                        6_210,
+                        6_220,
+                        6_700,
+                        6_710,
+                        6_720,
+                        6_730,
                         6_900),
                 registry.sections().stream().map(ManifestSection::canonicalOrder).toList());
         assertEquals(
@@ -102,6 +128,19 @@ final class FinalManifestSchemaTest {
                         Map.entry("dependencies.policy", SectionKind.SINGLETON),
                         Map.entry("dependencies.policy.licenses", SectionKind.SINGLETON),
                         Map.entry("dependencies.license-exceptions.<coordinate>", SectionKind.NAMED_ITEM),
+                        Map.entry("build", SectionKind.SINGLETON),
+                        Map.entry("build.output", SectionKind.SINGLETON),
+                        Map.entry("build.metadata", SectionKind.SINGLETON),
+                        Map.entry("compiler", SectionKind.SINGLETON),
+                        Map.entry("compiler.test", SectionKind.SINGLETON),
+                        Map.entry("compiler.generated", SectionKind.SINGLETON),
+                        Map.entry("resources", SectionKind.SINGLETON),
+                        Map.entry("resources.filter", SectionKind.SINGLETON),
+                        Map.entry("resources.tokens", SectionKind.COLLECTION),
+                        Map.entry("test.sources", SectionKind.SINGLETON),
+                        Map.entry("test.runtime", SectionKind.SINGLETON),
+                        Map.entry("test.integration", SectionKind.SINGLETON),
+                        Map.entry("test.suites.<id>", SectionKind.NAMED_ITEM),
                         Map.entry("coverage", SectionKind.SINGLETON)),
                 registry.sections().stream()
                         .collect(Collectors.toMap(section -> section.path().toString(), ManifestSection::kind)));
@@ -123,8 +162,12 @@ final class FinalManifestSchemaTest {
                         "license-exceptions"),
                 section("dependencies").reservedChildren());
         assertEquals(Set.of("licenses"), section("dependencies.policy").reservedChildren());
+        assertEquals(Set.of("metadata", "output"), section("build").reservedChildren());
+        assertEquals(Set.of("generated", "test"), section("compiler").reservedChildren());
+        assertEquals(Set.of("filter", "tokens"), section("resources").reservedChildren());
+        assertEquals(Set.of("all"), section("test.suites.<id>").reservedChildren());
         assertEquals(
-                21,
+                30,
                 registry.sections().stream()
                         .filter(section -> section.reservedChildren().isEmpty())
                         .count());
@@ -193,6 +236,41 @@ final class FinalManifestSchemaTest {
                         "dependencies.license-exceptions.<coordinate>.allow",
                         "dependencies.license-exceptions.<coordinate>.version",
                         "dependencies.license-exceptions.<coordinate>.reason",
+                        "build.sources",
+                        "build.output.root",
+                        "build.output.main",
+                        "build.output.test",
+                        "build.output.integration",
+                        "build.metadata.buildInfo",
+                        "build.metadata.git",
+                        "build.metadata.reproducible",
+                        "compiler.encoding",
+                        "compiler.jdkApi",
+                        "compiler.args",
+                        "compiler.test.jdkApi",
+                        "compiler.test.args",
+                        "compiler.generated.main",
+                        "compiler.generated.test",
+                        "resources.main",
+                        "resources.test",
+                        "resources.filter.targets",
+                        "resources.filter.include",
+                        "resources.filter.missing",
+                        "resources.tokens.<id>",
+                        "test.sources.java",
+                        "test.sources.groovy",
+                        "test.runtime.jvmArgs",
+                        "test.runtime.properties",
+                        "test.runtime.env",
+                        "test.runtime.events",
+                        "test.integration.sources",
+                        "test.integration.resources",
+                        "test.suites.<id>.classes",
+                        "test.suites.<id>.excludeClasses",
+                        "test.suites.<id>.tags",
+                        "test.suites.<id>.excludeTags",
+                        "test.suites.<id>.workers",
+                        "test.suites.<id>.locks",
                         "coverage.line",
                         "coverage.branch",
                         "coverage.instruction",
@@ -276,6 +354,45 @@ final class FinalManifestSchemaTest {
         assertEquals(
                 ManifestValueKind.STRING,
                 valueKinds.get("dependencies.license-exceptions.<coordinate>.reason"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("build.sources"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("build.output.root"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("build.output.main"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("build.output.test"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("build.output.integration"));
+        assertEquals(ManifestValueKind.BOOLEAN, valueKinds.get("build.metadata.buildInfo"));
+        assertEquals(ManifestValueKind.BOOLEAN, valueKinds.get("build.metadata.git"));
+        assertEquals(ManifestValueKind.BOOLEAN, valueKinds.get("build.metadata.reproducible"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.encoding"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.jdkApi"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("compiler.args"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.test.jdkApi"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("compiler.test.args"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.generated.main"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("compiler.generated.test"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("resources.main"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("resources.test"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("resources.filter.targets"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("resources.filter.include"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("resources.filter.missing"));
+        assertEquals(ManifestValueKind.INLINE_TABLE, valueKinds.get("resources.tokens.<id>"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.sources.java"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.sources.groovy"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.runtime.jvmArgs"));
+        assertEquals(ManifestValueKind.INLINE_TABLE, valueKinds.get("test.runtime.properties"));
+        assertEquals(ManifestValueKind.INLINE_TABLE, valueKinds.get("test.runtime.env"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.runtime.events"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.integration.sources"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.integration.resources"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.suites.<id>.classes"));
+        assertEquals(
+                ManifestValueKind.STRING_ARRAY,
+                valueKinds.get("test.suites.<id>.excludeClasses"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("test.suites.<id>.tags"));
+        assertEquals(
+                ManifestValueKind.STRING_ARRAY,
+                valueKinds.get("test.suites.<id>.excludeTags"));
+        assertEquals(ManifestValueKind.INTEGER, valueKinds.get("test.suites.<id>.workers"));
+        assertEquals(ManifestValueKind.INLINE_TABLE_ARRAY, valueKinds.get("test.suites.<id>.locks"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.line"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.branch"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.instruction"));
@@ -310,6 +427,57 @@ final class FinalManifestSchemaTest {
     }
 
     @Test
+    void recordsBuildAndTestFieldsInTheirFrozenDomainOrder() {
+        assertEquals(
+                List.of(
+                        6_001,
+                        6_011,
+                        6_012,
+                        6_013,
+                        6_014,
+                        6_021,
+                        6_022,
+                        6_023,
+                        6_101,
+                        6_102,
+                        6_103,
+                        6_111,
+                        6_112,
+                        6_121,
+                        6_122,
+                        6_201,
+                        6_202,
+                        6_211,
+                        6_212,
+                        6_213,
+                        6_221,
+                        6_701,
+                        6_702,
+                        6_711,
+                        6_712,
+                        6_713,
+                        6_714,
+                        6_721,
+                        6_722,
+                        6_731,
+                        6_732,
+                        6_733,
+                        6_734,
+                        6_735,
+                        6_736),
+                registry.fields().stream()
+                        .filter(field -> {
+                            String path = field.path().toString();
+                            return path.startsWith("build.")
+                                    || path.startsWith("compiler.")
+                                    || path.startsWith("resources.")
+                                    || path.startsWith("test.");
+                        })
+                        .map(ManifestField::canonicalOrder)
+                        .toList());
+    }
+
+    @Test
     void limitsOneLineMutationToFrozenMutableMaps() {
         assertEquals(
                 Set.of(
@@ -325,7 +493,8 @@ final class FinalManifestSchemaTest {
                         "dependencies.test.<coordinate>",
                         "dependencies.processor.<coordinate>",
                         "dependencies.test-processor.<coordinate>",
-                        "dependencies.constraints.<coordinate>"),
+                        "dependencies.constraints.<coordinate>",
+                        "resources.tokens.<id>"),
                 registry.fields().stream()
                         .filter(field -> field.formatting() == FormattingPolicy.ONE_LINE)
                         .map(field -> field.path().toString())
@@ -363,6 +532,10 @@ final class FinalManifestSchemaTest {
         assertEquals(
                 MutationPolicy.NONE,
                 field("dependencies.license-exceptions.<coordinate>.allow").mutation());
+        assertEquals(FormattingPolicy.ONE_LINE, field("resources.tokens.<id>").formatting());
+        assertEquals(MutationPolicy.NONE, field("resources.tokens.<id>").mutation());
+        assertEquals(FormattingPolicy.DEFAULT, field("test.suites.<id>.locks").formatting());
+        assertEquals(MutationPolicy.NONE, field("test.suites.<id>.locks").mutation());
     }
 
     private List<String> sectionPaths() {
