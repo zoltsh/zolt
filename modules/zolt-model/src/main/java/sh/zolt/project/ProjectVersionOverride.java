@@ -1,9 +1,8 @@
 package sh.zolt.project;
 
+import java.util.Optional;
 import sh.zolt.error.ActionableError;
 import sh.zolt.error.ActionableException;
-import java.util.Optional;
-import java.util.regex.Pattern;
 
 /**
  * Single owner of the build-time version override read from {@code ZOLT_VERSION_OVERRIDE}.
@@ -24,10 +23,6 @@ import java.util.regex.Pattern;
 public final class ProjectVersionOverride {
     public static final String ENV_VAR = "ZOLT_VERSION_OVERRIDE";
     public static final String BUILD_PROPERTY = "zolt.build.version";
-
-    private static final Pattern ACCEPTED = Pattern.compile(
-            "^([0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z._-]*)?"
-                    + "|[0-9A-Za-z._-]+-(nightly|zap)\\.[0-9]{8}\\.[0-9A-Fa-f]{7,40})$");
 
     private ProjectVersionOverride() {
     }
@@ -53,7 +48,9 @@ public final class ProjectVersionOverride {
             return Optional.empty();
         }
         String trimmed = value.trim();
-        if (!ACCEPTED.matcher(trimmed).matches()) {
+        try {
+            return Optional.of(new ZoltVersion(trimmed).value());
+        } catch (IllegalArgumentException exception) {
             throw new ActionableException(ActionableError.of(
                     ENV_VAR + " value `" + trimmed + "` is not a valid Zolt version.",
                     "Set " + ENV_VAR
@@ -61,7 +58,6 @@ public final class ProjectVersionOverride {
                             + " `0.1.0-nightly.YYYYMMDD.<commit>`, or a zap version like"
                             + " `0.1.0-zap.YYYYMMDD.<commit>` (7-40 hex commit characters)."));
         }
-        return Optional.of(trimmed);
     }
 
     /**
