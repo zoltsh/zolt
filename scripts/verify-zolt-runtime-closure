@@ -117,33 +117,58 @@ fi
 unexpected_node="$(find "$CLOSURE" -mindepth 1 \! -type f \! -type d -print -quit)"
 [[ -z "$unexpected_node" ]] || fail "runtime closure contains an unsupported filesystem node: $unexpected_node"
 while IFS= read -r directory; do
-  [[ "$directory" == "$CLOSURE/lib" || "$directory" == "$CLOSURE/libexec" ]] \
-    || fail "runtime closure contains an unexpected directory: $directory"
-done < <(find "$CLOSURE" -mindepth 1 -type d -print)
+  [[ "$directory" == "$CLOSURE/lib" \
+    || "$directory" == "$CLOSURE/libexec" \
+    || "$directory" == "$CLOSURE/classes" ]] \
+    || fail "runtime closure contains an unexpected top-level directory: $directory"
+done < <(find "$CLOSURE" -mindepth 1 -maxdepth 1 -type d -print)
 
-dependency_files=()
+classpath_files=()
+classpath_entries=()
 dependency_index=0
 while IFS= read -r entry || [[ -n "$entry" ]]; do
   [[ -n "$entry" ]] || fail "runtime classpath contains a blank entry"
-  printf -v expected_entry 'lib/%04d.jar' "$dependency_index"
-  [[ "$entry" == "$expected_entry" ]] \
-    || fail "runtime classpath entry $dependency_index must be $expected_entry, found $entry"
-  [[ -f "$CLOSURE/$entry" ]] || fail "runtime classpath entry does not exist: $entry"
-  [[ ! -L "$CLOSURE/$entry" ]] || fail "runtime classpath entry must not be a symbolic link: $entry"
-  dependency_files+=("$entry")
+  printf -v expected_jar 'lib/%04d.jar' "$dependency_index"
+  printf -v expected_classes 'classes/%04d' "$dependency_index"
+  if [[ "$entry" == "$expected_jar" ]]; then
+    [[ -f "$CLOSURE/$entry" ]] || fail "runtime classpath entry does not exist: $entry"
+    [[ ! -L "$CLOSURE/$entry" ]] || fail "runtime classpath entry must not be a symbolic link: $entry"
+    classpath_files+=("$entry")
+  elif [[ "$entry" == "$expected_classes" ]]; then
+    [[ -d "$CLOSURE/$entry" ]] || fail "runtime classpath entry does not exist: $entry"
+    [[ ! -L "$CLOSURE/$entry" ]] || fail "runtime classpath entry must not be a symbolic link: $entry"
+    while IFS= read -r copied; do
+      classpath_files+=("${copied#"$CLOSURE/"}")
+    done < <(find "$CLOSURE/$entry" -type f -print | LC_ALL=C sort)
+  else
+    fail "runtime classpath entry $dependency_index must be $expected_jar or $expected_classes, found $entry"
+  fi
+  classpath_entries+=("$entry")
   dependency_index=$((dependency_index + 1))
 done < "$CLOSURE/runtime-classpath"
 
-lib_file_count="$(find "$CLOSURE/lib" -mindepth 1 -maxdepth 1 -type f -print | wc -l | tr -d '[:space:]')"
-[[ "$lib_file_count" == "$dependency_index" ]] \
-  || fail "runtime closure lib directory does not match runtime-classpath"
+for root in lib classes; do
+  if [[ -d "$CLOSURE/$root" ]]; then
+    while IFS= read -r child; do
+      declared=false
+      for entry in "${classpath_entries[@]}"; do
+        if [[ "$child" == "$CLOSURE/$entry" ]]; then
+          declared=true
+          break
+        fi
+      done
+      [[ "$declared" == true ]] \
+        || fail "runtime closure $root directory does not match runtime-classpath: $child"
+    done < <(find "$CLOSURE/$root" -mindepth 1 -maxdepth 1 -print)
+  fi
+done
 
 expected_files=(CLOSURE_MODE SOURCE_COMMIT run-zolt runtime-classpath verify zolt.jar)
 if [[ "${#worker_files[@]}" -gt 0 ]]; then
   expected_files+=("${worker_files[@]}")
 fi
-if [[ "${#dependency_files[@]}" -gt 0 ]]; then
-  expected_files+=("${dependency_files[@]}")
+if [[ "${#classpath_files[@]}" -gt 0 ]]; then
+  expected_files+=("${classpath_files[@]}")
 fi
 manifest_index=0
 while IFS= read -r line || [[ -n "$line" ]]; do

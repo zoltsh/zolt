@@ -10,6 +10,7 @@ CLOSURE="$CAPTURES/pre-cut"
 mkdir -p \
   "$REPOSITORY/scripts" \
   "$REPOSITORY/artifacts" \
+  "$REPOSITORY/artifacts/classes/com/example" \
   "$REPOSITORY/apps/zolt-junit-worker/target" \
   "$REPOSITORY/apps/zolt-javac-worker/target" \
   "$CAPTURES"
@@ -21,10 +22,13 @@ chmod +x "$REPOSITORY/scripts/"*
 printf 'cli jar fixture\n' > "$REPOSITORY/artifacts/zolt.jar"
 printf 'dependency a\n' > "$REPOSITORY/artifacts/dependency-a.jar"
 printf 'dependency b\n' > "$REPOSITORY/artifacts/dependency b.jar"
+printf 'class bytes\n' > "$REPOSITORY/artifacts/classes/com/example/Fixture.class"
+printf 'resource bytes\n' > "$REPOSITORY/artifacts/classes/application.properties"
 printf 'junit worker\n' > "$REPOSITORY/apps/zolt-junit-worker/target/zolt-junit-worker.jar"
 printf 'javac worker\n' > "$REPOSITORY/apps/zolt-javac-worker/target/zolt-javac-worker.jar"
-printf '%s\n%s\n' \
+printf '%s\n%s\n%s\n' \
   'artifacts/dependency-a.jar' \
+  'artifacts/classes' \
   "$REPOSITORY/artifacts/dependency b.jar" \
   > "$REPOSITORY/artifacts/zolt.runtime-classpath"
 
@@ -44,10 +48,14 @@ SOURCE_COMMIT="$(git -C "$REPOSITORY" rev-parse HEAD)"
 grep -F "source commit $SOURCE_COMMIT" "$TEMPORARY/capture.log" >/dev/null
 [[ "$(cat "$CLOSURE/CLOSURE_MODE")" == 'manifest-cut' ]]
 [[ "$(cat "$CLOSURE/SOURCE_COMMIT")" == "$SOURCE_COMMIT" ]]
-[[ "$(cat "$CLOSURE/runtime-classpath")" == $'lib/0000.jar\nlib/0001.jar' ]]
+[[ "$(cat "$CLOSURE/runtime-classpath")" == $'lib/0000.jar\nclasses/0001\nlib/0002.jar' ]]
 cmp "$REPOSITORY/artifacts/zolt.jar" "$CLOSURE/zolt.jar"
 cmp "$REPOSITORY/artifacts/dependency-a.jar" "$CLOSURE/lib/0000.jar"
-cmp "$REPOSITORY/artifacts/dependency b.jar" "$CLOSURE/lib/0001.jar"
+cmp "$REPOSITORY/artifacts/classes/com/example/Fixture.class" \
+  "$CLOSURE/classes/0001/com/example/Fixture.class"
+cmp "$REPOSITORY/artifacts/classes/application.properties" \
+  "$CLOSURE/classes/0001/application.properties"
+cmp "$REPOSITORY/artifacts/dependency b.jar" "$CLOSURE/lib/0002.jar"
 cmp "$REPOSITORY/apps/zolt-junit-worker/target/zolt-junit-worker.jar" \
   "$CLOSURE/libexec/zolt-junit-worker.jar"
 cmp "$REPOSITORY/apps/zolt-javac-worker/target/zolt-javac-worker.jar" \
@@ -72,7 +80,7 @@ FAKE_JAVA
 chmod +x "$FAKE_BIN/java"
 PATH="$FAKE_BIN:$PATH" ZOLT_RUNTIME_CLOSURE_TEST_JAVA_ARGS="$JAVA_ARGS" \
   "$CLOSURE/run-zolt" version --json
-EXPECTED_CLASSPATH="$CLOSURE/zolt.jar:$CLOSURE/lib/0000.jar:$CLOSURE/lib/0001.jar"
+EXPECTED_CLASSPATH="$CLOSURE/zolt.jar:$CLOSURE/lib/0000.jar:$CLOSURE/classes/0001:$CLOSURE/lib/0002.jar"
 [[ "$(sed -n '1p' "$JAVA_ARGS")" == \
   "-Dzolt.javac.worker.classpath=$CLOSURE/libexec/zolt-javac-worker.jar" ]]
 [[ "$(sed -n '2p' "$JAVA_ARGS")" == \

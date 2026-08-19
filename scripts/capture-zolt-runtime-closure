@@ -18,7 +18,8 @@ Usage: scripts/capture-zolt-runtime-closure --output DIR [options]
 
 Captures the current clean commit's packaged Zolt JVM runtime into a new,
 external directory. The closure contains the CLI jar, its rewritten runtime
-classpath, all referenced jars, checksums, source commit, verifier, and launcher.
+classpath, all referenced jars and class directories, checksums, source commit,
+verifier, and launcher.
 
 Options:
   --output DIR                New closure directory outside the source repository.
@@ -130,6 +131,26 @@ canonical_regular_file() {
   printf '%s/%s' "$directory" "$(basename "$path")"
 }
 
+canonical_runtime_entry() {
+  local requested="$1"
+  local path="$requested"
+  local unsupported
+  if [[ "$path" != /* ]]; then
+    path="$ROOT/$path"
+  fi
+  [[ -e "$path" ]] || fail "required runtime entry does not exist at $requested"
+  [[ ! -L "$path" ]] || fail "required runtime entry must not be a symbolic link: $requested"
+  if [[ -f "$path" ]]; then
+    canonical_regular_file "$path"
+    return
+  fi
+  [[ -d "$path" ]] || fail "runtime classpath entry must be a regular file or directory: $requested"
+  unsupported="$(find "$path" -mindepth 1 \! -type f \! -type d -print -quit)"
+  [[ -z "$unsupported" ]] \
+    || fail "runtime classpath directory contains an unsupported filesystem node: $unsupported"
+  (cd "$path" && pwd -P)
+}
+
 JAR_PATH="$(canonical_regular_file "$JAR_PATH")"
 RUNTIME_CLASSPATH_FILE="$(canonical_regular_file "$RUNTIME_CLASSPATH_FILE")"
 [[ "$JAR_PATH" == *.jar ]] || fail "packaged Zolt CLI artifact must be a .jar file: $JAR_PATH"
@@ -231,12 +252,23 @@ if [[ -n "$JAVAC_WORKER_JAR" ]]; then
 fi
 
 dependency_index=0
+classpath_files=()
 while IFS= read -r entry || [[ -n "$entry" ]]; do
   [[ -n "$entry" ]] || fail "runtime classpath sidecar contains a blank entry"
-  dependency="$(canonical_regular_file "$entry")"
-  [[ "$dependency" == *.jar ]] || fail "runtime classpath entry must be a .jar file: $entry"
-  printf -v relative 'lib/%04d.jar' "$dependency_index"
-  cp "$dependency" "$STAGING/$relative"
+  dependency="$(canonical_runtime_entry "$entry")"
+  if [[ -f "$dependency" ]]; then
+    [[ "$dependency" == *.jar ]] || fail "runtime classpath file must be a .jar file: $entry"
+    printf -v relative 'lib/%04d.jar' "$dependency_index"
+    cp "$dependency" "$STAGING/$relative"
+    classpath_files+=("$relative")
+  else
+    printf -v relative 'classes/%04d' "$dependency_index"
+    mkdir -p "$STAGING/$relative"
+    cp -R "$dependency/." "$STAGING/$relative/"
+    while IFS= read -r copied; do
+      classpath_files+=("${copied#"$STAGING/"}")
+    done < <(find "$STAGING/$relative" -type f -print | LC_ALL=C sort)
+  fi
   printf '%s\n' "$relative" >> "$STAGING/runtime-classpath"
   dependency_index=$((dependency_index + 1))
 done < "$RUNTIME_CLASSPATH_FILE"
@@ -246,10 +278,9 @@ checksum_files=(CLOSURE_MODE SOURCE_COMMIT run-zolt runtime-classpath verify zol
 if [[ "${#worker_files[@]}" -gt 0 ]]; then
   checksum_files+=("${worker_files[@]}")
 fi
-for ((index = 0; index < dependency_index; index++)); do
-  printf -v relative 'lib/%04d.jar' "$index"
-  checksum_files+=("$relative")
-done
+if [[ "${#classpath_files[@]}" -gt 0 ]]; then
+  checksum_files+=("${classpath_files[@]}")
+fi
 for relative in "${checksum_files[@]}"; do
   printf '%s  %s\n' "$(sha256_file "$STAGING/$relative")" "$relative" >> "$STAGING/SHA256SUMS"
 done
