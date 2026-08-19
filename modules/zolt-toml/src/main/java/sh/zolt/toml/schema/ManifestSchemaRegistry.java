@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 /** Immutable lookup and canonical-order view of manifest schema metadata. */
 public final class ManifestSchemaRegistry {
@@ -75,8 +76,65 @@ public final class ManifestSchemaRegistry {
                 sectionsByPath.get(Objects.requireNonNull(path, "Manifest section path is required.")));
     }
 
+    public Optional<ManifestSchemaMatch<ManifestField>> matchField(ManifestPath path) {
+        return match(path, fields, ManifestField::path);
+    }
+
+    public Optional<ManifestSchemaMatch<ManifestSection>> matchSection(ManifestPath path) {
+        return match(path, sections, ManifestSection::path);
+    }
+
     public ManifestSymbolRegistry symbols() {
         return symbols;
+    }
+
+    private static <T> Optional<ManifestSchemaMatch<T>> match(
+            ManifestPath actual,
+            List<T> descriptors,
+            Function<T, ManifestPath> pathOf) {
+        Objects.requireNonNull(actual, "Concrete manifest path is required.");
+        ManifestSchemaMatch<T> best = null;
+        int bestSpecificity = -1;
+        for (T descriptor : descriptors) {
+            ManifestPath pattern = pathOf.apply(descriptor);
+            LinkedHashMap<String, String> bindings = bindings(pattern, actual);
+            if (bindings == null) {
+                continue;
+            }
+            int specificity = pattern.segments().size() - bindings.size();
+            if (specificity == bestSpecificity) {
+                throw new IllegalStateException(
+                        "Ambiguous manifest schema match for `" + actual + "`.");
+            }
+            if (specificity > bestSpecificity) {
+                best = new ManifestSchemaMatch<>(descriptor, bindings);
+                bestSpecificity = specificity;
+            }
+        }
+        return Optional.ofNullable(best);
+    }
+
+    private static LinkedHashMap<String, String> bindings(
+            ManifestPath pattern,
+            ManifestPath actual) {
+        if (pattern.segments().size() != actual.segments().size()) {
+            return null;
+        }
+        LinkedHashMap<String, String> bindings = new LinkedHashMap<>();
+        for (int index = 0; index < pattern.segments().size(); index++) {
+            String expected = pattern.segments().get(index);
+            String observed = actual.segments().get(index);
+            if (isPlaceholder(expected)) {
+                bindings.put(expected.substring(1, expected.length() - 1), observed);
+            } else if (!expected.equals(observed)) {
+                return null;
+            }
+        }
+        return bindings;
+    }
+
+    private static boolean isPlaceholder(String segment) {
+        return segment.length() > 2 && segment.startsWith("<") && segment.endsWith(">");
     }
 
     private static IllegalArgumentException duplicate(String kind, ManifestPath path) {

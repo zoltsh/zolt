@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -52,6 +54,33 @@ final class ManifestSchemaRegistryTest {
     }
 
     @Test
+    void resolvesDynamicPathsWhilePreferringFixedPaths() {
+        ManifestSection repositories = section("repositories", 10);
+        ManifestSection repository = section("repositories.<id>", 20);
+        ManifestField central = field("repositories.central", 10);
+        ManifestField url = field("repositories.<id>.url", 20);
+        ManifestSchemaRegistry registry = new ManifestSchemaRegistry(
+                List.of(url, central),
+                List.of(repository, repositories),
+                new ManifestSymbolRegistry(List.of()));
+
+        ManifestSchemaMatch<ManifestSection> repositoryMatch =
+                registry.matchSection(path("repositories.company")).orElseThrow();
+        ManifestSchemaMatch<ManifestField> urlMatch =
+                registry.matchField(path("repositories.company.url")).orElseThrow();
+        ManifestSchemaMatch<ManifestField> centralMatch =
+                registry.matchField(path("repositories.central")).orElseThrow();
+
+        assertEquals(repository, repositoryMatch.descriptor());
+        assertEquals(Map.of("id", "company"), repositoryMatch.bindings());
+        assertEquals(url, urlMatch.descriptor());
+        assertEquals(Map.of("id", "company"), urlMatch.bindings());
+        assertEquals(central, centralMatch.descriptor());
+        assertEquals(Map.of(), centralMatch.bindings());
+        assertEquals(Optional.empty(), registry.matchField(path("repositories.company.unknown")));
+    }
+
+    @Test
     void validatesDescriptorsAndCopiesReservedChildren() {
         LinkedHashSet<String> reserved = new LinkedHashSet<>(List.of("runtime", "api"));
         ManifestSection section = section("dependencies", 10, reserved);
@@ -81,11 +110,32 @@ final class ManifestSchemaRegistryTest {
                 order);
     }
 
+    private static ManifestField field(String dottedPath, int order) {
+        return new ManifestField(
+                path(dottedPath),
+                ManifestValueKind.STRING,
+                FormattingPolicy.DEFAULT,
+                MutationPolicy.NONE,
+                order);
+    }
+
     private static ManifestSection section(String name, int order, Set<String> reservedChildren) {
         return new ManifestSection(
                 ManifestPath.of(name),
                 SectionKind.SINGLETON,
                 order,
                 reservedChildren);
+    }
+
+    private static ManifestSection section(String dottedPath, int order) {
+        return new ManifestSection(
+                path(dottedPath),
+                dottedPath.contains("<") ? SectionKind.NAMED_ITEM : SectionKind.SINGLETON,
+                order,
+                Set.of());
+    }
+
+    private static ManifestPath path(String dottedPath) {
+        return new ManifestPath(List.of(dottedPath.split("\\.")));
     }
 }
