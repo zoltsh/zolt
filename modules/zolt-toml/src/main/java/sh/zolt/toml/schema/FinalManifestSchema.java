@@ -1,75 +1,12 @@
 package sh.zolt.toml.schema;
 
+import static sh.zolt.toml.schema.FinalManifestFieldFactory.*;
+import static sh.zolt.toml.schema.FinalManifestPaths.*;
+
 import java.util.List;
-import java.util.Set;
 
 /** The final manifest schema catalog, populated incrementally by frozen contract domain. */
 public final class FinalManifestSchema {
-    private static final ManifestPath WORKSPACE = ManifestPath.of("workspace");
-    private static final ManifestPath WORKSPACE_MEMBERS = WORKSPACE.child("members");
-    private static final ManifestPath WORKSPACE_PROJECT = WORKSPACE.child("project");
-    private static final ManifestPath PROJECT = ManifestPath.of("project");
-    private static final ManifestPath PROJECT_SCM = PROJECT.child("scm");
-    private static final ManifestPath PROJECT_DEVELOPER = PROJECT.child("developers").child("<id>");
-    private static final ManifestPath TOOLCHAIN_ZOLT = ManifestPath.of("toolchain", "zolt");
-    private static final ManifestPath TOOLCHAIN_JAVA = ManifestPath.of("toolchain", "java");
-    private static final ManifestPath TOOLCHAIN_JAVA_TEST = TOOLCHAIN_JAVA.child("test");
-    private static final ManifestPath VERSIONS = ManifestPath.of("versions");
-    private static final ManifestPath REPOSITORIES = ManifestPath.of("repositories");
-    private static final ManifestPath REPOSITORY = REPOSITORIES.child("<id>");
-    private static final ManifestPath CREDENTIAL = ManifestPath.of("credentials", "<id>");
-    private static final ManifestPath PLATFORMS = ManifestPath.of("platforms");
-    private static final ManifestPath DEPENDENCIES = ManifestPath.of("dependencies");
-    private static final ManifestPath DEPENDENCIES_API = DEPENDENCIES.child("api");
-    private static final ManifestPath DEPENDENCIES_RUNTIME = DEPENDENCIES.child("runtime");
-    private static final ManifestPath DEPENDENCIES_PROVIDED = DEPENDENCIES.child("provided");
-    private static final ManifestPath DEPENDENCIES_DEV = DEPENDENCIES.child("dev");
-    private static final ManifestPath DEPENDENCIES_TEST = DEPENDENCIES.child("test");
-    private static final ManifestPath DEPENDENCIES_PROCESSOR = DEPENDENCIES.child("processor");
-    private static final ManifestPath DEPENDENCIES_TEST_PROCESSOR = DEPENDENCIES.child("test-processor");
-    private static final ManifestPath DEPENDENCY_CONSTRAINTS = DEPENDENCIES.child("constraints");
-    private static final ManifestPath DEPENDENCY_POLICY = DEPENDENCIES.child("policy");
-    private static final ManifestPath DEPENDENCY_LICENSE_POLICY = DEPENDENCY_POLICY.child("licenses");
-    private static final ManifestPath DEPENDENCY_LICENSE_EXCEPTION =
-            DEPENDENCIES.child("license-exceptions").child("<coordinate>");
-    private static final ManifestPath BUILD = ManifestPath.of("build");
-    private static final ManifestPath BUILD_OUTPUT = BUILD.child("output");
-    private static final ManifestPath BUILD_METADATA = BUILD.child("metadata");
-    private static final ManifestPath COMPILER = ManifestPath.of("compiler");
-    private static final ManifestPath COMPILER_TEST = COMPILER.child("test");
-    private static final ManifestPath COMPILER_GENERATED = COMPILER.child("generated");
-    private static final ManifestPath RESOURCES = ManifestPath.of("resources");
-    private static final ManifestPath RESOURCES_FILTER = RESOURCES.child("filter");
-    private static final ManifestPath RESOURCES_TOKENS = RESOURCES.child("tokens");
-    private static final ManifestPath GENERATED_TOOL =
-            ManifestPath.of("generated", "tools", "<id>");
-    private static final ManifestPath GENERATED_PRESET =
-            ManifestPath.of("generated", "presets", "<id>");
-    private static final ManifestPath GENERATED_MAIN =
-            ManifestPath.of("generated", "main", "<id>");
-    private static final ManifestPath GENERATED_TEST =
-            ManifestPath.of("generated", "test", "<id>");
-    private static final ManifestPath TEST_SOURCES = ManifestPath.of("test", "sources");
-    private static final ManifestPath TEST_RUNTIME = ManifestPath.of("test", "runtime");
-    private static final ManifestPath TEST_INTEGRATION = ManifestPath.of("test", "integration");
-    private static final ManifestPath TEST_SUITE = ManifestPath.of("test", "suites", "<id>");
-    private static final ManifestPath COVERAGE = ManifestPath.of("coverage");
-    private static final ManifestPath PACKAGE = ManifestPath.of("package");
-    private static final ManifestPath PACKAGE_MANIFEST = PACKAGE.child("manifest");
-    private static final ManifestPath BOM = ManifestPath.of("bom");
-    private static final ManifestPath BOM_VERSIONS = BOM.child("versions");
-    private static final ManifestPath BOM_IMPORTS = BOM.child("imports");
-    private static final ManifestPath FRAMEWORK_SPRING_BOOT =
-            ManifestPath.of("framework", "spring-boot");
-    private static final ManifestPath NATIVE = ManifestPath.of("native");
-    private static final ManifestPath PUBLISH = ManifestPath.of("publish");
-    private static final ManifestPath PUBLISH_REPOSITORY =
-            PUBLISH.child("repositories").child("<id>");
-    private static final ManifestPath PUBLISH_SIGNING = PUBLISH.child("signing");
-    private static final ManifestPath PUBLISH_CENTRAL = PUBLISH.child("central");
-    private static final ManifestPath TASK = ManifestPath.of("tasks", "<id>");
-    private static final ManifestPath ALIASES = ManifestPath.of("aliases");
-
     private static final ManifestSchemaRegistry REGISTRY = createRegistry();
 
     private FinalManifestSchema() {
@@ -82,98 +19,10 @@ public final class FinalManifestSchema {
     private static ManifestSchemaRegistry createRegistry() {
         List<ManifestField> fields = fields();
         FinalManifestFieldSemantics.validateCatalog(fields);
-        return new ManifestSchemaRegistry(fields, sections(), FinalManifestSymbols.registry());
-    }
-
-    private static List<ManifestSection> sections() {
-        return List.of(
-                section(WORKSPACE, SectionKind.SINGLETON, 1_000, Set.of("members", "project")),
-                section(WORKSPACE_MEMBERS, SectionKind.SINGLETON, 1_100, Set.of()),
-                section(WORKSPACE_PROJECT, SectionKind.SINGLETON, 1_200, Set.of()),
-                section(PROJECT, SectionKind.SINGLETON, 2_000, Set.of("developers", "scm")),
-                section(PROJECT_SCM, SectionKind.SINGLETON, 2_100, Set.of()),
-                section(PROJECT_DEVELOPER, SectionKind.NAMED_ITEM, 2_200, Set.of()),
-                section(TOOLCHAIN_ZOLT, SectionKind.SINGLETON, 3_000, Set.of()),
-                section(TOOLCHAIN_JAVA, SectionKind.SINGLETON, 3_100, Set.of("test")),
-                section(TOOLCHAIN_JAVA_TEST, SectionKind.SINGLETON, 3_200, Set.of()),
-                section(VERSIONS, SectionKind.COLLECTION, 4_000, Set.of()),
-                section(REPOSITORIES, SectionKind.SINGLETON, 4_100, Set.of("central", "order")),
-                section(REPOSITORY, SectionKind.NAMED_ITEM, 4_200, Set.of()),
-                section(CREDENTIAL, SectionKind.NAMED_ITEM, 4_300, Set.of()),
-                section(PLATFORMS, SectionKind.COLLECTION, 4_400, Set.of()),
-                section(
-                        DEPENDENCIES,
-                        SectionKind.COLLECTION,
-                        5_000,
-                        Set.of(
-                                "api",
-                                "runtime",
-                                "provided",
-                                "dev",
-                                "test",
-                                "processor",
-                                "test-processor",
-                                "constraints",
-                                "policy",
-                                "license-exceptions")),
-                section(DEPENDENCIES_API, SectionKind.COLLECTION, 5_010, Set.of()),
-                section(DEPENDENCIES_RUNTIME, SectionKind.COLLECTION, 5_020, Set.of()),
-                section(DEPENDENCIES_PROVIDED, SectionKind.COLLECTION, 5_030, Set.of()),
-                section(DEPENDENCIES_DEV, SectionKind.COLLECTION, 5_040, Set.of()),
-                section(DEPENDENCIES_TEST, SectionKind.COLLECTION, 5_050, Set.of()),
-                section(DEPENDENCIES_PROCESSOR, SectionKind.COLLECTION, 5_060, Set.of()),
-                section(DEPENDENCIES_TEST_PROCESSOR, SectionKind.COLLECTION, 5_070, Set.of()),
-                section(DEPENDENCY_CONSTRAINTS, SectionKind.COLLECTION, 5_080, Set.of()),
-                section(DEPENDENCY_POLICY, SectionKind.SINGLETON, 5_090, Set.of("licenses")),
-                section(DEPENDENCY_LICENSE_POLICY, SectionKind.SINGLETON, 5_100, Set.of()),
-                section(DEPENDENCY_LICENSE_EXCEPTION, SectionKind.NAMED_ITEM, 5_110, Set.of()),
-                section(BUILD, SectionKind.SINGLETON, 6_000, Set.of("metadata", "output")),
-                section(BUILD_OUTPUT, SectionKind.SINGLETON, 6_010, Set.of()),
-                section(BUILD_METADATA, SectionKind.SINGLETON, 6_020, Set.of()),
-                section(COMPILER, SectionKind.SINGLETON, 6_100, Set.of("generated", "test")),
-                section(COMPILER_TEST, SectionKind.SINGLETON, 6_110, Set.of()),
-                section(COMPILER_GENERATED, SectionKind.SINGLETON, 6_120, Set.of()),
-                section(RESOURCES, SectionKind.SINGLETON, 6_200, Set.of("filter", "tokens")),
-                section(RESOURCES_FILTER, SectionKind.SINGLETON, 6_210, Set.of()),
-                section(RESOURCES_TOKENS, SectionKind.COLLECTION, 6_220, Set.of()),
-                section(
-                        GENERATED_TOOL,
-                        SectionKind.NAMED_ITEM,
-                        6_300,
-                        Set.of("openapi", "project", "protobuf")),
-                section(GENERATED_PRESET, SectionKind.NAMED_ITEM, 6_400, Set.of()),
-                section(GENERATED_MAIN, SectionKind.NAMED_ITEM, 6_500, Set.of()),
-                section(GENERATED_TEST, SectionKind.NAMED_ITEM, 6_600, Set.of()),
-                section(TEST_SOURCES, SectionKind.SINGLETON, 6_700, Set.of()),
-                section(TEST_RUNTIME, SectionKind.SINGLETON, 6_710, Set.of()),
-                section(TEST_INTEGRATION, SectionKind.SINGLETON, 6_720, Set.of()),
-                section(TEST_SUITE, SectionKind.NAMED_ITEM, 6_730, Set.of("all")),
-                section(COVERAGE, SectionKind.SINGLETON, 6_900, Set.of()),
-                section(PACKAGE, SectionKind.SINGLETON, 7_000, Set.of("manifest")),
-                section(PACKAGE_MANIFEST, SectionKind.COLLECTION, 7_010, Set.of()),
-                section(BOM, SectionKind.SINGLETON, 7_100, Set.of("imports", "versions")),
-                section(BOM_VERSIONS, SectionKind.COLLECTION, 7_110, Set.of()),
-                section(BOM_IMPORTS, SectionKind.COLLECTION, 7_120, Set.of()),
-                section(FRAMEWORK_SPRING_BOOT, SectionKind.SINGLETON, 7_200, Set.of()),
-                section(NATIVE, SectionKind.SINGLETON, 7_300, Set.of()),
-                section(
-                        PUBLISH,
-                        SectionKind.SINGLETON,
-                        8_000,
-                        Set.of("central", "repositories", "signing")),
-                section(PUBLISH_REPOSITORY, SectionKind.NAMED_ITEM, 8_100, Set.of()),
-                section(PUBLISH_SIGNING, SectionKind.SINGLETON, 8_200, Set.of()),
-                section(PUBLISH_CENTRAL, SectionKind.SINGLETON, 8_300, Set.of()),
-                section(
-                        TASK,
-                        SectionKind.NAMED_ITEM,
-                        9_000,
-                        FinalManifestSymbols.builtInCommandNames()),
-                section(
-                        ALIASES,
-                        SectionKind.COLLECTION,
-                        9_100,
-                        FinalManifestSymbols.builtInCommandNames()));
+        return new ManifestSchemaRegistry(
+                fields,
+                FinalManifestSections.sections(),
+                FinalManifestSymbols.registry());
     }
 
     private static List<ManifestField> fields() {
@@ -461,78 +310,4 @@ public final class FinalManifestSchema {
                 field(ALIASES, "<id>", ManifestValueKind.STRING_ARRAY, 9_101));
     }
 
-    private static ManifestField field(
-            ManifestPath section,
-            String name,
-            ManifestValueKind kind,
-            int canonicalOrder) {
-        ManifestPath path = section.child(name);
-        FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
-        return new ManifestField(
-                path,
-                kind,
-                FormattingPolicy.DEFAULT,
-                MutationPolicy.NONE,
-                canonicalOrder,
-                semantics.symbolFamily(),
-                semantics.validation(),
-                FinalManifestFieldSemantics.dynamicKeys(path));
-    }
-
-    private static ManifestField oneLineField(
-            ManifestPath section,
-            String name,
-            ManifestValueKind kind,
-            int canonicalOrder) {
-        ManifestPath path = section.child(name);
-        FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
-        return new ManifestField(
-                path,
-                kind,
-                FormattingPolicy.ONE_LINE,
-                MutationPolicy.NONE,
-                canonicalOrder,
-                semantics.symbolFamily(),
-                semantics.validation(),
-                FinalManifestFieldSemantics.dynamicKeys(path));
-    }
-
-    private static ManifestField mutableMapEntry(
-            ManifestPath section,
-            String name,
-            ManifestValueKind kind,
-            int canonicalOrder) {
-        ManifestPath path = section.child(name);
-        FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
-        return new ManifestField(
-                path,
-                kind,
-                FormattingPolicy.ONE_LINE,
-                MutationPolicy.REPLACE_ENTRY,
-                canonicalOrder,
-                semantics.symbolFamily(),
-                semantics.validation(),
-                FinalManifestFieldSemantics.dynamicKeys(path));
-    }
-
-    private static ManifestField generatedStepField(
-            ManifestPath section,
-            String name,
-            ManifestValueKind kind,
-            int canonicalOrder) {
-        return field(section, name, kind, canonicalOrder);
-    }
-
-    private static ManifestSection section(
-            ManifestPath path,
-            SectionKind kind,
-            int canonicalOrder,
-            Set<String> reservedChildren) {
-        return new ManifestSection(
-                path,
-                kind,
-                canonicalOrder,
-                reservedChildren,
-                FinalManifestFieldSemantics.dynamicKeys(path));
-    }
 }
