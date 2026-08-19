@@ -59,11 +59,18 @@ fi
 [[ ! -L "$CLOSURE" ]] || fail "runtime closure directory must not be a symbolic link: $CLOSURE"
 CLOSURE="$(cd "$CLOSURE" && pwd -P)"
 
-sha256_file() {
+verify_checksums() {
+  local output
   if command -v shasum >/dev/null 2>&1; then
-    LC_ALL=C LANG=C shasum -a 256 "$1" | awk '{print $1}'
+    if ! output="$(cd "$CLOSURE" && LC_ALL=C LANG=C shasum -a 256 -c -q SHA256SUMS 2>&1)"; then
+      printf '%s\n' "$output" >&2
+      fail "runtime closure checksum verification failed"
+    fi
   elif command -v sha256sum >/dev/null 2>&1; then
-    LC_ALL=C LANG=C sha256sum "$1" | awk '{print $1}'
+    if ! output="$(cd "$CLOSURE" && LC_ALL=C LANG=C sha256sum --check --quiet SHA256SUMS 2>&1)"; then
+      printf '%s\n' "$output" >&2
+      fail "runtime closure checksum verification failed"
+    fi
   else
     fail "shasum or sha256sum is required to verify a Zolt runtime closure"
   fi
@@ -181,13 +188,12 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   expected_relative="${expected_files[$manifest_index]}"
   [[ "$relative" == "$expected_relative" ]] \
     || fail "runtime closure SHA256SUMS expected $expected_relative, found $relative"
-  actual="$(sha256_file "$CLOSURE/$relative")"
-  [[ "$actual" == "$digest" ]] \
-    || fail "runtime closure checksum mismatch for $relative: expected $digest, found $actual"
   manifest_index=$((manifest_index + 1))
 done < "$CLOSURE/SHA256SUMS"
 [[ "$manifest_index" -eq "${#expected_files[@]}" ]] \
   || fail "runtime closure SHA256SUMS is incomplete"
+
+verify_checksums
 
 file_count="$(find "$CLOSURE" -type f -print | wc -l | tr -d '[:space:]')"
 expected_file_count=$((${#expected_files[@]} + 1))

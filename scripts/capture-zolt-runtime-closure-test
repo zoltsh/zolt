@@ -106,7 +106,8 @@ if PATH="$FAKE_BIN:$PATH" ZOLT_RUNTIME_CLOSURE_TEST_JAVA_ARGS="$JAVA_ARGS" \
   printf 'error: runtime launcher accepted a tampered dependency\n' >&2
   exit 1
 fi
-grep -F 'checksum mismatch for libexec/zolt-javac-worker.jar' "$TEMPORARY/tampered.log" >/dev/null
+grep -F 'libexec/zolt-javac-worker.jar: FAILED' "$TEMPORARY/tampered.log" >/dev/null
+grep -F 'runtime closure checksum verification failed' "$TEMPORARY/tampered.log" >/dev/null
 [[ ! -e "$JAVA_ARGS" ]]
 
 if "$REPOSITORY/scripts/capture-zolt-runtime-closure" \

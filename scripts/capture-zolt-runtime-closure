@@ -212,11 +212,13 @@ for source in "$VERIFIER_SOURCE" "$LAUNCHER_SOURCE"; do
   [[ -f "$source" && ! -L "$source" ]] || fail "runtime closure support file is missing: $source"
 done
 
-sha256_file() {
+write_checksums() {
   if command -v shasum >/dev/null 2>&1; then
-    LC_ALL=C LANG=C shasum -a 256 "$1" | awk '{print $1}'
+    (cd "$STAGING" && LC_ALL=C LANG=C shasum -a 256 "${checksum_files[@]}") \
+      > "$STAGING/SHA256SUMS"
   elif command -v sha256sum >/dev/null 2>&1; then
-    LC_ALL=C LANG=C sha256sum "$1" | awk '{print $1}'
+    (cd "$STAGING" && LC_ALL=C LANG=C sha256sum "${checksum_files[@]}") \
+      > "$STAGING/SHA256SUMS"
   else
     fail "shasum or sha256sum is required to capture a Zolt runtime closure"
   fi
@@ -273,7 +275,6 @@ while IFS= read -r entry || [[ -n "$entry" ]]; do
   dependency_index=$((dependency_index + 1))
 done < "$RUNTIME_CLASSPATH_FILE"
 
-: > "$STAGING/SHA256SUMS"
 checksum_files=(CLOSURE_MODE SOURCE_COMMIT run-zolt runtime-classpath verify zolt.jar)
 if [[ "${#worker_files[@]}" -gt 0 ]]; then
   checksum_files+=("${worker_files[@]}")
@@ -281,9 +282,7 @@ fi
 if [[ "${#classpath_files[@]}" -gt 0 ]]; then
   checksum_files+=("${classpath_files[@]}")
 fi
-for relative in "${checksum_files[@]}"; do
-  printf '%s  %s\n' "$(sha256_file "$STAGING/$relative")" "$relative" >> "$STAGING/SHA256SUMS"
-done
+write_checksums
 
 require_unchanged_source_commit
 "$VERIFIER_SOURCE" --quiet --expect-commit "$SOURCE_COMMIT" "$STAGING"
