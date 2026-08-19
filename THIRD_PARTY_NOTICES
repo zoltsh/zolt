@@ -68,7 +68,7 @@ Unicode Character Database portability tables
     Zolt's checked-in normalization and full-default-case-fold tables are
     generated from UnicodeData.txt, CompositionExclusions.txt,
     CaseFolding.txt, and NormalizationTest.txt. The runtime table is linked
-    into bin/zolt so workspace path comparison does not depend on the host's
+    into bin/zolt so manifest path comparison does not depend on the host's
     Unicode implementation.
 
 

@@ -1,4 +1,4 @@
-package sh.zolt.workspace.unicode;
+package sh.zolt.unicode;
 
 import java.util.Arrays;
 import java.util.Objects;

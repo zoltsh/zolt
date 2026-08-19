@@ -1,4 +1,4 @@
-package sh.zolt.workspace.unicode;
+package sh.zolt.unicode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,7 +46,7 @@ final class Unicode17DataIdentityTest {
     @Test
     void nativeImageMetadataIncludesTheFrozenRuntimeTable() throws IOException {
         String config = new String(
-                resource("/META-INF/native-image/sh.zolt/zolt-workspace/resource-config.json"),
+                resource("/META-INF/native-image/sh.zolt/zolt-model/resource-config.json"),
                 StandardCharsets.UTF_8);
 
         assertTrue(

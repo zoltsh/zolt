@@ -1,5 +1,5 @@
-Zolt Unicode workspace portability data
-=======================================
+Zolt Unicode manifest path portability data
+============================================
 
 Identity: unicode-17.0.0-nfc-full-default-case-fold
 Format: deterministic Zolt binary format version 1

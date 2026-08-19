@@ -1,6 +1,6 @@
-package sh.zolt.workspace.unicode;
+package sh.zolt.unicode;
 
-import sh.zolt.workspace.unicode.UnicodeScalarSequence.IntBuffer;
+import sh.zolt.unicode.UnicodeScalarSequence.IntBuffer;
 
 /** Unicode-version-pinned normalization and comparison keys for logical workspace paths. */
 public final class Unicode17Portability {

@@ -23,11 +23,11 @@ TABLE_SHA256 = "80ca0e4cae87a07641b8d48547d8201d70e35bd0e9649f2e7fcfa780e873183b
 CONFORMANCE_SHA256 = "ab5a6f2e8bd5e446066ae2ce4f2265028195fb722365499bf7252b374a8147fb"
 REPOSITORY = Path(__file__).resolve().parent.parent
 TABLE_PATH = REPOSITORY / (
-    "modules/zolt-workspace/src/main/resources/sh/zolt/workspace/unicode/"
+    "modules/zolt-model/src/main/resources/sh/zolt/unicode/"
     "unicode-17.0.0-portability.bin"
 )
 CONFORMANCE_PATH = REPOSITORY / (
-    "modules/zolt-workspace/src/test/resources/sh/zolt/workspace/unicode/"
+    "modules/zolt-model/src/test/resources/sh/zolt/unicode/"
     "unicode-17.0.0-nfc-conformance.bin"
 )
 

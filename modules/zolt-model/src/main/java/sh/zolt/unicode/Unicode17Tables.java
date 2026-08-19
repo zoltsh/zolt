@@ -1,4 +1,4 @@
-package sh.zolt.workspace.unicode;
+package sh.zolt.unicode;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;

@@ -1,4 +1,4 @@
-package sh.zolt.workspace.unicode;
+package sh.zolt.unicode;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;

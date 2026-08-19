@@ -1,4 +1,4 @@
-package sh.zolt.workspace.unicode;
+package sh.zolt.unicode;
 
 /** Immutable identity for the Unicode data that defines workspace path portability. */
 public final class Unicode17DataIdentity {

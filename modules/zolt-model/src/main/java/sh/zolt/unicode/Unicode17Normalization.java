@@ -1,6 +1,6 @@
-package sh.zolt.workspace.unicode;
+package sh.zolt.unicode;
 
-import sh.zolt.workspace.unicode.UnicodeScalarSequence.IntBuffer;
+import sh.zolt.unicode.UnicodeScalarSequence.IntBuffer;
 
 final class Unicode17Normalization {
     private static final int S_BASE = 0xAC00;
