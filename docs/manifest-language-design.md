@@ -699,6 +699,7 @@ An exclusion matching no expanded candidate is allowed but reported by `zolt che
 ### `default`
 
 Optional. When authored, it contains exact final member paths only. Patterns are rejected. Every default path must exist in the final member set.
+An authored `default` must contain at least one member; omission is the only implicit-all form, and there is no empty-selection mode.
 
 When omitted, a command started at the workspace root deliberately selects all final members unless that command explicitly documents a narrower default. This is the dynamic-all form: future valid members discovered through `include` join default selection. `zolt workspace members` and `zolt config show --effective` identify the selection source as `implicit-all`, so this behavior is never hidden.
 

@@ -12,27 +12,33 @@ import sh.zolt.project.toolchain.JavaFeatureRelease;
 final class AuthoredWorkspaceTest {
     @Test
     void representsVirtualWorkspaceMembershipAndImplicitAll() {
-        ArrayList<String> include = new ArrayList<>(List.of("apps/*", "modules/*"));
+        ArrayList<WorkspaceMemberPattern> include = new ArrayList<>(List.of(
+                pattern("apps/*"), pattern("modules/*")));
         AuthoredWorkspace workspace = new AuthoredWorkspace(
                 new LocalId("platform"),
-                new AuthoredWorkspaceMembers(include, List.of("modules/experimental"), Optional.empty()),
+                new AuthoredWorkspaceMembers(
+                        include, List.of(pattern("modules/experimental")), Optional.empty()),
                 Optional.empty());
-        include.add("tools/*");
+        include.add(pattern("tools/*"));
 
         assertEquals("platform", workspace.name().value());
-        assertEquals(List.of("apps/*", "modules/*"), workspace.members().include());
+        assertEquals(
+                List.of("apps/*", "modules/*"),
+                workspace.members().include().stream()
+                        .map(WorkspaceMemberPattern::value)
+                        .toList());
         assertEquals(Optional.empty(), workspace.members().defaultMembers());
         assertThrows(
                 UnsupportedOperationException.class,
-                () -> workspace.members().include().add("tools/*"));
+                () -> workspace.members().include().add(pattern("tools/*")));
     }
 
     @Test
-    void preservesAnExplicitEmptyDefaultSelection() {
-        AuthoredWorkspaceMembers members =
-                new AuthoredWorkspaceMembers(List.of("modules/*"), List.of(), Optional.of(List.of()));
-
-        assertEquals(Optional.of(List.of()), members.defaultMembers());
+    void rejectsAnExplicitEmptyDefaultSelection() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredWorkspaceMembers(
+                        List.of(pattern("modules/*")), List.of(), Optional.of(List.of())));
     }
 
     @Test
@@ -61,5 +67,27 @@ final class AuthoredWorkspaceTest {
                 IllegalArgumentException.class,
                 () -> new AuthoredWorkspaceProjectDefaults(
                         Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+    }
+
+    @Test
+    void rejectsDuplicateAndNonportableDefaultSelections() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredWorkspaceMembers(
+                        List.of(pattern("modules/*"), pattern("modules/*")),
+                        List.of(),
+                        Optional.empty()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredWorkspaceMembers(
+                        List.of(pattern("modules/*")),
+                        List.of(),
+                        Optional.of(List.of(
+                                new WorkspaceMemberPath("modules/Core"),
+                                new WorkspaceMemberPath("modules/core")))));
+    }
+
+    private static WorkspaceMemberPattern pattern(String value) {
+        return new WorkspaceMemberPattern(value);
     }
 }

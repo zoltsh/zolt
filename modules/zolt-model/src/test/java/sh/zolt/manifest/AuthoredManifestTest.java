@@ -224,7 +224,9 @@ final class AuthoredManifestTest {
         return new AuthoredWorkspace(
                 new LocalId("example"),
                 new AuthoredWorkspaceMembers(
-                        List.of("modules/*"), List.of(), Optional.empty()),
+                        List.of(new WorkspaceMemberPattern("modules/*")),
+                        List.of(),
+                        Optional.empty()),
                 Optional.of(new AuthoredWorkspaceProjectDefaults(
                         Optional.empty(),
                         Optional.empty(),

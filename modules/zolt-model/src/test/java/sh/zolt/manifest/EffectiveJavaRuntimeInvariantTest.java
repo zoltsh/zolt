@@ -199,7 +199,9 @@ final class EffectiveJavaRuntimeInvariantTest {
                 Optional.of(new AuthoredWorkspace(
                         new LocalId("workspace"),
                         new AuthoredWorkspaceMembers(
-                                List.of("modules/*"), List.of(), Optional.empty()),
+                                List.of(new WorkspaceMemberPattern("modules/*")),
+                                List.of(),
+                                Optional.empty()),
                         Optional.empty())),
                 Optional.empty(),
                 AuthoredToolchains.empty(),
