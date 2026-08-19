@@ -1,7 +1,8 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Objects;
 import java.util.Optional;
+import sh.zolt.manifest.AuthoredManifest;
 
 /** Authored source domains together with their parser-independent effective project view. */
 public record EffectiveManifest(

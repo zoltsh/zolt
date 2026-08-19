@@ -1,4 +1,4 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -9,6 +9,25 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import sh.zolt.manifest.AuthoredAlias;
+import sh.zolt.manifest.AuthoredDependencyRepositories;
+import sh.zolt.manifest.AuthoredTask;
+import sh.zolt.manifest.CoveragePercentage;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.DependencyRepository;
+import sh.zolt.manifest.EnvironmentVariableName;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestSource;
+import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.ProjectGroup;
+import sh.zolt.manifest.ProjectLicense;
+import sh.zolt.manifest.ProjectName;
+import sh.zolt.manifest.ProjectVersion;
+import sh.zolt.manifest.RepositoryCredential;
+import sh.zolt.manifest.RepositoryUrl;
+import sh.zolt.manifest.VersionAliasValue;
+import sh.zolt.manifest.WorkspaceMemberPath;
+import sh.zolt.manifest.ZoltVersionPin;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 
 final class EffectiveModelInvariantTest {

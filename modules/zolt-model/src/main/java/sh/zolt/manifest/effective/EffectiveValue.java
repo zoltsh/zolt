@@ -1,8 +1,9 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import sh.zolt.manifest.ManifestSource;
 
 /** One effective value together with its authored, inherited, or built-in provenance. */
 public record EffectiveValue<T>(T value, ValueOrigin origin, Optional<ManifestSource> source) {

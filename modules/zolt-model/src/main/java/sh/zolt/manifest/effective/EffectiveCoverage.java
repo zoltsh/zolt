@@ -1,7 +1,8 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Objects;
 import java.util.Optional;
+import sh.zolt.manifest.CoveragePercentage;
 
 /** Effective per-metric coverage floors after workspace minimums are applied. */
 public record EffectiveCoverage(

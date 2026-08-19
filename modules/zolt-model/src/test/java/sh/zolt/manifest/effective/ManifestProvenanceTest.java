@@ -1,10 +1,12 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import sh.zolt.manifest.ManifestSource;
+import sh.zolt.manifest.ProjectName;
 
 final class ManifestProvenanceTest {
     private static final ManifestSource MEMBER_NAME =

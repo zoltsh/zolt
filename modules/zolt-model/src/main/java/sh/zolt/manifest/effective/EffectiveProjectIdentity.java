@@ -1,7 +1,11 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Objects;
 import java.util.Optional;
+import sh.zolt.manifest.ProjectGroup;
+import sh.zolt.manifest.ProjectLicense;
+import sh.zolt.manifest.ProjectName;
+import sh.zolt.manifest.ProjectVersion;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 
 /** Required and optional project identity after workspace defaults are applied. */

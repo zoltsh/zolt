@@ -12,13 +12,18 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-/** Shared validation and immutable-copy helpers for final authored manifest values. */
-final class ManifestModelValues {
+/**
+ * Cross-package implementation support for final manifest values.
+ *
+ * <p>This type is public only so the authored and effective model packages can share the exact
+ * same immutable-copy semantics. It is not a manifest-domain API.
+ */
+public final class ManifestModelValues {
     static final Comparator<String> CODE_POINT_ORDER = ManifestModelValues::compareCodePoints;
 
     private ManifestModelValues() {}
 
-    static <T> List<T> immutableList(List<T> values, String label) {
+    public static <T> List<T> immutableList(List<T> values, String label) {
         Objects.requireNonNull(values, label + " must not be null.");
         for (T value : values) {
             Objects.requireNonNull(value, label + " must not contain null values.");
@@ -39,7 +44,7 @@ final class ManifestModelValues {
         return List.copyOf(copy);
     }
 
-    static <K, V> Map<K, V> immutableSortedMap(
+    public static <K, V> Map<K, V> immutableSortedMap(
             Map<K, V> values,
             Comparator<? super K> comparator,
             String keyLabel,

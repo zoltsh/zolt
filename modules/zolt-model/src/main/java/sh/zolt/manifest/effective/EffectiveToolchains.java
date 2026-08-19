@@ -1,7 +1,8 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Objects;
 import java.util.Optional;
+import sh.zolt.manifest.ZoltVersionPin;
 
 /** Effective Zolt and Java requests for one project. */
 public record EffectiveToolchains(

@@ -1,4 +1,4 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -6,6 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import sh.zolt.manifest.AuthoredDependencyRepositories;
+import sh.zolt.manifest.DependencyRepository;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestModelValues;
 
 /** Complete effective dependency-repository universe and its exact lookup order. */
 public record EffectiveDependencyRepositories(

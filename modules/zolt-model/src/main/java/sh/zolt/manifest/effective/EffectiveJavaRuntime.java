@@ -1,4 +1,4 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Collections;
 import java.util.Comparator;

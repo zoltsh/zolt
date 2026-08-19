@@ -1,7 +1,11 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Comparator;
 import java.util.Map;
+import sh.zolt.manifest.AuthoredAlias;
+import sh.zolt.manifest.AuthoredTask;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestModelValues;
 
 /** Workspace and member commands in one collision-free effective namespace. */
 public record EffectiveCommands(

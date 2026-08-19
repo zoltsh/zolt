@@ -1,7 +1,8 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Objects;
 import java.util.Optional;
+import sh.zolt.manifest.DependencyRepository;
 
 /** Enabled canonical or replacement Central repository, or an explicitly disabled Central. */
 public record EffectiveCentralRepository(Optional<DependencyRepository> repository) {

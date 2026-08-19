@@ -1,6 +1,8 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Objects;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.WorkspaceMemberPath;
 
 /** Portable workspace identity and selected member associated with an effective project. */
 public record WorkspaceContext(

@@ -1,6 +1,7 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Objects;
+import sh.zolt.manifest.ProjectLocalDomains;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 
 /** One complete project view after workspace sharing and identity inheritance. */

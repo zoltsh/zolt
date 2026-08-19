@@ -1,8 +1,14 @@
-package sh.zolt.manifest;
+package sh.zolt.manifest.effective;
 
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestModelValues;
+import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.RepositoryCredential;
+import sh.zolt.manifest.VersionAliasValue;
 
 /** Closed set of workspace-shareable effective configuration. */
 public record EffectiveSharedConfiguration(
