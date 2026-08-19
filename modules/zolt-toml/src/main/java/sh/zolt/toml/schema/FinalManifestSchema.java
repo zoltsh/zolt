@@ -54,6 +54,14 @@ public final class FinalManifestSchema {
     private static final ManifestPath TEST_INTEGRATION = ManifestPath.of("test", "integration");
     private static final ManifestPath TEST_SUITE = ManifestPath.of("test", "suites", "<id>");
     private static final ManifestPath COVERAGE = ManifestPath.of("coverage");
+    private static final ManifestPath PACKAGE = ManifestPath.of("package");
+    private static final ManifestPath PACKAGE_MANIFEST = PACKAGE.child("manifest");
+    private static final ManifestPath BOM = ManifestPath.of("bom");
+    private static final ManifestPath BOM_VERSIONS = BOM.child("versions");
+    private static final ManifestPath BOM_IMPORTS = BOM.child("imports");
+    private static final ManifestPath FRAMEWORK_SPRING_BOOT =
+            ManifestPath.of("framework", "spring-boot");
+    private static final ManifestPath NATIVE = ManifestPath.of("native");
 
     private static final ManifestSchemaRegistry REGISTRY =
             new ManifestSchemaRegistry(fields(), sections(), FinalManifestSymbols.registry());
@@ -128,7 +136,14 @@ public final class FinalManifestSchema {
                 section(TEST_RUNTIME, SectionKind.SINGLETON, 6_710, Set.of()),
                 section(TEST_INTEGRATION, SectionKind.SINGLETON, 6_720, Set.of()),
                 section(TEST_SUITE, SectionKind.NAMED_ITEM, 6_730, Set.of("all")),
-                section(COVERAGE, SectionKind.SINGLETON, 6_900, Set.of()));
+                section(COVERAGE, SectionKind.SINGLETON, 6_900, Set.of()),
+                section(PACKAGE, SectionKind.SINGLETON, 7_000, Set.of("manifest")),
+                section(PACKAGE_MANIFEST, SectionKind.COLLECTION, 7_010, Set.of()),
+                section(BOM, SectionKind.SINGLETON, 7_100, Set.of("imports", "versions")),
+                section(BOM_VERSIONS, SectionKind.COLLECTION, 7_110, Set.of()),
+                section(BOM_IMPORTS, SectionKind.COLLECTION, 7_120, Set.of()),
+                section(FRAMEWORK_SPRING_BOOT, SectionKind.SINGLETON, 7_200, Set.of()),
+                section(NATIVE, SectionKind.SINGLETON, 7_300, Set.of()));
     }
 
     private static List<ManifestField> fields() {
@@ -375,7 +390,29 @@ public final class FinalManifestSchema {
                 field(COVERAGE, "line", ManifestValueKind.NUMBER, 6_910),
                 field(COVERAGE, "branch", ManifestValueKind.NUMBER, 6_920),
                 field(COVERAGE, "instruction", ManifestValueKind.NUMBER, 6_930),
-                field(COVERAGE, "method", ManifestValueKind.NUMBER, 6_940));
+                field(COVERAGE, "method", ManifestValueKind.NUMBER, 6_940),
+                field(PACKAGE, "mode", ManifestValueKind.STRING, 7_001),
+                field(PACKAGE, "sources", ManifestValueKind.BOOLEAN, 7_002),
+                field(PACKAGE, "javadoc", ManifestValueKind.BOOLEAN, 7_003),
+                field(PACKAGE, "testJar", ManifestValueKind.BOOLEAN, 7_004),
+                field(PACKAGE, "duplicates", ManifestValueKind.STRING, 7_005),
+                field(PACKAGE_MANIFEST, "<attribute>", ManifestValueKind.STRING, 7_011),
+                field(BOM, "members", ManifestValueKind.BOOLEAN_OR_STRING_ARRAY, 7_101),
+                field(BOM, "exclude", ManifestValueKind.STRING_ARRAY, 7_102),
+                mutableMapEntry(
+                        BOM_VERSIONS,
+                        "<coordinate>",
+                        ManifestValueKind.STRING_OR_INLINE_TABLE,
+                        7_111),
+                mutableMapEntry(
+                        BOM_IMPORTS,
+                        "<coordinate>",
+                        ManifestValueKind.STRING_OR_INLINE_TABLE,
+                        7_121),
+                field(FRAMEWORK_SPRING_BOOT, "native", ManifestValueKind.BOOLEAN, 7_201),
+                field(NATIVE, "name", ManifestValueKind.STRING, 7_301),
+                field(NATIVE, "output", ManifestValueKind.STRING, 7_302),
+                field(NATIVE, "args", ManifestValueKind.STRING_ARRAY, 7_303));
     }
 
     private static ManifestField field(

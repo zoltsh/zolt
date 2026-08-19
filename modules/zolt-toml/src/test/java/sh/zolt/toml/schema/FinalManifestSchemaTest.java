@@ -60,7 +60,14 @@ final class FinalManifestSchemaTest {
                         "test.runtime",
                         "test.integration",
                         "test.suites.<id>",
-                        "coverage"),
+                        "coverage",
+                        "package",
+                        "package.manifest",
+                        "bom",
+                        "bom.versions",
+                        "bom.imports",
+                        "framework.spring-boot",
+                        "native"),
                 sectionPaths());
         assertEquals(
                 List.of(
@@ -107,7 +114,14 @@ final class FinalManifestSchemaTest {
                         6_710,
                         6_720,
                         6_730,
-                        6_900),
+                        6_900,
+                        7_000,
+                        7_010,
+                        7_100,
+                        7_110,
+                        7_120,
+                        7_200,
+                        7_300),
                 registry.sections().stream().map(ManifestSection::canonicalOrder).toList());
         assertEquals(
                 Map.ofEntries(
@@ -154,7 +168,14 @@ final class FinalManifestSchemaTest {
                         Map.entry("test.runtime", SectionKind.SINGLETON),
                         Map.entry("test.integration", SectionKind.SINGLETON),
                         Map.entry("test.suites.<id>", SectionKind.NAMED_ITEM),
-                        Map.entry("coverage", SectionKind.SINGLETON)),
+                        Map.entry("coverage", SectionKind.SINGLETON),
+                        Map.entry("package", SectionKind.SINGLETON),
+                        Map.entry("package.manifest", SectionKind.COLLECTION),
+                        Map.entry("bom", SectionKind.SINGLETON),
+                        Map.entry("bom.versions", SectionKind.COLLECTION),
+                        Map.entry("bom.imports", SectionKind.COLLECTION),
+                        Map.entry("framework.spring-boot", SectionKind.SINGLETON),
+                        Map.entry("native", SectionKind.SINGLETON)),
                 registry.sections().stream()
                         .collect(Collectors.toMap(section -> section.path().toString(), ManifestSection::kind)));
         assertEquals(Set.of("members", "project"), section("workspace").reservedChildren());
@@ -182,8 +203,10 @@ final class FinalManifestSchemaTest {
                 Set.of("openapi", "project", "protobuf"),
                 section("generated.tools.<id>").reservedChildren());
         assertEquals(Set.of("all"), section("test.suites.<id>").reservedChildren());
+        assertEquals(Set.of("manifest"), section("package").reservedChildren());
+        assertEquals(Set.of("imports", "versions"), section("bom").reservedChildren());
         assertEquals(
-                33,
+                38,
                 registry.sections().stream()
                         .filter(section -> section.reservedChildren().isEmpty())
                         .count());
@@ -391,7 +414,21 @@ final class FinalManifestSchemaTest {
                         "coverage.line",
                         "coverage.branch",
                         "coverage.instruction",
-                        "coverage.method"),
+                        "coverage.method",
+                        "package.mode",
+                        "package.sources",
+                        "package.javadoc",
+                        "package.testJar",
+                        "package.duplicates",
+                        "package.manifest.<attribute>",
+                        "bom.members",
+                        "bom.exclude",
+                        "bom.versions.<coordinate>",
+                        "bom.imports.<coordinate>",
+                        "framework.spring-boot.native",
+                        "native.name",
+                        "native.output",
+                        "native.args"),
                 fieldPaths());
     }
 
@@ -514,6 +551,24 @@ final class FinalManifestSchemaTest {
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.branch"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.instruction"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.method"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("package.mode"));
+        assertEquals(ManifestValueKind.BOOLEAN, valueKinds.get("package.sources"));
+        assertEquals(ManifestValueKind.BOOLEAN, valueKinds.get("package.javadoc"));
+        assertEquals(ManifestValueKind.BOOLEAN, valueKinds.get("package.testJar"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("package.duplicates"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("package.manifest.<attribute>"));
+        assertEquals(ManifestValueKind.BOOLEAN_OR_STRING_ARRAY, valueKinds.get("bom.members"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("bom.exclude"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("bom.versions.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("bom.imports.<coordinate>"));
+        assertEquals(ManifestValueKind.BOOLEAN, valueKinds.get("framework.spring-boot.native"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("native.name"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("native.output"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("native.args"));
     }
 
     @Test
@@ -617,6 +672,83 @@ final class FinalManifestSchemaTest {
     }
 
     @Test
+    void recordsExactPackagingFieldShapesAndDomainOrder() {
+        assertEquals(
+                List.of(
+                        Map.entry("mode", ManifestValueKind.STRING),
+                        Map.entry("sources", ManifestValueKind.BOOLEAN),
+                        Map.entry("javadoc", ManifestValueKind.BOOLEAN),
+                        Map.entry("testJar", ManifestValueKind.BOOLEAN),
+                        Map.entry("duplicates", ManifestValueKind.STRING),
+                        Map.entry("manifest.<attribute>", ManifestValueKind.STRING)),
+                fieldShapes("package"));
+        assertEquals(
+                List.of(
+                        Map.entry("members", ManifestValueKind.BOOLEAN_OR_STRING_ARRAY),
+                        Map.entry("exclude", ManifestValueKind.STRING_ARRAY),
+                        Map.entry("versions.<coordinate>", ManifestValueKind.STRING_OR_INLINE_TABLE),
+                        Map.entry("imports.<coordinate>", ManifestValueKind.STRING_OR_INLINE_TABLE)),
+                fieldShapes("bom"));
+        assertEquals(
+                List.of(Map.entry("native", ManifestValueKind.BOOLEAN)),
+                fieldShapes("framework.spring-boot"));
+        assertEquals(
+                List.of(
+                        Map.entry("name", ManifestValueKind.STRING),
+                        Map.entry("output", ManifestValueKind.STRING),
+                        Map.entry("args", ManifestValueKind.STRING_ARRAY)),
+                fieldShapes("native"));
+        assertEquals(
+                List.of(
+                        7_001,
+                        7_002,
+                        7_003,
+                        7_004,
+                        7_005,
+                        7_011,
+                        7_101,
+                        7_102,
+                        7_111,
+                        7_121,
+                        7_201,
+                        7_301,
+                        7_302,
+                        7_303),
+                registry.fields().stream()
+                        .filter(field -> field.canonicalOrder() >= 7_000
+                                && field.canonicalOrder() < 8_000)
+                        .map(ManifestField::canonicalOrder)
+                        .toList());
+    }
+
+    @Test
+    void matchesExternalPackagingKeysAndRejectsQuarkusFrameworkTable() {
+        ManifestSchemaMatch<ManifestField> attribute = registry
+                .matchField(path("package.manifest.Automatic-Module-Name"))
+                .orElseThrow();
+        assertEquals("package.manifest.<attribute>", attribute.descriptor().path().toString());
+        assertEquals(Map.of("attribute", "Automatic-Module-Name"), attribute.bindings());
+
+        ManifestSchemaMatch<ManifestField> version = registry
+                .matchField(new ManifestPath(
+                        List.of("bom", "versions", "org.postgresql:postgresql")))
+                .orElseThrow();
+        ManifestSchemaMatch<ManifestField> imported = registry
+                .matchField(new ManifestPath(
+                        List.of("bom", "imports", "com.fasterxml.jackson:jackson-bom")))
+                .orElseThrow();
+        assertEquals("bom.versions.<coordinate>", version.descriptor().path().toString());
+        assertEquals(Map.of("coordinate", "org.postgresql:postgresql"), version.bindings());
+        assertEquals("bom.imports.<coordinate>", imported.descriptor().path().toString());
+        assertEquals(
+                Map.of("coordinate", "com.fasterxml.jackson:jackson-bom"),
+                imported.bindings());
+
+        assertTrue(registry.matchSection(path("framework.quarkus")).isEmpty());
+        assertTrue(registry.matchField(path("framework.quarkus.layout")).isEmpty());
+    }
+
+    @Test
     void recordsDependencyFieldsInTheirFrozenDomainOrder() {
         assertEquals(
                 List.of(
@@ -711,7 +843,9 @@ final class FinalManifestSchemaTest {
                         "dependencies.processor.<coordinate>",
                         "dependencies.test-processor.<coordinate>",
                         "dependencies.constraints.<coordinate>",
-                        "resources.tokens.<id>"),
+                        "resources.tokens.<id>",
+                        "bom.versions.<coordinate>",
+                        "bom.imports.<coordinate>"),
                 registry.fields().stream()
                         .filter(field -> field.formatting() == FormattingPolicy.ONE_LINE)
                         .map(field -> field.path().toString())
@@ -728,7 +862,9 @@ final class FinalManifestSchemaTest {
                         "dependencies.test.<coordinate>",
                         "dependencies.processor.<coordinate>",
                         "dependencies.test-processor.<coordinate>",
-                        "dependencies.constraints.<coordinate>"),
+                        "dependencies.constraints.<coordinate>",
+                        "bom.versions.<coordinate>",
+                        "bom.imports.<coordinate>"),
                 registry.fields().stream()
                         .filter(field -> field.mutation() == MutationPolicy.REPLACE_ENTRY)
                         .map(field -> field.path().toString())
@@ -753,6 +889,10 @@ final class FinalManifestSchemaTest {
         assertEquals(MutationPolicy.NONE, field("resources.tokens.<id>").mutation());
         assertEquals(FormattingPolicy.DEFAULT, field("test.suites.<id>.locks").formatting());
         assertEquals(MutationPolicy.NONE, field("test.suites.<id>.locks").mutation());
+        assertEquals(FormattingPolicy.ONE_LINE, field("bom.versions.<coordinate>").formatting());
+        assertEquals(MutationPolicy.REPLACE_ENTRY, field("bom.versions.<coordinate>").mutation());
+        assertEquals(FormattingPolicy.ONE_LINE, field("bom.imports.<coordinate>").formatting());
+        assertEquals(MutationPolicy.REPLACE_ENTRY, field("bom.imports.<coordinate>").mutation());
     }
 
     private List<String> sectionPaths() {
