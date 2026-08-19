@@ -1042,7 +1042,7 @@ A library normally omits `main`.
 
 Project names are Maven artifact IDs and are external domain values, not Zolt local IDs. `name` and `group` use the same portable Maven-safe segment characters as dependency coordinates: ASCII letters, digits, `_`, `.`, and `-`, with no colon, whitespace, or control characters. Zolt recommends lowercase artifact names such as `orders-core` and reverse-domain groups such as `com.example` but does not rewrite them.
 
-Project `version` is one fixed literal package version. A project may use a conventional `-SNAPSHOT` suffix, but ranges, dynamic selectors, interpolation, surrounding whitespace, and incomplete literals are rejected. `main`, when present, is a valid fully qualified Java binary class name. Optional textual metadata is nonblank when authored.
+Project `version` is one fixed literal package version. A project may use a conventional `-SNAPSHOT` suffix, but ranges, dynamic selectors, interpolation, surrounding whitespace, and incomplete literals are rejected. `main`, when present, is a fully qualified portable ASCII Java binary class name. Every dot-separated segment begins with an ASCII letter, `_`, or `$`; remaining characters may also be ASCII digits. Java 21 reserved words and literals are rejected, while `$` retains its binary-name role for nested, local, and anonymous classes. This deliberately pinned subset avoids ambient-JDK Unicode identifier drift. Optional textual metadata is nonblank when authored.
 
 ## 7.2 Java release semantics
 

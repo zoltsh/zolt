@@ -3,7 +3,7 @@ package sh.zolt.manifest;
 import java.util.Objects;
 import javax.lang.model.SourceVersion;
 
-/** An exact Java binary class name used by an exclusive test-suite lock. */
+/** An exact, package-qualified portable ASCII Java binary class name. */
 public record JavaBinaryClassName(String value) implements Comparable<JavaBinaryClassName> {
     public JavaBinaryClassName {
         Objects.requireNonNull(value, "Java binary class name must not be null.");
@@ -17,11 +17,43 @@ public record JavaBinaryClassName(String value) implements Comparable<JavaBinary
             throw new IllegalArgumentException(
                     "Invalid Java binary class name `" + value + "`: use binary-name dots, not path separators.");
         }
-        if (value.indexOf('.') < 0
+        if (!hasPortableQualifiedShape(value)
                 || !SourceVersion.isName(value, SourceVersion.RELEASE_21)) {
             throw new IllegalArgumentException(
-                    "Invalid Java binary class name `" + value + "`: use a fully qualified Java 21 binary name.");
+                    "Invalid Java binary class name `" + value
+                            + "`: use a fully qualified portable ASCII Java 21 binary name.");
         }
+    }
+
+    private static boolean hasPortableQualifiedShape(String value) {
+        boolean qualified = false;
+        boolean segmentStart = true;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (character == '.') {
+                if (segmentStart) {
+                    return false;
+                }
+                qualified = true;
+                segmentStart = true;
+            } else if (segmentStart) {
+                if (!isAsciiIdentifierStart(character)) {
+                    return false;
+                }
+                segmentStart = false;
+            } else if (!isAsciiIdentifierStart(character)
+                    && (character < '0' || character > '9')) {
+                return false;
+            }
+        }
+        return qualified && !segmentStart;
+    }
+
+    private static boolean isAsciiIdentifierStart(char character) {
+        return character >= 'A' && character <= 'Z'
+                || character >= 'a' && character <= 'z'
+                || character == '_'
+                || character == '$';
     }
 
     @Override

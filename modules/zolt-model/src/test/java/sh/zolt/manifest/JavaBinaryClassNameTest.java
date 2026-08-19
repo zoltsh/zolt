@@ -22,6 +22,7 @@ final class JavaBinaryClassNameTest {
                 "com.example.1Main",
                 "com.example.class",
                 "com.example.Main method",
+                "com.example.ΔMain",
                 "[Lcom.example.Main;");
 
         for (String value : invalid) {
