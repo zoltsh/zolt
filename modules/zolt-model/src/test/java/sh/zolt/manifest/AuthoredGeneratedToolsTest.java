@@ -97,7 +97,7 @@ final class AuthoredGeneratedToolsTest {
         return new AuthoredGeneratedTool.Process(
                 new GeneratedProcessBinary(binary),
                 List.of(binary, "--version"),
-                new GeneratedVersionExpectation(">=10 <11"),
+                Optional.of(new GeneratedVersionExpectation(">=10 <11")),
                 true);
     }
 

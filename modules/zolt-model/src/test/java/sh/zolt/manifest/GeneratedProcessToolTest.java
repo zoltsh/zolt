@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class GeneratedProcessToolTest {
@@ -14,7 +15,7 @@ final class GeneratedProcessToolTest {
         AuthoredGeneratedTool.Process tool = new AuthoredGeneratedTool.Process(
                 new GeneratedProcessBinary("npm"),
                 command,
-                new GeneratedVersionExpectation(">=10 <11"),
+                Optional.of(new GeneratedVersionExpectation(">=10 <11")),
                 true);
         command.clear();
 
@@ -25,14 +26,14 @@ final class GeneratedProcessToolTest {
                 () -> new AuthoredGeneratedTool.Process(
                         new GeneratedProcessBinary("npm"),
                         List.of("node", "--version"),
-                        new GeneratedVersionExpectation(">=10"),
+                        Optional.of(new GeneratedVersionExpectation(">=10")),
                         true));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new AuthoredGeneratedTool.Process(
                         new GeneratedProcessBinary("npm"),
                         List.of("npm", "--version"),
-                        new GeneratedVersionExpectation(">=10"),
+                        Optional.of(new GeneratedVersionExpectation(">=10")),
                         false));
 
         assertEquals(
@@ -40,7 +41,7 @@ final class GeneratedProcessToolTest {
                 new AuthoredGeneratedTool.Process(
                                 new GeneratedProcessBinary("npm"),
                                 List.of("npm", ""),
-                                new GeneratedVersionExpectation(">=10"),
+                                Optional.empty(),
                                 true)
                         .versionCommand());
         assertThrows(
@@ -48,7 +49,7 @@ final class GeneratedProcessToolTest {
                 () -> new AuthoredGeneratedTool.Process(
                         new GeneratedProcessBinary("npm"),
                         List.of("npm", "bad\0argument"),
-                        new GeneratedVersionExpectation(">=10"),
+                        Optional.of(new GeneratedVersionExpectation(">=10")),
                         true));
     }
 

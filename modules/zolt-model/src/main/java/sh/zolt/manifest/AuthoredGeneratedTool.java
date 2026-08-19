@@ -54,7 +54,7 @@ public sealed interface AuthoredGeneratedTool
     record Process(
             GeneratedProcessBinary binary,
             List<String> versionCommand,
-            GeneratedVersionExpectation versionExpect,
+            Optional<GeneratedVersionExpectation> versionExpect,
             boolean allowUnpinnedTool) implements AuthoredGeneratedTool {
         public Process {
             Objects.requireNonNull(binary, "Generated process binary must not be null.");
@@ -74,7 +74,7 @@ public sealed interface AuthoredGeneratedTool
                 throw new IllegalArgumentException(
                         "Generated process version command must probe its configured binary exactly.");
             }
-            Objects.requireNonNull(
+            versionExpect = Objects.requireNonNull(
                     versionExpect, "Generated process version expectation must not be null.");
             if (!allowUnpinnedTool) {
                 throw new IllegalArgumentException(
