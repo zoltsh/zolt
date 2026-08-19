@@ -1,0 +1,7 @@
+[repositories.company]
+url = "https://repo.example.com/maven"
+credentials = "company"
+
+[credentials.company]
+usernameEnv = "MAVEN_USERNAME"
+passwordEnv = "MAVEN_PASSWORD"
