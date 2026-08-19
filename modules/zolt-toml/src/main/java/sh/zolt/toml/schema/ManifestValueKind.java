@@ -4,9 +4,11 @@ package sh.zolt.toml.schema;
 public enum ManifestValueKind {
     STRING,
     INTEGER,
+    NUMBER,
     BOOLEAN,
     STRING_ARRAY,
     INLINE_TABLE,
     INLINE_TABLE_ARRAY,
-    STRING_OR_INLINE_TABLE
+    STRING_OR_INLINE_TABLE,
+    BOOLEAN_OR_STRING_OR_INLINE_TABLE
 }

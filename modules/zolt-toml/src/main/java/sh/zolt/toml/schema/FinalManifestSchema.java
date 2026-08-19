@@ -11,6 +11,15 @@ public final class FinalManifestSchema {
     private static final ManifestPath PROJECT = ManifestPath.of("project");
     private static final ManifestPath PROJECT_SCM = PROJECT.child("scm");
     private static final ManifestPath PROJECT_DEVELOPER = PROJECT.child("developers").child("<id>");
+    private static final ManifestPath TOOLCHAIN_ZOLT = ManifestPath.of("toolchain", "zolt");
+    private static final ManifestPath TOOLCHAIN_JAVA = ManifestPath.of("toolchain", "java");
+    private static final ManifestPath TOOLCHAIN_JAVA_TEST = TOOLCHAIN_JAVA.child("test");
+    private static final ManifestPath VERSIONS = ManifestPath.of("versions");
+    private static final ManifestPath REPOSITORIES = ManifestPath.of("repositories");
+    private static final ManifestPath REPOSITORY = REPOSITORIES.child("<id>");
+    private static final ManifestPath CREDENTIAL = ManifestPath.of("credentials", "<id>");
+    private static final ManifestPath PLATFORMS = ManifestPath.of("platforms");
+    private static final ManifestPath COVERAGE = ManifestPath.of("coverage");
 
     private static final ManifestSchemaRegistry REGISTRY = new ManifestSchemaRegistry(fields(), sections());
 
@@ -28,7 +37,16 @@ public final class FinalManifestSchema {
                 section(WORKSPACE_PROJECT, SectionKind.SINGLETON, 1_200, Set.of()),
                 section(PROJECT, SectionKind.SINGLETON, 2_000, Set.of("developers", "scm")),
                 section(PROJECT_SCM, SectionKind.SINGLETON, 2_100, Set.of()),
-                section(PROJECT_DEVELOPER, SectionKind.NAMED_ITEM, 2_200, Set.of()));
+                section(PROJECT_DEVELOPER, SectionKind.NAMED_ITEM, 2_200, Set.of()),
+                section(TOOLCHAIN_ZOLT, SectionKind.SINGLETON, 3_000, Set.of()),
+                section(TOOLCHAIN_JAVA, SectionKind.SINGLETON, 3_100, Set.of("test")),
+                section(TOOLCHAIN_JAVA_TEST, SectionKind.SINGLETON, 3_200, Set.of()),
+                section(VERSIONS, SectionKind.COLLECTION, 4_000, Set.of()),
+                section(REPOSITORIES, SectionKind.SINGLETON, 4_100, Set.of("central", "order")),
+                section(REPOSITORY, SectionKind.NAMED_ITEM, 4_200, Set.of()),
+                section(CREDENTIAL, SectionKind.NAMED_ITEM, 4_300, Set.of()),
+                section(PLATFORMS, SectionKind.COLLECTION, 4_400, Set.of()),
+                section(COVERAGE, SectionKind.SINGLETON, 6_900, Set.of()));
     }
 
     private static List<ManifestField> fields() {
@@ -57,7 +75,36 @@ public final class FinalManifestSchema {
                 field(PROJECT_DEVELOPER, "name", ManifestValueKind.STRING, 2_210),
                 field(PROJECT_DEVELOPER, "email", ManifestValueKind.STRING, 2_220),
                 field(PROJECT_DEVELOPER, "organization", ManifestValueKind.STRING, 2_230),
-                field(PROJECT_DEVELOPER, "url", ManifestValueKind.STRING, 2_240));
+                field(PROJECT_DEVELOPER, "url", ManifestValueKind.STRING, 2_240),
+                field(TOOLCHAIN_ZOLT, "version", ManifestValueKind.STRING, 3_010),
+                field(TOOLCHAIN_JAVA, "version", ManifestValueKind.INTEGER, 3_110),
+                field(TOOLCHAIN_JAVA, "distribution", ManifestValueKind.STRING, 3_120),
+                field(TOOLCHAIN_JAVA, "features", ManifestValueKind.STRING_ARRAY, 3_130),
+                field(TOOLCHAIN_JAVA, "policy", ManifestValueKind.STRING, 3_140),
+                field(TOOLCHAIN_JAVA_TEST, "version", ManifestValueKind.INTEGER, 3_210),
+                field(TOOLCHAIN_JAVA_TEST, "distribution", ManifestValueKind.STRING, 3_220),
+                field(TOOLCHAIN_JAVA_TEST, "policy", ManifestValueKind.STRING, 3_230),
+                mutableMapEntry(VERSIONS, "<id>", ManifestValueKind.STRING, 4_010),
+                field(
+                        REPOSITORIES,
+                        "central",
+                        ManifestValueKind.BOOLEAN_OR_STRING_OR_INLINE_TABLE,
+                        4_110),
+                field(REPOSITORIES, "order", ManifestValueKind.STRING_ARRAY, 4_120),
+                field(REPOSITORY, "url", ManifestValueKind.STRING, 4_210),
+                field(REPOSITORY, "credentials", ManifestValueKind.STRING, 4_220),
+                field(CREDENTIAL, "tokenEnv", ManifestValueKind.STRING, 4_310),
+                field(CREDENTIAL, "usernameEnv", ManifestValueKind.STRING, 4_320),
+                field(CREDENTIAL, "passwordEnv", ManifestValueKind.STRING, 4_330),
+                mutableMapEntry(
+                        PLATFORMS,
+                        "<coordinate>",
+                        ManifestValueKind.STRING_OR_INLINE_TABLE,
+                        4_410),
+                field(COVERAGE, "line", ManifestValueKind.NUMBER, 6_910),
+                field(COVERAGE, "branch", ManifestValueKind.NUMBER, 6_920),
+                field(COVERAGE, "instruction", ManifestValueKind.NUMBER, 6_930),
+                field(COVERAGE, "method", ManifestValueKind.NUMBER, 6_940));
     }
 
     private static ManifestField field(
@@ -83,6 +130,19 @@ public final class FinalManifestSchema {
                 kind,
                 FormattingPolicy.ONE_LINE,
                 MutationPolicy.NONE,
+                canonicalOrder);
+    }
+
+    private static ManifestField mutableMapEntry(
+            ManifestPath section,
+            String name,
+            ManifestValueKind kind,
+            int canonicalOrder) {
+        return new ManifestField(
+                section.child(name),
+                kind,
+                FormattingPolicy.ONE_LINE,
+                MutationPolicy.REPLACE_ENTRY,
                 canonicalOrder);
     }
 
