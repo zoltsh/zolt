@@ -30,6 +30,18 @@ final class FinalManifestSchemaTest {
                         "repositories.<id>",
                         "credentials.<id>",
                         "platforms",
+                        "dependencies",
+                        "dependencies.api",
+                        "dependencies.runtime",
+                        "dependencies.provided",
+                        "dependencies.dev",
+                        "dependencies.test",
+                        "dependencies.processor",
+                        "dependencies.test-processor",
+                        "dependencies.constraints",
+                        "dependencies.policy",
+                        "dependencies.policy.licenses",
+                        "dependencies.license-exceptions.<coordinate>",
                         "coverage"),
                 sectionPaths());
         assertEquals(
@@ -48,6 +60,18 @@ final class FinalManifestSchemaTest {
                         4_200,
                         4_300,
                         4_400,
+                        5_000,
+                        5_010,
+                        5_020,
+                        5_030,
+                        5_040,
+                        5_050,
+                        5_060,
+                        5_070,
+                        5_080,
+                        5_090,
+                        5_100,
+                        5_110,
                         6_900),
                 registry.sections().stream().map(ManifestSection::canonicalOrder).toList());
         assertEquals(
@@ -66,6 +90,18 @@ final class FinalManifestSchemaTest {
                         Map.entry("repositories.<id>", SectionKind.NAMED_ITEM),
                         Map.entry("credentials.<id>", SectionKind.NAMED_ITEM),
                         Map.entry("platforms", SectionKind.COLLECTION),
+                        Map.entry("dependencies", SectionKind.COLLECTION),
+                        Map.entry("dependencies.api", SectionKind.COLLECTION),
+                        Map.entry("dependencies.runtime", SectionKind.COLLECTION),
+                        Map.entry("dependencies.provided", SectionKind.COLLECTION),
+                        Map.entry("dependencies.dev", SectionKind.COLLECTION),
+                        Map.entry("dependencies.test", SectionKind.COLLECTION),
+                        Map.entry("dependencies.processor", SectionKind.COLLECTION),
+                        Map.entry("dependencies.test-processor", SectionKind.COLLECTION),
+                        Map.entry("dependencies.constraints", SectionKind.COLLECTION),
+                        Map.entry("dependencies.policy", SectionKind.SINGLETON),
+                        Map.entry("dependencies.policy.licenses", SectionKind.SINGLETON),
+                        Map.entry("dependencies.license-exceptions.<coordinate>", SectionKind.NAMED_ITEM),
                         Map.entry("coverage", SectionKind.SINGLETON)),
                 registry.sections().stream()
                         .collect(Collectors.toMap(section -> section.path().toString(), ManifestSection::kind)));
@@ -74,7 +110,21 @@ final class FinalManifestSchemaTest {
         assertEquals(Set.of("test"), section("toolchain.java").reservedChildren());
         assertEquals(Set.of("central", "order"), section("repositories").reservedChildren());
         assertEquals(
-                11,
+                Set.of(
+                        "api",
+                        "runtime",
+                        "provided",
+                        "dev",
+                        "test",
+                        "processor",
+                        "test-processor",
+                        "constraints",
+                        "policy",
+                        "license-exceptions"),
+                section("dependencies").reservedChildren());
+        assertEquals(Set.of("licenses"), section("dependencies.policy").reservedChildren());
+        assertEquals(
+                21,
                 registry.sections().stream()
                         .filter(section -> section.reservedChildren().isEmpty())
                         .count());
@@ -126,6 +176,23 @@ final class FinalManifestSchemaTest {
                         "credentials.<id>.usernameEnv",
                         "credentials.<id>.passwordEnv",
                         "platforms.<coordinate>",
+                        "dependencies.<coordinate>",
+                        "dependencies.api.<coordinate>",
+                        "dependencies.runtime.<coordinate>",
+                        "dependencies.provided.<coordinate>",
+                        "dependencies.dev.<coordinate>",
+                        "dependencies.test.<coordinate>",
+                        "dependencies.processor.<coordinate>",
+                        "dependencies.test-processor.<coordinate>",
+                        "dependencies.constraints.<coordinate>",
+                        "dependencies.policy.conflicts",
+                        "dependencies.policy.deny",
+                        "dependencies.policy.licenses.allow",
+                        "dependencies.policy.licenses.deny",
+                        "dependencies.policy.licenses.unknown",
+                        "dependencies.license-exceptions.<coordinate>.allow",
+                        "dependencies.license-exceptions.<coordinate>.version",
+                        "dependencies.license-exceptions.<coordinate>.reason",
                         "coverage.line",
                         "coverage.branch",
                         "coverage.instruction",
@@ -164,10 +231,82 @@ final class FinalManifestSchemaTest {
         assertEquals(ManifestValueKind.STRING, valueKinds.get("credentials.<id>.usernameEnv"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("credentials.<id>.passwordEnv"));
         assertEquals(ManifestValueKind.STRING_OR_INLINE_TABLE, valueKinds.get("platforms.<coordinate>"));
+        assertEquals(ManifestValueKind.STRING_OR_INLINE_TABLE, valueKinds.get("dependencies.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("dependencies.api.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("dependencies.runtime.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("dependencies.provided.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("dependencies.dev.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("dependencies.test.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("dependencies.processor.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("dependencies.test-processor.<coordinate>"));
+        assertEquals(
+                ManifestValueKind.STRING_OR_INLINE_TABLE,
+                valueKinds.get("dependencies.constraints.<coordinate>"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("dependencies.policy.conflicts"));
+        assertEquals(ManifestValueKind.INLINE_TABLE_ARRAY, valueKinds.get("dependencies.policy.deny"));
+        assertEquals(
+                ManifestValueKind.STRING_ARRAY,
+                valueKinds.get("dependencies.policy.licenses.allow"));
+        assertEquals(
+                ManifestValueKind.STRING_ARRAY,
+                valueKinds.get("dependencies.policy.licenses.deny"));
+        assertEquals(
+                ManifestValueKind.STRING,
+                valueKinds.get("dependencies.policy.licenses.unknown"));
+        assertEquals(
+                ManifestValueKind.STRING_ARRAY,
+                valueKinds.get("dependencies.license-exceptions.<coordinate>.allow"));
+        assertEquals(
+                ManifestValueKind.STRING,
+                valueKinds.get("dependencies.license-exceptions.<coordinate>.version"));
+        assertEquals(
+                ManifestValueKind.STRING,
+                valueKinds.get("dependencies.license-exceptions.<coordinate>.reason"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.line"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.branch"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.instruction"));
         assertEquals(ManifestValueKind.NUMBER, valueKinds.get("coverage.method"));
+    }
+
+    @Test
+    void recordsDependencyFieldsInTheirFrozenDomainOrder() {
+        assertEquals(
+                List.of(
+                        5_001,
+                        5_011,
+                        5_021,
+                        5_031,
+                        5_041,
+                        5_051,
+                        5_061,
+                        5_071,
+                        5_081,
+                        5_091,
+                        5_092,
+                        5_101,
+                        5_102,
+                        5_103,
+                        5_111,
+                        5_112,
+                        5_113),
+                registry.fields().stream()
+                        .filter(field -> field.path().toString().startsWith("dependencies."))
+                        .map(ManifestField::canonicalOrder)
+                        .toList());
     }
 
     @Test
@@ -177,13 +316,33 @@ final class FinalManifestSchemaTest {
                         "workspace.project.license",
                         "project.license",
                         "versions.<id>",
-                        "platforms.<coordinate>"),
+                        "platforms.<coordinate>",
+                        "dependencies.<coordinate>",
+                        "dependencies.api.<coordinate>",
+                        "dependencies.runtime.<coordinate>",
+                        "dependencies.provided.<coordinate>",
+                        "dependencies.dev.<coordinate>",
+                        "dependencies.test.<coordinate>",
+                        "dependencies.processor.<coordinate>",
+                        "dependencies.test-processor.<coordinate>",
+                        "dependencies.constraints.<coordinate>"),
                 registry.fields().stream()
                         .filter(field -> field.formatting() == FormattingPolicy.ONE_LINE)
                         .map(field -> field.path().toString())
                         .collect(Collectors.toSet()));
         assertEquals(
-                Set.of("versions.<id>", "platforms.<coordinate>"),
+                Set.of(
+                        "versions.<id>",
+                        "platforms.<coordinate>",
+                        "dependencies.<coordinate>",
+                        "dependencies.api.<coordinate>",
+                        "dependencies.runtime.<coordinate>",
+                        "dependencies.provided.<coordinate>",
+                        "dependencies.dev.<coordinate>",
+                        "dependencies.test.<coordinate>",
+                        "dependencies.processor.<coordinate>",
+                        "dependencies.test-processor.<coordinate>",
+                        "dependencies.constraints.<coordinate>"),
                 registry.fields().stream()
                         .filter(field -> field.mutation() == MutationPolicy.REPLACE_ENTRY)
                         .map(field -> field.path().toString())
@@ -194,6 +353,16 @@ final class FinalManifestSchemaTest {
                         || field.path().toString().equals("platforms.<coordinate>")));
         assertTrue(registry.fields().stream()
                 .noneMatch(field -> field.mutation() == MutationPolicy.REPLACE_VALUE));
+        assertEquals(FormattingPolicy.DEFAULT, field("dependencies.policy.conflicts").formatting());
+        assertEquals(MutationPolicy.NONE, field("dependencies.policy.conflicts").mutation());
+        assertEquals(FormattingPolicy.DEFAULT, field("dependencies.policy.deny").formatting());
+        assertEquals(MutationPolicy.NONE, field("dependencies.policy.deny").mutation());
+        assertEquals(
+                FormattingPolicy.DEFAULT,
+                field("dependencies.license-exceptions.<coordinate>.allow").formatting());
+        assertEquals(
+                MutationPolicy.NONE,
+                field("dependencies.license-exceptions.<coordinate>.allow").mutation());
     }
 
     private List<String> sectionPaths() {
