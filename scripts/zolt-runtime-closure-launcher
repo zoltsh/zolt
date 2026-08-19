@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CLOSURE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+"$CLOSURE/verify" --quiet "$CLOSURE"
+
+classpath="$CLOSURE/zolt.jar"
+while IFS= read -r entry || [[ -n "$entry" ]]; do
+  [[ -n "$entry" ]] || continue
+  classpath="${classpath}:$CLOSURE/$entry"
+done < "$CLOSURE/runtime-classpath"
+
+java_opts=()
+if [[ -n "${ZOLT_JAVA_OPTS:-}" ]]; then
+  read -r -a java_opts <<< "$ZOLT_JAVA_OPTS"
+fi
+if [[ -f "$CLOSURE/libexec/zolt-junit-worker.jar" ]]; then
+  if [[ "${#java_opts[@]}" -gt 0 ]]; then
+    java_opts=("-Dzolt.junit.worker.classpath=$CLOSURE/libexec/zolt-junit-worker.jar" "${java_opts[@]}")
+  else
+    java_opts=("-Dzolt.junit.worker.classpath=$CLOSURE/libexec/zolt-junit-worker.jar")
+  fi
+fi
+if [[ -f "$CLOSURE/libexec/zolt-javac-worker.jar" ]]; then
+  if [[ "${#java_opts[@]}" -gt 0 ]]; then
+    java_opts=("-Dzolt.javac.worker.classpath=$CLOSURE/libexec/zolt-javac-worker.jar" "${java_opts[@]}")
+  else
+    java_opts=("-Dzolt.javac.worker.classpath=$CLOSURE/libexec/zolt-javac-worker.jar")
+  fi
+fi
+
+if [[ "${#java_opts[@]}" -gt 0 ]]; then
+  java "${java_opts[@]}" -cp "$classpath" sh.zolt.cli.ZoltCli "$@"
+else
+  java -cp "$classpath" sh.zolt.cli.ZoltCli "$@"
+fi

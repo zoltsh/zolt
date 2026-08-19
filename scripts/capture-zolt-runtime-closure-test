@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+TEMPORARY="$(mktemp -d)"
+trap 'rm -rf "$TEMPORARY"' EXIT
+REPOSITORY="$TEMPORARY/source"
+CAPTURES="$TEMPORARY/captures"
+CLOSURE="$CAPTURES/pre-cut"
+mkdir -p \
+  "$REPOSITORY/scripts" \
+  "$REPOSITORY/artifacts" \
+  "$REPOSITORY/apps/zolt-junit-worker/target" \
+  "$REPOSITORY/apps/zolt-javac-worker/target" \
+  "$CAPTURES"
+
+cp "$ROOT/scripts/capture-zolt-runtime-closure" "$REPOSITORY/scripts/"
+cp "$ROOT/scripts/verify-zolt-runtime-closure" "$REPOSITORY/scripts/"
+cp "$ROOT/scripts/zolt-runtime-closure-launcher" "$REPOSITORY/scripts/"
+chmod +x "$REPOSITORY/scripts/"*
+printf 'cli jar fixture\n' > "$REPOSITORY/artifacts/zolt.jar"
+printf 'dependency a\n' > "$REPOSITORY/artifacts/dependency-a.jar"
+printf 'dependency b\n' > "$REPOSITORY/artifacts/dependency b.jar"
+printf 'junit worker\n' > "$REPOSITORY/apps/zolt-junit-worker/target/zolt-junit-worker.jar"
+printf 'javac worker\n' > "$REPOSITORY/apps/zolt-javac-worker/target/zolt-javac-worker.jar"
+printf '%s\n%s\n' \
+  'artifacts/dependency-a.jar' \
+  "$REPOSITORY/artifacts/dependency b.jar" \
+  > "$REPOSITORY/artifacts/zolt.runtime-classpath"
+
+git -C "$REPOSITORY" init -q
+git -C "$REPOSITORY" config user.name 'Zolt Runtime Closure Test'
+git -C "$REPOSITORY" config user.email 'runtime-closure-test@example.invalid'
+git -C "$REPOSITORY" add .
+git -C "$REPOSITORY" commit -q --no-gpg-sign -m fixture
+SOURCE_COMMIT="$(git -C "$REPOSITORY" rev-parse HEAD)"
+
+"$REPOSITORY/scripts/capture-zolt-runtime-closure" \
+  --manifest-cut \
+  --output "$CLOSURE" \
+  --jar artifacts/zolt.jar \
+  --runtime-classpath artifacts/zolt.runtime-classpath \
+  > "$TEMPORARY/capture.log"
+grep -F "source commit $SOURCE_COMMIT" "$TEMPORARY/capture.log" >/dev/null
+[[ "$(cat "$CLOSURE/CLOSURE_MODE")" == 'manifest-cut' ]]
+[[ "$(cat "$CLOSURE/SOURCE_COMMIT")" == "$SOURCE_COMMIT" ]]
+[[ "$(cat "$CLOSURE/runtime-classpath")" == $'lib/0000.jar\nlib/0001.jar' ]]
+cmp "$REPOSITORY/artifacts/zolt.jar" "$CLOSURE/zolt.jar"
+cmp "$REPOSITORY/artifacts/dependency-a.jar" "$CLOSURE/lib/0000.jar"
+cmp "$REPOSITORY/artifacts/dependency b.jar" "$CLOSURE/lib/0001.jar"
+cmp "$REPOSITORY/apps/zolt-junit-worker/target/zolt-junit-worker.jar" \
+  "$CLOSURE/libexec/zolt-junit-worker.jar"
+cmp "$REPOSITORY/apps/zolt-javac-worker/target/zolt-javac-worker.jar" \
+  "$CLOSURE/libexec/zolt-javac-worker.jar"
+"$CLOSURE/verify" --expect-commit "$SOURCE_COMMIT" "$CLOSURE" >/dev/null
+
+if "$CLOSURE/verify" --expect-commit "$(printf 'f%.0s' {1..40})" "$CLOSURE" \
+  > "$TEMPORARY/wrong-commit.log" 2>&1; then
+  printf 'error: verifier accepted the wrong source commit\n' >&2
+  exit 1
+fi
+grep -F 'expected ffffffffffffffffffffffffffffffffffffffff' "$TEMPORARY/wrong-commit.log" >/dev/null
+
+FAKE_BIN="$TEMPORARY/bin"
+JAVA_ARGS="$TEMPORARY/java-args"
+mkdir "$FAKE_BIN"
+cat > "$FAKE_BIN/java" <<'FAKE_JAVA'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$@" > "$ZOLT_RUNTIME_CLOSURE_TEST_JAVA_ARGS"
+FAKE_JAVA
+chmod +x "$FAKE_BIN/java"
+PATH="$FAKE_BIN:$PATH" ZOLT_RUNTIME_CLOSURE_TEST_JAVA_ARGS="$JAVA_ARGS" \
+  "$CLOSURE/run-zolt" version --json
+EXPECTED_CLASSPATH="$CLOSURE/zolt.jar:$CLOSURE/lib/0000.jar:$CLOSURE/lib/0001.jar"
+[[ "$(sed -n '1p' "$JAVA_ARGS")" == \
+  "-Dzolt.javac.worker.classpath=$CLOSURE/libexec/zolt-javac-worker.jar" ]]
+[[ "$(sed -n '2p' "$JAVA_ARGS")" == \
+  "-Dzolt.junit.worker.classpath=$CLOSURE/libexec/zolt-junit-worker.jar" ]]
+[[ "$(sed -n '3p' "$JAVA_ARGS")" == '-cp' ]]
+[[ "$(sed -n '4p' "$JAVA_ARGS")" == "$EXPECTED_CLASSPATH" ]]
+[[ "$(sed -n '5p' "$JAVA_ARGS")" == 'sh.zolt.cli.ZoltCli' ]]
+[[ "$(sed -n '6p' "$JAVA_ARGS")" == 'version' ]]
+[[ "$(sed -n '7p' "$JAVA_ARGS")" == '--json' ]]
+
+printf 'unexpected\n' > "$CLOSURE/extra"
+if "$CLOSURE/verify" "$CLOSURE" > "$TEMPORARY/extra.log" 2>&1; then
+  printf 'error: verifier accepted an undeclared file\n' >&2
+  exit 1
+fi
+grep -F 'files not declared by SHA256SUMS' "$TEMPORARY/extra.log" >/dev/null
+rm "$CLOSURE/extra"
+
+printf 'tampered\n' >> "$CLOSURE/libexec/zolt-javac-worker.jar"
+rm -f "$JAVA_ARGS"
+if PATH="$FAKE_BIN:$PATH" ZOLT_RUNTIME_CLOSURE_TEST_JAVA_ARGS="$JAVA_ARGS" \
+  "$CLOSURE/run-zolt" version > "$TEMPORARY/tampered.log" 2>&1; then
+  printf 'error: runtime launcher accepted a tampered dependency\n' >&2
+  exit 1
+fi
+grep -F 'checksum mismatch for libexec/zolt-javac-worker.jar' "$TEMPORARY/tampered.log" >/dev/null
+[[ ! -e "$JAVA_ARGS" ]]
+
+if "$REPOSITORY/scripts/capture-zolt-runtime-closure" \
+  --manifest-cut \
+  --output "$CLOSURE" \
+  --jar artifacts/zolt.jar \
+  --runtime-classpath artifacts/zolt.runtime-classpath \
+  > "$TEMPORARY/existing.log" 2>&1; then
+  printf 'error: capture overwrote an existing closure\n' >&2
+  exit 1
+fi
+grep -F 'closure output already exists' "$TEMPORARY/existing.log" >/dev/null
+
+if "$REPOSITORY/scripts/capture-zolt-runtime-closure" \
+  --manifest-cut \
+  --output "$REPOSITORY/inside" \
+  --jar artifacts/zolt.jar \
+  --runtime-classpath artifacts/zolt.runtime-classpath \
+  > "$TEMPORARY/inside.log" 2>&1; then
+  printf 'error: capture accepted output inside the source repository\n' >&2
+  exit 1
+fi
+grep -F 'must be outside the source repository' "$TEMPORARY/inside.log" >/dev/null
+
+MISSING_WORKER_REPOSITORY="$TEMPORARY/missing-worker-source"
+git clone -q "$REPOSITORY" "$MISSING_WORKER_REPOSITORY"
+git -C "$MISSING_WORKER_REPOSITORY" config user.name 'Zolt Runtime Closure Test'
+git -C "$MISSING_WORKER_REPOSITORY" config user.email 'runtime-closure-test@example.invalid'
+git -C "$MISSING_WORKER_REPOSITORY" rm -q \
+  apps/zolt-javac-worker/target/zolt-javac-worker.jar
+git -C "$MISSING_WORKER_REPOSITORY" commit -q --no-gpg-sign -m remove-worker
+if "$MISSING_WORKER_REPOSITORY/scripts/capture-zolt-runtime-closure" \
+  --manifest-cut \
+  --output "$CAPTURES/missing-worker" \
+  --jar artifacts/zolt.jar \
+  --runtime-classpath artifacts/zolt.runtime-classpath \
+  > "$TEMPORARY/missing-worker.log" 2>&1; then
+  printf 'error: manifest-cut capture accepted a missing worker\n' >&2
+  exit 1
+fi
+grep -F 'manifest-cut runtime closure requires the packaged javac worker jar' \
+  "$TEMPORARY/missing-worker.log" >/dev/null
+[[ ! -e "$CAPTURES/missing-worker" ]]
+
+printf 'dirty\n' >> "$REPOSITORY/artifacts/zolt.jar"
+if "$REPOSITORY/scripts/capture-zolt-runtime-closure" \
+  --manifest-cut \
+  --output "$CAPTURES/dirty" \
+  --jar artifacts/zolt.jar \
+  --runtime-classpath artifacts/zolt.runtime-classpath \
+  > "$TEMPORARY/dirty.log" 2>&1; then
+  printf 'error: capture accepted a dirty source worktree\n' >&2
+  exit 1
+fi
+grep -F 'source worktree is not clean' "$TEMPORARY/dirty.log" >/dev/null
+[[ ! -e "$CAPTURES/dirty" ]]
+
+printf 'Zolt runtime closure script test passed\n'

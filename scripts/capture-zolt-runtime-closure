@@ -1,0 +1,262 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "$ROOT"
+
+OUTPUT=""
+JAR_PATH=""
+RUNTIME_CLASSPATH_FILE=""
+JUNIT_WORKER_JAR=""
+JAVAC_WORKER_JAR=""
+CLOSURE_MODE="runtime"
+STAGING=""
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/capture-zolt-runtime-closure --output DIR [options]
+
+Captures the current clean commit's packaged Zolt JVM runtime into a new,
+external directory. The closure contains the CLI jar, its rewritten runtime
+classpath, all referenced jars, checksums, source commit, verifier, and launcher.
+
+Options:
+  --output DIR                New closure directory outside the source repository.
+  --jar FILE                  Packaged Zolt CLI jar. Defaults to the sole jar in
+                              apps/zolt/target/.
+  --runtime-classpath FILE    Runtime classpath sidecar. Defaults to the jar path
+                              with `.jar` replaced by `.runtime-classpath`.
+  --junit-worker-jar FILE     JUnit worker uber jar. Defaults to the sole jar in
+                              apps/zolt-junit-worker/target/ when present.
+  --javac-worker-jar FILE     javac worker uber jar. Defaults to the sole jar in
+                              apps/zolt-javac-worker/target/ when present.
+  --manifest-cut              Require both worker jars for a self-contained
+                              manifest-language cutover builder.
+  --help, -h                  Show this help and exit.
+USAGE
+}
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --output)
+      [[ "$#" -ge 2 ]] || fail "missing value for --output"
+      OUTPUT="$2"
+      shift 2
+      ;;
+    --jar)
+      [[ "$#" -ge 2 ]] || fail "missing value for --jar"
+      JAR_PATH="$2"
+      shift 2
+      ;;
+    --runtime-classpath)
+      [[ "$#" -ge 2 ]] || fail "missing value for --runtime-classpath"
+      RUNTIME_CLASSPATH_FILE="$2"
+      shift 2
+      ;;
+    --junit-worker-jar)
+      [[ "$#" -ge 2 ]] || fail "missing value for --junit-worker-jar"
+      JUNIT_WORKER_JAR="$2"
+      shift 2
+      ;;
+    --javac-worker-jar)
+      [[ "$#" -ge 2 ]] || fail "missing value for --javac-worker-jar"
+      JAVAC_WORKER_JAR="$2"
+      shift 2
+      ;;
+    --manifest-cut)
+      CLOSURE_MODE="manifest-cut"
+      shift
+      ;;
+    --help | -h)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'error: unknown argument %s\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+[[ -n "$OUTPUT" ]] || fail "--output is required"
+command -v git >/dev/null 2>&1 || fail "git is required to capture a Zolt runtime closure"
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+  || fail "source repository is not a Git worktree"
+SOURCE_COMMIT="$(git rev-parse --verify 'HEAD^{commit}')"
+[[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] \
+  || fail "could not resolve the exact source commit"
+
+require_unchanged_source_commit() {
+  local current_commit
+  current_commit="$(git rev-parse --verify 'HEAD^{commit}')"
+  [[ "$current_commit" == "$SOURCE_COMMIT" ]] \
+    || fail "source commit changed while capturing the runtime closure"
+  if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+    fail "source worktree is not clean; commit or remove every change before capturing a runtime closure"
+  fi
+}
+
+require_unchanged_source_commit
+
+if [[ -z "$JAR_PATH" ]]; then
+  jars=()
+  while IFS= read -r path; do
+    jars+=("$path")
+  done < <(find apps/zolt/target -maxdepth 1 -type f -name '*.jar' -print 2>/dev/null | sort)
+  [[ "${#jars[@]}" -eq 1 ]] \
+    || fail "expected exactly one packaged Zolt jar under apps/zolt/target, found ${#jars[@]}"
+  JAR_PATH="${jars[0]}"
+fi
+if [[ -z "$RUNTIME_CLASSPATH_FILE" ]]; then
+  RUNTIME_CLASSPATH_FILE="${JAR_PATH%.jar}.runtime-classpath"
+fi
+
+canonical_regular_file() {
+  local requested="$1"
+  local path="$requested"
+  if [[ "$path" != /* ]]; then
+    path="$ROOT/$path"
+  fi
+  [[ -f "$path" ]] || fail "required runtime file does not exist at $requested"
+  [[ ! -L "$path" ]] || fail "required runtime file must not be a symbolic link: $requested"
+  local directory
+  directory="$(cd "$(dirname "$path")" && pwd -P)"
+  printf '%s/%s' "$directory" "$(basename "$path")"
+}
+
+JAR_PATH="$(canonical_regular_file "$JAR_PATH")"
+RUNTIME_CLASSPATH_FILE="$(canonical_regular_file "$RUNTIME_CLASSPATH_FILE")"
+[[ "$JAR_PATH" == *.jar ]] || fail "packaged Zolt CLI artifact must be a .jar file: $JAR_PATH"
+
+select_worker_jar() {
+  local requested="$1"
+  local default_directory="$2"
+  local label="$3"
+  local candidates=()
+  local path
+  if [[ -n "$requested" ]]; then
+    path="$(canonical_regular_file "$requested")"
+  else
+    while IFS= read -r path; do
+      candidates+=("$path")
+    done < <(find "$default_directory" -maxdepth 1 -type f -name '*.jar' -print 2>/dev/null | sort)
+    if [[ "${#candidates[@]}" -eq 0 ]]; then
+      return 0
+    fi
+    [[ "${#candidates[@]}" -eq 1 ]] \
+      || fail "expected at most one $label jar under $default_directory, found ${#candidates[@]}"
+    path="$(canonical_regular_file "${candidates[0]}")"
+  fi
+  [[ "$path" == *.jar ]] || fail "$label artifact must be a .jar file: $path"
+  printf '%s' "$path"
+}
+
+JUNIT_WORKER_JAR="$(select_worker_jar "$JUNIT_WORKER_JAR" apps/zolt-junit-worker/target "JUnit worker")"
+JAVAC_WORKER_JAR="$(select_worker_jar "$JAVAC_WORKER_JAR" apps/zolt-javac-worker/target "javac worker")"
+if [[ "$CLOSURE_MODE" == "manifest-cut" ]]; then
+  [[ -n "$JUNIT_WORKER_JAR" ]] \
+    || fail "manifest-cut runtime closure requires the packaged JUnit worker jar"
+  [[ -n "$JAVAC_WORKER_JAR" ]] \
+    || fail "manifest-cut runtime closure requires the packaged javac worker jar"
+fi
+
+OUTPUT_PARENT_REQUESTED="$(dirname "$OUTPUT")"
+OUTPUT_NAME="$(basename "$OUTPUT")"
+[[ "$OUTPUT_NAME" != "." && "$OUTPUT_NAME" != ".." ]] \
+  || fail "closure output must name a new directory"
+if [[ "$OUTPUT_PARENT_REQUESTED" != /* ]]; then
+  OUTPUT_PARENT_REQUESTED="$ROOT/$OUTPUT_PARENT_REQUESTED"
+fi
+[[ -d "$OUTPUT_PARENT_REQUESTED" ]] \
+  || fail "closure output parent does not exist at $OUTPUT_PARENT_REQUESTED"
+[[ ! -L "$OUTPUT_PARENT_REQUESTED" ]] \
+  || fail "closure output parent must not be a symbolic link: $OUTPUT_PARENT_REQUESTED"
+OUTPUT_PARENT="$(cd "$OUTPUT_PARENT_REQUESTED" && pwd -P)"
+OUTPUT="$OUTPUT_PARENT/$OUTPUT_NAME"
+[[ ! -e "$OUTPUT" && ! -L "$OUTPUT" ]] \
+  || fail "closure output already exists at $OUTPUT"
+case "$OUTPUT/" in
+  "$ROOT/"*) fail "closure output must be outside the source repository: $OUTPUT" ;;
+esac
+
+VERIFIER_SOURCE="$ROOT/scripts/verify-zolt-runtime-closure"
+LAUNCHER_SOURCE="$ROOT/scripts/zolt-runtime-closure-launcher"
+for source in "$VERIFIER_SOURCE" "$LAUNCHER_SOURCE"; do
+  [[ -f "$source" && ! -L "$source" ]] || fail "runtime closure support file is missing: $source"
+done
+
+sha256_file() {
+  if command -v shasum >/dev/null 2>&1; then
+    LC_ALL=C LANG=C shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    LC_ALL=C LANG=C sha256sum "$1" | awk '{print $1}'
+  else
+    fail "shasum or sha256sum is required to capture a Zolt runtime closure"
+  fi
+}
+
+cleanup() {
+  if [[ -n "$STAGING" && -d "$STAGING" ]]; then
+    rm -rf "$STAGING"
+  fi
+}
+trap cleanup EXIT
+STAGING="$(mktemp -d "$OUTPUT_PARENT/.zolt-runtime-closure.XXXXXX")"
+mkdir "$STAGING/lib"
+cp "$JAR_PATH" "$STAGING/zolt.jar"
+cp "$VERIFIER_SOURCE" "$STAGING/verify"
+cp "$LAUNCHER_SOURCE" "$STAGING/run-zolt"
+chmod 0555 "$STAGING/verify" "$STAGING/run-zolt"
+printf '%s\n' "$SOURCE_COMMIT" > "$STAGING/SOURCE_COMMIT"
+printf '%s\n' "$CLOSURE_MODE" > "$STAGING/CLOSURE_MODE"
+: > "$STAGING/runtime-classpath"
+
+worker_files=()
+if [[ -n "$JUNIT_WORKER_JAR" || -n "$JAVAC_WORKER_JAR" ]]; then
+  mkdir "$STAGING/libexec"
+fi
+if [[ -n "$JUNIT_WORKER_JAR" ]]; then
+  worker_files+=(libexec/zolt-junit-worker.jar)
+  cp "$JUNIT_WORKER_JAR" "$STAGING/libexec/zolt-junit-worker.jar"
+fi
+if [[ -n "$JAVAC_WORKER_JAR" ]]; then
+  worker_files+=(libexec/zolt-javac-worker.jar)
+  cp "$JAVAC_WORKER_JAR" "$STAGING/libexec/zolt-javac-worker.jar"
+fi
+
+dependency_index=0
+while IFS= read -r entry || [[ -n "$entry" ]]; do
+  [[ -n "$entry" ]] || fail "runtime classpath sidecar contains a blank entry"
+  dependency="$(canonical_regular_file "$entry")"
+  [[ "$dependency" == *.jar ]] || fail "runtime classpath entry must be a .jar file: $entry"
+  printf -v relative 'lib/%04d.jar' "$dependency_index"
+  cp "$dependency" "$STAGING/$relative"
+  printf '%s\n' "$relative" >> "$STAGING/runtime-classpath"
+  dependency_index=$((dependency_index + 1))
+done < "$RUNTIME_CLASSPATH_FILE"
+
+: > "$STAGING/SHA256SUMS"
+checksum_files=(CLOSURE_MODE SOURCE_COMMIT run-zolt runtime-classpath verify zolt.jar)
+if [[ "${#worker_files[@]}" -gt 0 ]]; then
+  checksum_files+=("${worker_files[@]}")
+fi
+for ((index = 0; index < dependency_index; index++)); do
+  printf -v relative 'lib/%04d.jar' "$index"
+  checksum_files+=("$relative")
+done
+for relative in "${checksum_files[@]}"; do
+  printf '%s  %s\n' "$(sha256_file "$STAGING/$relative")" "$relative" >> "$STAGING/SHA256SUMS"
+done
+
+require_unchanged_source_commit
+"$VERIFIER_SOURCE" --quiet --expect-commit "$SOURCE_COMMIT" "$STAGING"
+mv "$STAGING" "$OUTPUT"
+STAGING=""
+"$OUTPUT/verify" --quiet --expect-commit "$SOURCE_COMMIT" "$OUTPUT"
+printf 'ok: captured Zolt runtime closure for source commit %s at %s\n' "$SOURCE_COMMIT" "$OUTPUT"
