@@ -9,7 +9,8 @@ import java.util.Set;
  * Schema metadata for one accepted manifest section path.
  *
  * <p>For a {@link SectionKind#NAMED_ITEM} path, {@code reservedChildren} names
- * reserved values of the dynamic path segment. For every other section kind,
+ * reserved values of the dynamic path segment. For a {@link SectionKind#COLLECTION},
+ * it names reserved dynamic assignment keys. For a {@link SectionKind#SINGLETON},
  * it names reserved structural children beneath the section.
  */
 public record ManifestSection(

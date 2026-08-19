@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class FinalManifestSymbolsTest {
@@ -24,7 +25,8 @@ final class FinalManifestSymbolsTest {
                 "signing-method",
                 "central-mode",
                 "compiler-jdk-api-mode",
-                "test-runtime-event-outcome"), families.stream().map(ManifestSymbolFamily::name).toList());
+                "test-runtime-event-outcome",
+                "built-in-command"), families.stream().map(ManifestSymbolFamily::name).toList());
 
         Map<String, List<String>> actual = new LinkedHashMap<>();
         families.forEach(family -> actual.put(family.name(), family.values()));
@@ -46,6 +48,62 @@ final class FinalManifestSymbolsTest {
                 Map.entry("signing-method", List.of("gpg")),
                 Map.entry("central-mode", List.of("manual", "automatic")),
                 Map.entry("compiler-jdk-api-mode", List.of("release", "host")),
-                Map.entry("test-runtime-event-outcome", List.of("passed", "skipped", "failed"))), actual);
+                Map.entry("test-runtime-event-outcome", List.of("passed", "skipped", "failed")),
+                Map.entry(
+                        "built-in-command",
+                        List.of(
+                                "add",
+                                "aliases",
+                                "build",
+                                "cache",
+                                "check",
+                                "classpath",
+                                "clean",
+                                "config",
+                                "conflicts",
+                                "coverage",
+                                "doctor",
+                                "exec",
+                                "explain",
+                                "help",
+                                "ide",
+                                "init",
+                                "integration-test",
+                                "licenses",
+                                "native",
+                                "native-smoke",
+                                "outdated",
+                                "package",
+                                "plan",
+                                "platform",
+                                "policy",
+                                "publish",
+                                "quarkus",
+                                "release-archive",
+                                "release-index",
+                                "release-verify",
+                                "remove",
+                                "resolve",
+                                "run",
+                                "run-package",
+                                "sbom",
+                                "self",
+                                "self-check",
+                                "self-parity",
+                                "shims",
+                                "task",
+                                "tasks",
+                                "test",
+                                "toolchain",
+                                "tree",
+                                "update",
+                                "version",
+                                "why"))), actual);
+        assertEquals(
+                Set.copyOf(actual.get("built-in-command")),
+                FinalManifestSymbols.builtInCommandNames());
+        assertEquals(
+                actual.get("built-in-command"),
+                List.copyOf(FinalManifestSymbols.builtInCommandNames()));
     }
 }

@@ -67,7 +67,13 @@ final class FinalManifestSchemaTest {
                         "bom.versions",
                         "bom.imports",
                         "framework.spring-boot",
-                        "native"),
+                        "native",
+                        "publish",
+                        "publish.repositories.<id>",
+                        "publish.signing",
+                        "publish.central",
+                        "tasks.<id>",
+                        "aliases"),
                 sectionPaths());
         assertEquals(
                 List.of(
@@ -121,7 +127,13 @@ final class FinalManifestSchemaTest {
                         7_110,
                         7_120,
                         7_200,
-                        7_300),
+                        7_300,
+                        8_000,
+                        8_100,
+                        8_200,
+                        8_300,
+                        9_000,
+                        9_100),
                 registry.sections().stream().map(ManifestSection::canonicalOrder).toList());
         assertEquals(
                 Map.ofEntries(
@@ -175,7 +187,13 @@ final class FinalManifestSchemaTest {
                         Map.entry("bom.versions", SectionKind.COLLECTION),
                         Map.entry("bom.imports", SectionKind.COLLECTION),
                         Map.entry("framework.spring-boot", SectionKind.SINGLETON),
-                        Map.entry("native", SectionKind.SINGLETON)),
+                        Map.entry("native", SectionKind.SINGLETON),
+                        Map.entry("publish", SectionKind.SINGLETON),
+                        Map.entry("publish.repositories.<id>", SectionKind.NAMED_ITEM),
+                        Map.entry("publish.signing", SectionKind.SINGLETON),
+                        Map.entry("publish.central", SectionKind.SINGLETON),
+                        Map.entry("tasks.<id>", SectionKind.NAMED_ITEM),
+                        Map.entry("aliases", SectionKind.COLLECTION)),
                 registry.sections().stream()
                         .collect(Collectors.toMap(section -> section.path().toString(), ManifestSection::kind)));
         assertEquals(Set.of("members", "project"), section("workspace").reservedChildren());
@@ -206,7 +224,16 @@ final class FinalManifestSchemaTest {
         assertEquals(Set.of("manifest"), section("package").reservedChildren());
         assertEquals(Set.of("imports", "versions"), section("bom").reservedChildren());
         assertEquals(
-                38,
+                Set.of("central", "repositories", "signing"),
+                section("publish").reservedChildren());
+        assertEquals(
+                FinalManifestSymbols.builtInCommandNames(),
+                section("tasks.<id>").reservedChildren());
+        assertEquals(
+                FinalManifestSymbols.builtInCommandNames(),
+                section("aliases").reservedChildren());
+        assertEquals(
+                41,
                 registry.sections().stream()
                         .filter(section -> section.reservedChildren().isEmpty())
                         .count());
@@ -428,7 +455,23 @@ final class FinalManifestSchemaTest {
                         "framework.spring-boot.native",
                         "native.name",
                         "native.output",
-                        "native.args"),
+                        "native.args",
+                        "publish.release",
+                        "publish.snapshot",
+                        "publish.repositories.<id>.url",
+                        "publish.repositories.<id>.credentials",
+                        "publish.signing.method",
+                        "publish.signing.keyId",
+                        "publish.signing.passphraseEnv",
+                        "publish.central.tokenEnv",
+                        "publish.central.mode",
+                        "publish.central.name",
+                        "publish.central.url",
+                        "tasks.<id>.description",
+                        "tasks.<id>.run",
+                        "tasks.<id>.cwd",
+                        "tasks.<id>.env",
+                        "aliases.<id>"),
                 fieldPaths());
     }
 
@@ -569,6 +612,24 @@ final class FinalManifestSchemaTest {
         assertEquals(ManifestValueKind.STRING, valueKinds.get("native.name"));
         assertEquals(ManifestValueKind.STRING, valueKinds.get("native.output"));
         assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("native.args"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.release"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.snapshot"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.repositories.<id>.url"));
+        assertEquals(
+                ManifestValueKind.STRING,
+                valueKinds.get("publish.repositories.<id>.credentials"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.signing.method"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.signing.keyId"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.signing.passphraseEnv"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.central.tokenEnv"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.central.mode"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.central.name"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("publish.central.url"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("tasks.<id>.description"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("tasks.<id>.run"));
+        assertEquals(ManifestValueKind.STRING, valueKinds.get("tasks.<id>.cwd"));
+        assertEquals(ManifestValueKind.INLINE_TABLE, valueKinds.get("tasks.<id>.env"));
+        assertEquals(ManifestValueKind.STRING_ARRAY, valueKinds.get("aliases.<id>"));
     }
 
     @Test
@@ -719,6 +780,98 @@ final class FinalManifestSchemaTest {
                                 && field.canonicalOrder() < 8_000)
                         .map(ManifestField::canonicalOrder)
                         .toList());
+    }
+
+    @Test
+    void recordsExactPublishingAndCommandFieldShapesAndDomainOrder() {
+        assertEquals(
+                List.of(
+                        Map.entry("release", ManifestValueKind.STRING),
+                        Map.entry("snapshot", ManifestValueKind.STRING),
+                        Map.entry("repositories.<id>.url", ManifestValueKind.STRING),
+                        Map.entry("repositories.<id>.credentials", ManifestValueKind.STRING),
+                        Map.entry("signing.method", ManifestValueKind.STRING),
+                        Map.entry("signing.keyId", ManifestValueKind.STRING),
+                        Map.entry("signing.passphraseEnv", ManifestValueKind.STRING),
+                        Map.entry("central.tokenEnv", ManifestValueKind.STRING),
+                        Map.entry("central.mode", ManifestValueKind.STRING),
+                        Map.entry("central.name", ManifestValueKind.STRING),
+                        Map.entry("central.url", ManifestValueKind.STRING)),
+                fieldShapes("publish"));
+        assertEquals(
+                List.of(
+                        Map.entry("description", ManifestValueKind.STRING),
+                        Map.entry("run", ManifestValueKind.STRING_ARRAY),
+                        Map.entry("cwd", ManifestValueKind.STRING),
+                        Map.entry("env", ManifestValueKind.INLINE_TABLE)),
+                fieldShapes("tasks.<id>"));
+        assertEquals(
+                List.of(Map.entry("<id>", ManifestValueKind.STRING_ARRAY)),
+                fieldShapes("aliases"));
+        assertEquals(
+                List.of(
+                        8_001,
+                        8_002,
+                        8_101,
+                        8_102,
+                        8_201,
+                        8_202,
+                        8_203,
+                        8_301,
+                        8_302,
+                        8_303,
+                        8_304),
+                registry.fields().stream()
+                        .filter(field -> field.canonicalOrder() >= 8_000
+                                && field.canonicalOrder() < 9_000)
+                        .map(ManifestField::canonicalOrder)
+                        .toList());
+        assertEquals(
+                List.of(9_001, 9_002, 9_003, 9_004, 9_101),
+                registry.fields().stream()
+                        .filter(field -> field.canonicalOrder() >= 9_000
+                                && field.canonicalOrder() < 10_000)
+                        .map(ManifestField::canonicalOrder)
+                        .toList());
+    }
+
+    @Test
+    void matchesDynamicPublishingAndCommandEntriesWithoutInventingNestedMapFields() {
+        ManifestSchemaMatch<ManifestSection> repository = registry
+                .matchSection(path("publish.repositories.company-releases"))
+                .orElseThrow();
+        assertEquals("publish.repositories.<id>", repository.descriptor().path().toString());
+        assertEquals(Map.of("id", "company-releases"), repository.bindings());
+
+        ManifestSchemaMatch<ManifestField> repositoryUrl = registry
+                .matchField(path("publish.repositories.company-releases.url"))
+                .orElseThrow();
+        assertEquals(
+                "publish.repositories.<id>.url",
+                repositoryUrl.descriptor().path().toString());
+        assertEquals(Map.of("id", "company-releases"), repositoryUrl.bindings());
+
+        ManifestSchemaMatch<ManifestField> taskRun = registry
+                .matchField(path("tasks.release-notes.run"))
+                .orElseThrow();
+        assertEquals("tasks.<id>.run", taskRun.descriptor().path().toString());
+        assertEquals(Map.of("id", "release-notes"), taskRun.bindings());
+
+        ManifestSchemaMatch<ManifestField> alias = registry
+                .matchField(path("aliases.ci"))
+                .orElseThrow();
+        assertEquals("aliases.<id>", alias.descriptor().path().toString());
+        assertEquals(Map.of("id", "ci"), alias.bindings());
+
+        assertTrue(registry.matchSection(path("publish.repositories")).isEmpty());
+        assertTrue(registry.matchSection(path("publish.routes")).isEmpty());
+        assertTrue(registry.matchField(path("publish.routes.release")).isEmpty());
+        assertTrue(registry.matchField(path("publish.artifacts")).isEmpty());
+        assertTrue(registry.matchField(path("publish.central.baseUrl")).isEmpty());
+        assertTrue(registry.matchField(path("publish.central.publishingType")).isEmpty());
+        assertTrue(registry.matchSection(path("commands.tasks.release-notes")).isEmpty());
+        assertTrue(registry.matchField(path("commands.aliases.ci")).isEmpty());
+        assertTrue(registry.matchField(path("tasks.release-notes.env.RELEASE_CHANNEL")).isEmpty());
     }
 
     @Test
