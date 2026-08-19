@@ -57,7 +57,8 @@ final class GeneratedProcessToolTest {
     void bareBinaryRejectsPathsWhitespaceAndShellSyntax() {
         assertEquals("npm.cmd", new GeneratedProcessBinary("npm.cmd").value());
         for (String value : List.of(
-                "/usr/bin/npm", "bin/npm", "bin\\npm", "C:npm", "npm tool", "npm;whoami")) {
+                "/usr/bin/npm", "bin/npm", "bin\\npm", "C:npm", "npm tool", "npm;whoami",
+                "npm%PATH%", "npm^cmd")) {
             assertThrows(IllegalArgumentException.class, () -> new GeneratedProcessBinary(value), value);
         }
     }

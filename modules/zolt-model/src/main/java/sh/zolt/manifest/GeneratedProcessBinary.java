@@ -4,7 +4,7 @@ import java.util.Objects;
 
 /** A bare executable name resolved only from Zolt's curated process path. */
 public record GeneratedProcessBinary(String value) {
-    private static final String SHELL_METACHARACTERS = ";&|$><`'\"(){}[]*?~!#";
+    private static final String SHELL_METACHARACTERS = ";&|$%><^`'\"(){}[]*?~!#";
 
     public GeneratedProcessBinary {
         Objects.requireNonNull(value, "Generated process binary must not be null.");
