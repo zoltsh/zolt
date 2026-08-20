@@ -55,6 +55,27 @@ final class FinalManifestObjectShapesTest {
     }
 
     @Test
+    void recordsExactClosedBomVersionSelectorShape() {
+        assertEquals(
+                List.of(
+                        member("version", false, 10),
+                        member("versionRef", false, 20),
+                        member("classifier", false, 30),
+                        member("type", false, 40)),
+                members(FinalManifestObjectShapes.BOM_VERSION_SELECTOR));
+        assertMemberIdentity(
+                FinalManifestObjectShapes.BOM_VERSION_SELECTOR,
+                List.of(
+                        FinalManifestObjectShapes.PLATFORM_VERSION,
+                        FinalManifestObjectShapes.PLATFORM_VERSION_REF,
+                        FinalManifestObjectShapes.BOM_VERSION_CLASSIFIER,
+                        FinalManifestObjectShapes.BOM_VERSION_TYPE));
+        assertPresence(
+                FinalManifestObjectShapes.BOM_VERSION_SELECTOR,
+                List.of("version", "versionRef"));
+    }
+
+    @Test
     void recordsExactClosedDependencyShape() {
         assertEquals(
                 List.of(
@@ -168,14 +189,14 @@ final class FinalManifestObjectShapesTest {
     }
 
     @Test
-    void attachesOnlyTheSeventeenActivatedFieldsToTheirExactShapes() {
+    void attachesOnlyTheNineteenActivatedFieldsToTheirExactShapes() {
         Map<String, ManifestObjectShape> attached = registry.fields().stream()
                 .filter(field -> field.objectShape().isPresent())
                 .collect(Collectors.toMap(
                         field -> field.path().toString(),
                         field -> field.objectShape().orElseThrow()));
 
-        assertEquals(17, attached.size());
+        assertEquals(19, attached.size());
         assertEquals(Set.of(
                 "workspace.project.license",
                 "project.license",
@@ -193,7 +214,9 @@ final class FinalManifestObjectShapesTest {
                 "dependencies.policy.deny",
                 "resources.tokens.<id>",
                 "generated.tools.<id>.coordinates",
-                "test.suites.<id>.locks"), attached.keySet());
+                "test.suites.<id>.locks",
+                "bom.versions.<coordinate>",
+                "bom.imports.<coordinate>"), attached.keySet());
         assertSame(FinalManifestObjectShapes.LICENSE, attached.get("workspace.project.license"));
         assertSame(FinalManifestObjectShapes.LICENSE, attached.get("project.license"));
         assertSame(
@@ -227,6 +250,12 @@ final class FinalManifestObjectShapesTest {
         assertSame(
                 FinalManifestObjectShapes.TEST_SUITE_LOCK,
                 attached.get("test.suites.<id>.locks"));
+        assertSame(
+                FinalManifestObjectShapes.BOM_VERSION_SELECTOR,
+                attached.get("bom.versions.<coordinate>"));
+        assertSame(
+                FinalManifestObjectShapes.PLATFORM_SELECTOR,
+                attached.get("bom.imports.<coordinate>"));
         ManifestField tokenEntry = registry
                 .field(FinalManifestResourceFields.RESOURCES_TOKENS_ENTRY.path())
                 .orElseThrow();

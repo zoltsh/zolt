@@ -26,16 +26,18 @@ public final class FinalManifestPackagingFields {
             7_101);
     public static final ManifestField BOM_EXCLUDE = field(
             FinalManifestPaths.BOM, "exclude", ManifestValueKind.STRING_ARRAY, 7_102);
-    public static final ManifestField BOM_VERSIONS_ENTRY = mutableMapEntry(
+    public static final ManifestField BOM_VERSIONS_ENTRY = mutableObjectMapEntry(
             FinalManifestPaths.BOM_VERSIONS,
             "<coordinate>",
             ManifestValueKind.STRING_OR_INLINE_TABLE,
-            7_111);
-    public static final ManifestField BOM_IMPORTS_ENTRY = mutableMapEntry(
+            7_111,
+            FinalManifestObjectShapes.BOM_VERSION_SELECTOR);
+    public static final ManifestField BOM_IMPORTS_ENTRY = mutableObjectMapEntry(
             FinalManifestPaths.BOM_IMPORTS,
             "<coordinate>",
             ManifestValueKind.STRING_OR_INLINE_TABLE,
-            7_121);
+            7_121,
+            FinalManifestObjectShapes.PLATFORM_SELECTOR);
     public static final ManifestField FRAMEWORK_SPRING_BOOT_NATIVE = field(
             FinalManifestPaths.FRAMEWORK_SPRING_BOOT,
             "native",
@@ -77,12 +79,13 @@ public final class FinalManifestPackagingFields {
         return FinalManifestFieldFactory.field(section, name, kind, canonicalOrder);
     }
 
-    private static ManifestField mutableMapEntry(
+    private static ManifestField mutableObjectMapEntry(
             ManifestPath section,
             String name,
             ManifestValueKind kind,
-            int canonicalOrder) {
-        return FinalManifestFieldFactory.mutableMapEntry(
-                section, name, kind, canonicalOrder);
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return FinalManifestFieldFactory.mutableObjectMapEntry(
+                section, name, kind, canonicalOrder, objectShape);
     }
 }

@@ -26,6 +26,19 @@ public final class FinalManifestObjectShapes {
                     ManifestObjectShape.PresenceRule.EXACTLY_ONE,
                     List.of(PLATFORM_VERSION, PLATFORM_VERSION_REF))));
 
+    public static final ManifestObjectMember BOM_VERSION_CLASSIFIER =
+            member("classifier", false, 30);
+    public static final ManifestObjectMember BOM_VERSION_TYPE = member("type", false, 40);
+    public static final ManifestObjectShape BOM_VERSION_SELECTOR = new ManifestObjectShape(
+            List.of(
+                    PLATFORM_VERSION,
+                    PLATFORM_VERSION_REF,
+                    BOM_VERSION_CLASSIFIER,
+                    BOM_VERSION_TYPE),
+            List.of(new ManifestObjectShape.PresenceGroup(
+                    ManifestObjectShape.PresenceRule.EXACTLY_ONE,
+                    List.of(PLATFORM_VERSION, PLATFORM_VERSION_REF))));
+
     public static final ManifestObjectMember DEPENDENCY_VERSION = member("version", false, 10);
     public static final ManifestObjectMember DEPENDENCY_VERSION_REF = member("versionRef", false, 20);
     public static final ManifestObjectMember DEPENDENCY_MANAGED =
