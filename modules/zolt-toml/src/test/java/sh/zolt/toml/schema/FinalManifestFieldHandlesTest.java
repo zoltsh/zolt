@@ -196,15 +196,57 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
+    void generatedMainHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestGeneratedMainFields.fields(),
+                List.of(
+                        field("generated.main.<id>.kind", 6_501),
+                        field("generated.main.<id>.language", 6_502),
+                        field("generated.main.<id>.tool", 6_503),
+                        field("generated.main.<id>.mainClass", 6_504),
+                        field("generated.main.<id>.args", 6_505),
+                        field("generated.main.<id>.input", 6_506),
+                        field("generated.main.<id>.inputs", 6_507),
+                        field("generated.main.<id>.output", 6_508),
+                        field("generated.main.<id>.produces", 6_509),
+                        field("generated.main.<id>.into", 6_510),
+                        field("generated.main.<id>.preset", 6_511),
+                        field("generated.main.<id>.generator", 6_512),
+                        field("generated.main.<id>.library", 6_513),
+                        field("generated.main.<id>.apiPackage", 6_514),
+                        field("generated.main.<id>.modelPackage", 6_515),
+                        field("generated.main.<id>.invokerPackage", 6_516),
+                        field("generated.main.<id>.config", 6_517),
+                        field("generated.main.<id>.templateDir", 6_518),
+                        field("generated.main.<id>.validateSpec", 6_519),
+                        field("generated.main.<id>.options", 6_520),
+                        field("generated.main.<id>.additionalProperties", 6_521),
+                        field("generated.main.<id>.configOptions", 6_522),
+                        field("generated.main.<id>.globalProperties", 6_523),
+                        field("generated.main.<id>.typeMappings", 6_524),
+                        field("generated.main.<id>.importMappings", 6_525),
+                        field("generated.main.<id>.javaPackage", 6_526),
+                        field("generated.main.<id>.grpc", 6_527),
+                        field("generated.main.<id>.cache", 6_528),
+                        field("generated.main.<id>.cwd", 6_529),
+                        field("generated.main.<id>.env", 6_530),
+                        field("generated.main.<id>.secretEnv", 6_531),
+                        field("generated.main.<id>.inheritEnv", 6_532),
+                        field("generated.main.<id>.timeoutSeconds", 6_533),
+                        field("generated.main.<id>.required", 6_534),
+                        field("generated.main.<id>.clean", 6_535)));
+    }
+
+    @Test
     void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 6_500)
+                .filter(field -> field.canonicalOrder() < 6_600)
                 .toList();
 
-        assertEquals(111, handles.size());
-        assertEquals(111, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(111, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(146, handles.size());
+        assertEquals(146, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(146, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -233,6 +275,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestResourceFields.fields());
         handles.addAll(FinalManifestGeneratedToolFields.fields());
         handles.addAll(FinalManifestGeneratedPresetFields.fields());
+        handles.addAll(FinalManifestGeneratedMainFields.fields());
         return List.copyOf(handles);
     }
 
