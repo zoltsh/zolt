@@ -33,14 +33,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestSharedFields.fields());
         fields.addAll(FinalManifestDependencyFields.fields());
         fields.addAll(FinalManifestBuildFields.fields());
+        fields.addAll(FinalManifestCompilerFields.fields());
         fields.addAll(List.of(
-                field(COMPILER, "encoding", ManifestValueKind.STRING, 6_101),
-                field(COMPILER, "jdkApi", ManifestValueKind.STRING, 6_102),
-                field(COMPILER, "args", ManifestValueKind.STRING_ARRAY, 6_103),
-                field(COMPILER_TEST, "jdkApi", ManifestValueKind.STRING, 6_111),
-                field(COMPILER_TEST, "args", ManifestValueKind.STRING_ARRAY, 6_112),
-                field(COMPILER_GENERATED, "main", ManifestValueKind.STRING, 6_121),
-                field(COMPILER_GENERATED, "test", ManifestValueKind.STRING, 6_122),
                 field(RESOURCES, "main", ManifestValueKind.STRING_ARRAY, 6_201),
                 field(RESOURCES, "test", ManifestValueKind.STRING_ARRAY, 6_202),
                 field(RESOURCES_FILTER, "targets", ManifestValueKind.STRING_ARRAY, 6_211),

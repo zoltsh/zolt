@@ -114,15 +114,29 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
+    void compilerHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestCompilerFields.fields(),
+                List.of(
+                        field("compiler.encoding", 6_101),
+                        field("compiler.jdkApi", 6_102),
+                        field("compiler.args", 6_103),
+                        field("compiler.test.jdkApi", 6_111),
+                        field("compiler.test.args", 6_112),
+                        field("compiler.generated.main", 6_121),
+                        field("compiler.generated.test", 6_122)));
+    }
+
+    @Test
     void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 6_100)
+                .filter(field -> field.canonicalOrder() < 6_200)
                 .toList();
 
-        assertEquals(67, handles.size());
-        assertEquals(67, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(67, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(74, handles.size());
+        assertEquals(74, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(74, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -147,6 +161,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestSharedFields.fields());
         handles.addAll(FinalManifestDependencyFields.fields());
         handles.addAll(FinalManifestBuildFields.fields());
+        handles.addAll(FinalManifestCompilerFields.fields());
         return List.copyOf(handles);
     }
 

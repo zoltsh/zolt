@@ -35,9 +35,9 @@ public final class FinalManifestPaths {
     public static final ManifestPath BUILD = ManifestPath.of("build");
     public static final ManifestPath BUILD_OUTPUT = BUILD.child("output");
     public static final ManifestPath BUILD_METADATA = BUILD.child("metadata");
-    static final ManifestPath COMPILER = ManifestPath.of("compiler");
-    static final ManifestPath COMPILER_TEST = COMPILER.child("test");
-    static final ManifestPath COMPILER_GENERATED = COMPILER.child("generated");
+    public static final ManifestPath COMPILER = ManifestPath.of("compiler");
+    public static final ManifestPath COMPILER_TEST = COMPILER.child("test");
+    public static final ManifestPath COMPILER_GENERATED = COMPILER.child("generated");
     static final ManifestPath RESOURCES = ManifestPath.of("resources");
     static final ManifestPath RESOURCES_FILTER = RESOURCES.child("filter");
     static final ManifestPath RESOURCES_TOKENS = RESOURCES.child("tokens");
