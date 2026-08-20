@@ -2644,6 +2644,12 @@ The member inherits group, version, Java release, license, shared aliases/platfo
 ## 16.6 Enterprise repository with Central fallback
 
 ```toml
+[project]
+name = "enterprise-library"
+version = "1.0.0"
+group = "com.example"
+java = 21
+
 [repositories.company]
 url = "https://repo.example.com/maven"
 credentials = "company"
