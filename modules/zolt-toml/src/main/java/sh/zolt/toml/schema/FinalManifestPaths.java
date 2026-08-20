@@ -1,23 +1,23 @@
 package sh.zolt.toml.schema;
 
-/** Shared paths used by the final manifest field and section catalogs. */
-final class FinalManifestPaths {
-    static final ManifestPath WORKSPACE = ManifestPath.of("workspace");
-    static final ManifestPath WORKSPACE_MEMBERS = WORKSPACE.child("members");
-    static final ManifestPath WORKSPACE_PROJECT = WORKSPACE.child("project");
-    static final ManifestPath PROJECT = ManifestPath.of("project");
-    static final ManifestPath PROJECT_SCM = PROJECT.child("scm");
-    static final ManifestPath PROJECT_DEVELOPERS = PROJECT.child("developers");
-    static final ManifestPath PROJECT_DEVELOPER = PROJECT_DEVELOPERS.child("<id>");
-    static final ManifestPath TOOLCHAIN_ZOLT = ManifestPath.of("toolchain", "zolt");
-    static final ManifestPath TOOLCHAIN_JAVA = ManifestPath.of("toolchain", "java");
-    static final ManifestPath TOOLCHAIN_JAVA_TEST = TOOLCHAIN_JAVA.child("test");
-    static final ManifestPath VERSIONS = ManifestPath.of("versions");
-    static final ManifestPath REPOSITORIES = ManifestPath.of("repositories");
-    static final ManifestPath REPOSITORY = REPOSITORIES.child("<id>");
-    static final ManifestPath CREDENTIALS = ManifestPath.of("credentials");
-    static final ManifestPath CREDENTIAL = CREDENTIALS.child("<id>");
-    static final ManifestPath PLATFORMS = ManifestPath.of("platforms");
+/** Shared structural handles used by final schema catalogs and semantic decoders. */
+public final class FinalManifestPaths {
+    public static final ManifestPath WORKSPACE = ManifestPath.of("workspace");
+    public static final ManifestPath WORKSPACE_MEMBERS = WORKSPACE.child("members");
+    public static final ManifestPath WORKSPACE_PROJECT = WORKSPACE.child("project");
+    public static final ManifestPath PROJECT = ManifestPath.of("project");
+    public static final ManifestPath PROJECT_SCM = PROJECT.child("scm");
+    public static final ManifestPath PROJECT_DEVELOPERS = PROJECT.child("developers");
+    public static final ManifestPath PROJECT_DEVELOPER = PROJECT_DEVELOPERS.child("<id>");
+    public static final ManifestPath TOOLCHAIN_ZOLT = ManifestPath.of("toolchain", "zolt");
+    public static final ManifestPath TOOLCHAIN_JAVA = ManifestPath.of("toolchain", "java");
+    public static final ManifestPath TOOLCHAIN_JAVA_TEST = TOOLCHAIN_JAVA.child("test");
+    public static final ManifestPath VERSIONS = ManifestPath.of("versions");
+    public static final ManifestPath REPOSITORIES = ManifestPath.of("repositories");
+    public static final ManifestPath REPOSITORY = REPOSITORIES.child("<id>");
+    public static final ManifestPath CREDENTIALS = ManifestPath.of("credentials");
+    public static final ManifestPath CREDENTIAL = CREDENTIALS.child("<id>");
+    public static final ManifestPath PLATFORMS = ManifestPath.of("platforms");
     static final ManifestPath DEPENDENCIES = ManifestPath.of("dependencies");
     static final ManifestPath DEPENDENCIES_API = DEPENDENCIES.child("api");
     static final ManifestPath DEPENDENCIES_RUNTIME = DEPENDENCIES.child("runtime");

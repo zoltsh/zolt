@@ -3,6 +3,7 @@ package sh.zolt.toml.schema;
 import static sh.zolt.toml.schema.FinalManifestFieldFactory.*;
 import static sh.zolt.toml.schema.FinalManifestPaths.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** The final manifest schema catalog, populated incrementally by frozen contract domain. */
@@ -26,57 +27,11 @@ public final class FinalManifestSchema {
     }
 
     private static List<ManifestField> fields() {
-        return List.of(
-                field(WORKSPACE, "name", ManifestValueKind.STRING, 1_010),
-                field(WORKSPACE_MEMBERS, "default", ManifestValueKind.STRING_ARRAY, 1_110),
-                field(WORKSPACE_MEMBERS, "include", ManifestValueKind.STRING_ARRAY, 1_120),
-                field(WORKSPACE_MEMBERS, "exclude", ManifestValueKind.STRING_ARRAY, 1_130),
-                field(WORKSPACE_PROJECT, "group", ManifestValueKind.STRING, 1_210),
-                field(WORKSPACE_PROJECT, "version", ManifestValueKind.STRING, 1_220),
-                field(WORKSPACE_PROJECT, "java", ManifestValueKind.INTEGER, 1_230),
-                oneLineField(WORKSPACE_PROJECT, "license", ManifestValueKind.STRING_OR_INLINE_TABLE, 1_240),
-                field(PROJECT, "name", ManifestValueKind.STRING, 2_010),
-                field(PROJECT, "version", ManifestValueKind.STRING, 2_020),
-                field(PROJECT, "group", ManifestValueKind.STRING, 2_030),
-                field(PROJECT, "java", ManifestValueKind.INTEGER, 2_040),
-                field(PROJECT, "main", ManifestValueKind.STRING, 2_050),
-                field(PROJECT, "description", ManifestValueKind.STRING, 2_060),
-                field(PROJECT, "url", ManifestValueKind.STRING, 2_070),
-                field(PROJECT, "issues", ManifestValueKind.STRING, 2_080),
-                oneLineField(PROJECT, "license", ManifestValueKind.STRING_OR_INLINE_TABLE, 2_090),
-                field(PROJECT_SCM, "url", ManifestValueKind.STRING, 2_110),
-                field(PROJECT_SCM, "connection", ManifestValueKind.STRING, 2_120),
-                field(PROJECT_SCM, "developerConnection", ManifestValueKind.STRING, 2_130),
-                field(PROJECT_SCM, "tag", ManifestValueKind.STRING, 2_140),
-                field(PROJECT_DEVELOPER, "name", ManifestValueKind.STRING, 2_210),
-                field(PROJECT_DEVELOPER, "email", ManifestValueKind.STRING, 2_220),
-                field(PROJECT_DEVELOPER, "organization", ManifestValueKind.STRING, 2_230),
-                field(PROJECT_DEVELOPER, "url", ManifestValueKind.STRING, 2_240),
-                field(TOOLCHAIN_ZOLT, "version", ManifestValueKind.STRING, 3_010),
-                field(TOOLCHAIN_JAVA, "version", ManifestValueKind.INTEGER, 3_110),
-                field(TOOLCHAIN_JAVA, "distribution", ManifestValueKind.STRING, 3_120),
-                field(TOOLCHAIN_JAVA, "features", ManifestValueKind.STRING_ARRAY, 3_130),
-                field(TOOLCHAIN_JAVA, "policy", ManifestValueKind.STRING, 3_140),
-                field(TOOLCHAIN_JAVA_TEST, "version", ManifestValueKind.INTEGER, 3_210),
-                field(TOOLCHAIN_JAVA_TEST, "distribution", ManifestValueKind.STRING, 3_220),
-                field(TOOLCHAIN_JAVA_TEST, "policy", ManifestValueKind.STRING, 3_230),
-                mutableMapEntry(VERSIONS, "<id>", ManifestValueKind.STRING, 4_010),
-                field(
-                        REPOSITORIES,
-                        "central",
-                        ManifestValueKind.BOOLEAN_OR_STRING_OR_INLINE_TABLE,
-                        4_110),
-                field(REPOSITORIES, "order", ManifestValueKind.STRING_ARRAY, 4_120),
-                field(REPOSITORY, "url", ManifestValueKind.STRING, 4_210),
-                field(REPOSITORY, "credentials", ManifestValueKind.STRING, 4_220),
-                field(CREDENTIAL, "tokenEnv", ManifestValueKind.STRING, 4_310),
-                field(CREDENTIAL, "usernameEnv", ManifestValueKind.STRING, 4_320),
-                field(CREDENTIAL, "passwordEnv", ManifestValueKind.STRING, 4_330),
-                mutableMapEntry(
-                        PLATFORMS,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        4_410),
+        ArrayList<ManifestField> fields = new ArrayList<>();
+        fields.addAll(FinalManifestIdentityFields.fields());
+        fields.addAll(FinalManifestToolchainFields.fields());
+        fields.addAll(FinalManifestSharedFields.fields());
+        fields.addAll(List.of(
                 mutableMapEntry(
                         DEPENDENCIES,
                         "<coordinate>",
@@ -307,7 +262,8 @@ public final class FinalManifestSchema {
                 field(TASK, "run", ManifestValueKind.STRING_ARRAY, 9_002),
                 field(TASK, "cwd", ManifestValueKind.STRING, 9_003),
                 field(TASK, "env", ManifestValueKind.INLINE_TABLE, 9_004),
-                field(ALIASES, "<id>", ManifestValueKind.STRING_ARRAY, 9_101));
+                field(ALIASES, "<id>", ManifestValueKind.STRING_ARRAY, 9_101)));
+        return List.copyOf(fields);
     }
 
 }
