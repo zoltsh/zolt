@@ -36,22 +36,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestCompilerFields.fields());
         fields.addAll(FinalManifestResourceFields.fields());
         fields.addAll(FinalManifestGeneratedToolFields.fields());
+        fields.addAll(FinalManifestGeneratedPresetFields.fields());
         fields.addAll(List.of(
-                field(GENERATED_PRESET, "kind", ManifestValueKind.STRING, 6_401),
-                field(GENERATED_PRESET, "generator", ManifestValueKind.STRING, 6_402),
-                field(GENERATED_PRESET, "library", ManifestValueKind.STRING, 6_403),
-                field(GENERATED_PRESET, "apiPackage", ManifestValueKind.STRING, 6_404),
-                field(GENERATED_PRESET, "modelPackage", ManifestValueKind.STRING, 6_405),
-                field(GENERATED_PRESET, "invokerPackage", ManifestValueKind.STRING, 6_406),
-                field(GENERATED_PRESET, "config", ManifestValueKind.STRING, 6_407),
-                field(GENERATED_PRESET, "templateDir", ManifestValueKind.STRING, 6_408),
-                field(GENERATED_PRESET, "validateSpec", ManifestValueKind.BOOLEAN, 6_409),
-                field(GENERATED_PRESET, "options", ManifestValueKind.INLINE_TABLE, 6_410),
-                field(GENERATED_PRESET, "additionalProperties", ManifestValueKind.INLINE_TABLE, 6_411),
-                field(GENERATED_PRESET, "configOptions", ManifestValueKind.INLINE_TABLE, 6_412),
-                field(GENERATED_PRESET, "globalProperties", ManifestValueKind.INLINE_TABLE, 6_413),
-                field(GENERATED_PRESET, "typeMappings", ManifestValueKind.INLINE_TABLE, 6_414),
-                field(GENERATED_PRESET, "importMappings", ManifestValueKind.INLINE_TABLE, 6_415),
                 generatedStepField(GENERATED_MAIN, "kind", ManifestValueKind.STRING, 6_501),
                 generatedStepField(GENERATED_MAIN, "language", ManifestValueKind.STRING, 6_502),
                 generatedStepField(GENERATED_MAIN, "tool", ManifestValueKind.STRING, 6_503),

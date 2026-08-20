@@ -43,8 +43,8 @@ public final class FinalManifestPaths {
     public static final ManifestPath RESOURCES_TOKENS = RESOURCES.child("tokens");
     public static final ManifestPath GENERATED_TOOLS = ManifestPath.of("generated", "tools");
     public static final ManifestPath GENERATED_TOOL = GENERATED_TOOLS.child("<id>");
-    static final ManifestPath GENERATED_PRESETS = ManifestPath.of("generated", "presets");
-    static final ManifestPath GENERATED_PRESET = GENERATED_PRESETS.child("<id>");
+    public static final ManifestPath GENERATED_PRESETS = ManifestPath.of("generated", "presets");
+    public static final ManifestPath GENERATED_PRESET = GENERATED_PRESETS.child("<id>");
     static final ManifestPath GENERATED_MAIN_STEPS = ManifestPath.of("generated", "main");
     static final ManifestPath GENERATED_MAIN = GENERATED_MAIN_STEPS.child("<id>");
     static final ManifestPath GENERATED_TEST_STEPS = ManifestPath.of("generated", "test");
