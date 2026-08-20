@@ -1,7 +1,10 @@
 package sh.zolt.toml.manifest;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.tomlj.TomlArray;
 import org.tomlj.TomlTable;
@@ -71,6 +74,27 @@ final class ManifestTomlValues {
             throw wrongAccessor(field, "inline object", value);
         }
         return new ManifestInlineTable(field);
+    }
+
+    static Map<String, String> stringMap(ValidatedManifestField field) {
+        Object value = validatedRaw(field);
+        ManifestField descriptor = field.schema().descriptor();
+        if (!(value instanceof TomlTable table)
+                || descriptor.valueKind() != ManifestValueKind.INLINE_TABLE
+                || descriptor.objectShape().isPresent()) {
+            throw wrongAccessor(field, "open string map", value);
+        }
+        LinkedHashMap<String, String> values = new LinkedHashMap<>();
+        for (String key : table.keySet()) {
+            Object entry = table.get(List.of(key));
+            if (!(entry instanceof String string)) {
+                throw new IllegalArgumentException(
+                        "Manifest string map `" + field.path() + "` requires a string value for key `"
+                                + key + "`; found " + ManifestShapeValueKinds.actual(entry) + ".");
+            }
+            values.put(key, string);
+        }
+        return Collections.unmodifiableMap(values);
     }
 
     static List<ManifestInlineTable> inlineObjectArray(ValidatedManifestField field) {

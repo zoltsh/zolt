@@ -10,6 +10,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.tomlj.Toml;
 import sh.zolt.toml.schema.FinalManifestDependencyFields;
+import sh.zolt.toml.schema.FinalManifestGeneratedPresetFields;
 import sh.zolt.toml.schema.FinalManifestIdentityFields;
 import sh.zolt.toml.schema.FinalManifestObjectShapes;
 import sh.zolt.toml.schema.FinalManifestSchema;
@@ -151,6 +152,120 @@ final class ManifestTomlValuesTest {
     }
 
     @Test
+    void readsOpenStringMapsInSourceOrderWithoutNormalizingKeysOrValues() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [generated.presets.client]
+                kind = "openapi"
+                options = { zKey = "", "Case.Key" = "line one\\nline two", alpha = "value" }
+                additionalProperties = {}
+                """);
+        ValidatedManifestField options = entry(
+                index, FinalManifestGeneratedPresetFields.GENERATED_PRESET_OPTIONS);
+        ValidatedManifestField additional = entry(
+                index,
+                FinalManifestGeneratedPresetFields.GENERATED_PRESET_ADDITIONAL_PROPERTIES);
+
+        Map<String, String> values = ManifestTomlValues.stringMap(options);
+        Map<String, String> empty = ManifestTomlValues.stringMap(additional);
+
+        assertEquals(List.of("zKey", "Case.Key", "alpha"), List.copyOf(values.keySet()));
+        assertEquals("", values.get("zKey"));
+        assertEquals("line one\nline two", values.get("Case.Key"));
+        assertTrue(empty.isEmpty());
+        assertThrows(UnsupportedOperationException.class, () -> values.put("other", "value"));
+        assertThrows(UnsupportedOperationException.class, () -> empty.put("other", "value"));
+    }
+
+    @Test
+    void reportsNonStringMapMembersAsAuthoredSemanticFailures() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [generated.presets.client]
+                kind = "openapi"
+                options = { valid = "value", count = 2 }
+                """);
+        ValidatedManifestField field = entry(
+                index, FinalManifestGeneratedPresetFields.GENERATED_PRESET_OPTIONS);
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> ManifestTomlValues.stringMap(field));
+
+        assertTrue(failure.getMessage().contains("generated.presets.client.options"));
+        assertTrue(failure.getMessage().contains("key `count`"));
+        assertTrue(failure.getMessage().contains("integer"));
+    }
+
+    @Test
+    void rejectsWrongStringMapAccessorsClosedShapesAndCorruptRawValues() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [generated.presets.client]
+                kind = "openapi"
+                options = { value = "ok" }
+
+                [resources.tokens]
+                release = { value = "1.0.0" }
+                """);
+        ValidatedManifestField scalar = entry(
+                index, FinalManifestGeneratedPresetFields.GENERATED_PRESET_KIND);
+        ValidatedManifestField map = entry(
+                index, FinalManifestGeneratedPresetFields.GENERATED_PRESET_OPTIONS);
+        ManifestField tokenHandle = FinalManifestSchema.registry()
+                .field(ManifestPath.of("resources", "tokens", "<id>"))
+                .orElseThrow();
+        ValidatedManifestField closed = index.entries(tokenHandle).getFirst().field();
+
+        assertThrows(IllegalStateException.class, () -> ManifestTomlValues.stringMap(scalar));
+        assertThrows(IllegalStateException.class, () -> ManifestTomlValues.stringMap(closed));
+
+        ValidatedManifestField corrupt = new ValidatedManifestField(
+                map.path(), map.schema(), "not a table", map.source());
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class,
+                () -> ManifestTomlValues.stringMap(corrupt));
+        assertTrue(failure.getMessage().contains("generated.presets.client.options"));
+        assertTrue(failure.getMessage().contains("string"));
+    }
+
+    @Test
+    void rejectsForgedStringMapDescriptorsAndBindingsBeforeRawAccess() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [generated.presets.client]
+                kind = "openapi"
+                options = { value = "ok" }
+                """);
+        ValidatedManifestField field = entry(
+                index, FinalManifestGeneratedPresetFields.GENERATED_PRESET_OPTIONS);
+        ManifestField original = field.schema().descriptor();
+        ManifestField forgedHandle = new ManifestField(
+                new ManifestPath(original.path().segments()),
+                original.valueKind(),
+                original.formatting(),
+                original.mutation(),
+                original.canonicalOrder(),
+                original.symbolFamily(),
+                original.validation(),
+                original.dynamicKeyGrammars(),
+                original.objectShape());
+        ValidatedManifestField forgedDescriptor = new ValidatedManifestField(
+                field.path(),
+                new ManifestSchemaMatch<>(forgedHandle, field.schema().bindings()),
+                field.rawValue(),
+                field.source());
+        ValidatedManifestField forgedBinding = new ValidatedManifestField(
+                field.path(),
+                new ManifestSchemaMatch<>(original, Map.of("id", "forged")),
+                field.rawValue(),
+                field.source());
+
+        for (ValidatedManifestField forged : List.of(forgedDescriptor, forgedBinding)) {
+            IllegalStateException failure = assertThrows(
+                    IllegalStateException.class,
+                    () -> ManifestTomlValues.stringMap(forged));
+            assertTrue(failure.getMessage().contains("exact registered schema match"));
+        }
+    }
+
+    @Test
     void rejectsNonArrayOpenArrayAndCorruptArrayEvidence() {
         ManifestDecodeIndex scalarIndex = ManifestSemanticTestSupport.index("""
                 [project]
@@ -259,5 +374,11 @@ final class ManifestTomlValuesTest {
             ManifestDecodeIndex index,
             sh.zolt.toml.schema.ManifestField handle) {
         return index.field(handle).orElseThrow();
+    }
+
+    private static ValidatedManifestField entry(
+            ManifestDecodeIndex index,
+            ManifestField handle) {
+        return index.entries(handle).getFirst().field();
     }
 }
