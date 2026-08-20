@@ -82,6 +82,21 @@ public final class FinalManifestObjectShapes {
                     ManifestObjectShape.PresenceRule.EXACTLY_ONE,
                     List.of(RESOURCE_TOKEN_PROJECT, RESOURCE_TOKEN_ENV, RESOURCE_TOKEN_VALUE))));
 
+    public static final ManifestObjectMember GENERATED_ARTIFACT_COORDINATE =
+            member("coordinate", true, 10);
+    public static final ManifestObjectMember GENERATED_ARTIFACT_VERSION =
+            member("version", false, 20);
+    public static final ManifestObjectMember GENERATED_ARTIFACT_VERSION_REF =
+            member("versionRef", false, 30);
+    public static final ManifestObjectShape GENERATED_ARTIFACT_REQUEST = new ManifestObjectShape(
+            List.of(
+                    GENERATED_ARTIFACT_COORDINATE,
+                    GENERATED_ARTIFACT_VERSION,
+                    GENERATED_ARTIFACT_VERSION_REF),
+            List.of(new ManifestObjectShape.PresenceGroup(
+                    ManifestObjectShape.PresenceRule.EXACTLY_ONE,
+                    List.of(GENERATED_ARTIFACT_VERSION, GENERATED_ARTIFACT_VERSION_REF))));
+
     private FinalManifestObjectShapes() {
     }
 

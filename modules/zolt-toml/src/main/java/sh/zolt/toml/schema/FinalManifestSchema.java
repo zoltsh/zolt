@@ -46,7 +46,12 @@ public final class FinalManifestSchema {
                 field(GENERATED_TOOL, "grpcCoordinate", ManifestValueKind.STRING, 6_308),
                 field(GENERATED_TOOL, "grpcVersion", ManifestValueKind.STRING, 6_309),
                 field(GENERATED_TOOL, "grpcVersionRef", ManifestValueKind.STRING, 6_310),
-                field(GENERATED_TOOL, "coordinates", ManifestValueKind.INLINE_TABLE_ARRAY, 6_311),
+                objectField(
+                        GENERATED_TOOL,
+                        "coordinates",
+                        ManifestValueKind.INLINE_TABLE_ARRAY,
+                        6_311,
+                        FinalManifestObjectShapes.GENERATED_ARTIFACT_REQUEST),
                 field(GENERATED_TOOL, "mainClass", ManifestValueKind.STRING, 6_312),
                 field(GENERATED_TOOL, "binary", ManifestValueKind.STRING, 6_313),
                 field(GENERATED_TOOL, "versionCommand", ManifestValueKind.STRING_ARRAY, 6_314),

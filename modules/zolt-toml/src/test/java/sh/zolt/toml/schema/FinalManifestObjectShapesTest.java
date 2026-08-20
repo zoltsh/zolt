@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
@@ -133,13 +134,33 @@ final class FinalManifestObjectShapesTest {
     }
 
     @Test
-    void attachesOnlyTheFifteenActivatedFieldsToTheirExactShapes() {
+    void recordsExactClosedGeneratedArtifactRequestShape() {
+        assertEquals(
+                List.of(
+                        member("coordinate", true, 10),
+                        member("version", false, 20),
+                        member("versionRef", false, 30)),
+                members(FinalManifestObjectShapes.GENERATED_ARTIFACT_REQUEST));
+        assertMemberIdentity(
+                FinalManifestObjectShapes.GENERATED_ARTIFACT_REQUEST,
+                List.of(
+                        FinalManifestObjectShapes.GENERATED_ARTIFACT_COORDINATE,
+                        FinalManifestObjectShapes.GENERATED_ARTIFACT_VERSION,
+                        FinalManifestObjectShapes.GENERATED_ARTIFACT_VERSION_REF));
+        assertPresence(
+                FinalManifestObjectShapes.GENERATED_ARTIFACT_REQUEST,
+                List.of("version", "versionRef"));
+    }
+
+    @Test
+    void attachesOnlyTheSixteenActivatedFieldsToTheirExactShapes() {
         Map<String, ManifestObjectShape> attached = registry.fields().stream()
                 .filter(field -> field.objectShape().isPresent())
                 .collect(Collectors.toMap(
                         field -> field.path().toString(),
                         field -> field.objectShape().orElseThrow()));
 
+        assertEquals(16, attached.size());
         assertEquals(Set.of(
                 "workspace.project.license",
                 "project.license",
@@ -155,7 +176,8 @@ final class FinalManifestObjectShapesTest {
                 "dependencies.test-processor.<coordinate>",
                 "dependencies.constraints.<coordinate>",
                 "dependencies.policy.deny",
-                "resources.tokens.<id>"), attached.keySet());
+                "resources.tokens.<id>",
+                "generated.tools.<id>.coordinates"), attached.keySet());
         assertSame(FinalManifestObjectShapes.LICENSE, attached.get("workspace.project.license"));
         assertSame(FinalManifestObjectShapes.LICENSE, attached.get("project.license"));
         assertSame(
@@ -183,6 +205,9 @@ final class FinalManifestObjectShapesTest {
         assertSame(
                 FinalManifestObjectShapes.RESOURCE_TOKEN,
                 attached.get("resources.tokens.<id>"));
+        assertSame(
+                FinalManifestObjectShapes.GENERATED_ARTIFACT_REQUEST,
+                attached.get("generated.tools.<id>.coordinates"));
         ManifestField tokenEntry = registry
                 .field(FinalManifestResourceFields.RESOURCES_TOKENS_ENTRY.path())
                 .orElseThrow();
@@ -195,6 +220,21 @@ final class FinalManifestObjectShapesTest {
         assertEquals(
                 Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID),
                 tokenEntry.dynamicKeyGrammars());
+        ManifestField artifactRequests = registry
+                .field(ManifestPath.of("generated", "tools", "<id>", "coordinates"))
+                .orElseThrow();
+        assertEquals(
+                ManifestPath.of("generated", "tools", "<id>", "coordinates"),
+                artifactRequests.path());
+        assertEquals(ManifestValueKind.INLINE_TABLE_ARRAY, artifactRequests.valueKind());
+        assertEquals(FormattingPolicy.DEFAULT, artifactRequests.formatting());
+        assertEquals(MutationPolicy.NONE, artifactRequests.mutation());
+        assertEquals(6_311, artifactRequests.canonicalOrder());
+        assertEquals(Optional.empty(), artifactRequests.symbolFamily());
+        assertEquals(ManifestValidationCategory.NONE, artifactRequests.validation());
+        assertEquals(
+                Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID),
+                artifactRequests.dynamicKeyGrammars());
     }
 
     private static List<Member> members(ManifestObjectShape shape) {

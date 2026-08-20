@@ -162,12 +162,11 @@ final class ManifestTomlValuesTest {
                         required(scalarIndex, FinalManifestIdentityFields.PROJECT_NAME)));
 
         ManifestDecodeIndex openIndex = ManifestSemanticTestSupport.index("""
-                [generated.tools.codegen]
-                kind = "jvm"
-                coordinates = [{ coordinate = "org.example:tool", version = "1" }]
+                [test.suites.unit]
+                locks = [{ name = "repository" }]
                 """);
         ManifestField openHandle = FinalManifestSchema.registry()
-                .field(ManifestPath.of("generated", "tools", "<id>", "coordinates"))
+                .field(ManifestPath.of("test", "suites", "<id>", "locks"))
                 .orElseThrow();
         ValidatedManifestField open = openIndex.entries(openHandle).getFirst().field();
         assertThrows(
