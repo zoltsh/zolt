@@ -15,15 +15,18 @@ public final class ManifestSyntax {
     private final List<AssignmentSyntax> assignments;
     private final ManifestSourceIndex sourceIndex;
     private final TomlParseResult parsed;
+    private final String retainedSource;
 
     ManifestSyntax(
             List<TableSyntax> tables,
             List<AssignmentSyntax> assignments,
-            TomlParseResult parsed) {
+            TomlParseResult parsed,
+            String retainedSource) {
         this.tables = List.copyOf(Objects.requireNonNull(tables, "Tables are required."));
         this.assignments = List.copyOf(Objects.requireNonNull(assignments, "Assignments are required."));
         this.sourceIndex = new ManifestSourceIndex(this.tables, this.assignments);
         this.parsed = Objects.requireNonNull(parsed, "Parsed TOML is required.");
+        this.retainedSource = Objects.requireNonNull(retainedSource, "Retained source is required.");
     }
 
     public List<TableSyntax> tables() {
@@ -40,5 +43,9 @@ public final class ManifestSyntax {
 
     TomlParseResult parsed() {
         return parsed;
+    }
+
+    boolean matchesSource(String source) {
+        return retainedSource.equals(source);
     }
 }

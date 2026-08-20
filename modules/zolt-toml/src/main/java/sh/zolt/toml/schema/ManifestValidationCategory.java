@@ -2,9 +2,10 @@ package sh.zolt.toml.schema;
 
 import java.util.Set;
 
-/** Typed shape-validation route for direct path and environment-name fields. */
+/** Typed shape-validation route for direct identifier, path, and environment fields. */
 public enum ManifestValidationCategory {
     NONE(Set.of()),
+    LOCAL_ID(Set.of(ManifestValueKind.STRING)),
     MANIFEST_RELATIVE_PATH(Set.of(ManifestValueKind.STRING, ManifestValueKind.STRING_ARRAY)),
     WORKSPACE_MEMBER_PATH(Set.of(
             ManifestValueKind.STRING,

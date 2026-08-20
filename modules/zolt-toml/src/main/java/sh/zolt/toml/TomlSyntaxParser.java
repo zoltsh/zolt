@@ -22,7 +22,7 @@ public final class TomlSyntaxParser {
 
         try {
             TomlSourceScanner.Result syntax = new TomlSourceScanner(source).scan();
-            return new ManifestSyntax(syntax.tables(), syntax.assignments(), parsed);
+            return new ManifestSyntax(syntax.tables(), syntax.assignments(), parsed, source);
         } catch (TomlSourceScanner.ScanException exception) {
             throw new ZoltConfigException(
                     "Could not determine safe source spans in zolt.toml near UTF-16 offset "

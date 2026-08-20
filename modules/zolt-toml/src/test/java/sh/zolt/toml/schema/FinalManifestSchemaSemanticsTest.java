@@ -61,6 +61,8 @@ final class FinalManifestSchemaSemanticsTest {
                         Collectors.mapping(field -> field.path().toString(), Collectors.toList())));
 
         assertEquals(Map.of(
+                ManifestValidationCategory.LOCAL_ID,
+                List.of("workspace.name"),
                 ManifestValidationCategory.WORKSPACE_MEMBER_PATH,
                 List.of("workspace.members.default", "bom.members", "bom.exclude"),
                 ManifestValidationCategory.WORKSPACE_MEMBER_PATTERN,

@@ -39,6 +39,7 @@ final class FinalManifestFieldSemantics {
             symbol("publish.central.mode", "central-mode"));
 
     private static final Map<String, ManifestValidationCategory> VALIDATION = Map.ofEntries(
+            validation("workspace.name", ManifestValidationCategory.LOCAL_ID),
             validation("workspace.members.default", ManifestValidationCategory.WORKSPACE_MEMBER_PATH),
             validation("workspace.members.include", ManifestValidationCategory.WORKSPACE_MEMBER_PATTERN),
             validation("workspace.members.exclude", ManifestValidationCategory.WORKSPACE_MEMBER_PATTERN),
