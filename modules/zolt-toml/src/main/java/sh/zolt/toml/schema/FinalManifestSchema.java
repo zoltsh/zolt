@@ -32,15 +32,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestToolchainFields.fields());
         fields.addAll(FinalManifestSharedFields.fields());
         fields.addAll(FinalManifestDependencyFields.fields());
+        fields.addAll(FinalManifestBuildFields.fields());
         fields.addAll(List.of(
-                field(BUILD, "sources", ManifestValueKind.STRING_ARRAY, 6_001),
-                field(BUILD_OUTPUT, "root", ManifestValueKind.STRING, 6_011),
-                field(BUILD_OUTPUT, "main", ManifestValueKind.STRING, 6_012),
-                field(BUILD_OUTPUT, "test", ManifestValueKind.STRING, 6_013),
-                field(BUILD_OUTPUT, "integration", ManifestValueKind.STRING, 6_014),
-                field(BUILD_METADATA, "buildInfo", ManifestValueKind.BOOLEAN, 6_021),
-                field(BUILD_METADATA, "git", ManifestValueKind.BOOLEAN, 6_022),
-                field(BUILD_METADATA, "reproducible", ManifestValueKind.BOOLEAN, 6_023),
                 field(COMPILER, "encoding", ManifestValueKind.STRING, 6_101),
                 field(COMPILER, "jdkApi", ManifestValueKind.STRING, 6_102),
                 field(COMPILER, "args", ManifestValueKind.STRING_ARRAY, 6_103),

@@ -32,9 +32,9 @@ public final class FinalManifestPaths {
     public static final ManifestPath DEPENDENCY_LICENSE_EXCEPTIONS = DEPENDENCIES.child("license-exceptions");
     public static final ManifestPath DEPENDENCY_LICENSE_EXCEPTION =
             DEPENDENCY_LICENSE_EXCEPTIONS.child("<coordinate>");
-    static final ManifestPath BUILD = ManifestPath.of("build");
-    static final ManifestPath BUILD_OUTPUT = BUILD.child("output");
-    static final ManifestPath BUILD_METADATA = BUILD.child("metadata");
+    public static final ManifestPath BUILD = ManifestPath.of("build");
+    public static final ManifestPath BUILD_OUTPUT = BUILD.child("output");
+    public static final ManifestPath BUILD_METADATA = BUILD.child("metadata");
     static final ManifestPath COMPILER = ManifestPath.of("compiler");
     static final ManifestPath COMPILER_TEST = COMPILER.child("test");
     static final ManifestPath COMPILER_GENERATED = COMPILER.child("generated");

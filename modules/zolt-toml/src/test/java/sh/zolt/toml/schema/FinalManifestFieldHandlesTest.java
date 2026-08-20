@@ -99,15 +99,30 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
+    void buildHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestBuildFields.fields(),
+                List.of(
+                        field("build.sources", 6_001),
+                        field("build.output.root", 6_011),
+                        field("build.output.main", 6_012),
+                        field("build.output.test", 6_013),
+                        field("build.output.integration", 6_014),
+                        field("build.metadata.buildInfo", 6_021),
+                        field("build.metadata.git", 6_022),
+                        field("build.metadata.reproducible", 6_023)));
+    }
+
+    @Test
     void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 6_000)
+                .filter(field -> field.canonicalOrder() < 6_100)
                 .toList();
 
-        assertEquals(59, handles.size());
-        assertEquals(59, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(59, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(67, handles.size());
+        assertEquals(67, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(67, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -131,6 +146,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestToolchainFields.fields());
         handles.addAll(FinalManifestSharedFields.fields());
         handles.addAll(FinalManifestDependencyFields.fields());
+        handles.addAll(FinalManifestBuildFields.fields());
         return List.copyOf(handles);
     }
 
