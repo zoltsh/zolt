@@ -5,33 +5,36 @@ import java.util.List;
 /** Registered field handles for dependency lanes, constraints, and policy. */
 public final class FinalManifestDependencyFields {
     public static final ManifestField DEPENDENCIES_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCIES, 5_001);
+            FinalManifestPaths.DEPENDENCIES, 5_001, FinalManifestObjectShapes.DEPENDENCY);
     public static final ManifestField DEPENDENCIES_API_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCIES_API, 5_011);
+            FinalManifestPaths.DEPENDENCIES_API, 5_011, FinalManifestObjectShapes.DEPENDENCY);
     public static final ManifestField DEPENDENCIES_RUNTIME_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCIES_RUNTIME, 5_021);
+            FinalManifestPaths.DEPENDENCIES_RUNTIME, 5_021, FinalManifestObjectShapes.DEPENDENCY);
     public static final ManifestField DEPENDENCIES_PROVIDED_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCIES_PROVIDED, 5_031);
+            FinalManifestPaths.DEPENDENCIES_PROVIDED, 5_031, FinalManifestObjectShapes.DEPENDENCY);
     public static final ManifestField DEPENDENCIES_DEV_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCIES_DEV, 5_041);
+            FinalManifestPaths.DEPENDENCIES_DEV, 5_041, FinalManifestObjectShapes.DEPENDENCY);
     public static final ManifestField DEPENDENCIES_TEST_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCIES_TEST, 5_051);
+            FinalManifestPaths.DEPENDENCIES_TEST, 5_051, FinalManifestObjectShapes.DEPENDENCY);
     public static final ManifestField DEPENDENCIES_PROCESSOR_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCIES_PROCESSOR, 5_061);
+            FinalManifestPaths.DEPENDENCIES_PROCESSOR, 5_061, FinalManifestObjectShapes.DEPENDENCY);
     public static final ManifestField DEPENDENCIES_TEST_PROCESSOR_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCIES_TEST_PROCESSOR, 5_071);
+            FinalManifestPaths.DEPENDENCIES_TEST_PROCESSOR,
+            5_071,
+            FinalManifestObjectShapes.DEPENDENCY);
     public static final ManifestField DEPENDENCY_CONSTRAINTS_ENTRY = mutableEntry(
-            FinalManifestPaths.DEPENDENCY_CONSTRAINTS, 5_081);
+            FinalManifestPaths.DEPENDENCY_CONSTRAINTS, 5_081, FinalManifestObjectShapes.CONSTRAINT);
     public static final ManifestField DEPENDENCY_POLICY_CONFLICTS = field(
             FinalManifestPaths.DEPENDENCY_POLICY,
             "conflicts",
             ManifestValueKind.STRING,
             5_091);
-    public static final ManifestField DEPENDENCY_POLICY_DENY = field(
+    public static final ManifestField DEPENDENCY_POLICY_DENY = objectField(
             FinalManifestPaths.DEPENDENCY_POLICY,
             "deny",
             ManifestValueKind.INLINE_TABLE_ARRAY,
-            5_092);
+            5_092,
+            FinalManifestObjectShapes.DENY_ENTRY);
     public static final ManifestField DEPENDENCY_LICENSE_POLICY_ALLOW = field(
             FinalManifestPaths.DEPENDENCY_LICENSE_POLICY,
             "allow",
@@ -89,12 +92,14 @@ public final class FinalManifestDependencyFields {
 
     private static ManifestField mutableEntry(
             ManifestPath section,
-            int canonicalOrder) {
-        return FinalManifestFieldFactory.mutableMapEntry(
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return FinalManifestFieldFactory.mutableObjectMapEntry(
                 section,
                 "<coordinate>",
                 ManifestValueKind.STRING_OR_INLINE_TABLE,
-                canonicalOrder);
+                canonicalOrder,
+                objectShape);
     }
 
     private static ManifestField field(
@@ -103,5 +108,15 @@ public final class FinalManifestDependencyFields {
             ManifestValueKind kind,
             int canonicalOrder) {
         return FinalManifestFieldFactory.field(section, name, kind, canonicalOrder);
+    }
+
+    private static ManifestField objectField(
+            ManifestPath section,
+            String name,
+            ManifestValueKind kind,
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return FinalManifestFieldFactory.objectField(
+                section, name, kind, canonicalOrder, objectShape);
     }
 }

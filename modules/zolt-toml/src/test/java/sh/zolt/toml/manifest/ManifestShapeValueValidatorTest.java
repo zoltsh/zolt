@@ -28,7 +28,7 @@ final class ManifestShapeValueValidatorTest {
                 "[build.metadata]\nbuildInfo = true\n",
                 "[build]\nsources = [\"src/main/java\"]\n",
                 "[test.runtime]\nproperties = { answer = \"yes\" }\n",
-                "[dependencies.policy]\ndeny = [{ group = \"org.example\" }]\n",
+                "[dependencies.policy]\ndeny = [{ coordinate = \"org.example:demo\" }]\n",
                 "[project]\nlicense = { id = \"MIT\" }\n",
                 "[bom]\nmembers = [\"apps/api\"]\n",
                 "[repositories]\ncentral = { url = \"https://repo.example\" }\n");
@@ -49,7 +49,7 @@ final class ManifestShapeValueValidatorTest {
                 Arguments.of("[build]\nsources = [\"src\", 1]\n", "string array"),
                 Arguments.of("[test.runtime]\nproperties = \"bad\"\n", "inline table"),
                 Arguments.of(
-                        "[dependencies.policy]\ndeny = [{ group = \"x\" }, \"bad\"]\n",
+                        "[dependencies.policy]\ndeny = [{ coordinate = \"x:y\" }, \"bad\"]\n",
                         "inline table array"),
                 Arguments.of("[project]\nlicense = 1\n", "string or inline table"),
                 Arguments.of("[bom]\nmembers = 1\n", "boolean or string array"),
@@ -160,10 +160,6 @@ final class ManifestShapeValueValidatorTest {
                 [test.runtime]
                 properties = {}
                 env = {}
-                """);
-        validate("""
-                [dependencies.policy]
-                deny = [{}]
                 """);
         validate("""
                 [generated.presets.client]
