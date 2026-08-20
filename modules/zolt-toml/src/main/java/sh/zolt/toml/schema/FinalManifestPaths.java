@@ -55,13 +55,14 @@ public final class FinalManifestPaths {
     public static final ManifestPath TEST_SUITES = ManifestPath.of("test", "suites");
     public static final ManifestPath TEST_SUITE = TEST_SUITES.child("<id>");
     public static final ManifestPath COVERAGE = ManifestPath.of("coverage");
-    static final ManifestPath PACKAGE = ManifestPath.of("package");
-    static final ManifestPath PACKAGE_MANIFEST = PACKAGE.child("manifest");
-    static final ManifestPath BOM = ManifestPath.of("bom");
-    static final ManifestPath BOM_VERSIONS = BOM.child("versions");
-    static final ManifestPath BOM_IMPORTS = BOM.child("imports");
-    static final ManifestPath FRAMEWORK_SPRING_BOOT = ManifestPath.of("framework", "spring-boot");
-    static final ManifestPath NATIVE = ManifestPath.of("native");
+    public static final ManifestPath PACKAGE = ManifestPath.of("package");
+    public static final ManifestPath PACKAGE_MANIFEST = PACKAGE.child("manifest");
+    public static final ManifestPath BOM = ManifestPath.of("bom");
+    public static final ManifestPath BOM_VERSIONS = BOM.child("versions");
+    public static final ManifestPath BOM_IMPORTS = BOM.child("imports");
+    public static final ManifestPath FRAMEWORK_SPRING_BOOT =
+            ManifestPath.of("framework", "spring-boot");
+    public static final ManifestPath NATIVE = ManifestPath.of("native");
     static final ManifestPath PUBLISH = ManifestPath.of("publish");
     static final ManifestPath PUBLISH_REPOSITORIES = PUBLISH.child("repositories");
     static final ManifestPath PUBLISH_REPOSITORY = PUBLISH_REPOSITORIES.child("<id>");

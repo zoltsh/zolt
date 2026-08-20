@@ -312,15 +312,36 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
+    void packagingHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestPackagingFields.fields(),
+                List.of(
+                        field("package.mode", 7_001),
+                        field("package.sources", 7_002),
+                        field("package.javadoc", 7_003),
+                        field("package.testJar", 7_004),
+                        field("package.duplicates", 7_005),
+                        field("package.manifest.<attribute>", 7_011),
+                        field("bom.members", 7_101),
+                        field("bom.exclude", 7_102),
+                        field("bom.versions.<coordinate>", 7_111),
+                        field("bom.imports.<coordinate>", 7_121),
+                        field("framework.spring-boot.native", 7_201),
+                        field("native.name", 7_301),
+                        field("native.output", 7_302),
+                        field("native.args", 7_303)));
+    }
+
+    @Test
     void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 7_000)
+                .filter(field -> field.canonicalOrder() < 8_000)
                 .toList();
 
-        assertEquals(199, handles.size());
-        assertEquals(199, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(199, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(213, handles.size());
+        assertEquals(213, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(213, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -353,6 +374,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestGeneratedTestFields.fields());
         handles.addAll(FinalManifestTestFields.fields());
         handles.addAll(FinalManifestCoverageFields.fields());
+        handles.addAll(FinalManifestPackagingFields.fields());
         return List.copyOf(handles);
     }
 

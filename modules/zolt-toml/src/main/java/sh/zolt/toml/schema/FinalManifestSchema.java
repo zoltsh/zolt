@@ -41,29 +41,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestGeneratedTestFields.fields());
         fields.addAll(FinalManifestTestFields.fields());
         fields.addAll(FinalManifestCoverageFields.fields());
+        fields.addAll(FinalManifestPackagingFields.fields());
         fields.addAll(List.of(
-                field(PACKAGE, "mode", ManifestValueKind.STRING, 7_001),
-                field(PACKAGE, "sources", ManifestValueKind.BOOLEAN, 7_002),
-                field(PACKAGE, "javadoc", ManifestValueKind.BOOLEAN, 7_003),
-                field(PACKAGE, "testJar", ManifestValueKind.BOOLEAN, 7_004),
-                field(PACKAGE, "duplicates", ManifestValueKind.STRING, 7_005),
-                field(PACKAGE_MANIFEST, "<attribute>", ManifestValueKind.STRING, 7_011),
-                field(BOM, "members", ManifestValueKind.BOOLEAN_OR_STRING_ARRAY, 7_101),
-                field(BOM, "exclude", ManifestValueKind.STRING_ARRAY, 7_102),
-                mutableMapEntry(
-                        BOM_VERSIONS,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        7_111),
-                mutableMapEntry(
-                        BOM_IMPORTS,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        7_121),
-                field(FRAMEWORK_SPRING_BOOT, "native", ManifestValueKind.BOOLEAN, 7_201),
-                field(NATIVE, "name", ManifestValueKind.STRING, 7_301),
-                field(NATIVE, "output", ManifestValueKind.STRING, 7_302),
-                field(NATIVE, "args", ManifestValueKind.STRING_ARRAY, 7_303),
                 field(PUBLISH, "release", ManifestValueKind.STRING, 8_001),
                 field(PUBLISH, "snapshot", ManifestValueKind.STRING, 8_002),
                 field(PUBLISH_REPOSITORY, "url", ManifestValueKind.STRING, 8_101),
