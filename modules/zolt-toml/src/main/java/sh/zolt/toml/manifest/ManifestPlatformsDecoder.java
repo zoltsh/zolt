@@ -4,10 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import sh.zolt.manifest.DependencyCoordinate;
-import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.PlatformSelector;
 import sh.zolt.manifest.authored.AuthoredPlatforms;
-import sh.zolt.toml.schema.FinalManifestObjectShapes;
 import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestSharedFields;
 
@@ -29,7 +27,7 @@ final class ManifestPlatformsDecoder {
             ValidatedManifestField field = entry.field();
             DependencyCoordinate coordinate = ManifestSemanticDiagnostics.construct(
                     field, () -> new DependencyCoordinate(entry.key()));
-            PlatformSelector selector = decodeSelector(field);
+            PlatformSelector selector = ManifestPlatformSelectorDecoder.decode(field);
             if (platforms.put(coordinate, selector) != null) {
                 throw new IllegalStateException(
                         "Validated manifest contains duplicate platform `" + coordinate + "`.");
@@ -38,27 +36,4 @@ final class ManifestPlatformsDecoder {
         return platforms;
     }
 
-    private static PlatformSelector decodeSelector(ValidatedManifestField field) {
-        if (ManifestTomlValues.isString(field)) {
-            return ManifestSemanticDiagnostics.construct(
-                    field,
-                    () -> new PlatformSelector.FixedVersion(
-                            ManifestTomlValues.string(field)));
-        }
-        ManifestInlineTable table = ManifestTomlValues.inlineObject(field);
-        Optional<String> version = table.optionalString(
-                FinalManifestObjectShapes.PLATFORM_VERSION);
-        if (version.isPresent()) {
-            return ManifestSemanticDiagnostics.construct(
-                    table,
-                    FinalManifestObjectShapes.PLATFORM_VERSION,
-                    () -> new PlatformSelector.FixedVersion(version.orElseThrow()));
-        }
-        String versionRef = table.requiredString(
-                FinalManifestObjectShapes.PLATFORM_VERSION_REF);
-        return ManifestSemanticDiagnostics.construct(
-                table,
-                FinalManifestObjectShapes.PLATFORM_VERSION_REF,
-                () -> new PlatformSelector.VersionReference(new LocalId(versionRef)));
-    }
 }
