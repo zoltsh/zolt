@@ -1,8 +1,12 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import sh.zolt.toml.syntax.AssignmentSyntax;
+import sh.zolt.toml.syntax.ManifestSourceIndex;
+import sh.zolt.toml.syntax.SourceSpan;
+import sh.zolt.toml.syntax.TableSyntax;
 
 /** Joins Tomlj's semantic tree back to the source nodes captured by Zolt's scanner. */
 final class ManifestShapeSourceResolver {

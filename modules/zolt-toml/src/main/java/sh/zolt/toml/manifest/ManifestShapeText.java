@@ -1,7 +1,9 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import java.util.List;
 import sh.zolt.toml.schema.ManifestValueKind;
+import sh.zolt.toml.syntax.SourceSpan;
+import sh.zolt.toml.syntax.TableSyntax;
 
 /** Source-layout predicates and diagnostics shared by manifest-shape checks. */
 final class ManifestShapeText {

@@ -1,4 +1,4 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.toml.syntax.AssignmentSyntax;
+import sh.zolt.toml.syntax.TableSyntax;
 
 final class TomlSyntaxParserTest {
     private final TomlSyntaxParser parser = new TomlSyntaxParser();
@@ -22,7 +25,7 @@ final class TomlSyntaxParserTest {
                 "g:a" = { version = "1", reason = "contains # and =" }
                 """).replace("\n", "\r\n");
 
-        ManifestSyntax syntax = parser.parse(source);
+        ManifestSyntax syntax = parser.parse(source).syntax();
         assertEquals(3, syntax.tables().size());
         TableSyntax root = syntax.tables().get(0);
         TableSyntax project = syntax.tables().get(1);
@@ -72,7 +75,7 @@ final class TomlSyntaxParserTest {
                 quoted = "#="
                 """;
 
-        ManifestSyntax syntax = parser.parse(source);
+        ManifestSyntax syntax = parser.parse(source).syntax();
         AssignmentSyntax dependency = syntax.assignments().get(0);
         assertEquals(List.of(), dependency.tablePath());
         assertEquals(List.of("dependencies", "org.slf4j:slf4j-api"), dependency.keyPath());
@@ -101,7 +104,7 @@ final class TomlSyntaxParserTest {
         assertEquals("\"#=\"", syntax.assignments().get(3).valueSpan().text(source));
 
         String emptyTableSource = "[\"\"]\nvalue = 1\n";
-        ManifestSyntax emptyTableSyntax = parser.parse(emptyTableSource);
+        ManifestSyntax emptyTableSyntax = parser.parse(emptyTableSource).syntax();
         TableSyntax emptyTable = emptyTableSyntax.sourceIndex()
                 .explicitTablesAt(List.of(""))
                 .getFirst();
@@ -121,7 +124,7 @@ final class TomlSyntaxParserTest {
                 next = true
                 """;
 
-        ManifestSyntax syntax = parser.parse(source);
+        ManifestSyntax syntax = parser.parse(source).syntax();
         AssignmentSyntax plan = syntax.sourceIndex()
                 .assignmentsAt(List.of("generated", "plan"))
                 .getFirst();
@@ -157,7 +160,7 @@ final class TomlSyntaxParserTest {
                 + "first # =\n"
                 + "second''''' # five-quote close\n";
 
-        ManifestSyntax syntax = parser.parse(source);
+        ManifestSyntax syntax = parser.parse(source).syntax();
         AssignmentSyntax basic = syntax.assignments().get(0);
         AssignmentSyntax literal = syntax.assignments().get(1);
         assertEquals("\"\"\"\nfirst # =\nsecond\"\"\"\"", basic.valueSpan().text(source));
@@ -181,7 +184,7 @@ final class TomlSyntaxParserTest {
                 name = "second"
                 """;
 
-        ManifestSyntax syntax = parser.parse(source);
+        ManifestSyntax syntax = parser.parse(source).syntax();
         assertEquals(List.of(), syntax.tables().get(0).path());
         assertEquals(List.of("alpha"), syntax.tables().get(1).path());
         assertFalse(syntax.tables().get(1).explicit());
@@ -202,19 +205,19 @@ final class TomlSyntaxParserTest {
     @Test
     void lineSpansHandleEofWithAndWithoutANewline() {
         String withoutNewline = "key = \"value\" # eof";
-        AssignmentSyntax eof = parser.parse(withoutNewline).assignments().getFirst();
+        AssignmentSyntax eof = parser.parse(withoutNewline).syntax().assignments().getFirst();
         assertEquals(withoutNewline, eof.lineSpan().text(withoutNewline));
         assertEquals("# eof", eof.trailingCommentSpan().orElseThrow().text(withoutNewline));
 
         String withNewline = withoutNewline + "\n";
-        AssignmentSyntax terminated = parser.parse(withNewline).assignments().getFirst();
+        AssignmentSyntax terminated = parser.parse(withNewline).syntax().assignments().getFirst();
         assertEquals(withNewline, terminated.lineSpan().text(withNewline));
         assertEquals(withNewline.length(), terminated.lineSpan().end());
     }
 
     @Test
     void syntaxNodesAndIndexesExposeImmutableCollections() {
-        ManifestSyntax syntax = parser.parse("a.b = 1\n");
+        ManifestSyntax syntax = parser.parse("a.b = 1\n").syntax();
         assertThrows(UnsupportedOperationException.class, () -> syntax.tables().clear());
         assertThrows(UnsupportedOperationException.class, () -> syntax.assignments().clear());
         assertThrows(

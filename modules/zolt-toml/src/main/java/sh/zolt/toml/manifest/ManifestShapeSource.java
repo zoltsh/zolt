@@ -1,7 +1,10 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import java.util.Objects;
 import java.util.Optional;
+import sh.zolt.toml.syntax.AssignmentSyntax;
+import sh.zolt.toml.syntax.SourceSpan;
+import sh.zolt.toml.syntax.TableSyntax;
 
 /** Best available exact source evidence for one semantic manifest node. */
 record ManifestShapeSource(

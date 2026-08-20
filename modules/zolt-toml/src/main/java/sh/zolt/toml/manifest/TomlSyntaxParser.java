@@ -1,4 +1,4 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import static org.tomlj.TomlVersion.V1_0_0;
 
@@ -6,10 +6,11 @@ import java.util.Objects;
 import org.tomlj.Toml;
 import org.tomlj.TomlParseError;
 import org.tomlj.TomlParseResult;
+import sh.zolt.toml.ZoltConfigException;
 
 /** Parses TOML 1.0 and captures the exact source ranges needed by manifest tooling. */
-public final class TomlSyntaxParser {
-    public ManifestSyntax parse(String source) {
+final class TomlSyntaxParser {
+    ParsedManifestSyntax parse(String source) {
         Objects.requireNonNull(source, "source");
         TomlParseResult parsed = Toml.parse(source, V1_0_0);
         if (parsed.hasErrors()) {
@@ -22,7 +23,9 @@ public final class TomlSyntaxParser {
 
         try {
             TomlSourceScanner.Result syntax = new TomlSourceScanner(source).scan();
-            return new ManifestSyntax(syntax.tables(), syntax.assignments(), parsed, source);
+            ManifestSyntax manifestSyntax = new ManifestSyntax(
+                    syntax.tables(), syntax.assignments(), source);
+            return new ParsedManifestSyntax(source, manifestSyntax, parsed);
         } catch (TomlSourceScanner.ScanException exception) {
             throw new ZoltConfigException(
                     "Could not determine safe source spans in zolt.toml near UTF-16 offset "

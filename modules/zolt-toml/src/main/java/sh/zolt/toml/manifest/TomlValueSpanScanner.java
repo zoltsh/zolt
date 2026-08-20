@@ -1,4 +1,4 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 /** Finds the exact end of a TOML value after Tomlj has already validated the document. */
 final class TomlValueSpanScanner {

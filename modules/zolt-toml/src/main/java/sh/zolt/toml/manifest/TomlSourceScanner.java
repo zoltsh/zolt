@@ -1,4 +1,4 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -6,9 +6,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.tomlj.Toml;
-import sh.zolt.toml.TomlSyntaxNodeBuilders.Assignment;
-import sh.zolt.toml.TomlSyntaxNodeBuilders.Header;
-import sh.zolt.toml.TomlSyntaxNodeBuilders.TableBuilder;
+import sh.zolt.toml.manifest.TomlSyntaxNodeBuilders.Assignment;
+import sh.zolt.toml.manifest.TomlSyntaxNodeBuilders.Header;
+import sh.zolt.toml.manifest.TomlSyntaxNodeBuilders.TableBuilder;
+import sh.zolt.toml.syntax.AssignmentSyntax;
+import sh.zolt.toml.syntax.SourceSpan;
+import sh.zolt.toml.syntax.TableSyntax;
 
 /** A source scanner applied only after Tomlj has accepted the document as TOML 1.0. */
 final class TomlSourceScanner {

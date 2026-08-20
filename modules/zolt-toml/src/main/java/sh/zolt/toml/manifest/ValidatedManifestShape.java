@@ -1,4 +1,4 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import java.util.List;
 import java.util.Objects;

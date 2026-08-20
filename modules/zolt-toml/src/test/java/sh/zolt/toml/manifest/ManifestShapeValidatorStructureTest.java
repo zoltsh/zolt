@@ -1,4 +1,4 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -10,6 +10,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import sh.zolt.toml.ZoltConfigException;
 
 final class ManifestShapeValidatorStructureTest {
     private final TomlSyntaxParser parser = new TomlSyntaxParser();
@@ -38,11 +39,12 @@ final class ManifestShapeValidatorStructureTest {
     void failsClosedWhenSyntaxCameFromDifferentSameLengthSource() {
         String parsed = "[project]\nname = \"one\"\n";
         String different = "[project]\nname = \"two\"\n";
-        ManifestSyntax syntax = parser.parse(parsed);
+        ParsedManifestSyntax parsedSyntax = parser.parse(parsed);
 
         ZoltConfigException failure = assertThrows(
                 ZoltConfigException.class,
-                () -> validator.validate(different, syntax));
+                () -> new ParsedManifestSyntax(
+                        different, parsedSyntax.syntax(), parsedSyntax.parsed()));
 
         assertTrue(failure.getMessage().contains("does not match its parsed syntax"));
     }
@@ -189,7 +191,7 @@ final class ManifestShapeValidatorStructureTest {
     }
 
     private ValidatedManifestShape validate(String source) {
-        return validator.validate(source, parser.parse(source));
+        return validator.validate(parser.parse(source));
     }
 
     private ZoltConfigException failure(String source) {

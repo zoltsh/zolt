@@ -1,4 +1,4 @@
-package sh.zolt.toml;
+package sh.zolt.toml.syntax;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -14,7 +14,8 @@ public final class ManifestSourceIndex {
     private final Map<List<String>, List<AssignmentSyntax>> assignmentsByPath;
     private final Map<List<String>, List<AssignmentSyntax>> assignmentsByTable;
 
-    ManifestSourceIndex(List<TableSyntax> tables, List<AssignmentSyntax> assignments) {
+    /** Builds immutable indexes from immutable Zolt syntax nodes. */
+    public ManifestSourceIndex(List<TableSyntax> tables, List<AssignmentSyntax> assignments) {
         this.tables = List.copyOf(Objects.requireNonNull(tables, "Tables are required."));
         this.assignments = List.copyOf(Objects.requireNonNull(assignments, "Assignments are required."));
         tablesByPath = index(this.tables, TableSyntax::path);

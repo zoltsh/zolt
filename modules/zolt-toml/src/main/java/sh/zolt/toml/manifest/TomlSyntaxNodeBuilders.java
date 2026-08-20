@@ -1,7 +1,10 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import java.util.List;
 import java.util.Optional;
+import sh.zolt.toml.syntax.AssignmentSyntax;
+import sh.zolt.toml.syntax.SourceSpan;
+import sh.zolt.toml.syntax.TableSyntax;
 
 /** Internal mutable assembly state converted to immutable public syntax nodes after scanning. */
 final class TomlSyntaxNodeBuilders {

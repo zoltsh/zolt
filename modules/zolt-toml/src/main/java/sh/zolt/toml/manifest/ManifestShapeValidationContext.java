@@ -1,7 +1,8 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import java.util.ArrayList;
 import java.util.List;
+import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.schema.FinalManifestSchema;
 
 /** Shared state for one fail-closed manifest-shape validation pass. */

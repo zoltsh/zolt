@@ -1,12 +1,12 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
-import static sh.zolt.toml.ManifestShapeText.acceptsInlineTable;
-import static sh.zolt.toml.ManifestShapeText.canonicalHeader;
-import static sh.zolt.toml.ManifestShapeText.dotted;
-import static sh.zolt.toml.ManifestShapeText.mutableMessage;
-import static sh.zolt.toml.ManifestShapeText.onePhysicalLine;
-import static sh.zolt.toml.ManifestShapeText.sectionPath;
-import static sh.zolt.toml.ManifestShapeText.spanIsOneLine;
+import static sh.zolt.toml.manifest.ManifestShapeText.acceptsInlineTable;
+import static sh.zolt.toml.manifest.ManifestShapeText.canonicalHeader;
+import static sh.zolt.toml.manifest.ManifestShapeText.dotted;
+import static sh.zolt.toml.manifest.ManifestShapeText.mutableMessage;
+import static sh.zolt.toml.manifest.ManifestShapeText.onePhysicalLine;
+import static sh.zolt.toml.manifest.ManifestShapeText.sectionPath;
+import static sh.zolt.toml.manifest.ManifestShapeText.spanIsOneLine;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.tomlj.TomlTable;
-import sh.zolt.toml.ManifestSchemaNavigator.Kind;
-import sh.zolt.toml.ManifestSchemaNavigator.Resolution;
+import sh.zolt.toml.manifest.ManifestSchemaNavigator.Kind;
+import sh.zolt.toml.manifest.ManifestSchemaNavigator.Resolution;
 import sh.zolt.toml.schema.FormattingPolicy;
 import sh.zolt.toml.schema.ManifestField;
 import sh.zolt.toml.schema.ManifestPath;
@@ -23,15 +23,18 @@ import sh.zolt.toml.schema.ManifestSchemaMatch;
 import sh.zolt.toml.schema.ManifestSection;
 import sh.zolt.toml.schema.MutationPolicy;
 import sh.zolt.toml.schema.SectionKind;
+import sh.zolt.toml.syntax.AssignmentSyntax;
+import sh.zolt.toml.syntax.TableSyntax;
 
 /** Validates the final manifest shape without constructing domain semantics. */
 final class ManifestShapeValidator {
-    ValidatedManifestShape validate(String source, ManifestSyntax syntax) {
-        Objects.requireNonNull(source, "source");
-        Objects.requireNonNull(syntax, "syntax");
+    ValidatedManifestShape validate(ParsedManifestSyntax parsedSyntax) {
+        Objects.requireNonNull(parsedSyntax, "parsedSyntax");
+        String source = parsedSyntax.source();
+        ManifestSyntax syntax = parsedSyntax.syntax();
         ManifestShapeValidationContext context = new ManifestShapeValidationContext(source, syntax);
         validateExplicitTables(context);
-        walkTable(syntax.parsed(), List.of(), context);
+        walkTable(parsedSyntax.parsed(), List.of(), context);
         context.diagnostics.throwIfAny();
         context.sections.sort(NODE_ORDER);
         context.fields.sort(FIELD_ORDER);

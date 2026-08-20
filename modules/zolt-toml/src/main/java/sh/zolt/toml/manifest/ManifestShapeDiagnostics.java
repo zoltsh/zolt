@@ -1,8 +1,10 @@
-package sh.zolt.toml;
+package sh.zolt.toml.manifest;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.toml.syntax.SourceSpan;
 
 /** Deterministic source-ordered shape failures. */
 final class ManifestShapeDiagnostics {

@@ -1,4 +1,4 @@
-package sh.zolt.toml;
+package sh.zolt.toml.syntax;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
