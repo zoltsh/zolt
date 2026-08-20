@@ -34,13 +34,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestDependencyFields.fields());
         fields.addAll(FinalManifestBuildFields.fields());
         fields.addAll(FinalManifestCompilerFields.fields());
+        fields.addAll(FinalManifestResourceFields.fields());
         fields.addAll(List.of(
-                field(RESOURCES, "main", ManifestValueKind.STRING_ARRAY, 6_201),
-                field(RESOURCES, "test", ManifestValueKind.STRING_ARRAY, 6_202),
-                field(RESOURCES_FILTER, "targets", ManifestValueKind.STRING_ARRAY, 6_211),
-                field(RESOURCES_FILTER, "include", ManifestValueKind.STRING_ARRAY, 6_212),
-                field(RESOURCES_FILTER, "missing", ManifestValueKind.STRING, 6_213),
-                oneLineField(RESOURCES_TOKENS, "<id>", ManifestValueKind.INLINE_TABLE, 6_221),
                 field(GENERATED_TOOL, "kind", ManifestValueKind.STRING, 6_301),
                 field(GENERATED_TOOL, "coordinate", ManifestValueKind.STRING, 6_302),
                 field(GENERATED_TOOL, "version", ManifestValueKind.STRING, 6_303),
