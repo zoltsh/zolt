@@ -40,11 +40,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestGeneratedMainFields.fields());
         fields.addAll(FinalManifestGeneratedTestFields.fields());
         fields.addAll(FinalManifestTestFields.fields());
+        fields.addAll(FinalManifestCoverageFields.fields());
         fields.addAll(List.of(
-                field(COVERAGE, "line", ManifestValueKind.NUMBER, 6_910),
-                field(COVERAGE, "branch", ManifestValueKind.NUMBER, 6_920),
-                field(COVERAGE, "instruction", ManifestValueKind.NUMBER, 6_930),
-                field(COVERAGE, "method", ManifestValueKind.NUMBER, 6_940),
                 field(PACKAGE, "mode", ManifestValueKind.STRING, 7_001),
                 field(PACKAGE, "sources", ManifestValueKind.BOOLEAN, 7_002),
                 field(PACKAGE, "javadoc", ManifestValueKind.BOOLEAN, 7_003),

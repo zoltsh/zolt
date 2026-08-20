@@ -54,7 +54,7 @@ public final class FinalManifestPaths {
     public static final ManifestPath TEST_INTEGRATION = ManifestPath.of("test", "integration");
     public static final ManifestPath TEST_SUITES = ManifestPath.of("test", "suites");
     public static final ManifestPath TEST_SUITE = TEST_SUITES.child("<id>");
-    static final ManifestPath COVERAGE = ManifestPath.of("coverage");
+    public static final ManifestPath COVERAGE = ManifestPath.of("coverage");
     static final ManifestPath PACKAGE = ManifestPath.of("package");
     static final ManifestPath PACKAGE_MANIFEST = PACKAGE.child("manifest");
     static final ManifestPath BOM = ManifestPath.of("bom");
