@@ -16,10 +16,12 @@ import java.util.Optional;
 import org.tomlj.TomlTable;
 import sh.zolt.toml.manifest.ManifestSchemaNavigator.Kind;
 import sh.zolt.toml.manifest.ManifestSchemaNavigator.Resolution;
+import sh.zolt.toml.schema.FinalManifestSchema;
 import sh.zolt.toml.schema.FormattingPolicy;
 import sh.zolt.toml.schema.ManifestField;
 import sh.zolt.toml.schema.ManifestPath;
 import sh.zolt.toml.schema.ManifestSchemaMatch;
+import sh.zolt.toml.schema.ManifestSchemaRegistry;
 import sh.zolt.toml.schema.ManifestSection;
 import sh.zolt.toml.schema.MutationPolicy;
 import sh.zolt.toml.schema.SectionKind;
@@ -28,11 +30,19 @@ import sh.zolt.toml.syntax.TableSyntax;
 
 /** Validates the final manifest shape without constructing domain semantics. */
 final class ManifestShapeValidator {
+    private final ManifestSchemaRegistry registry;
+    ManifestShapeValidator() {
+        this(FinalManifestSchema.registry());
+    }
+    ManifestShapeValidator(ManifestSchemaRegistry registry) {
+        this.registry = Objects.requireNonNull(registry, "registry");
+    }
+
     ValidatedManifestShape validate(ParsedManifestSyntax parsedSyntax) {
         Objects.requireNonNull(parsedSyntax, "parsedSyntax");
         String source = parsedSyntax.source();
         ManifestSyntax syntax = parsedSyntax.syntax();
-        ManifestShapeValidationContext context = new ManifestShapeValidationContext(source, syntax);
+        ManifestShapeValidationContext context = new ManifestShapeValidationContext(source, syntax, registry);
         validateExplicitTables(context);
         walkTable(parsedSyntax.parsed(), List.of(), context);
         context.diagnostics.throwIfAny();
@@ -94,8 +104,7 @@ final class ManifestShapeValidator {
         }
     }
 
-    private static void walkTable(
-            TomlTable table, List<String> parent, ManifestShapeValidationContext context) {
+    private static void walkTable(TomlTable table, List<String> parent, ManifestShapeValidationContext context) {
         for (var entry : table.entrySet()) {
             ArrayList<String> actual = new ArrayList<>(parent);
             actual.add(entry.getKey());
@@ -112,8 +121,7 @@ final class ManifestShapeValidator {
     }
 
     private static void validateField(
-            List<String> path,
-            Object value,
+            List<String> path, Object value,
             ManifestSchemaMatch<ManifestField> match,
             ManifestShapeValidationContext context) {
         ManifestShapeSource source = value instanceof TomlTable
@@ -279,9 +287,7 @@ final class ManifestShapeValidator {
     }
 
     private static void validateStructuralPrefix(
-            List<String> path,
-            Object value,
-            ManifestShapeValidationContext context) {
+            List<String> path, Object value, ManifestShapeValidationContext context) {
         ManifestShapeSource source = value instanceof TomlTable
                 ? context.sources.table(path)
                 : context.sources.field(path);
@@ -324,9 +330,7 @@ final class ManifestShapeValidator {
     }
 
     private static void unknownSection(
-            List<String> path,
-            ManifestShapeSource source,
-            ManifestShapeValidationContext context) {
+            List<String> path, ManifestShapeSource source, ManifestShapeValidationContext context) {
         Optional<String> suggestion = context.navigator.suggestSection(path);
         String message = "Unknown manifest section `" + sectionPath(path) + "`.";
         if (suggestion.isPresent()) {
@@ -343,5 +347,4 @@ final class ManifestShapeValidator {
     private static final Comparator<ValidatedManifestField> FIELD_ORDER = Comparator
             .comparingInt((ValidatedManifestField value) -> value.source().span().start())
             .thenComparing(ValidatedManifestField::path);
-
 }

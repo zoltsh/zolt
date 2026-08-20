@@ -41,7 +41,7 @@ public record ManifestField(
                 objectShape, "Manifest field object shape must not be null.");
         if (objectShape.isPresent() && !acceptsObject(valueKind)) {
             throw new IllegalArgumentException(
-                    "Manifest object shapes require a singular inline-table value kind.");
+                    "Manifest object shapes require an inline-table-capable value kind.");
         }
         if (canonicalOrder < 0) {
             throw new IllegalArgumentException("Manifest field canonical order must not be negative.");
@@ -57,6 +57,7 @@ public record ManifestField(
 
     private static boolean acceptsObject(ManifestValueKind valueKind) {
         return valueKind == ManifestValueKind.INLINE_TABLE
+                || valueKind == ManifestValueKind.INLINE_TABLE_ARRAY
                 || valueKind == ManifestValueKind.STRING_OR_INLINE_TABLE
                 || valueKind == ManifestValueKind.BOOLEAN_OR_STRING_OR_INLINE_TABLE;
     }

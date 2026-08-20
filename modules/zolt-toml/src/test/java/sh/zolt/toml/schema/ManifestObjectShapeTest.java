@@ -90,15 +90,15 @@ final class ManifestObjectShapeTest {
     }
 
     @Test
-    void fieldsAcceptShapesOnlyForSingularInlineTableKinds() {
+    void fieldsAcceptShapesForSingularAndArrayInlineTableKinds() {
         ManifestObjectShape shape = new ManifestObjectShape(List.of(member("value", 10)), List.of());
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> manifestField(ManifestValueKind.STRING, shape));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> manifestField(ManifestValueKind.INLINE_TABLE_ARRAY, shape));
+        assertEquals(
+                Optional.of(shape),
+                manifestField(ManifestValueKind.INLINE_TABLE_ARRAY, shape).objectShape());
         assertEquals(
                 Optional.of(shape),
                 manifestField(ManifestValueKind.STRING_OR_INLINE_TABLE, shape).objectShape());

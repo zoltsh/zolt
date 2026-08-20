@@ -59,11 +59,32 @@ final class ManifestShapeFieldValidator {
         boolean selectorValid = validateMutableSelector(field, value, source, path);
         validateSymbols(field, value, source, path);
         validateDirect(field.validation(), value, source, path);
-        boolean objectValid = field.objectShape()
-                .filter(ignored -> value instanceof TomlTable)
-                .map(shape -> objectValidator.validate(shape, (TomlTable) value, source, path))
-                .orElse(true);
+        boolean objectValid = validateObjectShape(field, value, source, path);
         return keysValid && selectorValid && objectValid;
+    }
+
+    private boolean validateObjectShape(
+            ManifestField field,
+            Object value,
+            ManifestShapeSource source,
+            String path) {
+        if (field.objectShape().isEmpty()) {
+            return true;
+        }
+        var shape = field.objectShape().orElseThrow();
+        if (value instanceof TomlTable table) {
+            return objectValidator.validate(shape, table, source, path);
+        }
+        if (!(value instanceof TomlArray array)) {
+            return true;
+        }
+        boolean valid = true;
+        for (int index = 0; index < array.size(); index++) {
+            boolean itemValid = objectValidator.validate(
+                    shape, (TomlTable) array.get(index), source, path + "[" + index + "]");
+            valid &= itemValid;
+        }
+        return valid;
     }
 
     boolean validateDynamicKeys(
