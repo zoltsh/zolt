@@ -32,6 +32,20 @@ final class ManifestTomlValues {
         throw wrongAccessor(field, "integer", value);
     }
 
+    static double number(ValidatedManifestField field) {
+        Object value = validatedRaw(field);
+        if (field.schema().descriptor().valueKind() != ManifestValueKind.NUMBER) {
+            throw wrongAccessor(field, "number", value);
+        }
+        if (value instanceof Long integer) {
+            return integer.doubleValue();
+        }
+        if (value instanceof Double number) {
+            return number;
+        }
+        throw wrongAccessor(field, "number", value);
+    }
+
     static boolean booleanValue(ValidatedManifestField field) {
         Object value = validatedRaw(field);
         if (value instanceof Boolean bool) {

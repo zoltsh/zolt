@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.tomlj.Toml;
+import sh.zolt.toml.schema.FinalManifestCoverageFields;
 import sh.zolt.toml.schema.FinalManifestDependencyFields;
 import sh.zolt.toml.schema.FinalManifestGeneratedPresetFields;
 import sh.zolt.toml.schema.FinalManifestIdentityFields;
@@ -48,6 +49,29 @@ final class ManifestTomlValuesTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> ManifestTomlValues.strings(members).add("other"));
+    }
+
+    @Test
+    void readsIntegerAndFractionalNumbersOnlyThroughRegisteredNumberFields() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [project]
+                java = 21
+
+                [coverage]
+                line = 88
+                branch = 74.5
+                """);
+        ValidatedManifestField java = required(index, FinalManifestIdentityFields.PROJECT_JAVA);
+        ValidatedManifestField line = required(index, FinalManifestCoverageFields.COVERAGE_LINE);
+        ValidatedManifestField branch = required(index, FinalManifestCoverageFields.COVERAGE_BRANCH);
+
+        assertEquals(88.0, ManifestTomlValues.number(line));
+        assertEquals(74.5, ManifestTomlValues.number(branch));
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class,
+                () -> ManifestTomlValues.number(java));
+        assertTrue(failure.getMessage().contains("project.java"));
+        assertTrue(failure.getMessage().contains("cannot be read as number"));
     }
 
     @Test
