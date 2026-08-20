@@ -105,6 +105,28 @@ final class AuthoredDependencyRepositoriesTest {
     }
 
     @Test
+    void reportsOrderMismatchIdsInDeterministicCodePointOrder() {
+        LocalId alpha = new LocalId("alpha");
+        LocalId beta = new LocalId("beta");
+        LocalId stray = new LocalId("stray");
+        LocalId zeta = new LocalId("zeta");
+        Map<LocalId, DependencyRepository> named = Map.of(
+                zeta, repository("https://repo.example.com/zeta"),
+                beta, repository("https://repo.example.com/beta"),
+                alpha, repository("https://repo.example.com/alpha"));
+        AuthoredRepositoryControl invalid = new AuthoredRepositoryControl(
+                Optional.empty(), Optional.of(List.of(zeta, stray, alpha)));
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class, () -> repositories(invalid, named));
+
+        assertEquals(
+                "Repository order must list every enabled repository ID exactly once; expected "
+                        + "[alpha, beta, central, zeta] but got [alpha, stray, zeta].",
+                error.getMessage());
+    }
+
+    @Test
     void disabledCentralSupportsAnIntentionallyEmptyUniverse() {
         AuthoredRepositoryControl emptyUniverse = new AuthoredRepositoryControl(
                 Optional.of(new CentralRepositoryControl.Disabled()), Optional.of(List.of()));

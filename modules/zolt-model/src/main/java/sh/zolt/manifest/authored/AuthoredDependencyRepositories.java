@@ -2,6 +2,7 @@ package sh.zolt.manifest.authored;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.TreeMap;
 import sh.zolt.manifest.CentralRepositoryControl;
 import sh.zolt.manifest.DependencyRepository;
 import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestModelValues;
 import sh.zolt.manifest.RepositoryUrl;
 
 /** Immutable authored dependency-repository universe with exact lookup-order validation. */
@@ -23,6 +25,8 @@ public record AuthoredDependencyRepositories(
 
     private static final LocalId CENTRAL = new LocalId("central");
     private static final LocalId ORDER = new LocalId("order");
+    private static final Comparator<LocalId> ID_ORDER =
+            Comparator.comparing(LocalId::value, ManifestModelValues.CODE_POINT_ORDER);
 
     public AuthoredDependencyRepositories {
         control = Objects.requireNonNull(control, "Authored repository control must not be null.");
@@ -106,8 +110,12 @@ public record AuthoredDependencyRepositories(
         Set<LocalId> actual = Set.copyOf(control.orElseThrow().order().orElseThrow());
         if (!actual.equals(expected)) {
             throw new IllegalArgumentException(
-                    "Repository order must list every enabled repository ID exactly once; expected " + expected
-                            + " but got " + actual + ".");
+                    "Repository order must list every enabled repository ID exactly once; expected "
+                            + sortedIds(expected) + " but got " + sortedIds(actual) + ".");
         }
+    }
+
+    private static List<LocalId> sortedIds(Set<LocalId> values) {
+        return values.stream().sorted(ID_ORDER).toList();
     }
 }
