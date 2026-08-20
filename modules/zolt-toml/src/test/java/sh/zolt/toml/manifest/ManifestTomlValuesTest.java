@@ -8,7 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.tomlj.Toml;
+import sh.zolt.toml.schema.FinalManifestDependencyFields;
 import sh.zolt.toml.schema.FinalManifestIdentityFields;
+import sh.zolt.toml.schema.FinalManifestObjectShapes;
+import sh.zolt.toml.schema.FinalManifestSchema;
 import sh.zolt.toml.schema.FinalManifestSharedFields;
 import sh.zolt.toml.schema.ManifestField;
 import sh.zolt.toml.schema.ManifestPath;
@@ -121,6 +125,72 @@ final class ManifestTomlValuesTest {
     }
 
     @Test
+    void readsClosedInlineObjectArraysInSourceOrderWithImmutableResults() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [dependencies.policy]
+                deny = [
+                    { coordinate = "org.bad:one" },
+                    { coordinate = "org.bad:two", reason = "blocked" },
+                ]
+                """);
+        ValidatedManifestField field = required(
+                index, FinalManifestDependencyFields.DEPENDENCY_POLICY_DENY);
+
+        List<ManifestInlineTable> entries = ManifestTomlValues.inlineObjectArray(field);
+
+        assertEquals(2, entries.size());
+        assertEquals(
+                "org.bad:one",
+                entries.get(0).requiredString(
+                        FinalManifestObjectShapes.DENY_ENTRY_COORDINATE));
+        assertEquals(
+                "org.bad:two",
+                entries.get(1).requiredString(
+                        FinalManifestObjectShapes.DENY_ENTRY_COORDINATE));
+        assertThrows(UnsupportedOperationException.class, () -> entries.add(entries.getFirst()));
+    }
+
+    @Test
+    void rejectsNonArrayOpenArrayAndCorruptArrayEvidence() {
+        ManifestDecodeIndex scalarIndex = ManifestSemanticTestSupport.index("""
+                [project]
+                name = "demo"
+                """);
+        assertThrows(
+                IllegalStateException.class,
+                () -> ManifestTomlValues.inlineObjectArray(
+                        required(scalarIndex, FinalManifestIdentityFields.PROJECT_NAME)));
+
+        ManifestDecodeIndex openIndex = ManifestSemanticTestSupport.index("""
+                [generated.tools.codegen]
+                kind = "jvm"
+                coordinates = [{ coordinate = "org.example:tool", version = "1" }]
+                """);
+        ManifestField openHandle = FinalManifestSchema.registry()
+                .field(ManifestPath.of("generated", "tools", "<id>", "coordinates"))
+                .orElseThrow();
+        ValidatedManifestField open = openIndex.entries(openHandle).getFirst().field();
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ManifestTomlValues.inlineObjectArray(open));
+
+        ManifestDecodeIndex denyIndex = ManifestSemanticTestSupport.index("""
+                [dependencies.policy]
+                deny = [{ coordinate = "org.bad:one" }]
+                """);
+        ValidatedManifestField deny = required(
+                denyIndex, FinalManifestDependencyFields.DEPENDENCY_POLICY_DENY);
+        ValidatedManifestField corrupt = new ValidatedManifestField(
+                deny.path(),
+                deny.schema(),
+                Toml.parse("value = [42]").getArray("value"),
+                deny.source());
+        assertThrows(
+                IllegalStateException.class,
+                () -> ManifestTomlValues.inlineObjectArray(corrupt));
+    }
+
+    @Test
     void rejectsForgedDescriptorTypesAndDynamicBindingsBeforeRawAccess() {
         ManifestDecodeIndex staticIndex = ManifestSemanticTestSupport.index("""
                 [project]
@@ -168,6 +238,22 @@ final class ManifestTomlValuesTest {
                 IllegalStateException.class,
                 () -> ManifestTomlValues.string(forgedBinding));
         assertTrue(bindingFailure.getMessage().contains("exact registered schema match"));
+
+        ManifestDecodeIndex denyIndex = ManifestSemanticTestSupport.index("""
+                [dependencies.policy]
+                deny = [{ coordinate = "org.bad:one" }]
+                """);
+        ValidatedManifestField deny = required(
+                denyIndex, FinalManifestDependencyFields.DEPENDENCY_POLICY_DENY);
+        ValidatedManifestField forgedArrayBinding = new ValidatedManifestField(
+                deny.path(),
+                new ManifestSchemaMatch<>(deny.schema().descriptor(), Map.of("id", "forged")),
+                deny.rawValue(),
+                deny.source());
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> ManifestTomlValues.inlineObjectArray(forgedArrayBinding));
     }
 
     private static ValidatedManifestField required(

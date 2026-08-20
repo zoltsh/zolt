@@ -1,12 +1,15 @@
 package sh.zolt.toml.manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.tomlj.Toml;
+import sh.zolt.toml.schema.FinalManifestDependencyFields;
 import sh.zolt.toml.schema.FinalManifestIdentityFields;
 import sh.zolt.toml.schema.FinalManifestObjectShapes;
 import sh.zolt.toml.schema.FinalManifestSchema;
@@ -60,10 +63,64 @@ final class ManifestInlineTableTest {
         assertEquals("org.example:demo", entry.key());
         assertEquals(
                 ManifestPath.of("platforms", "org.example:demo", "versionRef"),
-                platform.path(FinalManifestObjectShapes.PLATFORM_VERSION_REF));
+                platform.path(FinalManifestObjectShapes.PLATFORM_VERSION_REF).structure());
         assertEquals(
                 "release",
                 platform.requiredString(FinalManifestObjectShapes.PLATFORM_VERSION_REF));
+    }
+
+    @Test
+    void readsOptionalBooleansAndImmutableStringArraysWithoutCollapsingPresence() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [dependencies]
+                "org.example:demo" = { version = "1.0", optional = false, exclude = [] }
+                """);
+        ManifestInlineTable dependency = ManifestTomlValues.inlineObject(
+                index.entries(FinalManifestDependencyFields.DEPENDENCIES_ENTRY)
+                        .getFirst()
+                        .field());
+
+        assertEquals(
+                false,
+                dependency.optionalBoolean(FinalManifestObjectShapes.DEPENDENCY_OPTIONAL)
+                        .orElseThrow());
+        assertTrue(dependency.optionalBoolean(
+                FinalManifestObjectShapes.DEPENDENCY_PUBLISH_ONLY).isEmpty());
+        List<String> exclusions = dependency
+                .optionalStrings(FinalManifestObjectShapes.DEPENDENCY_EXCLUDE)
+                .orElseThrow();
+        assertTrue(exclusions.isEmpty());
+        assertThrows(UnsupportedOperationException.class, () -> exclusions.add("org.bad:one"));
+    }
+
+    @Test
+    void exposesExactIndexedMemberPathsForArrayItems() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [dependencies.policy]
+                deny = [
+                    { coordinate = "org.bad:one" },
+                    { coordinate = "org.bad:two", reason = "blocked" },
+                ]
+                """);
+        ValidatedManifestField field = index
+                .field(FinalManifestDependencyFields.DEPENDENCY_POLICY_DENY)
+                .orElseThrow();
+        ManifestInlineTable second = ManifestTomlValues.inlineObjectArray(field).get(1);
+
+        assertEquals(
+                "dependencies.policy.deny[1].coordinate",
+                second.path(FinalManifestObjectShapes.DENY_ENTRY_COORDINATE).toString());
+        assertEquals(
+                "dependencies.policy.deny[1].reason",
+                second.path(FinalManifestObjectShapes.DENY_ENTRY_REASON).toString());
+        assertThrows(
+                IllegalStateException.class,
+                () -> second.indexedPath(FinalManifestObjectShapes.DENY_ENTRY_REASON, 0));
+        assertSame(field.source(), second.source());
+        assertFalse(second.path(FinalManifestObjectShapes.DENY_ENTRY_REASON)
+                .toString().contains(".["));
+        assertThrows(IllegalArgumentException.class, () -> ManifestInlineTable.indexed(field, -1));
+        assertThrows(IllegalArgumentException.class, () -> ManifestInlineTable.indexed(field, 2));
     }
 
     @Test
@@ -82,6 +139,31 @@ final class ManifestInlineTableTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> license.optionalString(FinalManifestObjectShapes.CENTRAL_URL));
+    }
+
+    @Test
+    void rejectsWrongMemberAccessorsEvenWhenTheOptionalMemberIsAbsent() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [dependencies]
+                "org.example:demo" = { version = "1.0" }
+                """);
+        ManifestInlineTable dependency = ManifestTomlValues.inlineObject(
+                index.entries(FinalManifestDependencyFields.DEPENDENCIES_ENTRY)
+                        .getFirst()
+                        .field());
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> dependency.optionalString(
+                        FinalManifestObjectShapes.DEPENDENCY_OPTIONAL));
+        assertThrows(
+                IllegalStateException.class,
+                () -> dependency.optionalBoolean(
+                        FinalManifestObjectShapes.DEPENDENCY_CLASSIFIER));
+        assertThrows(
+                IllegalStateException.class,
+                () -> dependency.optionalStrings(
+                        FinalManifestObjectShapes.DEPENDENCY_TYPE));
     }
 
     @Test

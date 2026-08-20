@@ -6,8 +6,9 @@ import java.util.Objects;
 import org.tomlj.TomlArray;
 import org.tomlj.TomlTable;
 import sh.zolt.toml.schema.ManifestField;
+import sh.zolt.toml.schema.ManifestValueKind;
 
-/** Checked raw-value accessors for the initial final-manifest decoder domains. */
+/** Checked raw-value accessors for final-manifest decoder domains. */
 final class ManifestTomlValues {
     private ManifestTomlValues() {
     }
@@ -70,6 +71,25 @@ final class ManifestTomlValues {
             throw wrongAccessor(field, "inline object", value);
         }
         return new ManifestInlineTable(field);
+    }
+
+    static List<ManifestInlineTable> inlineObjectArray(ValidatedManifestField field) {
+        Object value = validatedRaw(field);
+        ManifestField descriptor = field.schema().descriptor();
+        if (!(value instanceof TomlArray array)
+                || descriptor.valueKind() != ManifestValueKind.INLINE_TABLE_ARRAY) {
+            throw wrongAccessor(field, "inline object array", value);
+        }
+        if (descriptor.objectShape().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Manifest field `" + field.path()
+                            + "` does not declare a closed inline-object shape.");
+        }
+        ArrayList<ManifestInlineTable> tables = new ArrayList<>(array.size());
+        for (int index = 0; index < array.size(); index++) {
+            tables.add(ManifestInlineTable.indexed(field, index));
+        }
+        return List.copyOf(tables);
     }
 
     private static Object validatedRaw(ValidatedManifestField field) {

@@ -2,6 +2,7 @@ package sh.zolt.toml.manifest;
 
 import java.util.Objects;
 import java.util.function.Supplier;
+import org.tomlj.TomlArray;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.schema.ManifestField;
 import sh.zolt.toml.schema.ManifestObjectMember;
@@ -50,12 +51,46 @@ final class ManifestSemanticDiagnostics {
     }
 
     static <T> T construct(
+            ValidatedManifestField field,
+            int index,
+            Supplier<T> factory) {
+        Objects.requireNonNull(field, "Validated manifest field is required.");
+        Objects.requireNonNull(factory, "Manifest value factory is required.");
+        ManifestField descriptor = ManifestSchemaEvidence.validatedField(field);
+        Object raw = field.rawValue();
+        if (!(raw instanceof TomlArray array)
+                || !ManifestShapeValueKinds.matches(descriptor.valueKind(), raw)) {
+            throw new IllegalStateException(
+                    "Validated manifest field `" + field.path()
+                            + "` cannot provide an indexed value; found "
+                            + ManifestShapeValueKinds.actual(raw) + ".");
+        }
+        ManifestDiagnosticPath path = ManifestDiagnosticPath.indexed(field.path(), index);
+        if (index >= array.size()) {
+            throw new IllegalArgumentException(
+                    "Manifest array index " + index + " is out of bounds for `"
+                            + field.path() + "`.");
+        }
+        return construct(path, factory);
+    }
+
+    static <T> T construct(
             ManifestInlineTable table,
             ManifestObjectMember member,
             Supplier<T> factory) {
         Objects.requireNonNull(table, "Manifest inline object is required.");
         Objects.requireNonNull(factory, "Manifest value factory is required.");
         return construct(table.path(member), factory);
+    }
+
+    static <T> T construct(
+            ManifestInlineTable table,
+            ManifestObjectMember member,
+            int index,
+            Supplier<T> factory) {
+        Objects.requireNonNull(table, "Manifest inline object is required.");
+        Objects.requireNonNull(factory, "Manifest value factory is required.");
+        return construct(table.indexedPath(member, index), factory);
     }
 
     static <T> T construct(
@@ -69,6 +104,12 @@ final class ManifestSemanticDiagnostics {
     }
 
     private static <T> T construct(ManifestPath path, Supplier<T> factory) {
+        return construct(path.toString(), factory);
+    }
+
+    private static <T> T construct(
+            ManifestDiagnosticPath path,
+            Supplier<T> factory) {
         return construct(path.toString(), factory);
     }
 
