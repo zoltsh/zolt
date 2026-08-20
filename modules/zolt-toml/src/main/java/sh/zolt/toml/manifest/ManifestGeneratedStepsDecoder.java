@@ -20,15 +20,21 @@ import sh.zolt.manifest.authored.AuthoredProtobufStep;
 /** Decodes authored main and test generated-step unions without resolving references. */
 final class ManifestGeneratedStepsDecoder {
     Decoded decode(ManifestDecodeIndex index) {
+        return decode(index, (fields, entry, id, step) -> { });
+    }
+
+    Decoded decode(ManifestDecodeIndex index, DecodedStepObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Decoded generated-step observer is required.");
         return new Decoded(
-                decodeLane(index, ManifestGeneratedStepFields.MAIN),
-                decodeLane(index, ManifestGeneratedStepFields.TEST));
+                decodeLane(index, ManifestGeneratedStepFields.MAIN, observer),
+                decodeLane(index, ManifestGeneratedStepFields.TEST, observer));
     }
 
     private static Optional<Map<LocalId, AuthoredGeneratedStep>> decodeLane(
             ManifestDecodeIndex index,
-            ManifestGeneratedStepFields fields) {
+            ManifestGeneratedStepFields fields,
+            DecodedStepObserver observer) {
         List<ManifestDecodeIndex.SectionEntry> entries = index.sectionEntries(fields.entry());
         if (index.section(fields.collection()).isEmpty() && entries.isEmpty()) {
             return Optional.empty();
@@ -39,16 +45,14 @@ final class ManifestGeneratedStepsDecoder {
             LocalId id = ManifestSemanticDiagnostics.construct(
                     entry.section(), () -> new LocalId(entry.key()));
             AuthoredGeneratedStep step = step(row);
+            observer.decoded(fields, entry, id, step);
             if (decoded.put(id, step) != null) {
                 throw new IllegalStateException(
                         "Validated manifest contains duplicate generated step `" + id + "`.");
             }
         }
         return Optional.of(ManifestModelValues.immutableSortedMap(
-                decoded,
-                LocalId::compareTo,
-                "Generated-step ID",
-                "Authored generated step"));
+                decoded, LocalId::compareTo, "Generated-step ID", "Authored generated step"));
     }
 
     private static AuthoredGeneratedStep step(Row row) {
@@ -63,17 +67,14 @@ final class ManifestGeneratedStepsDecoder {
         };
     }
 
-    private static AuthoredOpenApiStep openApi(
-            Row row,
-            Optional<GeneratedLanguage> language) {
+    private static AuthoredOpenApiStep openApi(Row row, Optional<GeneratedLanguage> language) {
         Optional<LocalId> tool = row.optionalId(ManifestGeneratedStepFields.Slot.TOOL);
         row.reject(ManifestGeneratedStepFields.Slot.MAIN_CLASS, ManifestGeneratedStepFields.Slot.ARGS);
         ValidatedManifestField inputField = row.required(ManifestGeneratedStepFields.Slot.INPUT);
         ResourceGlob input = ManifestSemanticDiagnostics.construct(
                 inputField, () -> new ResourceGlob(ManifestTomlValues.string(inputField)));
         row.reject(ManifestGeneratedStepFields.Slot.INPUTS);
-        Optional<ManifestRelativePath> output = row.optionalPath(
-                ManifestGeneratedStepFields.Slot.OUTPUT);
+        Optional<ManifestRelativePath> output = row.optionalPath(ManifestGeneratedStepFields.Slot.OUTPUT);
         row.reject(ManifestGeneratedStepFields.Slot.PRODUCES, ManifestGeneratedStepFields.Slot.INTO);
         Optional<LocalId> preset = row.optionalId(ManifestGeneratedStepFields.Slot.PRESET);
         AuthoredOpenApiOptions overrides = ManifestOpenApiOptionsDecoder.decode(
@@ -93,9 +94,7 @@ final class ManifestGeneratedStepsDecoder {
                 () -> new AuthoredOpenApiStep(settings, tool, input, output, preset, overrides));
     }
 
-    private static AuthoredProtobufStep protobuf(
-            Row row,
-            Optional<GeneratedLanguage> language) {
+    private static AuthoredProtobufStep protobuf(Row row, Optional<GeneratedLanguage> language) {
         Optional<LocalId> tool = row.optionalId(ManifestGeneratedStepFields.Slot.TOOL);
         row.reject(
                 ManifestGeneratedStepFields.Slot.MAIN_CLASS,
@@ -103,8 +102,7 @@ final class ManifestGeneratedStepsDecoder {
                 ManifestGeneratedStepFields.Slot.INPUT);
         ValidatedManifestField inputsField = row.required(ManifestGeneratedStepFields.Slot.INPUTS);
         List<ResourceGlob> inputs = protobufInputs(inputsField);
-        Optional<ManifestRelativePath> output = row.optionalPath(
-                ManifestGeneratedStepFields.Slot.OUTPUT);
+        Optional<ManifestRelativePath> output = row.optionalPath(ManifestGeneratedStepFields.Slot.OUTPUT);
         row.reject(
                 ManifestGeneratedStepFields.Slot.PRODUCES,
                 ManifestGeneratedStepFields.Slot.INTO,
@@ -123,8 +121,7 @@ final class ManifestGeneratedStepsDecoder {
                 ManifestGeneratedStepFields.Slot.GLOBAL_PROPERTIES,
                 ManifestGeneratedStepFields.Slot.TYPE_MAPPINGS,
                 ManifestGeneratedStepFields.Slot.IMPORT_MAPPINGS);
-        Optional<ValidatedManifestField> packageField = row.field(
-                ManifestGeneratedStepFields.Slot.JAVA_PACKAGE);
+        Optional<ValidatedManifestField> packageField = row.field(ManifestGeneratedStepFields.Slot.JAVA_PACKAGE);
         Optional<String> javaPackage = packageField.map(ManifestTomlValues::string);
         packageField.ifPresent(field -> ManifestSemanticDiagnostics.construct(
                 field,
@@ -149,9 +146,7 @@ final class ManifestGeneratedStepsDecoder {
                 () -> new AuthoredProtobufStep(settings, tool, inputs, output, javaPackage, grpc));
     }
 
-    private static AuthoredDeclaredRootStep declaredRoot(
-            Row row,
-            Optional<GeneratedLanguage> language) {
+    private static AuthoredDeclaredRootStep declaredRoot(Row row, Optional<GeneratedLanguage> language) {
         row.reject(
                 ManifestGeneratedStepFields.Slot.TOOL,
                 ManifestGeneratedStepFields.Slot.MAIN_CLASS,
@@ -161,11 +156,8 @@ final class ManifestGeneratedStepsDecoder {
         List<ResourceGlob> inputs = declaredInputs(inputsField);
         ValidatedManifestField outputField = row.required(ManifestGeneratedStepFields.Slot.OUTPUT);
         ManifestRelativePath output = ManifestSemanticDiagnostics.construct(
-                outputField,
-                () -> new ManifestRelativePath(ManifestTomlValues.string(outputField)));
-        row.rejectRange(
-                ManifestGeneratedStepFields.Slot.PRODUCES,
-                ManifestGeneratedStepFields.Slot.TIMEOUT_SECONDS);
+                outputField, () -> new ManifestRelativePath(ManifestTomlValues.string(outputField)));
+        row.rejectRange(ManifestGeneratedStepFields.Slot.PRODUCES, ManifestGeneratedStepFields.Slot.TIMEOUT_SECONDS);
         GeneratedStepSettings settings = row.settings(language);
         return ManifestSemanticDiagnostics.construct(
                 row.entry().section(),
@@ -254,6 +246,15 @@ final class ManifestGeneratedStepsDecoder {
         }
     }
 
+    @FunctionalInterface
+    interface DecodedStepObserver {
+        void decoded(
+                ManifestGeneratedStepFields fields,
+                ManifestDecodeIndex.SectionEntry entry,
+                LocalId id,
+                AuthoredGeneratedStep step);
+    }
+
     record Row(
             ManifestDecodeIndex index,
             ManifestDecodeIndex.SectionEntry entry,
@@ -305,8 +306,7 @@ final class ManifestGeneratedStepsDecoder {
         }
 
         void rejectRange(
-                ManifestGeneratedStepFields.Slot first,
-                ManifestGeneratedStepFields.Slot last) {
+                ManifestGeneratedStepFields.Slot first, ManifestGeneratedStepFields.Slot last) {
             for (int ordinal = first.ordinal(); ordinal <= last.ordinal(); ordinal++) {
                 reject(ManifestGeneratedStepFields.Slot.values()[ordinal]);
             }
@@ -338,8 +338,7 @@ final class ManifestGeneratedStepsDecoder {
     }
 
     private static GeneratedLanguage generatedLanguage(
-            ValidatedManifestField field,
-            String value) {
+            ValidatedManifestField field, String value) {
         if (GeneratedLanguage.JAVA.configValue().equals(value)) {
             return GeneratedLanguage.JAVA;
         }

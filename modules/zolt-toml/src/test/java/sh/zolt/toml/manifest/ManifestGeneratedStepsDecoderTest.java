@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,6 +23,35 @@ import sh.zolt.toml.schema.FinalManifestSchema;
 import sh.zolt.toml.schema.ManifestField;
 
 final class ManifestGeneratedStepsDecoderTest {
+    @Test
+    void observesExactLanesAndEntriesInCanonicalSourceOrder() {
+        ArrayList<String> observed = new ArrayList<>();
+
+        new ManifestGeneratedStepsDecoder().decode(
+                ManifestSemanticTestSupport.index(interleavedDeclaredRoots()),
+                (fields, entry, id, step) -> {
+                    String lane;
+                    if (fields == ManifestGeneratedStepFields.MAIN) {
+                        lane = "main";
+                    } else if (fields == ManifestGeneratedStepFields.TEST) {
+                        lane = "test";
+                    } else {
+                        throw new AssertionError("Unexpected generated-step lane.");
+                    }
+                    assertEquals(entry.key(), id.value());
+                    assertInstanceOf(AuthoredDeclaredRootStep.class, step);
+                    observed.add(lane + ":" + entry.key() + ":" + entry.section().path());
+                });
+
+        assertEquals(
+                List.of(
+                        "main:z-main:generated.main.z-main",
+                        "main:a-main:generated.main.a-main",
+                        "test:z-test:generated.test.z-test",
+                        "test:a-test:generated.test.a-test"),
+                observed);
+    }
+
     @Test
     void preservesIndependentLaneOmissionAndExplicitEmptyPresence() {
         ManifestGeneratedStepsDecoder.Decoded omitted = decode("");
@@ -238,6 +268,30 @@ final class ManifestGeneratedStepsDecoderTest {
                     .append("output = \"target/generated/fixtures\"\n\n");
         }
         return source.toString();
+    }
+
+    private static String interleavedDeclaredRoots() {
+        return """
+                [generated.test.z-test]
+                kind = "declared-root"
+                inputs = ["test-z"]
+                output = "target/test-z"
+
+                [generated.main.z-main]
+                kind = "declared-root"
+                inputs = ["main-z"]
+                output = "target/main-z"
+
+                [generated.main.a-main]
+                kind = "declared-root"
+                inputs = ["main-a"]
+                output = "target/main-a"
+
+                [generated.test.a-test]
+                kind = "declared-root"
+                inputs = ["test-a"]
+                output = "target/test-a"
+                """;
     }
 
     private static LocalId id(String value) {
