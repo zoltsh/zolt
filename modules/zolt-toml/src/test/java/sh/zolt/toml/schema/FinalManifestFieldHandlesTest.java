@@ -141,15 +141,48 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
+    void generatedToolHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestGeneratedToolFields.fields(),
+                List.of(
+                        field("generated.tools.<id>.kind", 6_301),
+                        field("generated.tools.<id>.coordinate", 6_302),
+                        field("generated.tools.<id>.version", 6_303),
+                        field("generated.tools.<id>.versionRef", 6_304),
+                        field("generated.tools.<id>.protocCoordinate", 6_305),
+                        field("generated.tools.<id>.protocVersion", 6_306),
+                        field("generated.tools.<id>.protocVersionRef", 6_307),
+                        field("generated.tools.<id>.grpcCoordinate", 6_308),
+                        field("generated.tools.<id>.grpcVersion", 6_309),
+                        field("generated.tools.<id>.grpcVersionRef", 6_310),
+                        field("generated.tools.<id>.coordinates", 6_311),
+                        field("generated.tools.<id>.mainClass", 6_312),
+                        field("generated.tools.<id>.binary", 6_313),
+                        field("generated.tools.<id>.versionCommand", 6_314),
+                        field("generated.tools.<id>.versionExpect", 6_315),
+                        field("generated.tools.<id>.allowUnpinnedTool", 6_316)));
+        assertEquals(
+                List.of(FinalManifestGeneratedToolFields.GENERATED_TOOL_COORDINATES),
+                FinalManifestGeneratedToolFields.fields().stream()
+                        .filter(field -> field.objectShape().isPresent())
+                        .toList());
+        assertSame(
+                FinalManifestObjectShapes.GENERATED_ARTIFACT_REQUEST,
+                FinalManifestGeneratedToolFields.GENERATED_TOOL_COORDINATES
+                        .objectShape()
+                        .orElseThrow());
+    }
+
+    @Test
     void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 6_300)
+                .filter(field -> field.canonicalOrder() < 6_400)
                 .toList();
 
-        assertEquals(80, handles.size());
-        assertEquals(80, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(80, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(96, handles.size());
+        assertEquals(96, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(96, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -176,6 +209,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestBuildFields.fields());
         handles.addAll(FinalManifestCompilerFields.fields());
         handles.addAll(FinalManifestResourceFields.fields());
+        handles.addAll(FinalManifestGeneratedToolFields.fields());
         return List.copyOf(handles);
     }
 

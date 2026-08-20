@@ -35,28 +35,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestBuildFields.fields());
         fields.addAll(FinalManifestCompilerFields.fields());
         fields.addAll(FinalManifestResourceFields.fields());
+        fields.addAll(FinalManifestGeneratedToolFields.fields());
         fields.addAll(List.of(
-                field(GENERATED_TOOL, "kind", ManifestValueKind.STRING, 6_301),
-                field(GENERATED_TOOL, "coordinate", ManifestValueKind.STRING, 6_302),
-                field(GENERATED_TOOL, "version", ManifestValueKind.STRING, 6_303),
-                field(GENERATED_TOOL, "versionRef", ManifestValueKind.STRING, 6_304),
-                field(GENERATED_TOOL, "protocCoordinate", ManifestValueKind.STRING, 6_305),
-                field(GENERATED_TOOL, "protocVersion", ManifestValueKind.STRING, 6_306),
-                field(GENERATED_TOOL, "protocVersionRef", ManifestValueKind.STRING, 6_307),
-                field(GENERATED_TOOL, "grpcCoordinate", ManifestValueKind.STRING, 6_308),
-                field(GENERATED_TOOL, "grpcVersion", ManifestValueKind.STRING, 6_309),
-                field(GENERATED_TOOL, "grpcVersionRef", ManifestValueKind.STRING, 6_310),
-                objectField(
-                        GENERATED_TOOL,
-                        "coordinates",
-                        ManifestValueKind.INLINE_TABLE_ARRAY,
-                        6_311,
-                        FinalManifestObjectShapes.GENERATED_ARTIFACT_REQUEST),
-                field(GENERATED_TOOL, "mainClass", ManifestValueKind.STRING, 6_312),
-                field(GENERATED_TOOL, "binary", ManifestValueKind.STRING, 6_313),
-                field(GENERATED_TOOL, "versionCommand", ManifestValueKind.STRING_ARRAY, 6_314),
-                field(GENERATED_TOOL, "versionExpect", ManifestValueKind.STRING, 6_315),
-                field(GENERATED_TOOL, "allowUnpinnedTool", ManifestValueKind.BOOLEAN, 6_316),
                 field(GENERATED_PRESET, "kind", ManifestValueKind.STRING, 6_401),
                 field(GENERATED_PRESET, "generator", ManifestValueKind.STRING, 6_402),
                 field(GENERATED_PRESET, "library", ManifestValueKind.STRING, 6_403),
