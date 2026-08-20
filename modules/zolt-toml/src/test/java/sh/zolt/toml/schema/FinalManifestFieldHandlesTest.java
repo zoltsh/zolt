@@ -75,15 +75,39 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
+    void dependencyHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestDependencyFields.fields(),
+                List.of(
+                        field("dependencies.<coordinate>", 5_001),
+                        field("dependencies.api.<coordinate>", 5_011),
+                        field("dependencies.runtime.<coordinate>", 5_021),
+                        field("dependencies.provided.<coordinate>", 5_031),
+                        field("dependencies.dev.<coordinate>", 5_041),
+                        field("dependencies.test.<coordinate>", 5_051),
+                        field("dependencies.processor.<coordinate>", 5_061),
+                        field("dependencies.test-processor.<coordinate>", 5_071),
+                        field("dependencies.constraints.<coordinate>", 5_081),
+                        field("dependencies.policy.conflicts", 5_091),
+                        field("dependencies.policy.deny", 5_092),
+                        field("dependencies.policy.licenses.allow", 5_101),
+                        field("dependencies.policy.licenses.deny", 5_102),
+                        field("dependencies.policy.licenses.unknown", 5_103),
+                        field("dependencies.license-exceptions.<coordinate>.allow", 5_111),
+                        field("dependencies.license-exceptions.<coordinate>.version", 5_112),
+                        field("dependencies.license-exceptions.<coordinate>.reason", 5_113)));
+    }
+
+    @Test
     void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 5_000)
+                .filter(field -> field.canonicalOrder() < 6_000)
                 .toList();
 
-        assertEquals(42, handles.size());
-        assertEquals(42, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(42, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(59, handles.size());
+        assertEquals(59, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(59, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -106,6 +130,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestIdentityFields.fields());
         handles.addAll(FinalManifestToolchainFields.fields());
         handles.addAll(FinalManifestSharedFields.fields());
+        handles.addAll(FinalManifestDependencyFields.fields());
         return List.copyOf(handles);
     }
 

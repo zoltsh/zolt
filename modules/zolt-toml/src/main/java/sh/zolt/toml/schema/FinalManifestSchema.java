@@ -31,60 +31,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestIdentityFields.fields());
         fields.addAll(FinalManifestToolchainFields.fields());
         fields.addAll(FinalManifestSharedFields.fields());
+        fields.addAll(FinalManifestDependencyFields.fields());
         fields.addAll(List.of(
-                mutableMapEntry(
-                        DEPENDENCIES,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_001),
-                mutableMapEntry(
-                        DEPENDENCIES_API,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_011),
-                mutableMapEntry(
-                        DEPENDENCIES_RUNTIME,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_021),
-                mutableMapEntry(
-                        DEPENDENCIES_PROVIDED,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_031),
-                mutableMapEntry(
-                        DEPENDENCIES_DEV,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_041),
-                mutableMapEntry(
-                        DEPENDENCIES_TEST,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_051),
-                mutableMapEntry(
-                        DEPENDENCIES_PROCESSOR,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_061),
-                mutableMapEntry(
-                        DEPENDENCIES_TEST_PROCESSOR,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_071),
-                mutableMapEntry(
-                        DEPENDENCY_CONSTRAINTS,
-                        "<coordinate>",
-                        ManifestValueKind.STRING_OR_INLINE_TABLE,
-                        5_081),
-                field(DEPENDENCY_POLICY, "conflicts", ManifestValueKind.STRING, 5_091),
-                field(DEPENDENCY_POLICY, "deny", ManifestValueKind.INLINE_TABLE_ARRAY, 5_092),
-                field(DEPENDENCY_LICENSE_POLICY, "allow", ManifestValueKind.STRING_ARRAY, 5_101),
-                field(DEPENDENCY_LICENSE_POLICY, "deny", ManifestValueKind.STRING_ARRAY, 5_102),
-                field(DEPENDENCY_LICENSE_POLICY, "unknown", ManifestValueKind.STRING, 5_103),
-                field(DEPENDENCY_LICENSE_EXCEPTION, "allow", ManifestValueKind.STRING_ARRAY, 5_111),
-                field(DEPENDENCY_LICENSE_EXCEPTION, "version", ManifestValueKind.STRING, 5_112),
-                field(DEPENDENCY_LICENSE_EXCEPTION, "reason", ManifestValueKind.STRING, 5_113),
                 field(BUILD, "sources", ManifestValueKind.STRING_ARRAY, 6_001),
                 field(BUILD_OUTPUT, "root", ManifestValueKind.STRING, 6_011),
                 field(BUILD_OUTPUT, "main", ManifestValueKind.STRING, 6_012),
