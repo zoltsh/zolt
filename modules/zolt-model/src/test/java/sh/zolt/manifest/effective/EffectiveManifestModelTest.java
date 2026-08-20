@@ -40,11 +40,11 @@ import sh.zolt.project.toolchain.ToolchainPolicy;
 
 final class EffectiveManifestModelTest {
     private static final ManifestSource ROOT_GROUP =
-            new ManifestSource("zolt.toml", "workspace.project.group");
+            new ManifestSource("zolt.toml", List.of("workspace", "project", "group"));
     private static final ManifestSource MEMBER_NAME =
-            new ManifestSource("modules/core/zolt.toml", "project.name");
+            new ManifestSource("modules/core/zolt.toml", List.of("project", "name"));
     private static final ManifestSource MEMBER_VERSION =
-            new ManifestSource("modules/core/zolt.toml", "project.version");
+            new ManifestSource("modules/core/zolt.toml", List.of("project", "version"));
 
     @Test
     void retainsPerFieldIdentityAndCoverageProvenance() {
@@ -54,12 +54,12 @@ final class EffectiveManifestModelTest {
                 EffectiveValue.inherited(new ProjectGroup("com.example"), ROOT_GROUP),
                 Optional.of(EffectiveValue.inherited(
                         new JavaFeatureRelease(21),
-                        new ManifestSource("zolt.toml", "workspace.project.java"))),
+                        new ManifestSource("zolt.toml", List.of("workspace", "project", "java")))),
                 Optional.empty());
         EffectiveCoverage coverage = new EffectiveCoverage(
                 Optional.of(EffectiveValue.inherited(
                         new CoveragePercentage(88),
-                        new ManifestSource("zolt.toml", "coverage.line"))),
+                        new ManifestSource("zolt.toml", List.of("coverage", "line")))),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -78,16 +78,16 @@ final class EffectiveManifestModelTest {
                 new RepositoryUrl("https://repo.example.test/maven"));
         Map<LocalId, EffectiveValue<DependencyRepository>> named = new HashMap<>();
         named.put(internal, EffectiveValue.authored(
-                repository, new ManifestSource("zolt.toml", "repositories.internal")));
+                repository, new ManifestSource("zolt.toml", List.of("repositories", "internal"))));
         List<LocalId> order = new ArrayList<>(List.of(internal));
 
         EffectiveDependencyRepositories repositories = new EffectiveDependencyRepositories(
                 EffectiveValue.authored(
                         EffectiveCentralRepository.disabled(),
-                        new ManifestSource("zolt.toml", "repositories.central")),
+                        new ManifestSource("zolt.toml", List.of("repositories", "central"))),
                 named,
                 EffectiveValue.authored(
-                        order, new ManifestSource("zolt.toml", "repositories.order")));
+                        order, new ManifestSource("zolt.toml", List.of("repositories", "order"))));
         named.clear();
         order.clear();
 
@@ -114,7 +114,7 @@ final class EffectiveManifestModelTest {
                 EffectiveValue.authored(
                         DependencyRepository.unauthenticated(
                                 new RepositoryUrl("https://repo.example.test/maven")),
-                        new ManifestSource("zolt.toml", "repositories.internal")));
+                        new ManifestSource("zolt.toml", List.of("repositories", "internal"))));
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -134,21 +134,23 @@ final class EffectiveManifestModelTest {
         Map<LocalId, EffectiveValue<VersionAliasValue>> versions = new HashMap<>();
         versions.put(alias, EffectiveValue.authored(
                 new VersionAliasValue("1.0.0"),
-                new ManifestSource("modules/core/zolt.toml", "versions.library")));
+                new ManifestSource("modules/core/zolt.toml", List.of("versions", "library"))));
         Map<LocalId, EffectiveValue<AuthoredTask>> tasks = new HashMap<>();
         tasks.put(new LocalId("audit"), EffectiveValue.inherited(
                 new AuthoredTask(Optional.empty(), List.of("audit.sh"), Optional.empty(), Map.of()),
-                new ManifestSource("zolt.toml", "tasks.audit")));
+                new ManifestSource("zolt.toml", List.of("tasks", "audit"))));
         Set<JavaFeature> features = new HashSet<>(Set.of(JavaFeature.NATIVE_IMAGE));
 
         EffectiveJavaRuntime.Requested mainJava = new EffectiveJavaRuntime.Requested(
                 EffectiveValue.authored(
                         new JavaFeatureRelease(21),
-                        new ManifestSource("modules/core/zolt.toml", "toolchain.java.version")),
+                        new ManifestSource(
+                                "modules/core/zolt.toml", List.of("toolchain", "java", "version"))),
                 EffectiveValue.builtIn(JavaDistribution.TEMURIN),
                 EffectiveValue.authored(
                         features,
-                        new ManifestSource("modules/core/zolt.toml", "toolchain.java.features")),
+                        new ManifestSource(
+                                "modules/core/zolt.toml", List.of("toolchain", "java", "features"))),
                 EffectiveValue.builtIn(ToolchainPolicy.PREFER_MANAGED));
         EffectiveSharedConfiguration shared = new EffectiveSharedConfiguration(
                 versions,
@@ -178,13 +180,13 @@ final class EffectiveManifestModelTest {
         EffectiveProjectIdentity identity = new EffectiveProjectIdentity(
                 EffectiveValue.authored(
                         new ProjectName("catalog"),
-                        new ManifestSource("zolt.toml", "project.name")),
+                        new ManifestSource("zolt.toml", List.of("project", "name"))),
                 EffectiveValue.authored(
                         new ProjectVersion("1.0.0"),
-                        new ManifestSource("zolt.toml", "project.version")),
+                        new ManifestSource("zolt.toml", List.of("project", "version"))),
                 EffectiveValue.authored(
                         new ProjectGroup("com.example"),
-                        new ManifestSource("zolt.toml", "project.group")),
+                        new ManifestSource("zolt.toml", List.of("project", "group"))),
                 Optional.empty(),
                 Optional.empty());
         EffectiveToolchains toolchains = EffectiveToolchains.withoutJava(Optional.empty());
@@ -221,7 +223,9 @@ final class EffectiveManifestModelTest {
                         Optional.of(new EffectiveTestJavaRuntime.Requested(
                                 EffectiveValue.authored(
                                         new JavaFeatureRelease(21),
-                                        new ManifestSource("zolt.toml", "toolchain.java.test.version")),
+                                        new ManifestSource(
+                                                "zolt.toml",
+                                                List.of("toolchain", "java", "test", "version"))),
                                 EffectiveValue.builtIn(JavaDistribution.TEMURIN),
                                 EffectiveValue.builtIn(ToolchainPolicy.PREFER_MANAGED)))));
         assertThrows(
@@ -231,7 +235,7 @@ final class EffectiveManifestModelTest {
                         Optional.of(new EffectiveJavaRuntime.System(
                                 EffectiveValue.authored(
                                         new JavaFeatureRelease(21),
-                                        new ManifestSource("zolt.toml", "project.java")))),
+                                        new ManifestSource("zolt.toml", List.of("project", "java"))))),
                         Optional.empty()));
         assertThrows(
                 NullPointerException.class,

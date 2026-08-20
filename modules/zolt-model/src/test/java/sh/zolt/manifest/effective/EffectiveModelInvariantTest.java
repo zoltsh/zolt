@@ -32,22 +32,22 @@ import sh.zolt.project.toolchain.JavaFeatureRelease;
 
 final class EffectiveModelInvariantTest {
     private static final ManifestSource PROJECT =
-            new ManifestSource("modules/core/zolt.toml", "project.name");
+            new ManifestSource("modules/core/zolt.toml", List.of("project", "name"));
     private static final ManifestSource ROOT =
-            new ManifestSource("zolt.toml", "workspace.project.group");
+            new ManifestSource("zolt.toml", List.of("workspace", "project", "group"));
 
     @Test
     void enforcesProjectIdentityProvenanceDomains() {
         EffectiveValue<ProjectName> name =
                 EffectiveValue.authored(new ProjectName("core"), PROJECT);
         EffectiveValue<ProjectVersion> version = EffectiveValue.authored(
-                new ProjectVersion("1.0.0"), source("project.version"));
+                new ProjectVersion("1.0.0"), source(List.of("project", "version")));
         EffectiveValue<ProjectGroup> group =
                 EffectiveValue.inherited(new ProjectGroup("com.example"), ROOT);
         EffectiveValue<JavaFeatureRelease> javaRelease = EffectiveValue.authored(
-                new JavaFeatureRelease(21), source("project.java"));
+                new JavaFeatureRelease(21), source(List.of("project", "java")));
         EffectiveValue<ProjectLicense> license = EffectiveValue.authored(
-                new ProjectLicense.Identifier("Apache-2.0"), source("project.license"));
+                new ProjectLicense.Identifier("Apache-2.0"), source(List.of("project", "license")));
 
         assertDoesNotThrow(() -> new EffectiveProjectIdentity(
                 name, version, group, Optional.of(javaRelease), Optional.of(license)));
@@ -137,7 +137,7 @@ final class EffectiveModelInvariantTest {
     @Test
     void acceptsInheritedOriginsForEverySharedAuthoredDomain() {
         LocalId entry = new LocalId("entry");
-        ManifestSource source = new ManifestSource("zolt.toml", "versions.entry");
+        ManifestSource source = new ManifestSource("zolt.toml", List.of("versions", "entry"));
         EffectiveDependencyRepositories repositories = new EffectiveDependencyRepositories(
                 builtInCentral(),
                 Map.of(
@@ -145,7 +145,7 @@ final class EffectiveModelInvariantTest {
                         EffectiveValue.inherited(
                                 DependencyRepository.unauthenticated(
                                         new RepositoryUrl("https://repo.example.test/maven")),
-                                new ManifestSource("zolt.toml", "repositories.entry"))),
+                                new ManifestSource("zolt.toml", List.of("repositories", "entry")))),
                 EffectiveValue.builtIn(List.of(entry, new LocalId("central"))));
         EffectiveCommands commands = new EffectiveCommands(
                 Map.of(
@@ -153,7 +153,7 @@ final class EffectiveModelInvariantTest {
                         EffectiveValue.inherited(
                                 new AuthoredTask(
                                         Optional.empty(), List.of("audit.sh"), Optional.empty(), Map.of()),
-                                new ManifestSource("zolt.toml", "tasks.entry"))),
+                                new ManifestSource("zolt.toml", List.of("tasks", "entry")))),
                 Map.of());
 
         assertDoesNotThrow(() -> new EffectiveSharedConfiguration(
@@ -164,25 +164,26 @@ final class EffectiveModelInvariantTest {
                         EffectiveValue.inherited(
                                 new RepositoryCredential.BearerToken(
                                         new EnvironmentVariableName("TOKEN")),
-                                new ManifestSource("zolt.toml", "credentials.entry"))),
+                                new ManifestSource("zolt.toml", List.of("credentials", "entry")))),
                 Map.of(
                         new DependencyCoordinate("com.example:platform"),
                         EffectiveValue.inherited(
                                 new PlatformSelector.FixedVersion("1.0.0"),
-                                new ManifestSource("zolt.toml", "platforms.com.example:platform"))),
+                                new ManifestSource(
+                                        "zolt.toml", List.of("platforms", "com.example:platform")))),
                 EffectiveToolchains.withoutJava(Optional.of(EffectiveValue.inherited(
                         new ZoltVersionPin("0.1.0"),
-                        new ManifestSource("zolt.toml", "toolchain.zolt.version")))),
+                        new ManifestSource("zolt.toml", List.of("toolchain", "zolt", "version"))))),
                 new EffectiveCoverage(
                         Optional.of(EffectiveValue.inherited(
                                 new CoveragePercentage(80),
-                                new ManifestSource("zolt.toml", "coverage.line"))),
+                                new ManifestSource("zolt.toml", List.of("coverage", "line")))),
                         Optional.empty(), Optional.empty(), Optional.empty()),
                 commands));
         assertDoesNotThrow(() -> new WorkspaceContext(
                 EffectiveValue.inherited(
                         new LocalId("workspace"),
-                        new ManifestSource("zolt.toml", "workspace.name")),
+                        new ManifestSource("zolt.toml", List.of("workspace", "name"))),
                 new WorkspaceMemberPath("modules/core")));
     }
 
@@ -246,7 +247,7 @@ final class EffectiveModelInvariantTest {
         return EffectiveValue.authored(
                 DependencyRepository.unauthenticated(
                         new RepositoryUrl("https://" + id + ".example.test/maven")),
-                source("repositories." + id));
+                source(List.of("repositories", id)));
     }
 
     private static EffectiveDependencyRepositories defaultRepositories() {
@@ -256,7 +257,7 @@ final class EffectiveModelInvariantTest {
                 EffectiveValue.builtIn(List.of(new LocalId("central"))));
     }
 
-    private static ManifestSource source(String field) {
-        return new ManifestSource("modules/core/zolt.toml", field);
+    private static ManifestSource source(List<String> fieldPath) {
+        return new ManifestSource("modules/core/zolt.toml", fieldPath);
     }
 }

@@ -34,7 +34,7 @@ import sh.zolt.project.toolchain.ToolchainPolicy;
 
 final class EffectiveJavaRuntimeInvariantTest {
     private static final ManifestSource PROJECT =
-            new ManifestSource("modules/core/zolt.toml", "project.name");
+            new ManifestSource("modules/core/zolt.toml", List.of("project", "name"));
 
     @Test
     void separatesFeatureBearingMainFromFeatureFreeTestRuntime() {
@@ -158,9 +158,12 @@ final class EffectiveJavaRuntimeInvariantTest {
     private static EffectiveProjectIdentity identity(Optional<JavaFeatureRelease> javaRelease) {
         return new EffectiveProjectIdentity(
                 EffectiveValue.authored(new ProjectName("core"), PROJECT),
-                EffectiveValue.authored(new ProjectVersion("1.0.0"), source("project.version")),
-                EffectiveValue.authored(new ProjectGroup("com.example"), source("project.group")),
-                javaRelease.map(value -> EffectiveValue.authored(value, source("project.java"))),
+                EffectiveValue.authored(
+                        new ProjectVersion("1.0.0"), source(List.of("project", "version"))),
+                EffectiveValue.authored(
+                        new ProjectGroup("com.example"), source(List.of("project", "group"))),
+                javaRelease.map(value ->
+                        EffectiveValue.authored(value, source(List.of("project", "java")))),
                 Optional.empty());
     }
 
@@ -175,7 +178,7 @@ final class EffectiveJavaRuntimeInvariantTest {
     private static EffectiveJavaRuntime.System systemMain(int version) {
         return new EffectiveJavaRuntime.System(
                 EffectiveValue.authored(
-                        new JavaFeatureRelease(version), source("project.java")));
+                        new JavaFeatureRelease(version), source(List.of("project", "java"))));
     }
 
     private static EffectiveTestJavaRuntime.Requested requestedTest(int version) {
@@ -236,7 +239,7 @@ final class EffectiveJavaRuntimeInvariantTest {
                 Optional.empty());
     }
 
-    private static ManifestSource source(String field) {
-        return new ManifestSource("modules/core/zolt.toml", field);
+    private static ManifestSource source(List<String> fieldPath) {
+        return new ManifestSource("modules/core/zolt.toml", fieldPath);
     }
 }

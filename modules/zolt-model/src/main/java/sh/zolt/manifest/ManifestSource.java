@@ -1,20 +1,28 @@
 package sh.zolt.manifest;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-/** The portable manifest and canonical field that supplied one effective value. */
-public record ManifestSource(String manifestPath, String fieldPath) {
+/** The portable manifest and structural canonical field path that supplied one effective value. */
+public record ManifestSource(String manifestPath, List<String> fieldPath) {
     private static final Pattern DRIVE_PREFIX = Pattern.compile("^[A-Za-z]:.*");
 
     public ManifestSource {
         Objects.requireNonNull(manifestPath, "Manifest source path must not be null.");
-        Objects.requireNonNull(fieldPath, "Manifest source field must not be null.");
+        Objects.requireNonNull(fieldPath, "Manifest source field path must not be null.");
         validateManifestPath(manifestPath);
-        if (fieldPath.isBlank()) {
-            throw new IllegalArgumentException("Manifest source field must not be blank.");
+        if (fieldPath.isEmpty()) {
+            throw new IllegalArgumentException("Manifest source field path must not be empty.");
         }
-        rejectControls(fieldPath, "Manifest source field");
+        for (String segment : fieldPath) {
+            Objects.requireNonNull(segment, "Manifest source field path segment must not be null.");
+            if (segment.isEmpty()) {
+                throw new IllegalArgumentException("Manifest source field path segment must not be empty.");
+            }
+            rejectControls(segment, "Manifest source field path segment");
+        }
+        fieldPath = List.copyOf(fieldPath);
     }
 
     private static void validateManifestPath(String path) {
