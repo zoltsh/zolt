@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import sh.zolt.manifest.authored.AuthoredCredentials;
 
 final class RepositoryCredentialTest {
     @Test

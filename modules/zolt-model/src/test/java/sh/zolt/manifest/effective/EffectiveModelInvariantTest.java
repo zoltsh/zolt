@@ -9,9 +9,6 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import sh.zolt.manifest.AuthoredAlias;
-import sh.zolt.manifest.AuthoredDependencyRepositories;
-import sh.zolt.manifest.AuthoredTask;
 import sh.zolt.manifest.CoveragePercentage;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.DependencyRepository;
@@ -28,6 +25,9 @@ import sh.zolt.manifest.RepositoryUrl;
 import sh.zolt.manifest.VersionAliasValue;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.ZoltVersionPin;
+import sh.zolt.manifest.authored.AuthoredAlias;
+import sh.zolt.manifest.authored.AuthoredDependencyRepositories;
+import sh.zolt.manifest.authored.AuthoredTask;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 
 final class EffectiveModelInvariantTest {

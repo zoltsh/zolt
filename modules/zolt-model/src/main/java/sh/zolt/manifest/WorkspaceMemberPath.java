@@ -27,7 +27,8 @@ public record WorkspaceMemberPath(String value) implements Comparable<WorkspaceM
         ManifestModelValues.rejectControlCharacters(value, "Workspace member path");
     }
 
-    String portabilityKey() {
+    /** Cross-package model support for pinned Unicode portability comparisons. */
+    public String portabilityKey() {
         return Unicode17Portability.key(value);
     }
 

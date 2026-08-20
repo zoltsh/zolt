@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import sh.zolt.manifest.AuthoredDependencyRepositories;
 import sh.zolt.manifest.DependencyRepository;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestModelValues;
+import sh.zolt.manifest.authored.AuthoredDependencyRepositories;
 
 /** Complete effective dependency-repository universe and its exact lookup order. */
 public record EffectiveDependencyRepositories(

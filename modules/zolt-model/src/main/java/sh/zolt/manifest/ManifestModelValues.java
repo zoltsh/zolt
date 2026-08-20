@@ -19,7 +19,7 @@ import java.util.function.Function;
  * same immutable-copy semantics. It is not a manifest-domain API.
  */
 public final class ManifestModelValues {
-    static final Comparator<String> CODE_POINT_ORDER = ManifestModelValues::compareCodePoints;
+    public static final Comparator<String> CODE_POINT_ORDER = ManifestModelValues::compareCodePoints;
 
     private ManifestModelValues() {}
 
@@ -31,7 +31,7 @@ public final class ManifestModelValues {
         return List.copyOf(values);
     }
 
-    static <T extends Comparable<? super T>> List<T> sortedDistinctList(
+    public static <T extends Comparable<? super T>> List<T> sortedDistinctList(
             List<T> values, String label) {
         List<T> copy = new ArrayList<>(immutableList(values, label));
         Set<T> seen = new HashSet<>();
@@ -63,7 +63,7 @@ public final class ManifestModelValues {
         return Collections.unmodifiableMap(copy);
     }
 
-    static void rejectDuplicates(List<?> values, String label) {
+    public static void rejectDuplicates(List<?> values, String label) {
         HashSet<Object> seen = new HashSet<>();
         for (Object value : values) {
             if (!seen.add(value)) {
@@ -72,7 +72,7 @@ public final class ManifestModelValues {
         }
     }
 
-    static void rejectEnvironmentCaseCollisions(
+    public static void rejectEnvironmentCaseCollisions(
             Iterable<EnvironmentVariableName> names, String context) {
         Map<String, EnvironmentVariableName> spellingByFoldedName = new HashMap<>();
         for (EnvironmentVariableName name : names) {
@@ -86,21 +86,21 @@ public final class ManifestModelValues {
         }
     }
 
-    static <T> List<T> sortedByString(
+    public static <T> List<T> sortedByString(
             List<T> values, Function<T, String> value, String label) {
         ArrayList<T> copy = new ArrayList<>(immutableList(values, label));
         copy.sort((left, right) -> CODE_POINT_ORDER.compare(value.apply(left), value.apply(right)));
         return List.copyOf(copy);
     }
 
-    static void requireNonBlank(String value, String label) {
+    public static void requireNonBlank(String value, String label) {
         Objects.requireNonNull(value, label + " must not be null.");
         if (value.isBlank()) {
             throw new IllegalArgumentException(label + " must not be blank.");
         }
     }
 
-    static void rejectControlCharacters(String value, String label) {
+    public static void rejectControlCharacters(String value, String label) {
         for (int codePoint : value.codePoints().toArray()) {
             if (codePoint == 0 || Character.isISOControl(codePoint)) {
                 throw new IllegalArgumentException(label + " must not contain NUL or control characters.");
