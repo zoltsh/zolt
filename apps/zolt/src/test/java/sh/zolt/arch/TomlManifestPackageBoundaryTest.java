@@ -87,6 +87,10 @@ final class TomlManifestPackageBoundaryTest {
                 import sh.zolt.manifest.authored.AuthoredManifest;
                 final class GoodDecoder { TomlTable input; AuthoredManifest output; }
                 """);
+        write(tomlSources.resolve("manifest/GoodNested.java"), """
+                package sh.zolt.toml.manifest;
+                final class GoodNested { LocalIndex.Entry value; }
+                """);
         write(tomlSources.resolve("manifest/PublicDocumentation.java"), """
                 package sh.zolt.toml.manifest;
                 /** Public API does not expose org.tomlj.TomlTable. */
@@ -96,6 +100,7 @@ final class TomlManifestPackageBoundaryTest {
                 """);
         Map<String, String> typeOwners = Map.of(
                 "sh.zolt.cli.Command", "zolt",
+                "sh.zolt.toml.manifest.LocalIndex", "zolt-toml",
                 "sh.zolt.manifest.authored.AuthoredManifest", "zolt-model");
 
         List<Violation> violations = violations(tomlSources, typeOwners);
@@ -348,6 +353,11 @@ final class TomlManifestPackageBoundaryTest {
                 || isWithin(name, SCHEMA_PACKAGE)
                 || isWithin(name, SYNTAX_PACKAGE)
                 || isWithin(name, ROOT_PACKAGE + ".ZoltConfigException")) {
+            return true;
+        }
+        if (WorkspaceDependencyDeclarations.resolveOwner(MANIFEST_PACKAGE + "." + name, typeOwners)
+                .filter("zolt-toml"::equals)
+                .isPresent()) {
             return true;
         }
         if (!isWithin(name, "sh.zolt")) {
