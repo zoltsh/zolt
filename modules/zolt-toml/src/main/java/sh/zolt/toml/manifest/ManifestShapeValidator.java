@@ -341,10 +341,9 @@ final class ManifestShapeValidator {
         context.diagnostics.add(source, message);
     }
 
+    // Stable sorting retains TOML traversal order when inline descendants share an ancestor span.
     private static final Comparator<ValidatedManifestSection> NODE_ORDER = Comparator
-            .comparingInt((ValidatedManifestSection value) -> value.source().span().start())
-            .thenComparing(ValidatedManifestSection::path);
+            .comparingInt(value -> value.source().span().start());
     private static final Comparator<ValidatedManifestField> FIELD_ORDER = Comparator
-            .comparingInt((ValidatedManifestField value) -> value.source().span().start())
-            .thenComparing(ValidatedManifestField::path);
+            .comparingInt(value -> value.source().span().start());
 }

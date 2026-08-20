@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.toml.schema.FinalManifestIdentityFields;
 import sh.zolt.toml.schema.FinalManifestPaths;
+import sh.zolt.toml.schema.FinalManifestResourceFields;
 import sh.zolt.toml.schema.FinalManifestSchema;
 import sh.zolt.toml.schema.FinalManifestSharedFields;
 import sh.zolt.toml.schema.ManifestField;
@@ -83,6 +84,30 @@ final class ManifestDecodeIndexTest {
 
         ManifestPath clone = new ManifestPath(FinalManifestPaths.REPOSITORY.segments());
         assertThrows(IllegalArgumentException.class, () -> index.sectionEntries(clone));
+    }
+
+    @Test
+    void keepsInlineEntriesAndNamedSectionsInAuthoredOrderAcrossSharedSourceSpans() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                resources = { tokens = { zeta = { value = "z" }, alpha = { value = "a" } } }
+                test = { suites = { zeta = { tags = ["z"] }, alpha = { tags = ["a"] } } }
+                """);
+
+        List<ManifestDecodeIndex.Entry> tokens =
+                index.entries(FinalManifestResourceFields.RESOURCES_TOKENS_ENTRY);
+        assertEquals(
+                List.of("zeta", "alpha"),
+                tokens.stream().map(ManifestDecodeIndex.Entry::key).toList());
+        assertTrue(tokens.stream().allMatch(entry ->
+                entry.field().source().origin() == ManifestShapeOrigin.INLINE_PARENT));
+
+        List<ManifestDecodeIndex.SectionEntry> suites =
+                index.sectionEntries(FinalManifestPaths.TEST_SUITE);
+        assertEquals(
+                List.of("zeta", "alpha"),
+                suites.stream().map(ManifestDecodeIndex.SectionEntry::key).toList());
+        assertTrue(suites.stream().allMatch(entry ->
+                entry.section().source().origin() == ManifestShapeOrigin.INLINE_PARENT));
     }
 
     @Test
