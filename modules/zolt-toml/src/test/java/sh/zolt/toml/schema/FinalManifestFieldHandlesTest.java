@@ -238,15 +238,57 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
+    void generatedTestHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestGeneratedTestFields.fields(),
+                List.of(
+                        field("generated.test.<id>.kind", 6_601),
+                        field("generated.test.<id>.language", 6_602),
+                        field("generated.test.<id>.tool", 6_603),
+                        field("generated.test.<id>.mainClass", 6_604),
+                        field("generated.test.<id>.args", 6_605),
+                        field("generated.test.<id>.input", 6_606),
+                        field("generated.test.<id>.inputs", 6_607),
+                        field("generated.test.<id>.output", 6_608),
+                        field("generated.test.<id>.produces", 6_609),
+                        field("generated.test.<id>.into", 6_610),
+                        field("generated.test.<id>.preset", 6_611),
+                        field("generated.test.<id>.generator", 6_612),
+                        field("generated.test.<id>.library", 6_613),
+                        field("generated.test.<id>.apiPackage", 6_614),
+                        field("generated.test.<id>.modelPackage", 6_615),
+                        field("generated.test.<id>.invokerPackage", 6_616),
+                        field("generated.test.<id>.config", 6_617),
+                        field("generated.test.<id>.templateDir", 6_618),
+                        field("generated.test.<id>.validateSpec", 6_619),
+                        field("generated.test.<id>.options", 6_620),
+                        field("generated.test.<id>.additionalProperties", 6_621),
+                        field("generated.test.<id>.configOptions", 6_622),
+                        field("generated.test.<id>.globalProperties", 6_623),
+                        field("generated.test.<id>.typeMappings", 6_624),
+                        field("generated.test.<id>.importMappings", 6_625),
+                        field("generated.test.<id>.javaPackage", 6_626),
+                        field("generated.test.<id>.grpc", 6_627),
+                        field("generated.test.<id>.cache", 6_628),
+                        field("generated.test.<id>.cwd", 6_629),
+                        field("generated.test.<id>.env", 6_630),
+                        field("generated.test.<id>.secretEnv", 6_631),
+                        field("generated.test.<id>.inheritEnv", 6_632),
+                        field("generated.test.<id>.timeoutSeconds", 6_633),
+                        field("generated.test.<id>.required", 6_634),
+                        field("generated.test.<id>.clean", 6_635)));
+    }
+
+    @Test
     void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 6_600)
+                .filter(field -> field.canonicalOrder() < 6_700)
                 .toList();
 
-        assertEquals(146, handles.size());
-        assertEquals(146, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(146, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(181, handles.size());
+        assertEquals(181, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(181, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -276,6 +318,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestGeneratedToolFields.fields());
         handles.addAll(FinalManifestGeneratedPresetFields.fields());
         handles.addAll(FinalManifestGeneratedMainFields.fields());
+        handles.addAll(FinalManifestGeneratedTestFields.fields());
         return List.copyOf(handles);
     }
 

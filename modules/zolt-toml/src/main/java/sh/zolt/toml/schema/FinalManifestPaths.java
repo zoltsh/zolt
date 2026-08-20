@@ -47,8 +47,8 @@ public final class FinalManifestPaths {
     public static final ManifestPath GENERATED_PRESET = GENERATED_PRESETS.child("<id>");
     public static final ManifestPath GENERATED_MAIN_STEPS = ManifestPath.of("generated", "main");
     public static final ManifestPath GENERATED_MAIN = GENERATED_MAIN_STEPS.child("<id>");
-    static final ManifestPath GENERATED_TEST_STEPS = ManifestPath.of("generated", "test");
-    static final ManifestPath GENERATED_TEST = GENERATED_TEST_STEPS.child("<id>");
+    public static final ManifestPath GENERATED_TEST_STEPS = ManifestPath.of("generated", "test");
+    public static final ManifestPath GENERATED_TEST = GENERATED_TEST_STEPS.child("<id>");
     static final ManifestPath TEST_SOURCES = ManifestPath.of("test", "sources");
     static final ManifestPath TEST_RUNTIME = ManifestPath.of("test", "runtime");
     static final ManifestPath TEST_INTEGRATION = ManifestPath.of("test", "integration");
