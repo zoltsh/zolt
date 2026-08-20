@@ -67,7 +67,7 @@ final class FinalManifestSections {
                         FinalManifestPaths.GENERATED_TOOL,
                         SectionKind.NAMED_ITEM,
                         6_300,
-                        Set.of("openapi", "project", "protobuf")),
+                        Set.of("project")),
                 section(FinalManifestPaths.GENERATED_PRESETS, SectionKind.COLLECTION, 6_390, Set.of()),
                 section(FinalManifestPaths.GENERATED_PRESET, SectionKind.NAMED_ITEM, 6_400, Set.of()),
                 section(FinalManifestPaths.GENERATED_MAIN_STEPS, SectionKind.COLLECTION, 6_490, Set.of()),

@@ -96,6 +96,23 @@ final class ManifestShapeValueValidatorTest {
     }
 
     @ParameterizedTest
+    @MethodSource("builtInGeneratedToolOverrides")
+    void acceptsBuiltInGeneratedToolOverridesAcrossHeadersDottedAssignmentsAndInlineParents(
+            String source) {
+        validate(source);
+    }
+
+    static Stream<String> builtInGeneratedToolOverrides() {
+        return Stream.of(
+                "[generated.tools.openapi]\ncoordinate = \"org.openapitools:openapi-generator-cli\"\n",
+                "generated.tools.openapi.coordinate = \"org.openapitools:openapi-generator-cli\"\n",
+                "generated = { tools = { openapi = { coordinate = \"org.openapitools:openapi-generator-cli\" } } }\n",
+                "[generated.tools.protobuf]\nprotocCoordinate = \"com.google.protobuf:protoc\"\n",
+                "generated.tools.protobuf.protocCoordinate = \"com.google.protobuf:protoc\"\n",
+                "generated = { tools = { protobuf = { protocCoordinate = \"com.google.protobuf:protoc\" } } }\n");
+    }
+
+    @ParameterizedTest
     @MethodSource("reservedIds")
     void rejectsReservedIdsAcrossHeadersDottedAssignmentsAndInlineParents(String source) {
         assertFailureContains(source, "is reserved");
@@ -105,8 +122,9 @@ final class ManifestShapeValueValidatorTest {
         return Stream.of(
                 "[repositories.central]\nurl = \"https://repo.example\"\n",
                 "[repositories.order]\nurl = \"https://repo.example\"\n",
-                "generated.tools.openapi.kind = \"openapi\"\n",
-                "generated = { tools = { protobuf = { kind = \"protobuf\" } } }\n",
+                "[generated.tools.project]\nkind = \"jvm\"\n",
+                "generated.tools.project.kind = \"jvm\"\n",
+                "generated = { tools = { project = { kind = \"jvm\" } } }\n",
                 "tasks.build.run = [\"test\"]\n",
                 "tasks = { publish = { run = [\"check\"] } }\n",
                 "aliases.build = [\"test\"]\n",

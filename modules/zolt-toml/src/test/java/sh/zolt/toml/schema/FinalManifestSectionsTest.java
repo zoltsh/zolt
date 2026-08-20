@@ -243,9 +243,7 @@ final class FinalManifestSectionsTest extends FinalManifestSchemaTestSupport {
         assertEquals(Set.of("metadata", "output"), section("build").reservedChildren());
         assertEquals(Set.of("generated", "test"), section("compiler").reservedChildren());
         assertEquals(Set.of("filter", "tokens"), section("resources").reservedChildren());
-        assertEquals(
-                Set.of("openapi", "project", "protobuf"),
-                section("generated.tools.<id>").reservedChildren());
+        assertEquals(Set.of("project"), section("generated.tools.<id>").reservedChildren());
         assertEquals(Set.of("all"), section("test.suites.<id>").reservedChildren());
         assertEquals(Set.of("manifest"), section("package").reservedChildren());
         assertEquals(Set.of("imports", "versions"), section("bom").reservedChildren());
@@ -295,9 +293,7 @@ final class FinalManifestSectionsTest extends FinalManifestSchemaTestSupport {
                     section(item).dynamicKeyGrammars().keySet());
         });
 
-        assertEquals(
-                Set.of("openapi", "project", "protobuf"),
-                section("generated.tools.<id>").reservedChildren());
+        assertEquals(Set.of("project"), section("generated.tools.<id>").reservedChildren());
         assertEquals(Set.of("all"), section("test.suites.<id>").reservedChildren());
         assertEquals(
                 FinalManifestSymbols.builtInCommandNames(),
