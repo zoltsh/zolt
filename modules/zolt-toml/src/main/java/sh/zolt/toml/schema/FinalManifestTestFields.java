@@ -30,8 +30,12 @@ public final class FinalManifestTestFields {
             FinalManifestPaths.TEST_SUITE, "excludeTags", ManifestValueKind.STRING_ARRAY, 6_734);
     public static final ManifestField TEST_SUITE_WORKERS = field(
             FinalManifestPaths.TEST_SUITE, "workers", ManifestValueKind.INTEGER, 6_735);
-    public static final ManifestField TEST_SUITE_LOCKS = field(
-            FinalManifestPaths.TEST_SUITE, "locks", ManifestValueKind.INLINE_TABLE_ARRAY, 6_736);
+    public static final ManifestField TEST_SUITE_LOCKS = FinalManifestFieldFactory.objectField(
+            FinalManifestPaths.TEST_SUITE,
+            "locks",
+            ManifestValueKind.INLINE_TABLE_ARRAY,
+            6_736,
+            FinalManifestObjectShapes.TEST_SUITE_LOCK);
 
     private FinalManifestTestFields() {
     }

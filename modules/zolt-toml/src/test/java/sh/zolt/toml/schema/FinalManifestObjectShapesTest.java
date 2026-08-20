@@ -153,14 +153,29 @@ final class FinalManifestObjectShapesTest {
     }
 
     @Test
-    void attachesOnlyTheSixteenActivatedFieldsToTheirExactShapes() {
+    void recordsExactClosedTestSuiteLockShape() {
+        assertEquals(
+                List.of(
+                        member("class", true, 10),
+                        member("resources", ManifestValueKind.STRING_ARRAY, true, 20)),
+                members(FinalManifestObjectShapes.TEST_SUITE_LOCK));
+        assertMemberIdentity(
+                FinalManifestObjectShapes.TEST_SUITE_LOCK,
+                List.of(
+                        FinalManifestObjectShapes.TEST_SUITE_LOCK_CLASS,
+                        FinalManifestObjectShapes.TEST_SUITE_LOCK_RESOURCES));
+        assertEquals(List.of(), FinalManifestObjectShapes.TEST_SUITE_LOCK.presenceGroups());
+    }
+
+    @Test
+    void attachesOnlyTheSeventeenActivatedFieldsToTheirExactShapes() {
         Map<String, ManifestObjectShape> attached = registry.fields().stream()
                 .filter(field -> field.objectShape().isPresent())
                 .collect(Collectors.toMap(
                         field -> field.path().toString(),
                         field -> field.objectShape().orElseThrow()));
 
-        assertEquals(16, attached.size());
+        assertEquals(17, attached.size());
         assertEquals(Set.of(
                 "workspace.project.license",
                 "project.license",
@@ -177,7 +192,8 @@ final class FinalManifestObjectShapesTest {
                 "dependencies.constraints.<coordinate>",
                 "dependencies.policy.deny",
                 "resources.tokens.<id>",
-                "generated.tools.<id>.coordinates"), attached.keySet());
+                "generated.tools.<id>.coordinates",
+                "test.suites.<id>.locks"), attached.keySet());
         assertSame(FinalManifestObjectShapes.LICENSE, attached.get("workspace.project.license"));
         assertSame(FinalManifestObjectShapes.LICENSE, attached.get("project.license"));
         assertSame(
@@ -208,6 +224,9 @@ final class FinalManifestObjectShapesTest {
         assertSame(
                 FinalManifestObjectShapes.GENERATED_ARTIFACT_REQUEST,
                 attached.get("generated.tools.<id>.coordinates"));
+        assertSame(
+                FinalManifestObjectShapes.TEST_SUITE_LOCK,
+                attached.get("test.suites.<id>.locks"));
         ManifestField tokenEntry = registry
                 .field(FinalManifestResourceFields.RESOURCES_TOKENS_ENTRY.path())
                 .orElseThrow();
@@ -235,6 +254,23 @@ final class FinalManifestObjectShapesTest {
         assertEquals(
                 Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID),
                 artifactRequests.dynamicKeyGrammars());
+        ManifestField suiteLocks = registry
+                .field(FinalManifestTestFields.TEST_SUITE_LOCKS.path())
+                .orElseThrow();
+        assertSame(FinalManifestTestFields.TEST_SUITE_LOCKS, suiteLocks);
+        assertEquals(ManifestPath.of("test", "suites", "<id>", "locks"), suiteLocks.path());
+        assertEquals(ManifestValueKind.INLINE_TABLE_ARRAY, suiteLocks.valueKind());
+        assertEquals(FormattingPolicy.DEFAULT, suiteLocks.formatting());
+        assertEquals(MutationPolicy.NONE, suiteLocks.mutation());
+        assertEquals(6_736, suiteLocks.canonicalOrder());
+        assertEquals(Optional.empty(), suiteLocks.symbolFamily());
+        assertEquals(ManifestValidationCategory.NONE, suiteLocks.validation());
+        assertEquals(
+                Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID),
+                suiteLocks.dynamicKeyGrammars());
+        assertSame(
+                FinalManifestObjectShapes.TEST_SUITE_LOCK,
+                suiteLocks.objectShape().orElseThrow());
     }
 
     private static List<Member> members(ManifestObjectShape shape) {

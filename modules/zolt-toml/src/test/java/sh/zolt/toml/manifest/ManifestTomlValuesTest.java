@@ -266,7 +266,7 @@ final class ManifestTomlValuesTest {
     }
 
     @Test
-    void rejectsNonArrayOpenArrayAndCorruptArrayEvidence() {
+    void rejectsNonArrayAndCorruptArrayEvidence() {
         ManifestDecodeIndex scalarIndex = ManifestSemanticTestSupport.index("""
                 [project]
                 name = "demo"
@@ -275,18 +275,6 @@ final class ManifestTomlValuesTest {
                 IllegalStateException.class,
                 () -> ManifestTomlValues.inlineObjectArray(
                         required(scalarIndex, FinalManifestIdentityFields.PROJECT_NAME)));
-
-        ManifestDecodeIndex openIndex = ManifestSemanticTestSupport.index("""
-                [test.suites.unit]
-                locks = [{ name = "repository" }]
-                """);
-        ManifestField openHandle = FinalManifestSchema.registry()
-                .field(ManifestPath.of("test", "suites", "<id>", "locks"))
-                .orElseThrow();
-        ValidatedManifestField open = openIndex.entries(openHandle).getFirst().field();
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> ManifestTomlValues.inlineObjectArray(open));
 
         ManifestDecodeIndex denyIndex = ManifestSemanticTestSupport.index("""
                 [dependencies.policy]

@@ -97,6 +97,12 @@ public final class FinalManifestObjectShapes {
                     ManifestObjectShape.PresenceRule.EXACTLY_ONE,
                     List.of(GENERATED_ARTIFACT_VERSION, GENERATED_ARTIFACT_VERSION_REF))));
 
+    public static final ManifestObjectMember TEST_SUITE_LOCK_CLASS = member("class", true, 10);
+    public static final ManifestObjectMember TEST_SUITE_LOCK_RESOURCES =
+            member("resources", ManifestValueKind.STRING_ARRAY, true, 20);
+    public static final ManifestObjectShape TEST_SUITE_LOCK = new ManifestObjectShape(
+            List.of(TEST_SUITE_LOCK_CLASS, TEST_SUITE_LOCK_RESOURCES), List.of());
+
     private FinalManifestObjectShapes() {
     }
 
