@@ -39,21 +39,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestGeneratedPresetFields.fields());
         fields.addAll(FinalManifestGeneratedMainFields.fields());
         fields.addAll(FinalManifestGeneratedTestFields.fields());
+        fields.addAll(FinalManifestTestFields.fields());
         fields.addAll(List.of(
-                field(TEST_SOURCES, "java", ManifestValueKind.STRING_ARRAY, 6_701),
-                field(TEST_SOURCES, "groovy", ManifestValueKind.STRING_ARRAY, 6_702),
-                field(TEST_RUNTIME, "jvmArgs", ManifestValueKind.STRING_ARRAY, 6_711),
-                field(TEST_RUNTIME, "properties", ManifestValueKind.INLINE_TABLE, 6_712),
-                field(TEST_RUNTIME, "env", ManifestValueKind.INLINE_TABLE, 6_713),
-                field(TEST_RUNTIME, "events", ManifestValueKind.STRING_ARRAY, 6_714),
-                field(TEST_INTEGRATION, "sources", ManifestValueKind.STRING_ARRAY, 6_721),
-                field(TEST_INTEGRATION, "resources", ManifestValueKind.STRING_ARRAY, 6_722),
-                field(TEST_SUITE, "classes", ManifestValueKind.STRING_ARRAY, 6_731),
-                field(TEST_SUITE, "excludeClasses", ManifestValueKind.STRING_ARRAY, 6_732),
-                field(TEST_SUITE, "tags", ManifestValueKind.STRING_ARRAY, 6_733),
-                field(TEST_SUITE, "excludeTags", ManifestValueKind.STRING_ARRAY, 6_734),
-                field(TEST_SUITE, "workers", ManifestValueKind.INTEGER, 6_735),
-                field(TEST_SUITE, "locks", ManifestValueKind.INLINE_TABLE_ARRAY, 6_736),
                 field(COVERAGE, "line", ManifestValueKind.NUMBER, 6_910),
                 field(COVERAGE, "branch", ManifestValueKind.NUMBER, 6_920),
                 field(COVERAGE, "instruction", ManifestValueKind.NUMBER, 6_930),
