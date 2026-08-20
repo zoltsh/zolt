@@ -14,8 +14,12 @@ public final class FinalManifestResourceFields {
             FinalManifestPaths.RESOURCES_FILTER, "include", ManifestValueKind.STRING_ARRAY, 6_212);
     public static final ManifestField RESOURCES_FILTER_MISSING = field(
             FinalManifestPaths.RESOURCES_FILTER, "missing", ManifestValueKind.STRING, 6_213);
-    public static final ManifestField RESOURCES_TOKENS_ENTRY = oneLineField(
-            FinalManifestPaths.RESOURCES_TOKENS, "<id>", ManifestValueKind.INLINE_TABLE, 6_221);
+    public static final ManifestField RESOURCES_TOKENS_ENTRY = oneLineObjectField(
+            FinalManifestPaths.RESOURCES_TOKENS,
+            "<id>",
+            ManifestValueKind.INLINE_TABLE,
+            6_221,
+            FinalManifestObjectShapes.RESOURCE_TOKEN);
 
     private FinalManifestResourceFields() {
     }
@@ -38,11 +42,13 @@ public final class FinalManifestResourceFields {
         return FinalManifestFieldFactory.field(section, name, kind, canonicalOrder);
     }
 
-    private static ManifestField oneLineField(
+    private static ManifestField oneLineObjectField(
             ManifestPath section,
             String name,
             ManifestValueKind kind,
-            int canonicalOrder) {
-        return FinalManifestFieldFactory.oneLineField(section, name, kind, canonicalOrder);
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return FinalManifestFieldFactory.oneLineObjectField(
+                section, name, kind, canonicalOrder, objectShape);
     }
 }

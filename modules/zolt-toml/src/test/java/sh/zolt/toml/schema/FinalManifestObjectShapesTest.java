@@ -114,7 +114,26 @@ final class FinalManifestObjectShapesTest {
     }
 
     @Test
-    void attachesOnlyTheFourteenActivatedFieldsToTheirExactShapes() {
+    void recordsExactClosedResourceTokenShape() {
+        assertEquals(
+                List.of(
+                        member("project", false, 10),
+                        member("env", false, 20),
+                        member("value", false, 30)),
+                members(FinalManifestObjectShapes.RESOURCE_TOKEN));
+        assertMemberIdentity(
+                FinalManifestObjectShapes.RESOURCE_TOKEN,
+                List.of(
+                        FinalManifestObjectShapes.RESOURCE_TOKEN_PROJECT,
+                        FinalManifestObjectShapes.RESOURCE_TOKEN_ENV,
+                        FinalManifestObjectShapes.RESOURCE_TOKEN_VALUE));
+        assertPresence(
+                FinalManifestObjectShapes.RESOURCE_TOKEN,
+                List.of("project", "env", "value"));
+    }
+
+    @Test
+    void attachesOnlyTheFifteenActivatedFieldsToTheirExactShapes() {
         Map<String, ManifestObjectShape> attached = registry.fields().stream()
                 .filter(field -> field.objectShape().isPresent())
                 .collect(Collectors.toMap(
@@ -135,7 +154,8 @@ final class FinalManifestObjectShapesTest {
                 "dependencies.processor.<coordinate>",
                 "dependencies.test-processor.<coordinate>",
                 "dependencies.constraints.<coordinate>",
-                "dependencies.policy.deny"), attached.keySet());
+                "dependencies.policy.deny",
+                "resources.tokens.<id>"), attached.keySet());
         assertSame(FinalManifestObjectShapes.LICENSE, attached.get("workspace.project.license"));
         assertSame(FinalManifestObjectShapes.LICENSE, attached.get("project.license"));
         assertSame(
@@ -160,6 +180,21 @@ final class FinalManifestObjectShapesTest {
         assertSame(
                 FinalManifestObjectShapes.DENY_ENTRY,
                 attached.get("dependencies.policy.deny"));
+        assertSame(
+                FinalManifestObjectShapes.RESOURCE_TOKEN,
+                attached.get("resources.tokens.<id>"));
+        ManifestField tokenEntry = registry
+                .field(FinalManifestResourceFields.RESOURCES_TOKENS_ENTRY.path())
+                .orElseThrow();
+        assertSame(FinalManifestResourceFields.RESOURCES_TOKENS_ENTRY, tokenEntry);
+        assertEquals(ManifestPath.of("resources", "tokens", "<id>"), tokenEntry.path());
+        assertEquals(ManifestValueKind.INLINE_TABLE, tokenEntry.valueKind());
+        assertEquals(FormattingPolicy.ONE_LINE, tokenEntry.formatting());
+        assertEquals(MutationPolicy.NONE, tokenEntry.mutation());
+        assertEquals(6_221, tokenEntry.canonicalOrder());
+        assertEquals(
+                Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID),
+                tokenEntry.dynamicKeyGrammars());
     }
 
     private static List<Member> members(ManifestObjectShape shape) {

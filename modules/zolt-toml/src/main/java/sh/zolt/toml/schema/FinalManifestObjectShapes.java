@@ -73,6 +73,15 @@ public final class FinalManifestObjectShapes {
     public static final ManifestObjectShape DENY_ENTRY = new ManifestObjectShape(
             List.of(DENY_ENTRY_COORDINATE, DENY_ENTRY_REASON), List.of());
 
+    public static final ManifestObjectMember RESOURCE_TOKEN_PROJECT = member("project", false, 10);
+    public static final ManifestObjectMember RESOURCE_TOKEN_ENV = member("env", false, 20);
+    public static final ManifestObjectMember RESOURCE_TOKEN_VALUE = member("value", false, 30);
+    public static final ManifestObjectShape RESOURCE_TOKEN = new ManifestObjectShape(
+            List.of(RESOURCE_TOKEN_PROJECT, RESOURCE_TOKEN_ENV, RESOURCE_TOKEN_VALUE),
+            List.of(new ManifestObjectShape.PresenceGroup(
+                    ManifestObjectShape.PresenceRule.EXACTLY_ONE,
+                    List.of(RESOURCE_TOKEN_PROJECT, RESOURCE_TOKEN_ENV, RESOURCE_TOKEN_VALUE))));
+
     private FinalManifestObjectShapes() {
     }
 
