@@ -18,7 +18,6 @@ import sh.zolt.toml.schema.ManifestField;
 import sh.zolt.toml.schema.ManifestSchemaMatch;
 import sh.zolt.toml.schema.ManifestSymbolRegistry;
 import sh.zolt.toml.schema.ManifestValidationCategory;
-import sh.zolt.toml.schema.ManifestValueKind;
 import sh.zolt.toml.schema.MutationPolicy;
 
 /** Value, symbol, dynamic-key, path, and environment checks for one matched field. */
@@ -26,6 +25,7 @@ final class ManifestShapeFieldValidator {
     private final ManifestSymbolRegistry symbols;
     private final ManifestSchemaNavigator navigator;
     private final ManifestShapeDiagnostics diagnostics;
+    private final ManifestShapeObjectValidator objectValidator;
 
     ManifestShapeFieldValidator(
             ManifestSymbolRegistry symbols,
@@ -34,6 +34,7 @@ final class ManifestShapeFieldValidator {
         this.symbols = symbols;
         this.navigator = navigator;
         this.diagnostics = diagnostics;
+        this.objectValidator = new ManifestShapeObjectValidator(diagnostics);
     }
 
     boolean validate(
@@ -49,15 +50,20 @@ final class ManifestShapeFieldValidator {
                 navigator.reservedBinding(field.path(), match.bindings(), java.util.Set.of()),
                 source,
                 path);
-        if (!matches(field.valueKind(), value)) {
+        if (!ManifestShapeValueKinds.matches(field.valueKind(), value)) {
             diagnostics.add(source, "Invalid value for `" + path + "`: expected "
-                    + expected(field.valueKind()) + " but found " + actual(value) + ".");
+                    + ManifestShapeValueKinds.expected(field.valueKind()) + " but found "
+                    + ManifestShapeValueKinds.actual(value) + ".");
             return false;
         }
         boolean selectorValid = validateMutableSelector(field, value, source, path);
         validateSymbols(field, value, source, path);
         validateDirect(field.validation(), value, source, path);
-        return keysValid && selectorValid;
+        boolean objectValid = field.objectShape()
+                .filter(ignored -> value instanceof TomlTable)
+                .map(shape -> objectValidator.validate(shape, (TomlTable) value, source, path))
+                .orElse(true);
+        return keysValid && selectorValid && objectValid;
     }
 
     boolean validateDynamicKeys(
@@ -179,7 +185,8 @@ final class ManifestShapeFieldValidator {
             }, source, path);
             if (!(entry.getValue() instanceof String string)) {
                 diagnostics.add(source, "Invalid environment value in `" + path
-                        + "`: expected a string but found " + actual(entry.getValue()) + ".");
+                    + "`: expected a string but found "
+                    + ManifestShapeValueKinds.actual(entry.getValue()) + ".");
                 return;
             }
             if (!validateValues) {
@@ -230,46 +237,6 @@ final class ManifestShapeFieldValidator {
         }
     }
 
-    private static boolean matches(ManifestValueKind kind, Object value) {
-        return switch (kind) {
-            case STRING -> value instanceof String;
-            case INTEGER -> value instanceof Long;
-            case NUMBER -> value instanceof Long || value instanceof Double;
-            case BOOLEAN -> value instanceof Boolean;
-            case STRING_ARRAY -> stringArray(value);
-            case INLINE_TABLE -> value instanceof TomlTable;
-            case INLINE_TABLE_ARRAY -> tableArray(value);
-            case STRING_OR_INLINE_TABLE -> value instanceof String || value instanceof TomlTable;
-            case BOOLEAN_OR_STRING_ARRAY -> value instanceof Boolean || stringArray(value);
-            case BOOLEAN_OR_STRING_OR_INLINE_TABLE ->
-                value instanceof Boolean || value instanceof String || value instanceof TomlTable;
-        };
-    }
-
-    private static boolean stringArray(Object value) {
-        if (!(value instanceof TomlArray array)) {
-            return false;
-        }
-        for (int index = 0; index < array.size(); index++) {
-            if (!(array.get(index) instanceof String)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean tableArray(Object value) {
-        if (!(value instanceof TomlArray array)) {
-            return false;
-        }
-        for (int index = 0; index < array.size(); index++) {
-            if (!(array.get(index) instanceof TomlTable)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private boolean validateMutableSelector(
             ManifestField field, Object value, ManifestShapeSource source, String path) {
         if (field.mutation() != MutationPolicy.REPLACE_ENTRY
@@ -280,20 +247,6 @@ final class ManifestShapeFieldValidator {
         diagnostics.add(source, "Mutable manifest entry `" + path
                 + "` must not use an empty inline table `{}`; author its selector fields.");
         return false;
-    }
-
-    private static String expected(ManifestValueKind kind) {
-        return kind.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
-    }
-
-    private static String actual(Object value) {
-        if (value instanceof String) return "string";
-        if (value instanceof Long) return "integer";
-        if (value instanceof Double) return "number";
-        if (value instanceof Boolean) return "boolean";
-        if (value instanceof TomlArray) return "array";
-        if (value instanceof TomlTable) return "table";
-        return value.getClass().getSimpleName();
     }
 
     private static String concretePath(java.util.List<String> pattern, Map<String, String> bindings) {

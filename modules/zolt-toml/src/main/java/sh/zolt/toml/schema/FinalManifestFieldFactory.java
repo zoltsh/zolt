@@ -1,5 +1,7 @@
 package sh.zolt.toml.schema;
 
+import java.util.Optional;
+
 /** Construction helpers shared by the final manifest field catalog. */
 final class FinalManifestFieldFactory {
     private FinalManifestFieldFactory() {
@@ -10,17 +12,30 @@ final class FinalManifestFieldFactory {
             String name,
             ManifestValueKind kind,
             int canonicalOrder) {
-        ManifestPath path = section.child(name);
-        FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
-        return new ManifestField(
-                path,
+        return field(
+                section,
+                name,
                 kind,
                 FormattingPolicy.DEFAULT,
                 MutationPolicy.NONE,
                 canonicalOrder,
-                semantics.symbolFamily(),
-                semantics.validation(),
-                FinalManifestFieldSemantics.dynamicKeys(path));
+                Optional.empty());
+    }
+
+    static ManifestField objectField(
+            ManifestPath section,
+            String name,
+            ManifestValueKind kind,
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return field(
+                section,
+                name,
+                kind,
+                FormattingPolicy.DEFAULT,
+                MutationPolicy.NONE,
+                canonicalOrder,
+                Optional.of(objectShape));
     }
 
     static ManifestField oneLineField(
@@ -28,17 +43,30 @@ final class FinalManifestFieldFactory {
             String name,
             ManifestValueKind kind,
             int canonicalOrder) {
-        ManifestPath path = section.child(name);
-        FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
-        return new ManifestField(
-                path,
+        return field(
+                section,
+                name,
                 kind,
                 FormattingPolicy.ONE_LINE,
                 MutationPolicy.NONE,
                 canonicalOrder,
-                semantics.symbolFamily(),
-                semantics.validation(),
-                FinalManifestFieldSemantics.dynamicKeys(path));
+                Optional.empty());
+    }
+
+    static ManifestField oneLineObjectField(
+            ManifestPath section,
+            String name,
+            ManifestValueKind kind,
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return field(
+                section,
+                name,
+                kind,
+                FormattingPolicy.ONE_LINE,
+                MutationPolicy.NONE,
+                canonicalOrder,
+                Optional.of(objectShape));
     }
 
     static ManifestField mutableMapEntry(
@@ -46,17 +74,52 @@ final class FinalManifestFieldFactory {
             String name,
             ManifestValueKind kind,
             int canonicalOrder) {
+        return field(
+                section,
+                name,
+                kind,
+                FormattingPolicy.ONE_LINE,
+                MutationPolicy.REPLACE_ENTRY,
+                canonicalOrder,
+                Optional.empty());
+    }
+
+    static ManifestField mutableObjectMapEntry(
+            ManifestPath section,
+            String name,
+            ManifestValueKind kind,
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return field(
+                section,
+                name,
+                kind,
+                FormattingPolicy.ONE_LINE,
+                MutationPolicy.REPLACE_ENTRY,
+                canonicalOrder,
+                Optional.of(objectShape));
+    }
+
+    private static ManifestField field(
+            ManifestPath section,
+            String name,
+            ManifestValueKind kind,
+            FormattingPolicy formatting,
+            MutationPolicy mutation,
+            int canonicalOrder,
+            Optional<ManifestObjectShape> objectShape) {
         ManifestPath path = section.child(name);
         FinalManifestFieldSemantics.Metadata semantics = FinalManifestFieldSemantics.field(path);
         return new ManifestField(
                 path,
                 kind,
-                FormattingPolicy.ONE_LINE,
-                MutationPolicy.REPLACE_ENTRY,
+                formatting,
+                mutation,
                 canonicalOrder,
                 semantics.symbolFamily(),
                 semantics.validation(),
-                FinalManifestFieldSemantics.dynamicKeys(path));
+                FinalManifestFieldSemantics.dynamicKeys(path),
+                objectShape);
     }
 
     static ManifestField generatedStepField(

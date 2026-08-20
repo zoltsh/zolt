@@ -1261,6 +1261,7 @@ A platform value is:
 - `{ version = "..." }` when metadata requires table form;
 - `{ versionRef = "..." }`.
 
+The inline table is closed and declares exactly one of `version` or `versionRef`.
 Each platform assignment occupies one physical line.
 
 ## 8.9 Repository cache and lockfile integrity

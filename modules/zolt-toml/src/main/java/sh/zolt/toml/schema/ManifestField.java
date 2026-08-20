@@ -13,7 +13,8 @@ public record ManifestField(
         int canonicalOrder,
         Optional<String> symbolFamily,
         ManifestValidationCategory validation,
-        Map<String, ManifestDynamicKeyGrammar> dynamicKeyGrammars) {
+        Map<String, ManifestDynamicKeyGrammar> dynamicKeyGrammars,
+        Optional<ManifestObjectShape> objectShape) {
     public ManifestField {
         Objects.requireNonNull(path, "Manifest field path is required.");
         Objects.requireNonNull(valueKind, "Manifest field value kind is required.");
@@ -36,6 +37,12 @@ public record ManifestField(
                             + "` does not accept value kind `" + valueKind + "`.");
         }
         dynamicKeyGrammars = ManifestDynamicKeyGrammar.copyFor(path, dynamicKeyGrammars);
+        objectShape = Objects.requireNonNull(
+                objectShape, "Manifest field object shape must not be null.");
+        if (objectShape.isPresent() && !acceptsObject(valueKind)) {
+            throw new IllegalArgumentException(
+                    "Manifest object shapes require a singular inline-table value kind.");
+        }
         if (canonicalOrder < 0) {
             throw new IllegalArgumentException("Manifest field canonical order must not be negative.");
         }
@@ -46,5 +53,11 @@ public record ManifestField(
             throw new IllegalArgumentException("Manifest field symbol family name must not be blank.");
         }
         return name;
+    }
+
+    private static boolean acceptsObject(ManifestValueKind valueKind) {
+        return valueKind == ManifestValueKind.INLINE_TABLE
+                || valueKind == ManifestValueKind.STRING_OR_INLINE_TABLE
+                || valueKind == ManifestValueKind.BOOLEAN_OR_STRING_OR_INLINE_TABLE;
     }
 }

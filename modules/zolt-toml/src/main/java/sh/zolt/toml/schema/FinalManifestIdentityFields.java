@@ -18,11 +18,12 @@ public final class FinalManifestIdentityFields {
             FinalManifestPaths.WORKSPACE_PROJECT, "version", ManifestValueKind.STRING, 1_220);
     public static final ManifestField WORKSPACE_PROJECT_JAVA = field(
             FinalManifestPaths.WORKSPACE_PROJECT, "java", ManifestValueKind.INTEGER, 1_230);
-    public static final ManifestField WORKSPACE_PROJECT_LICENSE = oneLineField(
+    public static final ManifestField WORKSPACE_PROJECT_LICENSE = oneLineObjectField(
             FinalManifestPaths.WORKSPACE_PROJECT,
             "license",
             ManifestValueKind.STRING_OR_INLINE_TABLE,
-            1_240);
+            1_240,
+            FinalManifestObjectShapes.LICENSE);
     public static final ManifestField PROJECT_NAME = field(
             FinalManifestPaths.PROJECT, "name", ManifestValueKind.STRING, 2_010);
     public static final ManifestField PROJECT_VERSION = field(
@@ -39,11 +40,12 @@ public final class FinalManifestIdentityFields {
             FinalManifestPaths.PROJECT, "url", ManifestValueKind.STRING, 2_070);
     public static final ManifestField PROJECT_ISSUES = field(
             FinalManifestPaths.PROJECT, "issues", ManifestValueKind.STRING, 2_080);
-    public static final ManifestField PROJECT_LICENSE = oneLineField(
+    public static final ManifestField PROJECT_LICENSE = oneLineObjectField(
             FinalManifestPaths.PROJECT,
             "license",
             ManifestValueKind.STRING_OR_INLINE_TABLE,
-            2_090);
+            2_090,
+            FinalManifestObjectShapes.LICENSE);
     public static final ManifestField PROJECT_SCM_URL = field(
             FinalManifestPaths.PROJECT_SCM, "url", ManifestValueKind.STRING, 2_110);
     public static final ManifestField PROJECT_SCM_CONNECTION = field(
@@ -107,11 +109,13 @@ public final class FinalManifestIdentityFields {
         return FinalManifestFieldFactory.field(section, name, kind, canonicalOrder);
     }
 
-    private static ManifestField oneLineField(
+    private static ManifestField oneLineObjectField(
             ManifestPath section,
             String name,
             ManifestValueKind kind,
-            int canonicalOrder) {
-        return FinalManifestFieldFactory.oneLineField(section, name, kind, canonicalOrder);
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return FinalManifestFieldFactory.oneLineObjectField(
+                section, name, kind, canonicalOrder, objectShape);
     }
 }

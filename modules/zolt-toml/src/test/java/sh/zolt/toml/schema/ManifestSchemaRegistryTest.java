@@ -99,7 +99,8 @@ final class ManifestSchemaRegistryTest {
                         -1,
                         Optional.empty(),
                         ManifestValidationCategory.NONE,
-                        Map.of()));
+                        Map.of(),
+                        Optional.empty()));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ManifestSection(
@@ -122,7 +123,8 @@ final class ManifestSchemaRegistryTest {
                 10,
                 Optional.of("version-symbol"),
                 ManifestValidationCategory.NONE,
-                dynamicKeys);
+                dynamicKeys,
+                Optional.empty());
         dynamicKeys.clear();
 
         assertEquals(Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID), dynamic.dynamicKeyGrammars());
@@ -139,7 +141,8 @@ final class ManifestSchemaRegistryTest {
                         10,
                         Optional.empty(),
                         ManifestValidationCategory.NONE,
-                        Map.of()));
+                        Map.of(),
+                        Optional.empty()));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ManifestSection(
@@ -158,7 +161,8 @@ final class ManifestSchemaRegistryTest {
                         10,
                         Optional.empty(),
                         ManifestValidationCategory.MANIFEST_RELATIVE_PATH,
-                        Map.of()));
+                        Map.of(),
+                        Optional.empty()));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ManifestField(
@@ -169,7 +173,8 @@ final class ManifestSchemaRegistryTest {
                         10,
                         Optional.of("version-symbol"),
                         ManifestValidationCategory.NONE,
-                        Map.of()));
+                        Map.of(),
+                        Optional.empty()));
 
         ManifestSymbolFamily versionSymbols =
                 new ManifestSymbolFamily("version-symbol", List.of("fixed"));
@@ -193,7 +198,8 @@ final class ManifestSchemaRegistryTest {
                 order,
                 Optional.empty(),
                 ManifestValidationCategory.NONE,
-                Map.of());
+                Map.of(),
+                Optional.empty());
     }
 
     private static ManifestField field(String dottedPath, int order) {
@@ -207,7 +213,8 @@ final class ManifestSchemaRegistryTest {
                 ManifestValidationCategory.NONE,
                 dottedPath.contains("<id>")
                         ? Map.of("id", ManifestDynamicKeyGrammar.LOCAL_ID)
-                        : Map.of());
+                        : Map.of(),
+                Optional.empty());
     }
 
     private static ManifestSection section(String name, int order, Set<String> reservedChildren) {

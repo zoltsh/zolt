@@ -6,11 +6,12 @@ import java.util.List;
 public final class FinalManifestSharedFields {
     public static final ManifestField VERSIONS_ENTRY = mutableMapEntry(
             FinalManifestPaths.VERSIONS, "<id>", ManifestValueKind.STRING, 4_010);
-    public static final ManifestField REPOSITORIES_CENTRAL = field(
+    public static final ManifestField REPOSITORIES_CENTRAL = objectField(
             FinalManifestPaths.REPOSITORIES,
             "central",
             ManifestValueKind.BOOLEAN_OR_STRING_OR_INLINE_TABLE,
-            4_110);
+            4_110,
+            FinalManifestObjectShapes.CENTRAL_REPLACEMENT);
     public static final ManifestField REPOSITORIES_ORDER = field(
             FinalManifestPaths.REPOSITORIES, "order", ManifestValueKind.STRING_ARRAY, 4_120);
     public static final ManifestField REPOSITORY_URL = field(
@@ -23,11 +24,12 @@ public final class FinalManifestSharedFields {
             FinalManifestPaths.CREDENTIAL, "usernameEnv", ManifestValueKind.STRING, 4_320);
     public static final ManifestField CREDENTIAL_PASSWORD_ENV = field(
             FinalManifestPaths.CREDENTIAL, "passwordEnv", ManifestValueKind.STRING, 4_330);
-    public static final ManifestField PLATFORMS_ENTRY = mutableMapEntry(
+    public static final ManifestField PLATFORMS_ENTRY = mutableObjectMapEntry(
             FinalManifestPaths.PLATFORMS,
             "<coordinate>",
             ManifestValueKind.STRING_OR_INLINE_TABLE,
-            4_410);
+            4_410,
+            FinalManifestObjectShapes.PLATFORM_SELECTOR);
 
     private FinalManifestSharedFields() {
     }
@@ -53,11 +55,31 @@ public final class FinalManifestSharedFields {
         return FinalManifestFieldFactory.field(section, name, kind, canonicalOrder);
     }
 
+    private static ManifestField objectField(
+            ManifestPath section,
+            String name,
+            ManifestValueKind kind,
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return FinalManifestFieldFactory.objectField(
+                section, name, kind, canonicalOrder, objectShape);
+    }
+
     private static ManifestField mutableMapEntry(
             ManifestPath section,
             String name,
             ManifestValueKind kind,
             int canonicalOrder) {
         return FinalManifestFieldFactory.mutableMapEntry(section, name, kind, canonicalOrder);
+    }
+
+    private static ManifestField mutableObjectMapEntry(
+            ManifestPath section,
+            String name,
+            ManifestValueKind kind,
+            int canonicalOrder,
+            ManifestObjectShape objectShape) {
+        return FinalManifestFieldFactory.mutableObjectMapEntry(
+                section, name, kind, canonicalOrder, objectShape);
     }
 }
