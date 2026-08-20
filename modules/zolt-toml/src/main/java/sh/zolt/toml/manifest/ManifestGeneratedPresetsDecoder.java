@@ -17,12 +17,9 @@ import static sh.zolt.toml.schema.FinalManifestGeneratedPresetFields.GENERATED_P
 import static sh.zolt.toml.schema.FinalManifestGeneratedPresetFields.GENERATED_PRESET_VALIDATE_SPEC;
 
 import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
 import sh.zolt.manifest.LocalId;
-import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredGeneratedPresets;
 import sh.zolt.manifest.authored.AuthoredOpenApiOptions;
 import sh.zolt.toml.schema.FinalManifestPaths;
@@ -30,6 +27,23 @@ import sh.zolt.toml.schema.ManifestField;
 
 /** Decodes authored generated-source presets without composing them into steps. */
 final class ManifestGeneratedPresetsDecoder {
+    private static final ManifestOpenApiOptionsDecoder.Fields OPEN_API_FIELDS =
+            new ManifestOpenApiOptionsDecoder.Fields(
+                    GENERATED_PRESET_GENERATOR,
+                    GENERATED_PRESET_LIBRARY,
+                    GENERATED_PRESET_API_PACKAGE,
+                    GENERATED_PRESET_MODEL_PACKAGE,
+                    GENERATED_PRESET_INVOKER_PACKAGE,
+                    GENERATED_PRESET_CONFIG,
+                    GENERATED_PRESET_TEMPLATE_DIR,
+                    GENERATED_PRESET_VALIDATE_SPEC,
+                    GENERATED_PRESET_OPTIONS,
+                    GENERATED_PRESET_ADDITIONAL_PROPERTIES,
+                    GENERATED_PRESET_CONFIG_OPTIONS,
+                    GENERATED_PRESET_GLOBAL_PROPERTIES,
+                    GENERATED_PRESET_TYPE_MAPPINGS,
+                    GENERATED_PRESET_IMPORT_MAPPINGS);
+
     Optional<AuthoredGeneratedPresets> decode(ManifestDecodeIndex index) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
         return index.section(FinalManifestPaths.GENERATED_PRESETS).map(ignored -> {
@@ -41,7 +55,8 @@ final class ManifestGeneratedPresetsDecoder {
                 LocalId id = ManifestSemanticDiagnostics.construct(
                         entry.section(), () -> new LocalId(entry.key()));
                 requireOpenApiKind(row);
-                AuthoredOpenApiOptions options = options(row);
+                AuthoredOpenApiOptions options = ManifestOpenApiOptionsDecoder.decode(
+                        index, entry, OPEN_API_FIELDS);
                 if (declarations.put(id, options) != null) {
                     throw new IllegalStateException(
                             "Validated manifest contains duplicate generated preset `" + id + "`.");
@@ -63,81 +78,6 @@ final class ManifestGeneratedPresetsDecoder {
         }
     }
 
-    private static AuthoredOpenApiOptions options(Row row) {
-        Builder builder = new Builder();
-        text(row, builder, GENERATED_PRESET_GENERATOR, value -> builder.generator = value);
-        text(row, builder, GENERATED_PRESET_LIBRARY, value -> builder.library = value);
-        text(row, builder, GENERATED_PRESET_API_PACKAGE, value -> builder.apiPackage = value);
-        text(row, builder, GENERATED_PRESET_MODEL_PACKAGE, value -> builder.modelPackage = value);
-        text(row, builder, GENERATED_PRESET_INVOKER_PACKAGE, value -> builder.invokerPackage = value);
-        path(row, builder, GENERATED_PRESET_CONFIG, value -> builder.config = value);
-        path(row, builder, GENERATED_PRESET_TEMPLATE_DIR, value -> builder.templateDir = value);
-        bool(row, builder, GENERATED_PRESET_VALIDATE_SPEC, value -> builder.validateSpec = value);
-        stringMap(row, builder, GENERATED_PRESET_OPTIONS, value -> builder.options = value);
-        stringMap(
-                row,
-                builder,
-                GENERATED_PRESET_ADDITIONAL_PROPERTIES,
-                value -> builder.additionalProperties = value);
-        stringMap(row, builder, GENERATED_PRESET_CONFIG_OPTIONS, value -> builder.configOptions = value);
-        stringMap(
-                row,
-                builder,
-                GENERATED_PRESET_GLOBAL_PROPERTIES,
-                value -> builder.globalProperties = value);
-        stringMap(row, builder, GENERATED_PRESET_TYPE_MAPPINGS, value -> builder.typeMappings = value);
-        stringMap(row, builder, GENERATED_PRESET_IMPORT_MAPPINGS, value -> builder.importMappings = value);
-        return ManifestSemanticDiagnostics.construct(row.entry().section(), builder::build);
-    }
-
-    private static void text(
-            Row row,
-            Builder builder,
-            ManifestField handle,
-            Consumer<Optional<String>> setter) {
-        row.field(handle).ifPresent(field -> {
-            setter.accept(Optional.of(ManifestTomlValues.string(field)));
-            ManifestSemanticDiagnostics.construct(field, builder::build);
-        });
-    }
-
-    private static void path(
-            Row row,
-            Builder builder,
-            ManifestField handle,
-            Consumer<Optional<ManifestRelativePath>> setter) {
-        row.field(handle).ifPresent(field -> {
-            ManifestRelativePath value = ManifestSemanticDiagnostics.construct(
-                    field, () -> new ManifestRelativePath(ManifestTomlValues.string(field)));
-            setter.accept(Optional.of(value));
-            ManifestSemanticDiagnostics.construct(field, builder::build);
-        });
-    }
-
-    private static void bool(
-            Row row,
-            Builder builder,
-            ManifestField handle,
-            Consumer<Optional<Boolean>> setter) {
-        row.field(handle).ifPresent(field -> {
-            setter.accept(Optional.of(ManifestTomlValues.booleanValue(field)));
-            ManifestSemanticDiagnostics.construct(field, builder::build);
-        });
-    }
-
-    private static void stringMap(
-            Row row,
-            Builder builder,
-            ManifestField handle,
-            Consumer<Map<String, String>> setter) {
-        row.field(handle).ifPresent(field -> {
-            Map<String, String> value = ManifestSemanticDiagnostics.construct(
-                    field, () -> ManifestTomlValues.stringMap(field));
-            setter.accept(value);
-            ManifestSemanticDiagnostics.construct(field, builder::build);
-        });
-    }
-
     private record Row(
             ManifestDecodeIndex index,
             ManifestDecodeIndex.SectionEntry entry) {
@@ -146,47 +86,8 @@ final class ManifestGeneratedPresetsDecoder {
             Objects.requireNonNull(entry, "Generated preset section entry is required.");
         }
 
-        private Optional<ValidatedManifestField> field(ManifestField handle) {
-            return index.field(entry, handle);
-        }
-
         private ValidatedManifestField required(ManifestField handle) {
             return ManifestSemanticDiagnostics.requiredField(index, entry, handle);
-        }
-    }
-
-    private static final class Builder {
-        private Optional<String> generator = Optional.empty();
-        private Optional<String> library = Optional.empty();
-        private Optional<String> apiPackage = Optional.empty();
-        private Optional<String> modelPackage = Optional.empty();
-        private Optional<String> invokerPackage = Optional.empty();
-        private Optional<ManifestRelativePath> config = Optional.empty();
-        private Optional<ManifestRelativePath> templateDir = Optional.empty();
-        private Optional<Boolean> validateSpec = Optional.empty();
-        private Map<String, String> options = Map.of();
-        private Map<String, String> additionalProperties = Map.of();
-        private Map<String, String> configOptions = Map.of();
-        private Map<String, String> globalProperties = Map.of();
-        private Map<String, String> typeMappings = Map.of();
-        private Map<String, String> importMappings = Map.of();
-
-        private AuthoredOpenApiOptions build() {
-            return new AuthoredOpenApiOptions(
-                    generator,
-                    library,
-                    apiPackage,
-                    modelPackage,
-                    invokerPackage,
-                    config,
-                    templateDir,
-                    validateSpec,
-                    options,
-                    additionalProperties,
-                    configOptions,
-                    globalProperties,
-                    typeMappings,
-                    importMappings);
         }
     }
 }
