@@ -2,6 +2,7 @@ package sh.zolt.toml.manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,7 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.authored.AuthoredDeclaredRootStep;
@@ -162,24 +162,28 @@ final class ManifestGeneratedStepsDecoderTest {
 
     @Test
     void keepsEveryLaneAdapterSlotExactlyParallel() {
-        List<ManifestField> main = ManifestGeneratedStepFields.MAIN.handles();
-        List<ManifestField> test = ManifestGeneratedStepFields.TEST.handles();
-        assertEquals(ManifestGeneratedStepFields.Slot.values().length, main.size());
-        assertEquals(main.size(), test.size());
-
-        IntStream.range(0, main.size()).forEach(index -> {
-            ManifestGeneratedStepFields.Slot slot =
-                    ManifestGeneratedStepFields.Slot.values()[index];
+        assertEquals(35, ManifestGeneratedStepFields.Slot.values().length);
+        for (ManifestGeneratedStepFields.Slot slot : ManifestGeneratedStepFields.Slot.values()) {
             ManifestField mainField = ManifestGeneratedStepFields.MAIN.field(slot);
             ManifestField testField = ManifestGeneratedStepFields.TEST.field(slot);
-            assertTrue(mainField == main.get(index));
-            assertTrue(testField == test.get(index));
+            assertSame(
+                    FinalManifestSchema.registry().field(mainField.path()).orElseThrow(),
+                    mainField);
+            assertSame(
+                    FinalManifestSchema.registry().field(testField.path()).orElseThrow(),
+                    testField);
+            assertEquals(
+                    ManifestGeneratedStepFields.MAIN.entry().child(slot.fieldName()),
+                    mainField.path());
+            assertEquals(
+                    ManifestGeneratedStepFields.TEST.entry().child(slot.fieldName()),
+                    testField.path());
             assertEquals(
                     mainField.path().segments().getLast(),
                     testField.path().segments().getLast());
             assertEquals(mainField.valueKind(), testField.valueKind());
             assertEquals(100, testField.canonicalOrder() - mainField.canonicalOrder());
-        });
+        }
     }
 
     @Test
