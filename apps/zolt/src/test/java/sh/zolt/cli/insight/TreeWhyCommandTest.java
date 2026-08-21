@@ -27,7 +27,7 @@ final class TreeWhyCommandTest {
         assertEquals(0, result.exitCode());
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    \\- com.example:lib:1.0.0
                 """, result.stdout());
     }
@@ -88,7 +88,7 @@ final class TreeWhyCommandTest {
         assertEquals(0, result.exitCode());
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    \\- com.example:lib:1.0.0
                 """, result.stdout());
     }
@@ -152,7 +152,7 @@ final class TreeWhyCommandTest {
     void whyReportsMissingPackageClearly() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute("why", "--cwd", projectDir.toString(), "com.example:missing");
 
@@ -177,7 +177,14 @@ final class TreeWhyCommandTest {
 
     private static void writeAppLibLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -199,7 +206,14 @@ final class TreeWhyCommandTest {
 
     private static void writeConflictedLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -227,7 +241,14 @@ final class TreeWhyCommandTest {
 
     private static void writeExcludedPackageLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"

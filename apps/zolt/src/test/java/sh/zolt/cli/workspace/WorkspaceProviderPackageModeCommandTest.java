@@ -56,7 +56,7 @@ final class WorkspaceProviderPackageModeCommandTest {
 
         assertEquals(0, result.exitCode(), result.stderr());
         String lockfile = Files.readString(workspace.resolve("zolt.lock"));
-        assertTrue(lockfile.startsWith("version = 6"), lockfile);
+        assertTrue(lockfile.startsWith("version = 7"), lockfile);
         assertTrue(lockfile.contains("id = \"com.example:provider\""), lockfile);
         assertTrue(lockfile.contains("workspace = \"modules/provider\""), lockfile);
     }

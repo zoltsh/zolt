@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "command": "tree",
   "mode": "workspace",
-  "lockVersion": 6,
+  "lockVersion": 7,
   "workspace": {
     "name": "demo-workspace",
     "members": [
@@ -12,7 +12,7 @@
         "name": "api",
         "version": "0.1.0",
         "type": "jar",
-        "dependencies": ["com.example:core:0.1.0:jar:compile", "org.example:agent:0.9.0:jar|runtime:tool-coverage"]
+        "dependencies": ["com.example:core:0.1.0:jar:compile", "org.example:agent:0.9.0:jar|runtime:tool-coverage", "org.example:bundle:3.0.0:zip:runtime", "org.example:shared:1.0.0:jar:compile"]
       },
       {
         "path": "modules/core",
@@ -20,7 +20,7 @@
         "name": "core",
         "version": "0.1.0",
         "type": "jar",
-        "dependencies": ["org.example:agent:0.9.0:jar|runtime:tool-coverage"]
+        "dependencies": ["org.example:agent:0.9.0:jar|runtime:tool-coverage", "org.example:shared:1.0.0:jar:compile", "org.example:shared:1.0.0:jar|tests:test"]
       }
     ]
   },
@@ -76,12 +76,13 @@
     {
       "id": "org.example:shared",
       "version": "1.0.0",
-      "coordinate": "org.example:shared:1.0.0",
+      "coordinate": "org.example:shared:1.0.0:jar|tests",
+      "variant": "jar|tests",
       "scope": "test",
       "direct": true,
       "members": ["modules/core"],
       "dependencies": []
     }
   ],
-  "roots": ["com.example:core:0.1.0", "org.example:bundle:3.0.0:zip", "org.example:shared:1.0.0"]
+  "roots": ["com.example:core:0.1.0", "org.example:bundle:3.0.0:zip", "org.example:shared:1.0.0", "org.example:shared:1.0.0:jar|tests"]
 }

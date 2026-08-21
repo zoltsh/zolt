@@ -57,7 +57,7 @@ final class TreeWorkspaceCommandTest {
 
         assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("\"mode\": \"workspace\""), result.stdout());
-        assertTrue(result.stdout().contains("\"lockVersion\": 6"), result.stdout());
+        assertTrue(result.stdout().contains("\"lockVersion\": 7"), result.stdout());
     }
 
     @Test
@@ -71,16 +71,16 @@ final class TreeWorkspaceCommandTest {
         assertEquals("""
                 demo-workspace
                 apps/api
-                +- com.example:core:0.1.0
+                +- com.example:core:0.1.0 (lane: implementation; resolved scope: compile)
                 |  \\- org.example:shared:1.0.0
                 |     \\- org.example:extra:2.0.0
-                +- org.example:bundle:3.0.0:zip
-                \\- org.example:shared:1.0.0
-                   \\- org.example:extra:2.0.0
+                +- org.example:shared:1.0.0 (lane: implementation; resolved scope: compile)
+                |  \\- org.example:extra:2.0.0
+                \\- org.example:bundle:3.0.0:zip (lane: runtime; resolved scope: runtime)
 
                 modules/core
-                +- org.example:shared:1.0.0
-                \\- org.example:shared:1.0.0
+                +- org.example:shared:1.0.0 (lane: implementation; resolved scope: compile)
+                \\- org.example:shared:1.0.0:jar|tests (lane: test; resolved scope: test)
                 """, result.stdout());
     }
 
@@ -119,14 +119,13 @@ final class TreeWorkspaceCommandTest {
         TreeFixtures.workspaceMembersAndLock(workspace);
         Files.writeString(
                 workspace.resolve("zolt.lock"),
-                TreeFixtures.workspaceLock().replaceFirst("version = 6", "version = 4"));
+                TreeFixtures.workspaceLock().replaceFirst("version = 7", "version = 4"));
 
         CommandResult result = execute("tree", "--workspace", "--format", "json", "--cwd", workspace.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("version 4"), result.stderr());
-        assertTrue(result.stderr().contains("optional-boundary"), result.stderr());
-        assertTrue(result.stderr().contains("zolt resolve --workspace"), result.stderr());
+        assertTrue(result.stderr().contains("version 4 is older than this Zolt supports (current 7)"), result.stderr());
+        assertTrue(result.stderr().contains("zolt resolve` with this Zolt version"), result.stderr());
     }
 
     @Test

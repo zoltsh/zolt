@@ -37,7 +37,14 @@ final class TreeFixtures {
                 java = "21"
                 """);
         Files.writeString(root.resolve("zolt.lock"), """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -125,7 +132,44 @@ final class TreeFixtures {
      */
     static String workspaceLock() {
         return """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.example:shared"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "modules/core"
+                id = "org.example:shared"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "modules/core"
+                id = "org.example:shared"
+                version = "1.0.0"
+                variant = "jar|tests"
+                lane = "test"
+                resolvedScope = "test"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.example:bundle"
+                version = "3.0.0"
+                variant = "zip"
+                lane = "runtime"
+                resolvedScope = "runtime"
 
                 [[package]]
                 id = "com.example:core"
@@ -157,7 +201,7 @@ final class TreeFixtures {
                 source = "test"
                 scope = "test"
                 direct = true
-                jar = "org/example/shared/1.0.0/shared-1.0.0.jar"
+                jar = "org/example/shared/1.0.0/shared-1.0.0-tests.jar"
                 pom = "org/example/shared/1.0.0/shared-1.0.0.pom"
                 jarSha256 = "1111"
                 pomSha256 = "2222"

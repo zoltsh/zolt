@@ -85,13 +85,13 @@ final class WorkspaceLockFreshnessCommandTest {
 
             assertEquals(1, rejected.exitCode());
             assertTrue(
-                    rejected.stderr().contains("version 5 predates the version 6 content-addressed artifact cache path"),
+                    rejected.stderr().contains("version 5 is older than this Zolt supports (current 7)"),
                     rejected.stderr());
-            assertTrue(rejected.stderr().contains("zolt resolve --workspace"), rejected.stderr());
+            assertTrue(rejected.stderr().contains("zolt resolve` with this Zolt version"), rejected.stderr());
             assertEquals(java.util.Map.of(), repository.authorizations(), "migration gate must run before network work");
 
             assertEquals(0, resolve().exitCode());
-            assertTrue(Files.readString(lockfilePath()).startsWith("version = 6\n"));
+            assertTrue(Files.readString(lockfilePath()).startsWith("version = 7\n"));
             assertEquals(0, build().exitCode());
         }
     }
@@ -165,10 +165,10 @@ final class WorkspaceLockFreshnessCommandTest {
     }
 
     @Test
-    void workspaceBuildCannotBypassResolutionThroughAnEmptyVersionSixRootLock() throws IOException {
+    void workspaceBuildCannotBypassResolutionThroughAnEmptyCurrentRootLock() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
             writeWorkspace(repository, LOCKED_VERSION);
-            String placeholder = "version = 6\n";
+            String placeholder = "version = 7\n";
             Files.writeString(lockfilePath(), placeholder);
 
             CommandResult result = build();
@@ -191,7 +191,7 @@ final class WorkspaceLockFreshnessCommandTest {
                 "--cache-root", tempDir.resolve("workspace-edge-cache").toString());
         assertEquals(0, resolved.exitCode(), resolved.stderr());
         Path lockfile = root.resolve("zolt.lock");
-        String legacyLock = Files.readString(lockfile).replaceFirst("version = 6", "version = 5");
+        String legacyLock = Files.readString(lockfile).replaceFirst("version = 7", "version = 5");
         Files.writeString(lockfile, legacyLock);
         Files.writeString(
                 application.resolve("zolt.toml"),
@@ -203,8 +203,8 @@ final class WorkspaceLockFreshnessCommandTest {
                 "--cache-root", tempDir.resolve("workspace-edge-cache").toString());
 
         assertEquals(1, result.exitCode(), result.stderr());
-        assertTrue(result.stderr().contains("version 5 predates the version 6 executable lock contract"), result.stderr());
-        assertTrue(result.stderr().contains("zolt resolve --workspace"), result.stderr());
+        assertTrue(result.stderr().contains("version 5 is older than this Zolt supports (current 7)"), result.stderr());
+        assertTrue(result.stderr().contains("zolt resolve` with this Zolt version"), result.stderr());
         assertEquals(legacyLock, Files.readString(lockfile));
         assertFalse(Files.isDirectory(application.resolve("target/classes")));
     }
@@ -226,7 +226,7 @@ final class WorkspaceLockFreshnessCommandTest {
 
     private static String legacyVersionFiveLock(String current) {
         String legacy = current
-                .replaceFirst("version = 6", "version = 5")
+                .replaceFirst("version = 7", "version = 5")
                 .replaceFirst(
                         "jar = \\\"blobs/v2/sha256/[^\\\"]+/app-1\\.0\\.0\\.jar\\\"",
                         "jar = \\\"com/example/app/1.0.0/app-1.0.0.jar\\\"")
