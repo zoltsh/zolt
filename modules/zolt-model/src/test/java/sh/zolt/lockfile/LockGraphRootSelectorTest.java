@@ -60,6 +60,26 @@ final class LockGraphRootSelectorTest {
     }
 
     @Test
+    void closesAMemberSliceOverTheAggregateSoASiblingsOwnEdgesAreNotDangling() {
+        LockPackage sibling = lockPackage(
+                "sibling", DependencyScope.COMPILE, true, List.of(ref("sibling-external", DependencyScope.COMPILE)));
+        LockPackage siblingExternal = lockPackage("sibling-external", DependencyScope.COMPILE, false, List.of());
+        LockPackage unrelated = lockPackage("unrelated", DependencyScope.COMPILE, false, List.of());
+
+        List<String> selected = LockGraphRootSelector.select(
+                        List.of(sibling),
+                        List.of(root(sibling)),
+                        List.of(sibling, siblingExternal, unrelated),
+                        "zolt resolve --workspace")
+                .stream()
+                .map(LockDependencyEdge::of)
+                .map(LockDependencyEdge::encode)
+                .toList();
+
+        assertEquals(List.of(ref("sibling", DependencyScope.COMPILE)), selected);
+    }
+
+    @Test
     void refusesAnAuthoredRootMissingFromTheProjectedGraph() {
         LockPackage missing = lockPackage("missing", DependencyScope.COMPILE, false, List.of());
 

@@ -1,7 +1,9 @@
 package sh.zolt.lockfile;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -13,6 +15,43 @@ import java.util.Set;
 /** Selects the persisted graph roots without consulting the legacy {@code direct} projection. */
 public final class LockGraphRootSelector {
     private LockGraphRootSelector() {
+    }
+
+    /**
+     * Selects one member's roots out of its slice of an aggregated workspace lock.
+     *
+     * <p>A member slice is not edge-closed by construction: the aggregate attributes a workspace
+     * sibling's own externals to the sibling rather than to the consuming member, while the sibling's
+     * lock entry still carries edges into them. Selecting over the bare slice would report those edges
+     * as dangling even though the aggregated lock is intact, so the slice is first closed over
+     * {@code aggregatePackages}. Carried-in packages always gain an incoming edge and therefore never
+     * become injected roots of this member, while a member package no authored root reaches still
+     * contributes its own traversal root. Member views win over their aggregate entry by exact edge ref.
+     */
+    public static List<LockPackage> select(
+            List<LockPackage> memberPackages,
+            List<LockDependencyRoot> dependencyRoots,
+            List<LockPackage> aggregatePackages,
+            String regenerateCommand) {
+        Map<String, LockPackage> universe = new LinkedHashMap<>();
+        aggregatePackages.forEach(lockPackage -> universe.putIfAbsent(ref(lockPackage), lockPackage));
+        memberPackages.forEach(lockPackage -> universe.put(ref(lockPackage), lockPackage));
+        LockDependencyIndex index = new LockDependencyIndex(universe.values());
+
+        Map<String, LockPackage> closure = new LinkedHashMap<>();
+        Deque<LockPackage> pending = new ArrayDeque<>(memberPackages);
+        while (!pending.isEmpty()) {
+            LockPackage current = pending.removeFirst();
+            if (closure.putIfAbsent(ref(current), current) != null) {
+                continue;
+            }
+            for (String edge : current.dependencies()) {
+                index.resolveGraphEdge(edge, regenerateCommand)
+                        .filter(target -> !closure.containsKey(ref(target)))
+                        .ifPresent(pending::addLast);
+            }
+        }
+        return select(List.copyOf(closure.values()), dependencyRoots, regenerateCommand);
     }
 
     /**

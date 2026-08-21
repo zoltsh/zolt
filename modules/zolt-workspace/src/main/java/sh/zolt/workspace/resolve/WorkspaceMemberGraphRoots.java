@@ -32,6 +32,7 @@ public final class WorkspaceMemberGraphRoots {
         return LockGraphRootSelector.select(
                         memberLock.packages(),
                         memberLock.dependencyRoots(),
+                        aggregate.packages(),
                         "zolt resolve --workspace")
                 .stream()
                 .map(LockDependencyEdge::of)
