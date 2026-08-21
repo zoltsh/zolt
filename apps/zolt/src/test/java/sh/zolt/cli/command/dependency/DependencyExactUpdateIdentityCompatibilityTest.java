@@ -18,6 +18,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
+/**
+ * A final dependency coordinate is exact ASCII {@code group:artifact} (design §9.3), so a sibling
+ * declaration the parser rejects makes the whole exact update fail before either file is touched.
+ */
 final class DependencyExactUpdateIdentityCompatibilityTest {
     private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
     private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
@@ -27,7 +31,7 @@ final class DependencyExactUpdateIdentityCompatibilityTest {
 
 
     @Test
-    void exactSchemaV2ReportsNoncanonicalSiblingIdentityWithoutWriting() throws IOException {
+    void unparseableSiblingDeclarationFailsClosedWithoutWriting() throws IOException {
         Path project = tempDir.resolve("noncanonical-sibling");
         Files.createDirectories(project);
         Path manifest = project.resolve("zolt.toml");
@@ -58,7 +62,9 @@ final class DependencyExactUpdateIdentityCompatibilityTest {
         Result result = run(project, target);
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("Update target identifier must use Unicode NFC normalization"));
+        assertTrue(
+                (result.stdout() + result.stderr()).contains("Invalid dependency coordinate"),
+                result.stdout() + result.stderr());
         assertEquals(original, Files.readString(manifest));
     }
 

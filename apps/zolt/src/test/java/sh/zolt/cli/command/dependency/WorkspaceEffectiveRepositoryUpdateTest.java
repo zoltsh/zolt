@@ -142,7 +142,7 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
 
     @ParameterizedTest(name = "conflict {0}")
     @MethodSource("conflictingCommands")
-    void conflictingRootAndMemberRepositoriesFailClosed(String command) throws IOException {
+    void memberDeclaredRepositoriesFailClosed(String command) throws IOException {
         Path root = writeWorkspace(
                 tempDir.resolve("conflict-" + command),
                 rootRepository(false),
@@ -159,8 +159,13 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
             default -> policyUpdate(root.resolve("apps/api"), listing(false), () -> {});
         };
 
+        // The workspace root owns the one repository universe (design §8.7): a member that declares
+        // [repositories] at all is rejected, so the conflict never reaches update planning.
         assertEquals(1, result.exitCode());
-        assertTrue((result.stdout() + result.stderr()).contains("Workspace repository `private`"));
+        assertTrue(
+                (result.stdout() + result.stderr())
+                        .contains("A workspace member cannot declare dependency repositories"),
+                result.stdout() + result.stderr());
     }
 
     private static Stream<Arguments> schemaVersions() {

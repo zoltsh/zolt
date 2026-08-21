@@ -38,12 +38,6 @@ final class DependencyExactUpdateCommandTest {
         Path project = writeProject(tempDir.resolve("json"), """
                 [dependencies]
                 "com.example:lib" = "1.0.0"
-
-                [workspace]
-                name = "retained-source-domain"
-
-                [workspace.members]
-                include = []
                 """);
         UpdateTarget target = target(project, "zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies]");
 
@@ -199,7 +193,7 @@ final class DependencyExactUpdateCommandTest {
                 [dependencies]
                 "com.example:shared" = "1.0.0"
                 [dependencies.test]
-                "com.example:shared" = "1.0.0"
+                "com.example:test-only" = "1.0.0"
                 """);
         Path core = writeProject(root.resolve("modules/core"), """
                 [dependencies]
@@ -214,14 +208,14 @@ final class DependencyExactUpdateCommandTest {
         assertEquals(0, result.exitCode(), result.stderr());
         String apiManifest = Files.readString(api.resolve("zolt.toml"));
         assertTrue(apiManifest.contains("[dependencies]\n\"com.example:shared\" = \"1.1.0\""));
-        assertTrue(apiManifest.contains("[dependencies.test]\n\"com.example:shared\" = \"1.0.0\""));
+        assertTrue(apiManifest.contains("[dependencies.test]\n\"com.example:test-only\" = \"1.0.0\""));
         assertTrue(Files.readString(core.resolve("zolt.toml")).contains("\"com.example:shared\" = \"1.0.0\""));
         assertTrue(result.stdout().contains("\"manifestPath\": \"apps/api/zolt.toml\""));
         assertTrue(result.stdout().contains("\"changedFiles\": [\n    \"apps/api/zolt.toml\""));
     }
 
     @Test
-    void rootMemberAndLegacyWorkspaceRouteExactTargets() throws IOException {
+    void rootMemberRoutesExactTargetsThroughItsOwnManifest() throws IOException {
         Path rootMember = writeProject(tempDir.resolve("root-member"), """
                 [dependencies]
                 "com.example:root" = "1.0.0"
@@ -241,26 +235,6 @@ final class DependencyExactUpdateCommandTest {
         assertTrue(Files.readString(rootMember.resolve("zolt.toml"))
                 .contains("\"com.example:root\" = \"1.1.0\""));
 
-        Path legacy = tempDir.resolve("legacy-workspace");
-        Path member = writeProject(legacy.resolve("apps/api"), """
-                [dependencies]
-                "com.example:legacy" = "2.0.0"
-                """);
-        Files.writeString(legacy.resolve("zolt-workspace.toml"), """
-                [workspace]
-                name = "legacy"
-
-                [workspace.members]
-                include = ["apps/api"]
-                """);
-        UpdateTarget legacyTarget = target(
-                member, "apps/api/zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies]");
-
-        Result legacyResult = run(legacy, () -> {}, exactArgs(legacyTarget, "2.1.0", "--no-resolve"));
-
-        assertEquals(0, legacyResult.exitCode(), legacyResult.stderr());
-        assertTrue(Files.readString(member.resolve("zolt.toml"))
-                .contains("\"com.example:legacy\" = \"2.1.0\""));
     }
 
     @Test
@@ -317,7 +291,7 @@ final class DependencyExactUpdateCommandTest {
         Runnable concurrent = () -> replace(
                 manifest,
                 "[dependencies]",
-                "[workspace]\nname = \"broken\"\nmembers = [\"missing-member\"]\n\n[dependencies]");
+                "[workspace]\nname = \"broken\"\n\n[workspace.members]\ninclude = [\"missing-member\"]\n\n[dependencies]");
 
         Result result = run(project, concurrent, exactArgs(
                 target, "1.1.0", "--format", "json", "--schema-version", "2", "--no-resolve"));

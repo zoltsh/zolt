@@ -139,7 +139,7 @@ final class OutdatedSchemaV2CommandTest {
     }
 
     @Test
-    void rootPlatformDiscoveryUsesMemberEffectiveRepository() throws IOException {
+    void rootPlatformDiscoveryUsesTheRootRepositoryUniverse() throws IOException {
         Path root = writeRepositoryWorkspace(tempDir.resolve("member-repository"), List.of("private"));
         VersionDiscovery discovery = repositoryDiscovery(Map.of(
                 "private", List.of("1.0.0", "1.1.0")));
@@ -151,20 +151,6 @@ final class OutdatedSchemaV2CommandTest {
         assertTrue(result.stdout().contains("\"source\": \"private\""), result.stdout());
     }
 
-    @Test
-    void rootPlatformCandidatesIntersectEveryMemberRepositorySet() throws IOException {
-        Path root = writeRepositoryWorkspace(tempDir.resolve("repository-intersection"), List.of("alpha", "beta"));
-        VersionDiscovery discovery = repositoryDiscovery(Map.of(
-                "alpha", List.of("1.0.0", "1.1.0", "1.2.0"),
-                "beta", List.of("1.0.0", "1.1.0")));
-
-        InjectedResult result = runInjected(root, discovery);
-
-        assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(result.stdout().contains("\"selectedLatest\": \"1.1.0\""), result.stdout());
-        assertTrue(result.stdout().contains("\"minor\": \"1.1.0\""), result.stdout());
-        assertFalse(result.stdout().contains("1.2.0"), result.stdout());
-    }
 
     @Test
     void schemaV1PreservesDecomposedDisplayLabelsAndVersionText() throws IOException {
@@ -205,8 +191,14 @@ final class OutdatedSchemaV2CommandTest {
                 "--offline",
                 "--cwd", workspace.root().toString());
 
+        // Workspace member paths are canonicalized to Unicode NFC when they are expanded (§6.3),
+        // so the display label is the composed spelling even though the directory is decomposed.
         assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(result.stdout().contains("\"label\": \"" + workspace.memberName() + "\""), result.stdout());
+        assertTrue(
+                result.stdout().contains("\"label\": \""
+                        + java.text.Normalizer.normalize(workspace.memberName(), java.text.Normalizer.Form.NFC)
+                        + "\""),
+                result.stdout());
     }
 
     @Test
@@ -224,35 +216,9 @@ final class OutdatedSchemaV2CommandTest {
         assertTrue(result.stdout().contains("\"identifier\": \"com.example:lib\""), result.stdout());
     }
 
-    @Test
-    void schemaV1AcceptsDecomposedDependencyIdentifier() throws IOException {
-        String decomposed = "cafe\u0301";
-        Path project = tempDir.resolve("unicode-coordinate");
-        Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.toml"), """
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = 21
-
-                [dependencies]
-                "com.example:%s" = "1.0.0"
-                """.formatted(decomposed));
-
-        CommandResult result = execute(
-                "outdated",
-                "--format", "json",
-                "--all",
-                "--offline",
-                "--cwd", project.toString());
-
-        assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(result.stdout().contains("\"identifier\": \"com.example:" + decomposed + "\""), result.stdout());
-    }
 
     @Test
-    void schemaV2RejectsDecomposedDependencyIdentifierOnlyAtAutomationBoundary() throws IOException {
+    void decomposedDependencyIdentifierIsRejectedByTheParser() throws IOException {
         String decomposed = "cafe\u0301";
         Path project = tempDir.resolve("unicode-coordinate-v2");
         Files.createDirectories(project);
@@ -276,10 +242,9 @@ final class OutdatedSchemaV2CommandTest {
                 "--cwd", project.toString());
 
         assertEquals(1, result.exitCode());
-        assertEquals("", result.stderr());
         assertTrue(
-                result.stdout().contains("Update target identifier must use Unicode NFC normalization"),
-                result.stdout());
+                (result.stdout() + result.stderr()).contains("Invalid dependency coordinate"),
+                result.stdout() + result.stderr());
     }
 
     @Test
@@ -302,6 +267,7 @@ final class OutdatedSchemaV2CommandTest {
 
     @Test
     void unsafeCoordinateFailsBeforeMetadataDiscovery() throws IOException {
+        // The final coordinate grammar rejects it at parse time, long before any repository call.
         Path project = tempDir.resolve("unsafe-coordinate");
         Files.createDirectories(project);
         Files.writeString(project.resolve("zolt.toml"), """
@@ -321,7 +287,9 @@ final class OutdatedSchemaV2CommandTest {
         InjectedResult result = runInjected(project, forbidden);
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("not safe for repository metadata discovery"), result.stdout());
+        assertTrue(
+                (result.stdout() + result.stderr()).contains("Invalid dependency coordinate"),
+                result.stdout() + result.stderr());
     }
 
     @Test
@@ -389,6 +357,9 @@ final class OutdatedSchemaV2CommandTest {
 
     private static Path writeRepositoryWorkspace(Path root, List<String> repositoryIds) throws IOException {
         Files.createDirectories(root);
+        String definitions = repositoryIds.stream()
+                .map(id -> "[repositories." + id + "]\nurl = \"https://" + id + ".example.test/maven\"\n")
+                .collect(java.util.stream.Collectors.joining("\n"));
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "repositories"
@@ -396,11 +367,17 @@ final class OutdatedSchemaV2CommandTest {
                 [workspace.members]
                 include = [%s]
 
+                [repositories]
+                central = false
+
+                %s
                 [platforms]
                 "com.acme:private-bom" = "1.0.0"
-                """.formatted(repositoryIds.stream()
-                        .map(id -> "\"apps/" + id + "\"")
-                        .collect(java.util.stream.Collectors.joining(", "))));
+                """.formatted(
+                        repositoryIds.stream()
+                                .map(id -> "\"apps/" + id + "\"")
+                                .collect(java.util.stream.Collectors.joining(", ")),
+                        definitions));
         for (String repositoryId : repositoryIds) {
             Path member = root.resolve("apps").resolve(repositoryId);
             Files.createDirectories(member);
@@ -410,10 +387,7 @@ final class OutdatedSchemaV2CommandTest {
                     version = "0.1.0"
                     group = "com.example"
                     java = 21
-
-                    [repositories.%s]
-                    url = "https://%s.example.test/maven"
-                    """.formatted(repositoryId, repositoryId, repositoryId));
+                    """.formatted(repositoryId));
         }
         return root;
     }

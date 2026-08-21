@@ -52,21 +52,6 @@ final class WorkspaceRootExactUpdateCommandTest {
         assertFalse(Files.exists(root.resolve("zolt.lock")));
     }
 
-    @Test
-    void updatesLegacyWorkspaceManifestByItsAuthoritativePath() throws IOException {
-        Path root = writeWorkspace(tempDir.resolve("legacy"), "zolt-workspace.toml", "", "5.10.2");
-        writeMember(root);
-        UpdateTarget target = rootTarget(
-                root.resolve("zolt-workspace.toml"), "zolt-workspace.toml");
-
-        Result result = run(root, null, exactArgs(target, "5.11.4", "--no-resolve"));
-
-        assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(Files.readString(root.resolve("zolt-workspace.toml"))
-                .contains("\"org.junit:junit-bom\" = \"5.11.4\" # root BOM"));
-        assertTrue(result.stdout().contains("\"manifestPath\": \"zolt-workspace.toml\""));
-        assertTrue(result.stdout().contains("\"changedFiles\": [\n    \"zolt-workspace.toml\""));
-    }
 
     @Test
     void rootPlatformUpdateRegeneratesTheWorkspaceRootLock() throws IOException {
@@ -80,7 +65,7 @@ final class WorkspaceRootExactUpdateCommandTest {
                     "5.10.2");
             writeMember(root, "\n[dependencies]\n\"com.example:lib\" = \"1.0.0\"\n");
             UpdateTarget target = rootTarget(root.resolve("zolt.toml"), "zolt.toml");
-            Path cache = root.resolve("cache");
+            Path cache = tempDir.resolve("resolved-cache");
             new WorkspaceResolveService(new ResolveService()).resolve(root, cache, false, false);
             String lockBefore = Files.readString(root.resolve("zolt.lock"));
 
@@ -122,7 +107,7 @@ final class WorkspaceRootExactUpdateCommandTest {
                             target,
                             "5.11.4",
                             "--cache-root",
-                            root.resolve("cache").toString()));
+                            tempDir.resolve("rollback-cache").toString()));
 
             assertEquals(1, result.exitCode());
             assertEquals(manifestBefore, Files.readString(root.resolve("zolt.toml")));
