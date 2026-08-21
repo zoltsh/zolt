@@ -18,7 +18,10 @@ public record RepositoryUrl(String value) {
             throw invalid(value, "include a host");
         }
         if (uri.getRawUserInfo() != null) {
-            throw invalid(value, "remove embedded user information and reference a credential ID instead");
+            // The authored URL carries a secret here, so the diagnostic never echoes any of it.
+            throw new IllegalArgumentException(
+                    "Repository URL declares embedded user information. "
+                            + "Remove it and reference a credential ID instead.");
         }
         if (uri.getRawFragment() != null) {
             throw invalid(value, "remove the fragment");

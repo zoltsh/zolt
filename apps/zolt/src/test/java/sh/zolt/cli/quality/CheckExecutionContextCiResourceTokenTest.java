@@ -23,12 +23,11 @@ final class CheckExecutionContextCiResourceTokenTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-missing-resource-token-env") + """
 
-                [resources.filtering]
-                enabled = true
-                includes = ["**/*.properties"]
+                [resources.filter]
+                include = ["**/*.properties"]
 
                 [resources.tokens]
-                buildNumber = { env = "ZOLT_TEST_MISSING_RESOURCE_TOKEN" }
+                build-number = { env = "ZOLT_TEST_MISSING_RESOURCE_TOKEN" }
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
@@ -39,8 +38,8 @@ final class CheckExecutionContextCiResourceTokenTest {
                 "--cwd", projectDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error execution-context [resources.tokens.buildNumber] CI context requires environment variable ZOLT_TEST_MISSING_RESOURCE_TOKEN"));
-        assertTrue(result.stdout().contains("resource token `buildNumber` before resource copying"));
+        assertTrue(result.stdout().contains("error execution-context [resources.tokens.build-number] CI context requires environment variable ZOLT_TEST_MISSING_RESOURCE_TOKEN"));
+        assertTrue(result.stdout().contains("resource token `build-number` before resource copying"));
         assertTrue(result.stdout().contains("Values are never printed"));
         assertEquals("", result.stderr());
     }
@@ -51,13 +50,12 @@ final class CheckExecutionContextCiResourceTokenTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-resource-token-provenance") + """
 
-                [resources.filtering]
-                enabled = true
-                includes = ["**/*.properties"]
+                [resources.filter]
+                include = ["**/*.properties"]
 
                 [resources.tokens]
-                appName = { value = "demo" }
-                projectVersion = { project = "version" }
+                app-name = { value = "demo" }
+                project-version = { project = "version" }
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 

@@ -27,13 +27,11 @@ final class PlanCommandTest {
                 + generatedSourceConfig("main", "openapi", "target/generated/sources/openapi", "src/main/openapi/api.yaml", true)
                 + """
 
-                [resources.filtering]
-                enabled = true
-                includes = ["**/*.properties"]
-                missing = "fail"
+                [resources.filter]
+                include = ["**/*.properties"]
 
                 [resources.tokens]
-                projectVersion = { project = "version" }
+                project-version = { project = "version" }
 
                 [package]
                 mode = "spring-boot-war"
@@ -50,7 +48,7 @@ final class PlanCommandTest {
         assertTrue(result.stdout().contains("- generate-main-openapi [generated-source] blocked"));
         assertTrue(result.stdout().contains("blocker missing-generated-source-output"));
         assertTrue(result.stdout().contains("- process-main-resources [resources] ready"));
-        assertTrue(result.stdout().contains("tokens: [projectVersion]"));
+        assertTrue(result.stdout().contains("tokens: [project-version]"));
         assertTrue(result.stdout().contains("- assemble-package [package] blocked"));
         assertTrue(result.stdout().contains("blocker missing-main-class"));
         assertEquals("", result.stderr());
@@ -82,8 +80,8 @@ final class PlanCommandTest {
 
                 [test.runtime]
                 jvmArgs = ["--add-opens=java.base/java.lang=ALL-UNNAMED"]
-                systemProperties = { "logs.dir" = "${project.root}/test-logs" }
-                environment = { TZ = "America/Chicago" }
+                properties = { "logs.dir" = "${project.root}/test-logs" }
+                env = { TZ = "America/Chicago" }
                 events = ["failed", "skipped"]
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");

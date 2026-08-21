@@ -95,8 +95,10 @@ final class CheckGeneratedSourcesCommandTest {
         CommandResult result = execute("check", "--cwd", projectDir.toString(), "--check", "generated-sources");
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error generated-sources [generated.main.openapi].output Invalid generated source output path `../generated/openapi`."));
-        assertTrue(result.stdout().contains("next: Use a project-relative path under the project directory."));
+        assertTrue(result.stdout().contains(
+                "error generated-sources zolt.toml Invalid value for `generated.main.openapi.output`"),
+                result.stdout());
+        assertTrue(result.stdout().contains("next: Fix zolt.toml"), result.stdout());
         assertEquals("", result.stderr());
     }
 

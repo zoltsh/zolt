@@ -156,7 +156,7 @@ final class CheckCommandTest extends CheckCommandTestSupport {
         CommandResult result = execute("check", "--cwd", projectDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error command-surface zolt.toml Unknown top-level section [check] in zolt.toml."));
+        assertTrue(result.stdout().contains("error command-surface zolt.toml Unknown manifest section `[check]`"), result.stdout());
         assertTrue(result.stdout().contains("next: Fix zolt.toml, then run `zolt check` again."));
         assertEquals("", result.stderr());
     }

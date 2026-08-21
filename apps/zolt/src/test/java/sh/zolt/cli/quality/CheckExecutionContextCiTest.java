@@ -135,8 +135,10 @@ final class CheckExecutionContextCiTest {
                 "--cwd", projectDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error execution-context [repositories.company] CI context rejects embedded credentials in repository `company` URL."));
-        assertTrue(result.stdout().contains("Move credentials to [repositoryCredentials] environment references"));
+        assertTrue(result.stdout().contains(
+                "error execution-context zolt.toml Invalid value for `repositories.company.url`"),
+                result.stdout());
+        assertTrue(result.stdout().contains("Repository URL declares embedded user information."), result.stdout());
         assertFalse(result.stdout().contains("user:super-secret-token"));
         assertFalse(result.stdout().contains("repo.example.test/maven"));
         assertEquals("", result.stderr());
@@ -163,8 +165,10 @@ final class CheckExecutionContextCiTest {
                 "--cwd", projectDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error execution-context [publish.repositories.company-releases] CI context rejects embedded credentials in publish repository `company-releases` URL."));
-        assertTrue(result.stdout().contains("Move publish credentials to [repositoryCredentials] environment references"));
+        assertTrue(result.stdout().contains(
+                "error execution-context zolt.toml Invalid value for `publish.repositories.company-releases.url`"),
+                result.stdout());
+        assertTrue(result.stdout().contains("Repository URL declares embedded user information."), result.stdout());
         assertFalse(result.stdout().contains("publish-user"));
         assertFalse(result.stdout().contains("super-secret-token"));
         assertFalse(result.stdout().contains("repo.example.test/releases"));
