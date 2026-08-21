@@ -206,7 +206,7 @@ final class ManifestGeneratedSourcesDecoderTest {
 
     private static Optional<AuthoredGeneratedSources> decode(String source) {
         return new ManifestGeneratedSourcesDecoder().decode(
-                ManifestSemanticTestSupport.index(source));
+                ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private static void assertFailure(String source, String... details) {

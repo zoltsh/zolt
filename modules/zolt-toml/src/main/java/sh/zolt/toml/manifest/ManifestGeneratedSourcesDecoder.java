@@ -14,6 +14,7 @@ import sh.zolt.manifest.authored.AuthoredGeneratedStep;
 import sh.zolt.manifest.authored.AuthoredGeneratedTools;
 import sh.zolt.manifest.authored.AuthoredOpenApiStep;
 import sh.zolt.manifest.authored.AuthoredProtobufStep;
+import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.ManifestField;
 
 /** Composes authored generated tools, presets, and steps without applying effective defaults. */
@@ -22,8 +23,18 @@ final class ManifestGeneratedSourcesDecoder {
     private final ManifestGeneratedPresetsDecoder presets = new ManifestGeneratedPresetsDecoder();
     private final ManifestGeneratedStepsDecoder steps = new ManifestGeneratedStepsDecoder();
 
-    Optional<AuthoredGeneratedSources> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredGeneratedSources> decode(
+            ManifestDecodeIndex index,
+            GeneratedSourcesPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(
+                observer, "Authored generated sources presence observer is required.");
+        firstPresentCollection(index).ifPresent(section ->
+                ManifestSemanticDiagnostics.construct(section, () -> {
+                    AuthoredGeneratedSources empty = AuthoredGeneratedSources.empty();
+                    observer.present(empty);
+                    return empty;
+                }));
         Optional<AuthoredGeneratedTools> decodedTools = tools.decode(index);
         Optional<AuthoredGeneratedPresets> decodedPresets = presets.decode(index);
         AuthoredGeneratedTools declarations = decodedTools.orElseGet(AuthoredGeneratedTools::empty);
@@ -38,6 +49,14 @@ final class ManifestGeneratedSourcesDecoder {
             return Optional.empty();
         }
         return Optional.of(composition.generated());
+    }
+
+    private static Optional<ValidatedManifestSection> firstPresentCollection(
+            ManifestDecodeIndex index) {
+        return index.section(FinalManifestPaths.GENERATED_TOOLS)
+                .or(() -> index.section(FinalManifestPaths.GENERATED_PRESETS))
+                .or(() -> index.section(FinalManifestPaths.GENERATED_MAIN_STEPS))
+                .or(() -> index.section(FinalManifestPaths.GENERATED_TEST_STEPS));
     }
 
     private static AuthoredGeneratedSources appendStep(
@@ -124,6 +143,11 @@ final class ManifestGeneratedSourcesDecoder {
                 new IllegalStateException(
                         "Decoded generated step is missing retained field `" + handle.path() + "`."));
         return ManifestSemanticDiagnostics.construct(field, factory);
+    }
+
+    @FunctionalInterface
+    interface GeneratedSourcesPresenceObserver {
+        void present(AuthoredGeneratedSources generated);
     }
 
     private static final class Composition {

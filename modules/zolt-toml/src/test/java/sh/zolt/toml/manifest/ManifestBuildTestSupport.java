@@ -21,6 +21,18 @@ public final class ManifestBuildTestSupport {
         return decode(source).generated();
     }
 
+    public static Optional<AuthoredGeneratedSources> decodeGeneratedSources(
+            String source, Consumer<AuthoredGeneratedSources> observer) {
+        ManifestGeneratedSourcesDecoder.GeneratedSourcesPresenceObserver adapted =
+                observer == null ? null : observer::accept;
+        return new ManifestGeneratedSourcesDecoder().decode(
+                ManifestSemanticTestSupport.index(source), adapted);
+    }
+
+    public static void decodeGeneratedSourcesWithNullIndex() {
+        new ManifestGeneratedSourcesDecoder().decode(null, ignored -> {});
+    }
+
     public static Optional<AuthoredBuild> decodeBuild(
             String source, Consumer<AuthoredBuild> observer) {
         ManifestBuildDecoder.BuildPresenceObserver adapted =
