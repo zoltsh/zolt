@@ -28,8 +28,10 @@ projection removes the filtered edge as well as the optional-only target, so it
 cannot emit a dangling relationship. Member-qualified component graph contexts
 remain available to workspace SBOM and classpath consumers that require
 member-sensitive projection (defensive lookup, cycle-guarded). Commands that
-consume this workspace graph require lock version 5; versions 1–4 remain
-readable only for operations that do not need optional-boundary evidence.
+consumed this workspace graph required lock version 5 when the graph contract
+was introduced; versions 1–4 were then readable only for operations that did
+not need optional-boundary evidence. Current executable readers reject every
+pre-v7 lock because those schemas cannot prove authored dependency lanes.
 Therefore the SBOM graph is a READ of the lock — no re-resolution (rejected:
 needs warm cache/network, drags zolt-resolve in, re-derives persisted data) and
 no parallel edge table (rejected: it duplicates existing data for zero new

@@ -539,7 +539,7 @@ ambient or historically shaped:
   sweep of the cache: `zolt build --workspace` succeeding says every artifact the
   build used was intact, not that every artifact in `zolt.lock` is. Use `zolt
   resolve --locked` to check the whole lock.
-- `zolt.lock` version 6 is deterministic: no timestamps, no absolute paths,
+- `zolt.lock` version 7 is deterministic: no timestamps, no absolute paths,
   stable ordering, and LF line endings. Version 2 added variant-qualified
   dependency edges and conflict identities; version 3 added source-scope-qualified
   dependency edges; version 4 adds member-qualified workspace dependency and
@@ -547,13 +547,14 @@ ambient or historically shaped:
   closures per member; version 5 carries optional-boundary and member-attributed
   conflict evidence and requires complete member graph facts for every qualified
   identity; version 6 makes content-addressed `blobs/v2/sha256/...` artifact
-  cache paths part of the schema contract. Zolt still reads version 1 through 5
-  locks for compatible metadata and diagnostics, but graph commands refuse
-  ambiguous legacy edges and commands that materialize locked artifacts refuse
-  pre-v6 cache paths. Run `zolt resolve` (or `zolt resolve --workspace`) once to
-  migrate. Newly resolved locks use version 6 so older binaries cannot silently
-  misread either graph evidence or artifact cache paths. Newer lockfile versions
-  require a newer Zolt before `zolt resolve --locked` can verify them.
+  cache paths part of the schema contract; version 7 adds member-qualified
+  `[[dependencyRoot]]` records that keep authored lanes independent from exact
+  selected versions, variants, and resolved scopes. Current executable readers
+  reject every pre-v7 lock instead of inferring missing authored-lane evidence.
+  Run `zolt resolve` (or `zolt resolve --workspace`) once to migrate. Newly
+  resolved locks use version 7 so older binaries cannot silently misread graph,
+  cache-path, or authored-lane evidence. Newer lockfile versions require a newer
+  Zolt before `zolt resolve --locked` can verify them.
 - Manifest mutation commands preserve unrelated comments, formatting, and
   configuration byte-for-byte and fail closed if the source changes during an
   edit. Editable dependency, platform, and constraint declarations must use a
@@ -1305,9 +1306,11 @@ than reaching the network. A fresh clone against a cold cache therefore builds,
 instead of failing later with a cached-artifact integrity error.
 
 The annotation did not change the lock schema when it was introduced in version
-5: older Zolt versions ignore the unknown key when reading, and it is excluded
-from the bytes `--locked` compares. Newly resolved locks are now version 6 for
-the separate content-addressed cache-path contract. A full locked verification
+5: Zolt versions of that period ignored the unknown key when reading, and it is
+excluded from the bytes `--locked` compares. Version 6 later introduced the
+separate content-addressed cache-path contract. Newly resolved locks are now
+version 7 for the authored dependency-root contract, and current executable
+readers reject pre-v7 locks. A full locked verification
 that passes has proved the lock is what the current inputs derive, so the gate
 records the fingerprint it just computed, in the same position and bytes an
 ordinary `zolt resolve --workspace` would write. Without that, a lock written

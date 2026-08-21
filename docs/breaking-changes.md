@@ -3,6 +3,21 @@
 Breaking changes to Zolt's CLI and configuration, newest first. Each entry names
 the old behavior, the new behavior, and how to migrate.
 
+## Lockfile version 7 preserves authored dependency lanes
+
+- **Old behavior:** version-6 locks marked packages as direct and recorded their
+  resolved scopes, but could not distinguish where a declaration was authored.
+  In particular, API and implementation dependencies both initially resolve in
+  compile scope, so executable consumers could not recover that boundary.
+- **New behavior:** version-7 locks add one member-qualified
+  `[[dependencyRoot]]` record for every authored dependency declaration. Each
+  root preserves its dependency lane independently from the exact selected
+  package version, variant, and resolved scope. All executable lock consumers
+  reject pre-v7 locks instead of inferring or guessing missing lanes.
+- **Migration:** run `zolt resolve` for a standalone project or
+  `zolt resolve --workspace` at the workspace root, then commit the regenerated
+  version-7 `zolt.lock` before running any executable lock consumer.
+
 ## Lockfile version 6 binds content-addressed artifact cache paths
 
 - **Old behavior:** version-5 locks could name Maven-layout cache paths such as
@@ -10,15 +25,15 @@ the old behavior, the new behavior, and how to migrate.
   content-addressed `blobs/v2/sha256/...` paths. A cold cache exposed the two
   incompatible meanings only after a locked resolve had already downloaded the
   artifacts and failed the lock comparison.
-- **New behavior:** newly resolved locks use version 6, which explicitly means
-  every repository artifact path is content-addressed. Versions 1 through 5
-  remain readable for compatible metadata and diagnostics, but commands refuse
-  to materialize their legacy cache paths and report the migration command
-  before cache or network work.
-- **Migration:** run `zolt resolve` for a project lock or
-  `zolt resolve --workspace` for a workspace lock, then commit the regenerated
-  version 6 `zolt.lock` before building, testing, packaging, or using
-  `--locked`.
+- **Version-6 behavior:** newly resolved locks used version 6, which explicitly
+  meant every repository artifact path was content-addressed. At its
+  introduction, versions 1 through 5 remained readable for compatible metadata
+  and diagnostics, while commands refused to materialize their legacy cache
+  paths and reported the migration command before cache or network work.
+- **Historical migration:** users ran `zolt resolve` for a project lock or
+  `zolt resolve --workspace` for a workspace lock, then committed the
+  regenerated version-6 `zolt.lock`. Current Zolt releases reject every pre-v7
+  lock at executable reader boundaries; follow the version-7 migration above.
 
 ## Workspace tree schema 3 binds member identities and graph roots
 
