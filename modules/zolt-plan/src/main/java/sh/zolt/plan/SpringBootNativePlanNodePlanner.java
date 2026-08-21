@@ -37,7 +37,7 @@ final class SpringBootNativePlanNodePlanner {
         boolean springBootProject = SpringBootNativeProjectDetector.springBootProject(config);
         boolean nativeEnabled = config.frameworkSettings().springBoot().nativeEnabled();
         List<String> details = new ArrayList<>();
-        details.add("framework.springBoot.native: " + (nativeEnabled ? "enabled" : "disabled"));
+        details.add("framework.spring-boot native: " + (nativeEnabled ? "enabled" : "disabled"));
         details.add("springBootProject: " + springBootProject);
         details.add("springBootVersion: " + state.springBootVersion().orElse("unknown"));
         details.add("java: " + config.project().java());
@@ -46,7 +46,7 @@ final class SpringBootNativePlanNodePlanner {
         if (springBootProject && !nativeEnabled) {
             blockers.add(new PlanBlocker(
                     "spring-boot-native-disabled",
-                    "Spring Boot native images require `[framework.springBoot.native] enabled = true`.",
+                    "Spring Boot native images require `[framework.spring-boot] native = true`.",
                     "Set `[package].mode = \"spring-boot\"`, run `zolt resolve`, then use `zolt package` or `zolt run` for JVM apps, or enable the typed Spring Boot native path."));
         }
         if (nativeEnabled && !"21".equals(config.project().java())) {
@@ -108,10 +108,10 @@ final class SpringBootNativePlanNodePlanner {
                     "spring-aot-tooling",
                     "native-tooling",
                     PlanNodeStatus.SKIPPED,
-                    "Spring Boot AOT tooling is only required when `[framework.springBoot.native] enabled = true`.",
+                    "Spring Boot AOT tooling is only required when `[framework.spring-boot] native = true`.",
                     List.of("zolt.lock"),
                     List.of(),
-                    List.of("framework.springBoot.native: disabled"),
+                    List.of("framework.spring-boot native: disabled"),
                     List.of());
         }
         List<PlanBlocker> blockers = new ArrayList<>();
@@ -154,10 +154,10 @@ final class SpringBootNativePlanNodePlanner {
                     "spring-aot-output",
                     "native-aot",
                     PlanNodeStatus.SKIPPED,
-                    "Spring Boot AOT output is only required when `[framework.springBoot.native] enabled = true`.",
+                    "Spring Boot AOT output is only required when `[framework.spring-boot] native = true`.",
                     List.of("zolt.toml"),
                     List.of(),
-                    List.of("framework.springBoot.native: disabled"),
+                    List.of("framework.spring-boot native: disabled"),
                     List.of());
         }
         List<PlanBlocker> blockers = new ArrayList<>();
@@ -184,7 +184,7 @@ final class SpringBootNativePlanNodePlanner {
                     "Spring Boot native AOT output is incomplete under "
                             + PlanPathDisplay.displayPath(state.projectRoot(), state.aotRoot())
                             + ".",
-                    "Run `zolt build` after enabling `[framework.springBoot.native] enabled = true`, then rerun the native plan."));
+                    "Run `zolt build` after enabling `[framework.spring-boot] native = true`, then rerun the native plan."));
         } else if (state.aotFreshness().stale()) {
             blockers.add(new PlanBlocker(
                     "stale-spring-aot-output",

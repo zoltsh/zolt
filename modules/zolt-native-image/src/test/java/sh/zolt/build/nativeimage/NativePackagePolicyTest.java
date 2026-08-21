@@ -9,7 +9,7 @@ import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,7 @@ final class NativePackagePolicyTest {
 
     @Test
     void thinSpringNativeKeepsAnIndirectLoaderDependency() {
-        var filter = NativePackagePolicy.classpathFilter(springNativeConfig("thin"));
+        var filter = NativePackagePolicy.classpathFilter(springNativeConfig("jar"));
 
         assertTrue(filter.test(dependency(
                 "org.springframework.boot",
@@ -116,19 +116,19 @@ final class NativePackagePolicyTest {
     }
 
     private static ProjectConfig springNativeConfig(String packageMode) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [package]
                 mode = "%s"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 """.formatted(packageMode));
     }
 }

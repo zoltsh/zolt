@@ -60,7 +60,7 @@ public final class SpringBootAotNativeInputs {
                             + label
                             + " at "
                             + path
-                            + ". [framework.springBoot.native] enabled = true requires Spring AOT outputs under the configured build output root before invoking Native Image.");
+                            + ". [framework.spring-boot] native = true requires Spring AOT outputs under the configured build output root before invoking Native Image.");
         }
     }
 
@@ -71,7 +71,7 @@ public final class SpringBootAotNativeInputs {
                             + label
                             + " under "
                             + directory
-                            + ". [framework.springBoot.native] enabled = true requires complete Spring AOT output evidence before invoking Native Image.");
+                            + ". [framework.spring-boot] native = true requires complete Spring AOT output evidence before invoking Native Image.");
         }
     }
 

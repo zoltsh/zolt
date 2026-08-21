@@ -177,7 +177,7 @@ final class BuildPlanServiceNativeTest {
         assertEquals(PlanNodeStatus.SKIPPED, node(plan, "spring-aot-output").status());
         PlanBlocker blocker = blocker(intent, "spring-boot-native-disabled");
         assertEquals(
-                "Spring Boot native images require `[framework.springBoot.native] enabled = true`.",
+                "Spring Boot native images require `[framework.spring-boot] native = true`.",
                 blocker.message());
         assertEquals(
                 "Set `[package].mode = \"spring-boot\"`, run `zolt resolve`, then use `zolt package` or `zolt run` for JVM apps, "
@@ -261,7 +261,7 @@ final class BuildPlanServiceNativeTest {
                 "Spring Boot native AOT output is incomplete under target/spring-aot/main.",
                 blocker.message());
         assertEquals(
-                "Run `zolt build` after enabling `[framework.springBoot.native] enabled = true`, "
+                "Run `zolt build` after enabling `[framework.spring-boot] native = true`, "
                         + "then rerun the native plan.",
                 blocker.nextStep());
     }

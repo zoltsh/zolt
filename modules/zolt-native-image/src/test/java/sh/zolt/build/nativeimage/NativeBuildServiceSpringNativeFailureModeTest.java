@@ -8,7 +8,7 @@ import sh.zolt.build.BuildResult;
 import sh.zolt.build.NativeImageException;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -68,16 +68,16 @@ final class NativeBuildServiceSpringNativeFailureModeTest extends NativeBuildSer
                 NativeImageException.class,
                 () -> service.buildNative(
                         projectDir,
-                        new ZoltTomlParser().parse("""
+                        new ManifestProjectConfigLoader().load("""
                                 [project]
                                 name = "demo"
                                 version = "0.1.0"
                                 group = "com.example"
-                                java = "17"
+                                java = 17
                                 main = "com.example.Main"
 
-                                [framework.springBoot.native]
-                                enabled = true
+                                [framework.spring-boot]
+                                native = true
                                 """),
                         projectDir.resolve("cache"),
                         Path.of("native-image")));
@@ -99,19 +99,19 @@ final class NativeBuildServiceSpringNativeFailureModeTest extends NativeBuildSer
                 NativeImageException.class,
                 () -> service.buildNative(
                         projectDir,
-                        new ZoltTomlParser().parse("""
+                        new ManifestProjectConfigLoader().load("""
                                 [project]
                                 name = "demo"
                                 version = "0.1.0"
                                 group = "com.example"
-                                java = "21"
+                                java = 21
                                 main = "com.example.Main"
 
                                 [platforms]
                                 "org.springframework.boot:spring-boot-dependencies" = "4.0.6"
 
-                                [framework.springBoot.native]
-                                enabled = true
+                                [framework.spring-boot]
+                                native = true
                                 """),
                         projectDir.resolve("cache"),
                         Path.of("native-image")));
@@ -156,7 +156,7 @@ final class NativeBuildServiceSpringNativeFailureModeTest extends NativeBuildSer
                 () -> service.buildNative(
                         projectDir,
                         springBootNativeBoundaryConfig("""
-                                [runtime.dependencies]
+                                [dependencies.runtime]
                                 "org.postgresql:postgresql" = "42.7.4"
                                 """),
                         projectDir.resolve("cache"),
@@ -169,40 +169,40 @@ final class NativeBuildServiceSpringNativeFailureModeTest extends NativeBuildSer
     }
 
     private static ProjectConfig springBootNativeConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
-                [build]
-                outputRoot = ".zolt/build"
+                [build.output]
+                root = ".zolt/build"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
 
                 [native]
-                imageName = "demo-native"
+                name = "demo-native"
                 args = ["--no-fallback"]
                 """);
     }
 
     private static ProjectConfig springBootNativeBoundaryConfig(String dependencySection) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
 
                 %s
                 """.formatted(dependencySection));
