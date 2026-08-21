@@ -2,8 +2,11 @@ package sh.zolt.sbom;
 
 import java.util.List;
 import java.util.Optional;
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BuildSettings;
@@ -38,13 +41,48 @@ abstract class SbomTestSupport {
     }
 
     protected static ZoltLockfile lockfile(Optional<String> fingerprint, LockPackage... packages) {
+        List<LockDependencyRoot> roots = java.util.Arrays.stream(packages)
+                .filter(LockPackage::direct)
+                .flatMap(lockPackage -> (lockPackage.members().isEmpty()
+                                ? List.of(".")
+                                : lockPackage.members())
+                        .stream()
+                        .map(member -> root(lockPackage.scope()) == null
+                                ? null
+                                : new LockDependencyRoot(
+                                        member,
+                                        lockPackage.packageId(),
+                                        lockPackage.version(),
+                                        LockArtifactVariant.of(lockPackage),
+                                        root(lockPackage.scope()),
+                                        Optional.of(lockPackage.scope()),
+                                        false,
+                                        false)))
+                .filter(java.util.Objects::nonNull)
+                .toList();
         return new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
                 Optional.empty(),
                 fingerprint,
+                List.of(),
                 List.of(packages),
                 List.of(),
-                List.of());
+                List.of(),
+                List.of(),
+                roots);
+    }
+
+    private static DependencyLane root(DependencyScope scope) {
+        return switch (scope) {
+            case COMPILE -> DependencyLane.IMPLEMENTATION;
+            case RUNTIME -> DependencyLane.RUNTIME;
+            case PROVIDED -> DependencyLane.PROVIDED;
+            case DEV -> DependencyLane.DEV;
+            case TEST -> DependencyLane.TEST;
+            case PROCESSOR -> DependencyLane.PROCESSOR;
+            case TEST_PROCESSOR -> DependencyLane.TEST_PROCESSOR;
+            default -> null;
+        };
     }
 
     protected static SbomWorkspaceMember member(String path, String group, String name, String version) {

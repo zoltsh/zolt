@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.LockDependencyGraphException;
 
@@ -101,6 +103,41 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
     }
 
     @Test
+    void rootEdgesFollowDependencyRootsInsteadOfStalePackageDirectness() {
+        var authored = maven(
+                "org.example", "authored", "1.0.0", DependencyScope.COMPILE, false, SHA_A,
+                List.of("org.example:stale:2.0.0"));
+        var staleDirect = maven(
+                "org.example", "stale", "2.0.0", DependencyScope.COMPILE, true, SHA_B, List.of());
+        LockDependencyRoot root = new LockDependencyRoot(
+                ".",
+                authored.packageId(),
+                authored.version(),
+                null,
+                DependencyLane.IMPLEMENTATION,
+                Optional.of(DependencyScope.COMPILE),
+                false,
+                false);
+        ZoltLockfile lockfile = new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of(authored, staleDirect),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(root));
+
+        SbomModel model = assembler.assemble(
+                config(), lockfile, SbomScopeSelection.requiredOnly(), Optional.empty(), TOOL_VERSION);
+
+        assertEquals(
+                List.of("pkg:maven/org.example/authored@1.0.0?type=jar"),
+                dependsOn(model, "pkg:maven/com.example/demo@0.1.0?type=jar"));
+    }
+
+    @Test
     void derivesClassifierAndTypeFromArtifactFilename() {
         SbomModel model = assemble(
                 SbomScopeSelection.requiredOnly(),
@@ -169,7 +206,7 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
     }
 
     @Test
-    void validatesLegacyAmbiguityBeforeFilteringProvidedTestAndProcessorScopes() {
+    void refusesPreV7BeforeFilteringProvidedTestAndProcessorScopes() {
         for (DependencyScope hiddenScope : List.of(
                 DependencyScope.PROVIDED,
                 DependencyScope.TEST,
@@ -213,7 +250,7 @@ final class LockSbomAssemblerTest extends SbomTestSupport {
                             TOOL_VERSION),
                     hiddenScope::lockfileName);
 
-            assertTrue(exception.getMessage().contains("ambiguous"), hiddenScope::lockfileName);
+            assertTrue(exception.getMessage().contains("requires zolt.lock version"), hiddenScope::lockfileName);
             assertTrue(
                     exception.getMessage().contains("version " + ZoltLockfile.CURRENT_VERSION),
                     () -> hiddenScope.lockfileName() + ": " + exception.getMessage());
