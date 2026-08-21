@@ -1,8 +1,8 @@
 package sh.zolt.cli;
 
 import sh.zolt.home.UserGlobalDirectory;
-import sh.zolt.toml.ToolchainRequirement;
-import sh.zolt.toml.ToolchainRequirementReader;
+import sh.zolt.toolchain.ZoltVersionPinReader;
+import sh.zolt.toolchain.ZoltVersionRequirement;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ final class ZoltToolchainNoticeHook {
             return;
         }
         try {
-            new ToolchainRequirementReader()
+            new ZoltVersionPinReader()
                     .find(workingDirectory())
                     .filter(requirement -> !requirement.zoltVersion().equals(ZoltCli.version()))
                     .map(this::message)
@@ -54,7 +54,7 @@ final class ZoltToolchainNoticeHook {
                 || commandPath.contains("self");
     }
 
-    private String message(ToolchainRequirement requirement) {
+    private String message(ZoltVersionRequirement requirement) {
         String version = requirement.zoltVersion();
         String action = installed(version)
                 ? "Run `zolt self use " + version + "` to switch to it."

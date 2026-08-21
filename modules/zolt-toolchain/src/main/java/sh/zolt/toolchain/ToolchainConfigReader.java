@@ -12,6 +12,7 @@ import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.effective.EffectiveJavaRuntime;
 import sh.zolt.manifest.effective.EffectiveTestJavaRuntime;
 import sh.zolt.manifest.effective.EffectiveToolchains;
+import sh.zolt.project.toolchain.JavaFeatureRelease;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
@@ -27,7 +28,9 @@ import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
  * this reader reports as "no toolchain request" so callers keep using the ambient JDK.
  *
  * <p>A virtual workspace root carries {@code [toolchain.java]} as shared configuration but has no
- * {@code [project]} to compose against, so its request is read exactly as authored.
+ * {@code [project]} to compose against, so its request is read as authored. An omitted {@code version}
+ * there still means the shared project release (design §11.3), which the root declares under
+ * {@code [workspace.project]}, so the release is taken from there rather than dropping the request.
  */
 public final class ToolchainConfigReader {
     private final ManifestProjectConfigLoader loader = new ManifestProjectConfigLoader();
@@ -39,7 +42,8 @@ public final class ToolchainConfigReader {
     public Optional<JavaToolchainRequest> readJava(String content) {
         AuthoredManifest authored = loader.document(content).authored();
         if (authored.project().isEmpty()) {
-            return authored.toolchains().mainJava().flatMap(ToolchainConfigReader::authoredJava);
+            return authored.toolchains().mainJava()
+                    .flatMap(toolchain -> authoredJava(toolchain, sharedRelease(authored)));
         }
         return toolchains(content).mainJava().flatMap(runtime -> switch (runtime) {
             case EffectiveJavaRuntime.System ignored -> Optional.empty();
@@ -64,7 +68,8 @@ public final class ToolchainConfigReader {
     public Optional<JavaToolchainRequest> readJavaTest(String content) {
         AuthoredManifest authored = loader.document(content).authored();
         if (authored.project().isEmpty()) {
-            return authored.toolchains().testJava().flatMap(ToolchainConfigReader::authoredJavaTest);
+            return authored.toolchains().testJava()
+                    .flatMap(toolchain -> authoredJavaTest(toolchain, sharedRelease(authored)));
         }
         return toolchains(content).testJava().flatMap(runtime -> switch (runtime) {
             case EffectiveTestJavaRuntime.SameAsMain ignored -> Optional.empty();
@@ -80,20 +85,36 @@ public final class ToolchainConfigReader {
         return loader.effective(content).project().shared().toolchains();
     }
 
-    private static Optional<JavaToolchainRequest> authoredJava(AuthoredJavaToolchain toolchain) {
-        return toolchain.version().map(version -> new JavaToolchainRequest(
-                version.toString(),
-                toolchain.distribution(),
-                toolchain.features().orElseGet(Set::of),
-                toolchain.policy().orElse(null)));
+    private static Optional<JavaToolchainRequest> authoredJava(
+            AuthoredJavaToolchain toolchain, Optional<String> sharedRelease) {
+        return toolchain.version()
+                .map(JavaFeatureRelease::toString)
+                .or(() -> sharedRelease)
+                .map(version -> new JavaToolchainRequest(
+                        version,
+                        toolchain.distribution(),
+                        toolchain.features().orElseGet(Set::of),
+                        toolchain.policy().orElse(null)));
     }
 
-    private static Optional<JavaToolchainRequest> authoredJavaTest(AuthoredJavaTestToolchain toolchain) {
-        return toolchain.version().map(version -> new JavaToolchainRequest(
-                version.toString(),
-                toolchain.distribution(),
-                Set.of(),
-                toolchain.policy().orElse(null)));
+    private static Optional<JavaToolchainRequest> authoredJavaTest(
+            AuthoredJavaTestToolchain toolchain, Optional<String> sharedRelease) {
+        return toolchain.version()
+                .map(JavaFeatureRelease::toString)
+                .or(() -> sharedRelease)
+                .map(version -> new JavaToolchainRequest(
+                        version,
+                        toolchain.distribution(),
+                        Set.of(),
+                        toolchain.policy().orElse(null)));
+    }
+
+    /** The Java release a virtual workspace root shares with its members (design §4.3, §11.3). */
+    private static Optional<String> sharedRelease(AuthoredManifest authored) {
+        return authored.workspace()
+                .flatMap(workspace -> workspace.projectDefaults())
+                .flatMap(defaults -> defaults.javaRelease())
+                .map(JavaFeatureRelease::toString);
     }
 
     private static String read(Path configPath) {
