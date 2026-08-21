@@ -46,9 +46,6 @@ public final class PublishReleasePolicyService {
     }
 
     private static void addMetadataBlockers(PublicationMetadata metadata, List<String> blockers) {
-        if (metadata.name().isBlank()) {
-            blockers.add("release context requires [package.metadata].name.");
-        }
         if (metadata.description().isBlank()) {
             blockers.add("release context requires [package.metadata].description.");
         }

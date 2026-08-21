@@ -50,10 +50,6 @@ final class PublishCentralReadiness {
                 !"snapshot".equals(versionKind),
                 "Set a non-SNAPSHOT [project].version; Maven Central rejects -SNAPSHOT releases."));
         requirements.add(requirement(
-                "project name",
-                !metadata.name().isBlank(),
-                "Add [package.metadata].name."));
-        requirements.add(requirement(
                 "project description",
                 !metadata.description().isBlank(),
                 "Add [package.metadata].description."));

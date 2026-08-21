@@ -81,14 +81,25 @@ final class ProjectConfigIdentity {
                 .orElse("");
     }
 
+    /**
+     * Design 7.3: the shorthand names one current SPDX identifier and Zolt derives the standard
+     * license URL for it, so a shorthand license still carries publishable POM metadata. The inline
+     * metadata form owns its own URL.
+     */
     private static String licenseUrl(EffectiveProjectIdentity identity) {
         return identity.license()
                 .map(EffectiveValue::value)
                 .map(license -> switch (license) {
-                    case ProjectLicense.Identifier ignored -> "";
-                    case ProjectLicense.Metadata authored -> authored.url().orElse("");
+                    case ProjectLicense.Identifier identifier -> spdxUrl(identifier.id());
+                    case ProjectLicense.Metadata authored -> authored.url()
+                            .or(() -> authored.id().map(ProjectConfigIdentity::spdxUrl))
+                            .orElse("");
                 })
                 .orElse("");
+    }
+
+    private static String spdxUrl(String identifier) {
+        return "https://spdx.org/licenses/" + identifier + ".html";
     }
 
     private static List<DeveloperEntry> developers(AuthoredProjectMetadata metadata) {
