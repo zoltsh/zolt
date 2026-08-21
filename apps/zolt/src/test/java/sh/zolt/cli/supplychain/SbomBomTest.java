@@ -19,7 +19,7 @@ final class SbomBomTest {
                 name = "acme-bom"
                 version = "1.0.0"
                 group = "com.acme.platform"
-                java = "21"
+                java = 21
 
                 [bom.versions]
                 "org.postgresql:postgresql" = "42.7.4"

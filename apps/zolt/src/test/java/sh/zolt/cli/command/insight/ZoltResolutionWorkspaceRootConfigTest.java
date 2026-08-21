@@ -88,10 +88,12 @@ final class ZoltResolutionWorkspaceRootConfigTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["app"]
 
-                [repositories]
-                test = "%s"
+                [workspace.members]
+                include = ["app"]
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.example:bom" = "1.0.0"

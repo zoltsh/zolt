@@ -24,28 +24,25 @@ final class QuarkusPlanCommandTestSupport {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
+                [dependencies.test]
 
-                [build]
-                outputRoot = "%s"
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "%s"
-                testOutput = "%s"
+                [build.output]
+                root = "%s"
+                main = "%s"
+                test = "%s"
                 """.formatted(outputRoot, output, testOutput));
     }
 
     static void enableQuarkus(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
-                [framework.quarkus]
-                enabled = true
-                package = "fast-jar"
+                [package]
+                mode = "quarkus"
                 """);
     }
 

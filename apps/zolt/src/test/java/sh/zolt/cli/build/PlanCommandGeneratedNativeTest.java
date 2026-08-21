@@ -29,7 +29,8 @@ final class PlanCommandGeneratedNativeTest {
                 [versions]
                 openapi = "7.11.0"
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
+                kind = "openapi"
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
@@ -92,7 +93,7 @@ final class PlanCommandGeneratedNativeTest {
                 name = "plan-native"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.DemoApplication"
 
                 [platforms]
@@ -101,11 +102,11 @@ final class PlanCommandGeneratedNativeTest {
                 [dependencies]
                 "org.springframework.boot:spring-boot-starter-web" = "3.3.6"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
 
                 [native]
-                imageName = "plan-native"
+                name = "plan-native"
                 args = ["--no-fallback"]
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """

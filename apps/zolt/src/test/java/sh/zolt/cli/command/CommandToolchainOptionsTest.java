@@ -76,17 +76,19 @@ final class CommandToolchainOptionsTest {
         Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "toolchain-identity-workspace"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(memberDir.resolve("zolt.toml"), """
                 [project]
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"
@@ -161,10 +163,12 @@ final class CommandToolchainOptionsTest {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
                 [workspace]
                 name = "legacy-toolchain-workspace"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"
@@ -174,7 +178,7 @@ final class CommandToolchainOptionsTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(locked.request().version()));
         if (unrelatedRootProject) {
             Files.writeString(tempDir.resolve("zolt.toml"), """
@@ -182,10 +186,10 @@ final class CommandToolchainOptionsTest {
                     name = "unrelated-root-project"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "999"
+                    java = 999
 
                     [toolchain.java]
-                    version = "999"
+                    version = 999
                     distribution = "temurin"
                     features = []
                     policy = "require-managed"

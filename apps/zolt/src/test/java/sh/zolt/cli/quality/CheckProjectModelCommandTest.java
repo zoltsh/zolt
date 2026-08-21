@@ -25,7 +25,9 @@ final class CheckProjectModelCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-unused-version-alias"
-                members = ["api"]
+
+                [workspace.members]
+                include = ["api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api") + """
 
@@ -44,16 +46,17 @@ final class CheckProjectModelCommandTest {
                 [dependencies]
                 "org.example:lib" = { versionRef = "used" }
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.projectlombok:lombok" = { versionRef = "lombok" }
 
-                [test.annotationProcessors]
+                [dependencies.test-processor]
                 "org.projectlombok:lombok" = { versionRef = "test-lombok" }
 
-                [dependencyConstraints]
-                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat", kind = "strict" }
+                [dependencies.constraints]
+                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat" }
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
+                kind = "openapi"
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
@@ -84,7 +87,7 @@ final class CheckProjectModelCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-invalid-model") + """
 
                 [build]
-                source = "/tmp/source"
+                sources = ["/tmp/source"]
                 """);
 
         CommandResult result = execute("check", "--cwd", projectDir.toString(), "--check", "project-model");
@@ -139,14 +142,14 @@ final class CheckProjectModelCommandTest {
                 [dependencies]
                 "org.example:lib" = { versionRef = "used" }
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.projectlombok:lombok" = { versionRef = "lombok" }
 
-                [test.annotationProcessors]
+                [dependencies.test-processor]
                 "org.projectlombok:lombok" = { versionRef = "test-lombok" }
 
-                [dependencyConstraints]
-                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat", kind = "strict" }
+                [dependencies.constraints]
+                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat" }
                 """);
 
         CommandResult result = execute(

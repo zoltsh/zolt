@@ -155,12 +155,11 @@ final class StandaloneLockFreshnessCommandTest {
                     name = "placeholder-%s"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "%s"
-
-                    [repositories]
-                    test = "%s"
-
+                    java = %s
                     %s
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(
                     displayName,
                     currentJavaMajorVersion(),
@@ -201,11 +200,11 @@ final class StandaloneLockFreshnessCommandTest {
     private static Stream<Arguments> placeholderResolutionInputs() {
         return Stream.of(
                 Arguments.of("runtime", """
-                        [runtime.dependencies]
+                        [dependencies.runtime]
                         "com.example:missing-runtime" = "1.0.0"
                         """),
                 Arguments.of("processor", """
-                        [annotationProcessors]
+                        [dependencies.processor]
                         "com.example:missing-processor" = "1.0.0"
                         """),
                 Arguments.of("package-only", """
@@ -240,21 +239,15 @@ final class StandaloneLockFreshnessCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "com.example:dependency" = "1.0.0"
                 "com.example:native-dependency" = { version = "1.0.0", classifier = "linux" }
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
                 """.formatted(currentJavaMajorVersion(), repository.baseUri()));
         Path source = projectRoot().resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());

@@ -65,7 +65,9 @@ final class WorkspacePackageModeOverrideRejectionTest {
                 """
                 [workspace]
                 name = "mode-override"
-                members = ["apps/app"]
+
+                [workspace.members]
+                include = ["apps/app"]
                 """);
         Files.writeString(
                 member.resolve("zolt.toml"),
@@ -74,7 +76,7 @@ final class WorkspacePackageModeOverrideRejectionTest {
                 name = "app"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(currentJavaMajorVersion()));
         Path source = member.resolve(
                 "src/main/java/com/example/Main.java");

@@ -60,10 +60,11 @@ final class CheckExecutionContextCiTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-missing-credentials") + """
 
-                [repositories]
-                company = { url = "https://repo.example.test/maven", credentials = "company-artifactory" }
+                [repositories.company]
+                url = "https://repo.example.test/maven"
+                credentials = "company-artifactory"
 
-                [repositoryCredentials.company-artifactory]
+                [credentials.company-artifactory]
                 usernameEnv = "ZOLT_TEST_MISSING_CHECK_CONTEXT_USERNAME"
                 passwordEnv = "ZOLT_TEST_MISSING_CHECK_CONTEXT_PASSWORD"
                 """);
@@ -90,13 +91,13 @@ final class CheckExecutionContextCiTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-missing-publish-credentials") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 credentials = "publish-creds"
 
-                [repositoryCredentials.publish-creds]
+                [credentials.publish-creds]
                 usernameEnv = "ZOLT_TEST_MISSING_PUBLISH_CHECK_USERNAME"
                 passwordEnv = "ZOLT_TEST_MISSING_PUBLISH_CHECK_PASSWORD"
                 """);
@@ -122,8 +123,8 @@ final class CheckExecutionContextCiTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-embedded-credentials") + """
 
-                [repositories]
-                company = "https://user:super-secret-token@repo.example.test/maven"
+                [repositories.company]
+                url = "https://user:super-secret-token@repo.example.test/maven"
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
@@ -148,7 +149,7 @@ final class CheckExecutionContextCiTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-embedded-publish-credentials") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://publish-user:super-secret-token@repo.example.test/releases"

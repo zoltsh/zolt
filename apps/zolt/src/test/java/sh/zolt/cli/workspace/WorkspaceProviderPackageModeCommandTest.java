@@ -70,12 +70,14 @@ final class WorkspaceProviderPackageModeCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "provider-%s"
-                members = ["modules/provider", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/provider", "apps/app"]
                 """.formatted(mode));
         Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
 
                 [dependencies]
-                "com.example:provider" = { workspace = "modules/provider" }
+                "com.example:provider" = { workspace = true }
                 """);
         Files.writeString(provider.resolve("zolt.toml"), memberConfig("provider") + """
 

@@ -42,10 +42,12 @@ final class WorkspaceMemberDirectoryStaleLockTest {
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "workspace"
-                    members = ["modules/core"]
 
-                    [repositories]
-                    test = "%s"
+                    [workspace.members]
+                    include = ["modules/core"]
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(repository.baseUri()));
             writeMemberConfig(memberDir, repository.baseUri().toString(), "com.example:app");
             Path memberSource = memberDir.resolve("src/main/java/com/example/core/Core.java");
@@ -148,8 +150,8 @@ final class WorkspaceMemberDirectoryStaleLockTest {
             throws IOException {
         Files.writeString(memberDir.resolve("zolt.toml"), CliTestSupport.memberConfig("core") + """
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "%s" = "1.0.0"

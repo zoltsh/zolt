@@ -144,7 +144,9 @@ final class WorkspaceMembersCommandTest {
         Files.writeString(legacy.resolve("zolt-workspace.toml"), """
                 [workspace]
                 name = "legacy"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         CommandResult legacyResult = execute(
                 "workspace", "members", "--cwd", legacy.toString());

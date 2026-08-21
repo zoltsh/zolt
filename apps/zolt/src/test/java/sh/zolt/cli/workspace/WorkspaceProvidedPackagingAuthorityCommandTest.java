@@ -164,19 +164,21 @@ final class WorkspaceProvidedPackagingAuthorityCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "provided-authority"
-                members = ["apps/app", "modules/other"]
 
-                [repositories]
-                test = "%s"
+                [workspace.members]
+                include = ["apps/app", "modules/other"]
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(repository.baseUri()));
         Files.writeString(app.resolve("zolt.toml"), project("app")
                 + """
                 main = "com.example.Main"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "org.example:provided-container" = "1.0.0"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "org.example:runtime-engine" = "1.0.0"
                 "org.springframework.boot:spring-boot-loader" = "4.0.6"
 
@@ -198,7 +200,7 @@ final class WorkspaceProvidedPackagingAuthorityCommandTest {
                 other.resolve("zolt.toml"),
                 project("other")
                         + """
-                        [provided.dependencies]
+                        [dependencies.provided]
                         "org.example:shared-util" = "1.0.0"
                         """);
         return workspace;
@@ -210,7 +212,7 @@ final class WorkspaceProvidedPackagingAuthorityCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(
                 name,
                 System.getProperty(

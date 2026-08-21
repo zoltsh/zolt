@@ -96,13 +96,15 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "credential-workspace"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
 
                 [repositories.company]
                 url = "https://repo.example.test/maven"
                 credentials = "company"
 
-                [repositoryCredentials.company]
+                [credentials.company]
                 tokenEnv = "%s"
                 """.formatted(tokenEnvironment));
         return workspace;
@@ -115,9 +117,11 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "publish-credential-workspace"
-                members = ["apps/api"]
 
-                [repositoryCredentials.company]
+                [workspace.members]
+                include = ["apps/api"]
+
+                [credentials.company]
                 tokenEnv = "%s"
                 """.formatted(tokenEnvironment));
         return workspace;
@@ -134,7 +138,7 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
                                 ? """
 
                                 [publish]
-                                releaseRepository = "releases"
+                                release = "releases"
 
                                 [publish.repositories.releases]
                                 url = "https://repo.example.test/releases"

@@ -22,8 +22,8 @@ final class ResolveCommandTestSupport {
         StringBuilder config = new StringBuilder(memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 """.formatted(repositoryUrl));
@@ -36,13 +36,7 @@ final class ResolveCommandTestSupport {
                         .append("\"\n"));
         config.append("""
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
         Files.writeString(projectDir.resolve("zolt.toml"), config.toString());
     }

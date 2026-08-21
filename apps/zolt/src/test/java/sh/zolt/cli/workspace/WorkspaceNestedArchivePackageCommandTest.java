@@ -151,15 +151,17 @@ final class WorkspaceNestedArchivePackageCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "nested-%s"
-                members = ["modules/provider", "apps/web"]
 
-                [repositories]
-                test = "%s"
+                [workspace.members]
+                include = ["modules/provider", "apps/web"]
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(mode.configValue(), repository.baseUri()));
         Files.writeString(provider.resolve("zolt.toml"), project("provider")
                 + """
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "org.example:runtime-lib" = "1.0.0"
 
                 [build.metadata]
@@ -182,9 +184,10 @@ final class WorkspaceNestedArchivePackageCommandTest {
                 main = "com.example.web.Web"
 
                 [dependencies]
-                "com.example:provider" = { workspace = "modules/provider" }
+                "com.example:provider" = { workspace = true }
 
                 %s
+
                 [package]
                 mode = "%s"
 
@@ -193,9 +196,8 @@ final class WorkspaceNestedArchivePackageCommandTest {
                 """.formatted(
                         mode.springBoot()
                                 ? """
-                                  [runtime.dependencies]
+                                  [dependencies.runtime]
                                   "org.springframework.boot:spring-boot-loader" = "4.0.6"
-
                                   """
                                 : "",
                         mode.configValue()));
@@ -221,7 +223,7 @@ final class WorkspaceNestedArchivePackageCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(name, currentJavaMajorVersion());
     }
 

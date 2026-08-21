@@ -13,8 +13,8 @@ final class PolicyCommandTestSupport {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
 
-                [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [versions]
                 "spring-boot" = "4.0.6"
@@ -28,22 +28,16 @@ final class PolicyCommandTestSupport {
                 "com.example:direct-lib" = { versionRef = "direct-lib" }
                 "org.springframework.boot:spring-boot-starter-web" = {}
 
-                [dependencyPolicy]
-                exclude = [
-                  { group = "com.example", artifact = "direct-lib", reason = "Direct dependency conflict fixture" },
-                  { group = "commons-logging", artifact = "commons-logging", reason = "Use jcl-over-slf4j" },
-                  { group = "log4j", artifact = "log4j", reason = "Legacy logging baseline" }
+                [dependencies.policy]
+                deny = [
+                  { coordinate = "com.example:direct-lib", reason = "Direct dependency conflict fixture" },
+                  { coordinate = "commons-logging:commons-logging", reason = "Use jcl-over-slf4j" },
+                  { coordinate = "log4j:log4j", reason = "Legacy logging baseline" }
                 ]
 
-                [dependencyConstraints]
-                "com.example:unused" = { version = "1.0.0", kind = "strict", reason = "Unused baseline" }
-                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat-baseline", kind = "strict", reason = "Container baseline" }
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.constraints]
+                "com.example:unused" = { version = "1.0.0", reason = "Unused baseline" }
+                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat-baseline", reason = "Container baseline" }
                 """);
     }
 

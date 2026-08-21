@@ -318,17 +318,17 @@ final class CheckPackageContentsEvidenceTest {
                         + """
                         main = "com.example.Main"
 
-                        [repositories]
-                        test = "%s"
+                        [repositories.test]
+                        url = "%s"
 
                         [dependencies]
                         "org.example:%s" = "1.0.0"
 
                         [package]
-                        mode = "uber"
+                        mode = "uber-jar"
 
                         [publish]
-                        releaseRepository = "test"
+                        release = "test"
 
                         [publish.repositories.test]
                         url = "%s"

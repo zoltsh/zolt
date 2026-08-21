@@ -132,8 +132,8 @@ final class CheckCommandTest extends CheckCommandTestSupport {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-output-root-isolated")
                 + """
 
-                [build]
-                outputRoot = ".zolt/build"
+                [build.output]
+                root = ".zolt/build"
                 """);
 
         CommandResult result = execute("check", "--check", "project-model", "--cwd", projectDir.toString());

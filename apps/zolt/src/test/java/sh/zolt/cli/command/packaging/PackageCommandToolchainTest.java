@@ -68,18 +68,20 @@ final class PackageCommandToolchainTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "bom-workspace"
-                members = ["platform-bom"]
-                defaultMembers = ["platform-bom"]
+
+                [workspace.members]
+                default = ["platform-bom"]
+                include = ["platform-bom"]
                 """);
         Files.writeString(bomDir.resolve("zolt.toml"), """
                 [project]
                 name = "platform-bom"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"

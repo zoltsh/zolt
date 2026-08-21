@@ -76,7 +76,9 @@ final class GeneratedTestCommandFixture {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "generated-test-workspace"
-                members = ["apps/app"]
+
+                [workspace.members]
+                include = ["apps/app"]
                 """);
         Files.writeString(
                 member.resolve("zolt.toml"),
@@ -120,7 +122,8 @@ final class GeneratedTestCommandFixture {
                 project("openapi-test")
                         + """
 
-                        [generated.openapiTool]
+                        [generated.tools.openapi]
+                        kind = "openapi"
                         coordinate = "com.example:openapi-generator"
                         version = "1.0.0"
 
@@ -165,7 +168,7 @@ final class GeneratedTestCommandFixture {
                 project("project-runner-test")
                         + """
 
-                        [runtime.dependencies]
+                        [dependencies.runtime]
                         "com.example:generator-runtime" = "1.0.0"
 
                         [generated.test.fixtures]
@@ -220,15 +223,14 @@ final class GeneratedTestCommandFixture {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
-
+                java = %s
                 """.formatted(name, currentJavaMajorVersion());
     }
 
     private static String jvmGeneratorConfig() {
         return """
-                [generated.execTools.fixture-generator]
-                runner = "jvm"
+                [generated.tools.fixture-generator]
+                kind = "jvm"
                 coordinates = [
                   { coordinate = "com.example:fixture-generator", version = "1.0.0" }
                 ]
@@ -251,9 +253,8 @@ final class GeneratedTestCommandFixture {
     private static String integrationConfig() {
         return """
 
-                [integrationTest]
+                [test.integration]
                 sources = ["src/integration-test/java"]
-                output = "target/integration-test-classes"
                 """;
     }
 

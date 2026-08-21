@@ -202,27 +202,29 @@ final class RootWorkspaceEnterpriseCommandTest {
                 name = "app"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [workspace]
                 name = "root-workspace"
-                members = ["."]
 
-                [repositories]
-                test = "%s"
+                [workspace.members]
+                include = ["."]
 
-                [api.dependencies]
+                [repositories.test]
+                url = "%s"
+
+                [dependencies.api]
                 "org.example:api" = "1.0.0"
 
                 [dependencies]
                 "org.example:optional" = { version = "1.0.0", optional = true }
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 unknown = "fail"
 
                 [publish]
-                releaseRepository = "test"
+                release = "test"
 
                 [publish.repositories.test]
                 url = "%s"

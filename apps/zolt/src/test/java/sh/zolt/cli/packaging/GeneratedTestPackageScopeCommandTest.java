@@ -132,7 +132,9 @@ final class GeneratedTestPackageScopeCommandTest {
         Files.writeString(workspace.resolve("zolt-workspace.toml"), """
                 [workspace]
                 name = "test-tool-workspace"
-                members = ["apps/app"]
+
+                [workspace.members]
+                include = ["apps/app"]
                 """);
         writeProject(
                 member,
@@ -204,11 +206,12 @@ final class GeneratedTestPackageScopeCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 %s
+
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -221,8 +224,8 @@ final class GeneratedTestPackageScopeCommandTest {
     private static String unavailableProcessGenerator(
             boolean packageTests) {
         return """
-                [generated.execTools.test-generator]
-                runner = "process"
+                [generated.tools.test-generator]
+                kind = "process"
                 binary = "zolt-missing-test-generator"
                 versionCommand = ["zolt-missing-test-generator", "--version"]
                 allowUnpinnedTool = true
@@ -235,8 +238,7 @@ final class GeneratedTestPackageScopeCommandTest {
                 produces = "test-resources"
 
                 [package]
-                tests = %s
-
+                testJar = %s
                 """.formatted(packageTests);
     }
 
@@ -252,8 +254,7 @@ final class GeneratedTestPackageScopeCommandTest {
                 required = false
 
                 [package]
-                tests = %s
-
+                testJar = %s
                 """.formatted(input, packageTests);
     }
 

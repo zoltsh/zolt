@@ -81,7 +81,7 @@ final class WorkspaceMemberSbomScopeProjectionTest {
                 name = "%s"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [%s]
                 "%s" = "%s"

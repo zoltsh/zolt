@@ -26,24 +26,17 @@ final class PublishCommandPomTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-pom-metadata") + """
 
                 [dependencies]
-                "org.example:api" = { version = "1.2.3", optional = true, exclusions = [
-                  { group = "org.legacy", artifact = "bad-lib" }
-                ] }
+                "org.example:api" = { version = "1.2.3", optional = true, exclusions = [{ group = "org.legacy", artifact = "bad-lib" }] }
                 "org.example:publish-helper" = { version = "2.0.0", publishOnly = true }
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "org.example:runtime" = "3.0.0"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "jakarta.servlet:jakarta.servlet-api" = "6.1.0"
 
-                [package.metadata]
-                name = "Publish Metadata Fixture"
-                description = "Dependency metadata fixture for publish dry run."
-                url = "https://example.com/publish-metadata"
-
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -153,7 +146,7 @@ final class PublishCommandPomTest {
                 "org.example:alpha" = "1.0.0"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

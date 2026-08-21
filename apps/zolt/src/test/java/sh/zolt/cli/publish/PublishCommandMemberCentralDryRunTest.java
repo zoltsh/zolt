@@ -132,10 +132,12 @@ final class PublishCommandMemberCentralDryRunTest {
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "family"
-                    members = ["modules/core"]
 
-                    [repositories]
-                    test = "%s"
+                    [workspace.members]
+                    include = ["modules/core"]
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(changed));
             Files.writeString(memberDir.resolve("zolt.toml"), readyMemberConfig("core", changed));
 
@@ -198,10 +200,12 @@ final class PublishCommandMemberCentralDryRunTest {
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "family"
-                    members = ["modules/core"]
 
-                    [repositories]
-                    test = "%s"
+                    [workspace.members]
+                    include = ["modules/core"]
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(changed));
             Files.writeString(memberDir.resolve("zolt.toml"), readyMemberConfig("core", changed));
             repository.clearAuthorizations();
@@ -251,10 +255,12 @@ final class PublishCommandMemberCentralDryRunTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "family"
-                members = ["modules/%s"]
 
-                [repositories]
-                test = "%s"
+                [workspace.members]
+                include = ["modules/%s"]
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(name, repository.baseUri()));
         Files.writeString(memberDir.resolve("zolt.toml"), memberToml);
         Path source = memberDir.resolve("src/main/java/com/example/" + name + "/Main.java");
@@ -281,8 +287,8 @@ final class PublishCommandMemberCentralDryRunTest {
     private static String readyMemberConfig(String name, String repositoryUri) {
         return memberConfig(name) + """
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "com.example:app" = "1.0.0"
@@ -291,27 +297,22 @@ final class PublishCommandMemberCentralDryRunTest {
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Family Core"
-                description = "A Central-ready workspace member."
-                url = "https://example.com/family-core"
-                license = "Apache-2.0"
-                licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-                scm = "https://github.com/example/family"
-                scmConnection = "scm:git:https://github.com/example/family.git"
+                [project.scm]
+                url = "https://github.com/example/family"
+                connection = "scm:git:https://github.com/example/family.git"
 
-                [package.metadata.developer.ada]
+                [project.developers.ada]
                 name = "Ada Lovelace"
                 email = "ada@example.com"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
 
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 keyId = "ABCDEF0123456789"
                 """.formatted(repositoryUri);
     }
@@ -319,14 +320,14 @@ final class PublishCommandMemberCentralDryRunTest {
     private static String bareMemberConfig(String name, CliTestRepository repository) {
         return memberConfig(name) + """
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "com.example:app" = "1.0.0"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

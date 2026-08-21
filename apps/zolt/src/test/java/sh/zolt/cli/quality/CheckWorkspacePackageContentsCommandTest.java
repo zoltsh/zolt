@@ -298,7 +298,7 @@ final class CheckWorkspacePackageContentsCommandTest {
                         [package]
                         mode = "war"
 
-                        [runtime.dependencies]
+                        [dependencies.runtime]
                         "org.example:web-runtime" = "1.0.0"
                         """);
         writeMember(
@@ -307,7 +307,7 @@ final class CheckWorkspacePackageContentsCommandTest {
                 memberConfig("admin")
                         + """
 
-                        [runtime.dependencies]
+                        [dependencies.runtime]
                         "org.apache.tomcat.embed:tomcat-embed-core" = "1.0.0"
                         """);
         writeMember(
@@ -325,7 +325,7 @@ final class CheckWorkspacePackageContentsCommandTest {
                 memberConfig("provider")
                         + """
 
-                        [api.dependencies]
+                        [dependencies.api]
                         "org.example:optional-lib" = { version = "1.0.0", optional = true }
                         """);
         writeMember(
@@ -335,10 +335,10 @@ final class CheckWorkspacePackageContentsCommandTest {
                         + """
 
                         [package]
-                        mode = "uber"
+                        mode = "uber-jar"
 
                         [dependencies]
-                        "com.example:provider" = { workspace = "modules/provider" }
+                        "com.example:provider" = { workspace = true }
                         """);
         writeMember(
                 workspace,
@@ -347,16 +347,18 @@ final class CheckWorkspacePackageContentsCommandTest {
                         + """
 
                         [package]
-                        mode = "uber"
+                        mode = "uber-jar"
 
                         [dependencies]
-                        "com.example:provider" = { workspace = "modules/provider" }
+                        "com.example:provider" = { workspace = true }
                         "org.example:optional-lib" = "1.0.0"
                         """);
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "package-content-workspace"
-                members = [
+
+                [workspace.members]
+                include = [
                   "apps/webapp",
                   "tools/admin",
                   "platform",
@@ -365,8 +367,8 @@ final class CheckWorkspacePackageContentsCommandTest {
                   "apps/required-consumer"
                 ]
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
                 """.formatted(repository.baseUri()));
         return workspace;
     }

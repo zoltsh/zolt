@@ -63,14 +63,11 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("package-plan-quarkus") + """
 
-                [build]
-                outputRoot = ".zolt/build"
+                [build.output]
+                root = ".zolt/build"
 
                 [package]
                 mode = "quarkus"
-
-                [framework.quarkus]
-                enabled = true
                 """);
         write(projectDir.resolve("zolt.lock"), projectDir.resolve(".zolt/cache"), """
                 version = 7
@@ -126,7 +123,7 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("package-plan-uber") + """
 
                 [package]
-                mode = "uber"
+                mode = "uber-jar"
                 """);
         writePackagePlanLockfile(projectDir, false, false);
 
@@ -152,11 +149,11 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("package-plan-output-root") + """
 
-                [build]
-                outputRoot = ".zolt/build"
+                [build.output]
+                root = ".zolt/build"
 
                 [package]
-                mode = "thin"
+                mode = "jar"
                 """);
         writePackagePlanLockfile(projectDir, false, false);
 

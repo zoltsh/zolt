@@ -131,7 +131,9 @@ final class WorkspaceCoverageCommandResolverTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(member.resolve("zolt.toml"), memberConfig());
 
@@ -168,19 +170,19 @@ final class WorkspaceCoverageCommandResolverTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [repositories]
-                test = "%s"
+                [package]
+                mode = "quarkus"
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "io.quarkus:quarkus-rest" = "3.33.0"
 
-                [test.dependencies]
+                [dependencies.test]
                 "org.junit.jupiter:junit-jupiter" = "5.11.4"
-
-                [framework.quarkus]
-                enabled = true
                 """.formatted(repository);
     }
 

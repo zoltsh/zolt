@@ -89,8 +89,8 @@ final class DoctorCommandTest {
         Path memberDir = workspaceDir.resolve("modules/member");
         Files.createDirectories(memberDir);
         Files.writeString(workspaceDir.resolve("zolt-workspace.toml"), """
-                [workspace]
-                members = ["modules/member"]
+                [workspace.members]
+                include = ["modules/member"]
                 """);
 
         CommandResult result = execute("--color=never", "doctor", "--directory", memberDir.toString());
@@ -192,26 +192,20 @@ final class DoctorCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [toolchain.java]
-                version = "999"
+                version = 999
                 features = []
                 policy = "allow-system"
 
-                [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion()));
 
         CommandResult result = execute("--color=never", "doctor", "--directory", projectDir.toString());
@@ -340,21 +334,15 @@ final class DoctorCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
-                [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(javaVersion));
     }
 
@@ -365,30 +353,24 @@ final class DoctorCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
                 central = "https://repo.maven.apache.org/maven2"
 
                 %s
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
 
                 [native]
-                imageName = "demo"
+                name = "demo"
                 output = "target/native"
                 args = ["--no-fallback"]
                 """.formatted(
                 currentJavaMajorVersion(),
                 includeTestRunner
                         ? """
-                        [test.dependencies]
+                        [dependencies.test]
                         "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
                         """
                         : ""));
     }

@@ -65,17 +65,11 @@ final class PublishCommandReleaseContextSnapshotTest {
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Release Context Snapshot Fixture"
-                description = "Release context snapshot fixture."
-                url = "https://example.com/release-context-snapshot"
-                license = "Apache-2.0"
-                developers = ["Example Team"]
-                scm = "https://example.com/release-context-snapshot.git"
-                issues = "https://example.com/release-context-snapshot/issues"
+                [project.scm]
+                url = "https://example.com/release-context-snapshot.git"
 
                 [publish]
-                snapshotRepository = "company-snapshots"
+                snapshot = "company-snapshots"
 
                 [publish.repositories.company-snapshots]
                 url = "https://repo.example.test/snapshots"

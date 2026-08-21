@@ -27,8 +27,10 @@ final class WorkspaceResolveCommandTest {
         Files.writeString(workspaceDir.resolve("zolt-workspace.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api", "modules/core"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api", "modules/core"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
         Files.writeString(coreDir.resolve("zolt.toml"), memberConfig("core"));
@@ -59,8 +61,10 @@ final class WorkspaceResolveCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api", "modules/core"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api", "modules/core"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
         Files.writeString(coreDir.resolve("zolt.toml"), memberConfig("core"));
@@ -89,8 +93,10 @@ final class WorkspaceResolveCommandTest {
         Files.writeString(workspaceDir.resolve("zolt-workspace.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
         Path cacheRoot = tempDir.resolve("cache-current");
@@ -160,8 +166,10 @@ final class WorkspaceResolveCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api", "modules/core"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api", "modules/core"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
         Files.writeString(coreDir.resolve("zolt.toml"), memberConfig("core"));

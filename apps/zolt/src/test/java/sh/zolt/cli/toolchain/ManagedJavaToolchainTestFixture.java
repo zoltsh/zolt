@@ -28,11 +28,11 @@ public final class ManagedJavaToolchainTestFixture {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"

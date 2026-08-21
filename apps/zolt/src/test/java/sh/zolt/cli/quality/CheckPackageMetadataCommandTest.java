@@ -75,18 +75,12 @@ final class CheckPackageMetadataCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-library-missing-module") + """
 
                 [package]
-                mode = "thin"
+                mode = "jar"
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Check Library Missing Module"
-                description = "Fixture"
-                url = "https://example.com/check-library-missing-module"
-                license = "Apache-2.0"
-                developers = ["Zolt Team"]
-                scm = "https://example.com/check-library-missing-module.git"
-                issues = "https://example.com/check-library-missing-module/issues"
+                [project.scm]
+                url = "https://example.com/check-library-missing-module.git"
                 """);
 
         CommandResult result = execute("check", "--cwd", projectDir.toString(), "--check", "manifest-metadata");
@@ -125,7 +119,9 @@ final class CheckPackageMetadataCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-library-metadata"
-                members = ["modules/api", "modules/impl"]
+
+                [workspace.members]
+                include = ["modules/api", "modules/impl"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api")
                 + libraryPackageConfig("API Library", "com.example.api", false));

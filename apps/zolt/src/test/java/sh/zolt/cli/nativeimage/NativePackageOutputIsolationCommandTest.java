@@ -98,8 +98,8 @@ final class NativePackageOutputIsolationCommandTest {
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 """
                 : "";
         Files.writeString(project.resolve("zolt.toml"), """
@@ -107,18 +107,19 @@ final class NativePackageOutputIsolationCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [package]
                 mode = "%s"
                 sources = true
                 %s
+
                 [publish]
-                releaseRepository = "test-releases"
+                release = "test-releases"
 
                 [publish.repositories.test-releases]
                 url = "https://repo.example.test/releases"
@@ -144,7 +145,7 @@ final class NativePackageOutputIsolationCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [package]
@@ -153,7 +154,7 @@ final class NativePackageOutputIsolationCommandTest {
 
                 [native]
                 output = "%s"
-                imageName = "%s"
+                name = "%s"
                 """.formatted(
                 Runtime.version().feature(),
                 collision.mode(),

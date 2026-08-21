@@ -91,10 +91,10 @@ final class PublishCommandUploadTest {
                     [package]
                     sources = true
                     javadoc = true
-                    tests = true
+                    testJar = true
 
                     [publish]
-                    releaseRepository = "company-releases"
+                    release = "company-releases"
 
                     [publish.repositories.company-releases]
                     url = "%s"

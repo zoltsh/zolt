@@ -230,7 +230,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
@@ -238,13 +238,11 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
 
                 [dependencies]
 
-                [test.dependencies]
+                [dependencies.test]
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "classes"
-                testOutput = "test-classes"
+                [build.output]
+                main = "classes"
+                test = "test-classes"
                 """.formatted(currentJavaMajorVersion()));
         writeMainSource(projectDir, "package com.example; public final class Main {}\n");
         Files.writeString(projectDir.resolve("target"), "not a directory");

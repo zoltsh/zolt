@@ -100,8 +100,10 @@ final class NativeCommandWorkspaceSpringBootTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-spring-native"
-                members = ["apps/implicit", "apps/second"]
-                defaultMembers = ["apps/implicit"]
+
+                [workspace.members]
+                default = ["apps/implicit"]
+                include = ["apps/implicit", "apps/second"]
                 """);
         writeMember(workspace.resolve("apps/implicit"), "implicit", repositoryUrl, false);
         writeMember(workspace.resolve("apps/second"), "second", repositoryUrl, false);
@@ -114,8 +116,10 @@ final class NativeCommandWorkspaceSpringBootTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-declared-native"
-                members = ["apps/declared"]
-                defaultMembers = ["apps/declared"]
+
+                [workspace.members]
+                default = ["apps/declared"]
+                include = ["apps/declared"]
                 """);
         writeMember(workspace.resolve("apps/declared"), "declared", repositoryUrl, true);
         return workspace;
@@ -130,7 +134,7 @@ final class NativeCommandWorkspaceSpringBootTest {
         String loader = declaredLoader
                 ? """
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "org.springframework.boot:spring-boot-loader" = {}
                 """
                 : "";
@@ -139,11 +143,11 @@ final class NativeCommandWorkspaceSpringBootTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
@@ -151,8 +155,8 @@ final class NativeCommandWorkspaceSpringBootTest {
                 [package]
                 mode = "spring-boot"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 %s
                 """.formatted(name, repositoryUrl, loader));
         Path source = member.resolve("src/main/java/com/example/Main.java");

@@ -61,8 +61,8 @@ final class ActionableErrorPropertyTest {
                 repositoryScenario("resolve: unresolved/unknown dependency (404)", (dir, repo) -> {
                     writeConfig(dir, "unknown-dep", """
 
-                            [repositories]
-                            test = "%s"
+                            [repositories.test]
+                            url = "%s"
 
                             [dependencies]
                             "com.example:does-not-exist" = "9.9.9"

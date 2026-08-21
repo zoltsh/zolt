@@ -40,7 +40,7 @@ final class PublishLargeArtifactResumeTest {
             Files.writeString(project.resolve("zolt.toml"), memberConfig("large-publish") + """
 
                     [publish]
-                    releaseRepository = "releases"
+                    release = "releases"
 
                     [publish.repositories.releases]
                     url = "%s"

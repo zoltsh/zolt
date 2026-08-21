@@ -51,19 +51,21 @@ final class BuildCommandToolchainTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "managed-workspace"
-                members = ["apps/api"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api"]
                 """);
         Files.writeString(memberDir.resolve("zolt.toml"), """
                 [project]
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"
@@ -109,11 +111,13 @@ final class BuildCommandToolchainTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "root-managed-workspace"
-                members = ["apps/api"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api"]
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"
@@ -123,7 +127,7 @@ final class BuildCommandToolchainTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
                 """.formatted(locked.request().version()));
         Path source = memberDir.resolve("src/main/java/com/example/Main.java");
@@ -167,18 +171,20 @@ final class BuildCommandToolchainTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "toolchain-identity-workspace"
-                members = ["apps/api"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api"]
                 """);
         Files.writeString(memberDir.resolve("zolt.toml"), """
                 [project]
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"

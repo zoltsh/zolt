@@ -45,8 +45,8 @@ final class CheckDependencyMetadataCommandTest {
             Files.createDirectories(projectDir);
             Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-dependency-metadata") + """
 
-                    [repositories]
-                    test = "%s"
+                    [repositories.test]
+                    url = "%s"
 
                     [dependencies]
                     "org.example:lib" = { version = "1.0.0", optional = true, exclusions = [{ group = "org.example", artifact = "excluded" }] }
@@ -151,13 +151,15 @@ final class CheckDependencyMetadataCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-metadata"
-                members = ["api", "binding"]
+
+                [workspace.members]
+                include = ["api", "binding"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
         Files.writeString(bindingDir.resolve("zolt.toml"), memberConfig("binding") + """
 
-                [api.dependencies]
-                "com.example:api" = { workspace = "api" }
+                [dependencies.api]
+                "com.example:api" = { workspace = true }
                 """);
         Path cacheRoot = tempDir.resolve("cache");
         CommandResult resolve = execute(

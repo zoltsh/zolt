@@ -107,17 +107,19 @@ final class WorkspaceLegacyGraphLockCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "legacy-optional-boundary"
-                members = ["modules/core", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app"]
                 """);
         Files.writeString(core.resolve("zolt.toml"), memberConfig("core") + """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:feature-sdk" = { version = "1.0.0", optional = true }
                 """);
         Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         Files.writeString(workspace.resolve("zolt.lock"), """
                 version = 4
@@ -158,7 +160,7 @@ final class WorkspaceLegacyGraphLockCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 """.formatted(name);
     }
 }

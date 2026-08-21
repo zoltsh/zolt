@@ -69,11 +69,13 @@ final class CheckWorkspaceMemberQualityCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "legacy-quality-workspace"
-                members = ["app"]
+
+                [workspace.members]
+                include = ["app"]
                 """);
         Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 unknown = "fail"
                 """);
         Files.writeString(workspace.resolve("zolt.lock"), "version = 4\n");
@@ -131,14 +133,16 @@ final class CheckWorkspaceMemberQualityCommandTest {
             Files.writeString(workspace.resolve("zolt.toml"), """
                     [workspace]
                     name = "mixed-optionality"
-                    members = ["modules/core"]
 
-                    [repositories]
-                    test = "%s"
+                    [workspace.members]
+                    include = ["modules/core"]
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(repository.baseUri()));
             Files.writeString(core.resolve("zolt.toml"), memberConfig("core") + """
 
-                    [api.dependencies]
+                    [dependencies.api]
                     "org.example:feature" = { version = "1.0.0", optional = true }
                     "org.example:required-root" = "1.0.0"
                     """);
@@ -195,49 +199,51 @@ final class CheckWorkspaceMemberQualityCommandTest {
             Files.writeString(workspace.resolve("zolt.toml"), """
                     [workspace]
                     name = "license-identity"
-                    members = ["modules/core", "modules/bridge", "apps/app", "apps/zip-app"]
 
-                    [repositories]
-                    test = "%s"
+                    [workspace.members]
+                    include = ["modules/core", "modules/bridge", "apps/app", "apps/zip-app"]
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(repository.baseUri()));
             Files.writeString(core.resolve("zolt.toml"), """
                     [project]
                     name = "core"
                     version = "1.0.0"
                     group = "com.acme"
-                    java = "21"
+                    java = 21
                     """);
             Files.writeString(bridge.resolve("zolt.toml"), """
                     [project]
                     name = "bridge"
                     version = "1.0.0"
                     group = "com.acme"
-                    java = "21"
+                    java = 21
 
-                    [api.dependencies]
-                    "com.acme:core" = { workspace = "modules/core" }
+                    [dependencies.api]
+                    "com.acme:core" = { workspace = true }
                     """);
             Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
 
-                    [api.dependencies]
-                    "com.acme:bridge" = { workspace = "modules/bridge" }
+                    [dependencies.api]
+                    "com.acme:bridge" = { workspace = true }
 
                     [dependencies]
                     "com.acme:core" = { version = "1.0.0", classifier = "tests" }
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     allow = ["MIT"]
                     unknown = "fail"
                     """);
             Files.writeString(zipApp.resolve("zolt.toml"), memberConfig("zip-app") + """
 
-                    [api.dependencies]
-                    "com.acme:bridge" = { workspace = "modules/bridge" }
+                    [dependencies.api]
+                    "com.acme:bridge" = { workspace = true }
 
-                    [runtime.dependencies]
+                    [dependencies.runtime]
                     "com.acme:core" = { version = "1.0.0", type = "zip" }
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     allow = ["MIT"]
                     unknown = "fail"
                     """);
@@ -279,10 +285,12 @@ final class CheckWorkspaceMemberQualityCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "member-quality-workspace"
-                members = ["modules/feature-api", "modules/core", "apps/admin"]
 
-                [repositories]
-                test = "%s"
+                [workspace.members]
+                include = ["modules/feature-api", "modules/core", "apps/admin"]
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "org.example:platform" = "1.0.0"
@@ -290,14 +298,14 @@ final class CheckWorkspaceMemberQualityCommandTest {
         Files.writeString(feature.resolve("zolt.toml"), memberConfig("feature-api"));
         Files.writeString(core.resolve("zolt.toml"), memberConfig("core") + """
 
-                [api.dependencies]
-                "com.example:feature-api" = { workspace = "modules/feature-api", optional = true }
+                [dependencies.api]
+                "com.example:feature-api" = { workspace = true, optional = true }
 
                 [dependencies]
                 "org.example:dual" = {}
                 "org.example:parent" = { version = "1.0.0", exclusions = [{ group = "org.example", artifact = "excluded" }] }
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["Apache-2.0"]
                 unknown = "fail"
                 """);
@@ -306,10 +314,10 @@ final class CheckWorkspaceMemberQualityCommandTest {
                 [dependencies]
                 "org.example:admin-only" = "1.0.0"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "org.example:dual" = { classifier = "linux" }
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["Apache-2.0", "MIT"]
                 unknown = "fail"
                 """);

@@ -54,7 +54,9 @@ final class WorkspaceCommandToolchainContextTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "large-toolchain-workspace"
-                members = [%s]
+
+                [workspace.members]
+                include = [%s]
                 """.formatted(members));
         Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
         Workspace workspace = capturedWorkspace(root);
@@ -111,7 +113,9 @@ final class WorkspaceCommandToolchainContextTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "captured-toolchain-workspace"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         writeMember(
                 member,
@@ -119,7 +123,7 @@ final class WorkspaceCommandToolchainContextTest {
                 """
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 features = []
                 policy = "prefer-managed"
                 """.formatted(currentJavaVersion()));
@@ -152,7 +156,7 @@ final class WorkspaceCommandToolchainContextTest {
                                             """
 
                                             [toolchain.java]
-                                            version = "999"
+                                            version = 999
                                             distribution = "temurin"
                                             features = []
                                             policy = "require-managed"
@@ -197,15 +201,17 @@ final class WorkspaceCommandToolchainContextTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "mixed-release-workspace"
-                members = ["modules/java-8", "modules/java-999"]
+
+                [workspace.members]
+                include = ["modules/java-8", "modules/java-999"]
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 features = []
                 policy = "prefer-managed"
 
                 [toolchain.java.test]
-                version = "%s"
+                version = %s
                 """.formatted(currentJavaVersion(), currentJavaVersion()));
         writeMember(
                 root.resolve("modules/java-8"),
@@ -294,7 +300,7 @@ final class WorkspaceCommandToolchainContextTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 %s
                 """.formatted(name, release, extra));
     }
@@ -357,12 +363,12 @@ final class WorkspaceCommandToolchainContextTest {
         return """
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 features = []
                 policy = "prefer-managed"
 
                 [toolchain.java.test]
-                version = "%s"
+                version = %s
                 """.formatted(version, version);
     }
 

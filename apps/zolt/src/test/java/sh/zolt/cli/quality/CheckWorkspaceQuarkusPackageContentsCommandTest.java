@@ -137,10 +137,12 @@ final class CheckWorkspaceQuarkusPackageContentsCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "quarkus-workspace"
-                members = ["apps/service"]
 
-                [repositories]
-                test = "%s"
+                [workspace.members]
+                include = ["apps/service"]
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(repository.baseUri()));
         return workspace;
     }

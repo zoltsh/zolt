@@ -62,7 +62,7 @@ final class WorkspaceCoverageToolchainContextTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(javaVersion));
         writeSource(
                 member.resolve("src/main/java/com/example/App.java"),
@@ -226,16 +226,18 @@ final class WorkspaceCoverageToolchainContextTest {
         return """
                 [workspace]
                 name = "coverage-toolchain-workspace"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "%s"
                 features = []
                 policy = "require-managed"
 
                 [toolchain.java.test]
-                version = "%s"
+                version = %s
                 distribution = "%s"
                 """.formatted(
                         buildVersion,

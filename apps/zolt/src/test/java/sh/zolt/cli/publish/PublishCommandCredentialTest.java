@@ -27,8 +27,8 @@ final class PublishCommandCredentialTest {
                 .replace("version = \"0.1.0\"", "version = \"0.1.0-SNAPSHOT\"") + """
 
                 [publish]
-                releaseRepository = "company-releases"
-                snapshotRepository = "company-snapshots"
+                release = "company-releases"
+                snapshot = "company-snapshots"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -37,7 +37,7 @@ final class PublishCommandCredentialTest {
                 url = "https://repo.example.test/snapshots"
                 credentials = "publish-creds"
 
-                [repositoryCredentials.publish-creds]
+                [credentials.publish-creds]
                 usernameEnv = "ZOLT_TEST_MISSING_PUBLISH_USERNAME"
                 passwordEnv = "ZOLT_TEST_MISSING_PUBLISH_PASSWORD"
                 """);
@@ -65,7 +65,7 @@ final class PublishCommandCredentialTest {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://publish-user:super-secret@repo.example.test/releases"
@@ -96,7 +96,7 @@ final class PublishCommandCredentialTest {
                 .replace("version = \"0.1.0\"", "version = \"0.1.0-SNAPSHOT\"") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -143,32 +143,27 @@ final class PublishCommandCredentialTest {
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Nexus Central"
-                description = "A library published to both an internal Nexus and Central."
-                url = "https://example.com/nexus-central"
-                license = "Apache-2.0"
-                licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-                scm = "https://github.com/example/nexus-central"
-                scmConnection = "scm:git:https://github.com/example/nexus-central.git"
+                [project.scm]
+                url = "https://github.com/example/nexus-central"
+                connection = "scm:git:https://github.com/example/nexus-central.git"
 
-                [package.metadata.developer.ada]
+                [project.developers.ada]
                 name = "Ada Lovelace"
                 email = "ada@example.com"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 credentials = "publish-creds"
 
-                [repositoryCredentials.publish-creds]
+                [credentials.publish-creds]
                 usernameEnv = "ZOLT_TEST_UNSET_NEXUS_USERNAME"
                 passwordEnv = "ZOLT_TEST_UNSET_NEXUS_PASSWORD"
 
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 keyId = "ABCDEF0123456789"
 
                 [publish.central]
@@ -201,18 +196,12 @@ final class PublishCommandCredentialTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
     }
 }

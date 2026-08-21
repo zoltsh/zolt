@@ -35,29 +35,20 @@ final class PublishCommandSourcesJavadocTest {
 
                 [dependencies]
 
-                [test.dependencies]
+                [dependencies.test]
 
                 [package]
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Demo Library"
-                description = "Demo library for sources and javadoc publishing."
-                url = "https://example.com/demo"
-
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
 
-                [build]
-                outputRoot = ".zolt/build"
-                source = "src/main/java"
-                test = "src/test/java"
-                output = ".zolt/build/classes"
-                testOutput = ".zolt/build/test-classes"
+                [build.output]
+                root = ".zolt/build"
                 """);
         Path source = projectDir.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());

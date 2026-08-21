@@ -73,16 +73,11 @@ final class PublishCommandCentralUploadTest {
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Central Library"
-                description = "A Central-bound library."
-                url = "https://example.com/central"
-                license = "Apache-2.0"
-                licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-                scm = "https://github.com/example/central"
-                scmConnection = "scm:git:https://github.com/example/central.git"
+                [project.scm]
+                url = "https://github.com/example/central"
+                connection = "scm:git:https://github.com/example/central.git"
 
-                [package.metadata.developer.ada]
+                [project.developers.ada]
                 name = "Ada Lovelace"
                 email = "ada@example.com"
 

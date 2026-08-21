@@ -41,13 +41,13 @@ final class JUnitConsoleVersionResolutionTest {
             addConsole(repository, "1.11.4");
             Files.writeString(tempDir.resolve("zolt.toml"), memberConfig("junit-console-version") + """
 
-                    [repositories]
-                    test = "%s"
+                    [repositories.test]
+                    url = "%s"
 
                     [platforms]
                     "example:junit-platform" = "1.0"
 
-                    [test.dependencies]
+                    [dependencies.test]
                     "org.junit.jupiter:junit-jupiter" = "5.11.4"
                     """.formatted(repository.baseUri()));
 
@@ -92,13 +92,13 @@ final class JUnitConsoleVersionResolutionTest {
             addConsole(repository, "1.11.4");
             Files.writeString(tempDir.resolve("zolt.toml"), memberConfig("managed-console-skew") + """
 
-                    [repositories]
-                    test = "%s"
+                    [repositories.test]
+                    url = "%s"
 
                     [platforms]
                     "org.junit:junit-bom" = "5.10.2"
 
-                    [test.dependencies]
+                    [dependencies.test]
                     "org.junit.jupiter:junit-jupiter" = {}
                     """.formatted(repository.baseUri()));
 

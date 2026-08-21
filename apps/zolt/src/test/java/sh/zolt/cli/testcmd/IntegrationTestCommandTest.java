@@ -29,19 +29,19 @@ final class IntegrationTestCommandTest extends TestCommandTestSupport {
                 name = "integration-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [dependencies]
 
-                [test.dependencies]
+                [dependencies.test]
 
-                [build]
-                outputRoot = ".zolt/build"
+                [build.output]
+                root = ".zolt/build"
+                integration = "target/it-classes"
 
-                [integrationTest]
+                [test.integration]
                 sources = ["src/it/java"]
                 resources = ["src/it/resources"]
-                output = "target/it-classes"
                 """.formatted(currentJavaMajorVersion()));
         writeJUnitConsoleLockfile(projectDir, cacheRoot);
         Path mainSource = projectDir.resolve("src/main/java/com/example/App.java");
@@ -95,15 +95,17 @@ final class IntegrationTestCommandTest extends TestCommandTestSupport {
                 name = "directory-integration-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [dependencies]
 
-                [test.dependencies]
+                [dependencies.test]
 
-                [integrationTest]
+                [test.integration]
                 sources = ["src/it/java"]
-                output = "target/it-classes"
+
+                [build.output]
+                integration = "it-classes"
                 """.formatted(currentJavaMajorVersion()));
         writeJUnitConsoleLockfile(projectDir, cacheRoot);
         Path integrationTest = projectDir.resolve("src/it/java/com/example/AppIT.java");

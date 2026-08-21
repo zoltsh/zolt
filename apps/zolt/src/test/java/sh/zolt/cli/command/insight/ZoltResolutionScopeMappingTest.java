@@ -49,18 +49,18 @@ final class ZoltResolutionScopeMappingTest {
                 name = "fixture"
                 version = "9.9.9"
                 group = "com.fixture"
-                java = "21"
+                java = 21
 
                 [repositories]
-                "central" = "https://repo.maven.apache.org/maven2"
+                central = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
                 "com.fixture:compile-lib" = "1.0.0"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.fixture:runtime-lib" = "1.0.0"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "com.fixture:provided-lib" = "1.0.0"
                 """);
 

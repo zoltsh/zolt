@@ -31,7 +31,9 @@ final class WorkspaceTestCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         Files.writeString(
                 coreDir.resolve("zolt.toml"),
@@ -53,7 +55,7 @@ final class WorkspaceTestCommandTest {
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api") + testToolchain() + """
 
                 [dependencies]
-                "com.example:core" = { workspace = "modules/core" }
+                "com.example:core" = { workspace = true }
                 """);
         Path apiSource = apiDir.resolve("src/main/java/com/example/api/Api.java");
         Files.createDirectories(apiSource.getParent());
@@ -183,12 +185,12 @@ final class WorkspaceTestCommandTest {
         return """
 
                 [toolchain.java]
-                version = "%d"
+                version = %d
                 features = []
                 policy = "prefer-managed"
 
                 [toolchain.java.test]
-                version = "%d"
+                version = %d
                 """.formatted(
                         Runtime.version().feature(),
                         Runtime.version().feature());

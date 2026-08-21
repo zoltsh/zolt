@@ -83,8 +83,10 @@ final class BuildCommandDiagnosticsTest {
                 name = "invalid-config-field"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
-                packaging = "jar"
+                java = %s
+
+                [package]
+                mode = "jar"
                 """.formatted(currentJavaMajorVersion()));
 
         CommandResult result = execute("build", "--cwd", projectDir.toString());

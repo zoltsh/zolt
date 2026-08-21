@@ -47,21 +47,16 @@ final class PublishCommandCentralReadinessTest {
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Central Ready"
-                description = "A Central-ready library."
-                url = "https://example.com/central-ready"
-                license = "Apache-2.0"
-                licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-                scm = "https://github.com/example/central-ready"
-                scmConnection = "scm:git:https://github.com/example/central-ready.git"
+                [project.scm]
+                url = "https://github.com/example/central-ready"
+                connection = "scm:git:https://github.com/example/central-ready.git"
 
-                [package.metadata.developer.ada]
+                [project.developers.ada]
                 name = "Ada Lovelace"
                 email = "ada@example.com"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -115,27 +110,22 @@ final class PublishCommandCentralReadinessTest {
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Central Signed"
-                description = "A fully Central-ready library."
-                url = "https://example.com/central-signed"
-                license = "Apache-2.0"
-                licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-                scm = "https://github.com/example/central-signed"
-                scmConnection = "scm:git:https://github.com/example/central-signed.git"
+                [project.scm]
+                url = "https://github.com/example/central-signed"
+                connection = "scm:git:https://github.com/example/central-signed.git"
 
-                [package.metadata.developer.ada]
+                [project.developers.ada]
                 name = "Ada Lovelace"
                 email = "ada@example.com"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
 
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 keyId = "ABCDEF0123456789"
                 """);
         CliTestPackageEvidence.write(projectDir);
@@ -164,7 +154,7 @@ final class PublishCommandCentralReadinessTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("central-bare") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

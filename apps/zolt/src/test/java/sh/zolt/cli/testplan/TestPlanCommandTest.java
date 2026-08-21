@@ -206,7 +206,9 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-shard-plan-json"
-                members = ["modules/api"]
+
+                [workspace.members]
+                include = ["modules/api"]
                 """);
         writeProjectConfig(memberDir, "https://repo.maven.apache.org/maven2");
         appendSuite(memberDir, """

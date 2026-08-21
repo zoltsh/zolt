@@ -28,7 +28,7 @@ final class PublishCommandArtifactSelectionTest {
                 mode = "spring-boot-war"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
                 artifacts = ["spring-boot-war"]
 
                 [publish.repositories.company-releases]
@@ -70,7 +70,7 @@ final class PublishCommandArtifactSelectionTest {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
                 artifacts = ["spring-boot-war"]
 
                 [publish.repositories.company-releases]
@@ -92,18 +92,12 @@ final class PublishCommandArtifactSelectionTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
     }
 }

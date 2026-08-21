@@ -134,8 +134,8 @@ final class ImportDeclarationGuardrailTest {
                 [project]
                 name = "zolt-quality"
 
-                [api.dependencies]
-                "sh.zolt:zolt-repository" = { workspace = "modules/zolt-repository" }
+                [dependencies.api]
+                "sh.zolt:zolt-repository" = { workspace = true }
                 """);
         writeModuleConfig(tempDir.resolve("modules/zolt-repository"), Set.of());
 

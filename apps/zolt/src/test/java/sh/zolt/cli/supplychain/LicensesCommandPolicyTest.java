@@ -28,7 +28,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """);
         writePom(cache, "GPL-3.0-only");
@@ -53,7 +53,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-unknown");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["Apache-2.0"]
                 unknown = "warn"
                 """);
@@ -73,7 +73,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-json");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """);
         writePom(cache, "GPL-3.0-only");
@@ -98,11 +98,11 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-exception");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 unknown = "fail"
 
-                [dependencyPolicy.licenses.exceptions."org.example:lib"]
+                [dependencies.license-exceptions.example:lib"]
                 allow = ["BSD-3-Clause"]
                 version = "1.0.0"
                 reason = "Reviewed transitive expression"
@@ -127,10 +127,10 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-stale-exception");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
 
-                [dependencyPolicy.licenses.exceptions."org.example:missing"]
+                [dependencies.license-exceptions.example:missing"]
                 allow = ["BSD-3-Clause"]
                 version = "1.0.0"
                 reason = "Old review"
@@ -183,7 +183,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-test-scope");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """, lockPackage("lib", "compile") + lockPackage("test-lib", "test"));
         writePom(cache, "lib", "Apache-2.0");
@@ -215,7 +215,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-both-scopes");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """, lockPackage("lib", "compile") + lockPackage("lib", "test"));
         writePom(cache, "lib", "GPL-3.0-only");
@@ -242,7 +242,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-denominator");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """,
                 lockPackage("lib", "compile")

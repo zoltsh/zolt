@@ -92,7 +92,9 @@ final class TestsJarCompileFreshnessCommandTest {
                 """
                 [workspace]
                 name = "stale-tests-workspace"
-                members = ["apps/app"]
+
+                [workspace.members]
+                include = ["apps/app"]
                 """);
         Path cache = tempDir.resolve("workspace-stale-tests-cache");
         assertSuccess(runWorkspace(
@@ -138,13 +140,13 @@ final class TestsJarCompileFreshnessCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [package]
-                tests = true
+                testJar = true
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

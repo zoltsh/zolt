@@ -330,10 +330,12 @@ final class WorkspaceLockFreshnessCommandTest {
         Files.writeString(workspaceDir().resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api"]
 
-                [repositories]
-                test = "%s"
+                [workspace.members]
+                include = ["apps/api"]
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(repository.baseUri()));
         Files.writeString(apiDir().resolve("zolt.toml"), CliTestSupport.memberConfig("api") + """
 
@@ -359,13 +361,15 @@ final class WorkspaceLockFreshnessCommandTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-edge"
-                members = ["modules/lib", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/lib", "apps/app"]
                 """);
         Files.writeString(library.resolve("zolt.toml"), CliTestSupport.memberConfig("lib"));
         Files.writeString(application.resolve("zolt.toml"), CliTestSupport.memberConfig("app") + """
 
                 [dependencies]
-                "com.example:lib" = { workspace = "modules/lib" }
+                "com.example:lib" = { workspace = true }
                 """);
         Path librarySource = library.resolve("src/main/java/com/example/Lib.java");
         Files.createDirectories(librarySource.getParent());

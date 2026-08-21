@@ -143,7 +143,9 @@ final class WorkspaceTestWorkersCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["%s"]
+
+                [workspace.members]
+                include = ["%s"]
                 """.formatted(String.join("\", \"", memberPaths)));
         for (int index = 0; index < members; index++) {
             writeMember(workspaceDir, index, index == failingMember);
@@ -202,12 +204,12 @@ final class WorkspaceTestWorkersCommandTest {
         return """
 
                 [toolchain.java]
-                version = "%d"
+                version = %d
                 features = []
                 policy = "prefer-managed"
 
                 [toolchain.java.test]
-                version = "%d"
+                version = %d
                 """.formatted(
                         Runtime.version().feature(),
                         Runtime.version().feature());

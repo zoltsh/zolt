@@ -68,7 +68,7 @@ final class ResolveDraftWarningTest {
 
                 [dependencies]
 
-                [test.dependencies]
+                [dependencies.test]
                 """.formatted(memberConfig("review-item-draft")));
         Path sources = projectDir.resolve("src/main/java/com/example");
         Files.createDirectories(sources);

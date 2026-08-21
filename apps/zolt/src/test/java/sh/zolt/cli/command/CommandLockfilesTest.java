@@ -300,7 +300,7 @@ final class CommandLockfilesTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:demo" = "%s"

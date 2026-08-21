@@ -56,7 +56,7 @@ final class CheckExecutionContextPublishDryRunCommandTest {
                 sources = true
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -83,7 +83,7 @@ final class CheckExecutionContextPublishDryRunCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-publish-dry-run-blocked") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

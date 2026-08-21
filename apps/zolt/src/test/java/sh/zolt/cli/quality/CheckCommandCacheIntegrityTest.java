@@ -85,7 +85,9 @@ final class CheckCommandCacheIntegrityTest extends CheckCommandTestSupport {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-cache-integrity-missing-lockfile"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
 
@@ -110,7 +112,9 @@ final class CheckCommandCacheIntegrityTest extends CheckCommandTestSupport {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-cache-integrity-malformed-lockfile"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
         Files.writeString(workspaceDir.resolve("zolt.lock"), """

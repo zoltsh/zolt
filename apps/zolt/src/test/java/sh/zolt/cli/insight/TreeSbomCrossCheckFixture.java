@@ -25,13 +25,15 @@ final class TreeSbomCrossCheckFixture {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "%s"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
                 """.formatted(WORKSPACE_NAME));
         Files.writeString(core.resolve("zolt.toml"), memberConfig("core"));
         Files.writeString(api.resolve("zolt.toml"), memberConfig("api") + """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         Files.writeString(root.resolve("zolt.lock"), lock());
         return root;
@@ -43,7 +45,7 @@ final class TreeSbomCrossCheckFixture {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 """.formatted(name);
     }
 

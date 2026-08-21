@@ -66,7 +66,9 @@ final class PolicyDependencyPolicyCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-policy-empty"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api"));
         Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
@@ -93,7 +95,9 @@ final class PolicyDependencyPolicyCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-policy-direct-conflict"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
 
         CommandResult result = execute(
@@ -121,7 +125,9 @@ final class PolicyDependencyPolicyCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-policy-malformed-lockfile"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api"));
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
@@ -152,7 +158,9 @@ final class PolicyDependencyPolicyCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-policy-remediation"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api") + """
 

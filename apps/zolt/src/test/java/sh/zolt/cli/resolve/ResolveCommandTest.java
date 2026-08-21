@@ -164,7 +164,9 @@ final class ResolveCommandTest {
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "demo"
-                    members = ["app"]
+
+                    [workspace.members]
+                    include = ["app"]
                     """);
             writeProjectConfig(
                     workspaceDir.resolve("app"),

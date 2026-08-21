@@ -44,7 +44,7 @@ final class PublishCommandReleaseContextTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-blocked") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -115,17 +115,11 @@ final class PublishCommandReleaseContextTest {
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Release Context Fixture"
-                description = "Release context metadata fixture."
-                url = "https://example.com/release-context"
-                license = "Apache-2.0"
-                developers = ["Example Team"]
-                scm = "https://example.com/release-context.git"
-                issues = "https://example.com/release-context/issues"
+                [project.scm]
+                url = "https://example.com/release-context.git"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

@@ -60,15 +60,15 @@ final class ExplainVerifyEndToEndTest {
                 name = "maven-simple"
                 version = "1.0.0"
                 group = "dev.zolt.examples"
-                java = "21"
+                java = 21
 
                 [repositories]
-                "central" = "https://repo.maven.apache.org/maven2"
+                central = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
                 "com.google.guava:guava" = "33.4.8-jre"
 
-                [test.dependencies]
+                [dependencies.test]
                 "org.junit.jupiter:junit-jupiter" = "5.11.4"
                 """;
         try {

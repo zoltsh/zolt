@@ -127,29 +127,32 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "authenticated-workspace"
-                members = ["lib"]
 
-                [repositories]
-                internal = "%s"
+                [workspace.members]
+                include = ["lib"]
+
+                [repositories.internal]
+                url = "%s"
                 """.formatted(repository.baseUri()));
         Files.writeString(member.resolve("zolt.toml"), """
                 [project]
                 name = "lib"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
-                [repositories]
-                internal = { url = "%s", credentials = "company" }
+                [repositories.internal]
+                url = "%s"
+                credentials = "company"
 
-                [repositoryCredentials.company]
+                [credentials.company]
                 tokenEnv = "PATH"
 
                 [dependencies]
                 "org.example:dependency" = "1.0.0"
 
                 [publish]
-                releaseRepository = "internal"
+                release = "internal"
 
                 [publish.repositories.internal]
                 url = "%s"
@@ -177,12 +180,15 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "root-authenticated-workspace"
-                members = ["lib"]
 
-                [repositories]
-                internal = { url = "%s", credentials = "company" }
+                [workspace.members]
+                include = ["lib"]
 
-                [repositoryCredentials.company]
+                [repositories.internal]
+                url = "%s"
+                credentials = "company"
+
+                [credentials.company]
                 tokenEnv = "PATH"
                 """.formatted(repository.baseUri()));
         Files.writeString(member.resolve("zolt.toml"), """
@@ -190,7 +196,7 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
                 name = "lib"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "org.example:dependency" = "1.0.0"
