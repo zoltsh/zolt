@@ -179,6 +179,33 @@ final class ManifestPackagingDecoderTest {
     }
 
     @Test
+    void forwardsBomPresenceBeforePackagingAndLaterBomFailures() {
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> decoder.decode(
+                        ManifestSemanticTestSupport.index("""
+                                package.mode = "jar"
+                                [package.manifest]
+                                Name = "demo"
+                                [bom]
+                                members = true
+                                exclude = ["apps/api", "apps/api"]
+                                """),
+                        ignored -> {
+                            throw new IllegalArgumentException(
+                                    "Observed earlier authored-domain BOM conflict.");
+                        }));
+
+        assertTrue(failure.getMessage().contains("`bom.members`"), failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("earlier authored-domain BOM conflict"),
+                failure.getMessage());
+        assertFalse(failure.getMessage().contains("package mode"), failure.getMessage());
+        assertFalse(failure.getMessage().contains("bom.exclude"), failure.getMessage());
+        assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+    }
+
+    @Test
     void stagesSpringBootBeforeNativeAndAnchorsNativeAtItsFirstField() {
         ZoltConfigException spring = assertSemanticFailure(
                 """
@@ -235,12 +262,15 @@ final class ManifestPackagingDecoderTest {
     }
 
     @Test
-    void requiresANonNullDecodeIndex() {
-        assertThrows(NullPointerException.class, () -> decoder.decode(null));
+    void requiresNonNullInputs() {
+        assertThrows(NullPointerException.class, () -> decoder.decode(null, ignored -> {}));
+        assertThrows(
+                NullPointerException.class,
+                () -> decoder.decode(ManifestSemanticTestSupport.index(""), null));
     }
 
     private AuthoredPackaging decode(String source) {
-        return decoder.decode(ManifestSemanticTestSupport.index(source));
+        return decoder.decode(ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private ZoltConfigException assertSemanticFailure(

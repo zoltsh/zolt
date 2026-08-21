@@ -21,13 +21,19 @@ final class ManifestPackagingDecoder {
     private final ManifestNativeImageDecoder nativeImageDecoder =
             new ManifestNativeImageDecoder();
 
-    AuthoredPackaging decode(ManifestDecodeIndex index) {
+    AuthoredPackaging decode(
+            ManifestDecodeIndex index,
+            ManifestBomDecoder.BomPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored BOM presence observer is required.");
         Optional<AuthoredPackage> packageSettings = packageDecoder.decode(index);
         Optional<AuthoredPackageManifest> manifest = manifestDecoder.decode(index);
         Optional<AuthoredBom> bom = bomDecoder.decode(
                 index,
-                partial -> validateBomPresence(packageSettings, manifest, partial));
+                partial -> {
+                    observer.present(partial);
+                    validateBomPresence(packageSettings, manifest, partial);
+                });
         AuthoredPackaging packaging = new AuthoredPackaging(
                 packageSettings,
                 manifest,
