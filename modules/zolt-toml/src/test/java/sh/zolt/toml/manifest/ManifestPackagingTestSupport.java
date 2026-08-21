@@ -1,7 +1,6 @@
 package sh.zolt.toml.manifest;
 
 import java.util.function.Consumer;
-import sh.zolt.manifest.authored.AuthoredBom;
 import sh.zolt.manifest.authored.AuthoredPackaging;
 
 /** Cross-package test seam for the package-private final-manifest packaging decoder. */
@@ -15,8 +14,8 @@ public final class ManifestPackagingTestSupport {
 
     public static AuthoredPackaging decodePackaging(
             String source,
-            Consumer<AuthoredBom> observer) {
-        ManifestBomDecoder.BomPresenceObserver adapted =
+            Consumer<AuthoredPackaging> observer) {
+        ManifestPackagingDecoder.PackagingPresenceObserver adapted =
                 observer == null ? null : observer::accept;
         return new ManifestPackagingDecoder().decode(
                 ManifestSemanticTestSupport.index(source), adapted);

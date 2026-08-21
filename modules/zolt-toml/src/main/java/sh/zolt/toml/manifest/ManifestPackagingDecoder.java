@@ -29,15 +29,29 @@ final class ManifestPackagingDecoder {
 
     AuthoredPackaging decode(
             ManifestDecodeIndex index,
-            ManifestBomDecoder.BomPresenceObserver observer) {
+            PackagingPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
-        Objects.requireNonNull(observer, "Authored BOM presence observer is required.");
+        Objects.requireNonNull(observer, "Authored packaging presence observer is required.");
         Optional<AuthoredPackage> packageSettings = packageDecoder.decode(index);
+        packageSettings.ifPresent(value -> ManifestSemanticDiagnostics.construct(
+                packageAnchor(index),
+                () -> observe(observer, new AuthoredPackaging(
+                        Optional.of(value), Optional.empty(), Optional.empty(),
+                        Optional.empty(), Optional.empty()))));
         Optional<AuthoredPackageManifest> manifest = manifestDecoder.decode(index);
+        manifest.ifPresent(value -> ManifestSemanticDiagnostics.construct(
+                index.section(FinalManifestPaths.PACKAGE_MANIFEST).orElseThrow(() ->
+                        new IllegalStateException(
+                                "Decoded package manifest is missing its retained section.")),
+                () -> observe(observer, new AuthoredPackaging(
+                        packageSettings, Optional.of(value), Optional.empty(),
+                        Optional.empty(), Optional.empty()))));
         Optional<AuthoredBom> bom = bomDecoder.decode(
                 index,
                 partial -> {
-                    observer.present(partial);
+                    observer.present(new AuthoredPackaging(
+                            Optional.empty(), Optional.empty(), Optional.empty(),
+                            Optional.empty(), Optional.of(partial)));
                     validateBomPresence(packageSettings, manifest, partial);
                 });
         AuthoredPackaging packaging = new AuthoredPackaging(
@@ -55,12 +69,12 @@ final class ManifestPackagingDecoder {
                             "Decoded Spring Boot settings are missing their retained field."));
             packaging = ManifestSemanticDiagnostics.construct(
                     field,
-                    () -> new AuthoredPackaging(
+                    () -> observe(observer, new AuthoredPackaging(
                             packageSettings,
                             manifest,
                             springBoot,
                             Optional.empty(),
-                            bom));
+                            bom)));
         }
 
         Optional<AuthoredNativeImage> nativeImage = nativeImageDecoder.decode(index);
@@ -73,13 +87,30 @@ final class ManifestPackagingDecoder {
                             "Decoded native-image settings have no retained field."));
             packaging = ManifestSemanticDiagnostics.construct(
                     anchor,
-                    () -> new AuthoredPackaging(
+                    () -> observe(observer, new AuthoredPackaging(
                             packageSettings,
                             manifest,
                             springBoot,
                             nativeImage,
-                            bom));
+                            bom)));
         }
+        return packaging;
+    }
+
+    private static ValidatedManifestField packageAnchor(ManifestDecodeIndex index) {
+        return index.field(FinalManifestPackagingFields.PACKAGE_MODE)
+                .or(() -> index.field(FinalManifestPackagingFields.PACKAGE_SOURCES))
+                .or(() -> index.field(FinalManifestPackagingFields.PACKAGE_JAVADOC))
+                .or(() -> index.field(FinalManifestPackagingFields.PACKAGE_TEST_JAR))
+                .or(() -> index.field(FinalManifestPackagingFields.PACKAGE_DUPLICATES))
+                .orElseThrow(() -> new IllegalStateException(
+                        "Decoded package settings have no retained field."));
+    }
+
+    private static AuthoredPackaging observe(
+            PackagingPresenceObserver observer,
+            AuthoredPackaging packaging) {
+        observer.present(packaging);
         return packaging;
     }
 
@@ -100,6 +131,11 @@ final class ManifestPackagingDecoder {
                 Optional.empty(),
                 Optional.empty(),
                 bom);
+    }
+
+    @FunctionalInterface
+    interface PackagingPresenceObserver {
+        void present(AuthoredPackaging packaging);
     }
 }
 
