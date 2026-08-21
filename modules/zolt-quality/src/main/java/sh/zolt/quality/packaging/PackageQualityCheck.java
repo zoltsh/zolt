@@ -67,9 +67,9 @@ public final class PackageQualityCheck {
             return QualityCheckResult.failed(
                     PACKAGE_METADATA,
                     member,
-                    "[package].tests",
+                    "[package].testJar",
                     "Test sources are present, but tests jar generation is disabled for this library package.",
-                    "Set [package].tests = true or remove test sources from the library artifact story.");
+                    "Set [package].testJar = true or remove test sources from the library artifact story.");
         }
 
         Optional<QualityCheckResult> missingMetadata = firstMissingPublicationMetadata(member, settings.metadata());
@@ -175,50 +175,68 @@ public final class PackageQualityCheck {
                 || !settings.manifestAttributes().isEmpty();
     }
 
+    /**
+     * True when this project publishes a library, judged from the metadata Maven Central consumes.
+     *
+     * <p>Publication metadata now comes from {@code [project]}, {@code [project.scm]}, and
+     * {@code [project.developers.<id>]} (design §14.4), so the abolished POM display {@code name} and
+     * the flat developer-name array are not evidence of a library profile: the final language cannot
+     * express either, and treating their absence as a signal would make every project look like one.
+     */
     private static boolean hasPublicationMetadata(PublicationMetadata metadata) {
-        return !metadata.name().isBlank()
-                || !metadata.description().isBlank()
+        return !metadata.description().isBlank()
                 || !metadata.url().isBlank()
                 || !metadata.license().isBlank()
-                || !metadata.developers().isEmpty()
+                || !metadata.developerEntries().isEmpty()
                 || !metadata.scm().isBlank()
+                || !metadata.scmConnection().isBlank()
                 || !metadata.issues().isBlank();
     }
 
+    /**
+     * The first Maven Central requirement this project cannot satisfy (design §14.3).
+     *
+     * <p>Each rule names the field in the final language. The pre-cut {@code name} rule is gone
+     * because §14.4 removed the POM display name — Central derives it from the project identity —
+     * and the {@code developers} rule now reads the structured {@code [project.developers.<id>]}
+     * entries §7.4 introduced, which is what Central's name-and-email requirement needs.
+     */
     private static Optional<QualityCheckResult> firstMissingPublicationMetadata(
             Optional<String> member,
             PublicationMetadata metadata) {
-        if (metadata.name().isBlank()) {
-            return missingPublicationField(member, "name");
-        }
         if (metadata.description().isBlank()) {
-            return missingPublicationField(member, "description");
+            return missingPublicationField(member, "[project].description", "description");
         }
         if (metadata.url().isBlank()) {
-            return missingPublicationField(member, "url");
+            return missingPublicationField(member, "[project].url", "url");
         }
         if (metadata.license().isBlank()) {
-            return missingPublicationField(member, "license");
+            return missingPublicationField(member, "[project].license", "license");
         }
-        if (metadata.developers().isEmpty()) {
-            return missingPublicationField(member, "developers");
+        if (metadata.developerEntries().isEmpty()) {
+            return missingPublicationField(
+                    member, "[project.developers.<id>]", "at least one developer");
         }
-        if (metadata.scm().isBlank()) {
-            return missingPublicationField(member, "scm");
+        if (metadata.scm().isBlank() && metadata.scmConnection().isBlank()) {
+            return missingPublicationField(member, "[project.scm].url", "SCM location");
         }
         if (metadata.issues().isBlank()) {
-            return missingPublicationField(member, "issues");
+            return missingPublicationField(member, "[project].issues", "issues URL");
         }
         return Optional.empty();
     }
 
-    private static Optional<QualityCheckResult> missingPublicationField(Optional<String> member, String field) {
+    private static Optional<QualityCheckResult> missingPublicationField(
+            Optional<String> member,
+            String field,
+            String subject) {
         return Optional.of(QualityCheckResult.failed(
                 PACKAGE_METADATA,
                 member,
-                "[package.metadata]." + field,
-                "Library package metadata is enabled, but publication metadata field `" + field + "` is missing.",
-                "Fill [package.metadata]." + field + " in zolt.toml."));
+                field,
+                "Library package metadata is enabled, but publication metadata `" + subject
+                        + "` is missing.",
+                "Fill " + field + " in zolt.toml."));
     }
 
     private static List<String> testSourceRoots(BuildSettings build) {

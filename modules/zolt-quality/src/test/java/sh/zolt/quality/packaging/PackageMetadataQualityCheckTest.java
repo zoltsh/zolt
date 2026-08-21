@@ -21,7 +21,7 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
     @Test
     void metadataPassesWhenNoLibraryPackageProfileIsRequested() throws IOException {
         Path projectDir = tempDir.resolve("plain-app");
-        ProjectConfig config = parseProject(projectDir, "");
+        ProjectConfig config = parsePlainProject(projectDir, "");
 
         QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
 
@@ -37,7 +37,7 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
     @Test
     void metadataRequiresSourcesJarWhenPublicationMetadataIsEnabled() throws IOException {
         Path projectDir = tempDir.resolve("missing-sources");
-        ProjectConfig config = parseProject(projectDir, packageMetadata());
+        ProjectConfig config = parseProject(projectDir, "");
 
         QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
 
@@ -59,8 +59,7 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
 
                 [package]
                 sources = true
-                """
-                + packageMetadata());
+                """);
 
         QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
 
@@ -83,29 +82,6 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
                 [package]
                 sources = true
                 javadoc = true
-                """
-                + packageMetadata());
-
-        QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
-
-        assertResult(
-                result,
-                QualityCheckService.PACKAGE_METADATA,
-                QualityCheckStatus.FAILED,
-                "[package].tests",
-                "Test sources are present, but tests jar generation is disabled for this library package.",
-                "Set [package].tests = true or remove test sources from the library artifact story.");
-    }
-
-    @Test
-    void metadataReportsFirstMissingPublicationField() throws IOException {
-        Path projectDir = tempDir.resolve("missing-publication-field");
-        ProjectConfig config = parseProject(projectDir, """
-
-                [package]
-                sources = true
-                javadoc = true
-                tests = true
                 """);
 
         QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
@@ -114,60 +90,45 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
                 result,
                 QualityCheckService.PACKAGE_METADATA,
                 QualityCheckStatus.FAILED,
-                "[package.metadata].name",
-                "Library package metadata is enabled, but publication metadata field `name` is missing.",
-                "Fill [package.metadata].name in zolt.toml.");
+                "[package].testJar",
+                "Test sources are present, but tests jar generation is disabled for this library package.",
+                "Set [package].testJar = true or remove test sources from the library artifact story.");
+    }
+
+    @Test
+    void metadataReportsFirstMissingPublicationField() throws IOException {
+        Path projectDir = tempDir.resolve("missing-publication-field");
+        ProjectConfig config = parseProject(projectDir, 0, """
+
+                [package]
+                sources = true
+                javadoc = true
+                testJar = true
+                """);
+
+        QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
+
+        assertResult(
+                result,
+                QualityCheckService.PACKAGE_METADATA,
+                QualityCheckStatus.FAILED,
+                publicationSubject(0),
+                "Library package metadata is enabled, but publication metadata `"
+                        + publicationValue(0) + "` is missing.",
+                "Fill " + publicationSubject(0) + " in zolt.toml.");
     }
 
     @Test
     void metadataReportsLaterMissingPublicationFieldsWithTargetedNextSteps() throws IOException {
-        List<MissingMetadataCase> cases = List.of(
-                new MissingMetadataCase("description", """
-                        name = "Example Library"
-                        """),
-                new MissingMetadataCase("url", """
-                        name = "Example Library"
-                        description = "Small Java helpers."
-                        """),
-                new MissingMetadataCase("license", """
-                        name = "Example Library"
-                        description = "Small Java helpers."
-                        url = "https://example.com/library"
-                        """),
-                new MissingMetadataCase("developers", """
-                        name = "Example Library"
-                        description = "Small Java helpers."
-                        url = "https://example.com/library"
-                        license = "Apache-2.0"
-                        """),
-                new MissingMetadataCase("scm", """
-                        name = "Example Library"
-                        description = "Small Java helpers."
-                        url = "https://example.com/library"
-                        license = "Apache-2.0"
-                        developers = ["Example Team"]
-                        """),
-                new MissingMetadataCase("issues", """
-                        name = "Example Library"
-                        description = "Small Java helpers."
-                        url = "https://example.com/library"
-                        license = "Apache-2.0"
-                        developers = ["Example Team"]
-                        scm = "https://example.com/library.git"
-                        """));
-
-        for (MissingMetadataCase testCase : cases) {
-            Path projectDir = tempDir.resolve("missing-" + testCase.field());
-            ProjectConfig config = parseProject(projectDir, """
+        for (int level = 1; level < PUBLICATION_LEVELS; level++) {
+            Path projectDir = tempDir.resolve("missing-level-" + level);
+            ProjectConfig config = parseProject(projectDir, level, """
 
                     [package]
                     sources = true
                     javadoc = true
-                    tests = true
-
-                    [package.metadata]
-                    """
-                    + testCase.metadata());
+                    testJar = true
+                    """);
 
             QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
 
@@ -175,29 +136,19 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
                     result,
                     QualityCheckService.PACKAGE_METADATA,
                     QualityCheckStatus.FAILED,
-                    "[package.metadata]." + testCase.field(),
-                    "Library package metadata is enabled, but publication metadata field `" + testCase.field() + "` is missing.",
-                    "Fill [package.metadata]." + testCase.field() + " in zolt.toml.");
+                    publicationSubject(level),
+                    "Library package metadata is enabled, but publication metadata `"
+                            + publicationValue(level) + "` is missing.",
+                    "Fill " + publicationSubject(level) + " in zolt.toml.");
         }
     }
 
     @Test
     void publicationMetadataAloneRequestsLibraryPackageProfile() throws IOException {
-        List<String> metadataBodies = List.of(
-                "description = \"Small Java helpers.\"\n",
-                "url = \"https://example.com/library\"\n",
-                "license = \"Apache-2.0\"\n",
-                "developers = [\"Example Team\"]\n",
-                "scm = \"https://example.com/library.git\"\n",
-                "issues = \"https://example.com/library/issues\"\n");
-
-        for (int index = 0; index < metadataBodies.size(); index++) {
-            Path projectDir = tempDir.resolve("metadata-profile-" + index);
-            ProjectConfig config = parseProject(projectDir, """
-
-                    [package.metadata]
-                    """
-                    + metadataBodies.get(index));
+        // Any single publication value marks a library, so the missing sources jar is reported first.
+        for (int level = 1; level <= PUBLICATION_LEVELS; level++) {
+            Path projectDir = tempDir.resolve("metadata-profile-" + level);
+            ProjectConfig config = parseProject(projectDir, level, "");
 
             QualityCheckResult result = check.checkMetadata(Optional.empty(), projectDir, config);
 
@@ -219,9 +170,8 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
                 [package]
                 sources = true
                 javadoc = true
-                tests = true
-                """
-                + packageMetadata());
+                testJar = true
+                """);
 
         QualityCheckResult result = check.checkMetadata(Optional.of("modules/library"), projectDir, config);
 
@@ -237,7 +187,7 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
 
     @Test
     void manifestMetadataPassesWhenNoLibraryProfileIsRequested() throws IOException {
-        ProjectConfig config = parseProject(tempDir.resolve("manifest-plain-app"), "");
+        ProjectConfig config = parsePlainProject(tempDir.resolve("manifest-plain-app"), "");
 
         QualityCheckResult result = check.checkManifestMetadata(Optional.empty(), config);
 
@@ -276,8 +226,7 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
 
                 [package]
                 sources = true
-                """
-                + packageMetadata());
+                """);
 
         QualityCheckResult result = check.checkManifestMetadata(Optional.empty(), config);
 
@@ -299,8 +248,7 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
 
                 [package.manifest]
                 "automatic-module-name" = "com.example.library"
-                """
-                + packageMetadata());
+                """);
 
         QualityCheckResult result = check.checkManifestMetadata(Optional.empty(), config);
 
@@ -311,8 +259,5 @@ final class PackageMetadataQualityCheckTest extends PackageQualityCheckTestSuppo
                 "manifest-ok",
                 "Library manifest metadata is deterministic.",
                 "");
-    }
-
-    private record MissingMetadataCase(String field, String metadata) {
     }
 }
