@@ -129,7 +129,7 @@ final class BuildPlanServiceNativeTest {
         Files.createDirectories(nativeImage.getParent());
         Files.writeString(nativeImage, "#!/bin/sh\nexit 0\n");
         assertTrue(nativeImage.toFile().setExecutable(true));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         BuildPlan plan = service.plan(
                 projectDir,
@@ -161,7 +161,7 @@ final class BuildPlanServiceNativeTest {
         Files.createDirectories(nativeImage.getParent());
         Files.writeString(nativeImage, "#!/bin/sh\nexit 0\n");
         assertTrue(nativeImage.toFile().setExecutable(true));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         BuildPlan plan = service.plan(
                 projectDir,
@@ -201,10 +201,11 @@ final class BuildPlanServiceNativeTest {
                 Optional.empty(),
                 Optional.of(nativeImage));
 
-        PlanBlocker blocker = blocker(node(plan, "spring-aot-tooling"), "invalid-lockfile");
-        assertTrue(blocker.message().startsWith("zolt.lock could not be parsed for Spring AOT tooling: "));
+        assertEquals(List.of("lockfile"), plan.nodes().stream().map(PlanNode::id).toList());
+        PlanBlocker blocker = blocker(node(plan, "lockfile"), "invalid-lockfile");
+        assertTrue(blocker.message().startsWith("Could not parse zolt.lock near "));
         assertEquals(
-                "Run `zolt resolve` to regenerate zolt.lock, then rerun `zolt plan --target native`.",
+                "Run `zolt resolve` to regenerate zolt.lock, then rerun `zolt plan`.",
                 blocker.nextStep());
     }
 
@@ -302,7 +303,14 @@ final class BuildPlanServiceNativeTest {
 
     private void writeLockfileWithSpringAotTooling() throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.springframework.boot:spring-boot-starter-web"
+                version = "3.3.6"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot-starter-web"
@@ -324,7 +332,14 @@ final class BuildPlanServiceNativeTest {
 
     private void writeLockfileWithoutSpringAotTooling() throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.springframework.boot:spring-boot-starter-web"
+                version = "3.3.6"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot-starter-web"

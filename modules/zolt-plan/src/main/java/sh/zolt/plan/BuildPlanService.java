@@ -1,30 +1,23 @@
 package sh.zolt.plan;
 
-import sh.zolt.dependency.DependencyScope;
 import sh.zolt.generated.GeneratedSourceEvidence;
 import sh.zolt.generated.GeneratedSourceEvidenceService;
-import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.toml.LockfileReadException;
-import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ResourceFilteringSettings;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public final class BuildPlanService {
     private final GeneratedSourceEvidenceService generatedSourceEvidenceService;
     private final BuildPlanGeneratedSourceNodePlanner generatedSourceNodePlanner;
     private final BuildPlanExecStepNodePlanner execStepNodePlanner = new BuildPlanExecStepNodePlanner();
-    private final ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
     private final SpringBootNativePlanNodePlanner nativePlanNodePlanner;
 
     public BuildPlanService() {
@@ -74,8 +67,12 @@ public final class BuildPlanService {
         List<PlanNode> nodes = new ArrayList<>();
         List<GeneratedSourceEvidence> generatedSources =
                 generatedSourceEvidenceService.evidence(root, config.build());
-        Set<String> lockedExecToolGroups = lockedExecToolGroups(root);
-        addLockfileNode(nodes, root);
+        BuildPlanLockfileState lockfile = BuildPlanLockfileState.read(root.resolve("zolt.lock"));
+        addLockfileNode(nodes, lockfile);
+        if (lockfile.error().isPresent()) {
+            return new BuildPlan(1, root, config.project().name(), target, nodes);
+        }
+        Set<String> lockedExecToolGroups = lockfile.execToolGroups();
         addBuildNodes(nodes, root, config, generatedSources, lockedExecToolGroups);
         if (target.includesTests()) {
             addTestNodes(nodes, root, config, reportsDir, generatedSources, lockedExecToolGroups, testRuntime);
@@ -95,9 +92,23 @@ public final class BuildPlanService {
         return new BuildPlan(1, root, config.project().name(), target, nodes);
     }
 
-    private static void addLockfileNode(List<PlanNode> nodes, Path root) {
-        Path lockfile = root.resolve("zolt.lock");
-        if (Files.isRegularFile(lockfile)) {
+    private static void addLockfileNode(List<PlanNode> nodes, BuildPlanLockfileState lockfile) {
+        if (lockfile.error().isPresent()) {
+            nodes.add(new PlanNode(
+                    "lockfile",
+                    "resolve",
+                    PlanNodeStatus.BLOCKED,
+                    "Existing zolt.lock is not readable by this Zolt version.",
+                    List.of("zolt.toml", "zolt.lock"),
+                    List.of(),
+                    List.of(),
+                    List.of(new PlanBlocker(
+                            "invalid-lockfile",
+                            lockfile.error().orElseThrow(),
+                            "Run `zolt resolve` to regenerate zolt.lock, then rerun `zolt plan`."))));
+            return;
+        }
+        if (lockfile.present()) {
             nodes.add(new PlanNode(
                     "lockfile",
                     "resolve",
@@ -263,22 +274,6 @@ public final class BuildPlanService {
                 List.of(outputRoot(config.build()) + "/publish"),
                 List.of("mode: dry-run"),
                 List.of()));
-    }
-
-    private Set<String> lockedExecToolGroups(Path root) {
-        Path lockfilePath = root.resolve("zolt.lock");
-        if (!Files.isRegularFile(lockfilePath)) {
-            return Set.of();
-        }
-        try {
-            ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
-            return lockfile.packages().stream()
-                    .filter(lockPackage -> lockPackage.scope() == DependencyScope.TOOL_EXEC)
-                    .flatMap(lockPackage -> lockPackage.toolGroups().stream())
-                    .collect(Collectors.toUnmodifiableSet());
-        } catch (LockfileReadException exception) {
-            return Set.of();
-        }
     }
 
     private static boolean joinsCompileSources(GeneratedSourceStep step) {

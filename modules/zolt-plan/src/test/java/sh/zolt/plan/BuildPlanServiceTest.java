@@ -54,8 +54,25 @@ final class BuildPlanServiceTest {
     }
 
     @Test
+    void blocksPreV7LockfilesBeforeInferringAnyExecToolState() throws IOException {
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
+        ProjectConfig config = ProjectConfigs.withDirectDependencies(
+                new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                BuildSettings.defaults());
+
+        BuildPlan plan = service.plan(projectDir, config, PlanTarget.BUILD, Optional.empty());
+
+        assertEquals(List.of("lockfile"), plan.nodes().stream().map(PlanNode::id).toList());
+        PlanBlocker blocker = blocker(node(plan, "lockfile"), "invalid-lockfile");
+        assertTrue(blocker.message().contains("version 6 is older than this Zolt supports (current 7)"));
+    }
+
+    @Test
     void plansResourceFilteringAndTestRuntimeDetailsDeterministically() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Map<String, ResourceTokenSettings> tokens = new LinkedHashMap<>();
         tokens.put("app.name", ResourceTokenSettings.literal("demo"));
         tokens.put("secret", ResourceTokenSettings.env("SECRET_TOKEN"));
@@ -140,7 +157,7 @@ final class BuildPlanServiceTest {
 
     @Test
     void surfacesReadyTestRuntimeToolchainInRunTestsNode() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata("demo", "1.0.0", "com.example", "17", Optional.empty()),
                 Map.of(),
@@ -164,7 +181,7 @@ final class BuildPlanServiceTest {
 
     @Test
     void blocksTestRuntimeToolchainThatIsNotReady() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = ProjectConfigs.withDirectDependencies(
                 new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
                 Map.of(),
@@ -252,7 +269,7 @@ final class BuildPlanServiceTest {
 
     @Test
     void regularWarPackageUsesWarExtensionWithoutMainClassBlocker() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = ProjectConfigs.withDirectDependencies(
                         new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
                         Map.of(),
@@ -272,7 +289,7 @@ final class BuildPlanServiceTest {
 
     @Test
     void plansGeneratedSourcesSkippedResourcesAndBlankOutputRootFallback() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         writeFile("src/main/openapi/api.yaml", "openapi: 3.1.0\n");
         writeFile("src/test/fixtures/schema.json", "{}\n");
         writeFile("target/generated/sources/api/com/example/Api.java", "package com.example; interface Api {}\n");
@@ -345,7 +362,7 @@ final class BuildPlanServiceTest {
 
     @Test
     void plansSpringBootPackageWhenMainClassIsConfigured() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = ProjectConfigs.withDirectDependencies(
                         new ProjectMetadata(
                                 "demo",
@@ -371,7 +388,7 @@ final class BuildPlanServiceTest {
 
     @Test
     void blocksSpringBootWarPackageWithoutMainClassAndKeepsWarOutput() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = ProjectConfigs.withDirectDependencies(
                         new ProjectMetadata("demo", "1.0.0", "com.example", "21", Optional.empty()),
                         Map.of(),
