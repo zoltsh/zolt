@@ -75,12 +75,12 @@ final class ManifestTestsCoverageWriter {
                 && !isConventional(sources.java(), CONVENTIONAL_TEST_JAVA)) {
             emitter.field(
                     FinalManifestTestFields.TEST_SOURCES_JAVA,
-                    paths(sources.java()));
+                    paths(FinalManifestTestFields.TEST_SOURCES_JAVA, sources.java()));
         }
         if (!sources.groovy().isEmpty()) {
             emitter.field(
                     FinalManifestTestFields.TEST_SOURCES_GROOVY,
-                    paths(sources.groovy()));
+                    paths(FinalManifestTestFields.TEST_SOURCES_GROOVY, sources.groovy()));
         }
     }
 
@@ -90,7 +90,7 @@ final class ManifestTestsCoverageWriter {
         if (!runtime.jvmArgs().isEmpty()) {
             emitter.field(
                     FinalManifestTestFields.TEST_RUNTIME_JVM_ARGS,
-                    strings(runtime.jvmArgs()));
+                    strings(FinalManifestTestFields.TEST_RUNTIME_JVM_ARGS, runtime.jvmArgs()));
         }
         if (!runtime.properties().isEmpty()) {
             emitter.field(
@@ -105,7 +105,7 @@ final class ManifestTestsCoverageWriter {
         if (!runtime.events().isEmpty()) {
             emitter.field(
                     FinalManifestTestFields.TEST_RUNTIME_EVENTS,
-                    strings(runtime.events().stream()
+                    strings(FinalManifestTestFields.TEST_RUNTIME_EVENTS, runtime.events().stream()
                             .map(AuthoredTestRuntime.Event::configValue)
                             .toList()));
         }
@@ -119,14 +119,18 @@ final class ManifestTestsCoverageWriter {
                         integration.sources(), CONVENTIONAL_INTEGRATION_SOURCE)) {
             emitter.field(
                     FinalManifestTestFields.TEST_INTEGRATION_SOURCES,
-                    paths(integration.sources()));
+                    paths(
+                            FinalManifestTestFields.TEST_INTEGRATION_SOURCES,
+                            integration.sources()));
         }
         if (!integration.resources().isEmpty()
                 && !isConventional(
                         integration.resources(), CONVENTIONAL_INTEGRATION_RESOURCE)) {
             emitter.field(
                     FinalManifestTestFields.TEST_INTEGRATION_RESOURCES,
-                    paths(integration.resources()));
+                    paths(
+                            FinalManifestTestFields.TEST_INTEGRATION_RESOURCES,
+                            integration.resources()));
         }
     }
 
@@ -158,7 +162,7 @@ final class ManifestTestsCoverageWriter {
         if (!suite.locks().isEmpty()) {
             emitter.field(
                     FinalManifestTestFields.TEST_SUITE_LOCKS,
-                    locks(suite.locks()));
+                    locks(FinalManifestTestFields.TEST_SUITE_LOCKS, suite.locks()));
         }
     }
 
@@ -189,7 +193,7 @@ final class ManifestTestsCoverageWriter {
         if (!values.isEmpty()) {
             emitter.field(
                     field,
-                    strings(values.stream().map(TestClassPattern::value).toList()));
+                    strings(field, values.stream().map(TestClassPattern::value).toList()));
         }
     }
 
@@ -198,7 +202,7 @@ final class ManifestTestsCoverageWriter {
             ManifestField field,
             List<String> values) {
         if (!values.isEmpty()) {
-            emitter.field(field, strings(values));
+            emitter.field(field, strings(field, values));
         }
     }
 
@@ -221,8 +225,8 @@ final class ManifestTestsCoverageWriter {
                 .toList());
     }
 
-    private static String locks(List<AuthoredTestSuite.Lock> values) {
-        return ManifestTomlValueEncoder.array(values.stream()
+    private static String locks(ManifestField field, List<AuthoredTestSuite.Lock> values) {
+        return ManifestTomlValueEncoder.fieldArray(field, values.stream()
                 .sorted(Comparator.comparing(
                         lock -> lock.className().value(),
                         ManifestModelValues.CODE_POINT_ORDER))
@@ -241,7 +245,7 @@ final class ManifestTestsCoverageWriter {
                         string(lock.className().value())),
                 ManifestTomlValueEncoder.member(
                         FinalManifestObjectShapes.TEST_SUITE_LOCK_RESOURCES.name(),
-                        strings(resources))));
+                        oneLineStrings(resources))));
     }
 
     private static boolean isConventional(
@@ -249,11 +253,18 @@ final class ManifestTestsCoverageWriter {
         return paths.size() == 1 && conventional.equals(paths.getFirst().value());
     }
 
-    private static String paths(List<ManifestRelativePath> paths) {
-        return strings(paths.stream().map(ManifestRelativePath::value).toList());
+    private static String paths(
+            ManifestField field, List<ManifestRelativePath> paths) {
+        return strings(field, paths.stream().map(ManifestRelativePath::value).toList());
     }
 
-    private static String strings(List<String> values) {
+    private static String strings(ManifestField field, List<String> values) {
+        return ManifestTomlValueEncoder.fieldArray(
+                field,
+                values.stream().map(ManifestTestsCoverageWriter::string).toList());
+    }
+
+    private static String oneLineStrings(List<String> values) {
         return ManifestTomlValueEncoder.array(
                 values.stream().map(ManifestTestsCoverageWriter::string).toList());
     }

@@ -194,7 +194,10 @@ final class ManifestDependencyWriterTest {
 
                 [dependencies.policy]
                 conflicts = "fail"
-                deny = [{ coordinate = "org.example:alpha" }, { coordinate = "org.example:zeta", reason = "Unmaintained" }]
+                deny = [
+                    { coordinate = "org.example:alpha" },
+                    { coordinate = "org.example:zeta", reason = "Unmaintained" },
+                ]
 
                 [dependencies.policy.licenses]
                 allow = ["Apache-2.0", "MIT"]

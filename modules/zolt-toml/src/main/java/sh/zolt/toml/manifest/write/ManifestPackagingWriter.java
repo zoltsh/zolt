@@ -90,15 +90,17 @@ final class ManifestPackagingWriter {
         emitter.section(BOM);
         String selection = switch (members.selection()) {
             case AuthoredBom.AllMembers ignored -> ManifestTomlValueEncoder.booleanValue(true);
-            case AuthoredBom.ExplicitMembers explicit -> strings(explicit.paths().stream()
-                    .map(value -> value.value())
-                    .toList());
+            case AuthoredBom.ExplicitMembers explicit -> strings(
+                    FinalManifestPackagingFields.BOM_MEMBERS,
+                    explicit.paths().stream().map(value -> value.value()).toList());
         };
         emitter.field(FinalManifestPackagingFields.BOM_MEMBERS, selection);
         if (!members.exclude().isEmpty()) {
             emitter.field(
                     FinalManifestPackagingFields.BOM_EXCLUDE,
-                    strings(members.exclude().stream().map(value -> value.value()).toList()));
+                    strings(
+                            FinalManifestPackagingFields.BOM_EXCLUDE,
+                            members.exclude().stream().map(value -> value.value()).toList()));
         }
     }
 
@@ -188,7 +190,8 @@ final class ManifestPackagingWriter {
         nativeImage.args()
                 .filter(value -> !value.isEmpty())
                 .ifPresent(value -> emitter.field(
-                        FinalManifestPackagingFields.NATIVE_ARGS, strings(value)));
+                        FinalManifestPackagingFields.NATIVE_ARGS,
+                        strings(FinalManifestPackagingFields.NATIVE_ARGS, value)));
     }
 
     private static void writeTrue(
@@ -203,8 +206,8 @@ final class ManifestPackagingWriter {
         return ManifestTomlValueEncoder.member(name, string(value));
     }
 
-    private static String strings(List<String> values) {
-        return ManifestTomlValueEncoder.array(values.stream()
+    private static String strings(ManifestField field, List<String> values) {
+        return ManifestTomlValueEncoder.fieldArray(field, values.stream()
                 .map(ManifestPackagingWriter::string)
                 .toList());
     }

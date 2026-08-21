@@ -49,7 +49,8 @@ final class ManifestToolchainWriter {
         java.features()
                 .filter(values -> !values.isEmpty())
                 .ifPresent(values -> emitter.field(
-                        FinalManifestToolchainFields.JAVA_FEATURES, features(values)));
+                        FinalManifestToolchainFields.JAVA_FEATURES,
+                        features(values)));
         java.policy().ifPresent(value -> emitter.field(
                 FinalManifestToolchainFields.JAVA_POLICY,
                 ManifestTomlValueEncoder.basicString(value.id())));
@@ -74,7 +75,8 @@ final class ManifestToolchainWriter {
                 .map(JavaFeature::id)
                 .map(ManifestTomlValueEncoder::basicString)
                 .toList();
-        return ManifestTomlValueEncoder.array(encoded);
+        return ManifestTomlValueEncoder.fieldArray(
+                FinalManifestToolchainFields.JAVA_FEATURES, encoded);
     }
 
     private static ManifestSection section(ManifestPath path) {

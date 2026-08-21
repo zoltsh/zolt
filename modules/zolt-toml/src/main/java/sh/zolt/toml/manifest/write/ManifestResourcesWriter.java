@@ -11,6 +11,7 @@ import sh.zolt.toml.schema.FinalManifestObjectShapes;
 import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestResourceFields;
 import sh.zolt.toml.schema.FinalManifestSchema;
+import sh.zolt.toml.schema.ManifestField;
 import sh.zolt.toml.schema.ManifestPath;
 import sh.zolt.toml.schema.ManifestSection;
 
@@ -34,12 +35,12 @@ final class ManifestResourcesWriter {
         if (!resources.main().isEmpty() && !isConventional(resources.main(), CONVENTIONAL_MAIN)) {
             emitter.field(
                     FinalManifestResourceFields.RESOURCES_MAIN,
-                    paths(resources.main()));
+                    paths(FinalManifestResourceFields.RESOURCES_MAIN, resources.main()));
         }
         if (!resources.test().isEmpty() && !isConventional(resources.test(), CONVENTIONAL_TEST)) {
             emitter.field(
                     FinalManifestResourceFields.RESOURCES_TEST,
-                    paths(resources.test()));
+                    paths(FinalManifestResourceFields.RESOURCES_TEST, resources.test()));
         }
         resources.filter().ifPresent(filter -> writeFilter(emitter, filter));
         if (!resources.tokens().isEmpty()) {
@@ -54,12 +55,14 @@ final class ManifestResourcesWriter {
                 .filter(targets -> !targets.equals(List.of(AuthoredResources.Target.MAIN)))
                 .ifPresent(targets -> emitter.field(
                         FinalManifestResourceFields.RESOURCES_FILTER_TARGETS,
-                        strings(targets.stream()
+                        strings(FinalManifestResourceFields.RESOURCES_FILTER_TARGETS, targets.stream()
                                 .map(AuthoredResources.Target::configValue)
                                 .toList())));
         emitter.field(
                 FinalManifestResourceFields.RESOURCES_FILTER_INCLUDE,
-                strings(filter.include().stream().map(value -> value.value()).toList()));
+                strings(
+                        FinalManifestResourceFields.RESOURCES_FILTER_INCLUDE,
+                        filter.include().stream().map(value -> value.value()).toList()));
         filter.missing()
                 .filter(value -> value != AuthoredResources.MissingTokenPolicy.FAIL)
                 .ifPresent(value -> emitter.field(
@@ -98,12 +101,13 @@ final class ManifestResourcesWriter {
         return paths.size() == 1 && paths.getFirst().value().equals(conventional);
     }
 
-    private static String paths(List<ManifestRelativePath> paths) {
-        return strings(paths.stream().map(ManifestRelativePath::value).toList());
+    private static String paths(
+            ManifestField field, List<ManifestRelativePath> paths) {
+        return strings(field, paths.stream().map(ManifestRelativePath::value).toList());
     }
 
-    private static String strings(List<String> values) {
-        return ManifestTomlValueEncoder.array(values.stream()
+    private static String strings(ManifestField field, List<String> values) {
+        return ManifestTomlValueEncoder.fieldArray(field, values.stream()
                 .map(ManifestResourcesWriter::string)
                 .toList());
     }

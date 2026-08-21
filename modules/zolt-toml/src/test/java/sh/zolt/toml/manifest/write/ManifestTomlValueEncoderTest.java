@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.tomlj.Toml;
+import sh.zolt.toml.schema.FinalManifestCommandFields;
+import sh.zolt.toml.schema.FinalManifestIdentityFields;
+import sh.zolt.toml.schema.FinalManifestSharedFields;
 
 final class ManifestTomlValueEncoderTest {
     @Test
@@ -83,6 +86,59 @@ final class ManifestTomlValueEncoderTest {
                 locks);
         assertFalse(locks.contains("\n"));
         assertFalse(Toml.parse("locks = " + locks).hasErrors());
+    }
+
+    @Test
+    void wrapsFieldArraysOnlyWhenTheCompleteAssignmentExceedsOneHundredColumns() {
+        String atLimit = ManifestTomlValueEncoder.basicString("x".repeat(86));
+        String overLimit = ManifestTomlValueEncoder.basicString("x".repeat(87));
+
+        assertEquals(
+                "[" + atLimit + "]",
+                ManifestTomlValueEncoder.fieldArray(
+                        FinalManifestIdentityFields.WORKSPACE_MEMBERS_INCLUDE,
+                        List.of(atLimit)));
+        assertEquals(
+                "[\n    " + overLimit + ",\n]",
+                ManifestTomlValueEncoder.fieldArray(
+                        FinalManifestIdentityFields.WORKSPACE_MEMBERS_INCLUDE,
+                        List.of(overLimit)));
+        assertFalse(Toml.parse("include = [\n    " + overLimit + ",\n]").hasErrors());
+        String supplementaryAtLimit =
+                ManifestTomlValueEncoder.basicString("🚀".repeat(86));
+        assertEquals(
+                "[" + supplementaryAtLimit + "]",
+                ManifestTomlValueEncoder.fieldArray(
+                        FinalManifestIdentityFields.WORKSPACE_MEMBERS_INCLUDE,
+                        List.of(supplementaryAtLimit)));
+
+        String longAlias = "a".repeat(93);
+        String aliasValue = ManifestTomlValueEncoder.basicString("x");
+        assertEquals(
+                "[\n    \"x\",\n]",
+                ManifestTomlValueEncoder.fieldArray(
+                        FinalManifestCommandFields.ALIASES_ENTRY,
+                        longAlias,
+                        List.of(aliasValue)));
+        assertFalse(Toml.parse(longAlias + " = [\n    \"x\",\n]").hasErrors());
+        String forcedOneLine = ManifestTomlValueEncoder.basicString("x".repeat(120));
+        assertEquals(
+                "[" + forcedOneLine + "]",
+                ManifestTomlValueEncoder.fieldArray(
+                        FinalManifestSharedFields.VERSIONS_ENTRY,
+                        "release",
+                        List.of(forcedOneLine)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ManifestTomlValueEncoder.fieldArray(
+                        FinalManifestCommandFields.ALIASES_ENTRY,
+                        List.of(aliasValue)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ManifestTomlValueEncoder.fieldArray(
+                        FinalManifestIdentityFields.WORKSPACE_MEMBERS_INCLUDE,
+                        "exclude",
+                        List.of(aliasValue)));
     }
 
     @Test

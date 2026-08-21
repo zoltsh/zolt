@@ -190,7 +190,9 @@ final class ManifestDependencyWriter {
         if (!policy.deny().isEmpty()) {
             emitter.field(
                     FinalManifestDependencyFields.DEPENDENCY_POLICY_DENY,
-                    ManifestTomlValueEncoder.array(policy.deny().stream()
+                    ManifestTomlValueEncoder.fieldArray(
+                            FinalManifestDependencyFields.DEPENDENCY_POLICY_DENY,
+                            policy.deny().stream()
                             .map(ManifestDependencyWriter::denyEntry)
                             .toList()));
         }
@@ -217,12 +219,16 @@ final class ManifestDependencyWriter {
         if (!policy.allow().isEmpty()) {
             emitter.field(
                     FinalManifestDependencyFields.DEPENDENCY_LICENSE_POLICY_ALLOW,
-                    licenseTerms(policy.allow()));
+                    licenseTerms(
+                            FinalManifestDependencyFields.DEPENDENCY_LICENSE_POLICY_ALLOW,
+                            policy.allow()));
         }
         if (!policy.deny().isEmpty()) {
             emitter.field(
                     FinalManifestDependencyFields.DEPENDENCY_LICENSE_POLICY_DENY,
-                    licenseTerms(policy.deny()));
+                    licenseTerms(
+                            FinalManifestDependencyFields.DEPENDENCY_LICENSE_POLICY_DENY,
+                            policy.deny()));
         }
         policy.unknown()
                 .filter(value -> value != UnknownLicensePolicy.WARN)
@@ -238,7 +244,9 @@ final class ManifestDependencyWriter {
         emitter.namedSection(LICENSE_EXCEPTION, coordinate.value());
         emitter.field(
                 FinalManifestDependencyFields.DEPENDENCY_LICENSE_EXCEPTION_ALLOW,
-                spdxTerms(exception.allow()));
+                spdxTerms(
+                        FinalManifestDependencyFields.DEPENDENCY_LICENSE_EXCEPTION_ALLOW,
+                        exception.allow()));
         exception.version().ifPresent(value -> emitter.field(
                 FinalManifestDependencyFields.DEPENDENCY_LICENSE_EXCEPTION_VERSION,
                 string(value)));
@@ -247,15 +255,15 @@ final class ManifestDependencyWriter {
                 string(exception.reason()));
     }
 
-    private static String licenseTerms(List<LicensePolicyTerm> terms) {
-        return ManifestTomlValueEncoder.array(terms.stream()
+    private static String licenseTerms(ManifestField field, List<LicensePolicyTerm> terms) {
+        return ManifestTomlValueEncoder.fieldArray(field, terms.stream()
                 .map(LicensePolicyTerm::value)
                 .map(ManifestDependencyWriter::string)
                 .toList());
     }
 
-    private static String spdxTerms(List<SpdxLicenseTerm> terms) {
-        return ManifestTomlValueEncoder.array(terms.stream()
+    private static String spdxTerms(ManifestField field, List<SpdxLicenseTerm> terms) {
+        return ManifestTomlValueEncoder.fieldArray(field, terms.stream()
                 .map(SpdxLicenseTerm::value)
                 .map(ManifestDependencyWriter::string)
                 .toList());

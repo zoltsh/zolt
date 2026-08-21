@@ -88,7 +88,10 @@ final class ManifestTestsCoverageWriterTest {
                 tags = ["zeta", "alpha"]
                 excludeTags = ["slow", "flaky"]
                 workers = 4
-                locks = [{ class = "com.example.AlphaTest", resources = ["database", "redis"] }, { class = "com.example.ZetaTest", resources = ["network"] }]
+                locks = [
+                    { class = "com.example.AlphaTest", resources = ["database", "redis"] },
+                    { class = "com.example.ZetaTest", resources = ["network"] },
+                ]
 
                 [test.suites.zeta]
                 classes = ["*ZetaTest"]
@@ -152,7 +155,7 @@ final class ManifestTestsCoverageWriterTest {
     }
 
     @Test
-    void sortsNamedSuitesAndOneLineResourceLocksWithoutDroppingADefaultOnlySuite() {
+    void sortsNamedSuitesAndResourceLocksWithoutDroppingADefaultOnlySuite() {
         AuthoredTests tests = new AuthoredTests(
                 Optional.empty(),
                 Optional.empty(),
@@ -182,18 +185,17 @@ final class ManifestTestsCoverageWriterTest {
         assertEquals(
                 """
                 [test.suites.locked]
-                locks = [{ class = "com.example.AlphaTest", resources = ["database"] }, { class = "com.example.ZetaTest", resources = ["alpha", "zeta"] }]
+                locks = [
+                    { class = "com.example.AlphaTest", resources = ["database"] },
+                    { class = "com.example.ZetaTest", resources = ["alpha", "zeta"] },
+                ]
 
                 [test.suites.solo]
                 workers = 1
                 """,
                 output);
         assertFalse(output.contains("{ }"));
-        assertFalse(output.lines()
-                .filter(line -> line.startsWith("locks = "))
-                .findFirst()
-                .orElseThrow()
-                .contains("\n"));
+        assertFalse(output.contains("resources = [\n"));
         assertEquals(tests, decode(output).tests().orElseThrow());
         assertValid(output);
     }

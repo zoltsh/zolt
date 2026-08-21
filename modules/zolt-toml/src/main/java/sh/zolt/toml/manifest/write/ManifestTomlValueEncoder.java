@@ -4,8 +4,10 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
+import sh.zolt.toml.schema.FormattingPolicy;
+import sh.zolt.toml.schema.ManifestField;
 
-/** Canonical one-line TOML value fragments for authored-manifest writers. */
+/** Canonical TOML value fragments for authored-manifest writers. */
 final class ManifestTomlValueEncoder {
     private static final char[] HEX = "0123456789ABCDEF".toCharArray();
 
@@ -63,6 +65,46 @@ final class ManifestTomlValueEncoder {
             joined.add(requireOneLine(value, "Encoded TOML array value"));
         }
         return joined.toString();
+    }
+
+    static String fieldArray(ManifestField field, List<String> encodedValues) {
+        ManifestField descriptor = Objects.requireNonNull(
+                field, "Manifest array field is required.");
+        String key = descriptor.path().segments().getLast();
+        if (key.startsWith("<") && key.endsWith(">")) {
+            throw new IllegalArgumentException(
+                    "Dynamic manifest array fields require a concrete key.");
+        }
+        return fieldArray(descriptor, key, encodedValues);
+    }
+
+    static String fieldArray(
+            ManifestField field, String concreteKey, List<String> encodedValues) {
+        ManifestField descriptor = Objects.requireNonNull(
+                field, "Manifest array field is required.");
+        String actualKey = Objects.requireNonNull(
+                concreteKey, "Manifest array field key is required.");
+        String pattern = descriptor.path().segments().getLast();
+        if (!(pattern.startsWith("<") && pattern.endsWith(">"))
+                && !pattern.equals(actualKey)) {
+            throw new IllegalArgumentException(
+                    "Concrete manifest array field key does not match `" + pattern + "`.");
+        }
+        String key = renderKey(actualKey);
+        String inline = array(encodedValues);
+        int assignmentWidth = key.codePointCount(0, key.length())
+                + 3
+                + inline.codePointCount(0, inline.length());
+        if (encodedValues.isEmpty()
+                || descriptor.formatting() == FormattingPolicy.ONE_LINE
+                || assignmentWidth <= 100) {
+            return inline;
+        }
+        StringJoiner wrapped = new StringJoiner(",\n    ", "[\n    ", ",\n]");
+        for (String value : encodedValues) {
+            wrapped.add(requireOneLine(value, "Encoded TOML array value"));
+        }
+        return wrapped.toString();
     }
 
     static InlineMember member(String key, String encodedValue) {
@@ -140,6 +182,24 @@ final class ManifestTomlValueEncoder {
                         "TOML inline-object member key requires quotedMember: `" + key + "`.");
             }
         }
+    }
+
+    private static String renderKey(String key) {
+        if (key.isEmpty()) {
+            return quotedKey(key);
+        }
+        for (int index = 0; index < key.length(); index++) {
+            char character = key.charAt(index);
+            boolean bare = character >= 'A' && character <= 'Z'
+                    || character >= 'a' && character <= 'z'
+                    || character >= '0' && character <= '9'
+                    || character == '_'
+                    || character == '-';
+            if (!bare) {
+                return quotedKey(key);
+            }
+        }
+        return key;
     }
 
     private static String requireOneLine(String value, String label) {

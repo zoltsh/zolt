@@ -23,6 +23,7 @@ import sh.zolt.toml.schema.FinalManifestObjectShapes;
 import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestSchema;
 import sh.zolt.toml.schema.FinalManifestSharedFields;
+import sh.zolt.toml.schema.ManifestField;
 import sh.zolt.toml.schema.ManifestPath;
 import sh.zolt.toml.schema.ManifestSection;
 
@@ -95,7 +96,9 @@ final class ManifestSharedWriter {
                 .filter(value -> !value.equals(defaultOrder(repositories)))
                 .ifPresent(value -> emitter.field(
                         FinalManifestSharedFields.REPOSITORIES_ORDER,
-                        stringArray(value.stream().map(LocalId::value).toList())));
+                        stringArray(
+                                FinalManifestSharedFields.REPOSITORIES_ORDER,
+                                value.stream().map(LocalId::value).toList())));
     }
 
     private static void writeCentral(
@@ -185,8 +188,8 @@ final class ManifestSharedWriter {
         return ManifestTomlValueEncoder.basicString(value);
     }
 
-    private static String stringArray(List<String> values) {
-        return ManifestTomlValueEncoder.array(values.stream()
+    private static String stringArray(ManifestField field, List<String> values) {
+        return ManifestTomlValueEncoder.fieldArray(field, values.stream()
                 .map(ManifestSharedWriter::string)
                 .toList());
     }

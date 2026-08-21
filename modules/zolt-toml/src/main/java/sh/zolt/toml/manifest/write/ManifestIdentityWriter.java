@@ -19,6 +19,7 @@ import sh.zolt.toml.schema.FinalManifestIdentityFields;
 import sh.zolt.toml.schema.FinalManifestObjectShapes;
 import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestSchema;
+import sh.zolt.toml.schema.ManifestField;
 import sh.zolt.toml.schema.ManifestPath;
 import sh.zolt.toml.schema.ManifestSection;
 
@@ -59,14 +60,20 @@ final class ManifestIdentityWriter {
         emitter.section(WORKSPACE_MEMBERS);
         members.defaultMembers().ifPresent(values -> emitter.field(
                 FinalManifestIdentityFields.WORKSPACE_MEMBERS_DEFAULT,
-                stringArray(values.stream().map(value -> value.value()).toList())));
+                stringArray(
+                        FinalManifestIdentityFields.WORKSPACE_MEMBERS_DEFAULT,
+                        values.stream().map(value -> value.value()).toList())));
         emitter.field(
                 FinalManifestIdentityFields.WORKSPACE_MEMBERS_INCLUDE,
-                stringArray(members.include().stream().map(value -> value.value()).toList()));
+                stringArray(
+                        FinalManifestIdentityFields.WORKSPACE_MEMBERS_INCLUDE,
+                        members.include().stream().map(value -> value.value()).toList()));
         if (!members.exclude().isEmpty()) {
             emitter.field(
                     FinalManifestIdentityFields.WORKSPACE_MEMBERS_EXCLUDE,
-                    stringArray(members.exclude().stream().map(value -> value.value()).toList()));
+                    stringArray(
+                            FinalManifestIdentityFields.WORKSPACE_MEMBERS_EXCLUDE,
+                            members.exclude().stream().map(value -> value.value()).toList()));
         }
     }
 
@@ -159,8 +166,8 @@ final class ManifestIdentityWriter {
         return ManifestTomlValueEncoder.basicString(value);
     }
 
-    private static String stringArray(List<String> values) {
-        return ManifestTomlValueEncoder.array(values.stream()
+    private static String stringArray(ManifestField field, List<String> values) {
+        return ManifestTomlValueEncoder.fieldArray(field, values.stream()
                 .map(ManifestIdentityWriter::string)
                 .toList());
     }

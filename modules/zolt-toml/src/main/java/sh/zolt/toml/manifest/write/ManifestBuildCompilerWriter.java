@@ -47,7 +47,7 @@ final class ManifestBuildCompilerWriter {
             emitter.section(BUILD);
             emitter.field(
                     FinalManifestBuildFields.BUILD_SOURCES,
-                    paths(build.sources()));
+                    paths(FinalManifestBuildFields.BUILD_SOURCES, build.sources()));
         }
         build.output().ifPresent(value -> writeOutput(emitter, value));
         build.metadata().ifPresent(value -> writeMetadata(emitter, value));
@@ -111,7 +111,7 @@ final class ManifestBuildCompilerWriter {
         if (!compiler.args().isEmpty()) {
             emitter.field(
                     FinalManifestCompilerFields.COMPILER_ARGS,
-                    strings(compiler.args()));
+                    strings(FinalManifestCompilerFields.COMPILER_ARGS, compiler.args()));
         }
 
         AuthoredCompiler.JdkApiMode mainMode = compiler.jdkApi()
@@ -133,7 +133,7 @@ final class ManifestBuildCompilerWriter {
         if (!test.args().isEmpty()) {
             emitter.field(
                     FinalManifestCompilerFields.COMPILER_TEST_ARGS,
-                    strings(test.args()));
+                    strings(FinalManifestCompilerFields.COMPILER_TEST_ARGS, test.args()));
         }
     }
 
@@ -170,8 +170,8 @@ final class ManifestBuildCompilerWriter {
         return sources.size() == 1 && DEFAULT_SOURCE.equals(sources.getFirst().value());
     }
 
-    private static String paths(List<ManifestRelativePath> values) {
-        return ManifestTomlValueEncoder.array(values.stream()
+    private static String paths(ManifestField field, List<ManifestRelativePath> values) {
+        return ManifestTomlValueEncoder.fieldArray(field, values.stream()
                 .map(ManifestBuildCompilerWriter::path)
                 .toList());
     }
@@ -180,8 +180,8 @@ final class ManifestBuildCompilerWriter {
         return string(value.value());
     }
 
-    private static String strings(List<String> values) {
-        return ManifestTomlValueEncoder.array(values.stream()
+    private static String strings(ManifestField field, List<String> values) {
+        return ManifestTomlValueEncoder.fieldArray(field, values.stream()
                 .map(ManifestBuildCompilerWriter::string)
                 .toList());
     }
