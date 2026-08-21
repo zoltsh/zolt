@@ -32,8 +32,8 @@ public final class LockfileSidecars {
     /**
      * Records {@code fingerprint} on {@code content} at the position {@link
      * sh.zolt.lockfile.toml.ZoltLockfileWriter} writes it — last in the header, before the blank
-     * line that opens the package blocks — so a lock upgraded in place is byte-identical to the one
-     * an ordinary resolve would have written.
+     * line that opens the dependency-root or package blocks — so a lock upgraded in place is
+     * byte-identical to the one an ordinary resolve would have written.
      */
     public static String withWorkspaceResolutionInputFingerprint(
             String content,

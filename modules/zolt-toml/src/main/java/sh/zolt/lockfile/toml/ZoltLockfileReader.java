@@ -3,10 +3,13 @@ package sh.zolt.lockfile.toml;
 import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockDependencyRoot;
+import sh.zolt.lockfile.LockDependencyGraphException;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.dependency.DependencyLane;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -19,7 +22,7 @@ import org.tomlj.TomlParseResult;
 import org.tomlj.TomlTable;
 
 public final class ZoltLockfileReader {
-    private static final int MIN_SUPPORTED_VERSION = 1;
+    private static final int MIN_SUPPORTED_VERSION = 7;
     private final LockfilePackageCodec packageCodec;
 
     public ZoltLockfileReader() {
@@ -59,7 +62,7 @@ public final class ZoltLockfileReader {
                 throw unsupportedVersion(version);
             }
 
-            return new ZoltLockfile(
+            ZoltLockfile lockfile = new ZoltLockfile(
                     version,
                     LockfileTomlValues.optionalString(result, "aliasFingerprint"),
                     LockfileTomlValues.optionalString(result, "projectResolutionFingerprint"),
@@ -69,14 +72,69 @@ public final class ZoltLockfileReader {
                     policyEffects(result.getArray("policy")),
                     memberGraphs(result.getArray("memberGraph")),
                     LockfileTomlValues.optionalString(
-                            result, "workspaceResolutionInputFingerprint"));
+                            result, "workspaceResolutionInputFingerprint"),
+                    dependencyRoots(result.getArray("dependencyRoot")));
+            LockfileDependencyRootCompleteness.violation(lockfile).ifPresent(violation -> {
+                throw new LockfileReadException(violation + " Run `zolt resolve` to regenerate the lockfile.");
+            });
+            return lockfile;
         } catch (TomlInvalidTypeException exception) {
             throw new LockfileReadException(
                     "Invalid value type in zolt.lock: "
                             + exception.getMessage()
                             + ". Run `zolt resolve` to regenerate the lockfile.",
                     exception);
+        } catch (LockDependencyGraphException exception) {
+            throw new LockfileReadException(
+                    "Invalid dependency graph in zolt.lock: " + exception.getMessage(),
+                    exception);
         }
+    }
+
+    private static List<LockDependencyRoot> dependencyRoots(TomlArray rootArray) {
+        if (rootArray == null) {
+            return List.of();
+        }
+        List<LockDependencyRoot> roots = new ArrayList<>();
+        for (int index = 0; index < rootArray.size(); index++) {
+            TomlTable table = rootArray.getTable(index);
+            if (table == null) {
+                throw new LockfileReadException(
+                        "Invalid dependencyRoot entry at index " + index + " in zolt.lock.");
+            }
+            boolean publishOnly = LockfileTomlValues.optionalBoolean(table, "publishOnly");
+            try {
+                roots.add(new LockDependencyRoot(
+                        LockfileTomlValues.requireString(table, "member"),
+                        LockfileTomlValues.packageId(LockfileTomlValues.requireString(table, "id")),
+                        LockfileTomlValues.requireString(table, "version"),
+                        dependencyRootVariant(table),
+                        lane(LockfileTomlValues.requireString(table, "lane")),
+                        LockfileTomlValues.optionalString(table, "resolvedScope")
+                                .map(ZoltLockfileReader::dependencyRootScope),
+                        LockfileTomlValues.optionalBoolean(table, "optional"),
+                        publishOnly));
+            } catch (IllegalArgumentException exception) {
+                throw new LockfileReadException(
+                        "Invalid dependencyRoot entry at index " + index + " in zolt.lock: "
+                                + exception.getMessage(),
+                        exception);
+            }
+        }
+        return List.copyOf(roots);
+    }
+
+    private static LockArtifactVariant dependencyRootVariant(TomlTable table) {
+        if (!table.contains("variant")) {
+            return LockArtifactVariant.defaultVariant();
+        }
+        String raw = LockfileTomlValues.requireString(table, "variant");
+        LockArtifactVariant variant = LockArtifactVariant.fromKey(raw);
+        if (!variant.key().equals(raw)) {
+            throw new IllegalArgumentException(
+                    "dependencyRoot variant `" + raw + "` is not a canonical artifact variant key");
+        }
+        return variant;
     }
 
     private static List<LockConflict> conflicts(TomlArray conflictArray) {
@@ -162,6 +220,31 @@ public final class ZoltLockfileReader {
         }
         throw new LockfileReadException(
                 "Invalid memberGraph scope `" + value + "` in zolt.lock.");
+    }
+
+    private static DependencyLane lane(String value) {
+        return switch (value) {
+            case "api" -> DependencyLane.API;
+            case "implementation" -> DependencyLane.IMPLEMENTATION;
+            case "runtime" -> DependencyLane.RUNTIME;
+            case "provided" -> DependencyLane.PROVIDED;
+            case "dev" -> DependencyLane.DEV;
+            case "test" -> DependencyLane.TEST;
+            case "processor" -> DependencyLane.PROCESSOR;
+            case "test-processor" -> DependencyLane.TEST_PROCESSOR;
+            default -> throw new LockfileReadException(
+                    "Invalid dependencyRoot lane `" + value + "` in zolt.lock.");
+        };
+    }
+
+    private static DependencyScope dependencyRootScope(String value) {
+        for (DependencyScope scope : DependencyScope.values()) {
+            if (scope.lockfileName().equals(value)) {
+                return scope;
+            }
+        }
+        throw new LockfileReadException(
+                "Invalid dependencyRoot resolvedScope `" + value + "` in zolt.lock.");
     }
 
     private static ConflictSelectionReason reason(String value) {

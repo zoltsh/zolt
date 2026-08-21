@@ -1,6 +1,13 @@
-version = 6
+version = 7
 projectResolutionFingerprint = "sha256:project-inputs"
 projectResolutionInputFingerprints = ["dependencies.compile=sha256:compile-inputs", "repositories=sha256:repo-inputs"]
+
+[[dependencyRoot]]
+member = "."
+id = "com.google.guava:guava"
+version = "33.4.0-jre"
+lane = "implementation"
+resolvedScope = "compile"
 
 [[package]]
 id = "com.google.guava:failureaccess"

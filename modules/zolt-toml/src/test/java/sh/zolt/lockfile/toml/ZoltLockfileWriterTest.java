@@ -1,13 +1,16 @@
 package sh.zolt.lockfile.toml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.ConflictSelectionReason;
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
@@ -38,6 +41,17 @@ final class ZoltLockfileWriterTest {
     }
 
     @Test
+    void rejectsNonCurrentLockModels() {
+        ZoltLockfile legacy = new ZoltLockfile(6, List.of(), List.of());
+
+        LockfileWriteException failure = assertThrows(
+                LockfileWriteException.class,
+                () -> writer.write(legacy));
+
+        assertTrue(failure.getMessage().contains("Cannot write zolt.lock version 6; current version is 7"));
+    }
+
+    @Test
     void writesAliasFingerprintWhenPresent() {
         ZoltLockfile lockfile = new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
@@ -47,7 +61,7 @@ final class ZoltLockfileWriterTest {
                 List.of());
 
         assertEquals("""
-                version = 6
+                version = 7
                 aliasFingerprint = "sha256:alias-inputs"
 
                 """, writer.write(lockfile));
@@ -65,7 +79,7 @@ final class ZoltLockfileWriterTest {
                 List.of());
 
         assertEquals("""
-                version = 6
+                version = 7
                 projectResolutionFingerprint = "sha256:project-inputs"
                 projectResolutionInputFingerprints = ["dependencies.compile=sha256:compile-inputs", "repositories=sha256:repo-inputs"]
 
@@ -76,8 +90,10 @@ final class ZoltLockfileWriterTest {
     void packagesAreSortedDeterministically() {
         String output = writer.write(unsortedLockfile());
 
-        assertTrue(output.indexOf("com.google.guava:failureaccess") < output.indexOf("com.google.guava:guava"));
-        assertTrue(output.indexOf("com.google.guava:guava") < output.indexOf("org.slf4j:slf4j-api"));
+        assertTrue(output.indexOf("[[package]]\nid = \"com.google.guava:failureaccess\"")
+                < output.indexOf("[[package]]\nid = \"com.google.guava:guava\""));
+        assertTrue(output.indexOf("[[package]]\nid = \"com.google.guava:guava\"")
+                < output.indexOf("[[package]]\nid = \"org.slf4j:slf4j-api\""));
     }
 
     @Test
@@ -339,7 +355,17 @@ final class ZoltLockfileWriterTest {
                         "2.0.16",
                         List.of("2.0.16", "1.7.36"),
                         ConflictSelectionReason.DIRECT_DEPENDENCY)),
-                List.of());
+                List.of(),
+                List.of(),
+                List.of(new LockDependencyRoot(
+                        ".",
+                        new PackageId("com.google.guava", "guava"),
+                        "33.4.0-jre",
+                        null,
+                        DependencyLane.IMPLEMENTATION,
+                        Optional.of(DependencyScope.COMPILE),
+                        false,
+                        false)));
     }
 
     private static LockPackage lockPackage(
