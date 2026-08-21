@@ -8,36 +8,39 @@ import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredWorkspace;
 
-/** One workspace root and its complete, deterministically ordered effective member set. */
-public record EffectiveWorkspace(
-        AuthoredManifest root,
-        Map<WorkspaceMemberPath, EffectiveManifest> members) {
+/** One workspace root and its complete, deterministically ordered effective member graph. */
+public final class EffectiveWorkspace {
     private static final WorkspaceMemberPath ROOT_MEMBER = new WorkspaceMemberPath(".");
 
-    public EffectiveWorkspace {
-        root = Objects.requireNonNull(root, "Authored workspace root must not be null.");
+    private final AuthoredManifest root;
+    private final Map<WorkspaceMemberPath, EffectiveManifest> members;
+    private final EffectiveWorkspaceGraph graph;
+
+    public EffectiveWorkspace(
+            AuthoredManifest root,
+            Map<WorkspaceMemberPath, EffectiveManifest> members) {
+        this.root = Objects.requireNonNull(root, "Authored workspace root must not be null.");
         AuthoredWorkspace workspace = root.workspace().orElseThrow(() ->
                 new IllegalArgumentException("An effective workspace requires a [workspace] root domain."));
-        members = ManifestModelValues.immutableSortedMap(
+        this.members = ManifestModelValues.immutableSortedMap(
                 members,
                 WorkspaceMemberPath::compareTo,
                 "Effective workspace member path",
                 "Effective workspace member");
-        if (members.isEmpty()) {
+        if (this.members.isEmpty()) {
             throw new IllegalArgumentException("An effective workspace must contain at least one member.");
         }
-        if (workspace.members().defaultMembers().isPresent()) {
-            for (WorkspaceMemberPath path
-                    : workspace.members().defaultMembers().orElseThrow()) {
-                if (members.containsKey(path)) {
-                    continue;
-                }
-                throw new IllegalArgumentException(
-                        "Workspace default member `" + path
-                                + "` is not in the effective member set.");
-            }
-        }
-        validateMembers(root, workspace, members);
+        validateDefaults(workspace, this.members);
+        validateMembers(root, workspace, this.members);
+        graph = EffectiveWorkspaceGraphComposer.compose(this.members);
+    }
+
+    public AuthoredManifest root() {
+        return root;
+    }
+
+    public Map<WorkspaceMemberPath, EffectiveManifest> members() {
+        return members;
     }
 
     /** Authored workspace identity and membership declaration from {@link #root()}. */
@@ -45,12 +48,28 @@ public record EffectiveWorkspace(
         return root.workspace().orElseThrow();
     }
 
+    /** Resolved workspace-selector edges, managed requests, and BOM member selections. */
+    public EffectiveWorkspaceGraph graph() {
+        return graph;
+    }
+
+    private static void validateDefaults(
+            AuthoredWorkspace workspace,
+            Map<WorkspaceMemberPath, EffectiveManifest> members) {
+        workspace.members().defaultMembers().ifPresent(defaults -> defaults.forEach(path -> {
+            if (!members.containsKey(path)) {
+                throw new IllegalArgumentException(
+                        "Workspace default member `" + path
+                                + "` is not in the effective member set.");
+            }
+        }));
+    }
+
     private static void validateMembers(
             AuthoredManifest root,
             AuthoredWorkspace workspace,
             Map<WorkspaceMemberPath, EffectiveManifest> members) {
         Map<String, WorkspaceMemberPath> spellingByPortabilityKey = new HashMap<>();
-        Map<ProjectIdentityKey, WorkspaceMemberPath> pathByIdentity = new HashMap<>();
         for (Map.Entry<WorkspaceMemberPath, EffectiveManifest> entry : members.entrySet()) {
             WorkspaceMemberPath path = entry.getKey();
             EffectiveManifest member = entry.getValue();
@@ -84,18 +103,24 @@ public record EffectiveWorkspace(
                         "Effective workspace member `" + path
                                 + "` cannot contain a nested workspace domain.");
             }
-            EffectiveProjectIdentity identity = member.project().identity();
-            ProjectIdentityKey identityKey = new ProjectIdentityKey(
-                    identity.group().value().value(), identity.name().value().value());
-            WorkspaceMemberPath duplicate = pathByIdentity.putIfAbsent(identityKey, path);
-            if (duplicate != null) {
-                throw new IllegalArgumentException(
-                        "Workspace members `" + duplicate + "` and `" + path
-                                + "` have duplicate effective project identity `"
-                                + identityKey.group() + ":" + identityKey.name() + "`.");
-            }
         }
     }
 
-    private record ProjectIdentityKey(String group, String name) {}
+    @Override
+    public boolean equals(Object other) {
+        return this == other
+                || other instanceof EffectiveWorkspace workspace
+                        && root.equals(workspace.root)
+                        && members.equals(workspace.members);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(root, members);
+    }
+
+    @Override
+    public String toString() {
+        return "EffectiveWorkspace[root=" + root + ", members=" + members + "]";
+    }
 }

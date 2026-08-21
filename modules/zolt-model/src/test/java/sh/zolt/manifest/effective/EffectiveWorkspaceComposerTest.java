@@ -261,7 +261,7 @@ final class EffectiveWorkspaceComposerTest {
     }
 
     @Test
-    void validatesSharedReferencesWhileRetainingWorkspaceTargetsForTheGraphPass() {
+    void validatesSharedReferencesAndResolvesWorkspaceTargetsInTheGraphPass() {
         LocalId release = new LocalId("release");
         AuthoredManifest root = new WorkspaceManifestFixture()
                 .virtualRoot(workspace(List.of("modules/*"), Optional.empty()))
@@ -283,14 +283,22 @@ final class EffectiveWorkspaceComposerTest {
                 .identity(WorkspaceManifestFixture.sparseIdentity("core"))
                 .dependencies(dependencies)
                 .create();
+        WorkspaceMemberPath siblingPath = new WorkspaceMemberPath("modules/sibling");
+        AuthoredManifest sibling = new WorkspaceManifestFixture()
+                .identity(WorkspaceManifestFixture.sparseIdentity("sibling"))
+                .create();
 
-        EffectiveManifest effective = COMPOSER.composeWorkspace(root, Map.of(CORE, member))
-                .members()
-                .get(CORE);
+        EffectiveWorkspace workspace = COMPOSER.composeWorkspace(
+                root, Map.of(CORE, member, siblingPath, sibling));
+        EffectiveManifest effective = workspace.members().get(CORE);
 
         assertSame(
                 member.dependencies(),
                 effective.project().local().dependencies());
+        assertEquals(siblingPath, workspace.graph()
+                .workspaceDependencies()
+                .getFirst()
+                .provider());
 
         AuthoredManifest undefined = new WorkspaceManifestFixture()
                 .identity(WorkspaceManifestFixture.sparseIdentity("undefined"))
