@@ -144,7 +144,7 @@ final class StandaloneLockFreshnessCommandTest {
 
     @ParameterizedTest(name = "placeholder lock with {0}")
     @MethodSource("placeholderResolutionInputs")
-    void buildCannotBypassResolutionThroughAnEmptyVersionSixLock(
+    void buildCannotBypassResolutionThroughAnEmptyCurrentLock(
             String displayName,
             String resolutionInput) throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
@@ -175,7 +175,7 @@ final class StandaloneLockFreshnessCommandTest {
                     }
                     """);
             Path lockfile = project.resolve("zolt.lock");
-            String placeholder = "version = 6\n";
+            String placeholder = "version = 7\n";
             Files.writeString(lockfile, placeholder);
 
             CommandResult result = execute(

@@ -56,7 +56,7 @@ final class WorkspaceCommandToolchainContextTest {
                 name = "large-toolchain-workspace"
                 members = [%s]
                 """.formatted(members));
-        Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
         Workspace workspace = capturedWorkspace(root);
         CommandToolchainOptions options = options();
         List<JdkChecker> runtimeCheckers = new ArrayList<>();
@@ -217,7 +217,7 @@ final class WorkspaceCommandToolchainContextTest {
                 "java-999",
                 "999",
                 "");
-        Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
         Workspace workspace = capturedWorkspace(root);
 
         RuntimeFailure lowerFirst = runtimeFailure(

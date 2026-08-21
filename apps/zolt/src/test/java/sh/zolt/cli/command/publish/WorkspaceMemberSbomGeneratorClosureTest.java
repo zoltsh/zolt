@@ -77,7 +77,7 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
                 member("acme-core", memberConfig("acme-core", Map.of(), Map.of(), Map.of())));
 
         ZoltLockfile aggregated = new ZoltLockfile(
-                1,
+                ZoltLockfile.CURRENT_VERSION,
                 List.of(
                         workspacePackage("com.acme", "acme-core", "1.0.0"),
                         external("com.fasterxml.jackson.core", "jackson-databind", "2.19.2",
@@ -144,7 +144,7 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
         Workspace workspace = workspaceOf(member("acme-http", config), member("acme-core", coreConfig));
 
         ZoltLockfile aggregated = new ZoltLockfile(
-                1,
+                ZoltLockfile.CURRENT_VERSION,
                 List.of(
                         workspacePackage("com.acme", "acme-core", "1.0.0"),
                         externalOwnedBy("com.google.guava", "guava", "33.0.0-jre",
@@ -212,7 +212,7 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
         Workspace workspace = workspaceOf(member("acme-http", config), member("acme-core", coreConfig));
 
         ZoltLockfile aggregated = new ZoltLockfile(
-                2,
+                ZoltLockfile.CURRENT_VERSION,
                 List.of(
                         workspacePackage("com.acme", "acme-core", "1.0.0"),
                         // Order the plain transitive first to prove same-member attribution cannot decide.

@@ -21,7 +21,7 @@ import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
 import sh.zolt.workspace.resolve.WorkspaceResolutionInputFingerprint;
 
-/** Migrates concise CLI test fixtures onto the production version 6 artifact contract. */
+/** Adds content-addressed artifacts and fingerprints to current-schema CLI test fixtures. */
 public final class ContentAddressedLockTestSupport {
     private static final Pattern SHA_256 = Pattern.compile("[0-9a-f]{64}");
 
@@ -71,7 +71,8 @@ public final class ContentAddressedLockTestSupport {
                 legacy.conflicts(),
                 legacy.policyEffects(),
                 legacy.memberGraphs(),
-                legacy.workspaceResolutionInputFingerprint());
+                legacy.workspaceResolutionInputFingerprint(),
+                legacy.dependencyRoots());
     }
 
     public static Path cachedJar(Path lockfilePath, Path cacheRoot, String coordinate) {
@@ -104,7 +105,8 @@ public final class ContentAddressedLockTestSupport {
                 lockfile.conflicts(),
                 lockfile.policyEffects(),
                 lockfile.memberGraphs(),
-                lockfile.workspaceResolutionInputFingerprint());
+                lockfile.workspaceResolutionInputFingerprint(),
+                lockfile.dependencyRoots());
     }
 
     private static ZoltLockfile withWorkspaceFingerprint(Path lockfilePath, ZoltLockfile lockfile) {

@@ -64,7 +64,7 @@ public final class CliTestSupport {
         ContentAddressedLockTestSupport.write(
                 projectDirectory.resolve("zolt.lock"),
                 projectDirectory.resolve(".test-cache"),
-                "version = 6\n");
+                "version = 7\n");
     }
 
     public static String generatedSourceConfig(

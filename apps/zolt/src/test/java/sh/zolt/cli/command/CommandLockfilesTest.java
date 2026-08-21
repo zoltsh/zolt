@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
-import sh.zolt.error.ActionableException;
+import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveOptions;
@@ -42,7 +42,7 @@ final class CommandLockfilesTest {
         ProjectConfig config = config("1.0.0");
         Path lockfile = tempDir.resolve("zolt.lock");
         Files.writeString(lockfile, """
-                version = 1
+                version = 7
                 projectResolutionFingerprint = "%s"
 
                 [[package]]
@@ -56,7 +56,7 @@ final class CommandLockfilesTest {
     @Test
     void requiresFullVerificationWhenFingerprintIsMissing() throws Exception {
         Path lockfile = tempDir.resolve("zolt.lock");
-        Files.writeString(lockfile, "version = 1\n");
+        Files.writeString(lockfile, "version = 7\n");
 
         assertFalse(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, config("1.0.0")));
     }
@@ -103,11 +103,11 @@ final class CommandLockfilesTest {
     }
 
     @Test
-    void versionSixPlaceholderRequiresLockedVerification() throws Exception {
+    void currentVersionPlaceholderRequiresLockedVerification() throws Exception {
         ProjectConfig config = config("1.0.0");
         Path project = tempDir.resolve("placeholder-project");
         Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n");
         AtomicInteger resolves = new AtomicInteger();
 
         lockfiles(resolves, new AtomicReference<>())
@@ -124,12 +124,12 @@ final class CommandLockfilesTest {
         Files.writeString(project.resolve("zolt.lock"), "version = 5\n");
         AtomicInteger resolves = new AtomicInteger();
 
-        ActionableException exception = assertThrows(
-                ActionableException.class,
+        LockfileReadException exception = assertThrows(
+                LockfileReadException.class,
                 () -> lockfiles(resolves, new AtomicReference<>())
                         .requireFreshLockfile(project, config, cacheRoot(), false));
 
-        assertTrue(exception.getMessage().contains("version 5 predates the version 6 executable lock contract"));
+        assertTrue(exception.getMessage().contains("version 5 is older than this Zolt supports (current 7)"));
         assertEquals(0, resolves.get());
     }
 
@@ -182,18 +182,18 @@ final class CommandLockfilesTest {
         Path project = writeLock(config, false);
         Path lockfile = project.resolve("zolt.lock");
         Files.writeString(lockfile, Files.readString(lockfile)
-                .replaceFirst("version = 6", "version = 5")
+                .replaceFirst("version = 7", "version = 5")
                 .replace(JAR_PATH, "com/example/demo/1.0.0/demo-1.0.0.jar")
                 .replace(POM_PATH, "com/example/demo/1.0.0/demo-1.0.0.pom")
                 .replace(SECONDARY_PATH, "com/example/demo/1.0.0/demo-1.0.0.properties"));
         AtomicInteger resolves = new AtomicInteger();
 
-        ActionableException exception = assertThrows(
-                ActionableException.class,
+        LockfileReadException exception = assertThrows(
+                LockfileReadException.class,
                 () -> lockfiles(resolves, new AtomicReference<>())
                         .requireFreshLockfile(project, config, cacheRoot(), false));
 
-        assertTrue(exception.getMessage().contains("version 5 predates the version 6 content-addressed"));
+        assertTrue(exception.getMessage().contains("version 5 is older than this Zolt supports (current 7)"));
         assertTrue(exception.getMessage().contains("zolt resolve"));
         assertEquals(0, resolves.get());
     }
@@ -234,8 +234,16 @@ final class CommandLockfilesTest {
             writeCacheArtifact(SECONDARY_PATH, SECONDARY_BYTES);
         }
         Files.writeString(project.resolve("zolt.lock"), """
-                version = 6
+                version = 7
                 projectResolutionFingerprint = "%s"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:demo"
+                version = "1.0.0"
+                variant = "properties"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
