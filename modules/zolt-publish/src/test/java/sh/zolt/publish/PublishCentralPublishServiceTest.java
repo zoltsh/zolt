@@ -189,7 +189,7 @@ final class PublishCentralPublishServiceTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(root.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(root.resolve("zolt.toml"), """
                 [project]
                 name = "central-lib"

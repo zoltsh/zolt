@@ -46,7 +46,7 @@ final class PublishUploadServiceTargetIsolationTest {
                   "archiveSha256": "sha256:%s"
                 }
                 """.formatted(sha256(Files.readAllBytes(artifact))));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 3\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (PublishUploadServiceSigningTest.Recorder repositoryA =
                         PublishUploadServiceSigningTest.Recorder.start();

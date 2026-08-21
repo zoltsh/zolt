@@ -123,7 +123,7 @@ final class PublishCentralReadinessServiceTest {
     private Path writeProject(String publishBody) throws IOException {
         Path root = tempDir.resolve("readiness");
         Files.createDirectories(root);
-        Files.writeString(root.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
         String toml = """
                 [project]
                 name = "readiness-lib"

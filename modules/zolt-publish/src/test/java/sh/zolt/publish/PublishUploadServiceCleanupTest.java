@@ -35,7 +35,7 @@ final class PublishUploadServiceCleanupTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (var recorder =
                 PublishUploadServiceSigningTest.Recorder.start()) {

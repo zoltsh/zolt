@@ -2,19 +2,22 @@ package sh.zolt.publish;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BomSettings;
 import sh.zolt.project.BuildSettings;
-import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.project.PublicationMetadata;
+import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -31,53 +34,51 @@ final class PublishPomGoldenTest {
 
     @Test
     void classifierAndTypeRideJarPomInMavenElementOrder() throws IOException {
-        ProjectConfig config = base("app", "1.0.0", "com.example", PublicationMetadata.empty())
-                .withDependencyMetadata(Map.of(
-                        DependencyMetadata.key("dependencies", "io.netty:netty-transport-native-epoll"),
-                        new DependencyMetadata(
-                                "dependencies",
-                                "io.netty:netty-transport-native-epoll",
-                                null,
-                                null,
-                                false,
-                                null,
-                                false,
-                                false,
-                                List.of(),
-                                "linux-x86_64",
-                                null),
-                        DependencyMetadata.key("dependencies", "org.example:widget"),
-                        new DependencyMetadata(
-                                "dependencies",
-                                "org.example:widget",
-                                null,
-                                null,
-                                false,
-                                null,
-                                false,
-                                false,
-                                List.of(),
-                                null,
-                                "zip")));
-        ZoltLockfile lockfile = new ZoltLockfile(
-                1,
+        ProjectConfig config = new ZoltTomlParser().parse("""
+                [project]
+                name = "app"
+                version = "1.0.0"
+                group = "com.example"
+                java = "21"
+
+                [api.dependencies]
+                "io.netty:netty-transport-native-epoll" = { version = "4.1.100.Final", classifier = "linux-x86_64" }
+                "org.example:widget" = { version = "2.0.0", type = "zip" }
+                """);
+        LockArtifactVariant netty = new LockArtifactVariant("jar", Optional.of("linux-x86_64"));
+        LockArtifactVariant widget = new LockArtifactVariant("zip", Optional.empty());
+        ZoltLockfile lockfile = lockfile(
                 List.of(
-                        external("io.netty", "netty-transport-native-epoll", "4.1.100.Final", DependencyScope.COMPILE),
-                        external("org.example", "widget", "2.0.0", DependencyScope.COMPILE)),
-                List.of());
+                        external("io.netty", "netty-transport-native-epoll", "4.1.100.Final",
+                                DependencyScope.COMPILE, netty),
+                        external("org.example", "widget", "2.0.0", DependencyScope.COMPILE, widget)),
+                List.of(
+                        root("io.netty", "netty-transport-native-epoll", "4.1.100.Final", netty),
+                        root("org.example", "widget", "2.0.0", widget)));
 
         assertEquals(golden("classifier.pom.xml"), generator.generate(config, lockfile));
     }
 
     @Test
     void interMemberWorkspaceDependencyRendersRealGavAlongsideExternal() throws IOException {
-        ProjectConfig config = base("acme-http", "1.0.0", "com.acme", PublicationMetadata.empty());
-        ZoltLockfile lockfile = new ZoltLockfile(
-                1,
+        ProjectConfig config = new ZoltTomlParser().parse("""
+                [project]
+                name = "acme-http"
+                version = "1.0.0"
+                group = "com.acme"
+                java = "21"
+
+                [api.dependencies]
+                "com.acme:acme-core" = { workspace = "acme-core" }
+                "org.slf4j:slf4j-api" = "2.0.13"
+                """);
+        ZoltLockfile lockfile = lockfile(
                 List.of(
                         workspacePackage("com.acme", "acme-core", "1.0.0", "acme-core"),
                         external("org.slf4j", "slf4j-api", "2.0.13", DependencyScope.COMPILE)),
-                List.of());
+                List.of(
+                        root("com.acme", "acme-core", "1.0.0", LockArtifactVariant.defaultVariant()),
+                        root("org.slf4j", "slf4j-api", "2.0.13", LockArtifactVariant.defaultVariant())));
 
         assertEquals(golden("inter-member.pom.xml"), generator.generate(config, lockfile));
     }
@@ -102,7 +103,7 @@ final class PublishPomGoldenTest {
         ProjectConfig config = base("acme-bom", "1.0.0", "com.acme.platform", metadata)
                 .withPackageSettings(new PackageSettings(PackageMode.BOM, false, false, false, metadata).withBom(bom));
         ZoltLockfile lockfile = new ZoltLockfile(
-                1,
+                7,
                 List.of(
                         workspacePackage("com.acme", "acme-core", "1.0.0", "acme-core"),
                         workspacePackage("com.acme", "acme-http", "1.0.0", "acme-http")),
@@ -135,6 +136,31 @@ final class PublishPomGoldenTest {
                 List.of());
     }
 
+    private static LockPackage external(
+            String group,
+            String artifact,
+            String version,
+            DependencyScope scope,
+            LockArtifactVariant variant) {
+        String classifier = variant.classifier().map(value -> "-" + value).orElse("");
+        String path = group.replace('.', '/') + "/" + artifact + "/" + version + "/"
+                + artifact + "-" + version + classifier + "." + variant.extension();
+        return new LockPackage(
+                new PackageId(group, artifact),
+                version,
+                ProjectConfig.MAVEN_CENTRAL,
+                scope,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(path),
+                Optional.of(variant.extension()),
+                Optional.empty(),
+                List.of());
+    }
+
     private static LockPackage workspacePackage(String group, String artifact, String version, String memberPath) {
         return new LockPackage(
                 new PackageId(group, artifact),
@@ -149,6 +175,29 @@ final class PublishPomGoldenTest {
                 Optional.of(memberPath),
                 Optional.of("target/classes"),
                 List.of());
+    }
+
+    private static ZoltLockfile lockfile(
+            List<LockPackage> packages,
+            List<LockDependencyRoot> roots) {
+        return new ZoltLockfile(
+                7, Optional.empty(), Optional.empty(), List.of(), packages, List.of(), List.of(), List.of(), roots);
+    }
+
+    private static LockDependencyRoot root(
+            String group,
+            String artifact,
+            String version,
+            LockArtifactVariant variant) {
+        return new LockDependencyRoot(
+                ".",
+                new PackageId(group, artifact),
+                version,
+                variant,
+                DependencyLane.API,
+                Optional.of(DependencyScope.COMPILE),
+                false,
+                false);
     }
 
     private static String golden(String name) throws IOException {

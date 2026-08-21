@@ -52,7 +52,7 @@ final class PublishUploadServiceSigningTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (Recorder recorder = Recorder.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -115,7 +115,7 @@ final class PublishUploadServiceSigningTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 2\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (Recorder recorder = Recorder.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -170,7 +170,7 @@ final class PublishUploadServiceSigningTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 2\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (Recorder recorder = Recorder.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), """
