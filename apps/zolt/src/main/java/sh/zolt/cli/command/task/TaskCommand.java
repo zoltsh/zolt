@@ -59,13 +59,14 @@ public final class TaskCommand implements Callable<Integer> {
     }
 
     private int runTask(LoadedCommandConfig loaded, CommandTask task) {
-        Path cwd = resolveCwd(loaded, task);
+        Path owningRoot = owningRoot(loaded, task);
+        Path cwd = resolveCwd(owningRoot, task);
         List<String> command = new ArrayList<>(task.cmd());
         command.addAll(passthrough);
 
         java.util.Map<String, String> environment = new java.util.HashMap<>(task.env());
         environment.put("ZOLT_TASK_NAME", task.name());
-        environment.put("ZOLT_PROJECT_ROOT", loaded.root().toString());
+        environment.put("ZOLT_PROJECT_ROOT", owningRoot.toString());
         SupervisedProcessResult result;
         try {
             result = new ProcessSupervisor().run(
@@ -99,8 +100,16 @@ public final class TaskCommand implements Callable<Integer> {
         return exitCode;
     }
 
-    private Path resolveCwd(LoadedCommandConfig loaded, CommandTask task) {
+    /**
+     * The root a task's {@code cwd} resolves against: the workspace root for a root-declared task and
+     * the member directory for a member-declared one (design §15.1).
+     */
+    private static Path owningRoot(LoadedCommandConfig loaded, CommandTask task) {
         Path root = loaded.root().toAbsolutePath().normalize();
+        return task.owner().map(root::resolve).map(Path::normalize).orElse(root);
+    }
+
+    private Path resolveCwd(Path root, CommandTask task) {
         Path cwd = task.cwd().map(root::resolve).orElse(root).normalize();
         if (!cwd.startsWith(root)) {
             throw new ZoltConfigException(

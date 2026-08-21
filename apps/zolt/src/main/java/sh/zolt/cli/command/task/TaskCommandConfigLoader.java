@@ -1,7 +1,6 @@
 package sh.zolt.cli.command.task;
 
 import sh.zolt.cli.command.CommandProjectDirectory;
-import java.nio.file.Path;
 
 final class TaskCommandConfigLoader {
     private final CommandConfigRoots roots;
@@ -15,7 +14,6 @@ final class TaskCommandConfigLoader {
     }
 
     LoadedCommandConfig load(CommandProjectDirectory projectDirectory) {
-        Path configPath = roots.discoverConfig(projectDirectory.path());
-        return new LoadedCommandConfig(configPath, roots.commands(configPath));
+        return roots.load(projectDirectory.path());
     }
 }

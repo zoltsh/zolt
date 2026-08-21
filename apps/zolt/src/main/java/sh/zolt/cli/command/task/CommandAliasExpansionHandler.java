@@ -26,8 +26,9 @@ public final class CommandAliasExpansionHandler implements IParameterExceptionHa
 
         CommandConfig config;
         try {
-            CommandConfigRoots roots = new CommandConfigRoots();
-            config = roots.commands(roots.discoverConfig(startDirectory(args)));
+            // The effective namespace, so a member-declared alias expands from the member directory
+            // exactly as a root-declared one does (design §4.5).
+            config = new CommandConfigRoots().load(startDirectory(args)).config();
         } catch (ZoltConfigException configException) {
             return printDefault(exception, commandLine, false);
         }
