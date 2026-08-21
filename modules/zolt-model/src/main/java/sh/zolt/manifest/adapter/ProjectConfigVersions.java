@@ -1,5 +1,6 @@
 package sh.zolt.manifest.adapter;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import sh.zolt.manifest.DependencySelector;
 import sh.zolt.manifest.LocalId;
@@ -14,12 +15,9 @@ final class ProjectConfigVersions {
 
     /** The effective {@code [versions]} map as the legacy alias-name to literal-version map. */
     static Map<String, String> aliases(Map<LocalId, EffectiveValue<VersionAliasValue>> versions) {
-        return versions.entrySet().stream().collect(
-                java.util.stream.Collectors.toMap(
-                        entry -> entry.getKey().value(),
-                        entry -> entry.getValue().value().value(),
-                        (left, right) -> left,
-                        java.util.LinkedHashMap::new));
+        LinkedHashMap<String, String> aliases = new LinkedHashMap<>();
+        versions.forEach((alias, value) -> aliases.put(alias.value(), value.value().value()));
+        return Map.copyOf(aliases);
     }
 
     /** The literal version behind a platform selector. */

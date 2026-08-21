@@ -36,19 +36,22 @@ final class ProjectConfigDependencyLanes {
     /**
      * Adapts every authored declaration.
      *
-     * @param dependencies authored declarations in canonical lane and coordinate order
+     * @param dependencies the authored declaration set, absent when the domain is unauthored
      * @param versions effective {@code [versions]} aliases used to resolve {@code versionRef}
      * @param workspacePaths resolved provider member path per workspace-selector coordinate
      * @param seededMetadata metadata already recorded by earlier sections, notably {@code platforms}
      */
     static ProjectConfigDependencyLanes adapt(
-            AuthoredDependencies dependencies,
+            Optional<AuthoredDependencies> dependencies,
             Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
             Map<DependencyCoordinate, String> workspacePaths,
             Map<String, DependencyMetadata> seededMetadata) {
         ProjectConfigDependencyLanes adapted = new ProjectConfigDependencyLanes();
         adapted.metadata.putAll(seededMetadata);
-        for (AuthoredDependency declaration : orderedByLane(dependencies)) {
+        List<AuthoredDependency> declarations = dependencies
+                .map(AuthoredDependencies::declarations)
+                .orElseGet(List::of);
+        for (AuthoredDependency declaration : orderedByLane(declarations)) {
             adapted.add(declaration, versions, workspacePaths);
         }
         return adapted;
@@ -179,8 +182,8 @@ final class ProjectConfigDependencyLanes {
         return path;
     }
 
-    private static List<AuthoredDependency> orderedByLane(AuthoredDependencies dependencies) {
-        return dependencies.declarations().stream()
+    private static List<AuthoredDependency> orderedByLane(List<AuthoredDependency> declarations) {
+        return declarations.stream()
                 .sorted((left, right) -> {
                     int byLane = Integer.compare(
                             legacyOrder(left.lane()), legacyOrder(right.lane()));
@@ -210,18 +213,5 @@ final class ProjectConfigDependencyLanes {
         private final Map<String, String> versioned = new LinkedHashMap<>();
         private final Set<String> managed = new LinkedHashSet<>();
         private final Map<String, String> workspace = new LinkedHashMap<>();
-    }
-
-    /** Adapts one optional authored declaration set, treating an absent domain as empty. */
-    static ProjectConfigDependencyLanes adapt(
-            Optional<AuthoredDependencies> dependencies,
-            Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
-            Map<DependencyCoordinate, String> workspacePaths,
-            Map<String, DependencyMetadata> seededMetadata) {
-        return adapt(
-                dependencies.orElseGet(AuthoredDependencies::empty),
-                versions,
-                workspacePaths,
-                seededMetadata);
     }
 }
