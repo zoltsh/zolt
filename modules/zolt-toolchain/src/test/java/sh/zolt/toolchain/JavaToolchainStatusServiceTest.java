@@ -169,7 +169,7 @@ final class JavaToolchainStatusServiceTest {
                 features = ["native-image"]
                 policy = "%s"
                 """.formatted(policy.id()));
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 

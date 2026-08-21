@@ -145,7 +145,7 @@ final class ToolchainSyncLockReuseTest {
                 features = []
                 policy = "require-managed"
                 """.formatted(name));
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 
@@ -187,7 +187,7 @@ final class ToolchainSyncLockReuseTest {
 
     private static String legacyLock() {
         return """
-                version = 1
+                version = 7
 
                 [[toolchain.java]]
                 id = "java-temurin-21"

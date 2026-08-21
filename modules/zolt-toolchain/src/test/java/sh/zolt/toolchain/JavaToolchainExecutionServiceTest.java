@@ -190,7 +190,7 @@ final class JavaToolchainExecutionServiceTest {
                 distribution.id(),
                 featureToml(features),
                 policy.id()));
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 

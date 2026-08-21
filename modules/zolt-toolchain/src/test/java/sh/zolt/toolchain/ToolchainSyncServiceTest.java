@@ -267,7 +267,7 @@ final class ToolchainSyncServiceTest {
                 [toolchain.java.test]
                 version = "%s"
                 """.formatted(name, testVersion));
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 
@@ -287,7 +287,7 @@ final class ToolchainSyncServiceTest {
                 features = []
                 policy = "require-managed"
                 """.formatted(name));
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 

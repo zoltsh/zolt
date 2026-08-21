@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.error.ActionableException;
+import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
@@ -28,7 +29,14 @@ final class ToolchainLockfileServiceTest {
     void appendsJavaToolchainLockWithoutDisturbingPackages() throws IOException {
         Path lockfile = tempDir.resolve("zolt.lock");
         Files.writeString(lockfile, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:demo"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
@@ -59,12 +67,12 @@ final class ToolchainLockfileServiceTest {
     @Test
     void replacesPreviousJavaToolchainLock() throws IOException {
         Path lockfile = tempDir.resolve("zolt.lock");
-        Files.writeString(lockfile, "version = 1\n\n");
 
         lockfiles.writeJava(lockfile, locked("linux-x64"));
         lockfiles.writeJava(lockfile, locked("macos-aarch64"));
 
         String content = Files.readString(lockfile);
+        assertTrue(content.startsWith("version = 7\n\n"));
         assertEquals(1, content.split("\\[\\[toolchain\\.java]]", -1).length - 1);
         assertEquals("macos-aarch64", lockfiles.readJava(lockfile).getFirst().platform().id());
     }
@@ -73,7 +81,14 @@ final class ToolchainLockfileServiceTest {
     void writesDeterministicJavaToolchainPlatformMatrix() throws IOException {
         Path lockfile = tempDir.resolve("zolt.lock");
         Files.writeString(lockfile, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:demo"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
@@ -168,6 +183,58 @@ final class ToolchainLockfileServiceTest {
         assertEquals(uppercase.toLowerCase(java.util.Locale.ROOT), locked.artifactSha256());
     }
 
+    @Test
+    void rejectsPreV7Reads() {
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> lockfiles.readJava("version = 6\n\n"));
+
+        assertTrue(exception.getMessage().contains("unsupported version 6; current version is 7"));
+        assertTrue(exception.getMessage().contains("zolt resolve"));
+    }
+
+    @Test
+    void rejectsPreV7WritesWithoutMutatingTheLockfile() throws IOException {
+        Path lockfile = tempDir.resolve("legacy.lock");
+        String legacy = "version = 6\n\n";
+        Files.writeString(lockfile, legacy);
+
+        ActionableException exception = assertThrows(
+                ActionableException.class,
+                () -> lockfiles.writeJava(lockfile, locked("linux-x64")));
+
+        assertTrue(exception.getMessage().contains("unsupported version 6; current version is 7"));
+        assertEquals(legacy, Files.readString(lockfile));
+    }
+
+    @Test
+    void rejectsInvalidV7DependencyEvidenceOnReadAndWriteWithoutMutation() throws IOException {
+        String invalid = """
+                version = 7
+
+                [[package]]
+                id = "com.example:lib"
+                version = "1.0.0"
+                source = "maven-central"
+                scope = "compile"
+                direct = true
+                dependencies = []
+                """;
+        Path lockfile = tempDir.resolve("invalid-v7.lock");
+        Files.writeString(lockfile, invalid);
+
+        LockfileReadException readFailure = assertThrows(
+                LockfileReadException.class,
+                () -> lockfiles.readJava(invalid));
+        LockfileReadException writeFailure = assertThrows(
+                LockfileReadException.class,
+                () -> lockfiles.writeJava(lockfile, locked("linux-x64")));
+
+        assertTrue(readFailure.getMessage().contains("has no exact dependencyRoot"));
+        assertTrue(writeFailure.getMessage().contains("has no exact dependencyRoot"));
+        assertEquals(invalid, Files.readString(lockfile));
+    }
+
     private static void assertBefore(String content, String first, String second) {
         assertTrue(content.indexOf(first) >= 0, first);
         assertTrue(content.indexOf(second) >= 0, second);
@@ -176,7 +243,7 @@ final class ToolchainLockfileServiceTest {
 
     private static String lockContent(String uri, String sha256Assignment) {
         return """
-                version = 1
+                version = 7
 
                 [[toolchain.java]]
                 id = "java-temurin-21"

@@ -76,7 +76,7 @@ final class WindowsToolchainSyncServiceTest {
                 features = ["native-image"]
                 policy = "require-managed"
                 """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 
