@@ -398,7 +398,7 @@ zolt check --workspace --context ci --require-publish-dry-run   # CI gate
 ```
 
 Consumers import the BOM through `[platforms]` and declare its members
-version-less:
+platform-managed:
 
 ```toml
 [platforms]
