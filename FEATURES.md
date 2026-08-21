@@ -123,7 +123,7 @@ zolt toolchain sync
 zolt toolchain sync --refresh
 zolt toolchain status
 zolt self update
-zolt config show
+zolt config show --effective
 ```
 
 - **Toolchains.** Resolve concrete Java feature releases from Temurin or GraalVM
