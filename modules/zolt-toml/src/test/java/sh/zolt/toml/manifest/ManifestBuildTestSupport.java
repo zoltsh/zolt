@@ -1,6 +1,8 @@
 package sh.zolt.toml.manifest;
 
 import java.util.Optional;
+import java.util.function.Consumer;
+import sh.zolt.manifest.authored.AuthoredBuild;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 
@@ -15,6 +17,22 @@ public final class ManifestBuildTestSupport {
 
     public static Optional<AuthoredGeneratedSources> decodeGeneratedSources(String source) {
         return decode(source).generated();
+    }
+
+    public static Optional<AuthoredBuild> decodeBuild(
+            String source, Consumer<AuthoredBuild> observer) {
+        ManifestBuildDecoder.BuildPresenceObserver adapted =
+                observer == null ? null : observer::accept;
+        return new ManifestBuildDecoder().decode(
+                ManifestSemanticTestSupport.index(source), adapted);
+    }
+
+    public static void decodeBuildWithNullIndex() {
+        new ManifestBuildDecoder().decode(null, ignored -> {});
+    }
+
+    public static void decodeBuildWithNullObserver() {
+        new ManifestBuildDecoder().decode(ManifestSemanticTestSupport.index(""), null);
     }
 
     public static void decodeBuildConfigurationWithNullIndex() {

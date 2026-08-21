@@ -132,7 +132,7 @@ final class ManifestBuildDecoderTest {
 
     private static Optional<AuthoredBuild> decode(String source) {
         return new ManifestBuildDecoder().decode(
-                ManifestSemanticTestSupport.index(source));
+                ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private static ManifestRelativePath path(String value) {

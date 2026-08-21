@@ -1,5 +1,6 @@
 package sh.zolt.toml.manifest;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,7 +29,7 @@ final class ManifestBuildConfigurationDecoder {
 
     Decoded decode(ManifestDecodeIndex index) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
-        Optional<AuthoredBuild> build = buildDecoder.decode(index);
+        Optional<AuthoredBuild> build = buildDecoder.decode(index, ignored -> {});
         Optional<AuthoredCompiler> compiler = compilerDecoder.decode(index);
         Optional<AuthoredResources> resources = resourcesDecoder.decode(index);
         Optional<AuthoredGeneratedSources> generated = generatedDecoder.decode(index);
@@ -71,15 +72,19 @@ final class ManifestBuildDecoder {
             FinalManifestBuildFields.BUILD_METADATA_GIT,
             FinalManifestBuildFields.BUILD_METADATA_REPRODUCIBLE);
 
-    Optional<AuthoredBuild> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredBuild> decode(
+            ManifestDecodeIndex index,
+            BuildPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored build presence observer is required.");
         Optional<ValidatedManifestField> sourcesField = index.field(
                 FinalManifestBuildFields.BUILD_SOURCES);
+        Presence presence = new Presence(sourcesField, observer);
         List<ManifestRelativePath> sources = sourcesField
-                .map(ManifestBuildDecoder::paths)
+                .map(field -> paths(field, presence))
                 .orElseGet(List::of);
-        Optional<AuthoredBuild.Output> output = output(index);
-        Optional<AuthoredBuild.Metadata> metadata = metadata(index);
+        Optional<AuthoredBuild.Output> output = output(index, sources, presence);
+        Optional<AuthoredBuild.Metadata> metadata = metadata(index, sources, presence);
         if (sourcesField.isEmpty() && output.isEmpty() && metadata.isEmpty()) {
             return Optional.empty();
         }
@@ -88,15 +93,40 @@ final class ManifestBuildDecoder {
                 anchor, () -> new AuthoredBuild(sources, output, metadata)));
     }
 
-    private static Optional<AuthoredBuild.Output> output(ManifestDecodeIndex index) {
-        Optional<ManifestRelativePath> root = path(
-                index, FinalManifestBuildFields.BUILD_OUTPUT_ROOT);
-        Optional<ManifestRelativePath> main = path(
-                index, FinalManifestBuildFields.BUILD_OUTPUT_MAIN);
-        Optional<ManifestRelativePath> test = path(
-                index, FinalManifestBuildFields.BUILD_OUTPUT_TEST);
-        Optional<ManifestRelativePath> integration = path(
-                index, FinalManifestBuildFields.BUILD_OUTPUT_INTEGRATION);
+    private static Optional<AuthoredBuild.Output> output(
+            ManifestDecodeIndex index,
+            List<ManifestRelativePath> sources,
+            Presence presence) {
+        Optional<ValidatedManifestField> rootField = index.field(
+                FinalManifestBuildFields.BUILD_OUTPUT_ROOT);
+        Optional<ManifestRelativePath> root = path(rootField);
+        rootField.ifPresent(field -> presence.output(
+                field,
+                sources,
+                root,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()));
+        Optional<ValidatedManifestField> mainField = index.field(
+                FinalManifestBuildFields.BUILD_OUTPUT_MAIN);
+        Optional<ManifestRelativePath> main = path(mainField);
+        mainField.ifPresent(field -> presence.output(
+                field,
+                sources,
+                root,
+                main,
+                Optional.empty(),
+                Optional.empty()));
+        Optional<ValidatedManifestField> testField = index.field(
+                FinalManifestBuildFields.BUILD_OUTPUT_TEST);
+        Optional<ManifestRelativePath> test = path(testField);
+        testField.ifPresent(field -> presence.output(
+                field, sources, root, main, test, Optional.empty()));
+        Optional<ValidatedManifestField> integrationField = index.field(
+                FinalManifestBuildFields.BUILD_OUTPUT_INTEGRATION);
+        Optional<ManifestRelativePath> integration = path(integrationField);
+        integrationField.ifPresent(field -> presence.output(
+                field, sources, root, main, test, integration));
         if (root.isEmpty() && main.isEmpty() && test.isEmpty() && integration.isEmpty()) {
             return Optional.empty();
         }
@@ -105,13 +135,25 @@ final class ManifestBuildDecoder {
                 anchor, () -> new AuthoredBuild.Output(root, main, test, integration)));
     }
 
-    private static Optional<AuthoredBuild.Metadata> metadata(ManifestDecodeIndex index) {
-        Optional<Boolean> buildInfo = bool(
-                index, FinalManifestBuildFields.BUILD_METADATA_BUILD_INFO);
-        Optional<Boolean> git = bool(
-                index, FinalManifestBuildFields.BUILD_METADATA_GIT);
-        Optional<Boolean> reproducible = bool(
-                index, FinalManifestBuildFields.BUILD_METADATA_REPRODUCIBLE);
+    private static Optional<AuthoredBuild.Metadata> metadata(
+            ManifestDecodeIndex index,
+            List<ManifestRelativePath> sources,
+            Presence presence) {
+        Optional<ValidatedManifestField> buildInfoField = index.field(
+                FinalManifestBuildFields.BUILD_METADATA_BUILD_INFO);
+        Optional<Boolean> buildInfo = bool(buildInfoField);
+        buildInfoField.ifPresent(field -> presence.metadata(
+                field, sources, buildInfo, Optional.empty(), Optional.empty()));
+        Optional<ValidatedManifestField> gitField = index.field(
+                FinalManifestBuildFields.BUILD_METADATA_GIT);
+        Optional<Boolean> git = bool(gitField);
+        gitField.ifPresent(field -> presence.metadata(
+                field, sources, buildInfo, git, Optional.empty()));
+        Optional<ValidatedManifestField> reproducibleField = index.field(
+                FinalManifestBuildFields.BUILD_METADATA_REPRODUCIBLE);
+        Optional<Boolean> reproducible = bool(reproducibleField);
+        reproducibleField.ifPresent(field -> presence.metadata(
+                field, sources, buildInfo, git, reproducible));
         if (buildInfo.isEmpty() && git.isEmpty() && reproducible.isEmpty()) {
             return Optional.empty();
         }
@@ -120,26 +162,101 @@ final class ManifestBuildDecoder {
                 anchor, () -> new AuthoredBuild.Metadata(buildInfo, git, reproducible)));
     }
 
-    private static List<ManifestRelativePath> paths(ValidatedManifestField field) {
-        return ManifestSemanticDiagnostics.construct(
-                field,
-                () -> ManifestTomlValues.strings(field).stream()
-                        .map(ManifestRelativePath::new)
-                        .toList());
+    private static List<ManifestRelativePath> paths(
+            ValidatedManifestField field,
+            Presence presence) {
+        List<String> authored = ManifestTomlValues.strings(field);
+        ArrayList<ManifestRelativePath> paths = new ArrayList<>(authored.size());
+        for (int item = 0; item < authored.size(); item++) {
+            int index = item;
+            paths.add(ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new ManifestRelativePath(authored.get(index))));
+            presence.sources(field, paths);
+        }
+        return List.copyOf(paths);
     }
 
     private static Optional<ManifestRelativePath> path(
-            ManifestDecodeIndex index,
-            ManifestField handle) {
-        return index.field(handle).map(field -> ManifestSemanticDiagnostics.construct(
-                field,
-                () -> new ManifestRelativePath(ManifestTomlValues.string(field))));
+            Optional<ValidatedManifestField> field) {
+        return field.map(value -> ManifestSemanticDiagnostics.construct(
+                value,
+                () -> new ManifestRelativePath(ManifestTomlValues.string(value))));
     }
 
     private static Optional<Boolean> bool(
-            ManifestDecodeIndex index,
-            ManifestField handle) {
-        return index.field(handle).map(ManifestTomlValues::booleanValue);
+            Optional<ValidatedManifestField> field) {
+        return field.map(ManifestTomlValues::booleanValue);
+    }
+
+    private static final class Presence {
+        private final Optional<ValidatedManifestField> sourcesField;
+        private final BuildPresenceObserver observer;
+        private boolean observed;
+
+        private Presence(
+                Optional<ValidatedManifestField> sourcesField,
+                BuildPresenceObserver observer) {
+            this.sourcesField = sourcesField;
+            this.observer = observer;
+        }
+
+        private void sources(
+                ValidatedManifestField field,
+                List<ManifestRelativePath> sources) {
+            ManifestSemanticDiagnostics.construct(
+                field,
+                () -> observe(new AuthoredBuild(
+                        sources, Optional.empty(), Optional.empty())));
+        }
+
+        private void output(
+                ValidatedManifestField field,
+                List<ManifestRelativePath> sources,
+                Optional<ManifestRelativePath> root,
+                Optional<ManifestRelativePath> main,
+                Optional<ManifestRelativePath> test,
+                Optional<ManifestRelativePath> integration) {
+            if (observed) {
+                return;
+            }
+            AuthoredBuild.Output output = ManifestSemanticDiagnostics.construct(
+                    field, () -> new AuthoredBuild.Output(root, main, test, integration));
+            ManifestSemanticDiagnostics.construct(
+                    sourcesField.orElse(field),
+                    () -> observe(new AuthoredBuild(
+                            sources, Optional.of(output), Optional.empty())));
+        }
+
+        private void metadata(
+                ValidatedManifestField field,
+                List<ManifestRelativePath> sources,
+                Optional<Boolean> buildInfo,
+                Optional<Boolean> git,
+                Optional<Boolean> reproducible) {
+            if (observed) {
+                return;
+            }
+            AuthoredBuild.Metadata metadata = ManifestSemanticDiagnostics.construct(
+                    field, () -> new AuthoredBuild.Metadata(buildInfo, git, reproducible));
+            ManifestSemanticDiagnostics.construct(
+                    sourcesField.orElse(field),
+                    () -> observe(new AuthoredBuild(
+                            sources, Optional.empty(), Optional.of(metadata))));
+        }
+
+        private AuthoredBuild observe(AuthoredBuild build) {
+            if (!observed) {
+                observer.present(build);
+                observed = true;
+            }
+            return build;
+        }
+    }
+
+    @FunctionalInterface
+    interface BuildPresenceObserver {
+        void present(AuthoredBuild build);
     }
 
     private static ValidatedManifestField firstPresent(
