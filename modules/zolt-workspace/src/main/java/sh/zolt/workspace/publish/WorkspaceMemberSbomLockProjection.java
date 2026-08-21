@@ -110,7 +110,7 @@ public final class WorkspaceMemberSbomLockProjection {
                         .orElseThrow())
                 .toList();
         List<LockPackage> closureRoots = LockGraphRootSelector.select(
-                memberPackages,
+                rootUniverse(memberPackages, byRef),
                 memberRoots,
                 "zolt resolve --workspace");
 
@@ -202,6 +202,37 @@ public final class WorkspaceMemberSbomLockProjection {
                 List.of(),
                 List.of(),
                 memberRoots);
+    }
+
+    /**
+     * Closes a member's attributed packages over the aggregated edge universe so the root selector sees
+     * a graph whose every edge resolves.
+     *
+     * <p>A member slice is not edge-closed by construction: the aggregate attributes a sibling's own
+     * externals to the sibling, not to the consuming member, while the sibling's lock entry still carries
+     * edges into them. Selecting roots over the bare slice therefore reports those edges as dangling even
+     * though the aggregated lock is intact. Reachable packages are carried in as-is; each gains an
+     * incoming edge and so can never be mistaken for an unrooted, resolver-injected root of this member,
+     * while a member package that no authored root reaches still contributes its own traversal root.
+     */
+    private static List<LockPackage> rootUniverse(
+            List<LockPackage> memberPackages,
+            Map<String, LockPackage> byRef) {
+        LockDependencyIndex index = new LockDependencyIndex(byRef.values());
+        Map<String, LockPackage> universe = new LinkedHashMap<>();
+        Deque<LockPackage> queue = new ArrayDeque<>(memberPackages);
+        while (!queue.isEmpty()) {
+            LockPackage current = queue.removeFirst();
+            if (universe.putIfAbsent(ref(current), current) != null) {
+                continue;
+            }
+            for (String edge : current.dependencies()) {
+                index.resolveGraphEdge(edge, "zolt resolve --workspace")
+                        .filter(target -> !universe.containsKey(ref(target)))
+                        .ifPresent(queue::addLast);
+            }
+        }
+        return List.copyOf(universe.values());
     }
 
     /** Re-stamps aggregate facts to the member-qualified graph view used by this projected SBOM. */
