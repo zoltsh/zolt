@@ -61,7 +61,7 @@ final class PlanCommandTest {
         Path projectDir = tempDir.resolve("plan-directory");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("plan-directory"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "plan",
@@ -86,7 +86,7 @@ final class PlanCommandTest {
                 environment = { TZ = "America/Chicago" }
                 events = ["failed", "skipped"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "plan",
@@ -109,7 +109,7 @@ final class PlanCommandTest {
         Path projectDir = tempDir.resolve("plan-unsafe-reports");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("plan-unsafe-reports"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "plan",
@@ -128,7 +128,7 @@ final class PlanCommandTest {
         Path projectDir = tempDir.resolve("plan-ci");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("plan-ci"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute("plan", "--target", "ci", "--cwd", projectDir.toString());
 

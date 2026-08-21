@@ -41,7 +41,21 @@ abstract class IdeModelCommandJsonTestSupport {
 
     protected static void writeLockfile(Path projectDir, Path cacheRoot) throws IOException {
         new ZoltLockfileWriter().write(projectDir.resolve("zolt.lock"), migrate(cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-lib"
+                version = "1.0.0"
+                lane = "test"
+                resolvedScope = "test"
 
                 [[package]]
                 id = "com.example:app"

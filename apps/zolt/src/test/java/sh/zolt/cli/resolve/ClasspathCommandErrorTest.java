@@ -76,7 +76,14 @@ final class ClasspathCommandErrorTest {
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "corrupted jar bytes");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:compile-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:compile-lib"
@@ -107,7 +114,7 @@ final class ClasspathCommandErrorTest {
     void classpathRejectsUnknownKindWithSupportedKinds() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute("classpath", "--cwd", projectDir.toString(), "processor-test");
 

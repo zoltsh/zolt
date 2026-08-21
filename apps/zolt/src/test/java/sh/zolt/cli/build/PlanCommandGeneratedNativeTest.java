@@ -73,7 +73,7 @@ final class PlanCommandGeneratedNativeTest {
         Files.setLastModifiedTime(input, FileTime.fromMillis(2_000));
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("plan-stale-generated-source")
                 + generatedSourceConfig("main", "openapi", "target/generated/sources/openapi", "src/main/openapi/api.yaml", true));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute("plan", "--target", "build", "--cwd", projectDir.toString());
 
@@ -109,7 +109,14 @@ final class PlanCommandGeneratedNativeTest {
                 args = ["--no-fallback"]
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.springframework.boot:spring-boot-starter-web"
+                version = "3.3.6"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot-starter-web"

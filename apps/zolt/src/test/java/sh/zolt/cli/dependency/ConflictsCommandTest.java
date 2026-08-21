@@ -26,7 +26,7 @@ final class ConflictsCommandTest {
         Path projectDir = tempDir.resolve("demo");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[conflict]]
                 id = "org.slf4j:slf4j-api"
@@ -52,7 +52,7 @@ final class ConflictsCommandTest {
         Path projectDir = tempDir.resolve("tooled");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[conflict]]
                 id = "com.example:shared"
@@ -79,7 +79,7 @@ final class ConflictsCommandTest {
     void conflictsExitsSuccessfullyWhenNoConflictsExist() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute("conflicts", "--cwd", projectDir.toString());
 
@@ -92,7 +92,7 @@ final class ConflictsCommandTest {
         Path projectDir = tempDir.resolve("forced-controls");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[conflict]]
                 id = "org.slf4j:slf4j-api"
@@ -125,7 +125,7 @@ final class ConflictsCommandTest {
     void formattedCommandsFlushOutputBeforeExit() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         FlushTrackingPrintWriter stdout = new FlushTrackingPrintWriter();
         CommandLine commandLine = CliTestSupport.newCommandLine();
         commandLine.setOut(stdout);
