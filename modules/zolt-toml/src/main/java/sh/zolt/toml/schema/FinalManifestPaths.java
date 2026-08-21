@@ -68,9 +68,9 @@ public final class FinalManifestPaths {
     public static final ManifestPath PUBLISH_REPOSITORY = PUBLISH_REPOSITORIES.child("<id>");
     public static final ManifestPath PUBLISH_SIGNING = PUBLISH.child("signing");
     public static final ManifestPath PUBLISH_CENTRAL = PUBLISH.child("central");
-    static final ManifestPath TASKS = ManifestPath.of("tasks");
-    static final ManifestPath TASK = TASKS.child("<id>");
-    static final ManifestPath ALIASES = ManifestPath.of("aliases");
+    public static final ManifestPath TASKS = ManifestPath.of("tasks");
+    public static final ManifestPath TASK = TASKS.child("<id>");
+    public static final ManifestPath ALIASES = ManifestPath.of("aliases");
 
     private FinalManifestPaths() {
     }

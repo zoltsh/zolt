@@ -351,15 +351,25 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
-    void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
-        List<ManifestField> handles = handles();
-        List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 9_000)
-                .toList();
+    void commandHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestCommandFields.fields(),
+                List.of(
+                        field("tasks.<id>.description", 9_001),
+                        field("tasks.<id>.run", 9_002),
+                        field("tasks.<id>.cwd", 9_003),
+                        field("tasks.<id>.env", 9_004),
+                        field("aliases.<id>", 9_101)));
+    }
 
-        assertEquals(224, handles.size());
-        assertEquals(224, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(224, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+    @Test
+    void handleCatalogsCoverTheCompleteRegistryWithoutDuplicates() {
+        List<ManifestField> handles = handles();
+        List<ManifestField> registered = registry.fields();
+
+        assertEquals(229, handles.size());
+        assertEquals(229, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(229, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -394,6 +404,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestCoverageFields.fields());
         handles.addAll(FinalManifestPackagingFields.fields());
         handles.addAll(FinalManifestPublishingFields.fields());
+        handles.addAll(FinalManifestCommandFields.fields());
         return List.copyOf(handles);
     }
 

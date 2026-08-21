@@ -1,8 +1,5 @@
 package sh.zolt.toml.schema;
 
-import static sh.zolt.toml.schema.FinalManifestFieldFactory.*;
-import static sh.zolt.toml.schema.FinalManifestPaths.*;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,12 +40,7 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestCoverageFields.fields());
         fields.addAll(FinalManifestPackagingFields.fields());
         fields.addAll(FinalManifestPublishingFields.fields());
-        fields.addAll(List.of(
-                field(TASK, "description", ManifestValueKind.STRING, 9_001),
-                field(TASK, "run", ManifestValueKind.STRING_ARRAY, 9_002),
-                field(TASK, "cwd", ManifestValueKind.STRING, 9_003),
-                field(TASK, "env", ManifestValueKind.INLINE_TABLE, 9_004),
-                field(ALIASES, "<id>", ManifestValueKind.STRING_ARRAY, 9_101)));
+        fields.addAll(FinalManifestCommandFields.fields());
         return List.copyOf(fields);
     }
 
