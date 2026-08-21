@@ -243,6 +243,7 @@ final class ZoltLockfileReaderFieldsTest {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
+                members = ["modules/api"]
                 exportedBy = ["modules/api"]
                 dependencies = []
                 """);

@@ -154,15 +154,16 @@ final class ZoltLockfileWriterFieldsTest {
     private static ZoltLockfile lockfile(List<LockPackage> packages) {
         List<LockDependencyRoot> roots = packages.stream()
                 .filter(LockPackage::direct)
-                .map(lockPackage -> new LockDependencyRoot(
-                        ".",
-                        lockPackage.packageId(),
-                        lockPackage.version(),
-                        LockArtifactVariant.of(lockPackage),
-                        lane(lockPackage.scope()),
-                        Optional.of(lockPackage.scope()),
-                        false,
-                        false))
+                .flatMap(lockPackage -> rootMembers(lockPackage).stream()
+                        .map(member -> new LockDependencyRoot(
+                                member,
+                                lockPackage.packageId(),
+                                lockPackage.version(),
+                                LockArtifactVariant.of(lockPackage),
+                                lane(lockPackage.scope()),
+                                Optional.of(lockPackage.scope()),
+                                false,
+                                false)))
                 .toList();
         return new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
@@ -174,6 +175,10 @@ final class ZoltLockfileWriterFieldsTest {
                 List.of(),
                 List.of(),
                 roots);
+    }
+
+    private static List<String> rootMembers(LockPackage lockPackage) {
+        return lockPackage.members().isEmpty() ? List.of(".") : lockPackage.members();
     }
 
     private static DependencyLane lane(DependencyScope scope) {
