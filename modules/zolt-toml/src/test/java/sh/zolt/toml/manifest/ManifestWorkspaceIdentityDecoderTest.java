@@ -76,7 +76,7 @@ final class ManifestWorkspaceIdentityDecoderTest {
 
     @Test
     void returnsBothAuthoredDomainsWhenOneManifestIsARootProjectWorkspace() {
-        DecodedManifestIdentity identity = decode("""
+        ManifestIdentityDecoder.Decoded identity = decode("""
                 [workspace]
                 name = "platform"
 
@@ -210,7 +210,7 @@ final class ManifestWorkspaceIdentityDecoderTest {
 
     @Test
     void defersWhetherRootMembershipHasACorrespondingProjectDomain() {
-        DecodedManifestIdentity identity = decode("""
+        ManifestIdentityDecoder.Decoded identity = decode("""
                 [workspace]
                 name = "platform"
 
@@ -228,7 +228,7 @@ final class ManifestWorkspaceIdentityDecoderTest {
         return decode(source).workspace().orElseThrow();
     }
 
-    private static DecodedManifestIdentity decode(String source) {
+    private static ManifestIdentityDecoder.Decoded decode(String source) {
         return new ManifestIdentityDecoder().decode(ManifestSemanticTestSupport.index(source));
     }
 

@@ -170,7 +170,7 @@ final class ManifestProjectIdentityDecoderTest {
         return decode(source).project().orElseThrow();
     }
 
-    private static DecodedManifestIdentity decode(String source) {
+    private static ManifestIdentityDecoder.Decoded decode(String source) {
         return new ManifestIdentityDecoder().decode(ManifestSemanticTestSupport.index(source));
     }
 

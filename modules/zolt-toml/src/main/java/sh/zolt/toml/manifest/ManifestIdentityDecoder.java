@@ -1,5 +1,6 @@
 package sh.zolt.toml.manifest;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import sh.zolt.manifest.LocalId;
@@ -26,8 +27,18 @@ final class ManifestIdentityDecoder {
             new ManifestProjectMetadataDecoder();
     private final ManifestLicenseDecoder licenses = new ManifestLicenseDecoder();
 
-    DecodedManifestIdentity decode(ManifestDecodeIndex index) {
-        return new DecodedManifestIdentity(decodeWorkspace(index), decodeProject(index));
+    Decoded decode(ManifestDecodeIndex index) {
+        return new Decoded(decodeWorkspace(index), decodeProject(index));
+    }
+
+    /** Authored workspace and project domains decoded without applying workspace context. */
+    record Decoded(
+            Optional<AuthoredWorkspace> workspace,
+            Optional<AuthoredProject> project) {
+        Decoded {
+            workspace = Objects.requireNonNull(workspace, "Decoded workspace must not be null.");
+            project = Objects.requireNonNull(project, "Decoded project must not be null.");
+        }
     }
 
     private Optional<AuthoredWorkspace> decodeWorkspace(ManifestDecodeIndex index) {
