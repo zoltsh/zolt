@@ -1,11 +1,8 @@
-package sh.zolt.manifest.adapter;
+package sh.zolt.command;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import sh.zolt.command.CommandAlias;
-import sh.zolt.command.CommandConfig;
-import sh.zolt.command.CommandTask;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredAlias;
@@ -21,8 +18,8 @@ import sh.zolt.manifest.effective.EffectiveCommands;
  * {@code [commands.aliases]} tables into top-level {@code [tasks.<id>]} and {@code [aliases]}
  * (design §15) and renamed a task's argv field from {@code cmd} to {@code run}.
  */
-public final class ProjectConfigCommands {
-    private ProjectConfigCommands() {
+public final class ManifestCommandConfigAdapter {
+    private ManifestCommandConfigAdapter() {
     }
 
     /** The commands exactly as authored in one manifest, with no workspace merging. */

@@ -1,4 +1,4 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.adapter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -9,7 +9,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import sh.zolt.command.CommandConfig;
 import sh.zolt.command.toml.CommandConfigParser;
-import sh.zolt.manifest.adapter.ProjectConfigCommands;
+import sh.zolt.command.ManifestCommandConfigAdapter;
 
 /**
  * A tasks-and-aliases manifest written twice — once in the legacy dialect, once in the final
@@ -43,7 +43,7 @@ final class ManifestCommandConfigEquivalenceTest {
                 ci = ["check", "--context", "ci", "--all"]
                 deps = ["outdated"]
                 """);
-        CommandConfig adapted = ProjectConfigCommands.authored(loader
+        CommandConfig adapted = ManifestCommandConfigAdapter.authored(loader
                 .document("""
                         [project]
                         name = "commands"
@@ -79,7 +79,7 @@ final class ManifestCommandConfigEquivalenceTest {
 
     @Test
     void absentCommandDomainIsEmpty() {
-        CommandConfig adapted = ProjectConfigCommands.authored(loader
+        CommandConfig adapted = ManifestCommandConfigAdapter.authored(loader
                 .document("""
                         [project]
                         name = "commands"
