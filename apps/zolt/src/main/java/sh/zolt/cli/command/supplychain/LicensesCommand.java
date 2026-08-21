@@ -42,7 +42,7 @@ import sh.zolt.sbom.WorkspaceSbomAssembler;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceMemberGraphRoots;
 import sh.zolt.workspace.service.Workspace;
 
@@ -68,7 +68,7 @@ public final class LicensesCommand implements Runnable {
     private final LicenseReportTextWriter textWriter = new LicenseReportTextWriter();
     private final LicenseReportJsonWriter jsonWriter = new LicenseReportJsonWriter();
     private final LicenseNoticesWriter noticesWriter = new LicenseNoticesWriter();
-    private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
+    private final ManifestWorkspaceLoader workspaceDiscovery = new ManifestWorkspaceLoader();
     private final WorkspaceMemberGraphRoots memberGraphRoots = new WorkspaceMemberGraphRoots();
     private final WorkspaceSbomAssembler workspaceAssembler = new WorkspaceSbomAssembler();
     private final WorkspaceLicensePolicyScopes workspaceScopes = new WorkspaceLicensePolicyScopes();

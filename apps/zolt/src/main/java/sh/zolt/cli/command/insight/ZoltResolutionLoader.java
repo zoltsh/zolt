@@ -10,7 +10,7 @@ import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.resolve.materialization.RepositoryOverlay;
 import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -42,7 +42,7 @@ final class ZoltResolutionLoader {
 
     private final ResolveService resolveService;
     private final ZoltTomlParser tomlParser;
-    private final WorkspaceDiscoveryService discoveryService;
+    private final ManifestWorkspaceLoader workspaceLoader;
     private final WorkspaceMemberPolicyResolver policyResolver;
     private final ZoltModuleMapper moduleMapper;
 
@@ -50,7 +50,7 @@ final class ZoltResolutionLoader {
         this(
                 resolveService,
                 new ZoltTomlParser(),
-                new WorkspaceDiscoveryService(),
+                new ManifestWorkspaceLoader(),
                 new WorkspaceMemberPolicyResolver(),
                 new ZoltModuleMapper());
     }
@@ -58,12 +58,12 @@ final class ZoltResolutionLoader {
     ZoltResolutionLoader(
             ResolveService resolveService,
             ZoltTomlParser tomlParser,
-            WorkspaceDiscoveryService discoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             WorkspaceMemberPolicyResolver policyResolver,
             ZoltModuleMapper moduleMapper) {
         this.resolveService = resolveService;
         this.tomlParser = tomlParser;
-        this.discoveryService = discoveryService;
+        this.workspaceLoader = workspaceLoader;
         this.policyResolver = policyResolver;
         this.moduleMapper = moduleMapper;
     }
@@ -81,7 +81,7 @@ final class ZoltResolutionLoader {
         List<ResolvedModule> modules = new ArrayList<>();
         Map<String, String> memberPaths = new LinkedHashMap<>();
         if (isWorkspace(zoltToml)) {
-            Workspace workspace = discoveryService.load(zoltDir);
+            Workspace workspace = workspaceLoader.load(zoltDir);
             for (WorkspaceMember member : workspace.members()) {
                 ResolvedModule module = resolveMember(policyResolver.merge(workspace, member), cacheRoot, options);
                 modules.add(module);

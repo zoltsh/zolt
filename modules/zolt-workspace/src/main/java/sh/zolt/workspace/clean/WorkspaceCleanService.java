@@ -10,7 +10,7 @@ import sh.zolt.workspace.service.WorkspaceMemberSelector;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,26 +18,26 @@ import java.util.List;
 import java.util.Map;
 
 public final class WorkspaceCleanService {
-    private final WorkspaceDiscoveryService workspaceDiscoveryService;
+    private final ManifestWorkspaceLoader workspaceLoader;
     private final WorkspaceMemberSelector memberSelector;
     private final CleanService cleanService;
 
     public WorkspaceCleanService() {
-        this(new WorkspaceDiscoveryService(), new WorkspaceMemberSelector(), new CleanService());
+        this(new ManifestWorkspaceLoader(), new WorkspaceMemberSelector(), new CleanService());
     }
 
     WorkspaceCleanService(
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             WorkspaceMemberSelector memberSelector,
             CleanService cleanService) {
-        this.workspaceDiscoveryService = workspaceDiscoveryService;
+        this.workspaceLoader = workspaceLoader;
         this.memberSelector = memberSelector;
         this.cleanService = cleanService;
     }
 
     public WorkspaceCleanResult clean(Path startDirectory, WorkspaceSelectionRequest selectionRequest) {
         Path start = startDirectory.toAbsolutePath().normalize();
-        Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> new WorkspaceConfigException(
+        Workspace workspace = workspaceLoader.discover(start).orElseThrow(() -> new WorkspaceConfigException(
                 "Could not find workspace config. Run `zolt clean --workspace` from a workspace directory or add zolt.toml with [workspace]."));
         try (WorkspaceMutationLock ignored =
                 WorkspaceMutationLock.acquire(workspace.root())) {

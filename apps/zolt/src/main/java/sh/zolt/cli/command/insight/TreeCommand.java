@@ -19,7 +19,7 @@ import sh.zolt.tree.WorkspaceDependencyJsonFormatter;
 import sh.zolt.tree.WorkspaceDependencyTreeFormatter;
 import sh.zolt.tree.WorkspaceTreeMember;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceMemberGraphRoots;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -38,7 +38,7 @@ public final class TreeCommand implements Runnable {
     private final ZoltLockfileReader lockfileReader;
     private final DependencyJsonFormatter jsonFormatter;
     private final DependencyTreeFormatter treeFormatter;
-    private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
+    private final ManifestWorkspaceLoader workspaceDiscovery = new ManifestWorkspaceLoader();
     private final WorkspaceDependencyJsonFormatter workspaceJsonFormatter =
             new WorkspaceDependencyJsonFormatter();
     private final WorkspaceDependencyTreeFormatter workspaceTreeFormatter =

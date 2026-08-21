@@ -23,7 +23,7 @@ import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceMember;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +39,7 @@ public final class TestPlanCommand implements Runnable {
     private final ZoltTomlParser tomlParser;
     private final TestSuitePlanner planner;
     private final TestPlanJsonFormatter jsonFormatter;
-    private final WorkspaceDiscoveryService workspaceDiscoveryService;
+    private final ManifestWorkspaceLoader workspaceLoader;
 
     enum Format {
         TEXT,
@@ -84,18 +84,18 @@ public final class TestPlanCommand implements Runnable {
                 new ZoltTomlParser(),
                 new TestSuitePlanner(),
                 new TestPlanJsonFormatter(),
-                new WorkspaceDiscoveryService());
+                new ManifestWorkspaceLoader());
     }
 
     TestPlanCommand(
             ZoltTomlParser tomlParser,
             TestSuitePlanner planner,
             TestPlanJsonFormatter jsonFormatter,
-            WorkspaceDiscoveryService workspaceDiscoveryService) {
+            ManifestWorkspaceLoader workspaceLoader) {
         this.tomlParser = tomlParser;
         this.planner = planner;
         this.jsonFormatter = jsonFormatter;
-        this.workspaceDiscoveryService = workspaceDiscoveryService;
+        this.workspaceLoader = workspaceLoader;
     }
 
     @Override
@@ -142,7 +142,7 @@ public final class TestPlanCommand implements Runnable {
 
     private Optional<String> workspaceMember(Path projectRoot) {
         try {
-            Optional<Workspace> workspace = workspaceDiscoveryService.discover(projectRoot);
+            Optional<Workspace> workspace = workspaceLoader.discover(projectRoot);
             if (workspace.isEmpty()) {
                 return Optional.empty();
             }

@@ -8,7 +8,7 @@ import sh.zolt.resolve.ResolveResult;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
 import sh.zolt.test.shard.TestShardSpec;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageReporter;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageReporterFactory;
@@ -150,6 +150,6 @@ final class WorkspaceCoverageRunner {
                         "Workspace coverage requires captured configuration at "
                                 + workspace.configPath()
                                 + "."));
-        return new ZoltTomlParser().parseCoverageFloors(content);
+        return new ManifestProjectConfigLoader().coverageFloors(content);
     }
 }

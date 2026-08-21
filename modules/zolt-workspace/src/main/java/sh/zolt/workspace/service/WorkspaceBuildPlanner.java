@@ -7,7 +7,7 @@ import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveResult;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,14 +25,14 @@ final class WorkspaceBuildPlanner {
 
     WorkspaceBuildPlanner(ResolveService resolveService) {
         this(
-                new WorkspaceDiscoveryService(),
+                new ManifestWorkspaceLoader(),
                 new WorkspaceResolveService(resolveService),
                 new ZoltLockfileReader(),
                 new WorkspaceMemberSelector());
     }
 
     WorkspaceBuildPlanner(
-            WorkspaceDiscoveryService discovery,
+            ManifestWorkspaceLoader discovery,
             WorkspaceResolveService resolve,
             ZoltLockfileReader lockfiles,
             WorkspaceMemberSelector members) {

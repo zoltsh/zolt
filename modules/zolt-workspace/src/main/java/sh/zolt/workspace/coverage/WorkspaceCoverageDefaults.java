@@ -16,7 +16,7 @@ import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageReporterFacto
 import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageWorkspaceDiscovery;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageWorkspaceResolver;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService.CoverageWorkspaceTests;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
@@ -37,7 +37,7 @@ final class WorkspaceCoverageDefaults {
     }
 
     static CoverageWorkspaceDiscovery discovery() {
-        WorkspaceDiscoveryService service = new WorkspaceDiscoveryService();
+        ManifestWorkspaceLoader service = new ManifestWorkspaceLoader();
         return start -> service.discover(start).orElseThrow(() ->
                 new sh.zolt.workspace.WorkspaceConfigException(
                         "Could not find workspace config for coverage."));

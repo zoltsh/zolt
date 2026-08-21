@@ -1,7 +1,7 @@
 package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -81,7 +81,7 @@ public final class WorkspaceMutationLock implements AutoCloseable {
     public static <T> T withWorkspaceLock(
             Path startDirectory,
             Supplier<T> action) {
-        WorkspaceDiscoveryService discovery = new WorkspaceDiscoveryService();
+        ManifestWorkspaceLoader discovery = new ManifestWorkspaceLoader();
         for (int attempt = 0; attempt < ROOT_CONFIRMATION_ATTEMPTS; attempt++) {
             var discoveredRoot = discovery.discoverRoot(startDirectory);
             if (discoveredRoot.isEmpty()) {
@@ -103,7 +103,7 @@ public final class WorkspaceMutationLock implements AutoCloseable {
     public static <T> T withLockIfWorkspace(
             Path startDirectory,
             Supplier<T> action) {
-        if (new WorkspaceDiscoveryService().discoverRoot(startDirectory).isEmpty()) {
+        if (new ManifestWorkspaceLoader().discoverRoot(startDirectory).isEmpty()) {
             return action.get();
         }
         return withWorkspaceLock(startDirectory, action);

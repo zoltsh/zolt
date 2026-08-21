@@ -13,7 +13,7 @@ import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceProjectEdge;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +25,7 @@ import java.util.Optional;
 public final class WorkspaceIdeModelService {
     private static final int SCHEMA_VERSION = 1;
 
-    private final WorkspaceDiscoveryService workspaceDiscoveryService;
+    private final ManifestWorkspaceLoader workspaceLoader;
     private final IdeModelService ideModelService;
     private final ZoltLockfileReader lockfileReader;
     private final WorkspaceIdeClasspathPlanner classpathPlanner;
@@ -37,7 +37,7 @@ public final class WorkspaceIdeModelService {
 
     public WorkspaceIdeModelService(IdeModelService ideModelService) {
         this(
-                new WorkspaceDiscoveryService(),
+                new ManifestWorkspaceLoader(),
                 ideModelService,
                 new ZoltLockfileReader(),
                 new WorkspaceClasspathService(),
@@ -45,12 +45,12 @@ public final class WorkspaceIdeModelService {
     }
 
     WorkspaceIdeModelService(
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             IdeModelService ideModelService,
             ZoltLockfileReader lockfileReader,
             WorkspaceClasspathService workspaceClasspathService,
             WorkspaceResolveService workspaceResolveService) {
-        this.workspaceDiscoveryService = workspaceDiscoveryService;
+        this.workspaceLoader = workspaceLoader;
         this.ideModelService = ideModelService;
         this.lockfileReader = lockfileReader;
         this.classpathPlanner = new WorkspaceIdeClasspathPlanner(workspaceClasspathService);
@@ -72,7 +72,7 @@ public final class WorkspaceIdeModelService {
         try {
             Optional<Workspace> discovered = recorder.measure(
                     "discover ide workspace",
-                    () -> workspaceDiscoveryService.discover(start));
+                    () -> workspaceLoader.discover(start));
             if (discovered.isEmpty()) {
                 return missingWorkspace(start);
             }

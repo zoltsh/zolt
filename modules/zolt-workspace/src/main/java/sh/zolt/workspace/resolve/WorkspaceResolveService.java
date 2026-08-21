@@ -18,7 +18,7 @@ import sh.zolt.resolve.metrics.ResolveMetrics;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class WorkspaceResolveService {
-    private final WorkspaceDiscoveryService workspaceDiscoveryService;
+    private final ManifestWorkspaceLoader workspaceLoader;
     private final ResolveService resolveService;
     private final ZoltLockfileWriter lockfileWriter;
     private final WorkspaceResolveLockfilePersistence lockfilePersistence;
@@ -39,26 +39,26 @@ public final class WorkspaceResolveService {
     private final ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
 
     public WorkspaceResolveService() {
-        this(new WorkspaceDiscoveryService(), new ResolveService(), new ZoltLockfileWriter(), new WorkspacePolicyMerger());
+        this(new ManifestWorkspaceLoader(), new ResolveService(), new ZoltLockfileWriter(), new WorkspacePolicyMerger());
     }
 
     public WorkspaceResolveService(ResolveService resolveService) {
-        this(new WorkspaceDiscoveryService(), resolveService, new ZoltLockfileWriter(), new WorkspacePolicyMerger());
+        this(new ManifestWorkspaceLoader(), resolveService, new ZoltLockfileWriter(), new WorkspacePolicyMerger());
     }
 
     WorkspaceResolveService(
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             ResolveService resolveService,
             ZoltLockfileWriter lockfileWriter) {
-        this(workspaceDiscoveryService, resolveService, lockfileWriter, new WorkspacePolicyMerger());
+        this(workspaceLoader, resolveService, lockfileWriter, new WorkspacePolicyMerger());
     }
 
     WorkspaceResolveService(
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             ResolveService resolveService,
             ZoltLockfileWriter lockfileWriter,
             WorkspacePolicyMerger policyMerger) {
-        this.workspaceDiscoveryService = workspaceDiscoveryService;
+        this.workspaceLoader = workspaceLoader;
         this.resolveService = resolveService;
         this.lockfileWriter = lockfileWriter;
         this.lockfilePersistence =
@@ -125,7 +125,7 @@ public final class WorkspaceResolveService {
             boolean locked,
             ResolveOptions options) {
         Path start = startDirectory.toAbsolutePath().normalize();
-        Workspace workspace = workspaceDiscoveryService.discover(start).orElseThrow(() -> new ResolveException(
+        Workspace workspace = workspaceLoader.discover(start).orElseThrow(() -> new ResolveException(
                 "Could not find workspace config. Run `zolt resolve --workspace` from a workspace directory or add zolt.toml with [workspace]."));
         return resolveSnapshotLocked(workspace, cacheRoot, locked, options);
     }
