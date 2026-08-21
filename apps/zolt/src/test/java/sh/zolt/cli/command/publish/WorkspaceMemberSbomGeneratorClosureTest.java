@@ -1,11 +1,16 @@
 package sh.zolt.cli.command.publish;
 
+import static sh.zolt.dependency.DependencyLane.IMPLEMENTATION;
+import static sh.zolt.dependency.DependencyScope.COMPILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BuildSettings;
@@ -44,6 +49,8 @@ import org.junit.jupiter.api.io.TempDir;
  * Scope filtering still holds: a test-scope dependency the member declares never reaches the SBOM.
  */
 final class WorkspaceMemberSbomGeneratorClosureTest {
+    private static final String HTTP = "acme-http";
+    private static final String CORE = "acme-core";
     private static final String TOOL_VERSION = "0.1.0-TEST";
     private static final String SHA_DATABIND =
             "1111111111111111111111111111111111111111111111111111111111111111";
@@ -76,18 +83,19 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
                 member("acme-http", config),
                 member("acme-core", memberConfig("acme-core", Map.of(), Map.of(), Map.of())));
 
-        ZoltLockfile aggregated = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile aggregated = lock(
                 List.of(
-                        workspacePackage("com.acme", "acme-core", "1.0.0"),
-                        external("com.fasterxml.jackson.core", "jackson-databind", "2.19.2",
-                                DependencyScope.COMPILE, SHA_DATABIND,
-                                List.of("com.fasterxml.jackson.core:jackson-core:2.19.2")),
-                        external("com.fasterxml.jackson.core", "jackson-core", "2.19.2",
-                                DependencyScope.COMPILE, SHA_CORE, List.of()),
+                        workspacePackage("com.acme", CORE, "1.0.0", List.of(HTTP)),
+                        external("com.fasterxml.jackson.core", "jackson-databind", "2.19.2", COMPILE,
+                                SHA_DATABIND, List.of("com.fasterxml.jackson.core:jackson-core:2.19.2")),
+                        external("com.fasterxml.jackson.core", "jackson-core", "2.19.2", COMPILE, SHA_CORE, List.of()),
                         external("org.junit.jupiter", "junit-jupiter", "5.11.4",
                                 DependencyScope.TEST, SHA_JUNIT, List.of())),
-                List.of());
+                List.of(
+                        root(HTTP, "com.acme:acme-core:1.0.0", IMPLEMENTATION, COMPILE),
+                        root(HTTP, "com.fasterxml.jackson.core:jackson-databind:2.19.2", IMPLEMENTATION, COMPILE),
+                        root(HTTP, "org.junit.jupiter:junit-jupiter:5.11.4",
+                                DependencyLane.TEST, DependencyScope.TEST)));
 
         ZoltLockfile sbomLock =
                 new WorkspaceMemberSbomLockProjection()
@@ -143,13 +151,14 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
                 memberConfig("acme-core", Map.of("com.google.guava:guava", "33.0.0-jre"), Map.of(), Map.of());
         Workspace workspace = workspaceOf(member("acme-http", config), member("acme-core", coreConfig));
 
-        ZoltLockfile aggregated = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile aggregated = lock(
                 List.of(
-                        workspacePackage("com.acme", "acme-core", "1.0.0"),
+                        workspacePackage("com.acme", CORE, "1.0.0", List.of(HTTP)),
                         externalOwnedBy("com.google.guava", "guava", "33.0.0-jre",
-                                DependencyScope.COMPILE, SHA_GUAVA, List.of(), List.of("acme-core"))),
-                List.of());
+                                COMPILE, SHA_GUAVA, List.of(), List.of(CORE))),
+                List.of(
+                        root(HTTP, "com.acme:acme-core:1.0.0", IMPLEMENTATION, COMPILE),
+                        root(CORE, "com.google.guava:guava:33.0.0-jre", IMPLEMENTATION, COMPILE)));
 
         ZoltLockfile sbomLock =
                 new WorkspaceMemberSbomLockProjection()
@@ -211,35 +220,21 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
                                 null)));
         Workspace workspace = workspaceOf(member("acme-http", config), member("acme-core", coreConfig));
 
-        ZoltLockfile aggregated = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile aggregated = lock(
                 List.of(
-                        workspacePackage("com.acme", "acme-core", "1.0.0"),
+                        workspacePackage("com.acme", CORE, "1.0.0", List.of(HTTP)),
                         // Order the plain transitive first to prove same-member attribution cannot decide.
-                        externalOwnedBy(
-                                "com.example",
-                                "fixture",
-                                "1.0.0",
-                                DependencyScope.COMPILE,
-                                SHA_FIXTURE_PLAIN,
-                                List.of(),
-                                List.of("acme-core")),
-                        externalOwnedBy(
-                                "com.example",
-                                "helper",
-                                "1.0.0",
-                                DependencyScope.COMPILE,
-                                SHA_GUAVA,
-                                List.of("com.example:fixture:1.0.0"),
-                                List.of("acme-core")),
-                        classifiedExternalOwnedBy(
-                                "com.example",
-                                "fixture",
-                                "1.0.0",
-                                "linux-x86_64",
-                                SHA_FIXTURE_LINUX,
-                                List.of("acme-core"))),
-                List.of());
+                        externalOwnedBy("com.example", "fixture", "1.0.0", COMPILE,
+                                SHA_FIXTURE_PLAIN, List.of(), List.of(CORE)),
+                        externalOwnedBy("com.example", "helper", "1.0.0", COMPILE,
+                                SHA_GUAVA, List.of("com.example:fixture:1.0.0"), List.of(CORE)),
+                        variant("com.example", "fixture", "1.0.0", COMPILE,
+                                Optional.of("linux-x86_64"), SHA_FIXTURE_LINUX, List.of(), List.of(CORE))),
+                List.of(
+                        root(HTTP, "com.acme:acme-core:1.0.0", IMPLEMENTATION, COMPILE),
+                        root(CORE, fixture + ":1.0.0", IMPLEMENTATION, COMPILE,
+                                new LockArtifactVariant("jar", Optional.of("linux-x86_64"))),
+                        root(CORE, "com.example:helper:1.0.0", IMPLEMENTATION, COMPILE)));
 
         ZoltLockfile sbomLock =
                 new WorkspaceMemberSbomLockProjection()
@@ -266,6 +261,46 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
         assertTrue(
                 linux.hashes().stream().anyMatch(hash -> hash.content().equals(SHA_FIXTURE_LINUX)),
                 "the classified component carries its own artifact hash");
+    }
+
+    private static ZoltLockfile lock(List<LockPackage> packages, List<LockDependencyRoot> roots) {
+        return new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                packages,
+                List.of(),
+                List.of(),
+                List.of(),
+                roots);
+    }
+
+    /** One member-qualified v7 authored root: the lane stays independent of the resolved scope. */
+    private static LockDependencyRoot root(
+            String member,
+            String coordinate,
+            DependencyLane lane,
+            DependencyScope scope) {
+        return root(member, coordinate, lane, scope, LockArtifactVariant.defaultVariant());
+    }
+
+    private static LockDependencyRoot root(
+            String member,
+            String coordinate,
+            DependencyLane lane,
+            DependencyScope scope,
+            LockArtifactVariant variant) {
+        String[] parts = coordinate.split(":");
+        return new LockDependencyRoot(
+                member,
+                new PackageId(parts[0], parts[1]),
+                parts[2],
+                variant,
+                lane,
+                Optional.of(scope),
+                false,
+                false);
     }
 
     private static ProjectConfig memberConfig(
@@ -330,21 +365,7 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
             DependencyScope scope,
             String jarSha256,
             List<String> dependencies) {
-        String base = group.replace('.', '/') + "/" + artifact + "/" + version + "/" + artifact + "-" + version;
-        return new LockPackage(
-                new PackageId(group, artifact),
-                version,
-                "maven-central",
-                scope,
-                false,
-                Optional.of(base + ".jar"),
-                Optional.of(base + ".pom"),
-                Optional.of(jarSha256),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                dependencies,
-                List.of("acme-http"));
+        return externalOwnedBy(group, artifact, version, scope, jarSha256, dependencies, List.of(HTTP));
     }
 
     private static LockPackage externalOwnedBy(
@@ -355,6 +376,18 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
             String jarSha256,
             List<String> dependencies,
             List<String> members) {
+        return variant(group, artifact, version, scope, Optional.empty(), jarSha256, dependencies, members);
+    }
+
+    private static LockPackage variant(
+            String group,
+            String artifact,
+            String version,
+            DependencyScope scope,
+            Optional<String> classifier,
+            String jarSha256,
+            List<String> dependencies,
+            List<String> members) {
         String base = group.replace('.', '/') + "/" + artifact + "/" + version + "/" + artifact + "-" + version;
         return new LockPackage(
                 new PackageId(group, artifact),
@@ -362,7 +395,7 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
                 "maven-central",
                 scope,
                 false,
-                Optional.of(base + ".jar"),
+                Optional.of(base + classifier.map(value -> "-" + value).orElse("") + ".jar"),
                 Optional.of(base + ".pom"),
                 Optional.of(jarSha256),
                 Optional.empty(),
@@ -372,42 +405,16 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
                 members);
     }
 
-    private static LockPackage classifiedExternalOwnedBy(
+    private static LockPackage workspacePackage(
             String group,
             String artifact,
             String version,
-            String classifier,
-            String jarSha256,
             List<String> members) {
-        String base = group.replace('.', '/') + "/" + artifact + "/" + version + "/" + artifact + "-" + version;
-        return new LockPackage(
-                new PackageId(group, artifact),
-                version,
-                "maven-central",
-                DependencyScope.COMPILE,
-                false,
-                Optional.of(base + "-" + classifier + ".jar"),
-                Optional.of(base + ".pom"),
-                Optional.of(jarSha256),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                List.of(),
-                members,
-                List.of(),
-                List.of(),
-                List.of());
-    }
-
-    private static LockPackage workspacePackage(String group, String artifact, String version) {
         return new LockPackage(
                 new PackageId(group, artifact),
                 version,
                 "workspace",
-                DependencyScope.COMPILE,
+                COMPILE,
                 true,
                 Optional.empty(),
                 Optional.empty(),
@@ -415,6 +422,7 @@ final class WorkspaceMemberSbomGeneratorClosureTest {
                 Optional.empty(),
                 Optional.of(artifact),
                 Optional.of("target/classes"),
-                List.of());
+                List.of(),
+                members);
     }
 }

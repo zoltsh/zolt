@@ -94,7 +94,9 @@ final class CliFocusedHelpSurfaceCoverageTest {
             "zolt version",
             "zolt version remove",
             "zolt version set",
-            "zolt why");
+            "zolt why",
+            "zolt workspace",
+            "zolt workspace members");
 
     @Test
     void allRegisteredCommandPathsHaveFocusedHelpSurfaceOwnership() {
