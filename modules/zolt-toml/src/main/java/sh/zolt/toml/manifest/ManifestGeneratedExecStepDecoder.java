@@ -56,42 +56,27 @@ final class ManifestGeneratedExecStepDecoder {
         Optional<ManifestRelativePath> into = intoField.map(field ->
                 ManifestSemanticDiagnostics.construct(
                         field, () -> new ManifestRelativePath(ManifestTomlValues.string(field))));
+        Composition composition = new Composition(
+                tool, mainClass, args, inputs, output, produces, into);
         intoField.ifPresent(field -> ManifestSemanticDiagnostics.construct(
                 field,
-                () -> build(
-                        validationSettings(language), tool, mainClass, args, inputs, output,
-                        produces, into, Optional.empty(), Optional.empty(), Map.of(), Map.of(),
-                        List.of(), Optional.empty())));
+                () -> composition.build(validationSettings(language))));
 
         row.rejectRange(ManifestGeneratedStepFields.Slot.PRESET, ManifestGeneratedStepFields.Slot.GRPC);
-        Optional<GeneratedCachePolicy> cache = row.field(ManifestGeneratedStepFields.Slot.CACHE)
+        composition.cache = row.field(ManifestGeneratedStepFields.Slot.CACHE)
                 .map(field -> cachePolicy(field, ManifestTomlValues.string(field)));
-        Optional<ManifestRelativePath> cwd = row.optionalPath(ManifestGeneratedStepFields.Slot.CWD);
-        Map<EnvironmentVariableName, String> env = row.field(ManifestGeneratedStepFields.Slot.ENV)
-                .map(field -> environment(
-                        field, tool, mainClass, args, inputs, output, produces, into, cache, cwd))
-                .orElse(Map.of());
-        Map<EnvironmentVariableName, EnvironmentVariableName> secretEnv = row
-                .field(ManifestGeneratedStepFields.Slot.SECRET_ENV)
-                .map(field -> secretEnvironment(
-                        field, tool, mainClass, args, inputs, output, produces, into, cache, cwd, env))
-                .orElse(Map.of());
-        List<EnvironmentVariableName> inheritEnv = row
-                .field(ManifestGeneratedStepFields.Slot.INHERIT_ENV)
-                .map(field -> inheritedEnvironment(
-                        field, tool, mainClass, args, inputs, output, produces, into, cache, cwd,
-                        env, secretEnv))
-                .orElse(List.of());
-        Optional<Integer> timeout = row.field(ManifestGeneratedStepFields.Slot.TIMEOUT_SECONDS)
-                .map(field -> timeout(
-                        field, tool, mainClass, args, inputs, output, produces, into, cache, cwd,
-                        env, secretEnv, inheritEnv));
+        composition.cwd = row.optionalPath(ManifestGeneratedStepFields.Slot.CWD);
+        row.field(ManifestGeneratedStepFields.Slot.ENV)
+                .ifPresent(field -> environment(field, composition));
+        row.field(ManifestGeneratedStepFields.Slot.SECRET_ENV)
+                .ifPresent(field -> secretEnvironment(field, composition));
+        row.field(ManifestGeneratedStepFields.Slot.INHERIT_ENV)
+                .ifPresent(field -> inheritedEnvironment(field, composition));
+        row.field(ManifestGeneratedStepFields.Slot.TIMEOUT_SECONDS)
+                .ifPresent(field -> timeout(field, composition));
         GeneratedStepSettings settings = row.settings(language);
         return ManifestSemanticDiagnostics.construct(
-                row.entry().section(),
-                () -> build(
-                        settings, tool, mainClass, args, inputs, output, produces, into, cache, cwd,
-                        env, secretEnv, inheritEnv, timeout));
+                row.entry().section(), () -> composition.build(settings));
     }
 
     private static void validateMainClass(
@@ -140,17 +125,9 @@ final class ManifestGeneratedExecStepDecoder {
         return inputs;
     }
 
-    private static Map<EnvironmentVariableName, String> environment(
+    private static void environment(
             ValidatedManifestField field,
-            LocalId tool,
-            Optional<JavaBinaryClassName> mainClass,
-            List<String> args,
-            List<ResourceGlob> inputs,
-            ManifestRelativePath output,
-            GeneratedOutputKind produces,
-            Optional<ManifestRelativePath> into,
-            Optional<GeneratedCachePolicy> cache,
-            Optional<ManifestRelativePath> cwd) {
+            Composition composition) {
         Map<String, String> raw = ManifestSemanticDiagnostics.construct(
                 field, () -> ManifestTomlValues.stringMap(field));
         LinkedHashMap<EnvironmentVariableName, String> values = new LinkedHashMap<>();
@@ -158,28 +135,18 @@ final class ManifestGeneratedExecStepDecoder {
             EnvironmentVariableName name = ManifestSemanticDiagnostics.construct(
                     field, () -> keyed(key, () -> new EnvironmentVariableName(key)));
             values.put(name, value);
+            composition.env = values;
             ManifestSemanticDiagnostics.construct(
                     field,
-                    () -> keyed(key, () -> build(
-                            GeneratedStepSettings.defaultsOmitted(), tool, mainClass, args, inputs,
-                            output, produces, into, cache, cwd, values, Map.of(), List.of(),
-                            Optional.empty())));
+                    () -> keyed(key, () -> composition.build(
+                            GeneratedStepSettings.defaultsOmitted())));
         });
-        return Map.copyOf(values);
+        composition.env = Map.copyOf(values);
     }
 
-    private static Map<EnvironmentVariableName, EnvironmentVariableName> secretEnvironment(
+    private static void secretEnvironment(
             ValidatedManifestField field,
-            LocalId tool,
-            Optional<JavaBinaryClassName> mainClass,
-            List<String> args,
-            List<ResourceGlob> inputs,
-            ManifestRelativePath output,
-            GeneratedOutputKind produces,
-            Optional<ManifestRelativePath> into,
-            Optional<GeneratedCachePolicy> cache,
-            Optional<ManifestRelativePath> cwd,
-            Map<EnvironmentVariableName, String> env) {
+            Composition composition) {
         Map<String, String> raw = ManifestSemanticDiagnostics.construct(
                 field, () -> ManifestTomlValues.stringMap(field));
         LinkedHashMap<EnvironmentVariableName, EnvironmentVariableName> values =
@@ -190,29 +157,18 @@ final class ManifestGeneratedExecStepDecoder {
             EnvironmentVariableName source = ManifestSemanticDiagnostics.construct(
                     field, () -> keyed(key, () -> new EnvironmentVariableName(value)));
             values.put(target, source);
+            composition.secretEnv = values;
             ManifestSemanticDiagnostics.construct(
                     field,
-                    () -> keyed(key, () -> build(
-                            GeneratedStepSettings.defaultsOmitted(), tool, mainClass, args, inputs,
-                            output, produces, into, cache, cwd, env, values, List.of(),
-                            Optional.empty())));
+                    () -> keyed(key, () -> composition.build(
+                            GeneratedStepSettings.defaultsOmitted())));
         });
-        return Map.copyOf(values);
+        composition.secretEnv = Map.copyOf(values);
     }
 
-    private static List<EnvironmentVariableName> inheritedEnvironment(
+    private static void inheritedEnvironment(
             ValidatedManifestField field,
-            LocalId tool,
-            Optional<JavaBinaryClassName> mainClass,
-            List<String> args,
-            List<ResourceGlob> inputs,
-            ManifestRelativePath output,
-            GeneratedOutputKind produces,
-            Optional<ManifestRelativePath> into,
-            Optional<GeneratedCachePolicy> cache,
-            Optional<ManifestRelativePath> cwd,
-            Map<EnvironmentVariableName, String> env,
-            Map<EnvironmentVariableName, EnvironmentVariableName> secretEnv) {
+            Composition composition) {
         List<String> raw = ManifestTomlValues.strings(field);
         ArrayList<EnvironmentVariableName> values = new ArrayList<>(raw.size());
         for (int index = 0; index < raw.size(); index++) {
@@ -220,32 +176,19 @@ final class ManifestGeneratedExecStepDecoder {
             values.add(ManifestSemanticDiagnostics.construct(
                     field, item, () -> new EnvironmentVariableName(raw.get(item))));
             List<EnvironmentVariableName> prefix = List.copyOf(values);
+            composition.inheritEnv = prefix;
             ManifestSemanticDiagnostics.construct(
                     field,
                     item,
-                    () -> build(
-                            GeneratedStepSettings.defaultsOmitted(), tool, mainClass, args, inputs,
-                            output, produces, into, cache, cwd, env, secretEnv, prefix,
-                            Optional.empty()));
+                    () -> composition.build(GeneratedStepSettings.defaultsOmitted()));
         }
-        return List.copyOf(values);
+        composition.inheritEnv = List.copyOf(values);
     }
 
-    private static int timeout(
+    private static void timeout(
             ValidatedManifestField field,
-            LocalId tool,
-            Optional<JavaBinaryClassName> mainClass,
-            List<String> args,
-            List<ResourceGlob> inputs,
-            ManifestRelativePath output,
-            GeneratedOutputKind produces,
-            Optional<ManifestRelativePath> into,
-            Optional<GeneratedCachePolicy> cache,
-            Optional<ManifestRelativePath> cwd,
-            Map<EnvironmentVariableName, String> env,
-            Map<EnvironmentVariableName, EnvironmentVariableName> secretEnv,
-            List<EnvironmentVariableName> inheritEnv) {
-        int timeout = ManifestSemanticDiagnostics.construct(field, () -> {
+            Composition composition) {
+        int decoded = ManifestSemanticDiagnostics.construct(field, () -> {
             long value = ManifestTomlValues.integer(field);
             if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
                 throw new IllegalArgumentException(
@@ -253,13 +196,9 @@ final class ManifestGeneratedExecStepDecoder {
             }
             return (int) value;
         });
+        composition.timeout = Optional.of(decoded);
         ManifestSemanticDiagnostics.construct(
-                field,
-                () -> build(
-                        GeneratedStepSettings.defaultsOmitted(), tool, mainClass, args, inputs,
-                        output, produces, into, cache, cwd, env, secretEnv, inheritEnv,
-                        Optional.of(timeout)));
-        return timeout;
+                field, () -> composition.build(GeneratedStepSettings.defaultsOmitted()));
     }
 
     private static AuthoredExecStep validationStep(
@@ -267,30 +206,49 @@ final class ManifestGeneratedExecStepDecoder {
             Optional<JavaBinaryClassName> mainClass,
             List<String> args,
             List<ResourceGlob> inputs) {
-        return build(
+        return new AuthoredExecStep(
                 GeneratedStepSettings.defaultsOmitted(), tool, mainClass, args, inputs,
                 VALIDATION_OUTPUT, GeneratedOutputKind.JAVA_SOURCES, Optional.empty(),
                 Optional.empty(), Optional.empty(), Map.of(), Map.of(), List.of(), Optional.empty());
     }
 
-    private static AuthoredExecStep build(
-            GeneratedStepSettings settings,
-            LocalId tool,
-            Optional<JavaBinaryClassName> mainClass,
-            List<String> args,
-            List<ResourceGlob> inputs,
-            ManifestRelativePath output,
-            GeneratedOutputKind produces,
-            Optional<ManifestRelativePath> into,
-            Optional<GeneratedCachePolicy> cache,
-            Optional<ManifestRelativePath> cwd,
-            Map<EnvironmentVariableName, String> env,
-            Map<EnvironmentVariableName, EnvironmentVariableName> secretEnv,
-            List<EnvironmentVariableName> inheritEnv,
-            Optional<Integer> timeout) {
-        return new AuthoredExecStep(
-                settings, tool, mainClass, args, inputs, output, produces, into, cache, cwd,
-                env, secretEnv, inheritEnv, timeout);
+    private static final class Composition {
+        private final LocalId tool;
+        private final Optional<JavaBinaryClassName> mainClass;
+        private final List<String> args;
+        private final List<ResourceGlob> inputs;
+        private final ManifestRelativePath output;
+        private final GeneratedOutputKind produces;
+        private final Optional<ManifestRelativePath> into;
+        private Optional<GeneratedCachePolicy> cache = Optional.empty();
+        private Optional<ManifestRelativePath> cwd = Optional.empty();
+        private Map<EnvironmentVariableName, String> env = Map.of();
+        private Map<EnvironmentVariableName, EnvironmentVariableName> secretEnv = Map.of();
+        private List<EnvironmentVariableName> inheritEnv = List.of();
+        private Optional<Integer> timeout = Optional.empty();
+
+        private Composition(
+                LocalId tool,
+                Optional<JavaBinaryClassName> mainClass,
+                List<String> args,
+                List<ResourceGlob> inputs,
+                ManifestRelativePath output,
+                GeneratedOutputKind produces,
+                Optional<ManifestRelativePath> into) {
+            this.tool = tool;
+            this.mainClass = mainClass;
+            this.args = args;
+            this.inputs = inputs;
+            this.output = output;
+            this.produces = produces;
+            this.into = into;
+        }
+
+        private AuthoredExecStep build(GeneratedStepSettings settings) {
+            return new AuthoredExecStep(
+                    settings, tool, mainClass, args, inputs, output, produces, into, cache, cwd,
+                    env, secretEnv, inheritEnv, timeout);
+        }
     }
 
     private static GeneratedOutputKind outputKind(ValidatedManifestField field, String value) {
