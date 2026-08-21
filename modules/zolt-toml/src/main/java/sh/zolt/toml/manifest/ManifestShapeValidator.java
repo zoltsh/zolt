@@ -325,7 +325,7 @@ final class ManifestShapeValidator {
                 corrected.set(corrected.size() - 1, suggestion.orElseThrow());
                 message += " Did you mean `" + dotted(corrected) + "`?";
             }
-            context.diagnostics.add(source, message);
+            context.diagnostics.add(source, message + REMEDIATION);
         }
     }
 
@@ -338,8 +338,11 @@ final class ManifestShapeValidator {
             corrected.set(corrected.size() - 1, suggestion.orElseThrow());
             message += " Did you mean `" + sectionPath(corrected) + "`?";
         }
-        context.diagnostics.add(source, message);
+        context.diagnostics.add(source, message + REMEDIATION);
     }
+
+    /** Every unknown name has the same fix, and the CLI renders it as the error block's Next line. */
+    private static final String REMEDIATION = " Remove it or check the spelling.";
 
     // Stable sorting retains TOML traversal order when inline descendants share an ancestor span.
     private static final Comparator<ValidatedManifestSection> NODE_ORDER = Comparator

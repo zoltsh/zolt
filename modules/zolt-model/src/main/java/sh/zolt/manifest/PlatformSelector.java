@@ -12,7 +12,7 @@ public sealed interface PlatformSelector
             Objects.requireNonNull(value, "Platform version must not be null.");
             VersionPolicy.violation(VersionPolicy.Context.PLATFORM, value, true).ifPresent(violation -> {
                 throw new IllegalArgumentException(
-                        "Invalid platform version `" + value + "`: " + violation.guidance());
+                        "Invalid platform version `" + value + "`: " + violation.actionableGuidance());
             });
         }
     }

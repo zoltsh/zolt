@@ -15,7 +15,7 @@ public sealed interface DependencyConstraintSelector
                     .ifPresent(violation -> {
                         throw new IllegalArgumentException(
                                 "Invalid dependency constraint version `" + value + "`: "
-                                        + violation.guidance());
+                                        + violation.actionableGuidance());
                     });
         }
     }

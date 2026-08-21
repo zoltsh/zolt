@@ -34,10 +34,10 @@ record CommandErrorBlock(String summary, List<ContextRow> contextRows, Optional<
         }
         String summary = message.substring(0, index).trim();
         String next = message.substring(index).trim();
-        if (summary.endsWith(".")) {
-            summary = summary.substring(0, summary.length() - 1);
+        if (!summary.endsWith(".") && !summary.endsWith("?") && !summary.endsWith("!")) {
+            summary = summary + ".";
         }
-        return new SplitMessage(summary + ".", Optional.of(next));
+        return new SplitMessage(summary, Optional.of(next));
     }
 
     private static int remediationIndex(String message) {
@@ -79,6 +79,9 @@ record CommandErrorBlock(String summary, List<ContextRow> contextRows, Optional<
         }
         bracketAfter(summary, "Unknown field ").ifPresent(field -> rows.add(new ContextRow("Field", field)));
         bracketAfter(summary, "Unknown top-level section ").ifPresent(section -> rows.add(new ContextRow("Section", section)));
+        quotedAfter(summary, "Unknown manifest field ").ifPresent(field -> rows.add(new ContextRow("Field", field)));
+        quotedAfter(summary, "Unknown manifest section ")
+                .ifPresent(section -> rows.add(new ContextRow("Section", section)));
         backtickAfter(summary, "Unsupported ").ifPresent(value -> rows.add(new ContextRow("Unsupported", value)));
         coordinate(summary).ifPresent(coordinate -> rows.add(new ContextRow("Coordinate", coordinate)));
         return rows;
@@ -112,6 +115,11 @@ record CommandErrorBlock(String summary, List<ContextRow> contextRows, Optional<
             end++;
         }
         return Optional.of(stripTrailingPunctuation(text.substring(start, end + 1)));
+    }
+
+    /** The manifest schema quotes the offending name in backticks; the row shows it unquoted. */
+    private static Optional<String> quotedAfter(String text, String marker) {
+        return backtickAfter(text, marker).map(value -> value.replace("`", ""));
     }
 
     private static Optional<String> backtickAfter(String text, String marker) {

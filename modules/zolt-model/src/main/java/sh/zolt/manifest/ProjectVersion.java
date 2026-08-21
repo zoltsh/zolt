@@ -10,7 +10,7 @@ public record ProjectVersion(String value) {
         VersionPolicy.violation(VersionPolicy.Context.PROJECT_VERSION, value)
                 .ifPresent(violation -> {
                     throw new IllegalArgumentException(
-                            "Invalid project version `" + value + "`: " + violation.guidance());
+                            "Invalid project version `" + value + "`: " + violation.actionableGuidance());
                 });
     }
 

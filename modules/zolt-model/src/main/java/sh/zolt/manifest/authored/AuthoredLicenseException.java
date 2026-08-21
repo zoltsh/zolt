@@ -27,7 +27,7 @@ public record AuthoredLicenseException(
                 .ifPresent(violation -> {
                     throw new IllegalArgumentException(
                             "Invalid license exception version `" + value + "`: "
-                                    + violation.guidance());
+                                    + violation.actionableGuidance());
                 });
     }
 }

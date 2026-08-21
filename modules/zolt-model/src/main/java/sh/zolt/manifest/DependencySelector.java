@@ -16,7 +16,7 @@ public sealed interface DependencySelector
             VersionPolicy.violation(VersionPolicy.Context.EXTERNAL_DEPENDENCY, value, true)
                     .ifPresent(violation -> {
                         throw new IllegalArgumentException(
-                                "Invalid dependency version `" + value + "`: " + violation.guidance());
+                                "Invalid dependency version `" + value + "`: " + violation.actionableGuidance());
                     });
         }
     }

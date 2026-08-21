@@ -9,7 +9,7 @@ public record VersionAliasValue(String value) {
         Objects.requireNonNull(value, "Version alias value must not be null.");
         VersionPolicy.violation(VersionPolicy.Context.VERSION_ALIAS, value, true).ifPresent(violation -> {
             throw new IllegalArgumentException(
-                    "Invalid version alias value `" + value + "`: " + violation.guidance());
+                    "Invalid version alias value `" + value + "`: " + violation.actionableGuidance());
         });
     }
 
