@@ -1,6 +1,8 @@
 package sh.zolt.toml.manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -98,9 +100,50 @@ final class ManifestLicensePolicyDecoderTest {
                 """, "`dependencies.policy.licenses.deny[1]`", "declared more than once");
     }
 
+    @Test
+    void observesTheFirstMeaningfulCanonicalValue() {
+        for (ObservedCase observed : List.of(
+                new ObservedCase(
+                        "allow = [\"MIT\", \"mit\"]",
+                        "`dependencies.policy.licenses.allow[0]`"),
+                new ObservedCase(
+                        "allow = []\ndeny = [\"GPL-3.0-only\", \"gpl-3.0-only\"]",
+                        "`dependencies.policy.licenses.deny[0]`"),
+                new ObservedCase(
+                        "allow = []\ndeny = []\nunknown = \"fail\"",
+                        "`dependencies.policy.licenses.unknown`"))) {
+            ZoltConfigException failure = assertThrows(
+                    ZoltConfigException.class,
+                    () -> new ManifestLicensePolicyDecoder().decode(
+                            ManifestSemanticTestSupport.index(
+                                    "[dependencies.policy.licenses]\n" + observed.fields() + "\n"),
+                            policy -> {
+                                assertFalse(policy.allow().isEmpty()
+                                        && policy.deny().isEmpty()
+                                        && policy.unknown().isEmpty());
+                                throw new IllegalArgumentException("Observed license policy.");
+                            }));
+            assertTrue(failure.getMessage().contains(observed.path()), failure.getMessage());
+            assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+        }
+    }
+
+    @Test
+    void requiresObserverAndDoesNotObserveOmission() {
+        assertTrue(new ManifestLicensePolicyDecoder()
+                .decode(ManifestSemanticTestSupport.index(""), ignored -> {
+                    throw new AssertionError("Omitted license policy must not be observed.");
+                })
+                .isEmpty());
+        assertThrows(
+                NullPointerException.class,
+                () -> new ManifestLicensePolicyDecoder()
+                        .decode(ManifestSemanticTestSupport.index(""), null));
+    }
+
     private static Optional<AuthoredLicensePolicy> decode(String source) {
         return new ManifestLicensePolicyDecoder()
-                .decode(ManifestSemanticTestSupport.index(source));
+                .decode(ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private static void assertFailure(String source, String... details) {
@@ -110,5 +153,8 @@ final class ManifestLicensePolicyDecoderTest {
         for (String detail : details) {
             assertTrue(failure.getMessage().contains(detail), failure.getMessage());
         }
+    }
+
+    private record ObservedCase(String fields, String path) {
     }
 }

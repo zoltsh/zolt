@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import sh.zolt.manifest.DependencyConflictPolicy;
 import sh.zolt.manifest.DependencyCoordinate;
@@ -25,18 +27,43 @@ final class ManifestDependencyPolicyDecoder {
     private final ManifestLicenseExceptionsDecoder exceptions =
             new ManifestLicenseExceptionsDecoder();
 
-    Optional<AuthoredDependencyPolicy> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredDependencyPolicy> decode(
+            ManifestDecodeIndex index,
+            PolicyPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored dependency policy presence observer is required.");
         Optional<ValidatedManifestField> conflictsField = index.field(
                 FinalManifestDependencyFields.DEPENDENCY_POLICY_CONFLICTS);
         Optional<ValidatedManifestField> denyField = index.field(
                 FinalManifestDependencyFields.DEPENDENCY_POLICY_DENY);
+        AtomicBoolean observed = new AtomicBoolean();
+        Consumer<AuthoredDependencyPolicy> presence = policy -> {
+            if (observed.compareAndSet(false, true)) {
+                observer.present(policy);
+            }
+        };
         Optional<DependencyConflictPolicy> conflicts = conflictsField.map(
                 ManifestDependencyPolicyDecoder::conflicts);
+        if (conflictsField.isPresent()) {
+            ManifestSemanticDiagnostics.construct(
+                    conflictsField.orElseThrow(),
+                    () -> {
+                        AuthoredDependencyPolicy policy = new AuthoredDependencyPolicy(
+                                conflicts, List.of(), Optional.empty(), Map.of());
+                        presence.accept(policy);
+                        return policy;
+                    });
+        }
         List<DependencyDenyEntry> deny = denyField
-                .map(ManifestDependencyPolicyDecoder::deny)
+                .map(field -> deny(
+                        field,
+                        prefix -> presence.accept(new AuthoredDependencyPolicy(
+                                conflicts, prefix, Optional.empty(), Map.of()))))
                 .orElseGet(List::of);
-        Optional<AuthoredLicensePolicy> licensePolicy = licenses.decode(index);
+        Optional<AuthoredLicensePolicy> licensePolicy = licenses.decode(
+                index,
+                partial -> presence.accept(new AuthoredDependencyPolicy(
+                        conflicts, deny, Optional.of(partial), Map.of())));
         Map<DependencyCoordinate, AuthoredLicenseException> licenseExceptions =
                 exceptions.decode(index);
 
@@ -81,7 +108,8 @@ final class ManifestDependencyPolicyDecoder {
     }
 
     private static List<DependencyDenyEntry> deny(
-            ValidatedManifestField field) {
+            ValidatedManifestField field,
+            Consumer<List<DependencyDenyEntry>> prefixObserver) {
         List<ManifestInlineTable> tables = ManifestTomlValues.inlineObjectArray(field);
         ArrayList<DependencyDenyEntry> entries = new ArrayList<>(tables.size());
         Set<DependencyCoordinate> seen = new LinkedHashSet<>();
@@ -110,8 +138,20 @@ final class ManifestDependencyPolicyDecoder {
             ManifestSemanticDiagnostics.construct(
                     field, index, () -> requireUniqueDeny(seen, coordinate));
             entries.add(entry);
+            if (item == 0) {
+                List<DependencyDenyEntry> prefix = List.copyOf(entries);
+                ManifestSemanticDiagnostics.construct(field, index, () -> {
+                    prefixObserver.accept(prefix);
+                    return prefix;
+                });
+            }
         }
         return List.copyOf(entries);
+    }
+
+    @FunctionalInterface
+    interface PolicyPresenceObserver {
+        void present(AuthoredDependencyPolicy policy);
     }
 
     private static DependencyCoordinate requireUniqueDeny(

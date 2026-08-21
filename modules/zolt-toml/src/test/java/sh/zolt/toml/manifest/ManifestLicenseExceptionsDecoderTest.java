@@ -28,7 +28,9 @@ final class ManifestLicenseExceptionsDecoderTest {
                 () -> exceptions.put(
                         new DependencyCoordinate("a:b"),
                         null));
-        assertTrue(new ManifestDependencyPolicyDecoder().decode(index).isEmpty());
+        assertTrue(new ManifestDependencyPolicyDecoder()
+                .decode(index, ignored -> {})
+                .isEmpty());
     }
 
     @Test
@@ -132,7 +134,7 @@ final class ManifestLicenseExceptionsDecoderTest {
 
     private static Optional<AuthoredDependencyPolicy> decodePolicy(String source) {
         return new ManifestDependencyPolicyDecoder()
-                .decode(ManifestSemanticTestSupport.index(source));
+                .decode(ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private static void assertFailure(String source, String... details) {

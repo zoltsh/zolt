@@ -1,6 +1,7 @@
 package sh.zolt.toml.manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -22,7 +23,9 @@ final class ManifestDependencyPolicyDecoderTest {
                 [dependencies.license-exceptions]
                 """);
 
-        assertTrue(new ManifestDependencyPolicyDecoder().decode(index).isEmpty());
+        assertTrue(new ManifestDependencyPolicyDecoder()
+                .decode(index, ignored -> {})
+                .isEmpty());
         assertTrue(index.section(FinalManifestPaths.DEPENDENCY_LICENSE_EXCEPTIONS)
                 .orElseThrow()
                 .source()
@@ -93,9 +96,57 @@ final class ManifestDependencyPolicyDecoderTest {
                 """, "`dependencies.policy.deny[1]`", "declared more than once");
     }
 
+    @Test
+    void observesTheFirstValidPolicyPrefixBeforeLaterValues() {
+        for (ObservedCase observed : List.of(
+                new ObservedCase("""
+                        [dependencies.policy]
+                        deny = [{ coordinate = "invalid" }]
+                        conflicts = "resolve"
+                        """, "`dependencies.policy.conflicts`"),
+                new ObservedCase("""
+                        [dependencies.policy]
+                        deny = [
+                            { coordinate = "org.example:first" },
+                            { coordinate = "invalid" },
+                        ]
+                        """, "`dependencies.policy.deny[0]`"),
+                new ObservedCase("""
+                        [dependencies.policy.licenses]
+                        allow = ["MIT", "MIT"]
+                        """, "`dependencies.policy.licenses.allow[0]`"))) {
+            ZoltConfigException failure = assertThrows(
+                    ZoltConfigException.class,
+                    () -> new ManifestDependencyPolicyDecoder().decode(
+                            ManifestSemanticTestSupport.index(observed.source()),
+                            policy -> {
+                                assertTrue(policy.conflicts().isPresent()
+                                        || !policy.deny().isEmpty()
+                                        || policy.licenses().isPresent());
+                                throw new IllegalArgumentException("Observed policy.");
+                            }));
+            assertTrue(failure.getMessage().contains(observed.path()), failure.getMessage());
+            assertTrue(failure.getMessage().contains("Observed policy."), failure.getMessage());
+            assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+        }
+    }
+
+    @Test
+    void requiresObserverAndDoesNotObserveOmission() {
+        assertTrue(new ManifestDependencyPolicyDecoder()
+                .decode(ManifestSemanticTestSupport.index(""), ignored -> {
+                    throw new AssertionError("Omitted policy must not be observed.");
+                })
+                .isEmpty());
+        assertThrows(
+                NullPointerException.class,
+                () -> new ManifestDependencyPolicyDecoder()
+                        .decode(ManifestSemanticTestSupport.index(""), null));
+    }
+
     private static Optional<AuthoredDependencyPolicy> decode(String source) {
         return new ManifestDependencyPolicyDecoder()
-                .decode(ManifestSemanticTestSupport.index(source));
+                .decode(ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private static void assertFailure(String source, String... details) {
@@ -105,5 +156,8 @@ final class ManifestDependencyPolicyDecoderTest {
         for (String detail : details) {
             assertTrue(failure.getMessage().contains(detail), failure.getMessage());
         }
+    }
+
+    private record ObservedCase(String source, String path) {
     }
 }

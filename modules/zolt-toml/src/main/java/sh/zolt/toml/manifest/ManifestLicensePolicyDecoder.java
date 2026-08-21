@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import sh.zolt.manifest.LicensePolicyTerm;
 import sh.zolt.manifest.authored.AuthoredLicensePolicy;
@@ -15,8 +17,12 @@ import sh.zolt.toml.schema.FinalManifestPaths;
 
 /** Decodes the optional global dependency-license policy. */
 final class ManifestLicensePolicyDecoder {
-    Optional<AuthoredLicensePolicy> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredLicensePolicy> decode(
+            ManifestDecodeIndex index,
+            LicensePolicyPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(
+                observer, "Authored dependency license policy presence observer is required.");
         Optional<ValidatedManifestSection> section = index.section(
                 FinalManifestPaths.DEPENDENCY_LICENSE_POLICY);
         Optional<ValidatedManifestField> allowField = index.field(
@@ -33,10 +39,34 @@ final class ManifestLicensePolicyDecoder {
             return Optional.empty();
         }
 
-        List<LicensePolicyTerm> allow = terms(allowField, "allow");
-        List<LicensePolicyTerm> deny = terms(denyField, "deny");
+        AtomicBoolean observed = new AtomicBoolean();
+        Consumer<AuthoredLicensePolicy> presence = policy -> {
+            if (observed.compareAndSet(false, true)) {
+                observer.present(policy);
+            }
+        };
+        List<LicensePolicyTerm> allow = terms(
+                allowField,
+                "allow",
+                prefix -> presence.accept(new AuthoredLicensePolicy(
+                        prefix, List.of(), Optional.empty())));
+        List<LicensePolicyTerm> deny = terms(
+                denyField,
+                "deny",
+                prefix -> presence.accept(new AuthoredLicensePolicy(
+                        allow, prefix, Optional.empty())));
         Optional<UnknownLicensePolicy> unknown = unknownField.map(
                 ManifestLicensePolicyDecoder::unknown);
+        if (unknownField.isPresent()) {
+            ManifestSemanticDiagnostics.construct(
+                    unknownField.orElseThrow(),
+                    () -> {
+                        AuthoredLicensePolicy policy =
+                                new AuthoredLicensePolicy(allow, deny, unknown);
+                        presence.accept(policy);
+                        return policy;
+                    });
+        }
         Supplier<AuthoredLicensePolicy> factory = () ->
                 new AuthoredLicensePolicy(allow, deny, unknown);
         if (allow.isEmpty() && deny.isEmpty() && unknown.isEmpty()) {
@@ -52,7 +82,8 @@ final class ManifestLicensePolicyDecoder {
 
     private static List<LicensePolicyTerm> terms(
             Optional<ValidatedManifestField> field,
-            String listName) {
+            String listName,
+            Consumer<List<LicensePolicyTerm>> prefixObserver) {
         if (field.isEmpty()) {
             return List.of();
         }
@@ -70,8 +101,21 @@ final class ManifestLicensePolicyDecoder {
                     item,
                     () -> requireUnique(seen, term, listName));
             terms.add(term);
+            if (item == 0) {
+                List<LicensePolicyTerm> prefix = List.copyOf(terms);
+                ManifestSemanticDiagnostics.construct(
+                        field.orElseThrow(), item, () -> {
+                            prefixObserver.accept(prefix);
+                            return prefix;
+                        });
+            }
         }
         return List.copyOf(terms);
+    }
+
+    @FunctionalInterface
+    interface LicensePolicyPresenceObserver {
+        void present(AuthoredLicensePolicy policy);
     }
 
     private static LicensePolicyTerm requireUnique(

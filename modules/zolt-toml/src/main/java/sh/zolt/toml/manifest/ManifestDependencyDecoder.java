@@ -21,7 +21,8 @@ final class ManifestDependencyDecoder {
                 dependencies.decode(index, ignored -> {});
         Optional<AuthoredDependencyConstraints> decodedConstraints =
                 constraints.decode(index, ignored -> {});
-        Optional<AuthoredDependencyPolicy> decodedPolicy = policy.decode(index);
+        Optional<AuthoredDependencyPolicy> decodedPolicy =
+                policy.decode(index, ignored -> {});
         return new Decoded(decodedDependencies, decodedConstraints, decodedPolicy);
     }
 
