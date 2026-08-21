@@ -91,7 +91,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
                 "com.acme:core" = { workspace = "modules/core" }
                 """);
         member("modules/core", "core");
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
@@ -100,7 +100,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
         assertTrue(diagnostic.message().contains("Workspace zolt.lock is out of date."));
         assertEquals(tempDir.resolve("zolt.lock").toAbsolutePath().normalize(), diagnostic.path());
         assertEquals("Run zolt resolve --workspace.", diagnostic.nextStep());
-        assertEquals("version = 6\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertEquals("version = 7\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
 
     @Test
@@ -115,7 +115,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
                 [dependencies]
                 "com.example:missing" = "1.0.0"
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
@@ -126,11 +126,11 @@ final class WorkspaceIdeModelDiagnosticsTest {
         assertEquals(
                 "Run zolt resolve --workspace without --offline to seed the cache, then retry zolt ide model --workspace --offline.",
                 diagnostic.nextStep());
-        assertEquals("version = 6\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertEquals("version = 7\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
 
     @Test
-    void checkLockReportsLegacyWorkspaceMigrationWithoutRefreshingLockfile() throws IOException {
+    void checkLockReportsUnsupportedLegacyWorkspaceLockWithoutRefreshingLockfile() throws IOException {
         workspace("""
                 [workspace]
                 name = "acme-platform"
@@ -142,8 +142,8 @@ final class WorkspaceIdeModelDiagnosticsTest {
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
         IdeModel.Diagnostic diagnostic = model.diagnostics().getFirst();
-        assertEquals("LOCKFILE_MIGRATION_REQUIRED", diagnostic.code());
-        assertTrue(diagnostic.message().contains("version 5 predates the version 6"));
+        assertEquals("LOCKFILE_UNREADABLE", diagnostic.code());
+        assertTrue(diagnostic.message().contains("version 5 is older than this Zolt supports (current 7)"));
         assertEquals("Run zolt resolve --workspace.", diagnostic.nextStep());
         assertEquals("version = 5\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
@@ -176,7 +176,7 @@ final class WorkspaceIdeModelDiagnosticsTest {
 
     private void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
     }
 
     private void member(String path, String name) throws IOException {
@@ -193,6 +193,6 @@ final class WorkspaceIdeModelDiagnosticsTest {
                 group = "com.acme"
                 java = "21"
                 %s""".formatted(name, extraToml));
-        Files.writeString(member.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(member.resolve("zolt.lock"), "version = 7\n");
     }
 }

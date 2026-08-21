@@ -57,7 +57,7 @@ final class IdeModelGeneratedSourcesTest {
                 required = false
                 clean = true
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -153,7 +153,7 @@ final class IdeModelGeneratedSourcesTest {
                 output = "target/generated/sources/openapi/public-api"
                 generator = "spring"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -192,7 +192,7 @@ final class IdeModelGeneratedSourcesTest {
                 inputs = ["src/main/proto/greeter.proto"]
                 output = "target/generated/sources/protobuf"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 

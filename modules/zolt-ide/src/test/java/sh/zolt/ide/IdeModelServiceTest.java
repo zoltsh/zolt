@@ -100,7 +100,7 @@ final class IdeModelServiceTest {
                 group = "com.example"
                 java = "21"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         RecordingTimingRecorder recorder = new RecordingTimingRecorder();
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"), false, false, recorder);
@@ -164,7 +164,7 @@ final class IdeModelServiceTest {
                 [dependencyPolicy]
                 exclude = [{ group = "com.example", artifact = "blocked", reason = "fixture" }]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"), true, true);
 
@@ -173,11 +173,11 @@ final class IdeModelServiceTest {
         assertTrue(diagnostic.message().contains("Dependency policy excludes direct dependency `com.example:blocked`"));
         assertEquals(projectDir.resolve("zolt.lock").toAbsolutePath().normalize(), diagnostic.path());
         assertEquals("Run zolt resolve.", diagnostic.nextStep());
-        assertEquals("version = 6\n", Files.readString(projectDir.resolve("zolt.lock")));
+        assertEquals("version = 7\n", Files.readString(projectDir.resolve("zolt.lock")));
     }
 
     @Test
-    void checkLockReportsLegacyLockMigrationWithoutRefreshingLockfile() throws IOException {
+    void checkLockReportsUnsupportedLegacyLockWithoutRefreshingLockfile() throws IOException {
         Path projectDir = tempDir.resolve("legacy-lock");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -192,8 +192,8 @@ final class IdeModelServiceTest {
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"), true, true);
 
         IdeModel.Diagnostic diagnostic = model.diagnostics().getFirst();
-        assertEquals("LOCKFILE_MIGRATION_REQUIRED", diagnostic.code());
-        assertTrue(diagnostic.message().contains("version 5 predates the version 6"));
+        assertEquals("LOCKFILE_UNREADABLE", diagnostic.code());
+        assertTrue(diagnostic.message().contains("version 5 is older than this Zolt supports (current 7)"));
         assertEquals("Run zolt resolve.", diagnostic.nextStep());
         assertEquals("version = 5\n", Files.readString(projectDir.resolve("zolt.lock")));
     }
@@ -209,7 +209,7 @@ final class IdeModelServiceTest {
                 group = "com.example"
                 java = "21"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"), true, true);
 
@@ -218,7 +218,7 @@ final class IdeModelServiceTest {
         assertTrue(diagnostic.message().contains("zolt.lock is out of date"));
         assertEquals(projectDir.resolve("zolt.lock").toAbsolutePath().normalize(), diagnostic.path());
         assertEquals("Run zolt resolve.", diagnostic.nextStep());
-        assertEquals("version = 6\n", Files.readString(projectDir.resolve("zolt.lock")));
+        assertEquals("version = 7\n", Files.readString(projectDir.resolve("zolt.lock")));
     }
 
     @Test
@@ -235,7 +235,7 @@ final class IdeModelServiceTest {
                 [dependencies]
                 "com.example:missing" = "1.0.0"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"), true, true);
 
@@ -246,14 +246,14 @@ final class IdeModelServiceTest {
         assertEquals(
                 "Run zolt resolve without --offline to seed the cache, then retry zolt ide model --offline.",
                 diagnostic.nextStep());
-        assertEquals("version = 6\n", Files.readString(projectDir.resolve("zolt.lock")));
+        assertEquals("version = 7\n", Files.readString(projectDir.resolve("zolt.lock")));
     }
 
     @Test
     void checkLockSkipsFreshnessWhenProjectConfigCannotBeRead() throws IOException {
         Path projectDir = tempDir.resolve("missing-config-check-lock");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"), true, true);
 
@@ -295,7 +295,7 @@ final class IdeModelServiceTest {
                 group = "com.example"
                 java = "21"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         IdeModelService frameworkService = new IdeModelService((root, cacheRoot, config, diagnostics) -> {
             diagnostics.add(new IdeModel.Diagnostic(
                     "warning",
@@ -364,7 +364,7 @@ final class IdeModelServiceTest {
                 inputs = ["../outside-openapi.yaml"]
                 required = false
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
         String json = new IdeModelJsonWriter().write(model);

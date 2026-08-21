@@ -56,7 +56,8 @@ final class IdeContentAddressedLockTestSupport {
                 legacy.conflicts(),
                 legacy.policyEffects(),
                 legacy.memberGraphs(),
-                legacy.workspaceResolutionInputFingerprint()));
+                legacy.workspaceResolutionInputFingerprint(),
+                legacy.dependencyRoots()));
     }
 
     static Path cachedJar(Path lockfilePath, Path cacheRoot, String coordinate) {

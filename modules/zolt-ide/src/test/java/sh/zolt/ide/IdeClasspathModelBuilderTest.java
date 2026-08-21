@@ -29,7 +29,28 @@ final class IdeClasspathModelBuilderTest {
         Files.createDirectories(projectDir);
         Files.copy(exampleProjectConfig(), projectDir.resolve("zolt.toml"));
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.springframework.boot:spring-boot-starter-webmvc"
+                version = "4.0.6"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.projectlombok:lombok"
+                version = "1.18.42"
+                lane = "processor"
+                resolvedScope = "processor"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-processor"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot-starter-webmvc"
@@ -132,7 +153,14 @@ final class IdeClasspathModelBuilderTest {
                 java = "21"
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:runtime-lib"
+                version = "1.0.0"
+                lane = "runtime"
+                resolvedScope = "runtime"
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -227,7 +255,7 @@ final class IdeClasspathModelBuilderTest {
                 [build]
                 output = "../outside-classes"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
 
         builder.build(

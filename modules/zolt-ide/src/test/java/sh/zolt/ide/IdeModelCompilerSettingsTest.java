@@ -35,7 +35,7 @@ final class IdeModelCompilerSettingsTest {
                 args = ["-Xlint:deprecation", "-parameters"]
                 testArgs = ["-Xlint:unchecked"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 

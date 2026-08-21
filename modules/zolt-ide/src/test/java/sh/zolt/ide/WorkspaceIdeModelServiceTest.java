@@ -80,7 +80,28 @@ final class WorkspaceIdeModelServiceTest {
         member("modules/core", "core");
         Path cacheRoot = tempDir.resolve("cache");
         write(tempDir.resolve("zolt.lock"), cacheRoot, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.projectlombok:lombok"
+                version = "1.18.42"
+                lane = "processor"
+                resolvedScope = "processor"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:test-processor"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "com.acme:core"
@@ -266,7 +287,7 @@ final class WorkspaceIdeModelServiceTest {
                 [dependencyPolicy]
                 exclude = [{ group = "com.acme", artifact = "blocked", reason = "fixture" }]
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
@@ -275,7 +296,7 @@ final class WorkspaceIdeModelServiceTest {
         assertTrue(diagnostic.message().contains("Dependency policy excludes direct dependency `com.acme:blocked`"));
         assertEquals(tempDir.resolve("zolt.lock").toAbsolutePath().normalize(), diagnostic.path());
         assertEquals("Run zolt resolve --workspace.", diagnostic.nextStep());
-        assertEquals("version = 6\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertEquals("version = 7\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
 
     @Test
@@ -298,7 +319,7 @@ final class WorkspaceIdeModelServiceTest {
 
     private void workspace(String content) throws IOException {
         Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
     }
 
     private void member(String path, String name) throws IOException {
@@ -315,7 +336,7 @@ final class WorkspaceIdeModelServiceTest {
                 group = "com.acme"
                 java = "21"
                 %s""".formatted(name, extraToml));
-        Files.writeString(member.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(member.resolve("zolt.lock"), "version = 7\n");
     }
 
     private static final class RecordingTimingRecorder implements IdeTimingRecorder {

@@ -30,7 +30,7 @@ final class IdeModelRootsServiceTest {
                 [test.sources]
                 java = ["src/test/java", "src/integrationTest/java", "src/contractTest/java"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -79,7 +79,7 @@ final class IdeModelRootsServiceTest {
                 java = ["src/test/java"]
                 groovy = ["src/test/groovy", "src/integrationTest/groovy"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -113,7 +113,7 @@ final class IdeModelRootsServiceTest {
                 main = ["src/main/resources", "target/generated/resources"]
                 test = ["src/test/resources", "target/generated/test-resources"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -145,7 +145,7 @@ final class IdeModelRootsServiceTest {
                 main = ["src/main/resources/../resources", "assets/../src/main/extra-resources"]
                 test = ["src/test/resources"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
