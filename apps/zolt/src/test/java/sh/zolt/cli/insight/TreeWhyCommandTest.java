@@ -164,6 +164,9 @@ final class TreeWhyCommandTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "https://repo.maven.apache.org/maven2"
                 """);

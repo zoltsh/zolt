@@ -198,6 +198,9 @@ final class PublishCommandCredentialTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "https://repo.maven.apache.org/maven2"
 

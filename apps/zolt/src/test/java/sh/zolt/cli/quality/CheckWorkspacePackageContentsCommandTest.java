@@ -368,6 +368,9 @@ final class CheckWorkspacePackageContentsCommandTest {
                   "apps/required-consumer"
                 ]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repository.baseUri()));

@@ -100,6 +100,9 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
                 [workspace.members]
                 include = ["apps/api", "modules/core"]
 
+                [repositories]
+                central = false
+
                 [repositories.company]
                 url = "https://repo.example.test/maven"
                 credentials = "company"

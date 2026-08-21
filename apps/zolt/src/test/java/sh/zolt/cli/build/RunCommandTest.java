@@ -231,6 +231,9 @@ final class RunCommandTest {
                 java = %s
                 main = "com.example.Main"
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 
@@ -248,6 +251,9 @@ final class RunCommandTest {
                 version = "0.1.0"
                 group = "com.example"
                 java = %s
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"

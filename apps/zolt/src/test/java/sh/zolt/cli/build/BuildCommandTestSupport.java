@@ -26,6 +26,9 @@ final class BuildCommandTestSupport {
                 java = %s
                 main = "com.example.Main"
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 

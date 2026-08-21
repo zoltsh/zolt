@@ -60,6 +60,9 @@ final class CheckExecutionContextCiTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-missing-credentials") + """
 
+                [repositories]
+                central = false
+
                 [repositories.company]
                 url = "https://repo.example.test/maven"
                 credentials = "company-artifactory"
@@ -122,6 +125,9 @@ final class CheckExecutionContextCiTest {
         Path projectDir = tempDir.resolve("check-context-ci-embedded-credentials");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-embedded-credentials") + """
+
+                [repositories]
+                central = false
 
                 [repositories.company]
                 url = "https://user:super-secret-token@repo.example.test/maven"

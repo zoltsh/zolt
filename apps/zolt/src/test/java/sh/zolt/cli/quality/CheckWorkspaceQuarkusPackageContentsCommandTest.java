@@ -141,6 +141,9 @@ final class CheckWorkspaceQuarkusPackageContentsCommandTest {
                 [workspace.members]
                 include = ["apps/service"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repository.baseUri()));

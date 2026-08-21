@@ -334,6 +334,9 @@ final class WorkspaceLockFreshnessCommandTest {
                 [workspace.members]
                 include = ["apps/api"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repository.baseUri()));

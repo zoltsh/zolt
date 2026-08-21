@@ -46,6 +46,9 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                     [workspace.members]
                     include = ["modules/core"]
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
                     """.formatted(repository.baseUri()));
@@ -149,6 +152,9 @@ final class WorkspaceMemberDirectoryStaleLockTest {
     private static void writeMemberConfig(Path memberDir, String repositoryUrl, String dependency)
             throws IOException {
         Files.writeString(memberDir.resolve("zolt.toml"), CliTestSupport.memberConfig("core") + """
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"

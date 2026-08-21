@@ -318,6 +318,9 @@ final class CheckPackageContentsEvidenceTest {
                         + """
                         main = "com.example.Main"
 
+                        [repositories]
+                        central = false
+
                         [repositories.test]
                         url = "%s"
 

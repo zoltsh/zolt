@@ -135,6 +135,9 @@ final class PublishCommandMemberCentralDryRunTest {
                     [workspace.members]
                     include = ["modules/core"]
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
                     """.formatted(changed));
@@ -203,6 +206,9 @@ final class PublishCommandMemberCentralDryRunTest {
                     [workspace.members]
                     include = ["modules/core"]
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
                     """.formatted(changed));
@@ -257,6 +263,9 @@ final class PublishCommandMemberCentralDryRunTest {
 
                 [workspace.members]
                 include = ["modules/%s"]
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"
@@ -316,6 +325,9 @@ final class PublishCommandMemberCentralDryRunTest {
     /** The same project standing alone outside the workspace, so it owns its own repositories. */
     private static String readyStandaloneConfig(String name, CliTestRepository repository) {
         return readyMemberConfig(name) + """
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"

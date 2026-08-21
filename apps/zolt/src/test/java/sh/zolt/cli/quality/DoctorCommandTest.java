@@ -203,6 +203,9 @@ final class DoctorCommandTest {
                 features = []
                 policy = "allow-system"
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "https://repo.maven.apache.org/maven2"
 
@@ -339,6 +342,9 @@ final class DoctorCommandTest {
                 group = "com.example"
                 java = %s
                 main = "com.example.Main"
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "https://repo.maven.apache.org/maven2"

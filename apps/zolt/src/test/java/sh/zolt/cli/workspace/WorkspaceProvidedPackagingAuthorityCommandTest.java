@@ -168,6 +168,9 @@ final class WorkspaceProvidedPackagingAuthorityCommandTest {
                 [workspace.members]
                 include = ["apps/app", "modules/other"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repository.baseUri()));

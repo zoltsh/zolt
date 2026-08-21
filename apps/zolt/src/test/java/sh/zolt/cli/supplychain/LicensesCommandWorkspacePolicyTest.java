@@ -311,6 +311,9 @@ final class LicensesCommandWorkspacePolicyTest {
                 [workspace.members]
                 include = ["modules/core", "apps/admin"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repository.baseUri()));

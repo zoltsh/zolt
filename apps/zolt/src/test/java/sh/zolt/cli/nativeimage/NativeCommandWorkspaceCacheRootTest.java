@@ -81,6 +81,9 @@ final class NativeCommandWorkspaceCacheRootTest {
                 default = ["apps/app"]
                 include = ["apps/app"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repositoryUrl));

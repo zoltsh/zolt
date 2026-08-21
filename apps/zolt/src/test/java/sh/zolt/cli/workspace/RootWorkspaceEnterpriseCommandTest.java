@@ -210,6 +210,9 @@ final class RootWorkspaceEnterpriseCommandTest {
                 [workspace.members]
                 include = ["."]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 

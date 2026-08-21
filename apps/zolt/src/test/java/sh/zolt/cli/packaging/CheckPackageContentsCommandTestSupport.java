@@ -14,6 +14,9 @@ final class CheckPackageContentsCommandTestSupport {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 

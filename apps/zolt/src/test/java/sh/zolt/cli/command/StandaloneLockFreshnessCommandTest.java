@@ -158,6 +158,9 @@ final class StandaloneLockFreshnessCommandTest {
                     java = %s
                     %s
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
                     """.formatted(
@@ -241,6 +244,9 @@ final class StandaloneLockFreshnessCommandTest {
                 group = "com.example"
                 java = %s
                 main = "com.example.Main"
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"

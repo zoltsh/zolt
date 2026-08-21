@@ -38,6 +38,9 @@ final class WorkspaceIdeModelCommandTest {
                     [workspace.members]
                     include = ["apps/api"]
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
                     """.formatted(repository.baseUri()));
@@ -58,6 +61,9 @@ final class WorkspaceIdeModelCommandTest {
 
                     [workspace.members]
                     include = ["apps/api"]
+
+                    [repositories]
+                    central = false
 
                     [repositories.test]
                     url = "%s"

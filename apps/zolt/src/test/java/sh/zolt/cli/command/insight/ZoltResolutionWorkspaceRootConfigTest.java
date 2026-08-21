@@ -92,6 +92,9 @@ final class ZoltResolutionWorkspaceRootConfigTest {
                 [workspace.members]
                 include = ["app"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 

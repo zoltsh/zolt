@@ -41,6 +41,9 @@ final class JUnitConsoleVersionResolutionTest {
             addConsole(repository, "1.11.4");
             Files.writeString(tempDir.resolve("zolt.toml"), memberConfig("junit-console-version") + """
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
 
@@ -91,6 +94,9 @@ final class JUnitConsoleVersionResolutionTest {
             addJupiterGraph(repository, "5.10.2", "1.10.2");
             addConsole(repository, "1.11.4");
             Files.writeString(tempDir.resolve("zolt.toml"), memberConfig("managed-console-skew") + """
+
+                    [repositories]
+                    central = false
 
                     [repositories.test]
                     url = "%s"

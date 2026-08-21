@@ -45,6 +45,9 @@ final class CheckDependencyMetadataCommandTest {
             Files.createDirectories(projectDir);
             Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-dependency-metadata") + """
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
 

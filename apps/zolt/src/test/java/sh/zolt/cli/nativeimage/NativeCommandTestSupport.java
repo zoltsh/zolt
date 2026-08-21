@@ -25,6 +25,9 @@ final class NativeCommandTestSupport {
                 group = "com.example"
                 java = %s
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 
@@ -43,6 +46,9 @@ final class NativeCommandTestSupport {
                 group = "com.example"
                 java = %s
                 main = "com.example.Main"
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"
@@ -63,6 +69,9 @@ final class NativeCommandTestSupport {
                 java = %s
                 main = "com.example.Main"
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 
@@ -70,7 +79,7 @@ final class NativeCommandTestSupport {
                 "org.springframework.boot:spring-boot-dependencies" = "4.0.6"
 
                 [dependencies]
-                "org.springframework.boot:spring-boot-starter-webmvc" = {}
+                "org.springframework.boot:spring-boot-starter-webmvc" = { managed = true }
 
                 [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
@@ -85,6 +94,9 @@ final class NativeCommandTestSupport {
                 group = "com.example"
                 java = %s
                 main = "com.example.Main"
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"
@@ -107,6 +119,9 @@ final class NativeCommandTestSupport {
                 group = "com.example"
                 java = %s
                 main = "com.example.Main"
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"

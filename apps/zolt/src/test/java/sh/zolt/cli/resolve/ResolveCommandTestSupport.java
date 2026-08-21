@@ -22,6 +22,9 @@ final class ResolveCommandTestSupport {
         StringBuilder config = new StringBuilder(memberConfig("demo") + """
                 main = "com.example.Main"
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 

@@ -210,6 +210,9 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
                 [workspace.members]
                 include = ["modules/api"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "https://repo.maven.apache.org/maven2"
                 """);
@@ -217,9 +220,11 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         // A workspace member cannot own dependency repositories; the root universe is authoritative.
         Files.writeString(memberDir.resolve("zolt.toml"),
                 Files.readString(memberDir.resolve("zolt.toml")).replace("""
+                        [repositories]
+                        central = false
+
                         [repositories.test]
                         url = "https://repo.maven.apache.org/maven2"
-
                         """.replace("                        ", "                "), ""));
         appendSuite(memberDir, """
 

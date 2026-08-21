@@ -142,6 +142,9 @@ final class RunPackageCommandTest {
                 java = %s
                 main = "com.example.Main"
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
 
@@ -159,6 +162,9 @@ final class RunPackageCommandTest {
                 version = "0.1.0"
                 group = "com.example"
                 java = %s
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"

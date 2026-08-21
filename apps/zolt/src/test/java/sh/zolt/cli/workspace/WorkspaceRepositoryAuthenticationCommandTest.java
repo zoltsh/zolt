@@ -131,6 +131,9 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
                 [workspace.members]
                 include = ["lib"]
 
+                [repositories]
+                central = false
+
                 [repositories.internal]
                 url = "%s"
                 credentials = "company"
@@ -180,6 +183,9 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
 
                 [workspace.members]
                 include = ["lib"]
+
+                [repositories]
+                central = false
 
                 [repositories.internal]
                 url = "%s"

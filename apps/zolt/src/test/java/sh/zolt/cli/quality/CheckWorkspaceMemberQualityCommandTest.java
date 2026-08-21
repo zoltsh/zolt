@@ -137,6 +137,9 @@ final class CheckWorkspaceMemberQualityCommandTest {
                     [workspace.members]
                     include = ["modules/core"]
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
                     """.formatted(repository.baseUri()));
@@ -202,6 +205,9 @@ final class CheckWorkspaceMemberQualityCommandTest {
 
                     [workspace.members]
                     include = ["modules/core", "modules/bridge", "apps/app", "apps/zip-app"]
+
+                    [repositories]
+                    central = false
 
                     [repositories.test]
                     url = "%s"
@@ -288,6 +294,9 @@ final class CheckWorkspaceMemberQualityCommandTest {
 
                 [workspace.members]
                 include = ["modules/feature-api", "modules/core", "apps/admin"]
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"

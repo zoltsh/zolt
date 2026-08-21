@@ -105,6 +105,9 @@ final class NativeCommandWorkspaceSpringBootTest {
                 default = ["apps/implicit"]
                 include = ["apps/implicit", "apps/second"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repositoryUrl));
@@ -123,6 +126,9 @@ final class NativeCommandWorkspaceSpringBootTest {
                 [workspace.members]
                 default = ["apps/declared"]
                 include = ["apps/declared"]
+
+                [repositories]
+                central = false
 
                 [repositories.test]
                 url = "%s"

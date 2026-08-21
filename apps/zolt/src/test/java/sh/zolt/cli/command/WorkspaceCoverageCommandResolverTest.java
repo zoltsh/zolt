@@ -135,6 +135,9 @@ final class WorkspaceCoverageCommandResolverTest {
                 [workspace.members]
                 include = ["apps/api"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repositoryUri()));

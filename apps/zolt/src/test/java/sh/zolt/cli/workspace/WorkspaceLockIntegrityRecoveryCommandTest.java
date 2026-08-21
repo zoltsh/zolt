@@ -99,6 +99,9 @@ final class WorkspaceLockIntegrityRecoveryCommandTest {
                 [workspace.members]
                 include = ["apps/one", "apps/two"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(repository.baseUri()));

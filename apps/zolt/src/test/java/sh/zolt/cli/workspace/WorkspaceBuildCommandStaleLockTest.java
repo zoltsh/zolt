@@ -41,6 +41,9 @@ final class WorkspaceBuildCommandStaleLockTest {
                     [workspace.members]
                     include = ["apps/api"]
 
+                    [repositories]
+                    central = false
+
                     [repositories.test]
                     url = "%s"
                     """.formatted(repository.baseUri()));
@@ -61,6 +64,9 @@ final class WorkspaceBuildCommandStaleLockTest {
 
                     [workspace.members]
                     include = ["apps/api"]
+
+                    [repositories]
+                    central = false
 
                     [repositories.test]
                     url = "%s"

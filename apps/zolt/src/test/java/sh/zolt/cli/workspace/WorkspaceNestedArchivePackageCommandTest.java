@@ -155,6 +155,9 @@ final class WorkspaceNestedArchivePackageCommandTest {
                 [workspace.members]
                 include = ["modules/provider", "apps/web"]
 
+                [repositories]
+                central = false
+
                 [repositories.test]
                 url = "%s"
                 """.formatted(mode.configValue(), repository.baseUri()));

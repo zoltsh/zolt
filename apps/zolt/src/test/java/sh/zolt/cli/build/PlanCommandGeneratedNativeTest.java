@@ -33,7 +33,8 @@ final class PlanCommandGeneratedNativeTest {
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
-                [generated.openapiPresets.spring-api]
+                [generated.presets.spring-api]
+                kind = "openapi"
                 generator = "spring"
                 library = "spring-boot"
                 options = { interfaceOnly = "true" }
