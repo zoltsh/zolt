@@ -206,19 +206,15 @@ final class OutdatedEngineTest {
                 entry.target().targetId());
     }
 
+    /** One workspace has one repository universe (design §8.7), so a scope reports its source. */
     @Test
-    void workspaceIntersectionOmitsSourceWhenMemberRepositoryIdentitiesDiffer() {
+    void rootPlatformCandidatesComeFromTheSingleWorkspaceRepositoryUniverse() {
         VersionDiscovery discovery = (repositories, group, artifact, offline) -> {
-            String host = repositories.getFirst().uri().getHost();
-            List<String> versions = host.startsWith("alpha")
-                    ? List.of("1.0.0", "1.1.0", "1.2.0")
-                    : List.of("1.0.0", "1.1.0");
             Map<String, String> sources = new java.util.LinkedHashMap<>();
-            versions.forEach(version -> sources.put(version, "private"));
-            return new sh.zolt.maven.metadata.MetadataDiscovery(true, versions, sources, List.of());
+            List.of("1.0.0", "1.1.0", "1.2.0").forEach(version -> sources.put(version, "private"));
+            return new sh.zolt.maven.metadata.MetadataDiscovery(
+                    true, List.of("1.0.0", "1.1.0", "1.2.0"), sources, List.of());
         };
-        ProjectConfig alpha = repositoryConfig("https://alpha.example.test/maven");
-        ProjectConfig beta = repositoryConfig("https://beta.example.test/maven");
 
         OutdatedReport report = new OutdatedEngine(discovery).report(
                 List.of(new OutdatedScope(
@@ -229,13 +225,13 @@ final class OutdatedEngineTest {
                                 [platforms]
                                 "com.acme:private-bom" = "1.0.0"
                                 """),
-                        List.of(alpha, beta),
+                        repositoryConfig("https://alpha.example.test/maven"),
                         Optional.empty())),
                 OutdatedOptions.defaults());
 
         OutdatedEntry entry = single(report);
-        assertEquals("1.1.0", entry.candidates().selectedLatest().orElseThrow());
-        assertTrue(entry.sourceRepository().isEmpty());
+        assertEquals("1.2.0", entry.candidates().selectedLatest().orElseThrow());
+        assertEquals("private", entry.sourceRepository().orElseThrow());
     }
 
     @Test

@@ -49,7 +49,7 @@ final class DependencyUpdateScopeResolver {
                 ? CanonicalUpdatePath::relative
                 : CanonicalUpdatePath::rawRelative;
         Optional<Workspace> discovered = workspaceLoader.discover(start);
-        if (discovered.isEmpty()) {
+        if (discovered.isEmpty() || reportsStandalone(discovered.orElseThrow(), start, schemaVersion)) {
             return List.of(scopes.fromDirectory(labelFor(start), start));
         }
         Workspace workspace = discovered.orElseThrow();
@@ -91,7 +91,7 @@ final class DependencyUpdateScopeResolver {
                     MANIFEST,
                     LOCKFILE,
                     scope.manifest(),
-                    scope.discovery().getFirst(),
+                    scope.discovery(),
                     Optional.empty(),
                     scope.lockfile(),
                     false));
@@ -137,7 +137,7 @@ final class DependencyUpdateScopeResolver {
                     MANIFEST,
                     LOCKFILE,
                     scope.manifest(),
-                    scope.discovery().getFirst(),
+                    scope.discovery(),
                     Optional.empty(),
                     Optional.empty(),
                     false);
@@ -189,6 +189,18 @@ final class DependencyUpdateScopeResolver {
         return catalog.references(manifestOf(workspace.configPath()), path).isEmpty()
                 ? Optional.empty()
                 : Optional.of(path);
+    }
+
+    /**
+     * A directory a workspace never expanded into a member is its own project. Schema v1 reports it
+     * that way; schema v2 refuses, because automation needs a path canonical under one mutation root.
+     */
+    private static boolean reportsStandalone(Workspace workspace, Path start, int schemaVersion) {
+        if (schemaVersion == 2 || sameDirectory(start, workspace.root())) {
+            return false;
+        }
+        return workspace.members().stream()
+                .noneMatch(candidate -> sameDirectory(start, candidate.directory()));
     }
 
     private List<WorkspaceMember> selectedMembers(Workspace workspace, Path start) {

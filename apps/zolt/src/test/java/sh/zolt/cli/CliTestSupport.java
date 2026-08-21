@@ -55,7 +55,7 @@ public final class CliTestSupport {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(name, currentJavaMajorVersion());
     }
 

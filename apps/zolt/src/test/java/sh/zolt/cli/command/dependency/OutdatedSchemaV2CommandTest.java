@@ -8,9 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.maven.metadata.MetadataDiscovery;
 import sh.zolt.maven.metadata.VersionDiscovery;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.OutdatedEngine;
 import sh.zolt.update.UpdateTargetCatalog;
-import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -23,6 +23,9 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 final class OutdatedSchemaV2CommandTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
@@ -68,7 +71,9 @@ final class OutdatedSchemaV2CommandTest {
 
                 [workspace]
                 name = "broken"
-                members = ["missing-member"]
+
+                [workspace.members]
+                include = ["missing-member"]
                 """);
 
         CommandResult result = execute(
@@ -92,7 +97,9 @@ final class OutdatedSchemaV2CommandTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [platforms]
                 "org.junit:junit-bom" = "5.10.2"
@@ -102,11 +109,11 @@ final class OutdatedSchemaV2CommandTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         String targetId = new UpdateTargetCatalog()
                 .collect(
-                        new WorkspaceConfigParser().parseRootConfig(root.resolve("zolt.toml")),
+                        LOADER.document(root.resolve("zolt.toml")).authored(),
                         "zolt.toml",
                         "zolt.lock")
                 .getFirst()
@@ -169,7 +176,7 @@ final class OutdatedSchemaV2CommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:lib" = "1.0.0-%s"
@@ -227,7 +234,7 @@ final class OutdatedSchemaV2CommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:%s" = "1.0.0"
@@ -254,7 +261,7 @@ final class OutdatedSchemaV2CommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:%s" = "1.0.0"
@@ -302,7 +309,7 @@ final class OutdatedSchemaV2CommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "//metadata:probe" = "1.0.0"
@@ -347,10 +354,8 @@ final class OutdatedSchemaV2CommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
                 "com.example:lib" = "1.0.0"
@@ -365,14 +370,16 @@ final class OutdatedSchemaV2CommandTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "unicode"
-                members = ["%s"]
+
+                [workspace.members]
+                include = ["%s"]
                 """.formatted(memberName));
         Files.writeString(member.resolve("zolt.toml"), """
                 [project]
                 name = "unicode-member"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:lib" = "1.0.0"
@@ -385,7 +392,9 @@ final class OutdatedSchemaV2CommandTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "repositories"
-                members = [%s]
+
+                [workspace.members]
+                include = [%s]
 
                 [platforms]
                 "com.acme:private-bom" = "1.0.0"
@@ -400,10 +409,10 @@ final class OutdatedSchemaV2CommandTest {
                     name = "%s"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "21"
+                    java = 21
 
-                    [repositories]
-                    %s = "https://%s.example.test/maven"
+                    [repositories.%s]
+                    url = "https://%s.example.test/maven"
                     """.formatted(repositoryId, repositoryId, repositoryId));
         }
         return root;

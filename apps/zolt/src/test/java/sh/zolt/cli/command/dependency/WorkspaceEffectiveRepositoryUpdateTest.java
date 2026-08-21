@@ -6,8 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.maven.metadata.MetadataDiscovery;
 import sh.zolt.maven.metadata.VersionDiscovery;
 import sh.zolt.maven.repository.RepositoryAccessPlanner;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.OutdatedEngine;
 import sh.zolt.update.UpdateEngine;
 import java.io.IOException;
@@ -27,6 +26,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import picocli.CommandLine;
 
 final class WorkspaceEffectiveRepositoryUpdateTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     private static final String TOKEN_ENV = "ZOLT_TEST_PRIVATE_TOKEN";
 
     @TempDir
@@ -95,7 +97,9 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "unicode-policy"
-                members = ["%s"]
+
+                [workspace.members]
+                include = ["%s"]
 
                 %s
                 """.formatted(memberName, rootRepository(false)));
@@ -105,7 +109,7 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
                 name = "unicode-member"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
                 """.formatted(dependency()));
@@ -143,8 +147,8 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
                 tempDir.resolve("conflict-" + command),
                 rootRepository(false),
                 """
-                [repositories]
-                private = "https://member.example.test/maven"
+                [repositories.private]
+                url = "https://member.example.test/maven"
 
                 %s
                 """.formatted(dependency()));
@@ -177,8 +181,8 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
     private static String rootRepository(boolean authenticated) {
         if (!authenticated) {
             return """
-                    [repositories]
-                    private = "https://root.example.test/maven"
+                    [repositories.private]
+                    url = "https://root.example.test/maven"
                     """;
         }
         return """
@@ -186,7 +190,7 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
                 url = "https://root.example.test/maven"
                 credentials = "company"
 
-                [repositoryCredentials.company]
+                [credentials.company]
                 tokenEnv = "%s"
                 """.formatted(TOKEN_ENV);
     }
@@ -203,7 +207,9 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "repositories"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 %s
                 """.formatted(rootPolicy));
@@ -212,7 +218,7 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
                 """.formatted(memberPolicy));
@@ -248,8 +254,7 @@ final class WorkspaceEffectiveRepositoryUpdateTest {
     private static Result policyUpdate(Path member, VersionDiscovery discovery, Runnable beforeExecution) {
         RepositoryAccessPlanner planner = new RepositoryAccessPlanner(name -> TOKEN_ENV.equals(name) ? "token" : null);
         UpdateCommand command = new UpdateCommand(
-                new ZoltTomlParser(),
-                new ZoltTomlWriter(),
+                MANIFESTS,
                 null,
                 new UpdateEngine(discovery, planner),
                 beforeExecution);

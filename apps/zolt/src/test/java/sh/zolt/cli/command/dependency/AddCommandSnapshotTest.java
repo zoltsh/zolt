@@ -44,8 +44,6 @@ final class AddCommandSnapshotTest {
         Files.createDirectories(projectDir);
         String original = memberConfig("add-snap-resolve") + """
 
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
                 """;
         Files.writeString(projectDir.resolve("zolt.toml"), original);
 

@@ -4,8 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import sh.zolt.maven.metadata.MetadataDiscovery;
 import sh.zolt.maven.metadata.VersionDiscovery;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.OutdatedSurface;
 import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateTarget;
@@ -22,10 +21,12 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 final class ConstraintLicensePolicyUpdateCommandTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
-    private final ZoltTomlParser parser = new ZoltTomlParser();
 
     @Test
     void policyUpdatePreservesCompleteLicensePolicySource() throws IOException {
@@ -49,7 +50,7 @@ final class ConstraintLicensePolicyUpdateCommandTest {
         Path manifest = project.resolve("zolt.toml");
         String original = Files.readString(manifest);
         UpdateTarget target = new UpdateTargetCatalog()
-                .collect(parser.parse(manifest), "zolt.toml", "zolt.lock").stream()
+                .collect(LOADER.document(manifest).authored(), "zolt.toml", "zolt.lock").stream()
                 .filter(candidate -> candidate.surface() == OutdatedSurface.DEPENDENCY_CONSTRAINT)
                 .findFirst()
                 .orElseThrow();
@@ -69,7 +70,8 @@ final class ConstraintLicensePolicyUpdateCommandTest {
 
     private Result run(Path project, VersionDiscovery discovery, String... arguments) {
         UpdateCommand command =
-                new UpdateCommand(parser, new ZoltTomlWriter(), null, new UpdateEngine(discovery));
+                new UpdateCommand(
+                MANIFESTS, null, new UpdateEngine(discovery));
         CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true);
         StringWriter stdout = new StringWriter();
         StringWriter stderr = new StringWriter();
@@ -89,21 +91,19 @@ final class ConstraintLicensePolicyUpdateCommandTest {
                 name = "constraint-license-policy"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
 
-                [dependencyConstraints]
-                "com.example:lib" = { version = "1.0.0", kind = "strict", reason = "supported baseline" }
+                [dependencies.constraints]
+                "com.example:lib" = { version = "1.0.0", reason = "supported baseline" }
 
                 # retain this complete policy block byte-for-byte
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT", "Apache-2.0"]
                 deny = ["GPL-3.0-only"]
                 unknown = "fail"
 
-                [dependencyPolicy.licenses.exceptions."org.example:transitive"]
+                [dependencies.license-exceptions."org.example:transitive"]
                 allow = ["BSD-3-Clause"]
                 version = "2.0.0"
                 reason = "reviewed exception"
@@ -112,7 +112,7 @@ final class ConstraintLicensePolicyUpdateCommandTest {
     }
 
     private static String updatedSource(String original) {
-        return original.replace("version = \"1.0.0\", kind", "version = \"1.1.0\", kind");
+        return original.replace("version = \"1.0.0\", reason", "version = \"1.1.0\", reason");
     }
 
     private static VersionDiscovery discovery() {

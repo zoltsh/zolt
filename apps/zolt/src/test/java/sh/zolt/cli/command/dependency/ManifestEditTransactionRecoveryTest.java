@@ -7,9 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.lockfile.toml.AtomicLockfileWriter;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.VersionAliasValue;
+import sh.zolt.manifest.authored.mutation.AuthoredManifestMutator;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
@@ -17,7 +19,6 @@ import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
@@ -30,6 +31,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class ManifestEditTransactionRecoveryTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
@@ -239,7 +243,9 @@ final class ManifestEditTransactionRecoveryTest {
         Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "locked"
-                members = ["member"]
+
+                [workspace.members]
+                include = ["member"]
                 """);
         Files.createDirectories(member);
         writeProject(member, "member");
@@ -260,14 +266,10 @@ final class ManifestEditTransactionRecoveryTest {
                         tempDir,
                         tempDir.resolve("cache"),
                         false,
-                        new ZoltTomlParser(),
-                        new ZoltTomlWriter(),
+                        MANIFESTS,
                         new sh.zolt.resolve.ResolveService(),
-                        config -> {
-                            var aliases = new LinkedHashMap<>(config.versionAliases());
-                            aliases.put("added", "1.0.0");
-                            return config.withVersionAliases(aliases);
-                        },
+                        config -> AuthoredManifestMutator.setVersionAlias(
+                                config, new LocalId("added"), new VersionAliasValue("1.0.0")),
                         () -> {
                             try {
                                 AtomicLockfileWriter.write(lockfile, concurrentLock);
@@ -292,15 +294,11 @@ final class ManifestEditTransactionRecoveryTest {
                 tempDir,
                 tempDir.resolve("cache"),
                 true,
-                new ZoltTomlParser(),
-                new ZoltTomlWriter(),
+                MANIFESTS,
                 null,
                 new ScopeExpectation(manifest, lockfile),
-                config -> {
-                    var aliases = new LinkedHashMap<>(config.versionAliases());
-                    aliases.put("added", "1.0.0");
-                    return config.withVersionAliases(aliases);
-                });
+                config -> AuthoredManifestMutator.setVersionAlias(
+                        config, new LocalId("added"), new VersionAliasValue("1.0.0")));
 
         assertTrue(edit.changed());
         assertTrue(edit.manifestChanged());
@@ -320,8 +318,7 @@ final class ManifestEditTransactionRecoveryTest {
                         tempDir,
                         tempDir.resolve("cache"),
                         true,
-                        new ZoltTomlParser(),
-                        new ZoltTomlWriter(),
+                        MANIFESTS,
                         null,
                         new ScopeExpectation(tempDir.resolve("elsewhere/zolt.toml"), tempDir.resolve("zolt.lock")),
                         config -> {
@@ -344,7 +341,9 @@ final class ManifestEditTransactionRecoveryTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "race"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         writeProject(api, "api");
         writeProject(core, "core");
@@ -364,14 +363,10 @@ final class ManifestEditTransactionRecoveryTest {
                         api,
                         cache,
                         false,
-                        new ZoltTomlParser(),
-                        new ZoltTomlWriter(),
+                        MANIFESTS,
                         resolveService,
-                        config -> {
-                            var aliases = new LinkedHashMap<>(config.versionAliases());
-                            aliases.put("selected", "1.1.0");
-                            return config.withVersionAliases(aliases);
-                        },
+                        config -> AuthoredManifestMutator.setVersionAlias(
+                                config, new LocalId("selected"), new VersionAliasValue("1.1.0")),
                         () -> writeUnchecked(coreManifest, coreConcurrent)));
 
         assertEquals(apiOriginal, Files.readString(apiManifest));
@@ -389,7 +384,7 @@ final class ManifestEditTransactionRecoveryTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """.formatted(name));
     }
 
@@ -414,8 +409,7 @@ final class ManifestEditTransactionRecoveryTest {
                             projectRoot,
                             projectRoot.resolve("cache"),
                             true,
-                            new ZoltTomlParser(),
-                            new ZoltTomlWriter(),
+                            MANIFESTS,
                             null,
                             config -> {
                                 mutationEntered.countDown();

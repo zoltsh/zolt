@@ -7,8 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.metadata.MetadataDiscovery;
 import sh.zolt.maven.metadata.VersionDiscovery;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.UpdateEngine;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -24,6 +23,9 @@ import picocli.CommandLine;
 
 /** JSON updates preserve source while keeping STDOUT exclusively machine-readable. */
 final class UpdateCommandJsonWarningTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
@@ -61,7 +63,9 @@ final class UpdateCommandJsonWarningTest {
 
                 [workspace]
                 name = "demo"
-                members = []
+
+                [workspace.members]
+                include = []
                 """);
 
         Result result = runUpdateJson(projectDir, discovery("com.example", "lib", "1.0.0", "1.1.0"));
@@ -186,7 +190,8 @@ final class UpdateCommandJsonWarningTest {
     private Result run(Path projectDir, VersionDiscovery discovery, String... args) {
         // resolveService is never touched because every invocation passes --no-resolve.
         UpdateCommand command =
-                new UpdateCommand(new ZoltTomlParser(), new ZoltTomlWriter(), null, new UpdateEngine(discovery));
+                new UpdateCommand(
+                MANIFESTS, null, new UpdateEngine(discovery));
         // Match ZoltCli.newCommandLine() so `--format json` (lowercase) parses like the real CLI.
         CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true);
         StringWriter stdout = new StringWriter();

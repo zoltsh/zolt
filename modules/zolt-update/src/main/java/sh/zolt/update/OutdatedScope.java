@@ -3,7 +3,6 @@ package sh.zolt.update;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.project.RepositoryConfiguration;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -17,43 +16,31 @@ import java.util.Optional;
  * (design §4.5 named maps, §20.1). A standalone project is one scope; a workspace is one scope per
  * member plus the root when the root manifest declares surfaces of its own.
  *
- * <p>{@code discovery} is a list because one report may span members with different effective
- * repository universes; candidates are then the intersection across those universes.
+ * <p>One workspace has exactly one dependency repository universe — a member may not declare
+ * {@code [repositories]} (design §8.7) — so every scope in one report discovers candidates through
+ * the same repositories.
  */
 public record OutdatedScope(
         String label,
         String manifestPath,
         String lockfilePath,
         AuthoredManifest manifest,
-        List<RepositoryConfiguration> discovery,
+        RepositoryConfiguration discovery,
         Optional<ZoltLockfile> lockfile) {
     public OutdatedScope {
         label = Objects.requireNonNull(label, "label");
         manifestPath = UpdateTargetKey.requirePath(manifestPath, "manifest path");
         lockfilePath = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
         manifest = Objects.requireNonNull(manifest, "manifest");
-        discovery = List.copyOf(Objects.requireNonNull(discovery, "discovery"));
-        if (discovery.isEmpty()) {
-            throw new IllegalArgumentException("An outdated scope requires a repository configuration.");
-        }
+        discovery = Objects.requireNonNull(discovery, "discovery");
         lockfile = lockfile == null ? Optional.empty() : lockfile;
     }
 
     public OutdatedScope(
             String label,
-            String manifestPath,
-            String lockfilePath,
             AuthoredManifest manifest,
             RepositoryConfiguration discovery,
             Optional<ZoltLockfile> lockfile) {
-        this(label, manifestPath, lockfilePath, manifest, List.of(discovery), lockfile);
-    }
-
-    public OutdatedScope(
-            String label,
-            AuthoredManifest manifest,
-            RepositoryConfiguration discovery,
-            Optional<ZoltLockfile> lockfile) {
-        this(label, "zolt.toml", "zolt.lock", manifest, List.of(discovery), lockfile);
+        this(label, "zolt.toml", "zolt.lock", manifest, discovery, lockfile);
     }
 }

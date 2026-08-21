@@ -11,6 +11,7 @@ public final class FinalManifestSymbols {
             "built-in-command",
             "add",
             "aliases",
+            "bom",
             "build",
             "cache",
             "check",
@@ -32,7 +33,7 @@ public final class FinalManifestSymbols {
             "outdated",
             "package",
             "plan",
-            "platform",
+            "platforms",
             "policy",
             "publish",
             "quarkus",
@@ -55,6 +56,7 @@ public final class FinalManifestSymbols {
             "tree",
             "update",
             "version",
+            "versions",
             "why",
             "workspace");
     private static final Set<String> BUILT_IN_COMMAND_NAMES = Collections.unmodifiableSet(

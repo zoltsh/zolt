@@ -4,8 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.metadata.VersionDiscovery;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.OutdatedSurface;
 import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateTarget;
@@ -20,10 +19,12 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 final class DependencyExactUpdateIdentityCompatibilityTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
-    private final ZoltTomlParser parser = new ZoltTomlParser();
 
     @Test
     void exactSchemaV2ReportsNoncanonicalSiblingIdentityWithoutWriting() throws IOException {
@@ -35,13 +36,13 @@ final class DependencyExactUpdateIdentityCompatibilityTest {
                 name = "noncanonical-sibling"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:lib" = "1.0.0"
                 """);
         UpdateTarget target = new UpdateTargetCatalog()
-                .collect(parser.parse(manifest), "zolt.toml", "zolt.lock")
+                .collect(LOADER.document(manifest).authored(), "zolt.toml", "zolt.lock")
                 .stream()
                 .filter(candidate -> candidate.surface() == OutdatedSurface.DEPENDENCY)
                 .findFirst()
@@ -66,8 +67,7 @@ final class DependencyExactUpdateIdentityCompatibilityTest {
             throw new AssertionError("Exact update must not perform metadata discovery.");
         };
         UpdateCommand command = new UpdateCommand(
-                parser,
-                new ZoltTomlWriter(),
+                MANIFESTS,
                 null,
                 new UpdateEngine(forbiddenDiscovery));
         CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true);

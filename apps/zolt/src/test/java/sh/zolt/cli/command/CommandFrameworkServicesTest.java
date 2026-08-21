@@ -58,8 +58,7 @@ final class CommandFrameworkServicesTest {
     void versionAliasCommandServicesOwnsDefaultVersionAliasWiring() {
         CommandVersionAliasServices services = CommandFrameworkServices.versionAliasCommandServices();
 
-        assertNotNull(services.tomlParser());
-        assertNotNull(services.tomlWriter());
+        assertNotNull(services.manifests());
         assertNotNull(services.resolveService());
     }
 
@@ -67,8 +66,7 @@ final class CommandFrameworkServicesTest {
     void configEditServicesOwnsDefaultConfigEditWiring() {
         CommandConfigEditServices services = CommandFrameworkServices.configEditServices();
 
-        assertNotNull(services.tomlParser());
-        assertNotNull(services.tomlWriter());
+        assertNotNull(services.manifests());
         assertNotNull(services.resolveService());
     }
 
@@ -77,8 +75,7 @@ final class CommandFrameworkServicesTest {
         CommandDependencyEditServices services = CommandFrameworkServices.dependencyEditCommandServices();
 
         assertNotNull(services.coordinateParser());
-        assertNotNull(services.tomlParser());
-        assertNotNull(services.tomlWriter());
+        assertNotNull(services.manifests());
         assertNotNull(services.resolveService());
     }
 
