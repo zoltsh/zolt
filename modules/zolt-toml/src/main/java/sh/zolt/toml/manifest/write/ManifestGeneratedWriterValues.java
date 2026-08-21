@@ -11,7 +11,7 @@ import sh.zolt.manifest.GeneratedArtifactRequest;
 import sh.zolt.toml.schema.FinalManifestObjectShapes;
 import sh.zolt.toml.schema.ManifestField;
 
-/** Shared canonical values for the authored generated-source domain. */
+/** Canonical generated-source fragments, including field-aware arrays that may wrap. */
 final class ManifestGeneratedWriterValues {
     private static final Pattern BARE_KEY = Pattern.compile("[A-Za-z0-9_-]+");
 
