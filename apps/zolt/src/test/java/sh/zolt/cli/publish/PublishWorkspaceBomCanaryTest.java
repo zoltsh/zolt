@@ -99,8 +99,8 @@ final class PublishWorkspaceBomCanaryTest {
             // Enable sources + javadoc on the jar members so packaging records them as supplementals.
             for (String member : new String[] {"acme-core", "acme-http"}) {
                 rewrite(family.resolve(member).resolve("zolt.toml"),
-                        "[package.metadata]",
-                        "[package]\nsources = true\njavadoc = true\n\n[package.metadata]");
+                        "[publish]",
+                        "[package]\nsources = true\njavadoc = true\n\n[publish]");
             }
 
             Path cache = tempDir.resolve("cache");
