@@ -1,7 +1,1141 @@
-version = 6
+version = 7
 projectResolutionFingerprint = "sha256:2a4d658be92fb5141d54ce9cc3476a1b966c561a5325e63140465a5155507f26"
 projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:7fc594463dd514ad55e92ffa40a24e48e3436c1b1f2fcdf4917996178ed37b6c", "dependencies.compile=sha256:53fb1039d86bc528a791d43155f872d5f656b50a1676f6b4714084cfae45849b", "dependencies.provided=sha256:fb1d589a350c36415cc1f7ab6f5efe21de446b82ef4f93d2562b248243479fe7", "dependencies.test=sha256:773992c79b9679cfdf2c510a43dab664efacebe4ca515346b22e05a9e19bab40", "dependencyMetadata=sha256:cdc704285703fc71a1707e5059aebf9f5748acd917f12084b12d26ad88011dd1", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:799032c8cf536aacc8d4dd13962887d60e72dc4a4c3f4da0bd018f4a301ed451", "schema=sha256:8bc527af269ce6e00194239e0204a133eccebadb631fb736c0e3e63d92dc5e2b"]
-workspaceResolutionInputFingerprint = "sha256:03642ffcd402d7acb6a8101724b0eeba6c9a9a031bd1405ad4e37cf6427e2871"
+workspaceResolutionInputFingerprint = "sha256:7920973c4f8920245c0c1ecfa55c4627b33347f34b1850b7304ad31bc5864181"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "info.picocli:picocli"
+version = "4.7.6"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-config"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-explain"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-framework-api"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-ide"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-init"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-native-image"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-plan"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-policy"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-publish"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-quality"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-quarkus"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-release"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-sbom"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-selfhost"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-test-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-test-runtime"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-toolchain"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-tree"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-update"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "sh.zolt:zolt-workspace"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt-javac-worker"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "apps/zolt-junit-worker"
+id = "sh.zolt:zolt-junit-client"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt-junit-worker"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt-junit-worker"
+id = "sh.zolt:zolt-test-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "apps/zolt-junit-worker"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "sh.zolt:zolt-junit-client"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "sh.zolt:zolt-test-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "sh.zolt:zolt-framework-api"
+version = "0.1.0-SNAPSHOT"
+lane = "api"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-build"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-config"
+id = "org.tomlj:tomlj"
+version = "1.1.1"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-config"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-config"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-explain"
+id = "org.tomlj:tomlj"
+version = "1.1.1"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-explain"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-explain"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-explain"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-explain"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-framework-api"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-framework-api"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-ide"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-ide"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-ide"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-ide"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-ide"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-ide"
+id = "sh.zolt:zolt-workspace"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-ide"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-init"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-init"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-init"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-junit-client"
+id = "sh.zolt:zolt-test-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-junit-client"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-model"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-native-image"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-native-image"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-native-image"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-native-image"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-plan"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-plan"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-plan"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-plan"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-policy"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-policy"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-policy"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-publish"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-publish"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-publish"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-publish"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-publish"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-policy"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-publish"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-sbom"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "sh.zolt:zolt-workspace"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quality"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "sh.zolt:zolt-framework-api"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "sh.zolt:zolt-ide"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "sh.zolt:zolt-test-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "io.quarkus:quarkus-builder"
+version = "3.33.2"
+lane = "provided"
+resolvedScope = "provided"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "io.quarkus:quarkus-core-deployment"
+version = "3.33.2"
+lane = "provided"
+resolvedScope = "provided"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "io.quarkus:quarkus-junit"
+version = "3.33.2"
+lane = "provided"
+resolvedScope = "provided"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "io.smallrye:jandex"
+version = "3.5.3"
+lane = "provided"
+resolvedScope = "provided"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "io.quarkus:quarkus-arc-deployment"
+version = "3.33.2"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "io.quarkus:quarkus-bootstrap-app-model"
+version = "3.33.2"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "io.quarkus:quarkus-fs-util"
+version = "1.3.0"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "io.quarkus:quarkus-test-common"
+version = "3.33.2"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-quarkus"
+id = "org.wildfly.common:wildfly-common"
+version = "2.0.1"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-release"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-release"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-repository"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-repository"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-resolve"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-resolve"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-resolve"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-resolve"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-sbom"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-sbom"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-sbom"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-sbom"
+id = "com.networknt:json-schema-validator"
+version = "2.0.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-sbom"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-selfhost"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-selfhost"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-selfhost"
+id = "sh.zolt:zolt-native-image"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-selfhost"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-selfhost"
+id = "sh.zolt:zolt-test-runtime"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-selfhost"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-selfhost"
+id = "sh.zolt:zolt-workspace"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-selfhost"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-model"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-model"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-runtime"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-runtime"
+id = "sh.zolt:zolt-framework-api"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-runtime"
+id = "sh.zolt:zolt-junit-client"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-runtime"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-runtime"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-runtime"
+id = "sh.zolt:zolt-test-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-runtime"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-test-runtime"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-toml"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-toml"
+id = "org.tomlj:tomlj"
+version = "1.1.1"
+lane = "api"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-toml"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-toolchain"
+id = "com.fasterxml.jackson.core:jackson-core"
+version = "2.22.1"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-toolchain"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-toolchain"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-toolchain"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-tree"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-tree"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-update"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-update"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-update"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-update"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-build"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-framework-api"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-native-image"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-publish"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-repository"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-resolve"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-test-model"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-test-runtime"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "sh.zolt:zolt-toml"
+version = "0.1.0-SNAPSHOT"
+lane = "implementation"
+resolvedScope = "compile"
+
+[[dependencyRoot]]
+member = "modules/zolt-workspace"
+id = "org.junit.platform:junit-platform-console-standalone"
+version = "1.11.4"
+lane = "test"
+resolvedScope = "test"
 
 [[package]]
 id = "args4j:args4j"
