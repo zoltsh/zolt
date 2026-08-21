@@ -110,7 +110,8 @@ final class FinalManifestSymbolsTest {
                                 "tree",
                                 "update",
                                 "version",
-                                "why"))), actual);
+                                "why",
+                                "workspace"))), actual);
         assertEquals(
                 Set.copyOf(actual.get("built-in-command")),
                 FinalManifestSymbols.builtInCommandNames());

@@ -312,6 +312,24 @@
     "allDeclaredMethods": true
   },
   {
+    "name": "sh.zolt.cli.command.workspace.WorkspaceCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.workspace.WorkspaceCommand$MembersCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.workspace.WorkspaceCommand$MembersCommand$Format",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
     "name": "sh.zolt.cli.command.quality.PolicyCommand",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,

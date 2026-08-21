@@ -33,6 +33,7 @@ import sh.zolt.cli.command.resolve.ResolveCommand;
 import sh.zolt.cli.command.selfhost.SelfCheckCommand;
 import sh.zolt.cli.command.testcmd.IntegrationTestCommand;
 import sh.zolt.cli.command.testcmd.TestCommand;
+import sh.zolt.cli.command.workspace.WorkspaceCommand;
 import sh.zolt.cli.console.ColorMode;
 import sh.zolt.cli.console.ConsoleStyle;
 import sh.zolt.cli.console.ProgressMode;
@@ -53,6 +54,7 @@ import picocli.CommandLine.Spec;
                 ZoltHelpCommand.class,
                 InitCommand.class,
                 VersionCommand.class,
+                WorkspaceCommand.class,
                 sh.zolt.cli.command.self.SelfCommand.class,
                 ConfigCommand.class,
                 sh.zolt.cli.command.cache.CacheCommand.class,

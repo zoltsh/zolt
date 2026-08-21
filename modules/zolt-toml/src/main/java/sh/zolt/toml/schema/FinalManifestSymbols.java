@@ -55,7 +55,8 @@ public final class FinalManifestSymbols {
             "tree",
             "update",
             "version",
-            "why");
+            "why",
+            "workspace");
     private static final Set<String> BUILT_IN_COMMAND_NAMES = Collections.unmodifiableSet(
             new LinkedHashSet<>(BUILT_IN_COMMANDS.values()));
 
