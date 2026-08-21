@@ -12,7 +12,6 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.maven.repository.MavenRepositoryClient;
-import sh.zolt.toml.ZoltTomlParser;
 
 final class PublishUploadServiceCleanupTest {
     @TempDir
@@ -45,10 +44,10 @@ final class PublishUploadServiceCleanupTest {
                     name = "cleanup-warning-lib"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "%d"
+                    java = %d
 
                     [publish]
-                    releaseRepository = "local"
+                    release = "local"
 
                     [publish.repositories.local]
                     url = "%s"

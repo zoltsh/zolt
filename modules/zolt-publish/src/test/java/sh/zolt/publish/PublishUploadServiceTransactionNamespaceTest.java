@@ -77,10 +77,10 @@ final class PublishUploadServiceTransactionNamespaceTest {
                 name = "resumable-lib"
                 version = "%s"
                 group = "com.example"
-                java = "%d"
+                java = %d
 
                 [publish]
-                releaseRepository = "local"
+                release = "local"
 
                 [publish.repositories.local]
                 url = "%s"

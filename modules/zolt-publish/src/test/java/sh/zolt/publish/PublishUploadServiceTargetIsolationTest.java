@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import sh.zolt.maven.repository.MavenRepositoryClient;
-import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -160,16 +159,16 @@ final class PublishUploadServiceTargetIsolationTest {
                 name = "multi-target-signed-lib"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%d"
+                java = %d
 
                 [publish]
-                releaseRepository = "local"
+                release = "local"
 
                 [publish.repositories.local]
                 url = "%s"
 
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 passphraseEnv = "ZOLT_SIGNING_PASS"
                 """.formatted(Runtime.version().feature(), repository));
     }

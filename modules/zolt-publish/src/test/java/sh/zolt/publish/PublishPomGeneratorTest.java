@@ -23,7 +23,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.project.PublicationMetadata;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,20 +43,20 @@ final class PublishPomGeneratorTest {
                 List.of("Ada Lovelace"),
                 "https://github.com/example/app",
                 "https://github.com/example/app/issues");
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "app"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [api.dependencies]
+                [dependencies.api]
                 "org.slf4j:slf4j-api" = "2.0.13"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.zaxxer:HikariCP" = "5.1.0"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "jakarta.servlet:jakarta.servlet-api" = "6.0.0"
                 """).withPackageSettings(new PackageSettings(PackageMode.THIN, false, false, false, metadata));
 
@@ -212,15 +212,15 @@ final class PublishPomGeneratorTest {
 
     @Test
     void apiDependencyKeepsClassifierTypeOptionalAndExclusions() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "app"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [api.dependencies]
-                "io.netty:netty-transport-native-epoll" = { version = "4.1.100.Final", classifier = "linux-x86_64", type = "zip", optional = true, exclusions = [{ group = "io.netty", artifact = "netty-common" }] }
+                [dependencies.api]
+                "io.netty:netty-transport-native-epoll" = { version = "4.1.100.Final", classifier = "linux-x86_64", type = "zip", optional = true, exclude = ["io.netty:netty-common"] }
                 """);
         LockArtifactVariant variant = new LockArtifactVariant("zip", Optional.of("linux-x86_64"));
         ZoltLockfile lockfile = lockfile(

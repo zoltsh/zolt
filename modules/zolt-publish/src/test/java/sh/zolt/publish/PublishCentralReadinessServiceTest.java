@@ -4,7 +4,6 @@ import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,7 +26,7 @@ final class PublishCentralReadinessServiceTest {
     void validSourceDateEpochWithoutPinnedKeyFlagsTheReproducibleSigningRequirement() throws IOException {
         Path root = writeProject("""
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 """);
 
         List<PublishCentralRequirement> requirements = service(env("1700000000")).evaluate(root, plan());
@@ -41,7 +40,7 @@ final class PublishCentralReadinessServiceTest {
     void absentSourceDateEpochLeavesTheReproducibleSigningRequirementOut() throws IOException {
         Path root = writeProject("""
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 """);
 
         List<PublishCentralRequirement> requirements = service(env(null)).evaluate(root, plan());
@@ -55,7 +54,7 @@ final class PublishCentralReadinessServiceTest {
     void blankSourceDateEpochFailsReadinessLoudly() throws IOException {
         Path root = writeProject("""
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 """);
 
         PublishException exception =
@@ -68,7 +67,7 @@ final class PublishCentralReadinessServiceTest {
     void malformedSourceDateEpochFailsReadinessLoudly() throws IOException {
         Path root = writeProject("""
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 """);
 
         PublishException exception =
@@ -82,7 +81,7 @@ final class PublishCentralReadinessServiceTest {
     void negativeSourceDateEpochFailsReadinessLoudly() throws IOException {
         Path root = writeProject("""
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 """);
 
         PublishException exception =
@@ -93,12 +92,9 @@ final class PublishCentralReadinessServiceTest {
 
     @Test
     void malformedSourceDateEpochIsIgnoredWhenSigningIsDisabled() throws IOException {
-        // The epoch only gates reproducible SIGNING; with signing off the parser is never consulted, so
-        // a malformed value must not fail an otherwise fine readiness check.
-        Path root = writeProject("""
-                [publish.signing]
-                enabled = false
-                """);
+        // The epoch only gates reproducible SIGNING; with no [publish.signing] the parser is never
+        // consulted, so a malformed value must not fail an otherwise fine readiness check.
+        Path root = writeProject("");
 
         List<PublishCentralRequirement> requirements = service(env("not-an-epoch")).evaluate(root, plan());
 
@@ -130,7 +126,7 @@ final class PublishCentralReadinessServiceTest {
                 name = "readiness-lib"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%d"
+                java = %d
                 """.formatted(Runtime.version().feature()) + "\n" + publishBody;
         Files.writeString(root.resolve("zolt.toml"), toml);
         return root;

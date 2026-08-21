@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import sh.zolt.net.NetworkTransport;
-import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -196,15 +195,15 @@ final class PublishCentralPublishServiceTest {
                 name = "central-lib"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%d"
+                java = %d
 
                 [publish.central]
                 tokenEnv = "ZOLT_CENTRAL_TOKEN"
-                publishingType = "automatic"
-                baseUrl = "%s"
+                mode = "automatic"
+                url = "%s"
 
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 passphraseEnv = "ZOLT_SIGNING_PASS"
                 """.formatted(Runtime.version().feature(), baseUrl));
         return root;

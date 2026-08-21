@@ -17,7 +17,6 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.project.PublicationMetadata;
-import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -34,14 +33,14 @@ final class PublishPomGoldenTest {
 
     @Test
     void classifierAndTypeRideJarPomInMavenElementOrder() throws IOException {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = PublishManifestFixtures.standalone("""
                 [project]
                 name = "app"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [api.dependencies]
+                [dependencies.api]
                 "io.netty:netty-transport-native-epoll" = { version = "4.1.100.Final", classifier = "linux-x86_64" }
                 "org.example:widget" = { version = "2.0.0", type = "zip" }
                 """);
@@ -61,17 +60,24 @@ final class PublishPomGoldenTest {
 
     @Test
     void interMemberWorkspaceDependencyRendersRealGavAlongsideExternal() throws IOException {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = PublishManifestFixtures.workspaceMember("""
                 [project]
                 name = "acme-http"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
-                [api.dependencies]
-                "com.acme:acme-core" = { workspace = "acme-core" }
+                [dependencies.api]
+                "com.acme:acme-core" = { workspace = true }
                 "org.slf4j:slf4j-api" = "2.0.13"
-                """);
+                """,
+                Map.of("acme-core", """
+                        [project]
+                        name = "acme-core"
+                        version = "1.0.0"
+                        group = "com.acme"
+                        java = 21
+                        """));
         ZoltLockfile lockfile = lockfile(
                 List.of(
                         workspacePackage("com.acme", "acme-core", "1.0.0", "acme-core"),

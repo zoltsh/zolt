@@ -7,7 +7,7 @@ import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,7 +20,7 @@ final class PublishTestPackageEvidence {
 
     static void write(Path projectRoot) throws IOException {
         ProjectConfig config =
-                new ZoltTomlParser().parse(projectRoot.resolve("zolt.toml"));
+                new ManifestProjectConfigLoader().load(projectRoot.resolve("zolt.toml"));
         PackagePlan plan = new PackagePlanService().plan(
                 projectRoot,
                 config,

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.dependency.DependencyLane;
@@ -13,7 +14,6 @@ import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
 
 final class PublishDependencyRootCoverageTest {
     private final PublishPomGenerator generator = new PublishPomGenerator();
@@ -36,7 +36,7 @@ final class PublishDependencyRootCoverageTest {
         assertTrue(missing.getMessage().contains("implementation:org.example:missing:jar"));
 
         ProjectConfig publishOnly = config("""
-                [api.dependencies]
+                [dependencies.api]
                 "org.example:publish-helper" = { version = "2.0.0", publishOnly = true }
                 """);
         PublishException missingPublishOnly = assertThrows(
@@ -83,7 +83,7 @@ final class PublishDependencyRootCoverageTest {
                 "unexpected [`implementation:org.example:helper:jar:publish-only`]"));
 
         ProjectConfig normal = config("""
-                [api.dependencies]
+                [dependencies.api]
                 "org.example:normal" = "2"
                 """);
         LockDependencyRoot forgedPublishOnly = new LockDependencyRoot(
@@ -98,17 +98,20 @@ final class PublishDependencyRootCoverageTest {
 
     @Test
     void trustsSelectedVersionsForOrdinaryFixedAliasManagedAndWorkspaceRoots() {
-        ProjectConfig declarations = config("""
+        ProjectConfig declarations = workspaceConfig("""
                 [versions]
                 aliased = "2.0.0"
 
-                [api.dependencies]
+                [platforms]
+                "org.example:platform" = "1.0.0"
+
+                [dependencies.api]
                 "org.example:fixed" = "1.0.0"
-                "org.example:managed" = {}
+                "org.example:managed" = { managed = true }
 
                 [dependencies]
                 "org.example:aliased" = { versionRef = "aliased" }
-                "com.example:workspace-lib" = { workspace = "libs/workspace-lib" }
+                "com.example:workspace-lib" = { workspace = true }
                 """);
         LockDependencyRoot fixed = root("org.example", "fixed", "1.0.1", DependencyLane.API);
         LockDependencyRoot managed = root("org.example", "managed", "7.0.0", DependencyLane.API);
@@ -147,14 +150,30 @@ final class PublishDependencyRootCoverageTest {
     }
 
     private static ProjectConfig config(String dependencySections) {
-        return new ZoltTomlParser().parse("""
+        return PublishManifestFixtures.standalone(manifest(dependencySections));
+    }
+
+    private static ProjectConfig workspaceConfig(String dependencySections) {
+        return PublishManifestFixtures.workspaceMember(
+                manifest(dependencySections),
+                Map.of("libs/workspace-lib", """
+                        [project]
+                        name = "workspace-lib"
+                        version = "3.0.0"
+                        group = "com.example"
+                        java = 21
+                        """));
+    }
+
+    private static String manifest(String dependencySections) {
+        return """
                 [project]
                 name = "app"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                """ + dependencySections);
+                """ + dependencySections;
     }
 
     private static ZoltLockfile lockfile(LockDependencyRoot root) {
