@@ -66,6 +66,7 @@ final class FinalManifestSymbolsTest {
                         List.of(
                                 "add",
                                 "aliases",
+                                "bom",
                                 "build",
                                 "cache",
                                 "check",
@@ -87,7 +88,7 @@ final class FinalManifestSymbolsTest {
                                 "outdated",
                                 "package",
                                 "plan",
-                                "platform",
+                                "platforms",
                                 "policy",
                                 "publish",
                                 "quarkus",
@@ -110,6 +111,7 @@ final class FinalManifestSymbolsTest {
                                 "tree",
                                 "update",
                                 "version",
+                                "versions",
                                 "why",
                                 "workspace"))), actual);
         assertEquals(
