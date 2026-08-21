@@ -9,6 +9,20 @@ import java.nio.file.Path;
 final class PolicyCommandTestSupport {
     private PolicyCommandTestSupport() {}
 
+    /** The same project as a workspace member: the root owns the repositories (design 8.7). */
+    static void writePolicyMember(Path memberDir) throws IOException {
+        writePolicyProject(memberDir);
+        Files.writeString(memberDir.resolve("zolt.toml"),
+                Files.readString(memberDir.resolve("zolt.toml")).replace("""
+                        [repositories]
+                        central = false
+
+                        [repositories.test]
+                        url = "https://repo.maven.apache.org/maven2"
+
+                        """.replace("                        ", "                "), ""));
+    }
+
     static void writePolicyProject(Path projectDir) throws IOException {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """

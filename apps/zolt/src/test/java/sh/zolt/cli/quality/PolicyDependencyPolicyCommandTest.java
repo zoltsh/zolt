@@ -90,7 +90,7 @@ final class PolicyDependencyPolicyCommandTest {
     void checkWorkspaceDependencyPolicyReportsSelectedMemberConflicts() throws IOException {
         Path workspaceDir = tempDir.resolve("check-workspace-dependency-policy-direct-conflict");
         Path apiDir = workspaceDir.resolve("apps/api");
-        PolicyCommandTestSupport.writePolicyProject(apiDir);
+        PolicyCommandTestSupport.writePolicyMember(apiDir);
         PolicyCommandTestSupport.writePolicyLockfile(workspaceDir);
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
