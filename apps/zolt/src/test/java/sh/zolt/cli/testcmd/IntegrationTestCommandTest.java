@@ -37,7 +37,7 @@ final class IntegrationTestCommandTest extends TestCommandTestSupport {
 
                 [build.output]
                 root = ".zolt/build"
-                integration = "target/it-classes"
+                integration = "it-classes"
 
                 [test.integration]
                 sources = ["src/it/java"]
@@ -77,8 +77,8 @@ final class IntegrationTestCommandTest extends TestCommandTestSupport {
         assertFalse(result.stdout().contains("\u001B[32mWrote integration test reports to "));
         assertEquals(0, quiet.exitCode(), quiet.stderr());
         assertEquals("fake console\n", quiet.stdout());
-        assertTrue(Files.exists(projectDir.resolve("target/it-classes/com/example/AppIT.class")));
-        assertTrue(Files.exists(projectDir.resolve("target/it-classes/it.properties")));
+        assertTrue(Files.exists(projectDir.resolve(".zolt/build/it-classes/com/example/AppIT.class")));
+        assertTrue(Files.exists(projectDir.resolve(".zolt/build/it-classes/it.properties")));
         assertTrue(Files.exists(projectDir.resolve(".zolt/build/integration-test-reports/TEST-fake-console.xml")));
         assertFalse(Files.exists(projectDir.resolve("target/test-classes/com/example/AppTest.class")));
     }

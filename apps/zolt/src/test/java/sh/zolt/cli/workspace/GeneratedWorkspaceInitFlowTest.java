@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,10 +45,10 @@ final class GeneratedWorkspaceInitFlowTest {
 
         String workspaceToml = Files.readString(workspaceDir.resolve("zolt.toml"));
         assertTrue(workspaceToml.contains("[workspace]"));
-        assertTrue(workspaceToml.contains("members = [\"apps/platform\"]"));
-        assertTrue(workspaceToml.contains("defaultMembers = [\"apps/platform\"]"));
+        assertTrue(workspaceToml.contains("[workspace.members]"), workspaceToml);
+        assertTrue(workspaceToml.contains("default = [\"apps/platform\"]"), workspaceToml);
+        assertTrue(workspaceToml.contains("include = [\"apps/platform\"]"), workspaceToml);
         useTestRepository(workspaceDir.resolve("zolt.toml"), repository);
-        useTestRepository(appDir.resolve("zolt.toml"), repository);
 
         CommandResult resolve = execute(
                 "resolve",
@@ -145,10 +144,19 @@ final class GeneratedWorkspaceInitFlowTest {
         }
     }
 
+    /**
+     * A generated manifest is sparse and names no repository, so the fixture appends the closed
+     * universe it needs. Only the workspace root may own it (design 8.7).
+     */
     private static void useTestRepository(Path config, CliTestRepository repository) throws IOException {
-        String toml = Files.readString(config)
-                .replace(ProjectConfig.MAVEN_CENTRAL, repository.baseUri().toString());
-        Files.writeString(config, toml);
+        Files.writeString(config, Files.readString(config) + """
+
+                [repositories]
+                central = false
+
+                [repositories.test]
+                url = "%s"
+                """.formatted(repository.baseUri()));
     }
 
     private static String pom(String group, String artifact, String version) {
