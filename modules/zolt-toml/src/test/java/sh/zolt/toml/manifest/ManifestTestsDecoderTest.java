@@ -114,11 +114,11 @@ final class ManifestTestsDecoderTest {
 
     @Test
     void requiresANonNullDecodeIndex() {
-        assertThrows(NullPointerException.class, () -> decoder.decode(null));
+        assertThrows(NullPointerException.class, () -> decoder.decode(null, ignored -> {}));
     }
 
     private Optional<AuthoredTests> decode(String source) {
-        return decoder.decode(ManifestSemanticTestSupport.index(source));
+        return decoder.decode(ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private void assertFailure(String source, String expected) {

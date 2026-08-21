@@ -14,6 +14,7 @@ import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredTestRuntime;
 import sh.zolt.manifest.authored.AuthoredTestSuite;
 import sh.zolt.manifest.authored.AuthoredTests;
+import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestTestFields;
 
 /** Composes authored test roots, runtime, integration, and suites without applying defaults. */
@@ -22,8 +23,27 @@ final class ManifestTestsDecoder {
     private final ManifestTestRuntimeDecoder runtimeDecoder = new ManifestTestRuntimeDecoder();
     private final ManifestTestSuitesDecoder suitesDecoder = new ManifestTestSuitesDecoder();
 
-    Optional<AuthoredTests> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredTests> decode(
+            ManifestDecodeIndex index,
+            TestsPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored tests presence observer is required.");
+        Optional<ValidatedManifestField> firstField =
+                index.field(FinalManifestTestFields.TEST_SOURCES_JAVA)
+                        .or(() -> index.field(FinalManifestTestFields.TEST_SOURCES_GROOVY))
+                        .or(() -> index.field(FinalManifestTestFields.TEST_RUNTIME_JVM_ARGS))
+                        .or(() -> index.field(FinalManifestTestFields.TEST_RUNTIME_PROPERTIES))
+                        .or(() -> index.field(FinalManifestTestFields.TEST_RUNTIME_ENV))
+                        .or(() -> index.field(FinalManifestTestFields.TEST_RUNTIME_EVENTS))
+                        .or(() -> index.field(FinalManifestTestFields.TEST_INTEGRATION_SOURCES))
+                        .or(() -> index.field(FinalManifestTestFields.TEST_INTEGRATION_RESOURCES));
+        if (firstField.isPresent()) {
+            ManifestSemanticDiagnostics.construct(
+                    firstField.orElseThrow(), () -> notify(observer));
+        } else {
+            index.section(FinalManifestPaths.TEST_SUITES).ifPresent(section ->
+                    ManifestSemanticDiagnostics.construct(section, () -> notify(observer)));
+        }
         Optional<AuthoredTests.Sources> sources = rootsDecoder.decodeSources(index);
         Optional<AuthoredTestRuntime> runtime = runtimeDecoder.decode(index);
         Optional<AuthoredTests.Integration> integration = rootsDecoder.decodeIntegration(index);
@@ -39,6 +59,17 @@ final class ManifestTestsDecoder {
                 runtime,
                 integration,
                 suites.orElseGet(Map::of)));
+    }
+
+    private static AuthoredTests notify(TestsPresenceObserver observer) {
+        AuthoredTests tests = AuthoredTests.empty();
+        observer.present(tests);
+        return tests;
+    }
+
+    @FunctionalInterface
+    interface TestsPresenceObserver {
+        void present(AuthoredTests tests);
     }
 }
 

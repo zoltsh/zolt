@@ -7,6 +7,7 @@ import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredCompiler;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 import sh.zolt.manifest.authored.AuthoredResources;
+import sh.zolt.manifest.authored.AuthoredTests;
 
 /** Cross-package test seam for package-private final-manifest build decoders. */
 public final class ManifestBuildTestSupport {
@@ -79,6 +80,18 @@ public final class ManifestBuildTestSupport {
 
     public static void decodeResourcesWithNullObserver() {
         new ManifestResourcesDecoder().decode(ManifestSemanticTestSupport.index(""), null);
+    }
+
+    public static Optional<AuthoredTests> decodeTests(
+            String source, Consumer<AuthoredTests> observer) {
+        ManifestTestsDecoder.TestsPresenceObserver adapted =
+                observer == null ? null : observer::accept;
+        return new ManifestTestsDecoder().decode(
+                ManifestSemanticTestSupport.index(source), adapted);
+    }
+
+    public static void decodeTestsWithNullIndex() {
+        new ManifestTestsDecoder().decode(null, ignored -> {});
     }
 
     public static void decodeBuildConfigurationWithNullIndex() {

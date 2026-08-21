@@ -34,7 +34,7 @@ final class ManifestBuildConfigurationDecoder {
         Optional<AuthoredResources> resources = resourcesDecoder.decode(index, ignored -> {});
         Optional<AuthoredGeneratedSources> generated =
                 generatedDecoder.decode(index, ignored -> {});
-        Optional<AuthoredTests> tests = testsDecoder.decode(index);
+        Optional<AuthoredTests> tests = testsDecoder.decode(index, ignored -> {});
         Optional<AuthoredCoverage> coverage = coverageDecoder.decode(index);
         AuthoredBuildConfiguration configuration = new AuthoredBuildConfiguration(
                 build, compiler, resources, tests, coverage);
