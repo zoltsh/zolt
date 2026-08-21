@@ -91,6 +91,10 @@ final class TomlManifestPackageBoundaryTest {
                 package sh.zolt.toml.manifest;
                 final class GoodNested { LocalIndex.Entry value; }
                 """);
+        write(tomlSources.resolve("manifest/write/GoodWriter.java"), """
+                package sh.zolt.toml.manifest.write;
+                final class GoodWriter { LocalWriter.Nested value; }
+                """);
         write(tomlSources.resolve("manifest/PublicDocumentation.java"), """
                 package sh.zolt.toml.manifest;
                 /** Public API does not expose org.tomlj.TomlTable. */
@@ -101,6 +105,7 @@ final class TomlManifestPackageBoundaryTest {
         Map<String, String> typeOwners = Map.of(
                 "sh.zolt.cli.Command", "zolt",
                 "sh.zolt.toml.manifest.LocalIndex", "zolt-toml",
+                "sh.zolt.toml.manifest.write.LocalWriter", "zolt-toml",
                 "sh.zolt.manifest.authored.AuthoredManifest", "zolt-model");
 
         List<Violation> violations = violations(tomlSources, typeOwners);
@@ -112,6 +117,7 @@ final class TomlManifestPackageBoundaryTest {
         assertTrue(violations.stream().anyMatch(value -> value.rule().equals("legacy-no-final-pipeline")));
         assertTrue(violations.stream().anyMatch(value -> value.rule().equals("manifest-dependencies")));
         assertTrue(violations.stream().anyMatch(value -> value.rule().equals("public-api-no-tomlj")));
+        assertTrue(violations.stream().noneMatch(value -> value.file().endsWith("GoodWriter.java")));
     }
 
     @Test
@@ -323,7 +329,8 @@ final class TomlManifestPackageBoundaryTest {
             JavaSourceReferences.Analysis analysis = JavaSourceReferences.analyze(source);
             List<JavaSourceReferences.Reference> references = analysis.references();
             for (JavaSourceReferences.Reference reference : references) {
-                if (!allowedManifestReference(reference, typeOwners)) {
+                if (!allowedManifestReference(
+                        reference, analysis.packageName().orElse(""), typeOwners)) {
                     violations.add(new Violation(
                             "manifest-dependencies", file, reference.line(),
                             "references type or package outside JDK/syntax/schema/model/root exception/Tomlj: `"
@@ -345,6 +352,7 @@ final class TomlManifestPackageBoundaryTest {
 
     private static boolean allowedManifestReference(
             JavaSourceReferences.Reference reference,
+            String sourcePackage,
             Map<String, String> typeOwners) {
         String name = reference.name();
         if (isJdk(name)
@@ -355,7 +363,8 @@ final class TomlManifestPackageBoundaryTest {
                 || isWithin(name, ROOT_PACKAGE + ".ZoltConfigException")) {
             return true;
         }
-        if (WorkspaceDependencyDeclarations.resolveOwner(MANIFEST_PACKAGE + "." + name, typeOwners)
+        if (!sourcePackage.isEmpty()
+                && WorkspaceDependencyDeclarations.resolveOwner(sourcePackage + "." + name, typeOwners)
                 .filter("zolt-toml"::equals)
                 .isPresent()) {
             return true;
