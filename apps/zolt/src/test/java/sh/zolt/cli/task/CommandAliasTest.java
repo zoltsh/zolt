@@ -21,7 +21,7 @@ final class CommandAliasTest {
     void listsConfiguredAliases() throws IOException {
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("alias-list") + """
 
-                [commands.aliases]
+                [aliases]
                 tl = ["tasks"]
                 ci = ["check", "--context", "ci"]
                 """);
@@ -41,12 +41,12 @@ final class CommandAliasTest {
     void expandsAliasToBuiltInCommandAndAppendsUserArguments() throws IOException {
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("alias-expand") + """
 
-                [commands.aliases]
+                [aliases]
                 tl = ["tasks"]
 
-                [commands.tasks.fmt]
+                [tasks.fmt]
                 description = "Format Java sources"
-                cmd = ["scripts/format"]
+                run = ["scripts/format"]
                 """);
 
         CommandResult result = execute("--color=never", "tl", "--cwd", tempDir.toString());
@@ -62,7 +62,7 @@ final class CommandAliasTest {
     void invalidAliasConfigDoesNotBreakRootHelp() throws IOException {
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("alias-invalid") + """
 
-                [commands.aliases]
+                [aliases]
                 bad = ["./scripts/check"]
                 """);
 
@@ -77,7 +77,7 @@ final class CommandAliasTest {
     void unknownCommandMentionsAliasesOnlyWhenAliasesExist() throws IOException {
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("alias-unknown") + """
 
-                [commands.aliases]
+                [aliases]
                 tl = ["tasks"]
                 """);
 

@@ -30,12 +30,12 @@ final class TaskCommandTest {
     void listsConfiguredTasks() throws IOException {
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("task-list") + """
 
-                [commands.tasks.fmt]
+                [tasks.fmt]
                 description = "Format Java sources"
-                cmd = ["scripts/format"]
+                run = ["scripts/format"]
 
-                [commands.tasks.docs]
-                cmd = ["python3", "-m", "http.server"]
+                [tasks.docs]
+                run = ["python3", "-m", "http.server"]
                 """);
 
         CommandResult result = execute("tasks", "--cwd", tempDir.toString());
@@ -58,8 +58,8 @@ final class TaskCommandTest {
         Files.createDirectories(tempDir.resolve("work"));
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("task-run") + """
 
-                [commands.tasks.echo]
-                cmd = ["sh", "../scripts/echo-task.sh"]
+                [tasks.echo]
+                run = ["sh", "../scripts/echo-task.sh"]
                 cwd = "work"
                 env = { APP_ENV = "local" }
                 """);
@@ -89,8 +89,8 @@ final class TaskCommandTest {
                 """);
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("task-fail") + """
 
-                [commands.tasks.fail]
-                cmd = ["sh", "fail.sh"]
+                [tasks.fail]
+                run = ["sh", "fail.sh"]
                 """);
 
         CommandResult result = execute("task", "--cwd", tempDir.toString(), "fail");
@@ -123,8 +123,8 @@ final class TaskCommandTest {
                 """);
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("task-interrupt") + """
 
-                [commands.tasks.forest]
-                cmd = ["sh", "tree.sh"]
+                [tasks.forest]
+                run = ["sh", "tree.sh"]
                 """);
         AtomicReference<CommandResult> result = new AtomicReference<>();
         Thread caller = Thread.ofPlatform().start(() ->
@@ -145,8 +145,8 @@ final class TaskCommandTest {
     void reportsUnknownTasksWithAvailableNames() throws IOException {
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("task-missing") + """
 
-                [commands.tasks.fmt]
-                cmd = ["scripts/format"]
+                [tasks.fmt]
+                run = ["scripts/format"]
                 """);
 
         CommandResult result = execute("task", "--cwd", tempDir.toString(), "docs");
@@ -169,8 +169,8 @@ final class TaskCommandTest {
         }
         Files.writeString(tempDir.resolve("zolt.toml"), CliTestSupport.memberConfig("task-cwd") + """
 
-                [commands.tasks.escape]
-                cmd = ["sh", "-c", "printf should-not-run"]
+                [tasks.escape]
+                run = ["sh", "-c", "printf should-not-run"]
                 cwd = "link"
                 """);
 
@@ -183,31 +183,101 @@ final class TaskCommandTest {
     }
 
     @Test
-    void readsWorkspaceRootTasksWhenStartedFromMemberDirectory() throws IOException {
+    void listsWorkspaceRootAndMemberTasksFromMemberDirectory() throws IOException {
+        Path member = writeWorkspace("""
+                [tasks.root-task]
+                description = "Root task"
+                run = ["scripts/root-task"]
+                """, """
+                [tasks.member-task]
+                description = "Member task"
+                run = ["scripts/member-task"]
+                """);
+
+        CommandResult result = execute("tasks", "--cwd", member.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("root-task"), result.stdout());
+        assertTrue(result.stdout().contains("Root task"));
+        assertTrue(result.stdout().contains("member-task"), result.stdout());
+        assertTrue(result.stdout().contains("Member task"));
+    }
+
+    @Test
+    void memberTaskResolvesCwdAgainstMemberDirectory() throws IOException {
+        Path member = writeWorkspace("", """
+                [tasks.where]
+                run = ["sh", "-c", "printf 'cwd=%s\\\\n' \\"$PWD\\"; printf 'root=%s\\\\n' \\"$ZOLT_PROJECT_ROOT\\""]
+                cwd = "work"
+                """);
+        Files.createDirectories(member.resolve("work"));
+
+        CommandResult result = execute("task", "--cwd", member.toString(), "where");
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(
+                result.stdout().contains("cwd=" + member.resolve("work").toRealPath()),
+                result.stdout());
+        assertTrue(result.stdout().contains("root=" + member), result.stdout());
+    }
+
+    @Test
+    void rootTaskResolvesCwdAgainstWorkspaceRootFromMemberDirectory() throws IOException {
+        Path member = writeWorkspace("""
+                [tasks.where]
+                run = ["sh", "-c", "printf 'cwd=%s\\\\n' \\"$PWD\\""]
+                cwd = "tools"
+                """, "");
+        Files.createDirectories(tempDir.resolve("tools"));
+
+        CommandResult result = execute("task", "--cwd", member.toString(), "where");
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(
+                result.stdout().contains("cwd=" + tempDir.resolve("tools").toRealPath()),
+                result.stdout());
+    }
+
+    @Test
+    void rejectsRootAndMemberTaskIdCollision() throws IOException {
+        Path member = writeWorkspace("""
+                [tasks.build-docs]
+                run = ["scripts/root-docs"]
+                """, """
+                [tasks.build-docs]
+                run = ["scripts/member-docs"]
+                """);
+
+        CommandResult result = execute("tasks", "--cwd", member.toString());
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains("build-docs"), result.stderr());
+        assertTrue(result.stderr().contains("cannot"), result.stderr());
+    }
+
+    /** A two-file workspace: a virtual root plus one member at {@code apps/api}. */
+    private Path writeWorkspace(String rootCommands, String memberCommands) throws IOException {
         Path member = tempDir.resolve("apps/api");
         Files.createDirectories(member);
         Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "tasks-workspace"
-                members = ["apps/api"]
 
-                [commands.tasks.root-task]
-                description = "Root task"
-                cmd = ["scripts/root-task"]
-                """);
-        Files.writeString(member.resolve("zolt.toml"), CliTestSupport.memberConfig("api") + """
+                [workspace.members]
+                include = ["apps/api"]
 
-                [commands.tasks.member-task]
-                description = "Member task"
-                cmd = ["scripts/member-task"]
-                """);
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = %s
 
-        CommandResult result = execute("tasks", "--cwd", member.toString());
+                """.formatted(Runtime.version().feature()) + rootCommands);
+        Files.writeString(member.resolve("zolt.toml"), """
+                [project]
+                name = "api"
 
-        assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("root-task"));
-        assertTrue(result.stdout().contains("Root task"));
-        assertFalse(result.stdout().contains("member-task"));
+                """ + memberCommands);
+        return member;
     }
 
     private Path writeScript(String relativePath, String body) throws IOException {
