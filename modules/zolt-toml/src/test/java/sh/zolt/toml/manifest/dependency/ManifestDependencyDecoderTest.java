@@ -1,10 +1,11 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.dependency;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.toml.manifest.ManifestDependencyTestSupport.decodeDependencies;
 
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.DependencyConflictPolicy;
@@ -12,11 +13,12 @@ import sh.zolt.manifest.DependencyConstraintSelector;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.DependencySelector;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.toml.manifest.ManifestDependencyTestSupport.Decoded;
 
 final class ManifestDependencyDecoderTest {
     @Test
     void preservesCompleteDependencyDomainOmission() {
-        ManifestDependencyDecoder.Decoded decoded = decode("");
+        Decoded decoded = decode("");
 
         assertTrue(decoded.dependencies().isEmpty());
         assertTrue(decoded.constraints().isEmpty());
@@ -25,7 +27,7 @@ final class ManifestDependencyDecoderTest {
 
     @Test
     void preservesIndependentExplicitEmptyCollectionPresence() {
-        ManifestDependencyDecoder.Decoded decoded = decode("""
+        Decoded decoded = decode("""
                 [dependencies]
 
                 [dependencies.constraints]
@@ -38,7 +40,7 @@ final class ManifestDependencyDecoderTest {
 
     @Test
     void childDomainsDoNotMaterializeImplicitDependencyDeclarations() {
-        ManifestDependencyDecoder.Decoded decoded = decode("""
+        Decoded decoded = decode("""
                 [dependencies.constraints]
                 "org.example:constraint" = "1.0"
 
@@ -53,7 +55,7 @@ final class ManifestDependencyDecoderTest {
 
     @Test
     void coordinatesAllThreeDomainsWithoutResolvingReferences() {
-        ManifestDependencyDecoder.Decoded decoded = decode("""
+        Decoded decoded = decode("""
                 [dependencies]
                 "org.example:library" = { versionRef = "not-declared-here" }
 
@@ -118,9 +120,8 @@ final class ManifestDependencyDecoderTest {
         assertFalse(failure.getMessage().contains("deny[0]"), failure.getMessage());
     }
 
-    private static ManifestDependencyDecoder.Decoded decode(String source) {
-        return new ManifestDependencyDecoder().decode(
-                ManifestSemanticTestSupport.index(source));
+    private static Decoded decode(String source) {
+        return decodeDependencies(source);
     }
 
     private static void assertFailure(String source, String... details) {
