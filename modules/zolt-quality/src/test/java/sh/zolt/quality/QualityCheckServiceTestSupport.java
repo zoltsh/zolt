@@ -69,6 +69,6 @@ abstract class QualityCheckServiceTestSupport {
     }
 
     protected static void writeLockfile(Path projectDir, String packages) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n" + packages);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n" + packages);
     }
 }

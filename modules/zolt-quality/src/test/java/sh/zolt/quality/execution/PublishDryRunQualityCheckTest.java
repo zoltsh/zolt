@@ -71,7 +71,7 @@ final class PublishDryRunQualityCheckTest {
     void mapsEachDryRunBlockerToSeparateFailedResult() throws IOException {
         Path projectDir = tempDir.resolve("publish-blockers");
         writePublishProject(projectDir, "publish-blockers", "https://user:secret@repo.example.test/releases");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         List<QualityCheckResult> results = check.check(
                 Optional.empty(),
@@ -96,7 +96,7 @@ final class PublishDryRunQualityCheckTest {
     void passesWithArtifactEvidenceAndReportsSupplementalArtifactCount() throws IOException {
         Path projectDir = tempDir.resolve("publish-ready");
         writePublishProject(projectDir, "publish-ready", "https://repo.example.test/releases");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
                 Files.readString(projectDir.resolve("zolt.toml"))

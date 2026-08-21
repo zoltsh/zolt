@@ -79,7 +79,7 @@ final class QualityExecutionContextRunnerTest {
     void workspaceCiRunsMemberPreflightsForIncludedMembersAndEvidenceForSelectedMembers() throws IOException {
         Path workspaceDir = tempDir.resolve("ci-workspace");
         Files.createDirectories(workspaceDir);
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
         WorkspaceMember core = member(workspaceDir, "modules/core", """
                 [project]
                 name = "core"

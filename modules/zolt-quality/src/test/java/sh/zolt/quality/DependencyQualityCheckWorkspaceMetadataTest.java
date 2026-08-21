@@ -32,7 +32,7 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     private Path tempDir;
 
     @Test
-    void workspaceProjectionRequiresVersionFiveLockBeforeMemberChecks() throws IOException {
+    void workspaceProjectionRejectsPreV7LockBeforeMemberChecks() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("");
         Files.writeString(tempDir.resolve("zolt.lock"), "version = 4\n");
 
@@ -41,7 +41,7 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 () -> project(workspace(fixture.members(), List.of()), fixture));
 
         assertTrue(failure.getMessage().contains("version 4"));
-        assertTrue(failure.getMessage().contains("optional-boundary evidence"));
+        assertTrue(failure.getMessage().contains("older than this Zolt supports (current 7)"));
         assertTrue(failure.nextStep().contains("zolt resolve --workspace"));
     }
 
@@ -49,7 +49,7 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     void workspaceProjectionReportsMalformedLockfileWithWorkspaceResolveAction() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("");
         Files.writeString(tempDir.resolve("zolt.lock"), """
-                version = 5
+                version = 7
 
                 [[package]]
                 id = 42
@@ -112,11 +112,13 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 "com.example:helper" = { version = "1.0.0", classifier = "linux" }
                 """);
         writeWorkspaceLockfile(
-                packageEntry(
+                dependencyRoot(
+                        "com.example:helper", "1.0.0", "jar|linux", "implementation", "compile", false)
+                        + packageEntry(
                         "com.example:helper",
                         "1.0.0",
                         "compile",
-                        true,
+                        false,
                         "com/example/helper/1.0.0/helper-1.0.0.jar",
                         "members = [\"apps/api\"]")
                         + packageEntry(
@@ -145,7 +147,9 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 [api.dependencies]
                 "com.example:core" = { workspace = "modules/core", optional = true }
                 """);
-        writeWorkspaceLockfile(workspacePackageEntry(""));
+        writeWorkspaceLockfile(
+                dependencyRoot("com.example:core", "0.1.0", "", "api", "compile", true)
+                        + workspacePackageEntry(""));
         Workspace workspace = workspace(
                 fixture.members(),
                 List.of(new WorkspaceProjectEdge(
@@ -173,7 +177,9 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 [api.dependencies]
                 "com.example:core" = { workspace = "modules/core" }
                 """);
-        writeWorkspaceLockfile(workspacePackageEntry(""));
+        writeWorkspaceLockfile(
+                dependencyRoot("com.example:core", "0.1.0", "", "api", "compile", false)
+                        + workspacePackageEntry(""));
         Workspace workspace = workspace(
                 fixture.members(),
                 List.of(new WorkspaceProjectEdge(
@@ -201,13 +207,15 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 [api.dependencies]
                 "com.example:helper" = { version = "1.0.0", classifier = "tests" }
                 """);
-        writeWorkspaceLockfile(packageEntry(
-                "com.example:helper",
-                "1.0.0",
-                "compile",
-                true,
-                "com/example/helper/1.0.0/helper-1.0.0-tests.jar",
-                "members = [\"apps/api\"]"));
+        writeWorkspaceLockfile(
+                dependencyRoot("com.example:helper", "1.0.0", "jar|tests", "api", "compile", false)
+                        + packageEntry(
+                                "com.example:helper",
+                                "1.0.0",
+                                "compile",
+                                true,
+                                "com/example/helper/1.0.0/helper-1.0.0-tests.jar",
+                                "members = [\"apps/api\"]"));
         Workspace workspace = workspace(fixture.members(), List.of());
 
         QualityCheckResult result =
@@ -226,7 +234,8 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 "com.example:helper" = { version = "1.0.0", optional = true }
                 """);
         writeWorkspaceLockfile(
-                packageEntry(
+                dependencyRoot("com.example:helper", "1.0.0", "", "api", "compile", true)
+                        + packageEntry(
                         "com.example:helper",
                         "1.0.0",
                         "compile",
@@ -252,13 +261,21 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 [dependencies]
                 "com.example:helper" = { version = "1.0.0", classifier = "tests" }
                 """);
-        writeWorkspaceLockfile(packageEntry(
-                "com.example:helper",
-                "1.0.0",
-                "compile",
-                true,
-                "com/example/helper/1.0.0/helper-1.0.0-tests.jar",
-                "members = [\"apps/api\"]\nexportedBy = [\"apps/api\"]"));
+        writeWorkspaceLockfile(
+                dependencyRoot(
+                                "com.example:helper",
+                                "1.0.0",
+                                "jar|tests",
+                                "implementation",
+                                "compile",
+                                false)
+                        + packageEntry(
+                                "com.example:helper",
+                                "1.0.0",
+                                "compile",
+                                true,
+                                "com/example/helper/1.0.0/helper-1.0.0-tests.jar",
+                                "members = [\"apps/api\"]\nexportedBy = [\"apps/api\"]"));
         Workspace workspace = workspace(fixture.members(), List.of());
 
         QualityCheckResult result =
@@ -299,6 +316,26 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
                 %s
                 dependencies = []
                 """.formatted(coordinate, version, scope, direct, jar, extra);
+    }
+
+    private static String dependencyRoot(
+            String coordinate,
+            String version,
+            String variant,
+            String lane,
+            String scope,
+            boolean optional) {
+        String variantField = variant.isEmpty() ? "" : "variant = \"" + variant + "\"\n";
+        String optionalField = optional ? "optional = true\n" : "";
+        return """
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "%s"
+                version = "%s"
+                %slane = "%s"
+                resolvedScope = "%s"
+                %s""".formatted(coordinate, version, variantField, lane, scope, optionalField);
     }
 
     private static String workspacePackageEntry(String extra) {
@@ -363,7 +400,7 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     }
 
     private void writeWorkspaceLockfile(String packages) throws IOException {
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n" + packages);
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n" + packages);
     }
 
     private record WorkspaceFixture(

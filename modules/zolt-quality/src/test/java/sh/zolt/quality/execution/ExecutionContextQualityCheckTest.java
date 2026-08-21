@@ -74,7 +74,14 @@ final class ExecutionContextQualityCheckTest {
     @Test
     void ciContextRejectsLocalOverlayOrigins() throws IOException {
         Files.writeString(tempDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:local-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:local-lib"
@@ -98,7 +105,7 @@ final class ExecutionContextQualityCheckTest {
 
     @Test
     void ciContextPassesForReadableLockfileWithoutLocalOverlays() throws IOException {
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
 
         QualityCheckResult result = check.check(Optional.empty(), tempDir, QualityCheckContext.CI).getFirst();
 

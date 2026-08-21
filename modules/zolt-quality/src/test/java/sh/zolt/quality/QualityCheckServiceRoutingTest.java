@@ -78,7 +78,7 @@ final class QualityCheckServiceRoutingTest {
                 """);
         writeProject(workspaceDir.resolve("apps/api"), "api");
         writeProject(workspaceDir.resolve("modules/core"), "core");
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
 
         QualityCheckReport report = new QualityCheckService(Map.<String, String>of()::get).check(request(
                 workspaceDir,
@@ -143,7 +143,7 @@ final class QualityCheckServiceRoutingTest {
     void ciContextPrependsExecutionContextToUnsupportedCheckAndAggregatesFailures() throws IOException {
         Path projectDir = tempDir.resolve("ci-unsupported");
         writeProject(projectDir, "ci-unsupported");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         QualityCheckReport report = new QualityCheckService(Map.<String, String>of()::get).check(request(
                 projectDir,

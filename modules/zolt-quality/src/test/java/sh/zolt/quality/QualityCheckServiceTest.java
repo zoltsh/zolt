@@ -106,7 +106,7 @@ final class QualityCheckServiceTest {
                 usernameEnv = "ARTIFACTORY_USERNAME"
                 passwordEnv = "ARTIFACTORY_ACCESS_TOKEN"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Map<String, String> environment = Map.of(
                 "ARTIFACTORY_USERNAME", "read.only",
                 "ARTIFACTORY_ACCESS_TOKEN", "ReadOnly");
@@ -156,7 +156,7 @@ final class QualityCheckServiceTest {
                 usernameEnv = "PUBLISH_USERNAME"
                 passwordEnv = "PUBLISH_ACCESS_TOKEN"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Map<String, String> environment = Map.of(
                 "PUBLISH_USERNAME", "dummy",
                 "PUBLISH_ACCESS_TOKEN", "read.only");

@@ -44,7 +44,14 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
         Files.createDirectories(projectDir.resolve("src/main/openapi"));
         Files.writeString(projectDir.resolve("src/main/openapi/api.yaml"), "openapi: 3.1.0\n");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:local-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:local-lib"

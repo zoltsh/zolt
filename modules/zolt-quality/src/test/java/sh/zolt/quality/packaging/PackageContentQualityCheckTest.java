@@ -50,7 +50,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
         Path projectDir = tempDir.resolve("contents-malformed-lock");
         ProjectConfig config = parseProject(projectDir, "");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = 42
@@ -120,7 +120,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
                 version = "3.33.0"
                 source = "maven-central"
                 scope = "runtime"
-                direct = true
+                direct = false
                 jar = "io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar"
                 dependencies = []
                 """);
