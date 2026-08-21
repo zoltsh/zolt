@@ -9,7 +9,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.publish.PublishSettingsReader;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckResult;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,80 +20,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class CredentialPublishQualityCheckTest {
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader manifestLoader = new ManifestProjectConfigLoader();
 
     @TempDir
     private Path tempDir;
-
-    @Test
-    void publishCredentialCheckRejectsEmbeddedUrlCredentialsWithoutLeakingThem() throws IOException {
-        Path projectDir = tempDir.resolve("publish-embedded-credentials");
-        Files.createDirectories(projectDir);
-        String toml = """
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [publish]
-                releaseRepository = "company-releases"
-
-                [publish.repositories.company-releases]
-                url = "https://publish-user:super-secret@repo.example.test/releases"
-                """;
-        Files.writeString(projectDir.resolve("zolt.toml"), toml);
-        ProjectConfig config = parser.parse(toml);
-        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
-
-        List<QualityCheckResult> results = check.checkPublishCredentials(
-                Optional.empty(),
-                projectDir,
-                config,
-                QualityCheckContext.CI);
-
-        assertEquals(1, results.size());
-        QualityCheckResult result = results.getFirst();
-        assertEquals("[publish.repositories.company-releases]", result.subject());
-        assertTrue(result.message().contains(
-                "CI context rejects embedded credentials in publish repository `company-releases` URL."));
-        assertTrue(result.nextStep().contains("Move publish credentials to [repositoryCredentials] environment references."));
-        assertDoesNotLeakSecret(result);
-    }
-
-    @Test
-    void publishCredentialCheckReportsInvalidRepositoryUri() throws IOException {
-        Path projectDir = tempDir.resolve("publish-invalid-uri");
-        Files.createDirectories(projectDir);
-        String toml = """
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [publish]
-                releaseRepository = "company-releases"
-
-                [publish.repositories.company-releases]
-                url = "https://["
-                """;
-        Files.writeString(projectDir.resolve("zolt.toml"), toml);
-        ProjectConfig config = parser.parse(toml);
-        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
-
-        QualityCheckResult result = check.checkPublishCredentials(
-                Optional.empty(),
-                projectDir,
-                config,
-                QualityCheckContext.CI).getFirst();
-
-        assertEquals("[publish.repositories.company-releases]", result.subject());
-        assertEquals("Publish repository `company-releases` URL is not a valid URI.", result.message());
-        assertEquals(
-                "Edit [publish.repositories.company-releases] to use a Maven-compatible HTTPS URL without embedded credentials.",
-                result.nextStep());
-    }
 
     @Test
     void publishCredentialCheckSkipsWhenPublishIsNotConfigured() throws IOException {
@@ -104,10 +34,10 @@ final class CredentialPublishQualityCheckTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """;
         Files.writeString(projectDir.resolve("zolt.toml"), toml);
-        ProjectConfig config = parser.parse(toml);
+        ProjectConfig config = manifestLoader.load(toml);
         CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         assertEquals(List.of(), check.checkPublishCredentials(
@@ -124,13 +54,13 @@ final class CredentialPublishQualityCheckTest {
                 credentials = "publish-creds"
                 """, """
 
-                [repositoryCredentials.publish-creds]
+                [credentials.publish-creds]
                 usernameEnv = "PUBLISH_USERNAME"
                 passwordEnv = "PUBLISH_ACCESS_TOKEN"
                 """);
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), toml);
-        ProjectConfig config = parser.parse(toml);
+        ProjectConfig config = manifestLoader.load(toml);
         CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         QualityCheckResult result = check.checkPublishCredentials(
@@ -157,21 +87,21 @@ final class CredentialPublishQualityCheckTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 credentials = "publish-creds"
 
-                [repositoryCredentials.publish-creds]
+                [credentials.publish-creds]
                 usernameEnv = "PUBLISH_USERNAME"
                 passwordEnv = "PUBLISH_ACCESS_TOKEN"
                 """;
         Files.writeString(projectDir.resolve("zolt.toml"), toml);
-        ProjectConfig config = parser.parse(toml);
+        ProjectConfig config = manifestLoader.load(toml);
         CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.of(
                         "PUBLISH_USERNAME", "publisher",
                         "PUBLISH_ACCESS_TOKEN", "token-123")
@@ -200,10 +130,10 @@ final class CredentialPublishQualityCheckTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

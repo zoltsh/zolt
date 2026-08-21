@@ -14,7 +14,7 @@ import sh.zolt.quality.QualityCheckRequest;
 import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.quality.QualityCheckService;
 import sh.zolt.quality.QualityCheckStatus;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class QualityExecutionContextRunnerTest {
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader manifestLoader = new ManifestProjectConfigLoader();
     private final QualityExecutionContextRunner runner = QualityExecutionContextRunner.create(
             new ZoltLockfileReader(),
             new ManifestPublishSettingsLoader(),
@@ -48,12 +48,16 @@ final class QualityExecutionContextRunnerTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                private = { url = "https://repo.example.test/maven", credentials = "missing-creds" }
+                central = false
 
-                [repositoryCredentials.missing-creds]
+                [repositories.private]
+                url = "https://repo.example.test/maven"
+                credentials = "missing-creds"
+
+                [credentials.missing-creds]
                 usernameEnv = "MISSING_USER"
                 passwordEnv = "MISSING_TOKEN"
                 """);
@@ -86,12 +90,16 @@ final class QualityExecutionContextRunnerTest {
                 name = "core"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                private = { url = "https://repo.example.test/maven", credentials = "company-creds" }
+                central = false
 
-                [repositoryCredentials.company-creds]
+                [repositories.private]
+                url = "https://repo.example.test/maven"
+                credentials = "company-creds"
+
+                [credentials.company-creds]
                 usernameEnv = "COMPANY_USER"
                 passwordEnv = "COMPANY_TOKEN"
                 """);
@@ -100,7 +108,7 @@ final class QualityExecutionContextRunnerTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         Workspace workspace = workspace(workspaceDir, List.of(core, api));
 
@@ -139,10 +147,13 @@ final class QualityExecutionContextRunnerTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                private = "https://member.example.test/maven"
+                central = false
+
+                [repositories.private]
+                url = "https://member.example.test/maven"
                 """);
         Workspace workspace = new Workspace(
                 workspaceDir,
@@ -211,7 +222,7 @@ final class QualityExecutionContextRunnerTest {
         Path memberDir = workspaceDir.resolve(memberPath);
         Files.createDirectories(memberDir);
         Files.writeString(memberDir.resolve("zolt.toml"), toml);
-        ProjectConfig config = parser.parse(memberDir.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.load(memberDir.resolve("zolt.toml"));
         return new WorkspaceMember(memberPath, memberDir, config);
     }
 

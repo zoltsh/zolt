@@ -46,7 +46,9 @@ final class QualityCheckServiceRoutingTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo-workspace"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
                 """);
         writeProject(workspaceDir.resolve("modules/core"), "core");
         writeProject(workspaceDir.resolve("apps/api"), "api");
@@ -74,7 +76,9 @@ final class QualityCheckServiceRoutingTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "all-checks"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         writeProject(workspaceDir.resolve("apps/api"), "api");
         writeProject(workspaceDir.resolve("modules/core"), "core");
@@ -172,8 +176,11 @@ final class QualityCheckServiceRoutingTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "bad-workspace"
-                members = ["apps/missing"]
+
+                [workspace.members]
+                include = ["apps/missing"]
                 """);
+        Files.createDirectories(workspaceDir.resolve("apps/missing"));
 
         QualityCheckReport report = new QualityCheckService(Map.<String, String>of()::get).check(request(
                 workspaceDir,
@@ -187,7 +194,8 @@ final class QualityCheckServiceRoutingTest {
         QualityCheckResult unavailable = report.checks().getFirst();
         assertEquals(QualityCheckService.LOCKFILE, unavailable.id());
         assertEquals("workspace config", unavailable.subject());
-        assertTrue(unavailable.message().startsWith("Workspace member `apps/missing` must contain zolt.toml"));
+        assertTrue(unavailable.message().startsWith(
+                "Exact workspace member `apps/missing` must contain zolt.toml"));
         assertEquals("Fix workspace config or run `zolt check` for a single project.", unavailable.nextStep());
         QualityCheckResult unsupported = report.checks().get(1);
         assertEquals("unsupported-check", unsupported.id());
@@ -231,7 +239,7 @@ final class QualityCheckServiceRoutingTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """.formatted(name));
     }
 }

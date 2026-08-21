@@ -43,7 +43,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
         Path projectDir = tempDir.resolve("unknown-fail");
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 unknown = "fail"
                 """);
         writeLockfile(projectDir, pkg("org.example:lib", "1.0.0", true));
@@ -72,7 +72,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["Apache-2.0"]
                 """);
         writeLockfile(projectDir, pkg("org.example:lib", "1.0.0", true));
@@ -101,7 +101,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 """);
         writeLockfile(projectDir, pkg("org.example:lib", "1.0.0", true));
@@ -139,7 +139,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 unknown = "fail"
                 """);
@@ -165,7 +165,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT", "Net-SNMP"]
                 unknown = "fail"
                 """);
@@ -194,7 +194,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 deny = ["GPL-3.0-only"]
                 unknown = "fail"
@@ -351,11 +351,11 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
     private static String exceptionPolicy(String version, String license) {
         return """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 unknown = "fail"
 
-                [dependencyPolicy.licenses.exceptions."org.example:lib"]
+                [dependencies.license-exceptions."org.example:lib"]
                 allow = ["%s"]
                 version = "%s"
                 reason = "Reviewed dependency"

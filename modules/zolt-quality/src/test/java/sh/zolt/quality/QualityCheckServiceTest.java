@@ -97,12 +97,16 @@ final class QualityCheckServiceTest {
                 name = "placeholder-credentials"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                company = { url = "https://repo.example.test/maven", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.example.test/maven"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "ARTIFACTORY_USERNAME"
                 passwordEnv = "ARTIFACTORY_ACCESS_TOKEN"
                 """);
@@ -143,16 +147,16 @@ final class QualityCheckServiceTest {
                 name = "placeholder-publish-credentials"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 credentials = "publish-creds"
 
-                [repositoryCredentials.publish-creds]
+                [credentials.publish-creds]
                 usernameEnv = "PUBLISH_USERNAME"
                 passwordEnv = "PUBLISH_ACCESS_TOKEN"
                 """);

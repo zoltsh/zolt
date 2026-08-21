@@ -121,7 +121,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
         ProjectConfig config = parseProject(projectDir, """
 
                 [dependencies]
-                "com.example:root-lib" = { version = "1.0.0", optional = true, exclusions = [{ group = "com.example", artifact = "legacy" }] }
+                "com.example:root-lib" = { version = "1.0.0", optional = true, exclude = ["com.example:legacy"] }
                 """);
         writeLockfile(projectDir, packageEntry(
                 "com.example:root-lib",
@@ -147,7 +147,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
         ProjectConfig config = parseProject(projectDir, """
 
                 [dependencies]
-                "com.example:root-lib" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "legacy" }] }
+                "com.example:root-lib" = { version = "1.0.0", exclude = ["com.example:legacy"] }
                 """);
         writeLockfile(projectDir, packageEntry(
                 "com.example:root-lib",
@@ -204,7 +204,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
 
                 [dependencies]
                 "com.example:optional-lib" = { version = "1.0.0", optional = true }
-                "com.example:root-lib" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "legacy" }] }
+                "com.example:root-lib" = { version = "1.0.0", exclude = ["com.example:legacy"] }
                 """);
         writeLockfile(projectDir, packageEntry(
                 "com.example:root-lib",
@@ -226,12 +226,13 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
 
     @Test
     void dependencyMetadataRequiresWorkspaceModeForWorkspaceDependencyMetadata() throws IOException {
-        Path projectDir = tempDir.resolve("optional-workspace-dependency");
-        ProjectConfig config = parseProject(projectDir, """
+        Path root = tempDir.resolve("optional-workspace-dependency");
+        Path projectDir = root.resolve("apps/api");
+        ProjectConfig config = parseWorkspaceMember(root, """
 
                 [dependencies]
-                "com.example:core" = { workspace = "modules/core", optional = true }
-                """);
+                "com.example:core" = { workspace = true, optional = true }
+                """, List.of("apps/api", "modules/core"));
         writeLockfile(projectDir, "");
 
         QualityCheckResult result = check.checkProjectMetadata(Optional.empty(), projectDir, config, false).getFirst();
@@ -300,14 +301,12 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
                 "com.example:direct-lib" = "1.2.3"
                 "com.example:stale-direct" = "1.0.0"
 
-                [dependencyPolicy]
-                exclude = [
-                  { group = "com.example", artifact = "direct-lib", reason = "Direct dependency conflict fixture" }
-                ]
+                [dependencies.policy]
+                deny = [{ coordinate = "com.example:direct-lib", reason = "Direct dependency conflict fixture" }]
 
-                [dependencyConstraints]
-                "com.example:direct-lib" = { version = "1.0.0", kind = "strict" }
-                "com.example:transitive-lib" = { version = "1.0.0", kind = "strict" }
+                [dependencies.constraints]
+                "com.example:direct-lib" = { version = "1.0.0" }
+                "com.example:transitive-lib" = { version = "1.0.0" }
                 """);
         writeLockfile(projectDir,
                 packageEntry("com.example:direct-lib", "1.2.3", "compile", true, "")

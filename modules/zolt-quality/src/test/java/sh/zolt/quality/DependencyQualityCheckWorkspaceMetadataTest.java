@@ -68,12 +68,15 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
         WorkspaceFixture fixture = workspaceFixture("""
 
                 [repositories]
-                internal = "https://member.example/maven"
+                central = false
+
+                [repositories.internal]
+                url = "https://member.example/maven"
                 """);
         writeWorkspaceLockfile("");
         Workspace workspace = new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "demo",
                         List.of("apps/api", "modules/core"),
@@ -142,10 +145,10 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
 
     @Test
     void workspaceMetadataAcceptsOptionalApiEdgeAndOptionalLockEvidence() throws IOException {
-        WorkspaceFixture fixture = workspaceFixture("""
+        WorkspaceFixture fixture = composedWorkspaceFixture("""
 
-                [api.dependencies]
-                "com.example:core" = { workspace = "modules/core", optional = true }
+                [dependencies.api]
+                "com.example:core" = { workspace = true, optional = true }
                 """);
         writeWorkspaceLockfile(
                 dependencyRoot("com.example:core", "0.1.0", "", "api", "compile", true)
@@ -172,10 +175,10 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
 
     @Test
     void workspaceMetadataRejectsMissingExportedByForRequiredApiEdge() throws IOException {
-        WorkspaceFixture fixture = workspaceFixture("""
+        WorkspaceFixture fixture = composedWorkspaceFixture("""
 
-                [api.dependencies]
-                "com.example:core" = { workspace = "modules/core" }
+                [dependencies.api]
+                "com.example:core" = { workspace = true }
                 """);
         writeWorkspaceLockfile(
                 dependencyRoot("com.example:core", "0.1.0", "", "api", "compile", false)
@@ -204,7 +207,7 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     void externalRequiredApiDependencyRequiresExportOwnership() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("""
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:helper" = { version = "1.0.0", classifier = "tests" }
                 """);
         writeWorkspaceLockfile(
@@ -230,7 +233,7 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     void externalOptionalApiDependencyMustNotOwnExports() throws IOException {
         WorkspaceFixture fixture = workspaceFixture("""
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:helper" = { version = "1.0.0", optional = true }
                 """);
         writeWorkspaceLockfile(
@@ -373,10 +376,29 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     }
 
     private WorkspaceFixture workspaceFixture(String apiBody) throws IOException {
+        return workspaceFixture(apiBody, false);
+    }
+
+    /**
+     * A {@code workspace = true} selector resolves only inside a workspace (design §9.8), so a member
+     * body that declares one is composed through the workspace loader instead of standalone.
+     */
+    private WorkspaceFixture composedWorkspaceFixture(String apiBody) throws IOException {
+        return workspaceFixture(apiBody, true);
+    }
+
+    private WorkspaceFixture workspaceFixture(String apiBody, boolean composed) throws IOException {
         Path apiDir = tempDir.resolve("apps/api");
         Path coreDir = tempDir.resolve("modules/core");
-        ProjectConfig api = parseProject(apiDir, apiBody);
-        ProjectConfig core = parseProject(coreDir, "");
+        ProjectConfig api;
+        ProjectConfig core;
+        if (composed) {
+            api = parseWorkspaceMember(tempDir, apiBody, List.of("apps/api", "modules/core"));
+            core = new sh.zolt.workspace.discovery.ManifestProjectLoader().load(coreDir);
+        } else {
+            api = parseProject(apiDir, apiBody);
+            core = parseProject(coreDir, "");
+        }
         List<WorkspaceMember> members = List.of(
                 new WorkspaceMember("apps/api", apiDir, api),
                 new WorkspaceMember("modules/core", coreDir, core));
@@ -388,7 +410,7 @@ final class DependencyQualityCheckWorkspaceMetadataTest extends QualityCheckServ
     private Workspace workspace(List<WorkspaceMember> members, List<WorkspaceProjectEdge> edges) {
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "demo",
                         List.of("apps/api", "modules/core"),

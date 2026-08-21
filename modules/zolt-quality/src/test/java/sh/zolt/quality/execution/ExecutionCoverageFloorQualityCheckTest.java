@@ -22,9 +22,15 @@ final class ExecutionCoverageFloorQualityCheckTest {
     @Test
     void passesWhenCoverageMeetsFloors() throws Exception {
         writeConfig("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
                 [coverage]
-                minLine = 88.0
-                minBranch = 74.0
+                line = 88.0
+                branch = 74.0
                 """);
         writeCoverage(jacocoXml(90, 10, 80, 20));
 
@@ -35,9 +41,15 @@ final class ExecutionCoverageFloorQualityCheckTest {
     @Test
     void failsWhenCoverageBelowFloors() throws Exception {
         writeConfig("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
                 [coverage]
-                minLine = 88.0
-                minBranch = 74.0
+                line = 88.0
+                branch = 74.0
                 """);
         writeCoverage(jacocoXml(86, 14, 70, 30));
 
@@ -58,7 +70,7 @@ final class ExecutionCoverageFloorQualityCheckTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         writeCoverage(jacocoXml(10, 90, 5, 95));
 
@@ -69,8 +81,14 @@ final class ExecutionCoverageFloorQualityCheckTest {
     @Test
     void skipsFloorsWhenNoXmlReportPresent() throws Exception {
         writeConfig("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
                 [coverage]
-                minLine = 99.0
+                line = 99.0
                 """);
         Path coverageDir = tempDir.resolve("target/coverage");
         Files.createDirectories(coverageDir.resolve("html"));
