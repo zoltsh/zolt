@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -103,14 +103,14 @@ final class OpenApiGeneratedSourceCacheTest {
     }
 
     private static GeneratedSourceStep step() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
 

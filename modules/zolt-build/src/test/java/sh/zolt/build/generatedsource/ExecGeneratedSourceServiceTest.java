@@ -117,7 +117,7 @@ final class ExecGeneratedSourceServiceTest {
             return new ExecGeneratedSourceService.ProcessResult(0, "ok\n", false);
         });
 
-        service.generateMain(projectDir, config("[generated.main.model.env]\nBUILD_MODE = \"release\""), packages(projectDir));
+        service.generateMain(projectDir, config("env = { BUILD_MODE = \"release\" }"), packages(projectDir));
 
         java.util.Map<String, String> environment = environments.getFirst();
         assertEquals(projectDir.toAbsolutePath().normalize().toString(), environment.get("ZOLT_PROJECT_ROOT"));
@@ -238,18 +238,18 @@ final class ExecGeneratedSourceServiceTest {
     }
 
     private static sh.zolt.project.ProjectConfig npmChainConfig() {
-        return new sh.zolt.toml.ZoltTomlParser().parse("""
+        return new sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 jooq = "3.19.15"
 
-                [generated.execTools.t]
-                runner = "jvm"
+                [generated.tools.t]
+                kind = "jvm"
                 coordinates = [{ coordinate = "org.jooq:jooq-codegen", versionRef = "jooq" }]
                 mainClass = "com.example.GenerationTool"
 
@@ -270,12 +270,12 @@ final class ExecGeneratedSourceServiceTest {
     }
 
     private static sh.zolt.project.ProjectConfig projectSourcesConfig() {
-        return new sh.zolt.toml.ZoltTomlParser().parse("""
+        return new sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.main.gen]
                 kind = "exec"
@@ -288,18 +288,18 @@ final class ExecGeneratedSourceServiceTest {
     }
 
     private static sh.zolt.project.ProjectConfig twoStepChainConfig() {
-        return new sh.zolt.toml.ZoltTomlParser().parse("""
+        return new sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 jooq = "3.19.15"
 
-                [generated.execTools.t]
-                runner = "jvm"
+                [generated.tools.t]
+                kind = "jvm"
                 coordinates = [{ coordinate = "org.jooq:jooq-codegen", versionRef = "jooq" }]
                 mainClass = "com.example.GenerationTool"
 

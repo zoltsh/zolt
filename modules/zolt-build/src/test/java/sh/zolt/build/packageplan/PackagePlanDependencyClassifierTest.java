@@ -13,7 +13,7 @@ import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -384,7 +384,7 @@ final class PackagePlanDependencyClassifierTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         List<LockPackage> declarations = List.of(packages).stream()
                 .filter(LockPackage::direct)
@@ -392,7 +392,7 @@ final class PackagePlanDependencyClassifierTest {
                         == DependencyScope.PROVIDED)
                 .toList();
         if (!declarations.isEmpty()) {
-            config.append("\n[provided.dependencies]\n");
+            config.append("\n[dependencies.provided]\n");
             for (LockPackage declaration : declarations) {
                 LockArtifactVariant variant =
                         LockArtifactVariant.of(declaration);
@@ -415,7 +415,7 @@ final class PackagePlanDependencyClassifierTest {
         }
         return ProvidedPackagingOverrides
                 .fromConfigAndLockPackages(
-                        new ZoltTomlParser().parse(
+                        new ManifestProjectConfigLoader().load(
                                 config.toString()),
                         List.of(packages));
     }

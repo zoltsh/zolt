@@ -11,7 +11,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.provenance.BuildProvenance;
 import sh.zolt.provenance.GitProvenance;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -209,12 +209,12 @@ final class ManifestGeneratorTest {
     }
 
     private static ProjectConfig config(boolean reproducible) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [build.metadata]

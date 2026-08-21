@@ -9,7 +9,7 @@ import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -139,47 +139,56 @@ final class ResolveServiceSpringBootLoaderVariantTest
                                 && lockPackage.direct()));
     }
 
+    /** Legacy {@link PackageMode} to its final {@code [package].mode} symbol (design §17.2). */
+    private static String manifestMode(PackageMode mode) {
+        return switch (mode) {
+            case THIN -> "jar";
+            case UBER -> "uber-jar";
+            default -> mode.configValue();
+        };
+    }
+
     private ProjectConfig config(PackageMode mode) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.example:platform" = "1.0.0"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "org.springframework.boot:spring-boot-loader" = { version = "4.0.6", classifier = "tests" }
 
                 [package]
                 mode = "%s"
-                """.formatted(baseUri, mode.configValue()));
+                """.formatted(baseUri, manifestMode(mode)));
     }
 
     private ProjectConfig providedConfig(PackageMode mode) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.example:platform" = "1.0.0"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "org.springframework.boot:spring-boot-loader" = "4.0.6"
 
                 [package]
                 mode = "%s"
-                """.formatted(baseUri, mode.configValue()));
+                """.formatted(baseUri, manifestMode(mode)));
     }
 }

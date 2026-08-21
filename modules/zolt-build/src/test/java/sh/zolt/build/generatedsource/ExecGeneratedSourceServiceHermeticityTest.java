@@ -144,20 +144,20 @@ final class ExecGeneratedSourceServiceHermeticityTest {
     }
 
     private static sh.zolt.project.ProjectConfig twoToolConfig() {
-        return new sh.zolt.toml.ZoltTomlParser().parse("""
+        return new sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.execTools.alpha]
-                runner = "jvm"
+                [generated.tools.alpha]
+                kind = "jvm"
                 coordinates = [{ coordinate = "com.example:alpha", version = "1.0.0" }]
                 mainClass = "com.example.AlphaTool"
 
-                [generated.execTools.beta]
-                runner = "jvm"
+                [generated.tools.beta]
+                kind = "jvm"
                 coordinates = [{ coordinate = "com.example:beta", version = "1.0.0" }]
                 mainClass = "com.example.BetaTool"
 
@@ -178,18 +178,18 @@ final class ExecGeneratedSourceServiceHermeticityTest {
     }
 
     private static sh.zolt.project.ProjectConfig globInputConfig() {
-        return new sh.zolt.toml.ZoltTomlParser().parse("""
+        return new sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 jooq = "3.19.15"
 
-                [generated.execTools.jooq]
-                runner = "jvm"
+                [generated.tools.jooq]
+                kind = "jvm"
                 coordinates = [{ coordinate = "org.jooq:jooq-codegen", versionRef = "jooq" }]
                 mainClass = "com.example.GenerationTool"
 

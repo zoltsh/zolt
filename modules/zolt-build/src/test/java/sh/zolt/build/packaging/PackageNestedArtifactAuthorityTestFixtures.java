@@ -6,7 +6,7 @@ import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -102,15 +102,15 @@ final class PackageNestedArtifactAuthorityTestFixtures {
     }
 
     static ProjectConfig config(PackageMode mode) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "com.example:native" = "1.0.0"
                 "com.bridge:native" = { version = "1.0.0", classifier = "linux" }
                 "com.direct:shared" = "1.0.0"
@@ -122,7 +122,16 @@ final class PackageNestedArtifactAuthorityTestFixtures {
                 mode == PackageMode.SPRING_BOOT_WAR
                         ? "\"org.springframework.boot:spring-boot-loader\" = \"4.0.6\"\n"
                         : "",
-                mode.configValue()));
+                manifestMode(mode)));
+    }
+
+    /** Legacy {@link PackageMode} to its final {@code [package].mode} symbol (design §17.2). */
+    static String manifestMode(PackageMode mode) {
+        return switch (mode) {
+            case THIN -> "jar";
+            case UBER -> "uber-jar";
+            default -> mode.configValue();
+        };
     }
 
     static LockPackage lockPackage(

@@ -19,7 +19,7 @@ import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -92,7 +92,6 @@ final class PackageTestGeneratedProducerFreshnessTest {
         Path bin = project.resolve("bin");
         Files.createDirectories(bin);
         executable(bin.resolve("zoltgen"));
-        executable(bin.resolve("zoltprobe"));
         AtomicReference<String> version =
                 new AtomicReference<>("1.0.0");
         Map<String, String> environment = new HashMap<>();
@@ -167,11 +166,11 @@ final class PackageTestGeneratedProducerFreshnessTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 %s
                 [package]
-                tests = true
+                testJar = true
                 """.formatted(
                 System.getProperty(
                         "java.specification.version"),
@@ -192,7 +191,7 @@ final class PackageTestGeneratedProducerFreshnessTest {
                 "target/test-classes/com/example/DemoTest.class",
                 "test-bytecode");
         write(project, "seed.txt", "seed\n");
-        ProjectConfig config = new ZoltTomlParser().parse(
+        ProjectConfig config = new ManifestProjectConfigLoader().load(
                 project.resolve("zolt.toml"));
         ClasspathSet classpaths =
                 new ClasspathBuilder().build(packages);
@@ -254,8 +253,8 @@ final class PackageTestGeneratedProducerFreshnessTest {
 
     private static String jvmStep(String fields) {
         return """
-                [generated.execTools.gen]
-                runner = "jvm"
+                [generated.tools.gen]
+                kind = "jvm"
                 coordinates = [{ coordinate = "com.example:gen", version = "1.0.0" }]
                 mainClass = "com.example.Gen"
 
@@ -271,10 +270,10 @@ final class PackageTestGeneratedProducerFreshnessTest {
 
     private static String processStep() {
         return """
-                [generated.execTools.gen]
-                runner = "process"
+                [generated.tools.gen]
+                kind = "process"
                 binary = "zoltgen"
-                versionCommand = ["zoltprobe"]
+                versionCommand = ["zoltgen", "--version"]
                 allowUnpinnedTool = true
 
                 [generated.test.fixtures]

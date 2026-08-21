@@ -6,7 +6,7 @@ import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -81,18 +81,18 @@ final class ExecGeneratedSourceServiceTestSupport {
     }
 
     static ProjectConfig config(String stepExtras) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 jooq = "3.19.15"
 
-                [generated.execTools.jooq]
-                runner = "jvm"
+                [generated.tools.jooq]
+                kind = "jvm"
                 coordinates = [{ coordinate = "org.jooq:jooq-codegen", versionRef = "jooq" }]
                 mainClass = "com.example.GenerationTool"
 

@@ -3,7 +3,7 @@ package sh.zolt.build.generatedsource;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,6 +32,17 @@ final class ExecProcessRunnerTestSupport {
         return script;
     }
 
+    /**
+     * Writes the {@code zoltgen} process tool. Design §13.2 requires {@code versionCommand[0]} to be
+     * the tool binary itself, so the script answers {@code --zolt-version} before running {@code body}.
+     */
+    static Path writeTool(Path binDirectory, String version, String body) throws IOException {
+        return writeScript(
+                binDirectory,
+                "zoltgen",
+                "if [ \"$1\" = \"--zolt-version\" ]; then echo " + version + "; exit 0; fi\n" + body);
+    }
+
     static ExecGeneratedSourceService service(Path projectDir, Path binDirectory, Map<String, String> extraAmbient) {
         Map<String, String> ambient = new HashMap<>();
         String realPath = System.getenv("PATH");
@@ -47,7 +58,7 @@ final class ExecProcessRunnerTestSupport {
     }
 
     static ProjectConfig config(String toml) {
-        return new ZoltTomlParser().parse(toml);
+        return new ManifestProjectConfigLoader().load(toml);
     }
 
     private static JdkChecker jdkChecker(Path projectDir) {

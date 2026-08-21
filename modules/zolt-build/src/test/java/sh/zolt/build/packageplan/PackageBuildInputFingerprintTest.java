@@ -7,7 +7,7 @@ import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprint;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -55,20 +55,20 @@ final class PackageBuildInputFingerprintTest {
 
     @Test
     void effectiveResourceTokensAreCanonicalByName() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [resources.tokens]
-                projectVersion = { project = "version" }
-                enterprisePlatformVersion = { value = "2026.06" }
+                project-version = { project = "version" }
+                enterprise-platform-version = { value = "2026.06" }
                 """);
 
         assertEquals(
-                List.of("enterprisePlatformVersion", "projectVersion"),
+                List.of("enterprise-platform-version", "project-version"),
                 List.copyOf(PackageBuildInputFingerprint
                         .effectiveResourceTokens(config)
                         .keySet()));
@@ -93,12 +93,12 @@ final class PackageBuildInputFingerprintTest {
     private static ProjectConfig config(
             String first,
             String second) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.main.%s]
                 kind = "declared-root"
@@ -131,22 +131,22 @@ final class PackageBuildInputFingerprintTest {
     }
 
     private static ProjectConfig config() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
     }
 
     private static ProjectConfig testConfig(String input) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.test.fixtures]
                 kind = "declared-root"

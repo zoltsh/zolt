@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -56,18 +56,19 @@ final class OpenApiGeneratorCommandBuilderTest {
     }
 
     private static ProjectConfig config() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
 
-                [generated.openapiPresets.spring-api]
+                [generated.presets.spring-api]
+                kind = "openapi"
                 generator = "spring"
                 library = "spring-boot"
                 apiPackage = "com.example.api"

@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.PackageException;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -142,15 +142,15 @@ final class PackagePlanGeneratedSourceFingerprintTest {
     }
 
     private static ProjectConfig config() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.execTools.jooq]
-                runner = "jvm"
+                [generated.tools.jooq]
+                kind = "jvm"
                 coordinates = [{ coordinate = "org.jooq:jooq-codegen", version = "3.19.15" }]
                 mainClass = "com.example.GenerationTool"
 
@@ -165,15 +165,15 @@ final class PackagePlanGeneratedSourceFingerprintTest {
 
     private static ProjectConfig unavailableTestProcessConfig(
             boolean packageTests) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.execTools.test-generator]
-                runner = "process"
+                [generated.tools.test-generator]
+                kind = "process"
                 binary = "zolt-missing-test-generator"
                 versionCommand = ["zolt-missing-test-generator", "--version"]
                 allowUnpinnedTool = true
@@ -186,19 +186,19 @@ final class PackagePlanGeneratedSourceFingerprintTest {
                 produces = "test-resources"
 
                 [package]
-                tests = %s
+                testJar = %s
                 """.formatted(packageTests));
     }
 
     private static ProjectConfig declaredTestConfig(
             boolean packageTests,
             String input) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.test.fixtures]
                 kind = "declared-root"
@@ -207,7 +207,7 @@ final class PackagePlanGeneratedSourceFingerprintTest {
                 output = "target/generated/test-fixtures"
 
                 [package]
-                tests = %s
+                testJar = %s
                 """.formatted(input, packageTests));
     }
 }

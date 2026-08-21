@@ -15,7 +15,7 @@ import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -90,7 +90,7 @@ final class PackageTestCompileGateTest {
 
         assertStale(
                 fixture,
-                new ZoltTomlParser().parse(
+                new ManifestProjectConfigLoader().load(
                         fixture.project().resolve("zolt.toml")));
     }
 
@@ -142,7 +142,7 @@ final class PackageTestCompileGateTest {
         Path dependencyJar = project.resolve("deps/test-api.jar");
         Files.createDirectories(dependencyJar.getParent());
         Files.writeString(dependencyJar, "dependency bytes");
-        ProjectConfig config = new ZoltTomlParser().parse(
+        ProjectConfig config = new ManifestProjectConfigLoader().load(
                 project.resolve("zolt.toml"));
         ClasspathSet classpaths = classpaths(dependencyJar);
         SourceDiscoveryResult sources = new SourceDiscoverer()
@@ -215,10 +215,10 @@ final class PackageTestCompileGateTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
-                [compiler]
-                testArgs = ["%s"]
+                [compiler.test]
+                args = ["%s"]
 
                 [generated.test.fixtures]
                 kind = "declared-root"
@@ -228,7 +228,7 @@ final class PackageTestCompileGateTest {
                 required = false
 
                 [package]
-                tests = true
+                testJar = true
                 """.formatted(
                         currentJavaMajorVersion(),
                         testArg));
