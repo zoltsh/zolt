@@ -8,6 +8,7 @@ import sh.zolt.manifest.authored.AuthoredCentralPublishing;
 import sh.zolt.manifest.authored.AuthoredPublicationRepository;
 import sh.zolt.manifest.authored.AuthoredPublicationRoutes;
 import sh.zolt.manifest.authored.AuthoredPublicationSigning;
+import sh.zolt.manifest.authored.AuthoredPublishing;
 
 /** Cross-package test seam for package-private final-manifest publishing decoders. */
 public final class ManifestPublishingTestSupport {
@@ -62,5 +63,14 @@ public final class ManifestPublishingTestSupport {
     public static void decodeCentralWithNullObserver(String source) {
         new ManifestCentralPublishingDecoder().decode(
                 ManifestSemanticTestSupport.index(source), null);
+    }
+
+    public static Optional<AuthoredPublishing> decodePublishing(String source) {
+        return new ManifestPublishingDecoder().decode(
+                ManifestSemanticTestSupport.index(source));
+    }
+
+    public static void decodePublishingWithNullIndex() {
+        new ManifestPublishingDecoder().decode(null);
     }
 }
