@@ -9,7 +9,7 @@ import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.lock.ToolchainLockfileService;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceJdkCheckerResolver;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -147,7 +147,7 @@ final class CommandToolchainOptionsTest {
 
     private Workspace capturedWorkspace() throws IOException {
         Workspace discovered =
-                new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+                new ManifestWorkspaceLoader().discover(tempDir).orElseThrow();
         Path lockfile = tempDir.resolve("zolt.lock");
         return discovered.withInputs(
                 discovered.inputs().withContent(

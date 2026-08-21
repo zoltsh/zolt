@@ -10,10 +10,10 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.build.PackageException;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 
 final class PackageCommandModesTest {
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader parser = new ManifestProjectConfigLoader();
 
     @Test
     void packagingLocalOverrideDoesNotChangeResolutionInputs() {
@@ -56,7 +56,7 @@ final class PackageCommandModesTest {
     }
 
     private ProjectConfig config(PackageMode mode) {
-        return parser.parse("""
+        return parser.load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"

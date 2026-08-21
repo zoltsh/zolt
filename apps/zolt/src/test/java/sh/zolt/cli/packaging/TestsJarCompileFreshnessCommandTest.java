@@ -10,7 +10,7 @@ import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.build.testruntime.compile.TestCompileService;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.packaging.WorkspacePackageService;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -184,8 +184,7 @@ final class TestsJarCompileFreshnessCommandTest {
     private static void compileTests(
             Path project,
             Path cache) {
-        ProjectConfig config = new ZoltTomlParser().parse(
-                project.resolve("zolt.toml"));
+        ProjectConfig config = new ManifestProjectLoader().load(project);
         BuildResultWithClasspaths build =
                 new BuildService().buildWithClasspaths(
                         project,

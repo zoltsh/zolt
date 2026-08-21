@@ -10,7 +10,7 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.testruntime.compile.TestCompileService;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -297,8 +297,7 @@ final class GeneratedTestPackageScopeCommandTest {
     private static void compileTests(
             Path project,
             Path cache) {
-        ProjectConfig config = new ZoltTomlParser().parse(
-                project.resolve("zolt.toml"));
+        ProjectConfig config = new ManifestProjectLoader().load(project);
         BuildResultWithClasspaths build =
                 new BuildService().buildWithClasspaths(
                         project,

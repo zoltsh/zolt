@@ -12,7 +12,7 @@ import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.fingerprint.ProjectResolutionFingerprint;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.nio.charset.StandardCharsets;
@@ -305,6 +305,6 @@ final class CommandLockfilesTest {
                 [dependencies]
                 "com.example:demo" = "%s"
                 """.formatted(dependencyVersion));
-        return new ZoltTomlParser().parse(project.resolve("zolt.toml"));
+        return new ManifestProjectLoader().load(project);
     }
 }

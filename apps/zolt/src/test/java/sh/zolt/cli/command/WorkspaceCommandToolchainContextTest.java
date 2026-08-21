@@ -9,7 +9,7 @@ import sh.zolt.doctor.JdkChecker;
 import sh.zolt.error.ActionableException;
 import sh.zolt.framework.FrameworkTestRunner;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -270,7 +270,7 @@ final class WorkspaceCommandToolchainContextTest {
     private static Workspace capturedWorkspace(Path root)
             throws IOException {
         Workspace discovered =
-                new WorkspaceDiscoveryService().discover(root).orElseThrow();
+                new ManifestWorkspaceLoader().discover(root).orElseThrow();
         Path lockfile = root.resolve("zolt.lock");
         return discovered.withInputs(
                 discovered.inputs().withContent(

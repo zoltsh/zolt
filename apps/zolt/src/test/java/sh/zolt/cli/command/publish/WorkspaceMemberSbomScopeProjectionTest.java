@@ -12,7 +12,7 @@ import sh.zolt.sbom.LockSbomAssembler;
 import sh.zolt.sbom.SbomComponentScope;
 import sh.zolt.sbom.SbomModel;
 import sh.zolt.sbom.SbomScopeSelection;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
@@ -76,7 +76,7 @@ final class WorkspaceMemberSbomScopeProjectionTest {
     }
 
     private static ProjectConfig config(String name, String section) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "%s"
                 version = "1.0.0"
