@@ -9,12 +9,18 @@ import java.util.Optional;
 import java.util.TreeMap;
 import sh.zolt.dependency.DependencyLane;
 import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.DependencyRepository;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.RepositoryCredential;
 import sh.zolt.manifest.VersionAliasValue;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
 import sh.zolt.manifest.adapter.LegacyDependencySection;
+import sh.zolt.manifest.authored.AuthoredCredentials;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredPlatforms;
+import sh.zolt.manifest.authored.AuthoredVersionAliases;
 import sh.zolt.manifest.effective.EffectiveManifest;
 import sh.zolt.manifest.effective.EffectiveSharedConfiguration;
 import sh.zolt.manifest.effective.EffectiveValue;
@@ -127,9 +133,7 @@ public final class ManifestWorkspaceLoader {
             DiscoveredWorkspace discovered,
             EffectiveWorkspace effective,
             List<WorkspaceMember> members) {
-        EffectiveSharedConfiguration shared = rootShared(effective);
-        Map<String, RepositorySettings> repositorySettings =
-                repositorySettings(effective);
+        Map<String, RepositorySettings> repositorySettings = repositorySettings(effective);
         Map<String, String> repositories = new LinkedHashMap<>();
         repositorySettings.forEach((id, settings) -> repositories.put(id, settings.url()));
         return new WorkspaceConfig(
@@ -137,9 +141,9 @@ public final class ManifestWorkspaceLoader {
                 members.stream().map(WorkspaceMember::path).toList(),
                 defaultMembers(discovered),
                 Map.copyOf(repositories),
-                platforms(shared),
+                platforms(effective.root()),
                 repositorySettings,
-                repositoryCredentials(effective));
+                repositoryCredentials(effective.root()));
     }
 
     /**
@@ -154,33 +158,48 @@ public final class ManifestWorkspaceLoader {
         return discovered.selection().members().stream().map(WorkspaceMemberPath::value).toList();
     }
 
-    private static Map<String, String> platforms(EffectiveSharedConfiguration shared) {
+    /**
+     * Root-authored platforms only. A member may add its own {@code [platforms]} entry, which belongs
+     * to that member and never to the workspace-level view (design §8.7 and the root/member merge).
+     */
+    private static Map<String, String> platforms(AuthoredManifest root) {
+        Map<LocalId, VersionAliasValue> versions =
+                root.versions().map(AuthoredVersionAliases::entries).orElseGet(Map::of);
         Map<String, String> platforms = new LinkedHashMap<>();
-        for (Map.Entry<DependencyCoordinate, EffectiveValue<PlatformSelector>> entry
-                : shared.platforms().entrySet()) {
-            platforms.put(entry.getKey().value(), version(entry.getValue().value(), shared));
-        }
+        root.platforms()
+                .map(AuthoredPlatforms::entries)
+                .orElseGet(Map::of)
+                .forEach((coordinate, selector) ->
+                        platforms.put(coordinate.value(), version(selector, versions, coordinate)));
         return Map.copyOf(platforms);
     }
 
-    private static String version(PlatformSelector selector, EffectiveSharedConfiguration shared) {
+    private static String version(
+            PlatformSelector selector,
+            Map<LocalId, VersionAliasValue> versions,
+            DependencyCoordinate coordinate) {
         return switch (selector) {
             case PlatformSelector.FixedVersion fixed -> fixed.value();
-            case PlatformSelector.VersionReference reference -> alias(shared, reference.alias());
+            case PlatformSelector.VersionReference reference ->
+                    alias(versions, reference.alias(), coordinate);
         };
     }
 
-    private static String alias(EffectiveSharedConfiguration shared, LocalId alias) {
-        EffectiveValue<VersionAliasValue> value = shared.versions().get(alias);
+    private static String alias(
+            Map<LocalId, VersionAliasValue> versions,
+            LocalId alias,
+            DependencyCoordinate coordinate) {
+        VersionAliasValue value = versions.get(alias);
         if (value == null) {
             throw new WorkspaceConfigException(
-                    "Workspace platform references undefined version alias `" + alias + "`.");
+                    "Workspace platform `" + coordinate
+                            + "` references undefined version alias `" + alias + "`.");
         }
-        return value.value().value();
+        return value.value();
     }
 
     private static Map<String, RepositorySettings> repositorySettings(EffectiveWorkspace effective) {
-        EffectiveSharedConfiguration shared = rootShared(effective);
+        EffectiveSharedConfiguration shared = rootRepositoryUniverse(effective);
         Map<String, RepositorySettings> settings = new LinkedHashMap<>();
         for (LocalId id : shared.repositories().lookupOrder().value()) {
             settings.put(id.value(), repository(shared, id));
@@ -195,7 +214,7 @@ public final class ManifestWorkspaceLoader {
                     shared.repositories().central().value().repository().orElseThrow().url().value(),
                     Optional.empty());
         }
-        EffectiveValue<sh.zolt.manifest.DependencyRepository> repository =
+        EffectiveValue<DependencyRepository> repository =
                 shared.repositories().named().get(id);
         if (repository == null) {
             throw new WorkspaceConfigException(
@@ -207,14 +226,20 @@ public final class ManifestWorkspaceLoader {
                 repository.value().credentials().map(LocalId::value));
     }
 
+    /**
+     * Root-authored credentials only. Members may add project-local credentials for their own
+     * publication or generated tools (design §8.7); those stay member-local.
+     */
     private static Map<String, RepositoryCredentialSettings> repositoryCredentials(
-            EffectiveWorkspace effective) {
+            AuthoredManifest root) {
         Map<String, RepositoryCredentialSettings> credentials = new LinkedHashMap<>();
-        rootShared(effective).credentials().forEach((id, credential) ->
-                credentials.put(id.value(), switch (credential.value()) {
-                    case sh.zolt.manifest.RepositoryCredential.BearerToken token ->
+        root.credentials()
+                .map(AuthoredCredentials::entries)
+                .orElseGet(Map::of)
+                .forEach((id, credential) -> credentials.put(id.value(), switch (credential) {
+                    case RepositoryCredential.BearerToken token ->
                             RepositoryCredentialSettings.token(id.value(), token.tokenEnvironment().value());
-                    case sh.zolt.manifest.RepositoryCredential.Basic basic ->
+                    case RepositoryCredential.Basic basic ->
                             RepositoryCredentialSettings.basic(
                                     id.value(),
                                     basic.usernameEnvironment().value(),
@@ -224,11 +249,10 @@ public final class ManifestWorkspaceLoader {
     }
 
     /**
-     * Root-owned shared configuration. Every member inherits the same effective repository universe,
-     * credentials, versions, and platforms (design §8.7 and §4.5), so the first member's shared view
-     * is the workspace-level view.
+     * The one root-owned repository universe. A member may not declare {@code [repositories]}
+     * (design §8.7), so every member's effective view is the root universe verbatim.
      */
-    private static EffectiveSharedConfiguration rootShared(EffectiveWorkspace effective) {
+    private static EffectiveSharedConfiguration rootRepositoryUniverse(EffectiveWorkspace effective) {
         return effective.members().values().iterator().next().project().shared();
     }
 

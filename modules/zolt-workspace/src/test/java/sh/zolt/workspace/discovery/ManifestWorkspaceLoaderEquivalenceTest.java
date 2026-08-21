@@ -214,6 +214,95 @@ final class ManifestWorkspaceLoaderEquivalenceTest {
     }
 
     @Test
+    void memberLocalCredentialsAndPlatformsStayOutOfTheWorkspaceView() throws IOException {
+        write(finalRoot, "zolt.toml", """
+                [workspace]
+                name = "acme-platform"
+
+                [workspace.members]
+                include = ["modules/*"]
+
+                [workspace.project]
+                group = "com.acme"
+                version = "1.4.0"
+                java = 21
+
+                [credentials.company]
+                usernameEnv = "MAVEN_USERNAME"
+                passwordEnv = "MAVEN_PASSWORD"
+
+                [platforms]
+                "com.acme:enterprise-platform" = "2026.1.0"
+                """);
+        write(finalRoot, "modules/core/zolt.toml", """
+                [project]
+                name = "core"
+
+                [credentials.member-only]
+                tokenEnv = "MEMBER_TOKEN"
+
+                [platforms]
+                "com.acme:member-platform" = "1.0.0"
+                """);
+
+        Workspace adapted = loader.load(finalRoot);
+
+        assertEquals(
+                List.of("company"),
+                List.copyOf(adapted.config().repositoryCredentials().keySet()),
+                "design §8.7 keeps member-local credentials out of the root-owned universe");
+        assertEquals(
+                Map.of("com.acme:enterprise-platform", "2026.1.0"),
+                adapted.config().platforms(),
+                "member platforms belong to the member, not to the workspace view");
+        ProjectConfig core = member(adapted, "modules/core");
+        assertEquals(
+                "MEMBER_TOKEN",
+                core.repositoryCredentials().get("member-only").tokenEnv().orElseThrow());
+        assertEquals("1.0.0", core.platforms().get("com.acme:member-platform"));
+        assertEquals("2026.1.0", core.platforms().get("com.acme:enterprise-platform"));
+    }
+
+    @Test
+    void rootProjectWorkspaceIncludesTheRootAsAMember() throws IOException {
+        write(finalRoot, "zolt.toml", """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                default = ["."]
+                include = [".", "modules/*"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "1.4.0"
+                java = 21
+
+                [platforms]
+                "com.example:platform" = "2026.1.0"
+
+                [project]
+                name = "platform-root"
+                """);
+        write(finalRoot, "modules/core/zolt.toml", """
+                [project]
+                name = "core"
+                """);
+
+        Workspace adapted = loader.load(finalRoot);
+
+        assertEquals(List.of(".", "modules/core"), adapted.config().members());
+        assertEquals(List.of("."), adapted.config().defaultMembers());
+        assertEquals(
+                Map.of("com.example:platform", "2026.1.0"),
+                adapted.config().platforms());
+        assertEquals("platform-root", member(adapted, ".").project().name());
+        assertEquals(
+                finalRoot.toAbsolutePath().normalize(),
+                adapted.members().getFirst().directory());
+    }
+
+    @Test
     void workspaceSelectorsInRuntimeLanesAreRejected() throws IOException {
         write(finalRoot, "zolt.toml", """
                 [workspace]
