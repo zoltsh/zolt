@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class ProjectResolutionFingerprintTest {
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader manifestLoader = new ManifestProjectConfigLoader();
 
     @Test
     void sameResolutionInputsProduceSameFingerprintWhenTomlOrderChanges() {
@@ -34,20 +34,17 @@ final class ProjectResolutionFingerprintTest {
                 new Case("repository", baseToml().replace("https://repo.acme.example/maven", "https://mirror.acme.example/maven")),
                 new Case("repository credentials", baseToml().replace("ACME_REPO_PASSWORD", "ACME_REPO_SECRET")),
                 new Case("dependency", baseToml().replace("33.4.0-jre", "33.4.1-jre")),
-                new Case("workspace member path", baseToml().replace("modules/shared", "modules/shared-v2")),
                 new Case("platform", baseToml().replace("3.3.6", "3.3.7")),
                 new Case("dependency conflict policy", baseToml().replace(
                         "[dependencies]",
-                        "[dependencyPolicy]\nfailOnVersionConflict = true\n\n[dependencies]")),
+                        "[dependencies.policy]\nconflicts = \"fail\"\n\n[dependencies]")),
                 new Case("processor", baseToml().replace("1.6.3", "1.6.4")),
                 new Case("generated source tool", baseToml().replace("7.11.0", "7.12.0")),
                 new Case("generated source required flag", baseToml().replace("required = true", "required = false")),
-                new Case("package tooling mode", baseToml().replace("mode = \"spring-boot\"", "mode = \"thin\"")),
-                new Case("spring boot native setting", baseToml().replace(
-                        "enabled = false\n\n[framework.quarkus]",
-                        "enabled = true\n\n[framework.quarkus]")),
-                new Case("quarkus setting", baseToml().replace("enabled = true", "enabled = false")),
-                new Case("java input", baseToml().replace("java = \"21\"", "java = \"22\"")));
+                new Case("package tooling mode", baseToml().replace("mode = \"spring-boot\"", "mode = \"jar\"")),
+                new Case("spring boot native setting", baseToml().replace("native = false", "native = true")),
+                new Case("quarkus setting", baseToml().replace("mode = \"spring-boot\"", "mode = \"quarkus\"")),
+                new Case("java input", baseToml().replace("java = 21", "java = 22")));
 
         for (Case testCase : cases) {
             assertNotEquals(
@@ -59,8 +56,8 @@ final class ProjectResolutionFingerprintTest {
 
     @Test
     void archiveModesWithoutResolutionToolingShareTheThinFingerprint() {
-        String thin = baseToml().replace("mode = \"spring-boot\"", "mode = \"thin\"");
-        String uber = baseToml().replace("mode = \"spring-boot\"", "mode = \"uber\"");
+        String thin = baseToml().replace("mode = \"spring-boot\"", "mode = \"jar\"");
+        String uber = baseToml().replace("mode = \"spring-boot\"", "mode = \"uber-jar\"");
         assertEquals(
                 ProjectResolutionFingerprint.fingerprint(parse(thin)),
                 ProjectResolutionFingerprint.fingerprint(parse(uber)));
@@ -92,7 +89,7 @@ final class ProjectResolutionFingerprintTest {
     }
 
     private ProjectConfig parse(String toml) {
-        return parser.parse(toml);
+        return manifestLoader.load(toml);
     }
 
     private static String valueFor(List<String> inputs, String category) {
@@ -108,12 +105,16 @@ final class ProjectResolutionFingerprintTest {
                 name = "fingerprint-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                company = { url = "https://repo.acme.example/maven", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.acme.example/maven"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "ACME_REPO_USER"
                 passwordEnv = "ACME_REPO_PASSWORD"
 
@@ -128,12 +129,11 @@ final class ProjectResolutionFingerprintTest {
 
                 [dependencies]
                 "com.google.guava:guava" = { versionRef = "guava" }
-                "com.example:shared" = { workspace = "modules/shared" }
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.mapstruct:mapstruct-processor" = { versionRef = "mapstruct" }
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
@@ -148,12 +148,8 @@ final class ProjectResolutionFingerprintTest {
                 [package]
                 mode = "spring-boot"
 
-                [framework.springBoot.native]
-                enabled = false
-
-                [framework.quarkus]
-                enabled = true
-                package = "fast-jar"
+                [framework.spring-boot]
+                native = false
                 """;
     }
 
@@ -163,17 +159,13 @@ final class ProjectResolutionFingerprintTest {
                 name = "fingerprint-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [framework.quarkus]
-                package = "fast-jar"
-                enabled = true
+                [framework.spring-boot]
+                native = false
 
                 [package]
                 mode = "spring-boot"
-
-                [framework.springBoot.native]
-                enabled = false
 
                 [versions]
                 spring = "3.3.6"
@@ -181,7 +173,7 @@ final class ProjectResolutionFingerprintTest {
                 mapstruct = "1.6.3"
                 guava = "33.4.0-jre"
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 versionRef = "openapi"
                 coordinate = "org.openapitools:openapi-generator-cli"
 
@@ -193,22 +185,25 @@ final class ProjectResolutionFingerprintTest {
                 generator = "spring"
                 kind = "openapi"
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.mapstruct:mapstruct-processor" = { versionRef = "mapstruct" }
 
                 [dependencies]
-                "com.example:shared" = { workspace = "modules/shared" }
                 "com.google.guava:guava" = { versionRef = "guava" }
 
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = { versionRef = "spring" }
 
-                [repositoryCredentials.company-artifactory]
+                [credentials.company-artifactory]
                 passwordEnv = "ACME_REPO_PASSWORD"
                 usernameEnv = "ACME_REPO_USER"
 
                 [repositories]
-                company = { credentials = "company-artifactory", url = "https://repo.acme.example/maven" }
+                central = false
+
+                [repositories.company]
+                credentials = "company-artifactory"
+                url = "https://repo.acme.example/maven"
                 """;
     }
 

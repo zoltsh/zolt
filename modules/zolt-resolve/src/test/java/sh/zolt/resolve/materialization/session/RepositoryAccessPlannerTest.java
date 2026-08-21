@@ -9,7 +9,9 @@ import sh.zolt.maven.repository.RepositoryAccessException;
 import sh.zolt.maven.repository.RepositoryAccessPlanner;
 import sh.zolt.maven.repository.RepositoryAuthentication;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.project.RepositoryCredentialSettings;
+import sh.zolt.project.RepositorySettings;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
@@ -21,8 +23,13 @@ final class RepositoryAccessPlannerTest {
     void plansRepositoriesByStableIdOrder() {
         List<RepositoryAccess> access = new RepositoryAccessPlanner().plan(config("""
                 [repositories]
-                zeta = "https://repo.example/zeta"
-                alpha = "https://repo.example/alpha"
+                central = false
+
+                [repositories.zeta]
+                url = "https://repo.example/zeta"
+
+                [repositories.alpha]
+                url = "https://repo.example/alpha"
                 """));
 
         assertEquals("https://repo.example/alpha", access.get(0).uri().toString());
@@ -41,9 +48,13 @@ final class RepositoryAccessPlannerTest {
 
         RepositoryAccess access = planner.plan(config("""
                 [repositories]
-                company = { url = "https://repo.example/company", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.example/company"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "REPOSITORY_USERNAME"
                 passwordEnv = "REPOSITORY_PASSWORD"
                 """)).getFirst();
@@ -61,9 +72,13 @@ final class RepositoryAccessPlannerTest {
 
         RepositoryAccess access = planner.plan(config("""
                 [repositories]
-                company = { url = "https://repo.example/company", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.example/company"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 tokenEnv = "REPOSITORY_TOKEN"
                 """)).getFirst();
 
@@ -74,10 +89,16 @@ final class RepositoryAccessPlannerTest {
     void rejectsRepositoryUrlUserinfoBeforeResolution() {
         RepositoryAccessException exception = assertThrows(
                 RepositoryAccessException.class,
-                () -> new RepositoryAccessPlanner().plan(config("""
-                        [repositories]
-                        company = "https://user:super-secret@repo.example/company"
-                        """)));
+                () -> new RepositoryAccessPlanner().plan(withRepositoryUrl(
+                        config("""
+                                [repositories]
+                                central = false
+
+                                [repositories.company]
+                                url = "https://repo.example/company"
+                                """),
+                        "company",
+                        "https://user:super-secret@repo.example/company")));
 
         assertTrue(exception.getMessage().contains("Repository `company` URL contains embedded credentials"));
         assertTrue(exception.getMessage().contains("Move credentials to [repositoryCredentials] environment references"));
@@ -95,14 +116,21 @@ final class RepositoryAccessPlannerTest {
 
         RepositoryAccessException exception = assertThrows(
                 RepositoryAccessException.class,
-                () -> planner.plan(config("""
-                        [repositories]
-                        company = { url = "http://repo.example/company", credentials = "company-artifactory" }
+                () -> planner.plan(withRepositoryUrl(
+                        config("""
+                                [repositories]
+                                central = false
 
-                        [repositoryCredentials.company-artifactory]
-                        usernameEnv = "REPOSITORY_USERNAME"
-                        passwordEnv = "REPOSITORY_PASSWORD"
-                        """)));
+                                [repositories.company]
+                                url = "https://repo.example/company"
+                                credentials = "company-artifactory"
+
+                                [credentials.company-artifactory]
+                                usernameEnv = "REPOSITORY_USERNAME"
+                                passwordEnv = "REPOSITORY_PASSWORD"
+                                """),
+                        "company",
+                        "http://repo.example/company")));
 
         assertTrue(exception.getMessage().contains("Repository `company` uses credentials with an insecure remote repository URL"));
         assertTrue(exception.getMessage().contains("Credentialed remote repositories require HTTPS"));
@@ -112,10 +140,16 @@ final class RepositoryAccessPlannerTest {
     void rejectsNonLocalHttpRepository() {
         RepositoryAccessException exception = assertThrows(
                 RepositoryAccessException.class,
-                () -> new RepositoryAccessPlanner().plan(config("""
-                        [repositories]
-                        company = "http://repo.example/company"
-                        """)));
+                () -> new RepositoryAccessPlanner().plan(withRepositoryUrl(
+                        config("""
+                                [repositories]
+                                central = false
+
+                                [repositories.company]
+                                url = "https://repo.example/company"
+                                """),
+                        "company",
+                        "http://repo.example/company")));
 
         assertTrue(exception.getMessage().contains("Repository `company` uses non-local HTTP"));
         assertTrue(exception.getMessage().contains("plain HTTP is allowed only for localhost or loopback"));
@@ -125,7 +159,10 @@ final class RepositoryAccessPlannerTest {
     void allowsLoopbackHttpRepositoryForLocalDevelopment() {
         List<RepositoryAccess> access = new RepositoryAccessPlanner().plan(config("""
                 [repositories]
-                local = "http://127.0.0.1:18080/maven2"
+                central = false
+
+                [repositories.local]
+                url = "http://127.0.0.1:18080/maven2"
                 """));
 
         assertEquals("http://127.0.0.1:18080/maven2", access.getFirst().uri().toString());
@@ -135,9 +172,13 @@ final class RepositoryAccessPlannerTest {
     void reportsMissingCredentialDefinition() {
         ProjectConfig config = withoutRepositoryCredentials(config("""
                 [repositories]
-                company = { url = "https://repo.example/company", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.example/company"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "REPOSITORY_USERNAME"
                 passwordEnv = "REPOSITORY_PASSWORD"
                 """));
@@ -160,9 +201,13 @@ final class RepositoryAccessPlannerTest {
                 RepositoryAccessException.class,
                 () -> planner.plan(config("""
                         [repositories]
-                        company = { url = "https://repo.example/company", credentials = "company-artifactory" }
+                        central = false
 
-                        [repositoryCredentials.company-artifactory]
+                        [repositories.company]
+                        url = "https://repo.example/company"
+                        credentials = "company-artifactory"
+
+                        [credentials.company-artifactory]
                         usernameEnv = "REPOSITORY_USERNAME"
                         passwordEnv = "REPOSITORY_PASSWORD"
                         """)));
@@ -173,23 +218,45 @@ final class RepositoryAccessPlannerTest {
     }
 
     private static ProjectConfig config(String repositoryToml) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
                 """.formatted(repositoryToml));
     }
 
+    /**
+     * Replaces one repository URL after parsing. The final manifest language rejects these URLs at
+     * parse time (design §8.4), so the planner's own defensive checks need a non-manifest input.
+     */
+    private static ProjectConfig withRepositoryUrl(ProjectConfig config, String id, String url) {
+        Map<String, String> repositories = new java.util.LinkedHashMap<>(config.repositories());
+        repositories.put(id, url);
+        Map<String, RepositorySettings> settings =
+                new java.util.LinkedHashMap<>(config.repositorySettings());
+        RepositorySettings existing = settings.get(id);
+        settings.put(id, new RepositorySettings(id, url, existing.credentials()));
+        return rebuild(config, repositories, settings, config.repositoryCredentials());
+    }
+
     private static ProjectConfig withoutRepositoryCredentials(ProjectConfig config) {
+        return rebuild(config, config.repositories(), config.repositorySettings(), Map.of());
+    }
+
+    private static ProjectConfig rebuild(
+            ProjectConfig config,
+            Map<String, String> repositories,
+            Map<String, RepositorySettings> repositorySettings,
+            Map<String, RepositoryCredentialSettings> repositoryCredentials) {
         return new ProjectConfig(
                 config.project(),
-                config.repositories(),
-                config.repositorySettings(),
-                Map.of(),
+                repositories,
+                repositorySettings,
+                repositoryCredentials,
                 config.versionAliases(),
                 config.platforms(),
                 config.apiDependencies(),

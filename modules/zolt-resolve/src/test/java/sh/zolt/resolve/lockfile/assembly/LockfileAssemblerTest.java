@@ -20,7 +20,7 @@ import sh.zolt.resolve.graph.ResolutionGraph;
 import sh.zolt.resolve.metadata.platform.ManagedVersion;
 import sh.zolt.resolve.traversal.DependencyTraversalDecision;
 import sh.zolt.resolve.version.VersionSelectionResult;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -283,38 +283,41 @@ final class LockfileAssemblerTest {
     }
 
     private static ProjectConfig configWithManagedDependencyAndAlias() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 app = "1.0.0"
 
+                [platforms]
+                "com.example:platform" = "1.0.0"
+
                 [dependencies]
-                "com.example:app" = {}
+                "com.example:app" = { managed = true }
                 """);
     }
 
     private static ProjectConfig baseConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
     }
 
     private static ProjectConfig aliasFingerprintConfig(String firstGeneratedStep, String secondGeneratedStep) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "generated-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 openapi = "7.11.0"
@@ -322,16 +325,16 @@ final class LockfileAssemblerTest {
                 grpc = "1.68.1"
                 tomcat = "10.1.40"
 
-                [dependencyConstraints]
-                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat", kind = "strict" }
+                [dependencies.constraints]
+                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat" }
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
-                [generated.protobufTool]
+                [generated.tools.protobuf]
                 protocVersionRef = "protoc"
-                grpcPluginVersionRef = "grpc"
+                grpcVersionRef = "grpc"
 
                 %s
 

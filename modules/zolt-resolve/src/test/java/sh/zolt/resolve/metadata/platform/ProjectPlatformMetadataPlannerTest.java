@@ -13,7 +13,7 @@ import sh.zolt.maven.repository.RawPomDependency;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.request.RequestOrigin;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,12 +61,12 @@ final class ProjectPlatformMetadataPlannerTest {
     }
 
     private static ProjectConfig config() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [platforms]
                 "com.example:platform" = "1.0.0"

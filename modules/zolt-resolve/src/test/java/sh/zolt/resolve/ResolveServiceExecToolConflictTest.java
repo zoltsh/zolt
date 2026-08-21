@@ -13,7 +13,7 @@ import sh.zolt.project.DependencyConstraint;
 import sh.zolt.project.DependencyConstraintKind;
 import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -127,18 +127,21 @@ final class ResolveServiceExecToolConflictTest extends ResolveServiceTestSupport
     }
 
     private ProjectConfig codegenConfig(String toolName, String stepId) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
 
-                [generated.execTools.%s]
-                runner = "jvm"
+                [repositories.test]
+                url = "%s"
+
+                [generated.tools.%s]
+                kind = "jvm"
                 coordinates = [
                     { coordinate = "com.example:gen-a", version = "1.0.0" },
                     { coordinate = "com.example:gen-b", version = "1.0.0" },
@@ -155,26 +158,29 @@ final class ResolveServiceExecToolConflictTest extends ResolveServiceTestSupport
     }
 
     private ProjectConfig twoToolConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
 
-                [generated.execTools.codegen1]
-                runner = "jvm"
+                [repositories.test]
+                url = "%s"
+
+                [generated.tools.codegen1]
+                kind = "jvm"
                 coordinates = [
                     { coordinate = "com.example:gen-a", version = "1.0.0" },
                     { coordinate = "com.example:gen-b", version = "1.0.0" },
                 ]
                 mainClass = "com.example.Gen"
 
-                [generated.execTools.codegen2]
-                runner = "jvm"
+                [generated.tools.codegen2]
+                kind = "jvm"
                 coordinates = [
                     { coordinate = "com.example:gen-a", version = "1.0.0" },
                     { coordinate = "com.example:gen-b", version = "1.0.0" },

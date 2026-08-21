@@ -12,7 +12,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.maven.repository.RepositoryAccessException;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.materialization.RepositoryOverlay;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -117,17 +117,17 @@ final class ResolveServiceOverlayTest extends ResolveServiceTestSupport {
         Path projectDir = tempDir.resolve("project");
         Path cacheRoot = tempDir.resolve("cache");
         createDirectory(projectDir);
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
                 "company" = { url = "%s", credentials = "company-artifactory" }
 
-                [repositoryCredentials.company-artifactory]
+                [credentials.company-artifactory]
                 usernameEnv = "ZOLT_TEST_MISSING_REPOSITORY_USERNAME"
                 passwordEnv = "ZOLT_TEST_MISSING_REPOSITORY_PASSWORD"
 
@@ -151,16 +151,21 @@ final class ResolveServiceOverlayTest extends ResolveServiceTestSupport {
         Path projectDir = tempDir.resolve("project");
         Path cacheRoot = tempDir.resolve("cache");
         createDirectory(projectDir);
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                "empty" = "%s"
-                "test" = "%s"
+                central = false
+
+                [repositories.empty]
+                url = "%s"
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "com.example:app" = "1.0.0"

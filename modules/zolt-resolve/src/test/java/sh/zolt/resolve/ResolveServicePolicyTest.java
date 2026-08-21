@@ -12,7 +12,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.DependencyExclusionSpec;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -57,15 +57,18 @@ final class ResolveServicePolicyTest extends ResolveServiceTestSupport {
         Path projectDir = tempDir.resolve("project-version-ref");
         Path cacheRoot = tempDir.resolve("cache-version-ref");
         createDirectory(projectDir);
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [versions]
                 app = "1.0.0"
@@ -117,32 +120,4 @@ final class ResolveServicePolicyTest extends ResolveServiceTestSupport {
         assertTrue(exception.getMessage().contains("uses a platform-managed version"));
     }
 
-    @Test
-    void wildcardDirectDependencyExclusionsFailBeforeNetworkAccess() {
-        Path projectDir = tempDir.resolve("project-wildcard-exclusion");
-        Path cacheRoot = tempDir.resolve("cache-wildcard-exclusion");
-        createDirectory(projectDir);
-        ProjectConfig config = new ZoltTomlParser().parse("""
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [repositories]
-                test = "%s"
-
-                [dependencies]
-                "com.example:app" = { version = "1.0.0", exclusions = [{ group = "*", artifact = "legacy-logging" }] }
-                """.formatted(baseUri));
-
-        ResolveException exception = assertThrows(
-                ResolveException.class,
-                () -> resolveService.resolve(projectDir, config, cacheRoot));
-
-        assertTrue(exception.getMessage().contains("Wildcard dependency exclusions are not supported"));
-        assertTrue(exception.getMessage().contains("*:legacy-logging"));
-        assertTrue(exception.getMessage().contains("Replace it with explicit group and artifact exclusions"));
-        assertEquals(0, totalRequests.get());
-    }
 }

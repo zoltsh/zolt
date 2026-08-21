@@ -13,7 +13,7 @@ import sh.zolt.project.DependencyPolicyExclusion;
 import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -129,12 +129,12 @@ final class DependencyRequestPlannerTest {
     }
 
     private static ProjectConfig baseConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:app" = "1.0.0"
@@ -142,27 +142,30 @@ final class DependencyRequestPlannerTest {
     }
 
     private static ProjectConfig managedTestDependencyConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [test.dependencies]
-                "com.example:test-app" = {}
+                [platforms]
+                "com.example:platform" = "1.0.0"
+
+                [dependencies.test]
+                "com.example:test-app" = { managed = true }
                 """);
     }
 
     private static ProjectConfig testDependencyConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [test.dependencies]
+                [dependencies.test]
                 "com.example:app" = "1.0.0"
                 """);
     }

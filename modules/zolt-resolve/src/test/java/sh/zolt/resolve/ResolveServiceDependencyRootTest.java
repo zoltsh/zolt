@@ -15,7 +15,7 @@ import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.support.ResolveServiceTestSupport;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 
 final class ResolveServiceDependencyRootTest extends ResolveServiceTestSupport {
     @Test
@@ -61,22 +61,25 @@ final class ResolveServiceDependencyRootTest extends ResolveServiceTestSupport {
                 </project>
                 """);
         addArtifact("com.example", "managed", "3.2.1", simplePom("com.example", "managed", "3.2.1"));
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.example:platform" = "1.0.0"
 
                 [dependencies]
-                "com.example:managed" = {}
+                "com.example:managed" = { managed = true }
                 """.formatted(baseUri));
         Path project = tempDir.resolve("managed-root");
         createDirectory(project);
@@ -89,12 +92,12 @@ final class ResolveServiceDependencyRootTest extends ResolveServiceTestSupport {
 
     @Test
     void publishOnlyVersionRefLocksTheEffectiveAliasWithoutCreatingAPackage() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [versions]
@@ -118,40 +121,43 @@ final class ResolveServiceDependencyRootTest extends ResolveServiceTestSupport {
     }
 
     private ProjectConfig allLanesConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
 
-                [api.dependencies]
+                [repositories.test]
+                url = "%s"
+
+                [dependencies.api]
                 "com.example:api" = { version = "1.0.0", optional = true }
 
                 [dependencies]
                 "com.example:implementation" = "1.0.0"
                 "com.example:published" = { version = "2.0.0", publishOnly = true }
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:runtime" = "1.0.0"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "com.example:provided" = "1.0.0"
 
-                [dev.dependencies]
+                [dependencies.dev]
                 "com.example:dev" = "1.0.0"
 
-                [test.dependencies]
+                [dependencies.test]
                 "com.example:test" = "1.0.0"
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "com.example:processor" = "1.0.0"
 
-                [test.annotationProcessors]
+                [dependencies.test-processor]
                 "com.example:test-processor" = "1.0.0"
                 """.formatted(baseUri));
     }

@@ -11,7 +11,7 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -189,32 +189,35 @@ final class ResolveServiceBetaFixtureMatrixTest extends ResolveServiceTestSuppor
     }
 
     private ProjectConfig betaConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.acme:beta-platform" = "1.0.0"
 
                 [dependencies]
-                "com.acme:service-starter" = { exclusions = [{ group = "com.acme", artifact = "legacy-logging" }] }
+                "com.acme:service-starter" = { managed = true, exclude = ["com.acme:legacy-logging"] }
                 "com.modern:relocated-api" = "2.0.0"
 
-                [runtime.dependencies]
-                "org.slf4j:slf4j-simple" = {}
+                [dependencies.runtime]
+                "org.slf4j:slf4j-simple" = { managed = true }
 
-                [provided.dependencies]
-                "jakarta.servlet:jakarta.servlet-api" = {}
+                [dependencies.provided]
+                "jakarta.servlet:jakarta.servlet-api" = { managed = true }
 
-                [test.dependencies]
-                "org.junit.jupiter:junit-jupiter-api" = {}
+                [dependencies.test]
+                "org.junit.jupiter:junit-jupiter-api" = { managed = true }
                 """.formatted(baseUri));
     }
 

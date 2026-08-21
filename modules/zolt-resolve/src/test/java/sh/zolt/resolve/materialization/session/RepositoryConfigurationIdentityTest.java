@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.repository.RepositoryConfigurationIdentity;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import org.junit.jupiter.api.Test;
 
 final class RepositoryConfigurationIdentityTest {
@@ -29,13 +29,23 @@ final class RepositoryConfigurationIdentityTest {
         assertEquals(
                 identity("""
                         [repositories]
-                        alpha = "https://repo.example/alpha"
-                        zeta = "https://repo.example/zeta"
+                        central = false
+
+                        [repositories.alpha]
+                        url = "https://repo.example/alpha"
+
+                        [repositories.zeta]
+                        url = "https://repo.example/zeta"
                         """),
                 identity("""
                         [repositories]
-                        zeta = "https://repo.example/zeta"
-                        alpha = "https://repo.example/alpha"
+                        central = false
+
+                        [repositories.zeta]
+                        url = "https://repo.example/zeta"
+
+                        [repositories.alpha]
+                        url = "https://repo.example/alpha"
                         """));
     }
 
@@ -49,7 +59,9 @@ final class RepositoryConfigurationIdentityTest {
                 identity("""
                         [repositories]
                         central = "https://repo.example/central"
-                        internal = "https://repo.example/internal"
+
+                        [repositories.internal]
+                        url = "https://repo.example/internal"
                         """));
     }
 
@@ -71,13 +83,20 @@ final class RepositoryConfigurationIdentityTest {
         assertNotEquals(
                 identity("""
                         [repositories]
-                        company = "https://repo.example/company"
+                        central = false
+
+                        [repositories.company]
+                        url = "https://repo.example/company"
                         """),
                 identity("""
                         [repositories]
-                        company = { url = "https://repo.example/company", credentials = "company-artifactory" }
+                        central = false
 
-                        [repositoryCredentials.company-artifactory]
+                        [repositories.company]
+                        url = "https://repo.example/company"
+                        credentials = "company-artifactory"
+
+                        [credentials.company-artifactory]
                         tokenEnv = "REPOSITORY_TOKEN"
                         """));
     }
@@ -86,9 +105,13 @@ final class RepositoryConfigurationIdentityTest {
     void namesCredentialEnvironmentVariablesRatherThanTheirValues() {
         String identity = identity("""
                 [repositories]
-                company = { url = "https://repo.example/company", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.example/company"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "REPOSITORY_USERNAME"
                 passwordEnv = "REPOSITORY_PASSWORD"
                 """);
@@ -103,12 +126,12 @@ final class RepositoryConfigurationIdentityTest {
     }
 
     private static ProjectConfig config(String repositoryToml) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
                 """.formatted(repositoryToml));

@@ -11,7 +11,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.request.RequestOrigin;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ final class GeneratedSourceToolingDependencyContributorTest {
         List<DependencyRequest> requests = new ArrayList<>();
 
         contributor.contribute(openApiConfig("""
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
                 """), requests);
@@ -48,7 +48,7 @@ final class GeneratedSourceToolingDependencyContributorTest {
         ResolveException exception = assertThrows(
                 ResolveException.class,
                 () -> contributor.contribute(openApiConfig("""
-                        [generated.openapiTool]
+                        [generated.tools.openapi]
                         version = "7.11.0"
                         """), new ArrayList<>()));
 
@@ -61,7 +61,7 @@ final class GeneratedSourceToolingDependencyContributorTest {
         ResolveException exception = assertThrows(
                 ResolveException.class,
                 () -> contributor.contribute(openApiConfig("""
-                        [generated.openapiTool]
+                        [generated.tools.openapi]
                         coordinate = "org.openapitools:openapi-generator-cli"
                         """), new ArrayList<>()));
 
@@ -75,9 +75,11 @@ final class GeneratedSourceToolingDependencyContributorTest {
         List<DependencyRequest> requests = new ArrayList<>();
 
         contributor.contribute(protobufConfig("""
-                [generated.protobufTool]
+                [generated.tools.protobuf]
+                protocCoordinate = "com.google.protobuf:protoc"
                 protocVersion = "4.28.3"
-                grpcPluginVersion = "1.68.1"
+                grpcCoordinate = "io.grpc:protoc-gen-grpc-java"
+                grpcVersion = "1.68.1"
                 """), requests);
 
         DependencyRequest request = onlyRequest(requests, PROTOC);
@@ -96,7 +98,7 @@ final class GeneratedSourceToolingDependencyContributorTest {
         ResolveException exception = assertThrows(
                 ResolveException.class,
                 () -> contributor.contribute(protobufConfig("""
-                        [generated.protobufTool]
+                        [generated.tools.protobuf]
                         protocCoordinate = "com.google.protobuf:protoc"
                         """), new ArrayList<>()));
 
@@ -109,8 +111,10 @@ final class GeneratedSourceToolingDependencyContributorTest {
         ResolveException exception = assertThrows(
                 ResolveException.class,
                 () -> contributor.contribute(protobufConfig("""
-                        [generated.protobufTool]
+                        [generated.tools.protobuf]
+                        protocCoordinate = "com.google.protobuf:protoc"
                         protocVersion = "4.28.3"
+                        grpcCoordinate = "io.grpc:protoc-gen-grpc-java"
                         """), new ArrayList<>()));
 
         assertTrue(exception.getMessage().contains("Protobuf gRPC generation requires [generated.protobufTool].grpcPluginVersion"));
@@ -128,7 +132,7 @@ final class GeneratedSourceToolingDependencyContributorTest {
                 RequestOrigin.DIRECT));
 
         contributor.contribute(openApiConfig("""
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
                 """), requests);
@@ -165,18 +169,18 @@ final class GeneratedSourceToolingDependencyContributorTest {
     }
 
     private static ProjectConfig execConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "exec-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 jooq = "3.19.15"
 
-                [generated.execTools.jooq]
-                runner = "jvm"
+                [generated.tools.jooq]
+                kind = "jvm"
                 coordinates = [
                     { coordinate = "org.jooq:jooq-codegen", versionRef = "jooq" },
                     { coordinate = "org.postgresql:postgresql", version = "42.7.4" },
@@ -207,12 +211,12 @@ final class GeneratedSourceToolingDependencyContributorTest {
     }
 
     private static ProjectConfig openApiConfig(String toolSection) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "openapi-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
 
@@ -226,12 +230,12 @@ final class GeneratedSourceToolingDependencyContributorTest {
     }
 
     private static ProjectConfig protobufConfig(String toolSection) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "protobuf-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
 
