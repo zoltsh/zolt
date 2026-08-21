@@ -7,16 +7,23 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
+import sh.zolt.manifest.BuiltInCommandCatalog;
 import sh.zolt.manifest.EnvironmentVariableName;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestModelValues;
 import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.manifest.authored.AuthoredAlias;
+import sh.zolt.manifest.authored.AuthoredCommands;
 import sh.zolt.manifest.authored.AuthoredTask;
 import sh.zolt.toml.schema.FinalManifestCommandFields;
 import sh.zolt.toml.schema.FinalManifestPaths;
+import sh.zolt.toml.schema.FinalManifestSymbols;
 
-/** Decodes authored task collections without applying execution context. */
+/** Decodes authored task and built-in command alias collections. */
 final class ManifestCommandsDecoder {
+    private static final BuiltInCommandCatalog BUILT_INS =
+            BuiltInCommandCatalog.fromStrings(FinalManifestSymbols.builtInCommandNames());
+
     Optional<Map<LocalId, AuthoredTask>> decodeTasks(ManifestDecodeIndex index) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
         List<ManifestDecodeIndex.SectionEntry> entries =
@@ -40,6 +47,32 @@ final class ManifestCommandsDecoder {
                 LocalId::compareTo,
                 "Task ID",
                 "Task"));
+    }
+
+    Optional<Map<LocalId, AuthoredAlias>> decodeAliases(ManifestDecodeIndex index) {
+        Objects.requireNonNull(index, "Manifest decode index is required.");
+        List<ManifestDecodeIndex.Entry> entries =
+                index.entries(FinalManifestCommandFields.ALIASES_ENTRY);
+        if (index.section(FinalManifestPaths.ALIASES).isEmpty() && entries.isEmpty()) {
+            return Optional.empty();
+        }
+
+        LinkedHashMap<LocalId, AuthoredAlias> aliases = new LinkedHashMap<>();
+        for (ManifestDecodeIndex.Entry entry : entries) {
+            ValidatedManifestField field = entry.field();
+            LocalId id = ManifestSemanticDiagnostics.construct(
+                    field, () -> new LocalId(entry.key()));
+            AuthoredAlias alias = decodeAlias(field, id);
+            if (aliases.put(id, alias) != null) {
+                throw new IllegalStateException(
+                        "Validated manifest contains duplicate alias `" + id + "`.");
+            }
+        }
+        return Optional.of(ManifestModelValues.immutableSortedMap(
+                aliases,
+                LocalId::compareTo,
+                "Alias ID",
+                "Alias"));
     }
 
     private static AuthoredTask decodeTask(
@@ -146,5 +179,41 @@ final class ManifestCommandsDecoder {
                     "Environment entry `" + key + "`: " + failure.getMessage(),
                     failure);
         }
+    }
+
+    private static AuthoredAlias decodeAlias(
+            ValidatedManifestField field,
+            LocalId id) {
+        List<String> raw = ManifestTomlValues.strings(field);
+        if (raw.isEmpty()) {
+            return ManifestSemanticDiagnostics.construct(
+                    field, () -> new AuthoredAlias(List.of()));
+        }
+
+        ArrayList<String> values = new ArrayList<>(raw.size());
+        AuthoredAlias alias = null;
+        for (int index = 0; index < raw.size(); index++) {
+            values.add(raw.get(index));
+            List<String> prefix = List.copyOf(values);
+            alias = ManifestSemanticDiagnostics.construct(
+                    field, index, () -> new AuthoredAlias(prefix));
+            if (index == 0) {
+                alias = validateTarget(field, id, alias);
+            }
+        }
+        return Objects.requireNonNull(alias, "Decoded alias must not be null.");
+    }
+
+    private static AuthoredAlias validateTarget(
+            ValidatedManifestField field,
+            LocalId id,
+            AuthoredAlias alias) {
+        return ManifestSemanticDiagnostics.construct(
+                field,
+                0,
+                () -> new AuthoredCommands(
+                                Map.of(), Map.of(id, alias), BUILT_INS)
+                        .aliases()
+                        .get(id));
     }
 }
