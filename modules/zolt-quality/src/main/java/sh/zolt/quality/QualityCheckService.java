@@ -4,7 +4,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.quality.execution.QualityExecutionContextRunner;
 import sh.zolt.quality.packaging.PackageQualityCheck;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -35,7 +35,7 @@ public final class QualityCheckService {
     public static final String GENERATED_SOURCES = QualityCheckCatalog.GENERATED_SOURCES;
     public static final String EXECUTION_CONTEXT = QualityCheckCatalog.EXECUTION_CONTEXT;
 
-    private final ZoltTomlParser projectParser;
+    private final ManifestProjectConfigLoader manifestLoader;
     private final ManifestWorkspaceLoader workspaceLoader;
     private final WorkspaceMemberSelector workspaceMemberSelector;
     private final GeneratedSourceQualityCheck generatedSourceQualityCheck;
@@ -57,18 +57,18 @@ public final class QualityCheckService {
 
     QualityCheckService(QualityCheckDependencies dependencies) {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new ManifestWorkspaceLoader(),
                 new WorkspaceMemberSelector(),
                 dependencies);
     }
 
     QualityCheckService(
-            ZoltTomlParser projectParser,
+            ManifestProjectConfigLoader manifestLoader,
             ManifestWorkspaceLoader workspaceLoader,
             WorkspaceMemberSelector workspaceMemberSelector,
             QualityCheckDependencies dependencies) {
-        this.projectParser = projectParser;
+        this.manifestLoader = manifestLoader;
         this.workspaceLoader = workspaceLoader;
         this.workspaceMemberSelector = workspaceMemberSelector;
         this.generatedSourceQualityCheck = dependencies.generatedSourceQualityCheck();
@@ -108,7 +108,7 @@ public final class QualityCheckService {
         }
 
         try {
-            ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
+            ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
             return new QualityCheckReport(root, false, runProjectChecks(request, requestedChecks, config));
         } catch (ZoltConfigException exception) {
             return new QualityCheckReport(root, false, QualityCheckCatalog.unavailableResults(

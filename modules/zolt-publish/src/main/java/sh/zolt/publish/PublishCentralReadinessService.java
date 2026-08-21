@@ -2,7 +2,7 @@ package sh.zolt.publish;
 
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.PublicationMetadata;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -12,30 +12,30 @@ import java.util.List;
  * and produces the Maven Central requirement report.
  */
 public final class PublishCentralReadinessService {
-    private final ZoltTomlParser projectParser;
+    private final ManifestProjectConfigLoader manifestLoader;
     private final PublishSettingsReader publishSettingsReader;
     private final java.util.function.UnaryOperator<String> environment;
 
     public PublishCentralReadinessService() {
-        this(new ZoltTomlParser(), new PublishSettingsReader());
+        this(new ManifestProjectConfigLoader(), new PublishSettingsReader());
     }
 
-    PublishCentralReadinessService(ZoltTomlParser projectParser, PublishSettingsReader publishSettingsReader) {
-        this(projectParser, publishSettingsReader, System::getenv);
+    PublishCentralReadinessService(ManifestProjectConfigLoader manifestLoader, PublishSettingsReader publishSettingsReader) {
+        this(manifestLoader, publishSettingsReader, System::getenv);
     }
 
     PublishCentralReadinessService(
-            ZoltTomlParser projectParser,
+            ManifestProjectConfigLoader manifestLoader,
             PublishSettingsReader publishSettingsReader,
             java.util.function.UnaryOperator<String> environment) {
-        this.projectParser = projectParser;
+        this.manifestLoader = manifestLoader;
         this.publishSettingsReader = publishSettingsReader;
         this.environment = environment;
     }
 
     public List<PublishCentralRequirement> evaluate(Path projectRoot, PublishDryRunPlan plan) {
         Path root = projectRoot.toAbsolutePath().normalize();
-        ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
         PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
         return evaluate(config, publish, plan);
     }

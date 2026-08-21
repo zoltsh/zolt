@@ -2,7 +2,7 @@ package sh.zolt.doctor;
 
 import sh.zolt.project.NativeSettings;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,19 +11,19 @@ import java.util.List;
 public final class SelfHostingCheckService {
     private static final String JUNIT_PLATFORM_CONSOLE = "org.junit.platform:junit-platform-console-standalone";
 
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectConfigLoader manifestLoader;
 
     public SelfHostingCheckService() {
-        this(new ZoltTomlParser());
+        this(new ManifestProjectConfigLoader());
     }
 
-    SelfHostingCheckService(ZoltTomlParser tomlParser) {
-        this.tomlParser = tomlParser;
+    SelfHostingCheckService(ManifestProjectConfigLoader manifestLoader) {
+        this.manifestLoader = manifestLoader;
     }
 
     public SelfHostingCheckResult check(Path projectDirectory) {
         Path root = projectDirectory.toAbsolutePath().normalize();
-        ProjectConfig config = tomlParser.parse(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
         return check(root, config);
     }
 

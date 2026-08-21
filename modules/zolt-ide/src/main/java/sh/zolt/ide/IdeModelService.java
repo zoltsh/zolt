@@ -11,7 +11,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -21,7 +21,7 @@ import java.util.Map;
 public final class IdeModelService {
     private static final int SCHEMA_VERSION = 1;
 
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectConfigLoader manifestLoader;
     private final ZoltLockfileReader lockfileReader;
     private final ResolveService resolveService;
     private final IdeRootModelBuilder rootModelBuilder;
@@ -36,7 +36,7 @@ public final class IdeModelService {
 
     public IdeModelService(IdeFrameworkModelProvider frameworkModelProvider) {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new ZoltLockfileReader(),
                 new ResolveService(),
                 new GeneratedSourceEvidenceService(),
@@ -47,7 +47,7 @@ public final class IdeModelService {
     }
 
     IdeModelService(
-            ZoltTomlParser tomlParser,
+            ManifestProjectConfigLoader manifestLoader,
             ZoltLockfileReader lockfileReader,
             ResolveService resolveService,
             GeneratedSourceEvidenceService generatedSourceEvidenceService,
@@ -55,7 +55,7 @@ public final class IdeModelService {
             IdeClasspathModelBuilder classpathModelBuilder,
             IdeDependencyModelBuilder dependencyModelBuilder,
             IdeFrameworkModelProvider frameworkModelProvider) {
-        this.tomlParser = tomlParser;
+        this.manifestLoader = manifestLoader;
         this.lockfileReader = lockfileReader;
         this.resolveService = resolveService;
         this.rootModelBuilder = new IdeRootModelBuilder(generatedSourceEvidenceService);
@@ -227,7 +227,7 @@ public final class IdeModelService {
 
     private ProjectConfig readConfig(Path configPath, List<IdeModel.Diagnostic> diagnostics) {
         try {
-            return tomlParser.parse(configPath);
+            return manifestLoader.load(configPath);
         } catch (ZoltConfigException exception) {
             String code = exception.getMessage().startsWith("Could not read zolt.toml")
                     ? "CONFIG_UNREADABLE"

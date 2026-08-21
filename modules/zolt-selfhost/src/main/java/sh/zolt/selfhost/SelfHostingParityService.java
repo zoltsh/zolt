@@ -3,7 +3,7 @@ package sh.zolt.selfhost;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.packaging.PackageService;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.packaging.WorkspacePackageService;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import java.io.IOException;
@@ -26,14 +26,14 @@ public final class SelfHostingParityService {
     private static final Set<String> LOCAL_RUNTIME_RESOURCES = Set.of(
             "META-INF/services/io.quarkus.test.junit.buildchain.TestBuildChainCustomizerProducer");
 
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectConfigLoader manifestLoader;
     private final ProjectPackager projectPackager;
     private final WorkspaceDetector workspaceDetector;
     private final WorkspacePackager workspacePackager;
 
     public SelfHostingParityService() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 (projectDirectory, config, cacheRoot) -> new PackageService()
                         .packageJar(projectDirectory, config, cacheRoot),
                 WorkspaceSelfCheckService::usesRealWorkspace,
@@ -41,11 +41,11 @@ public final class SelfHostingParityService {
     }
 
     SelfHostingParityService(
-            ZoltTomlParser tomlParser,
+            ManifestProjectConfigLoader manifestLoader,
             ProjectPackager projectPackager,
             WorkspaceDetector workspaceDetector,
             WorkspacePackager workspacePackager) {
-        this.tomlParser = tomlParser;
+        this.manifestLoader = manifestLoader;
         this.projectPackager = projectPackager;
         this.workspaceDetector = workspaceDetector;
         this.workspacePackager = workspacePackager;
@@ -65,7 +65,7 @@ public final class SelfHostingParityService {
         if (workspaceDetector.usesRealWorkspace(root)) {
             packageResult = workspacePackager.packageJar(root, cacheRoot);
         } else {
-            ProjectConfig config = tomlParser.parse(root.resolve("zolt.toml"));
+            ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
             packageResult = projectPackager.packageJar(root, config, cacheRoot);
         }
         Path zoltJar = packageResult.jarPath();

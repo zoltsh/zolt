@@ -4,25 +4,25 @@ import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.PublicationMetadata;
 import sh.zolt.project.VersionPolicy;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 public final class PublishReleasePolicyService {
-    private final ZoltTomlParser projectParser;
+    private final ManifestProjectConfigLoader manifestLoader;
 
     public PublishReleasePolicyService() {
-        this(new ZoltTomlParser());
+        this(new ManifestProjectConfigLoader());
     }
 
-    PublishReleasePolicyService(ZoltTomlParser projectParser) {
-        this.projectParser = projectParser;
+    PublishReleasePolicyService(ManifestProjectConfigLoader manifestLoader) {
+        this.manifestLoader = manifestLoader;
     }
 
     public PublishDryRunPlan apply(Path projectRoot, PublishDryRunPlan plan) {
-        ProjectConfig config = projectParser.parse(projectRoot.toAbsolutePath().normalize().resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.load(projectRoot.toAbsolutePath().normalize().resolve("zolt.toml"));
         List<String> blockers = new ArrayList<>();
         if (VersionPolicy.violation(
                 VersionPolicy.Context.PUBLISH_RELEASE,

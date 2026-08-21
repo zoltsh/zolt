@@ -7,7 +7,7 @@ import sh.zolt.maven.repository.RepositoryClientException;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.RepositoryUrlPolicy;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -19,7 +19,7 @@ import java.util.function.Function;
 
 public final class PublishUploadService {
     private final PublishDryRunService dryRunService;
-    private final ZoltTomlParser projectParser;
+    private final ManifestProjectConfigLoader manifestLoader;
     private final PublishSettingsReader publishSettingsReader;
     private final MavenRepositoryClient repositoryClient;
     private final Function<String, String> environment;
@@ -32,7 +32,7 @@ public final class PublishUploadService {
     public PublishUploadService(MavenRepositoryClient repositoryClient) {
         this(
                 new PublishDryRunService(),
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new PublishSettingsReader(),
                 repositoryClient,
                 System::getenv);
@@ -40,13 +40,13 @@ public final class PublishUploadService {
 
     PublishUploadService(
             PublishDryRunService dryRunService,
-            ZoltTomlParser projectParser,
+            ManifestProjectConfigLoader manifestLoader,
             PublishSettingsReader publishSettingsReader,
             MavenRepositoryClient repositoryClient,
             Function<String, String> environment) {
         this(
                 dryRunService,
-                projectParser,
+                manifestLoader,
                 publishSettingsReader,
                 repositoryClient,
                 environment,
@@ -55,13 +55,13 @@ public final class PublishUploadService {
 
     PublishUploadService(
             PublishDryRunService dryRunService,
-            ZoltTomlParser projectParser,
+            ManifestProjectConfigLoader manifestLoader,
             PublishSettingsReader publishSettingsReader,
             MavenRepositoryClient repositoryClient,
             Function<String, String> environment,
             Function<Path, Optional<String>> transactionCleanup) {
         this.dryRunService = dryRunService;
-        this.projectParser = projectParser;
+        this.manifestLoader = manifestLoader;
         this.publishSettingsReader = publishSettingsReader;
         this.repositoryClient = repositoryClient;
         this.environment = environment;
@@ -95,7 +95,7 @@ public final class PublishUploadService {
         if (!plan.ok()) {
             throw new PublishException("Publish is blocked. Run `zolt publish --dry-run` and resolve the reported blockers before uploading.");
         }
-        ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
         PublishSettings settings = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
         PublishRepositorySettings repository = selectedRepository(settings, plan);
         Optional<RepositoryAuthentication> authentication = authentication(repository, config);

@@ -13,7 +13,7 @@ import sh.zolt.quality.coverage.CoverageMeasurement;
 import sh.zolt.quality.coverage.CoverageReportException;
 import sh.zolt.quality.coverage.JacocoCoverageReport;
 import sh.zolt.quality.execution.ExecutionSplitEvidence.ShardEvidenceManifest;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,11 +24,11 @@ import java.util.stream.Stream;
 
 final class ExecutionCoverageEvidenceCheck {
     private final ExecutionSplitEvidence splitEvidence;
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectConfigLoader manifestLoader;
 
-    ExecutionCoverageEvidenceCheck(ExecutionSplitEvidence splitEvidence, ZoltTomlParser tomlParser) {
+    ExecutionCoverageEvidenceCheck(ExecutionSplitEvidence splitEvidence, ManifestProjectConfigLoader manifestLoader) {
         this.splitEvidence = splitEvidence;
-        this.tomlParser = tomlParser;
+        this.manifestLoader = manifestLoader;
     }
 
     List<QualityCheckResult> check(
@@ -156,7 +156,7 @@ final class ExecutionCoverageEvidenceCheck {
             Path projectRoot,
             Path absoluteCoverageDir,
             Path commandCoverageDir) {
-        CoverageSettings floors = tomlParser.parseCoverageFloors(root.resolve("zolt.toml"));
+        CoverageSettings floors = manifestLoader.coverageFloors(root.resolve("zolt.toml"));
         if (!floors.hasAnyFloor()) {
             return List.of();
         }

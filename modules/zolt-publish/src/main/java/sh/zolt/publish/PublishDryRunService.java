@@ -14,7 +14,7 @@ import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.VersionPolicy;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +25,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public final class PublishDryRunService {
-    private final ZoltTomlParser projectParser;
+    private final ManifestProjectConfigLoader manifestLoader;
     private final PublishSettingsReader publishSettingsReader;
     private final PackagePlanService packagePlanService;
     private final ZoltLockfileReader lockfileReader;
@@ -36,7 +36,7 @@ public final class PublishDryRunService {
 
     public PublishDryRunService() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new PublishSettingsReader(),
                 new PackagePlanService(),
                 new PackageEvidenceManifestReader(),
@@ -48,7 +48,7 @@ public final class PublishDryRunService {
 
     public PublishDryRunService(PackagePlanService packagePlanService) {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new PublishSettingsReader(),
                 packagePlanService,
                 new PackageEvidenceManifestReader(),
@@ -60,7 +60,7 @@ public final class PublishDryRunService {
 
     PublishDryRunService(Function<String, String> environment) {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new PublishSettingsReader(),
                 new PackagePlanService(),
                 new PackageEvidenceManifestReader(),
@@ -71,7 +71,7 @@ public final class PublishDryRunService {
     }
 
     PublishDryRunService(
-            ZoltTomlParser projectParser,
+            ManifestProjectConfigLoader manifestLoader,
             PublishSettingsReader publishSettingsReader,
             PackagePlanService packagePlanService,
             PackageEvidenceManifestReader evidenceManifestReader,
@@ -80,7 +80,7 @@ public final class PublishDryRunService {
             MavenRepositoryPathBuilder repositoryPathBuilder,
             Function<String, String> environment) {
         this(
-                projectParser,
+                manifestLoader,
                 publishSettingsReader,
                 packagePlanService,
                 evidenceManifestReader,
@@ -92,7 +92,7 @@ public final class PublishDryRunService {
     }
 
     PublishDryRunService(
-            ZoltTomlParser projectParser,
+            ManifestProjectConfigLoader manifestLoader,
             PublishSettingsReader publishSettingsReader,
             PackagePlanService packagePlanService,
             PackageEvidenceManifestReader evidenceManifestReader,
@@ -101,7 +101,7 @@ public final class PublishDryRunService {
             MavenRepositoryPathBuilder repositoryPathBuilder,
             PublishDryRunArtifactEvidencePlanner artifactEvidencePlanner,
             Function<String, String> environment) {
-        this.projectParser = projectParser;
+        this.manifestLoader = manifestLoader;
         this.publishSettingsReader = publishSettingsReader;
         this.packagePlanService = packagePlanService;
         this.lockfileReader = lockfileReader;
@@ -150,7 +150,7 @@ public final class PublishDryRunService {
             Optional<Path> sbomFile,
             Path cacheRoot) {
         Path root = projectRoot.toAbsolutePath().normalize();
-        ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
         PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
         if (!publish.configured()) {
             throw new PublishException("No [publish] configuration found. Add release/snapshot publish repositories before running `zolt publish --dry-run`.");
