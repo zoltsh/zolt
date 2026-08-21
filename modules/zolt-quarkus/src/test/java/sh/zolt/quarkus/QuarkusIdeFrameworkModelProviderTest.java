@@ -236,7 +236,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
                 group = "com.example"
                 java = "21"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         return new ZoltTomlParser().parse(projectDir.resolve("zolt.toml"));
     }
 
@@ -258,7 +258,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
                 [build]
                 outputRoot = "%s"
                 """.formatted(outputRoot)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         return new ZoltTomlParser().parse(projectDir.resolve("zolt.toml"));
     }
 

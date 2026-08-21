@@ -194,7 +194,7 @@ final class QuarkusPlanServiceTest {
         Files.createDirectories(deploymentJar.getParent());
         Files.writeString(deploymentJar, "corrupted deployment jar bytes");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
 
                 [[package]]
                 id = "io.quarkus:quarkus-rest-deployment"
