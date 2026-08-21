@@ -105,6 +105,7 @@ final class ProjectConfigDependencyLanes {
                 }
             }
             case DependencySelector.Workspace ignored -> {
+                requireProjectableWorkspaceLane(declaration.lane(), coordinate);
                 workspacePath = workspacePath(workspacePaths, declaration.coordinate(), section);
                 lane.workspace.put(coordinate, workspacePath);
             }
@@ -145,6 +146,23 @@ final class ProjectConfigDependencyLanes {
                             + "] references undefined version alias `" + alias + "`.");
         }
         return value.value().value();
+    }
+
+    /**
+     * Fails closed on a workspace selector in a lane the legacy {@link sh.zolt.project.ProjectConfig}
+     * cannot carry. Design §9.5 permits {@code workspace = true} in every lane, but the legacy record
+     * has workspace maps only for the API, implementation, test, and both annotation-processor lanes,
+     * and the legacy project-edge model has no runtime, provided, or dev scope. Dropping such an edge
+     * silently would remove a real dependency, so the boundary rejects it until the legacy record dies.
+     */
+    private static void requireProjectableWorkspaceLane(DependencyLane lane, String coordinate) {
+        if (lane == DependencyLane.RUNTIME || lane == DependencyLane.PROVIDED || lane == DependencyLane.DEV) {
+            throw new IllegalArgumentException(
+                    "Workspace dependency `" + coordinate + "` in the " + lane
+                            + " lane cannot be projected onto the current engine model, which carries "
+                            + "workspace members only in the implementation, api, test, processor, and "
+                            + "test-processor lanes.");
+        }
     }
 
     private static String workspacePath(
