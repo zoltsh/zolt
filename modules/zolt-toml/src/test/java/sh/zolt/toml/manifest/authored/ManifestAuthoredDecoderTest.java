@@ -3,14 +3,16 @@ package sh.zolt.toml.manifest.authored;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.toml.manifest.ManifestSemanticTestSupport.decodeAuthoredDocument;
 import static sh.zolt.toml.manifest.ManifestSemanticTestSupport.decodeAuthoredManifest;
-import static sh.zolt.toml.manifest.ManifestSemanticTestSupport.decodeAuthoredManifestWithNullIndex;
 
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.toml.manifest.ManifestSemanticTestSupport.Decoded;
 
 final class ManifestAuthoredDecoderTest {
     @Test
@@ -180,12 +182,54 @@ final class ManifestAuthoredDecoderTest {
     }
 
     @Test
-    void requiresANonNullDecodeIndex() {
+    void retainsExactSourceSyntaxAndAuthoredValues() {
+        String source = """
+                # retained
+                [project]
+                name = "demo"
+                """;
+
+        Decoded decoded = decodeAuthoredDocument(source);
+
+        assertEquals(source, decoded.source());
         assertEquals(
-                "Manifest decode index is required.",
+                "[project]",
+                decoded.syntax().tables().get(1).headerSpan().text(decoded.source()));
+        assertTrue(decoded.authored().project().isPresent());
+    }
+
+    @Test
+    void preservesSyntaxThenShapeThenSemanticFailureOwnership() {
+        ZoltConfigException syntax = assertThrows(
+                ZoltConfigException.class,
+                () -> decodeAuthoredManifest("[project\nname = 1\n"));
+        assertTrue(syntax.getMessage().startsWith("Could not parse zolt.toml."));
+        assertNull(syntax.getCause());
+
+        ZoltConfigException shape = assertThrows(
+                ZoltConfigException.class,
+                () -> decodeAuthoredManifest("[project]\nname = 1\n"));
+        assertTrue(shape.getMessage().contains("`project.name`"), shape.getMessage());
+        assertTrue(shape.getMessage().contains("expected string"), shape.getMessage());
+        assertNull(shape.getCause());
+
+        ZoltConfigException semantic = assertThrows(
+                ZoltConfigException.class,
+                () -> decodeAuthoredManifest("[toolchain.zolt]\nversion = \"latest\"\n"));
+        assertEquals(
+                "Invalid authored manifest: An authored manifest must contain a [workspace] "
+                        + "and/or [project] domain.",
+                semantic.getMessage());
+        assertInstanceOf(IllegalArgumentException.class, semantic.getCause());
+    }
+
+    @Test
+    void requiresANonNullManifestSource() {
+        assertEquals(
+                "Manifest source is required.",
                 assertThrows(
                                 NullPointerException.class,
-                                () -> decodeAuthoredManifestWithNullIndex())
+                                () -> decodeAuthoredManifest(null))
                         .getMessage());
     }
 

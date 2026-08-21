@@ -14,10 +14,13 @@ public final class ManifestSemanticTestSupport {
     }
 
     public static AuthoredManifest decodeAuthoredManifest(String source) {
-        return new ManifestAuthoredDecoder().decode(index(source));
+        return decodeAuthoredDocument(source).authored();
     }
 
-    public static void decodeAuthoredManifestWithNullIndex() {
-        new ManifestAuthoredDecoder().decode(null);
+    public static Decoded decodeAuthoredDocument(String source) {
+        ManifestAuthoredDecoder.Decoded decoded = new ManifestAuthoredDecoder().decode(source);
+        return new Decoded(decoded.source(), decoded.syntax(), decoded.authored());
     }
+
+    public record Decoded(String source, ManifestSyntax syntax, AuthoredManifest authored) {}
 }

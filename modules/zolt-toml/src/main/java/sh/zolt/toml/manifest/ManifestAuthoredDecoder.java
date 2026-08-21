@@ -32,8 +32,11 @@ final class ManifestAuthoredDecoder {
     private final ManifestPublishingDecoder publishingDecoder = new ManifestPublishingDecoder();
     private final ManifestCommandsDecoder commandsDecoder = new ManifestCommandsDecoder();
 
-    AuthoredManifest decode(ManifestDecodeIndex index) {
-        Objects.requireNonNull(index, "Manifest decode index is required.");
+    Decoded decode(String source) {
+        Objects.requireNonNull(source, "Manifest source is required.");
+        ParsedManifestSyntax parsed = new TomlSyntaxParser().parse(source);
+        ValidatedManifestShape shape = new ManifestShapeValidator().validate(parsed);
+        ManifestDecodeIndex index = new ManifestDecodeIndex(shape);
         ManifestIdentityDecoder.Decoded identity = identityDecoder.decode(index);
         Prefix identityPrefix = new Prefix(identity, AuthoredToolchains.empty(), EMPTY_SHARED);
         ManifestSemanticDiagnostics.constructDocument(() -> identityPrefix.manifest(
@@ -62,8 +65,17 @@ final class ManifestAuthoredDecoder {
                 partial -> prefix.manifest(
                         dependencies, build, packaging, Optional.of(partial), Optional.empty()));
         Optional<AuthoredCommands> commands = commandsDecoder.decode(index);
-        return ManifestSemanticDiagnostics.constructDocument(() -> prefix.manifest(
+        AuthoredManifest authored = ManifestSemanticDiagnostics.constructDocument(() -> prefix.manifest(
                 dependencies, build, packaging, publishing, commands));
+        return new Decoded(parsed.source(), parsed.syntax(), authored);
+    }
+
+    record Decoded(String source, ManifestSyntax syntax, AuthoredManifest authored) {
+        Decoded {
+            Objects.requireNonNull(source, "Manifest source is required.");
+            Objects.requireNonNull(syntax, "Manifest syntax is required.");
+            Objects.requireNonNull(authored, "Authored manifest is required.");
+        }
     }
 
     private record Prefix(

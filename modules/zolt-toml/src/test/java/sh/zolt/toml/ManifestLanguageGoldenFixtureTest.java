@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.toml.manifest.ManifestSemanticTestSupport.decodeAuthoredManifest;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -74,6 +75,17 @@ final class ManifestLanguageGoldenFixtureTest {
             byte[] expected = fencedTomlSource(design, fixture.sectionHeading())
                     .getBytes(StandardCharsets.UTF_8);
             assertArrayEquals(expected, resourceBytes(fixture.resourceName()), fixture.resourceName());
+        }
+    }
+
+    @Test
+    void canonicalManifestsPassTheCompleteAuthoredPipeline() throws IOException {
+        for (GoldenFixture fixture : EXPECTED_FIXTURES) {
+            String source = new String(resourceBytes(fixture.resourceName()), StandardCharsets.UTF_8);
+            var authored = decodeAuthoredManifest(source);
+            assertTrue(
+                    authored.workspace().isPresent() || authored.project().isPresent(),
+                    fixture.resourceName());
         }
     }
 
