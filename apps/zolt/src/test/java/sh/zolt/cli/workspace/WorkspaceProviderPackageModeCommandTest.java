@@ -37,10 +37,10 @@ final class WorkspaceProviderPackageModeCommandTest {
                     "--cwd", workspace.toString(),
                     "--cache-root", tempDir.resolve("cache-" + mode).toString());
 
+            // The effective workspace refuses the edge before any lock is written (design 9.8).
             assertEquals(1, result.exitCode(), result.stderr());
-            assertTrue(result.stderr().contains("`" + reportedMode(mode) + "`"), result.stderr());
-            assertTrue(result.stderr().contains("not a reusable library artifact"), result.stderr());
-            assertTrue(result.stderr().contains("package mode `thin`"), result.stderr());
+            assertTrue(result.stderr().contains("`" + mode + "`"), result.stderr());
+            assertTrue(result.stderr().contains("not a consumable library JAR"), result.stderr());
             assertFalse(Files.exists(workspace.resolve("zolt.lock")), mode);
         }
     }
@@ -92,14 +92,5 @@ final class WorkspaceProviderPackageModeCommandTest {
                 mode = "%s"
                 """.formatted(mode));
         return workspace;
-    }
-
-    /** The engine still names package modes with the pre-cut config spelling. */
-    private static String reportedMode(String mode) {
-        return switch (mode) {
-            case "jar" -> "thin";
-            case "uber-jar" -> "uber";
-            default -> mode;
-        };
     }
 }

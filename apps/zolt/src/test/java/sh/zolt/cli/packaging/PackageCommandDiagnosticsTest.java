@@ -241,11 +241,11 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
                 [dependencies.test]
 
                 [build.output]
-                main = "classes"
-                test = "test-classes"
+                root = "out"
                 """.formatted(currentJavaMajorVersion()));
         writeMainSource(projectDir, "package com.example; public final class Main {}\n");
-        Files.writeString(projectDir.resolve("target"), "not a directory");
+        // A directory where the jar belongs is the portable way to make the write fail.
+        Files.createDirectories(projectDir.resolve("out/demo-0.1.0.jar"));
 
         CommandResult result = execute(
                 "package",
