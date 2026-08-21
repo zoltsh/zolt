@@ -19,6 +19,7 @@ import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -247,9 +248,7 @@ public final class DoctorCommand implements Runnable {
             return;
         }
         Path root = enclosing.orElseThrow();
-        output.context(
-                Files.isRegularFile(root.resolve("zolt.toml")) ? "project root" : "workspace root",
-                root.toString());
+        output.context(isWorkspaceRoot(root) ? "workspace root" : "project root", root.toString());
         output.action("zolt doctor --directory " + root);
     }
 
@@ -267,6 +266,16 @@ public final class DoctorCommand implements Runnable {
             current = current.getParent();
         }
         return Optional.empty();
+    }
+
+    /**
+     * The final language keeps a workspace root in {@code zolt.toml}, so the label follows what the
+     * manifest declares rather than which file name it uses.
+     */
+    private static boolean isWorkspaceRoot(Path root) {
+        return new ManifestWorkspaceLoader().discoverRoot(root)
+                .map(discovered -> discovered.equals(root))
+                .orElse(false);
     }
 
     private static boolean writable(Path path) {
