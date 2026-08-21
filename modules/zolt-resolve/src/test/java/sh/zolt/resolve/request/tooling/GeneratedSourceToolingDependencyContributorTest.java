@@ -44,11 +44,64 @@ final class GeneratedSourceToolingDependencyContributorTest {
     }
 
     @Test
-    void reportsMissingOpenApiToolCoordinateClearly() {
+    void reservedOpenApiToolResolvesTheBuiltInCoordinate() {
+        // The installed release owns the reserved tool's coordinate, so overriding only the version
+        // still resolves (design §13.1).
+        List<DependencyRequest> requests = new ArrayList<>();
+
+        contributor.contribute(openApiConfig("""
+                [generated.tools.openapi]
+                version = "7.11.0"
+                """), requests);
+
+        DependencyRequest request = onlyRequest(requests, OPENAPI_GENERATOR);
+        assertEquals("7.11.0", request.requestedVersion());
+        assertEquals(DependencyScope.TOOL_OPENAPI, request.scope());
+    }
+
+    @Test
+    void reservedProtobufToolResolvesTheBuiltInCoordinates() {
+        // Only the versions are overridden; the release owns both coordinates (design §13.1).
+        List<DependencyRequest> requests = new ArrayList<>();
+
+        contributor.contribute(protobufConfig("""
+                [generated.tools.protobuf]
+                protocVersion = "4.28.3"
+                grpcVersion = "1.68.1"
+                """), requests);
+
+        assertEquals("4.28.3", onlyRequest(requests, PROTOC).requestedVersion());
+        assertEquals("1.68.1", onlyRequest(requests, GRPC_PLUGIN).requestedVersion());
+    }
+
+    @Test
+    void explicitProtobufCoordinatesOverrideTheBuiltInDefaults() {
+        List<DependencyRequest> requests = new ArrayList<>();
+
+        contributor.contribute(protobufConfig("""
+                [generated.tools.protobuf]
+                protocCoordinate = "com.acme:protoc-mirror"
+                protocVersion = "4.28.3"
+                grpcCoordinate = "com.acme:grpc-mirror"
+                grpcVersion = "1.68.1"
+                """), requests);
+
+        assertEquals(
+                "4.28.3",
+                onlyRequest(requests, new PackageId("com.acme", "protoc-mirror")).requestedVersion());
+        assertEquals(
+                "1.68.1",
+                onlyRequest(requests, new PackageId("com.acme", "grpc-mirror")).requestedVersion());
+    }
+
+    @Test
+    void reportsMissingCustomOpenApiToolCoordinateClearly() {
+        // A custom typed tool names its own coordinate; no built-in default applies (design §13.2).
         ResolveException exception = assertThrows(
                 ResolveException.class,
-                () -> contributor.contribute(openApiConfig("""
-                        [generated.tools.openapi]
+                () -> contributor.contribute(customOpenApiConfig("""
+                        [generated.tools.house-openapi]
+                        kind = "openapi"
                         version = "7.11.0"
                         """), new ArrayList<>()));
 
@@ -222,6 +275,27 @@ final class GeneratedSourceToolingDependencyContributorTest {
 
                 [generated.main.public-api]
                 kind = "openapi"
+                language = "java"
+                input = "src/main/openapi/public-api.yaml"
+                output = "target/generated/sources/openapi/public-api"
+                generator = "spring"
+                """.formatted(toolSection));
+    }
+
+    /** An OpenAPI step routed to a custom typed tool rather than the reserved built-in ID. */
+    private static ProjectConfig customOpenApiConfig(String toolSection) {
+        return new ManifestProjectConfigLoader().load("""
+                [project]
+                name = "openapi-demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                %s
+
+                [generated.main.public-api]
+                kind = "openapi"
+                tool = "house-openapi"
                 language = "java"
                 input = "src/main/openapi/public-api.yaml"
                 output = "target/generated/sources/openapi/public-api"

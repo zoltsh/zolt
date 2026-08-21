@@ -134,7 +134,6 @@ final class ProjectResolutionFingerprintTest {
                 "org.mapstruct:mapstruct-processor" = { versionRef = "mapstruct" }
 
                 [generated.tools.openapi]
-                coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
                 [generated.main.public-api]
@@ -175,7 +174,6 @@ final class ProjectResolutionFingerprintTest {
 
                 [generated.tools.openapi]
                 versionRef = "openapi"
-                coordinate = "org.openapitools:openapi-generator-cli"
 
                 [generated.main.public-api]
                 output = "target/generated/sources/openapi/public-api"

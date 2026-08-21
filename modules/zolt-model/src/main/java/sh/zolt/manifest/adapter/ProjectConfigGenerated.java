@@ -11,6 +11,7 @@ import sh.zolt.manifest.GeneratedArtifactRequest;
 import sh.zolt.manifest.GeneratedCachePolicy;
 import sh.zolt.manifest.GeneratedOutputKind;
 import sh.zolt.manifest.GeneratedStepSettings;
+import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.ResourceGlob;
@@ -47,6 +48,17 @@ final class ProjectConfigGenerated {
     private static final LocalId PROTOBUF = new LocalId("protobuf");
     private static final LocalId PROJECT = new LocalId("project");
     private static final String JAVA = "java";
+    /**
+     * Default coordinates for the reserved built-in generated tools.
+     *
+     * <p>The installed Zolt release owns them, and a user declares a built-in tool table only to
+     * override the request (design §13.1). A step that names only versions therefore resolves against
+     * these coordinates instead of failing for a coordinate the language never asked the user to
+     * repeat.
+     */
+    private static final String DEFAULT_OPENAPI_COORDINATE = "org.openapitools:openapi-generator-cli";
+    private static final String DEFAULT_PROTOC_COORDINATE = "com.google.protobuf:protoc";
+    private static final String DEFAULT_GRPC_COORDINATE = "io.grpc:protoc-gen-grpc-java";
     private static final String MAIN_OUTPUT_PREFIX = "generated/sources/";
     private static final String TEST_OUTPUT_PREFIX = "generated/test-sources/";
 
@@ -121,6 +133,7 @@ final class ProjectConfigGenerated {
                 step.settings().clean().orElse(true),
                 openApiSettings(
                         openApiTool(sources, tool),
+                        OPENAPI.equals(tool),
                         step.preset().map(LocalId::value),
                         preset,
                         step.overrides(),
@@ -149,14 +162,18 @@ final class ProjectConfigGenerated {
                 step.settings().clean().orElse(true),
                 OpenApiGenerationSettings.empty(),
                 new ProtobufGenerationSettings(
-                        declaration.flatMap(AuthoredGeneratedTool.Protobuf::protocCoordinate)
-                                .map(coordinate -> coordinate.value()),
+                        builtInCoordinate(
+                                declaration.flatMap(AuthoredGeneratedTool.Protobuf::protocCoordinate),
+                                PROTOBUF.equals(tool),
+                                DEFAULT_PROTOC_COORDINATE),
                         declaration.flatMap(AuthoredGeneratedTool.Protobuf::protocVersion)
                                 .map(selector -> ProjectConfigVersions.resolve(selector, versions, subject)),
                         declaration.flatMap(AuthoredGeneratedTool.Protobuf::protocVersion)
                                 .map(ProjectConfigVersions::reference),
-                        declaration.flatMap(AuthoredGeneratedTool.Protobuf::grpcCoordinate)
-                                .map(coordinate -> coordinate.value()),
+                        builtInCoordinate(
+                                declaration.flatMap(AuthoredGeneratedTool.Protobuf::grpcCoordinate),
+                                PROTOBUF.equals(tool),
+                                DEFAULT_GRPC_COORDINATE),
                         declaration.flatMap(AuthoredGeneratedTool.Protobuf::grpcVersion)
                                 .map(selector -> ProjectConfigVersions.resolve(selector, versions, subject)),
                         declaration.flatMap(AuthoredGeneratedTool.Protobuf::grpcVersion)
@@ -257,8 +274,25 @@ final class ProjectConfigGenerated {
         return List.copyOf(coordinates);
     }
 
+    /**
+     * The coordinate a generated tool resolves against.
+     *
+     * <p>The reserved {@code openapi} and {@code protobuf} IDs carry coordinates owned by the
+     * installed Zolt release, so a step that overrides only versions still resolves (design §13.1). A
+     * custom typed tool names its own coordinate and gets no default (design §13.2).
+     */
+    private static Optional<String> builtInCoordinate(
+            Optional<DependencyCoordinate> authored,
+            boolean builtIn,
+            String defaultCoordinate) {
+        return authored
+                .map(DependencyCoordinate::value)
+                .or(() -> builtIn ? Optional.of(defaultCoordinate) : Optional.empty());
+    }
+
     private static OpenApiGenerationSettings openApiSettings(
             Optional<AuthoredGeneratedTool.OpenApi> tool,
+            boolean builtIn,
             Optional<String> presetId,
             AuthoredOpenApiOptions preset,
             AuthoredOpenApiOptions overrides,
@@ -266,8 +300,10 @@ final class ProjectConfigGenerated {
             LocalId step) {
         String subject = "[generated] OpenAPI tool for step `" + step + "`";
         return new OpenApiGenerationSettings(
-                tool.flatMap(AuthoredGeneratedTool.OpenApi::coordinate)
-                        .map(coordinate -> coordinate.value()),
+                builtInCoordinate(
+                        tool.flatMap(AuthoredGeneratedTool.OpenApi::coordinate),
+                        builtIn,
+                        DEFAULT_OPENAPI_COORDINATE),
                 tool.flatMap(AuthoredGeneratedTool.OpenApi::version)
                         .map(selector -> ProjectConfigVersions.resolve(selector, versions, subject)),
                 tool.flatMap(AuthoredGeneratedTool.OpenApi::version)

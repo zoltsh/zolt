@@ -85,7 +85,6 @@ final class ResolveGeneratedSourceTestConfigs {
                 "%s" = "7.11.0"
 
                 [generated.tools.openapi]
-                coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "%s"
 
                 [generated.main.public-api]
