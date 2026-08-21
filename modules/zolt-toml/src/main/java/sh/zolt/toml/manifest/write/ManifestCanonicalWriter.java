@@ -6,7 +6,7 @@ import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredManifest;
 
 /** Projects one authored manifest into the frozen canonical TOML order. */
-final class ManifestCanonicalWriter {
+public final class ManifestCanonicalWriter {
     private final ManifestIdentityWriter identity = new ManifestIdentityWriter();
     private final ManifestToolchainWriter toolchains = new ManifestToolchainWriter();
     private final ManifestSharedWriter shared = new ManifestSharedWriter();
@@ -19,7 +19,7 @@ final class ManifestCanonicalWriter {
     private final ManifestPublishingWriter publishing = new ManifestPublishingWriter();
     private final ManifestCommandsWriter commands = new ManifestCommandsWriter();
 
-    String write(AuthoredManifest manifest) {
+    public String write(AuthoredManifest manifest) {
         AuthoredManifest authored = Objects.requireNonNull(
                 manifest, "Authored manifest is required.");
         ManifestTomlEmitter emitter = new ManifestTomlEmitter();

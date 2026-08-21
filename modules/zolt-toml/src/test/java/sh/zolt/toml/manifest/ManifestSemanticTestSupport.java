@@ -17,10 +17,7 @@ public final class ManifestSemanticTestSupport {
         return decodeAuthoredDocument(source).authored();
     }
 
-    public static Decoded decodeAuthoredDocument(String source) {
-        ManifestAuthoredDecoder.Decoded decoded = new ManifestAuthoredDecoder().decode(source);
-        return new Decoded(decoded.source(), decoded.syntax(), decoded.authored());
+    public static ZoltManifestDocument decodeAuthoredDocument(String source) {
+        return new ZoltManifestParser().parse(source);
     }
-
-    public record Decoded(String source, ManifestSyntax syntax, AuthoredManifest authored) {}
 }

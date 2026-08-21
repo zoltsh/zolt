@@ -9,14 +9,12 @@ import sh.zolt.manifest.authored.AuthoredPackaging;
 import sh.zolt.manifest.authored.AuthoredPublishing;
 import sh.zolt.manifest.authored.AuthoredToolchains;
 
-/** Decodes the complete authored manifest in canonical cross-domain order. */
-final class ManifestAuthoredDecoder {
-    private static final ManifestSharedDecoder.Decoded EMPTY_SHARED =
-            new ManifestSharedDecoder.Decoded(
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-    private static final ManifestDependencyDecoder.Decoded EMPTY_DEPENDENCIES =
-            new ManifestDependencyDecoder.Decoded(
-                    Optional.empty(), Optional.empty(), Optional.empty());
+/** Parses one final-language source into its exact syntax and authored model. */
+public final class ZoltManifestParser {
+    private static final ManifestSharedDecoder.Decoded EMPTY_SHARED = new ManifestSharedDecoder.Decoded(
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final ManifestDependencyDecoder.Decoded EMPTY_DEPENDENCIES = new ManifestDependencyDecoder.Decoded(
+            Optional.empty(), Optional.empty(), Optional.empty());
     private static final ManifestBuildConfigurationDecoder.Decoded EMPTY_BUILD =
             new ManifestBuildConfigurationDecoder.Decoded(
                     AuthoredBuildConfiguration.empty(), Optional.empty());
@@ -32,7 +30,7 @@ final class ManifestAuthoredDecoder {
     private final ManifestPublishingDecoder publishingDecoder = new ManifestPublishingDecoder();
     private final ManifestCommandsDecoder commandsDecoder = new ManifestCommandsDecoder();
 
-    Decoded decode(String source) {
+    public ZoltManifestDocument parse(String source) {
         Objects.requireNonNull(source, "Manifest source is required.");
         ParsedManifestSyntax parsed = new TomlSyntaxParser().parse(source);
         ValidatedManifestShape shape = new ManifestShapeValidator().validate(parsed);
@@ -67,15 +65,7 @@ final class ManifestAuthoredDecoder {
         Optional<AuthoredCommands> commands = commandsDecoder.decode(index);
         AuthoredManifest authored = ManifestSemanticDiagnostics.constructDocument(() -> prefix.manifest(
                 dependencies, build, packaging, publishing, commands));
-        return new Decoded(parsed.source(), parsed.syntax(), authored);
-    }
-
-    record Decoded(String source, ManifestSyntax syntax, AuthoredManifest authored) {
-        Decoded {
-            Objects.requireNonNull(source, "Manifest source is required.");
-            Objects.requireNonNull(syntax, "Manifest syntax is required.");
-            Objects.requireNonNull(authored, "Authored manifest is required.");
-        }
+        return new ZoltManifestDocument(parsed.source(), parsed.syntax(), authored);
     }
 
     private record Prefix(

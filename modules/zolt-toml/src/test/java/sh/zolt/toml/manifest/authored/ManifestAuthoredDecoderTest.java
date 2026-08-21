@@ -12,7 +12,7 @@ import static sh.zolt.toml.manifest.ManifestSemanticTestSupport.decodeAuthoredMa
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.manifest.ManifestSemanticTestSupport.Decoded;
+import sh.zolt.toml.manifest.ZoltManifestDocument;
 
 final class ManifestAuthoredDecoderTest {
     @Test
@@ -189,7 +189,7 @@ final class ManifestAuthoredDecoderTest {
                 name = "demo"
                 """;
 
-        Decoded decoded = decodeAuthoredDocument(source);
+        ZoltManifestDocument decoded = decodeAuthoredDocument(source);
 
         assertEquals(source, decoded.source());
         assertEquals(
