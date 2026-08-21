@@ -149,7 +149,7 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
     }
 
     private static void writeLock(Path workspace) throws IOException {
-        Files.writeString(workspace.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(workspace.resolve("zolt.lock"), "version = 7\n");
     }
 
     private static CommandResult check(Path workspace) {

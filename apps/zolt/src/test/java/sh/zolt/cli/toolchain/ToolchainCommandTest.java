@@ -40,7 +40,7 @@ final class ToolchainCommandTest {
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         install(store, locked());
 
@@ -83,7 +83,7 @@ final class ToolchainCommandTest {
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         LockedJavaToolchain locked = locked();
         new ToolchainLockfileService().writeJava(project.resolve("zolt.lock"), locked);
@@ -122,7 +122,7 @@ final class ToolchainCommandTest {
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         LockedJavaToolchain locked = locked();
         new ToolchainLockfileService().writeJava(project.resolve("zolt.lock"), locked);
@@ -165,7 +165,7 @@ final class ToolchainCommandTest {
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 """);
-        Files.writeString(workspace.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(workspace.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         install(store, locked());
 
@@ -201,7 +201,7 @@ final class ToolchainCommandTest {
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 """);
-        Files.writeString(workspace.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(workspace.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         LockedJavaToolchain locked = locked();
         new ToolchainLockfileService().writeJava(workspace.resolve("zolt.lock"), locked);

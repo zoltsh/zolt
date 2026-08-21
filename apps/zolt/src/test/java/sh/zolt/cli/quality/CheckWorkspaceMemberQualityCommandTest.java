@@ -93,7 +93,9 @@ final class CheckWorkspaceMemberQualityCommandTest {
             assertEquals(1, result.exitCode(), qualityCheck);
             assertTrue(result.stdout().contains("error " + qualityCheck + " zolt.lock"), result.stdout());
             assertTrue(result.stdout().contains("version 4"), result.stdout());
-            assertTrue(result.stdout().contains("member-qualified optional-boundary evidence"), result.stdout());
+            assertTrue(
+                    result.stdout().contains("version 4 is older than this Zolt supports (current 7)"),
+                    result.stdout());
             assertTrue(result.stdout().contains("zolt resolve --workspace"), result.stdout());
             assertEquals("", result.stderr());
         }

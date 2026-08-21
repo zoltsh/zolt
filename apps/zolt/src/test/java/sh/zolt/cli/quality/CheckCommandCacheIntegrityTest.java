@@ -22,7 +22,14 @@ final class CheckCommandCacheIntegrityTest extends CheckCommandTestSupport {
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "corrupted runtime jar bytes");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:runtime-lib"
+                version = "1.0.0"
+                lane = "runtime"
+                resolvedScope = "runtime"
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -52,7 +59,7 @@ final class CheckCommandCacheIntegrityTest extends CheckCommandTestSupport {
     void checkCacheIntegrityMalformedLockfileUsesLockfileRemediation() throws IOException {
         Path projectDir = createProject("check-cache-integrity-malformed-lockfile");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = 42
@@ -107,7 +114,7 @@ final class CheckCommandCacheIntegrityTest extends CheckCommandTestSupport {
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = 42

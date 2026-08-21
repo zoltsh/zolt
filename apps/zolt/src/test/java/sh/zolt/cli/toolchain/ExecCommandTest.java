@@ -184,7 +184,7 @@ final class ExecCommandTest {
                 features = []
                 policy = "%s"
                 """.formatted(name, policy.id()));
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 
@@ -202,7 +202,7 @@ final class ExecCommandTest {
                 features = []
                 policy = "%s"
                 """.formatted(name, policy.id()));
-        Files.writeString(workspace.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(workspace.resolve("zolt.lock"), "version = 7\n\n");
         return workspace;
     }
 
@@ -222,7 +222,7 @@ final class ExecCommandTest {
                 features = ["native-image"]
                 policy = "%s"
                 """.formatted(name, policy.id()));
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 

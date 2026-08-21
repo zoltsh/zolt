@@ -48,7 +48,14 @@ final class QuarkusPlanFailureTest {
                 "META-INF/MANIFEST.MF",
                 "Manifest-Version: 1.0\n");
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -80,7 +87,14 @@ final class QuarkusPlanFailureTest {
         writeProjectConfig(projectDir);
         enableQuarkus(projectDir);
         String lockFixture = """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "io.quarkus:quarkus-rest"
+                version = "3.33.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "io.quarkus:quarkus-rest"

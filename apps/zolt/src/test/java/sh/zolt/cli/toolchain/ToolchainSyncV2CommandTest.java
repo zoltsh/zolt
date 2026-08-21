@@ -44,7 +44,7 @@ final class ToolchainSyncV2CommandTest {
                 distribution = "temurin"
                 features = []
                 """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         install(store, graalLocked());
         install(store, temurinLocked());

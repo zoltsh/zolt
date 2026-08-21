@@ -50,7 +50,21 @@ final class PolicyCommandTestSupport {
     static void writePolicyLockfile(Path projectDir) throws IOException {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:direct-lib"
+                version = "1.2.3"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.springframework.boot:spring-boot-starter-web"
+                version = "4.0.6"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:direct-lib"

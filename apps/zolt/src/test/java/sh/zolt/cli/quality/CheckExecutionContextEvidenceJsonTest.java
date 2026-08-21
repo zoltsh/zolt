@@ -21,7 +21,7 @@ final class CheckExecutionContextEvidenceJsonTest {
         Path projectDir = tempDir.resolve("check-context-ci-json");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-json"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",

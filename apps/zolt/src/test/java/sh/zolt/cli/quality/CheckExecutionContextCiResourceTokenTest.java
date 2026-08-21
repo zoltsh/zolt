@@ -30,7 +30,7 @@ final class CheckExecutionContextCiResourceTokenTest {
                 [resources.tokens]
                 buildNumber = { env = "ZOLT_TEST_MISSING_RESOURCE_TOKEN" }
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -59,7 +59,7 @@ final class CheckExecutionContextCiResourceTokenTest {
                 appName = { value = "demo" }
                 projectVersion = { project = "version" }
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",

@@ -295,7 +295,7 @@ final class DoctorCommandTest {
     void doctorReportsSelfHostingReadiness() throws IOException {
         Path projectDir = tempDir.resolve("self-hosting-ready");
         writeSelfHostingProjectConfig(projectDir, true);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.createDirectories(projectDir.resolve("src/main/java"));
         Files.createDirectories(projectDir.resolve("src/test/java"));
 
@@ -315,7 +315,7 @@ final class DoctorCommandTest {
     void doctorReportsSelfHostingGapsWithNextSteps() throws IOException {
         Path projectDir = tempDir.resolve("self-hosting-gaps");
         writeSelfHostingProjectConfig(projectDir, false);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.createDirectories(projectDir.resolve("src/main/java"));
         Files.createDirectories(projectDir.resolve("src/test/java"));
 

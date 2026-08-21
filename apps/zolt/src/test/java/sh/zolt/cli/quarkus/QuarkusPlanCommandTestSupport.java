@@ -68,7 +68,14 @@ final class QuarkusPlanCommandTestSupport {
 
     static void writeQuarkusPlanLockfile(Path projectDir, Path cacheRoot) throws IOException {
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "io.quarkus:quarkus-rest"
+                version = "3.33.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "io.quarkus:quarkus-rest"

@@ -28,7 +28,7 @@ final class CheckExecutionContextWorkspaceEvidenceTest {
                 members = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(reportsDir.resolve("TEST-api.xml"), "<testsuite tests=\"1\" failures=\"0\"/>\n");
 
         CommandResult result = execute(
@@ -64,7 +64,7 @@ final class CheckExecutionContextWorkspaceEvidenceTest {
                 [dependencies]
                 "com.example:core" = { workspace = "modules/core" }
                 """);
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(reportsDir.resolve("TEST-api.xml"), "<testsuite tests=\"1\" failures=\"0\"/>\n");
 
         CommandResult result = execute(
@@ -94,7 +94,7 @@ final class CheckExecutionContextWorkspaceEvidenceTest {
                 members = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(coverageDir.resolve("jacoco.exec"), "exec\n");
         Files.writeString(coverageDir.resolve("jacoco.xml"), "<report name=\"api\"/>\n");
         Files.writeString(coverageDir.resolve("html/index.html"), "<!doctype html>\n");
@@ -124,7 +124,7 @@ final class CheckExecutionContextWorkspaceEvidenceTest {
                 members = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",

@@ -21,7 +21,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Path projectDir = tempDir.resolve("check-context-ci-missing-reports");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-missing-reports"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -41,7 +41,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Path projectDir = tempDir.resolve("check-context-ci-unsafe-reports");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-unsafe-reports"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -63,7 +63,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Path reportsDir = projectDir.resolve("target/test-reports");
         Files.createDirectories(reportsDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-reports-ok"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(reportsDir.resolve("TEST-demo.xml"), "<testsuite tests=\"1\" failures=\"0\"/>\n");
 
         CommandResult result = execute(
@@ -85,7 +85,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Files.createDirectories(reportsDir);
         Files.createDirectories(projectDir.resolve("target/test-shards/fast_suite_"));
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-missing-shard-reports"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(reportsDir.resolve("TEST-other.xml"), "<testsuite tests=\"1\" failures=\"0\"/>\n");
         Files.writeString(projectDir.resolve("target/test-shards/fast_suite_/shard-1-of-2.json"), shardManifest("fast suite!", 1, 2, false));
 
@@ -107,7 +107,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Path projectDir = tempDir.resolve("check-context-ci-missing-coverage");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-missing-coverage"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -127,7 +127,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Path projectDir = tempDir.resolve("check-context-ci-unsafe-coverage");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-unsafe-coverage"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -149,7 +149,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Path coverageDir = projectDir.resolve("target/coverage");
         Files.createDirectories(coverageDir.resolve("html"));
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-coverage-ok"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(coverageDir.resolve("jacoco.exec"), "exec\n");
         Files.writeString(coverageDir.resolve("jacoco.xml"), "<report name=\"demo\"/>\n");
         Files.writeString(coverageDir.resolve("html/index.html"), "<!doctype html>\n");
@@ -173,7 +173,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Files.createDirectories(coverageDir.resolve("html"));
         Files.createDirectories(projectDir.resolve("target/test-shards/fast"));
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-shard-coverage-ok"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("target/test-shards/fast/shard-1-of-2.json"), shardManifest("fast", 1, 2, false));
         Files.writeString(coverageDir.resolve("jacoco.exec"), "exec\n");
         Files.writeString(coverageDir.resolve("jacoco.xml"), "<report name=\"demo\"/>\n");
@@ -198,7 +198,7 @@ final class CheckExecutionContextEvidenceCommandTest {
         Files.createDirectories(coverageDir.resolve("html"));
         Files.createDirectories(coverageDir.resolve("workers"));
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-missing-worker-coverage"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(coverageDir.resolve("jacoco.exec"), "exec\n");
         Files.writeString(coverageDir.resolve("jacoco.xml"), "<report name=\"demo\"/>\n");
         Files.writeString(coverageDir.resolve("html/index.html"), "<!doctype html>\n");

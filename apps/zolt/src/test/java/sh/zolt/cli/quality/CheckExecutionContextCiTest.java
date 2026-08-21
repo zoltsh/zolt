@@ -23,7 +23,14 @@ final class CheckExecutionContextCiTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-local-overlay"));
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:local-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:local-lib"
@@ -60,7 +67,7 @@ final class CheckExecutionContextCiTest {
                 usernameEnv = "ZOLT_TEST_MISSING_CHECK_CONTEXT_USERNAME"
                 passwordEnv = "ZOLT_TEST_MISSING_CHECK_CONTEXT_PASSWORD"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -93,7 +100,7 @@ final class CheckExecutionContextCiTest {
                 usernameEnv = "ZOLT_TEST_MISSING_PUBLISH_CHECK_USERNAME"
                 passwordEnv = "ZOLT_TEST_MISSING_PUBLISH_CHECK_PASSWORD"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -118,7 +125,7 @@ final class CheckExecutionContextCiTest {
                 [repositories]
                 company = "https://user:super-secret-token@repo.example.test/maven"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -146,7 +153,7 @@ final class CheckExecutionContextCiTest {
                 [publish.repositories.company-releases]
                 url = "https://publish-user:super-secret-token@repo.example.test/releases"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",

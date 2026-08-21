@@ -24,7 +24,7 @@ final class PolicyDependencyPolicyCommandTest {
         Path projectDir = tempDir.resolve("check-dependency-policy-empty");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), CliTestSupport.memberConfig("check-dependency-policy-empty"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -69,7 +69,7 @@ final class PolicyDependencyPolicyCommandTest {
                 members = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -125,7 +125,7 @@ final class PolicyDependencyPolicyCommandTest {
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api"));
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
-                version = 5
+                version = 7
 
                 [[package]]
                 id = 42
@@ -160,7 +160,14 @@ final class PolicyDependencyPolicyCommandTest {
                 "com.example:lib" = "1.0.0"
                 """);
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:lib"
+                version = "2.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:lib"
