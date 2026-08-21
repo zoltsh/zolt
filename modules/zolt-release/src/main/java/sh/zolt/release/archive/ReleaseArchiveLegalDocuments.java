@@ -20,7 +20,6 @@ final class ReleaseArchiveLegalDocuments {
     private static final String WORKSPACE_TABLE = "[workspace]";
     private static final String WORKSPACE_SUBTABLE_PREFIX = "[workspace.";
     private static final String PROJECT_MANIFEST_NAME = "zolt.toml";
-    private static final String WORKSPACE_MANIFEST_NAME = "zolt-workspace.toml";
 
     private ReleaseArchiveLegalDocuments() {
     }
@@ -51,8 +50,7 @@ final class ReleaseArchiveLegalDocuments {
     private static Optional<Path> workspaceRoot(Path projectDirectory) {
         Path current = projectDirectory.getParent();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve(WORKSPACE_MANIFEST_NAME))
-                    || declaresWorkspace(current.resolve(PROJECT_MANIFEST_NAME))) {
+            if (declaresWorkspace(current.resolve(PROJECT_MANIFEST_NAME))) {
                 return Optional.of(current);
             }
             current = current.getParent();

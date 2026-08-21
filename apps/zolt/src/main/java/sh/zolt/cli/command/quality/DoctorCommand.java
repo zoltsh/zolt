@@ -20,7 +20,6 @@ import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
-import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -262,8 +261,7 @@ public final class DoctorCommand implements Runnable {
     private static Optional<Path> enclosingRoot(Path directory) {
         Path current = directory.getParent();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("zolt.toml"))
-                    || Files.isRegularFile(current.resolve(WorkspaceConfigParser.WORKSPACE_FILE))) {
+            if (Files.isRegularFile(current.resolve("zolt.toml"))) {
                 return Optional.of(current);
             }
             current = current.getParent();
