@@ -68,6 +68,9 @@ final class PublishCommandCentralUploadTest {
                 """.formatted(name, sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig(name) + """
+                description = "A Central-bound library."
+                url = "https://example.com/central"
+                license = "Apache-2.0"
 
                 [package]
                 sources = true

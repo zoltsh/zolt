@@ -74,8 +74,7 @@ final class PublishCommandMemberCentralDryRunTest {
 
             assertEquals(1, result.exitCode(), result.stdout() + result.stderr());
             assertTrue(result.stdout().contains("- [x] release version"), result.stdout());
-            assertTrue(result.stdout().contains("- [ ] project name"), result.stdout());
-            assertTrue(result.stdout().contains("Next: Add [package.metadata].name."), result.stdout());
+            assertTrue(result.stdout().contains("- [ ] project description"), result.stdout());
             assertTrue(result.stdout().contains("- [ ] license name and url"), result.stdout());
             assertTrue(result.stdout().contains("- [ ] developer information"), result.stdout());
             assertTrue(result.stdout().contains("- [ ] sources jar"), result.stdout());

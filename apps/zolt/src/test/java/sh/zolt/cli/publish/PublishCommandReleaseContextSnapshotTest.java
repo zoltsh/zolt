@@ -60,6 +60,13 @@ final class PublishCommandReleaseContextSnapshotTest {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-snapshot")
                 .replace("version = \"0.1.0\"", "version = \"0.1.0-SNAPSHOT\"") + """
+                description = "Release context snapshot fixture."
+                url = "https://example.com/release-context-snapshot"
+                issues = "https://example.com/release-context-snapshot/issues"
+                license = "Apache-2.0"
+
+                [project.developers.team]
+                name = "Example Team"
 
                 [package]
                 sources = true

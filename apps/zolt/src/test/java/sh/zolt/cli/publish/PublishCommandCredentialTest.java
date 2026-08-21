@@ -77,11 +77,9 @@ final class PublishCommandCredentialTest {
                 "--dry-run",
                 "--cwd", projectDir.toString());
 
+        // The final manifest language rejects an embedded-credential URL outright (design 8.6).
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("Target URL: https://***@repo.example.test/releases"));
-        assertTrue(result.stdout().contains("Status: blocked"));
-        assertTrue(result.stdout().contains("publish repository `company-releases` URL contains embedded credentials"));
-        assertTrue(result.stdout().contains("Move credentials to [repositoryCredentials] environment references."));
+        assertTrue(result.stderr().contains("Repository URL declares embedded user information."), result.stderr());
         assertFalse(result.stdout().contains("publish-user"));
         assertFalse(result.stdout().contains("super-secret"));
         assertFalse(result.stderr().contains("publish-user"));
@@ -138,6 +136,9 @@ final class PublishCommandCredentialTest {
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         // A configured internal Nexus whose credential env vars are UNSET, plus a Central deployment.
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("nexus-central") + """
+                description = "A library published to both an internal Nexus and Central."
+                url = "https://example.com/nexus-central"
+                license = "Apache-2.0"
 
                 [package]
                 sources = true

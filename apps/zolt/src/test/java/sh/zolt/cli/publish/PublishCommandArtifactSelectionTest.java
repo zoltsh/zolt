@@ -52,7 +52,8 @@ final class PublishCommandArtifactSelectionTest {
                 "--cwd", projectDir.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("Artifact: spring-boot-war"));
+        // Design 14.1: package mode alone decides the main artifact, so it is labelled `main`.
+        assertTrue(result.stdout().contains("Artifact: main"), result.stdout());
         assertTrue(result.stdout().contains("Artifact path: target/demo-0.1.0.war"));
         assertTrue(result.stdout().contains("Artifact upload path: com/example/demo/0.1.0/demo-0.1.0.war"));
         assertTrue(result.stdout().contains("Evidence: target/demo-0.1.0.war.zolt-package.json"));
@@ -60,29 +61,6 @@ final class PublishCommandArtifactSelectionTest {
         assertTrue(result.stdout().contains("POM upload path: com/example/demo/0.1.0/demo-0.1.0.pom"));
         assertTrue(result.stdout().contains("Status: ready"));
         assertEquals("", result.stderr());
-    }
-
-    @Test
-    void publishDryRunRejectsArtifactSelectorThatDoesNotMatchPackageMode() throws IOException {
-        Path projectDir = tempDir.resolve("publish-dry-run-selector-mismatch");
-        writeProjectConfig(projectDir);
-        Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
-
-                [publish]
-                release = "company-releases"
-
-                [publish.repositories.company-releases]
-                url = "https://repo.example.test/releases"
-                """);
-
-        CommandResult result = execute(
-                "publish",
-                "--dry-run",
-                "--cwd", projectDir.toString());
-
-        assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("Publish artifact selector `spring-boot-war` requires [package].mode = \"spring-boot-war\""));
-        assertTrue(result.stderr().contains("current package mode is `thin`"));
     }
 
     private static void writeProjectConfig(Path projectDir) throws IOException {

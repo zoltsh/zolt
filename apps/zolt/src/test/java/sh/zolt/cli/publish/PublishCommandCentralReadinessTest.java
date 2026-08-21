@@ -42,6 +42,9 @@ final class PublishCommandCentralReadinessTest {
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("central-ready") + """
+                description = "A Central-ready library."
+                url = "https://example.com/central-ready"
+                license = "Apache-2.0"
 
                 [package]
                 sources = true
@@ -69,7 +72,6 @@ final class PublishCommandCentralReadinessTest {
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("Maven Central readiness:"), result.stdout());
         assertTrue(result.stdout().contains("- [x] release version"), result.stdout());
-        assertTrue(result.stdout().contains("- [x] project name"), result.stdout());
         assertTrue(result.stdout().contains("- [x] license name and url"), result.stdout());
         assertTrue(result.stdout().contains("- [x] developer information"), result.stdout());
         assertTrue(result.stdout().contains("- [x] scm url and connection"), result.stdout());
@@ -105,6 +107,9 @@ final class PublishCommandCentralReadinessTest {
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("central-signed") + """
+                description = "A fully Central-ready library."
+                url = "https://example.com/central-signed"
+                license = "Apache-2.0"
 
                 [package]
                 sources = true
@@ -164,8 +169,7 @@ final class PublishCommandCentralReadinessTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("- [x] release version"), result.stdout());
-        assertTrue(result.stdout().contains("- [ ] project name"), result.stdout());
-        assertTrue(result.stdout().contains("Next: Add [package.metadata].name."), result.stdout());
+        assertTrue(result.stdout().contains("- [ ] project description"), result.stdout());
         assertTrue(result.stdout().contains("- [ ] license name and url"), result.stdout());
         assertTrue(result.stdout().contains("- [ ] developer information"), result.stdout());
         assertTrue(result.stdout().contains("- [ ] sources jar"), result.stdout());

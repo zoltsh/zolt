@@ -60,7 +60,6 @@ final class PublishCommandReleaseContextTest {
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("Context: release"));
         assertTrue(result.stdout().contains("Policy source: built-in release context"));
-        assertTrue(result.stdout().contains("release context requires [package.metadata].name."));
         assertTrue(result.stdout().contains("release context requires [package.metadata].license."));
         assertTrue(result.stdout().contains("release context requires a sources jar"));
         assertTrue(result.stdout().contains("release context requires a javadoc jar"));
@@ -110,13 +109,20 @@ final class PublishCommandReleaseContextTest {
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-ok") + """
+                description = "Release context metadata fixture."
+                url = "https://example.com/release-context"
+                issues = "https://example.com/release-context/issues"
+                license = "Apache-2.0"
+
+                [project.developers.team]
+                name = "Example Team"
+
+                [project.scm]
+                url = "https://example.com/release-context.git"
 
                 [package]
                 sources = true
                 javadoc = true
-
-                [project.scm]
-                url = "https://example.com/release-context.git"
 
                 [publish]
                 release = "company-releases"
