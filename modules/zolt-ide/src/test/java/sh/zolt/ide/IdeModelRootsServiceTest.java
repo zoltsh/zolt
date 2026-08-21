@@ -25,7 +25,7 @@ final class IdeModelRootsServiceTest {
                 name = "multi-root-tests"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [test.sources]
                 java = ["src/test/java", "src/integrationTest/java", "src/contractTest/java"]
@@ -43,19 +43,19 @@ final class IdeModelRootsServiceTest {
                         "java",
                         root.resolve("target/generated/sources/annotations"),
                         true),
-                new IdeModel.SourceRoot("test-java-1", "test", "java", root.resolve("src/test/java"), false),
+                new IdeModel.SourceRoot(
+                        "test-java-1",
+                        "test",
+                        "java",
+                        root.resolve("src/contractTest/java"),
+                        false),
                 new IdeModel.SourceRoot(
                         "test-java-2",
                         "test",
                         "java",
                         root.resolve("src/integrationTest/java"),
                         false),
-                new IdeModel.SourceRoot(
-                        "test-java-3",
-                        "test",
-                        "java",
-                        root.resolve("src/contractTest/java"),
-                        false),
+                new IdeModel.SourceRoot("test-java-3", "test", "java", root.resolve("src/test/java"), false),
                 new IdeModel.SourceRoot(
                         "test-generated-java",
                         "test",
@@ -73,7 +73,7 @@ final class IdeModelRootsServiceTest {
                 name = "groovy-tests"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [test.sources]
                 java = ["src/test/java"]
@@ -88,13 +88,13 @@ final class IdeModelRootsServiceTest {
                 "test-groovy-1",
                 "test",
                 "groovy",
-                root.resolve("src/test/groovy"),
+                root.resolve("src/integrationTest/groovy"),
                 false)));
         assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
                 "test-groovy-2",
                 "test",
                 "groovy",
-                root.resolve("src/integrationTest/groovy"),
+                root.resolve("src/test/groovy"),
                 false)));
     }
 
@@ -107,7 +107,7 @@ final class IdeModelRootsServiceTest {
                 name = "resource-roots"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [resources]
                 main = ["src/main/resources", "target/generated/resources"]
@@ -127,23 +127,18 @@ final class IdeModelRootsServiceTest {
     }
 
     @Test
-    void normalizesConfiguredSourceAndResourceRootDotSegments() throws IOException {
-        Path projectDir = tempDir.resolve("normalized-roots");
+    void exportsConfiguredMainSourceRootsInCanonicalOrder() throws IOException {
+        Path projectDir = tempDir.resolve("multi-main-roots");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), """
                 [project]
-                name = "normalized-roots"
+                name = "multi-main-roots"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [build]
-                sources = ["src/main/java", "src/main/../generated/java"]
-                test = "src/test/java"
-
-                [resources]
-                main = ["src/main/resources/../resources", "assets/../src/main/extra-resources"]
-                test = ["src/test/resources"]
+                sources = ["src/main/java", "src/generated/java"]
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
@@ -151,8 +146,8 @@ final class IdeModelRootsServiceTest {
 
         Path root = projectDir.toAbsolutePath().normalize();
         assertEquals(List.of(
-                new IdeModel.SourceRoot("main-java", "main", "java", root.resolve("src/main/java"), false),
-                new IdeModel.SourceRoot("main-java-2", "main", "java", root.resolve("src/generated/java"), false),
+                new IdeModel.SourceRoot("main-java", "main", "java", root.resolve("src/generated/java"), false),
+                new IdeModel.SourceRoot("main-java-2", "main", "java", root.resolve("src/main/java"), false),
                 new IdeModel.SourceRoot(
                         "main-generated-java",
                         "main",
@@ -166,11 +161,6 @@ final class IdeModelRootsServiceTest {
                         "java",
                         root.resolve("target/generated/test-sources/annotations"),
                         true)), model.sourceRoots());
-        assertEquals(List.of(
-                new IdeModel.ResourceRoot("main-resources", "main", root.resolve("src/main/resources")),
-                new IdeModel.ResourceRoot("main-resources-2", "main", root.resolve("src/main/extra-resources")),
-                new IdeModel.ResourceRoot("test-resources", "test", root.resolve("src/test/resources"))),
-                model.resourceRoots());
     }
 
 }

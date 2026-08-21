@@ -130,6 +130,7 @@ public final class WorkspaceIdeModelService {
                     ideModelService.exportWithClasspaths(
                             member.directory(),
                             workspace.root().resolve("zolt.lock"),
+                            member.config(),
                             classpathsByMember.get(member.path()),
                             List.of())));
         }

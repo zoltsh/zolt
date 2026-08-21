@@ -93,7 +93,7 @@ final class WorkspaceIdeClasspathPlannerTest {
     private Workspace workspace(List<WorkspaceMember> members, List<WorkspaceProjectEdge> edges) {
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "acme-platform",
                         members.stream().map(WorkspaceMember::path).toList(),

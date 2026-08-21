@@ -137,15 +137,20 @@ public final class IdeModelService {
                 "diagnostics", Integer.toString(model.diagnostics().size()));
     }
 
+    /**
+     * Builds one member model from the effective {@link ProjectConfig} the workspace already
+     * composed. Member manifests are never re-read standalone: a member may declare
+     * {@code workspace = true} dependencies, which only compose against the workspace root.
+     */
     IdeModel exportWithClasspaths(
             Path projectDirectory,
             Path lockfilePath,
+            ProjectConfig config,
             IdeModel.ClasspathInfo classpaths,
             List<IdeModel.Diagnostic> diagnostics) {
         Path root = projectDirectory.toAbsolutePath().normalize();
         Path configPath = root.resolve("zolt.toml").normalize();
         List<IdeModel.Diagnostic> modelDiagnostics = new ArrayList<>(diagnostics);
-        ProjectConfig config = readConfig(configPath, modelDiagnostics);
 
         return new IdeModel(
                 SCHEMA_VERSION,

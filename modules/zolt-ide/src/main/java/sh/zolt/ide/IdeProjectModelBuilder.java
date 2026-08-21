@@ -1,6 +1,7 @@
 package sh.zolt.ide;
 
 import sh.zolt.project.CompilerSettings;
+import sh.zolt.project.DeveloperEntry;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectMetadata;
@@ -112,9 +113,22 @@ final class IdeProjectModelBuilder {
                 blankToNull(metadata.description()),
                 blankToNull(metadata.url()),
                 blankToNull(metadata.license()),
-                metadata.developers(),
+                developers(metadata),
                 blankToNull(metadata.scm()),
                 blankToNull(metadata.issues()));
+    }
+
+    /**
+     * Editors show developer names. The manifest language carries them as structured
+     * {@code [project.developers.<id>]} entries, so project the entry names when present.
+     */
+    private static List<String> developers(PublicationMetadata metadata) {
+        if (metadata.developerEntries().isEmpty()) {
+            return metadata.developers();
+        }
+        return metadata.developerEntries().stream()
+                .map(DeveloperEntry::name)
+                .toList();
     }
 
     private static String artifactBaseName(

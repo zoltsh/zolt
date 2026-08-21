@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,12 +27,12 @@ final class IdeProjectModelBuilderTest {
                 name = "test-runtime"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [test.runtime]
                 jvmArgs = ["-Dconfigured=true"]
-                systemProperties = { "logs.dir" = "${project.root}/test-logs" }
-                environment = { TZ = "America/Chicago", SECRET_TOKEN = "do-not-export" }
+                properties = { "logs.dir" = "target/test-logs" }
+                env = { TZ = "America/Chicago", SECRET_TOKEN = "do-not-export" }
                 events = ["failed"]
                 """);
 
@@ -40,7 +40,7 @@ final class IdeProjectModelBuilderTest {
 
         assertEquals(List.of("-Dconfigured=true"), testRuntime.jvmArgs());
         assertEquals(
-                Map.of("logs.dir", "${project.root}/test-logs"),
+                Map.of("logs.dir", "target/test-logs"),
                 testRuntime.systemProperties());
         assertEquals(
                 Map.of("SECRET_TOKEN", "<redacted>", "TZ", "<redacted>"),
@@ -60,24 +60,25 @@ final class IdeProjectModelBuilderTest {
                 name = "library-package"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
+                description = "Library packaging fixture"
+                url = "https://example.com/library"
+                issues = "https://example.com/library/issues"
+                license = "Apache-2.0"
 
-                [build]
-                outputRoot = ".zolt/build"
+                [project.scm]
+                url = "https://example.com/library.git"
+
+                [project.developers.team]
+                name = "Zolt Team"
+
+                [build.output]
+                root = ".zolt/build"
 
                 [package]
                 sources = true
                 javadoc = true
-                tests = true
-
-                [package.metadata]
-                name = "Library Package"
-                description = "Library packaging fixture"
-                url = "https://example.com/library"
-                license = "Apache-2.0"
-                developers = ["Zolt Team"]
-                scm = "https://example.com/library.git"
-                issues = "https://example.com/library/issues"
+                testJar = true
 
                 [package.manifest]
                 "Automatic-Module-Name" = "com.example.library"
@@ -97,7 +98,7 @@ final class IdeProjectModelBuilderTest {
                         root.resolve(".zolt/build/library-package-0.1.0-javadoc.jar"),
                         root.resolve(".zolt/build/library-package-0.1.0-tests.jar"),
                         new IdeModel.PublicationInfo(
-                                "Library Package",
+                                null,
                                 "Library packaging fixture",
                                 "https://example.com/library",
                                 "Apache-2.0",
@@ -131,7 +132,7 @@ final class IdeProjectModelBuilderTest {
         Files.createDirectories(projectDir);
         Path config = projectDir.resolve("zolt.toml");
         Files.writeString(config, toml);
-        return new ZoltTomlParser().parse(config);
+        return new ManifestProjectConfigLoader().load(config);
     }
 
     private IdeModel modelWith(IdeModel.TestRuntimeInfo testRuntime) {

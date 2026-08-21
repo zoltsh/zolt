@@ -41,7 +41,7 @@ final class IdeModelGeneratedSourcesTest {
                 name = "generated-sources"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.main.openapi]
                 kind = "declared-root"
@@ -137,12 +137,12 @@ final class IdeModelGeneratedSourcesTest {
                 name = "openapi-tool-version-ref"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 openapi = "7.11.0"
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
@@ -184,7 +184,7 @@ final class IdeModelGeneratedSourcesTest {
                 name = "protobuf-generated-sources"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.main.greeter]
                 kind = "protobuf"
