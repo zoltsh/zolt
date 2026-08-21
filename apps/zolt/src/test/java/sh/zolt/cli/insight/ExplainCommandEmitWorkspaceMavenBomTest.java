@@ -10,7 +10,6 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,8 +40,9 @@ final class ExplainCommandEmitWorkspaceMavenBomTest {
             assertFalse(explain.stdout().contains("\"com.acme:acme-bom\" ="),
                     () -> "reactor-internal BOM must not be emitted as a live platform:\n" + explain.stdout());
 
-            String hermeticToml = explain.stdout().replace(ProjectConfig.MAVEN_CENTRAL, repository.baseUri().toString());
-            writeDocuments(tempDir, splitDocuments(hermeticToml));
+            Map<String, String> documents = splitDocuments(explain.stdout());
+            documents.put("workspace", withCentralMirror(documents.get("workspace"), repository));
+            writeDocuments(tempDir, documents);
 
             CommandResult resolve = execute(
                     "resolve",
@@ -125,6 +125,19 @@ final class ExplainCommandEmitWorkspaceMavenBomTest {
                   </dependencies>
                 </project>
                 """.formatted(version));
+    }
+
+    /**
+     * The final language never authors {@code [repositories]} in a draft, and a workspace member may
+     * not declare them at all, so the hermetic test repository becomes an explicit Central mirror on
+     * the workspace root every member inherits.
+     */
+    private static String withCentralMirror(String manifest, CliTestRepository repository) {
+        return manifest + """
+
+                [repositories]
+                central = "%s"
+                """.formatted(repository.baseUri());
     }
 
     private void writeMavenModule(String name, String pom) throws IOException {

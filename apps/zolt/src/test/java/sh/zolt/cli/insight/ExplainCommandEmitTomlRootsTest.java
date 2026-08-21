@@ -2,11 +2,14 @@ package sh.zolt.cli.insight;
 
 import static sh.zolt.cli.CliTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredResources;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,7 +22,7 @@ final class ExplainCommandEmitTomlRootsTest {
     private Path tempDir;
 
     @Test
-    void emittedMavenDraftCarriesAuditedSourceTestAndResourceRoots() throws IOException {
+    void emittedMavenDraftCarriesAuditedSourceAndResourceRoots() throws IOException {
         Files.writeString(tempDir.resolve("pom.xml"), """
                 <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -67,15 +70,27 @@ final class ExplainCommandEmitTomlRootsTest {
         CommandResult result = execute("explain", "--emit-toml", "--cwd", tempDir.toString(), "--source", "maven");
 
         assertEquals(0, result.exitCode(), () -> result.stderr());
-        assertTrue(result.stdout().contains("source = \"src/java\""), () -> result.stdout());
-        assertTrue(result.stdout().contains("sources = [\"src/java\", \"src/gen\"]"), () -> result.stdout());
-        assertTrue(result.stdout().contains("test = \"src/tests\""), () -> result.stdout());
+        assertTrue(result.stdout().contains("[build]"), () -> result.stdout());
+        assertTrue(result.stdout().contains("sources = [\"src/gen\", \"src/java\"]"), () -> result.stdout());
         assertTrue(result.stdout().contains("[resources]"), () -> result.stdout());
-        ProjectConfig parsed = new ZoltTomlParser().parse(result.stdout());
-        assertEquals("src/java", parsed.build().source());
-        assertEquals(List.of("src/java", "src/gen"), parsed.build().sourceRoots());
-        assertEquals("src/tests", parsed.build().test());
-        assertEquals(List.of("config"), parsed.build().resourceRoots());
-        assertEquals(List.of("test-config"), parsed.build().testResourceRoots());
+        assertTrue(result.stdout().contains("main = [\"config\"]"), () -> result.stdout());
+        assertTrue(result.stdout().contains("test = [\"test-config\"]"), () -> result.stdout());
+        // The final language derives the test root from the build convention, so a non-conventional
+        // Maven testSourceDirectory is review data rather than an authored key.
+        assertFalse(result.stdout().contains("\"src/tests\""), () -> result.stdout());
+        assertTrue(
+                result.stdout().contains("Test sources live outside the Zolt convention `src/test/java`")
+                        && result.stdout().contains("src/tests"),
+                () -> result.stdout());
+
+        AuthoredManifest parsed = new ManifestProjectConfigLoader().document(result.stdout()).authored();
+        assertEquals(List.of("src/gen", "src/java"), paths(parsed.build().build().orElseThrow().sources()));
+        AuthoredResources resources = parsed.build().resources().orElseThrow();
+        assertEquals(List.of("config"), paths(resources.main()));
+        assertEquals(List.of("test-config"), paths(resources.test()));
+    }
+
+    private static List<String> paths(List<ManifestRelativePath> roots) {
+        return roots.stream().map(ManifestRelativePath::value).toList();
     }
 }

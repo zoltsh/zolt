@@ -12,6 +12,7 @@ import sh.zolt.explain.MigrationReadinessScorecards;
 import sh.zolt.explain.emit.DraftEmit;
 import sh.zolt.explain.emit.DraftWorkspace;
 import sh.zolt.explain.emit.InspectionToManifest;
+import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.WorkspaceMemberPattern;
 import sh.zolt.manifest.authored.AuthoredWorkspace;
 import java.io.IOException;
@@ -61,8 +62,12 @@ final class MavenProfileModuleInspectionTest {
         assertEquals(
                 List.of("app"),
                 root.members().include().stream().map(WorkspaceMemberPattern::value).toList());
-        // Omitting `default` is the implicit-all selection, which is exactly every drafted member.
-        assertTrue(root.members().defaultMembers().isEmpty());
+        // The draft names its members exactly; the profile-declared module is not one of them.
+        assertEquals(
+                List.of("app"),
+                root.members().defaultMembers().orElseThrow().stream()
+                        .map(WorkspaceMemberPath::value)
+                        .toList());
         assertTrue(workspace.notes().stream().anyMatch(note ->
                 note.contains("profile `extras`")
                         && note.contains("extra")

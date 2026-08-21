@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -66,9 +65,7 @@ final class ExplainCommandEmitTomlGradleInterpolationTest {
             assertTrue(explain.stdout().contains("\"com.google.code.gson:gson\" = \"2.11.0\""), () -> explain.stdout());
             assertTrue(explain.stdout().contains("\"org.junit.jupiter:junit-jupiter\" = \"5.10.2\""), () -> explain.stdout());
 
-            Files.writeString(
-                    tempDir.resolve("zolt.toml"),
-                    explain.stdout().replace(ProjectConfig.MAVEN_CENTRAL, repository.baseUri().toString()));
+            Files.writeString(tempDir.resolve("zolt.toml"), withCentralMirror(explain.stdout(), repository));
             CommandResult resolve = execute(
                     "resolve",
                     "--cwd", tempDir.toString(),
@@ -76,6 +73,19 @@ final class ExplainCommandEmitTomlGradleInterpolationTest {
 
             assertEquals(0, resolve.exitCode(), () -> resolve.stderr());
         }
+    }
+
+    /**
+     * The final language never authors {@code [repositories]} in a draft, so a draft inherits Maven
+     * Central. Pointing a resolve at the hermetic test repository is an explicit Central mirror
+     * appended to the emitted document.
+     */
+    private static String withCentralMirror(String manifest, CliTestRepository repository) {
+        return manifest + """
+
+                [repositories]
+                central = "%s"
+                """.formatted(repository.baseUri());
     }
 
     private static String pom(String group, String artifact, String version) {

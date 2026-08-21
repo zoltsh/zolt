@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.maven.MavenInspectionResult;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
+import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.WorkspaceMemberPattern;
 import sh.zolt.manifest.authored.AuthoredWorkspace;
 import sh.zolt.manifest.authored.AuthoredWorkspaceProjectDefaults;
@@ -113,7 +114,7 @@ final class InspectionToWorkspaceMavenTest {
     }
 
     @Test
-    void reactorEmitsWorkspaceRootWithMembersAndNoDefaultSelection() throws IOException {
+    void reactorEmitsWorkspaceRootWithMembersAndAnExactDefaultSelection() throws IOException {
         DraftWorkspace workspace = emitReactor();
 
         AuthoredWorkspace root = workspace.root().workspace().orElseThrow();
@@ -122,9 +123,11 @@ final class InspectionToWorkspaceMavenTest {
                 List.of("orders-api", "orders-core"),
                 root.members().include().stream().map(WorkspaceMemberPattern::value).toList());
         assertEquals(
-                Optional.empty(),
-                root.members().defaultMembers(),
-                "a draft selects every member, which is what omitting `default` means");
+                List.of("orders-api", "orders-core"),
+                root.members().defaultMembers().orElseThrow().stream()
+                        .map(WorkspaceMemberPath::value)
+                        .toList(),
+                "a draft names its members exactly rather than opting into dynamic-all membership");
         assertEquals(2, workspace.members().size());
     }
 
