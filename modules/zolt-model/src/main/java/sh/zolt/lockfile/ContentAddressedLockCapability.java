@@ -13,7 +13,10 @@ public final class ContentAddressedLockCapability {
 
     private ContentAddressedLockCapability() {}
 
-    /** Older locks remain readable, but their Maven-layout paths must not be reinterpreted. */
+    /**
+     * Tests historical in-memory models for the version-6 path contract. Current lock readers
+     * reject every pre-v7 wire lock before this capability is consulted.
+     */
     public static boolean supportsArtifactCachePaths(ZoltLockfile lockfile) {
         return lockfile.version() >= MINIMUM_VERSION;
     }
@@ -39,7 +42,10 @@ public final class ContentAddressedLockCapability {
         }
     }
 
-    /** Refuses every pre-v6 lock before an executable command can resolve, compile, or package. */
+    /**
+     * Validates the executable path contract of an already-decoded model. Current lock readers
+     * independently reject every pre-v7 wire lock.
+     */
     public static void requireExecutableLockfile(ZoltLockfile lockfile, String migrationCommand) {
         requireArtifactCachePaths(lockfile, migrationCommand);
         if (!supportsArtifactCachePaths(lockfile)) {

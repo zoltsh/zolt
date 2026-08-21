@@ -79,11 +79,11 @@ final class LockDependencyRootTest {
     void optionalAndPublishOnlyMetadataAreRestrictedToMeaningfulLanes() {
         for (DependencyLane lane : DependencyLane.values()) {
             if (OPTIONAL_LANES.contains(lane)) {
-                resolved(lane, DependencyScope.COMPILE, false, true);
+                resolved(lane, scope(lane), false, true);
             } else {
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> resolved(lane, DependencyScope.COMPILE, false, true));
+                        () -> resolved(lane, scope(lane), false, true));
             }
 
             if (PUBLISH_ONLY_LANES.contains(lane)) {
@@ -143,5 +143,17 @@ final class LockDependencyRootTest {
     private static LockDependencyRoot publishOnly(DependencyLane lane) {
         return new LockDependencyRoot(
                 ".", PACKAGE, "1.4.0", null, lane, Optional.empty(), false, true);
+    }
+
+    private static DependencyScope scope(DependencyLane lane) {
+        return switch (lane) {
+            case API, IMPLEMENTATION -> DependencyScope.COMPILE;
+            case RUNTIME -> DependencyScope.RUNTIME;
+            case PROVIDED -> DependencyScope.PROVIDED;
+            case DEV -> DependencyScope.DEV;
+            case TEST -> DependencyScope.TEST;
+            case PROCESSOR -> DependencyScope.PROCESSOR;
+            case TEST_PROCESSOR -> DependencyScope.TEST_PROCESSOR;
+        };
     }
 }
