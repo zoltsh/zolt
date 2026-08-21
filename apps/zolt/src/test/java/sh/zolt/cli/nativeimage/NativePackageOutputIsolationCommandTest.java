@@ -123,7 +123,7 @@ final class NativePackageOutputIsolationCommandTest {
 
                 [publish.repositories.test-releases]
                 url = "https://repo.example.test/releases"
-                """.formatted(Runtime.version().feature(), repositoryUrl, mode, spring));
+                """.formatted(Runtime.version().feature(), repositoryUrl, authoredMode(mode), spring));
         Path source = project.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, """
@@ -157,7 +157,7 @@ final class NativePackageOutputIsolationCommandTest {
                 name = "%s"
                 """.formatted(
                 Runtime.version().feature(),
-                collision.mode(),
+                authoredMode(collision.mode()),
                 collision.output(),
                 collision.imageName()));
         Path source = project.resolve("src/main/java/com/example/Main.java");
@@ -196,6 +196,15 @@ final class NativePackageOutputIsolationCommandTest {
             }
         }
         return hashes;
+    }
+
+    /** The manifest names package modes with the final symbols; the engine still reports the old ones. */
+    private static String authoredMode(String mode) {
+        return switch (mode) {
+            case "thin" -> "jar";
+            case "uber" -> "uber-jar";
+            default -> mode;
+        };
     }
 
     private static CommandResult nativeCommand(Path project, Path cache, Path nativeImage) {

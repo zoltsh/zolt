@@ -3,6 +3,7 @@ package sh.zolt.cli.workspace;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.cli.CliTestSupport.bomConfig;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 
@@ -24,7 +25,7 @@ final class WorkspaceProviderPackageModeCommandTest {
         for (String mode : List.of(
                 "spring-boot",
                 "quarkus",
-                "uber",
+                "uber-jar",
                 "war",
                 "spring-boot-war",
                 "bom")) {
@@ -37,7 +38,7 @@ final class WorkspaceProviderPackageModeCommandTest {
                     "--cache-root", tempDir.resolve("cache-" + mode).toString());
 
             assertEquals(1, result.exitCode(), result.stderr());
-            assertTrue(result.stderr().contains("`" + mode + "`"), result.stderr());
+            assertTrue(result.stderr().contains("`" + reportedMode(mode) + "`"), result.stderr());
             assertTrue(result.stderr().contains("not a reusable library artifact"), result.stderr());
             assertTrue(result.stderr().contains("package mode `thin`"), result.stderr());
             assertFalse(Files.exists(workspace.resolve("zolt.lock")), mode);
@@ -46,13 +47,13 @@ final class WorkspaceProviderPackageModeCommandTest {
 
     @Test
     void resolveMaterializesAThinWorkspaceProvider() throws IOException {
-        Path workspace = writeWorkspace("thin");
+        Path workspace = writeWorkspace("jar");
 
         CommandResult result = execute(
                 "resolve",
                 "--workspace",
                 "--cwd", workspace.toString(),
-                "--cache-root", tempDir.resolve("cache-thin").toString());
+                "--cache-root", tempDir.resolve("cache-jar").toString());
 
         assertEquals(0, result.exitCode(), result.stderr());
         String lockfile = Files.readString(workspace.resolve("zolt.lock"));
@@ -79,11 +80,26 @@ final class WorkspaceProviderPackageModeCommandTest {
                 [dependencies]
                 "com.example:provider" = { workspace = true }
                 """);
-        Files.writeString(provider.resolve("zolt.toml"), memberConfig("provider") + """
+        Files.writeString(provider.resolve("zolt.toml"), mode.equals("bom")
+                ? bomConfig("provider") + """
+
+                [bom]
+                members = true
+                """
+                : memberConfig("provider") + """
 
                 [package]
                 mode = "%s"
-                %s""".formatted(mode, mode.equals("bom") ? "\n[bom]\n" : ""));
+                """.formatted(mode));
         return workspace;
+    }
+
+    /** The engine still names package modes with the pre-cut config spelling. */
+    private static String reportedMode(String mode) {
+        return switch (mode) {
+            case "jar" -> "thin";
+            case "uber-jar" -> "uber";
+            default -> mode;
+        };
     }
 }

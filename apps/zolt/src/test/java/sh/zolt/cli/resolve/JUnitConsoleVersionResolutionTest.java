@@ -99,7 +99,7 @@ final class JUnitConsoleVersionResolutionTest {
                     "org.junit:junit-bom" = "5.10.2"
 
                     [dependencies.test]
-                    "org.junit.jupiter:junit-jupiter" = {}
+                    "org.junit.jupiter:junit-jupiter" = { managed = true }
                     """.formatted(repository.baseUri()));
 
             CommandResult result = execute(

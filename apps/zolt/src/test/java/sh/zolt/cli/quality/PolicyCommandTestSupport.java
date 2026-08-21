@@ -26,7 +26,7 @@ final class PolicyCommandTestSupport {
 
                 [dependencies]
                 "com.example:direct-lib" = { versionRef = "direct-lib" }
-                "org.springframework.boot:spring-boot-starter-web" = {}
+                "org.springframework.boot:spring-boot-starter-web" = { managed = true }
 
                 [dependencies.policy]
                 deny = [

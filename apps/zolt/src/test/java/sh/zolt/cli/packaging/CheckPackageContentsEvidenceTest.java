@@ -80,7 +80,7 @@ final class CheckPackageContentsEvidenceTest {
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
                 Files.readString(projectDir.resolve("zolt.toml"))
-                        + "\n[package]\nmode = \"thin\"\nsources = true\n");
+                        + "\n[package]\nmode = \"jar\"\nsources = true\n");
         writeMainSource(projectDir, """
                 package com.example;
 

@@ -71,8 +71,8 @@ final class SbomCommandTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), bomConfig("platform") + """
 
-                [bom]
-                members = true
+                [bom.versions]
+                "org.postgresql:postgresql" = "42.7.4"
                 """);
 
         CommandResult result = execute("sbom", "--cwd", projectDir.toString());

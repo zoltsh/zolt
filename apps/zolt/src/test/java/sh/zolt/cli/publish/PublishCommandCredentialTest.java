@@ -168,6 +168,7 @@ final class PublishCommandCredentialTest {
 
                 [publish.central]
                 tokenEnv = "ZOLT_TEST_UNSET_CENTRAL_TOKEN"
+                mode = "manual"
                 """);
         CliTestPackageEvidence.write(projectDir);
 

@@ -302,7 +302,7 @@ final class CheckWorkspaceMemberQualityCommandTest {
                 "com.example:feature-api" = { workspace = true, optional = true }
 
                 [dependencies]
-                "org.example:dual" = {}
+                "org.example:dual" = { managed = true }
                 "org.example:parent" = { version = "1.0.0", exclude = ["org.example:excluded"] }
 
                 [dependencies.policy.licenses]
@@ -315,7 +315,7 @@ final class CheckWorkspaceMemberQualityCommandTest {
                 "org.example:admin-only" = "1.0.0"
 
                 [dependencies.runtime]
-                "org.example:dual" = { classifier = "linux" }
+                "org.example:dual" = { managed = true, classifier = "linux" }
 
                 [dependencies.policy.licenses]
                 allow = ["Apache-2.0", "MIT"]

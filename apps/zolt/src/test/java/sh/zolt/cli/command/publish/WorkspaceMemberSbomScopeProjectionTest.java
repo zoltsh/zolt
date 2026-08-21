@@ -35,7 +35,7 @@ final class WorkspaceMemberSbomScopeProjectionTest {
 
     @Test
     void sameVariantRetainsEachMembersDirectScopeInItsSbom() {
-        ProjectConfig core = config("core", "provided.dependencies");
+        ProjectConfig core = config("core", "dependencies.provided");
         ProjectConfig worker = config("worker", "dependencies");
         Workspace workspace = workspace(core, worker);
         ZoltLockfile aggregate = new ZoltLockfile(
