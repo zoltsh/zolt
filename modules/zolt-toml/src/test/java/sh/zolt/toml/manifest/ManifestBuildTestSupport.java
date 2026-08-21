@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import sh.zolt.manifest.authored.AuthoredBuild;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
+import sh.zolt.manifest.authored.AuthoredCompiler;
 import sh.zolt.manifest.authored.AuthoredGeneratedSources;
 
 /** Cross-package test seam for package-private final-manifest build decoders. */
@@ -33,6 +34,22 @@ public final class ManifestBuildTestSupport {
 
     public static void decodeBuildWithNullObserver() {
         new ManifestBuildDecoder().decode(ManifestSemanticTestSupport.index(""), null);
+    }
+
+    public static Optional<AuthoredCompiler> decodeCompiler(
+            String source, Consumer<AuthoredCompiler> observer) {
+        ManifestCompilerDecoder.CompilerPresenceObserver adapted =
+                observer == null ? null : observer::accept;
+        return new ManifestCompilerDecoder().decode(
+                ManifestSemanticTestSupport.index(source), adapted);
+    }
+
+    public static void decodeCompilerWithNullIndex() {
+        new ManifestCompilerDecoder().decode(null, ignored -> {});
+    }
+
+    public static void decodeCompilerWithNullObserver() {
+        new ManifestCompilerDecoder().decode(ManifestSemanticTestSupport.index(""), null);
     }
 
     public static void decodeBuildConfigurationWithNullIndex() {

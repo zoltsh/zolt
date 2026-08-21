@@ -223,7 +223,7 @@ final class ManifestCompilerDecoderTest {
 
     private static Optional<AuthoredCompiler> decode(String source) {
         return new ManifestCompilerDecoder().decode(
-                ManifestSemanticTestSupport.index(source));
+                ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private static ManifestRelativePath path(String value) {

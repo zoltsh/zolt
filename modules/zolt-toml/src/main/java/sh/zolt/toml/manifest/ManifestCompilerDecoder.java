@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredCompiler;
 import sh.zolt.toml.schema.FinalManifestCompilerFields;
@@ -20,8 +21,11 @@ final class ManifestCompilerDecoder {
             FinalManifestCompilerFields.COMPILER_GENERATED_MAIN,
             FinalManifestCompilerFields.COMPILER_GENERATED_TEST);
 
-    Optional<AuthoredCompiler> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredCompiler> decode(
+            ManifestDecodeIndex index,
+            CompilerPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored compiler presence observer is required.");
         Optional<ValidatedManifestField> encodingField = index.field(
                 FinalManifestCompilerFields.COMPILER_ENCODING);
         Optional<ValidatedManifestField> jdkApiField = index.field(
@@ -40,11 +44,20 @@ final class ManifestCompilerDecoder {
             return Optional.empty();
         }
 
-        Optional<String> encoding = encodingField.map(ManifestCompilerDecoder::encoding);
+        Presence presence = new Presence(argsField, observer);
+        Optional<String> encoding = encodingField.map(ManifestTomlValues::string);
+        encodingField.ifPresent(field -> presence.direct(
+                field,
+                () -> compiler(
+                        encoding, Optional.empty(), List.of(), Optional.empty(), Optional.empty())));
         Optional<AuthoredCompiler.JdkApiMode> jdkApi = jdkApiField.map(
                 ManifestCompilerDecoder::jdkApi);
+        jdkApiField.ifPresent(field -> presence.direct(
+                field,
+                () -> compiler(
+                        encoding, jdkApi, List.of(), Optional.empty(), Optional.empty())));
         List<String> args = argsField
-                .map(field -> mainArguments(field, encoding, jdkApi))
+                .map(field -> mainArguments(field, encoding, jdkApi, presence))
                 .orElseGet(List::of);
         boolean deferEmptyTest = shouldDeferEmptyTest(
                 encoding,
@@ -56,26 +69,25 @@ final class ManifestCompilerDecoder {
                 generatedMainField,
                 generatedTestField);
         Optional<AuthoredCompiler.Test> test = test(
-                testJdkApiField, testArgsField, deferEmptyTest);
+                testJdkApiField,
+                testArgsField,
+                deferEmptyTest,
+                encoding,
+                jdkApi,
+                args,
+                presence);
         Optional<AuthoredCompiler.Generated> generated = generated(
-                generatedMainField, generatedTestField);
+                generatedMainField,
+                generatedTestField,
+                encoding,
+                jdkApi,
+                args,
+                test,
+                presence);
         ValidatedManifestField anchor = firstPresent(index, COMPILER_FIELDS);
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 anchor,
                 () -> new AuthoredCompiler(encoding, jdkApi, args, test, generated)));
-    }
-
-    private static String encoding(ValidatedManifestField field) {
-        String value = ManifestTomlValues.string(field);
-        ManifestSemanticDiagnostics.construct(
-                field,
-                () -> new AuthoredCompiler(
-                        Optional.of(value),
-                        Optional.empty(),
-                        List.of(),
-                        Optional.empty(),
-                        Optional.empty()));
-        return value;
     }
 
     private static AuthoredCompiler.JdkApiMode jdkApi(ValidatedManifestField field) {
@@ -92,20 +104,17 @@ final class ManifestCompilerDecoder {
     private static List<String> mainArguments(
             ValidatedManifestField field,
             Optional<String> encoding,
-            Optional<AuthoredCompiler.JdkApiMode> jdkApi) {
+            Optional<AuthoredCompiler.JdkApiMode> jdkApi,
+            Presence presence) {
         List<String> values = ManifestTomlValues.strings(field);
         for (int index = 0; index < values.size(); index++) {
             List<String> prefix = values.subList(0, index + 1);
             int diagnosticIndex = index;
-            ManifestSemanticDiagnostics.construct(
+            presence.indexed(
                     field,
                     diagnosticIndex,
-                    () -> new AuthoredCompiler(
-                            encoding,
-                            jdkApi,
-                            prefix,
-                            Optional.empty(),
-                            Optional.empty()));
+                    () -> compiler(
+                            encoding, jdkApi, prefix, Optional.empty(), Optional.empty()));
         }
         return values;
     }
@@ -113,20 +122,46 @@ final class ManifestCompilerDecoder {
     private static Optional<AuthoredCompiler.Test> test(
             Optional<ValidatedManifestField> jdkApiField,
             Optional<ValidatedManifestField> argsField,
-            boolean deferEmptyTest) {
+            boolean deferEmptyTest,
+            Optional<String> encoding,
+            Optional<AuthoredCompiler.JdkApiMode> mainJdkApi,
+            List<String> mainArgs,
+            Presence presence) {
         if (jdkApiField.isEmpty() && argsField.isEmpty()) {
             return Optional.empty();
         }
         Optional<AuthoredCompiler.JdkApiMode> jdkApi = jdkApiField.map(
                 ManifestCompilerDecoder::jdkApi);
+        if (jdkApiField.isPresent()) {
+            ValidatedManifestField field = jdkApiField.orElseThrow();
+            AuthoredCompiler.Test partial = ManifestSemanticDiagnostics.construct(
+                    field, () -> new AuthoredCompiler.Test(jdkApi, List.of()));
+            presence.afterMainArgs(
+                    field,
+                    () -> compiler(
+                            encoding,
+                            mainJdkApi,
+                            mainArgs,
+                            Optional.of(partial),
+                            Optional.empty()));
+        }
         List<String> args = argsField.map(ManifestTomlValues::strings).orElseGet(List::of);
         for (int index = 0; index < args.size(); index++) {
             List<String> prefix = args.subList(0, index + 1);
             int diagnosticIndex = index;
-            ManifestSemanticDiagnostics.construct(
+            AuthoredCompiler.Test partial = ManifestSemanticDiagnostics.construct(
                     argsField.orElseThrow(),
                     diagnosticIndex,
                     () -> new AuthoredCompiler.Test(jdkApi, prefix));
+            presence.afterMainArgs(
+                    argsField.orElseThrow(),
+                    diagnosticIndex,
+                    () -> compiler(
+                            encoding,
+                            mainJdkApi,
+                            mainArgs,
+                            Optional.of(partial),
+                            Optional.empty()));
         }
         if (deferEmptyTest) {
             return Optional.empty();
@@ -158,20 +193,113 @@ final class ManifestCompilerDecoder {
 
     private static Optional<AuthoredCompiler.Generated> generated(
             Optional<ValidatedManifestField> mainField,
-            Optional<ValidatedManifestField> testField) {
+            Optional<ValidatedManifestField> testField,
+            Optional<String> encoding,
+            Optional<AuthoredCompiler.JdkApiMode> jdkApi,
+            List<String> args,
+            Optional<AuthoredCompiler.Test> testSettings,
+            Presence presence) {
         if (mainField.isEmpty() && testField.isEmpty()) {
             return Optional.empty();
         }
         Optional<ManifestRelativePath> main = mainField.map(ManifestCompilerDecoder::path);
-        Optional<ManifestRelativePath> test = testField.map(ManifestCompilerDecoder::path);
+        if (mainField.isPresent()) {
+            ValidatedManifestField field = mainField.orElseThrow();
+            AuthoredCompiler.Generated partial = ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new AuthoredCompiler.Generated(main, Optional.empty()));
+            presence.afterMainArgs(
+                    field,
+                    () -> compiler(
+                            encoding, jdkApi, args, testSettings, Optional.of(partial)));
+        }
+        Optional<ManifestRelativePath> testPath = testField.map(ManifestCompilerDecoder::path);
+        if (testField.isPresent()) {
+            ValidatedManifestField field = testField.orElseThrow();
+            AuthoredCompiler.Generated partial = ManifestSemanticDiagnostics.construct(
+                    field, () -> new AuthoredCompiler.Generated(main, testPath));
+            presence.afterMainArgs(
+                    field,
+                    () -> compiler(
+                            encoding, jdkApi, args, testSettings, Optional.of(partial)));
+        }
         ValidatedManifestField anchor = mainField.or(() -> testField).orElseThrow();
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredCompiler.Generated(main, test)));
+                anchor, () -> new AuthoredCompiler.Generated(main, testPath)));
     }
 
     private static ManifestRelativePath path(ValidatedManifestField field) {
         return ManifestSemanticDiagnostics.construct(
                 field, () -> new ManifestRelativePath(ManifestTomlValues.string(field)));
+    }
+
+    private static AuthoredCompiler compiler(
+            Optional<String> encoding,
+            Optional<AuthoredCompiler.JdkApiMode> jdkApi,
+            List<String> args,
+            Optional<AuthoredCompiler.Test> test,
+            Optional<AuthoredCompiler.Generated> generated) {
+        return new AuthoredCompiler(encoding, jdkApi, args, test, generated);
+    }
+
+    private static final class Presence {
+        private final Optional<ValidatedManifestField> argsField;
+        private final CompilerPresenceObserver observer;
+        private boolean observed;
+
+        private Presence(
+                Optional<ValidatedManifestField> argsField,
+                CompilerPresenceObserver observer) {
+            this.argsField = argsField;
+            this.observer = observer;
+        }
+
+        private void direct(ValidatedManifestField field, Supplier<AuthoredCompiler> factory) {
+            ManifestSemanticDiagnostics.construct(
+                    field, () -> observe(factory.get()));
+        }
+
+        private void indexed(
+                ValidatedManifestField field,
+                int index,
+                Supplier<AuthoredCompiler> factory) {
+            ManifestSemanticDiagnostics.construct(
+                    field, index, () -> observe(factory.get()));
+        }
+
+        private void afterMainArgs(
+                ValidatedManifestField field,
+                Supplier<AuthoredCompiler> factory) {
+            if (!observed && argsField.isPresent()) {
+                direct(argsField.orElseThrow(), factory);
+            } else {
+                direct(field, factory);
+            }
+        }
+
+        private void afterMainArgs(
+                ValidatedManifestField field,
+                int index,
+                Supplier<AuthoredCompiler> factory) {
+            if (!observed && argsField.isPresent()) {
+                direct(argsField.orElseThrow(), factory);
+            } else {
+                indexed(field, index, factory);
+            }
+        }
+
+        private AuthoredCompiler observe(AuthoredCompiler compiler) {
+            if (!observed) {
+                observer.present(compiler);
+                observed = true;
+            }
+            return compiler;
+        }
+    }
+
+    @FunctionalInterface
+    interface CompilerPresenceObserver {
+        void present(AuthoredCompiler compiler);
     }
 
     private static ValidatedManifestField firstPresent(
