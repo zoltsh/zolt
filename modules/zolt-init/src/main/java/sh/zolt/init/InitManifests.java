@@ -1,4 +1,4 @@
-package sh.zolt.project.init;
+package sh.zolt.init;
 
 import java.util.List;
 import java.util.Optional;

@@ -8,7 +8,7 @@ import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.LockfileSidecars;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.Workspace;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -180,14 +180,14 @@ final class WorkspaceLockFreshnessServiceTest {
 
     private WorkspaceLockFreshnessService service() {
         return new WorkspaceLockFreshnessService(
-                new WorkspaceDiscoveryService(),
+                new ManifestWorkspaceLoader(),
                 (workspace, cacheRoot, offline, retryCommand) ->
                         verifications.add("verify:" + retryCommand),
                 new ZoltLockfileReader());
     }
 
     private static String currentFingerprint(Path root) {
-        Workspace workspace = new WorkspaceDiscoveryService().load(root);
+        Workspace workspace = new ManifestWorkspaceLoader().load(root);
         return WorkspaceResolutionInputFingerprint
                 .fingerprint(workspace, lockBody())
                 .orElseThrow();

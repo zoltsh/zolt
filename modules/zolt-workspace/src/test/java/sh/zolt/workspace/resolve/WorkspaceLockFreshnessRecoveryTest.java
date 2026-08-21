@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import sh.zolt.lockfile.toml.LockfileSidecars;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -193,7 +193,7 @@ final class WorkspaceLockFreshnessRecoveryTest {
 
     private WorkspaceLockFreshnessService service() {
         return new WorkspaceLockFreshnessService(
-                new WorkspaceDiscoveryService(),
+                new ManifestWorkspaceLoader(),
                 (workspace, cacheRoot, offline, retryCommand) -> {
                     verifications.add("verify:offline=" + offline);
                     try {
@@ -226,7 +226,7 @@ final class WorkspaceLockFreshnessRecoveryTest {
                 LockfileSidecars.withWorkspaceResolutionInputFingerprint(
                         body,
                         WorkspaceResolutionInputFingerprint
-                                .fingerprint(new WorkspaceDiscoveryService().load(root), body)
+                                .fingerprint(new ManifestWorkspaceLoader().load(root), body)
                                 .orElseThrow()));
         cacheArtifacts(root, version);
     }

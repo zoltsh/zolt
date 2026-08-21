@@ -1,4 +1,4 @@
-package sh.zolt.project.init;
+package sh.zolt.init;
 
 public final class ProjectInitException extends RuntimeException {
     public ProjectInitException(String message) {

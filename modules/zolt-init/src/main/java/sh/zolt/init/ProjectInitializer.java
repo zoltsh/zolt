@@ -1,4 +1,4 @@
-package sh.zolt.project.init;
+package sh.zolt.init;
 
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.toml.manifest.write.ManifestCanonicalWriter;

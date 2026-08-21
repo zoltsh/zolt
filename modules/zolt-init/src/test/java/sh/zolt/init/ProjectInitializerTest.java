@@ -1,4 +1,4 @@
-package sh.zolt.project.init;
+package sh.zolt.init;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
