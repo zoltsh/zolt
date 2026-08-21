@@ -1,5 +1,6 @@
 package sh.zolt.explain.emit;
 
+import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.WorkspaceMemberPattern;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredWorkspace;
@@ -16,8 +17,10 @@ import java.util.Optional;
  * Builds the root manifest of a drafted workspace: the {@code [workspace.members]} include list and
  * the {@code [workspace.project]} identity every member inherits.
  *
- * <p>{@code default} is left unauthored because the draft selects every member, which is exactly what
- * omitting the field means (design §6.2). Shared identity is hoisted here so members stay at one
+ * <p>{@code default} names the exact members the audit found. Omitting it would opt the migrated
+ * build into dynamic-all membership, where a future directory matching {@code include} silently joins
+ * the default selection (design §6.2); that is an explicit choice, not something a migration draft
+ * should make on the adopter's behalf. Shared identity is hoisted here so members stay at one
  * {@code [project]} header and one {@code name} assignment (design §5.2).
  */
 final class DraftWorkspaceRoot {
@@ -48,9 +51,15 @@ final class DraftWorkspaceRoot {
         }
         AuthoredManifest manifest = DraftManifests.workspaceRoot(new AuthoredWorkspace(
                 DraftManifests.workspaceName(rootName, notes),
-                new AuthoredWorkspaceMembers(include, List.of(), Optional.empty()),
+                new AuthoredWorkspaceMembers(include, List.of(), defaultSelection(members)),
                 projectDefaults(defaults)));
         return new Built(manifest, members);
+    }
+
+    private static Optional<List<WorkspaceMemberPath>> defaultSelection(List<String> members) {
+        return members.isEmpty()
+                ? Optional.empty()
+                : Optional.of(members.stream().map(WorkspaceMemberPath::new).toList());
     }
 
     private static Optional<AuthoredWorkspaceProjectDefaults> projectDefaults(
