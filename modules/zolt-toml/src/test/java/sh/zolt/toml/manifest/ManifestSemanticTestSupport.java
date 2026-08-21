@@ -1,7 +1,9 @@
 package sh.zolt.toml.manifest;
 
+import sh.zolt.manifest.authored.AuthoredManifest;
+
 /** Final semantic-pipeline construction shared by decoder foundation tests. */
-final class ManifestSemanticTestSupport {
+public final class ManifestSemanticTestSupport {
     private ManifestSemanticTestSupport() {
     }
 
@@ -9,5 +11,13 @@ final class ManifestSemanticTestSupport {
         ParsedManifestSyntax parsed = new TomlSyntaxParser().parse(source);
         ValidatedManifestShape shape = new ManifestShapeValidator().validate(parsed);
         return new ManifestDecodeIndex(shape);
+    }
+
+    public static AuthoredManifest decodeAuthoredManifest(String source) {
+        return new ManifestAuthoredDecoder().decode(index(source));
+    }
+
+    public static void decodeAuthoredManifestWithNullIndex() {
+        new ManifestAuthoredDecoder().decode(null);
     }
 }

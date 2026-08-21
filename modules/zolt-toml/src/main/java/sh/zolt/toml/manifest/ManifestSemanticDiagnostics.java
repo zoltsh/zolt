@@ -20,6 +20,11 @@ final class ManifestSemanticDiagnostics {
     private ManifestSemanticDiagnostics() {
     }
 
+    static <T> T constructDocument(Supplier<T> factory) {
+        Objects.requireNonNull(factory, "Manifest value factory is required.");
+        return constructWithContext("Invalid authored manifest", factory);
+    }
+
     static ValidatedManifestField requiredField(
             ManifestDecodeIndex index,
             ManifestField handle) {
