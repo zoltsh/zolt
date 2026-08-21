@@ -11,7 +11,7 @@ import sh.zolt.publish.PublishDryRunPlan;
 import sh.zolt.publish.PublishDryRunService;
 import sh.zolt.publish.PublishInterMemberGuard;
 import sh.zolt.publish.PublishSettings;
-import sh.zolt.publish.PublishSettingsReader;
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
@@ -37,7 +37,7 @@ final class WorkspaceMemberPlanner {
     private final WorkspaceMemberPolicyResolver policyResolver;
     private final WorkspaceMemberPomLockProjection projection;
     private final WorkspaceBomFamily bomFamily;
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final PublishCentralReadinessService centralReadinessService;
     private final PublishDryRunService dryRunService;
     private final PackagePlanService packagePlanService;
@@ -48,7 +48,7 @@ final class WorkspaceMemberPlanner {
             WorkspaceMemberPolicyResolver policyResolver,
             WorkspaceMemberPomLockProjection projection,
             WorkspaceBomFamily bomFamily,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             PublishCentralReadinessService centralReadinessService,
             PublishDryRunService dryRunService,
             PackagePlanService packagePlanService,
@@ -57,7 +57,7 @@ final class WorkspaceMemberPlanner {
         this.policyResolver = policyResolver;
         this.projection = projection;
         this.bomFamily = bomFamily;
-        this.publishSettingsReader = publishSettingsReader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.centralReadinessService = centralReadinessService;
         this.dryRunService = dryRunService;
         this.packagePlanService = packagePlanService;
@@ -151,7 +151,7 @@ final class WorkspaceMemberPlanner {
                                 List.of(member.path()))
                         .get(member.path());
         PublishSettings publish =
-                publishSettingsReader.read(member.directory().resolve("zolt.toml"), config.repositoryCredentials());
+                publishSettingsLoader.read(member.directory().resolve("zolt.toml"));
         // Resolve the member's REAL primary artifact through the framework-aware package planner (the
         // same path single-project publishing plans) — a Quarkus fast-jar's quarkus-run.jar or any
         // future mode's real archive, not a synthesized <name>-<version>.jar. The lock only feeds the

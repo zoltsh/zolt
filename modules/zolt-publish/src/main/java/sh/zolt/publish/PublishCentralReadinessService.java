@@ -13,30 +13,30 @@ import java.util.List;
  */
 public final class PublishCentralReadinessService {
     private final ManifestProjectConfigLoader manifestLoader;
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final java.util.function.UnaryOperator<String> environment;
 
     public PublishCentralReadinessService() {
-        this(new ManifestProjectConfigLoader(), new PublishSettingsReader());
+        this(new ManifestProjectConfigLoader(), new ManifestPublishSettingsLoader());
     }
 
-    PublishCentralReadinessService(ManifestProjectConfigLoader manifestLoader, PublishSettingsReader publishSettingsReader) {
-        this(manifestLoader, publishSettingsReader, System::getenv);
+    PublishCentralReadinessService(ManifestProjectConfigLoader manifestLoader, ManifestPublishSettingsLoader publishSettingsLoader) {
+        this(manifestLoader, publishSettingsLoader, System::getenv);
     }
 
     PublishCentralReadinessService(
             ManifestProjectConfigLoader manifestLoader,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             java.util.function.UnaryOperator<String> environment) {
         this.manifestLoader = manifestLoader;
-        this.publishSettingsReader = publishSettingsReader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.environment = environment;
     }
 
     public List<PublishCentralRequirement> evaluate(Path projectRoot, PublishDryRunPlan plan) {
         Path root = projectRoot.toAbsolutePath().normalize();
         ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
-        PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        PublishSettings publish = publishSettingsLoader.read(root.resolve("zolt.toml"));
         return evaluate(config, publish, plan);
     }
 

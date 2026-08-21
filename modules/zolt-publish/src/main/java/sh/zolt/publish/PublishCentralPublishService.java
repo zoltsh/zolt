@@ -15,26 +15,26 @@ import java.util.function.Function;
  */
 public final class PublishCentralPublishService {
     private final ManifestProjectConfigLoader manifestLoader;
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final CentralPortalClient portalClient;
     private final CentralDeploymentWaiter waiter;
     private final Function<String, String> environment;
 
     public PublishCentralPublishService() {
-        this(new ManifestProjectConfigLoader(), new PublishSettingsReader(), new CentralPortalClient(), System::getenv);
+        this(new ManifestProjectConfigLoader(), new ManifestPublishSettingsLoader(), new CentralPortalClient(), System::getenv);
     }
 
     public PublishCentralPublishService(CentralPortalClient portalClient) {
-        this(new ManifestProjectConfigLoader(), new PublishSettingsReader(), portalClient, System::getenv);
+        this(new ManifestProjectConfigLoader(), new ManifestPublishSettingsLoader(), portalClient, System::getenv);
     }
 
     PublishCentralPublishService(
             ManifestProjectConfigLoader manifestLoader,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             CentralPortalClient portalClient,
             Function<String, String> environment) {
         this.manifestLoader = manifestLoader;
-        this.publishSettingsReader = publishSettingsReader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.portalClient = portalClient;
         this.waiter = new CentralDeploymentWaiter(portalClient);
         this.environment = environment;
@@ -101,6 +101,6 @@ public final class PublishCentralPublishService {
 
     private PublishSettings read(Path root) {
         ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
-        return publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        return publishSettingsLoader.read(root.resolve("zolt.toml"));
     }
 }

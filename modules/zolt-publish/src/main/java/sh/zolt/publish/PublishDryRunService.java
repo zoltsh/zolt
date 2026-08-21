@@ -26,7 +26,7 @@ import java.util.function.Supplier;
 
 public final class PublishDryRunService {
     private final ManifestProjectConfigLoader manifestLoader;
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final PackagePlanService packagePlanService;
     private final ZoltLockfileReader lockfileReader;
     private final PublishPomGenerator pomGenerator;
@@ -37,7 +37,7 @@ public final class PublishDryRunService {
     public PublishDryRunService() {
         this(
                 new ManifestProjectConfigLoader(),
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 new PackagePlanService(),
                 new PackageEvidenceManifestReader(),
                 new ZoltLockfileReader(),
@@ -49,7 +49,7 @@ public final class PublishDryRunService {
     public PublishDryRunService(PackagePlanService packagePlanService) {
         this(
                 new ManifestProjectConfigLoader(),
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 packagePlanService,
                 new PackageEvidenceManifestReader(),
                 new ZoltLockfileReader(),
@@ -61,7 +61,7 @@ public final class PublishDryRunService {
     PublishDryRunService(Function<String, String> environment) {
         this(
                 new ManifestProjectConfigLoader(),
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 new PackagePlanService(),
                 new PackageEvidenceManifestReader(),
                 new ZoltLockfileReader(),
@@ -72,7 +72,7 @@ public final class PublishDryRunService {
 
     PublishDryRunService(
             ManifestProjectConfigLoader manifestLoader,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             PackagePlanService packagePlanService,
             PackageEvidenceManifestReader evidenceManifestReader,
             ZoltLockfileReader lockfileReader,
@@ -81,7 +81,7 @@ public final class PublishDryRunService {
             Function<String, String> environment) {
         this(
                 manifestLoader,
-                publishSettingsReader,
+                publishSettingsLoader,
                 packagePlanService,
                 evidenceManifestReader,
                 lockfileReader,
@@ -93,7 +93,7 @@ public final class PublishDryRunService {
 
     PublishDryRunService(
             ManifestProjectConfigLoader manifestLoader,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             PackagePlanService packagePlanService,
             PackageEvidenceManifestReader evidenceManifestReader,
             ZoltLockfileReader lockfileReader,
@@ -102,7 +102,7 @@ public final class PublishDryRunService {
             PublishDryRunArtifactEvidencePlanner artifactEvidencePlanner,
             Function<String, String> environment) {
         this.manifestLoader = manifestLoader;
-        this.publishSettingsReader = publishSettingsReader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.packagePlanService = packagePlanService;
         this.lockfileReader = lockfileReader;
         this.pomGenerator = pomGenerator;
@@ -151,7 +151,7 @@ public final class PublishDryRunService {
             Path cacheRoot) {
         Path root = projectRoot.toAbsolutePath().normalize();
         ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
-        PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        PublishSettings publish = publishSettingsLoader.read(root.resolve("zolt.toml"));
         if (!publish.configured()) {
             throw new PublishException("No [publish] configuration found. Add release/snapshot publish repositories before running `zolt publish --dry-run`.");
         }

@@ -9,7 +9,7 @@ import sh.zolt.project.ResourceFilteringSettings;
 import sh.zolt.project.ResourceTokenSettings;
 import sh.zolt.publish.PublishRepositorySettings;
 import sh.zolt.publish.PublishSettings;
-import sh.zolt.publish.PublishSettingsReader;
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckResult;
 import java.net.URI;
@@ -23,11 +23,11 @@ import java.util.Optional;
 import java.util.function.Function;
 
 final class CredentialQualityCheck {
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final CredentialEnvironmentValidator credentialEnvironmentValidator;
 
-    CredentialQualityCheck(PublishSettingsReader publishSettingsReader, Function<String, String> environment) {
-        this.publishSettingsReader = publishSettingsReader;
+    CredentialQualityCheck(ManifestPublishSettingsLoader publishSettingsLoader, Function<String, String> environment) {
+        this.publishSettingsLoader = publishSettingsLoader;
         this.credentialEnvironmentValidator = new CredentialEnvironmentValidator(environment);
     }
 
@@ -126,7 +126,7 @@ final class CredentialQualityCheck {
         if (context != QualityCheckContext.CI) {
             return List.of();
         }
-        PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        PublishSettings publish = publishSettingsLoader.read(root.resolve("zolt.toml"));
         if (!publish.configured()) {
             return List.of();
         }

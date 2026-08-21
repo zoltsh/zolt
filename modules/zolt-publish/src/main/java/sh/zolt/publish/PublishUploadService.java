@@ -20,7 +20,7 @@ import java.util.function.Function;
 public final class PublishUploadService {
     private final PublishDryRunService dryRunService;
     private final ManifestProjectConfigLoader manifestLoader;
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final MavenRepositoryClient repositoryClient;
     private final Function<String, String> environment;
     private final Function<Path, Optional<String>> transactionCleanup;
@@ -33,7 +33,7 @@ public final class PublishUploadService {
         this(
                 new PublishDryRunService(),
                 new ManifestProjectConfigLoader(),
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 repositoryClient,
                 System::getenv);
     }
@@ -41,13 +41,13 @@ public final class PublishUploadService {
     PublishUploadService(
             PublishDryRunService dryRunService,
             ManifestProjectConfigLoader manifestLoader,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             MavenRepositoryClient repositoryClient,
             Function<String, String> environment) {
         this(
                 dryRunService,
                 manifestLoader,
-                publishSettingsReader,
+                publishSettingsLoader,
                 repositoryClient,
                 environment,
                 PublicationTransactionManifest::deleteTransaction);
@@ -56,13 +56,13 @@ public final class PublishUploadService {
     PublishUploadService(
             PublishDryRunService dryRunService,
             ManifestProjectConfigLoader manifestLoader,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             MavenRepositoryClient repositoryClient,
             Function<String, String> environment,
             Function<Path, Optional<String>> transactionCleanup) {
         this.dryRunService = dryRunService;
         this.manifestLoader = manifestLoader;
-        this.publishSettingsReader = publishSettingsReader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.repositoryClient = repositoryClient;
         this.environment = environment;
         this.transactionCleanup = transactionCleanup;
@@ -96,7 +96,7 @@ public final class PublishUploadService {
             throw new PublishException("Publish is blocked. Run `zolt publish --dry-run` and resolve the reported blockers before uploading.");
         }
         ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
-        PublishSettings settings = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        PublishSettings settings = publishSettingsLoader.read(root.resolve("zolt.toml"));
         PublishRepositorySettings repository = selectedRepository(settings, plan);
         Optional<RepositoryAuthentication> authentication = authentication(repository, config);
         URI repositoryUri = repositoryUri(repository);

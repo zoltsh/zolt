@@ -6,7 +6,7 @@ import sh.zolt.generated.GeneratedSourceEvidenceService;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.policy.DependencyPolicyReportService;
 import sh.zolt.publish.PublishDryRunService;
-import sh.zolt.publish.PublishSettingsReader;
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import sh.zolt.quality.execution.QualityExecutionContextRunner;
 import sh.zolt.quality.packaging.PackageQualityCheck;
 import sh.zolt.resolve.ResolveService;
@@ -68,7 +68,7 @@ final class QualityCheckDependencies {
                         lockfileReader),
                 QualityExecutionContextRunner.create(
                         lockfileReader,
-                        new PublishSettingsReader(),
+                        new ManifestPublishSettingsLoader(),
                         environment,
                         publishDryRunService,
                         workspacePublishService),
