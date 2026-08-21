@@ -155,6 +155,7 @@ final class WorkspaceResolveUpToDateTest {
      */
     @Test
     void coverageResolveIsNeverReportedCurrent() throws IOException {
+        addArtifact("com.example", "test-lib", "1.0.0");
         addArtifact("org.jacoco", "org.jacoco.agent", "0.8.14");
         addClassifierJar("org.jacoco", "org.jacoco.agent", "0.8.14", "runtime");
         addArtifact("org.jacoco", "org.jacoco.cli", "0.8.14");
@@ -198,7 +199,7 @@ final class WorkspaceResolveUpToDateTest {
         Files.writeString(member, Files.readString(member) + """
 
                 [test.dependencies]
-                "com.example:lib" = "1.0.0"
+                "com.example:test-lib" = "1.0.0"
                 """);
     }
 

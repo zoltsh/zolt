@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import sh.zolt.dependency.DependencyLane;
+import sh.zolt.dependency.DependencyScope;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -60,6 +63,14 @@ final class WorkspaceExplicitSubstitutionTest extends WorkspaceLockfileAggregato
                 lockPackage.source().equals("central")
                         && lockPackage.version().equals("2.8.7")
                         && lockPackage.members().equals(List.of("apps/worker"))));
+        assertEquals(List.of(
+                        "apps/api:0.1.0",
+                        "apps/worker:2.8.7"),
+                aggregated.dependencyRoots().stream()
+                        .filter(root -> root.packageId().equals(CORE))
+                        .map(root -> root.member() + ":" + root.version())
+                        .sorted()
+                        .toList());
     }
 
     @Test
@@ -115,7 +126,24 @@ final class WorkspaceExplicitSubstitutionTest extends WorkspaceLockfileAggregato
             LockPackage lockPackage) {
         return new WorkspaceMemberResolveOutput(
                 member,
-                lockfile(List.of(lockPackage), List.of(), List.of()),
+                new ZoltLockfile(
+                        ZoltLockfile.CURRENT_VERSION,
+                        Optional.empty(),
+                        Optional.of("sha256:project"),
+                        List.of("repositories=sha256:repo"),
+                        List.of(lockPackage),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(new LockDependencyRoot(
+                                ".",
+                                CORE,
+                                "2.8.7",
+                                null,
+                                DependencyLane.IMPLEMENTATION,
+                                Optional.of(DependencyScope.COMPILE),
+                                false,
+                                false))),
                 Set.of());
     }
 

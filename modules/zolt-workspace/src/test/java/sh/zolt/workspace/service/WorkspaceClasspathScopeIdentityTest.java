@@ -29,7 +29,21 @@ final class WorkspaceClasspathScopeIdentityTest {
         createFile(apiJar);
         createFile(helperJar);
         ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), """
-                version = 3
+                version = 7
+
+                [[dependencyRoot]]
+                member = "modules/core"
+                id = "com.example:api-lib"
+                version = "1.0.0"
+                lane = "api"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/worker"
+                id = "com.example:helper"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:api-lib"

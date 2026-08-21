@@ -82,7 +82,14 @@ final class WorkspaceTestServiceTest {
                 }
                 """);
         lock(tempDir, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"
@@ -92,6 +99,7 @@ final class WorkspaceTestServiceTest {
                 direct = true
                 workspace = "modules/core"
                 workspaceOutput = "target/classes"
+                members = ["apps/api"]
                 dependencies = []
 
                 [[package]]
@@ -99,7 +107,7 @@ final class WorkspaceTestServiceTest {
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 members = ["apps/api", "modules/core"]
                 dependencies = []
@@ -185,7 +193,14 @@ final class WorkspaceTestServiceTest {
                 }
                 """);
         lock(tempDir, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"
@@ -195,6 +210,7 @@ final class WorkspaceTestServiceTest {
                 direct = true
                 workspace = "modules/core"
                 workspaceOutput = "target/classes"
+                members = ["apps/api"]
                 dependencies = []
 
                 [[package]]
@@ -202,7 +218,7 @@ final class WorkspaceTestServiceTest {
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 members = ["apps/api", "apps/worker", "modules/core"]
                 dependencies = []
@@ -261,14 +277,14 @@ final class WorkspaceTestServiceTest {
                 }
                 """);
         lock(tempDir, """
-                version = 5
+                version = 7
 
                 [[package]]
                 id = "org.junit.platform:junit-platform-console-standalone"
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 members = ["apps/api"]
                 dependencies = []

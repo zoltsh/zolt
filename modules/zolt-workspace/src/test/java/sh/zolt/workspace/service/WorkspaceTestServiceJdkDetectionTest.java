@@ -70,7 +70,14 @@ final class WorkspaceTestServiceJdkDetectionTest {
                 }
                 """);
         lock(tempDir, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"
@@ -80,6 +87,7 @@ final class WorkspaceTestServiceJdkDetectionTest {
                 direct = true
                 workspace = "modules/core"
                 workspaceOutput = "target/classes"
+                members = ["apps/api"]
                 dependencies = []
 
                 [[package]]
@@ -87,7 +95,7 @@ final class WorkspaceTestServiceJdkDetectionTest {
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 members = ["apps/api", "modules/core"]
                 dependencies = []

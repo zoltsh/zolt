@@ -112,7 +112,28 @@ final class WorkspaceClasspathArtifactIndexTest {
 
     private ZoltLockfile lockfile(Path cacheRoot) throws IOException {
         return WorkspaceContentAddressedLockTestSupport.migrate(cacheRoot, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.example:shared"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "modules/core"
+                id = "org.example:shared"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"

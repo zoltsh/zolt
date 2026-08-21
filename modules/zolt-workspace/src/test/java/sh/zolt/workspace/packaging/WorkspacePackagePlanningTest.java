@@ -20,7 +20,7 @@ final class WorkspacePackagePlanningTest {
     @Test
     void packagePlanningSelectsRequestedApplicationAndBuildDependenciesWithoutPackaging() throws IOException {
         writeWorkspaceWithApiDependency();
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
 
         WorkspaceBuildPlan plan = new WorkspacePackageService().planPackages(
                 WorkspacePlanTarget.at(tempDir.resolve("apps/api")),

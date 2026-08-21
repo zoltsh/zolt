@@ -160,13 +160,9 @@ public final class WorkspaceLockFreshnessService {
                 workspace, lockfilePath, lockfile, outcome, discoveryNanos, artifactIndex);
     }
 
-    /** Absent rather than fatal for an unreadable lock, so the full resolve reports the problem. */
+    /** Existing lock bytes must decode before any locked resolve, cache, or network work begins. */
     private Optional<ZoltLockfile> parse(String content) {
-        try {
-            return Optional.of(lockfileReader.read(content));
-        } catch (LockfileReadException exception) {
-            return Optional.empty();
-        }
+        return Optional.of(lockfileReader.read(content));
     }
 
     private static Optional<String> readLockfile(Path lockfilePath) {

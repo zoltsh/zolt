@@ -155,7 +155,7 @@ final class WorkspaceLockLaneAdmissionTest {
                 version = "%s"
                 source = "maven-central"
                 scope = "runtime"
-                direct = true
+                direct = false
                 jar = "%s"
                 jarSha256 = "%s"
                 members = ["%s"]

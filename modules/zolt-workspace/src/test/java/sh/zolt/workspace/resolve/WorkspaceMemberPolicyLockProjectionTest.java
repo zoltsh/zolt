@@ -12,10 +12,12 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.dependency.ConflictSelectionReason;
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -149,6 +151,52 @@ final class WorkspaceMemberPolicyLockProjectionTest {
                 new WorkspaceMemberGraphRoots().roots("apps/app", app.config(), aggregate, workspace));
         assertTrue(projection.project("apps/app", app.config(), aggregate, workspace).packages().stream()
                 .noneMatch(LockPackage::direct));
+    }
+
+    @Test
+    void preservesOnlyTheSelectedMembersDependencyRoots() throws IOException {
+        WorkspaceMember app = member("apps/app", "app", "");
+        WorkspaceMember admin = member("apps/admin", "admin", "");
+        Workspace workspace = new Workspace(
+                tempDir,
+                tempDir.resolve("zolt-workspace.toml"),
+                new WorkspaceConfig(
+                        "demo", List.of("apps/app", "apps/admin"), List.of(), Map.of(), Map.of()),
+                List.of(app, admin),
+                List.of());
+        LockDependencyRoot selected = new LockDependencyRoot(
+                "apps/app",
+                LIB,
+                "4.0.0",
+                new LockArtifactVariant("jar", Optional.of("tests")),
+                DependencyLane.API,
+                Optional.empty(),
+                true,
+                true);
+        LockDependencyRoot unrelated = new LockDependencyRoot(
+                "apps/admin",
+                UNRELATED,
+                "5.0.0",
+                null,
+                DependencyLane.IMPLEMENTATION,
+                Optional.empty(),
+                false,
+                true);
+        ZoltLockfile aggregate = new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(selected, unrelated));
+
+        ZoltLockfile projected = new WorkspaceMemberPolicyLockProjection()
+                .project("apps/app", app.config(), aggregate, workspace);
+
+        assertEquals(List.of(selected), projected.dependencyRoots());
     }
 
     private WorkspaceMember member(

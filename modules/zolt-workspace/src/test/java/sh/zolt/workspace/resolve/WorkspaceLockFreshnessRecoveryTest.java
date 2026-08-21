@@ -260,8 +260,15 @@ final class WorkspaceLockFreshnessRecoveryTest {
 
     private static String lockBody(String version) {
         return """
-                version = 6
+                version = 7
                 projectResolutionFingerprint = "sha256:abc"
+
+                [[dependencyRoot]]
+                member = "lib"
+                id = "org.slf4j:slf4j-api"
+                version = "%1$s"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.slf4j:slf4j-api"

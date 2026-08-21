@@ -56,7 +56,7 @@ final class WorkspaceCoverageSnapshotTest {
         Path memberDir = root.resolve("apps/api");
         Path configPath = root.resolve("zolt.toml");
         Path lockfilePath = root.resolve("zolt.lock");
-        String lockAContent = "version = 1\n";
+        String lockAContent = "version = 7\n";
         Files.createDirectories(memberDir);
         Files.writeString(configPath, workspaceConfig(80));
         Files.writeString(memberDir.resolve("zolt.toml"), memberToml());
@@ -87,7 +87,7 @@ final class WorkspaceCoverageSnapshotTest {
                                 lockAContent.getBytes(
                                         StandardCharsets.UTF_8)),
                         Set.of()));
-        ZoltLockfile lockA = new ZoltLockfile(1, List.of(), List.of());
+        ZoltLockfile lockA = new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of());
         WorkspaceBuildPlan plan = new WorkspaceBuildPlan(
                 workspace,
                 new WorkspaceSelection(
@@ -123,7 +123,7 @@ final class WorkspaceCoverageSnapshotTest {
                     List.of()));
             assertTrue(toolingRequested.await(5, TimeUnit.SECONDS));
             Files.writeString(configPath, workspaceConfig(10));
-            Files.writeString(lockfilePath, "version = 2\n");
+            Files.writeString(lockfilePath, "version = 7\n# concurrent lock update\n");
             resume.countDown();
 
             WorkspaceCoverageResult coverage =
@@ -132,7 +132,7 @@ final class WorkspaceCoverageSnapshotTest {
                     Optional.of(80.0),
                     coverage.coverageSettings().minLine());
             assertTrue(Files.readString(configPath).contains("10"));
-            assertTrue(Files.readString(lockfilePath).contains("2"));
+            assertTrue(Files.readString(lockfilePath).contains("# concurrent lock update"));
         } finally {
             resume.countDown();
         }

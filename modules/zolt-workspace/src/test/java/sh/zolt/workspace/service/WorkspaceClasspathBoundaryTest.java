@@ -246,7 +246,7 @@ final class WorkspaceClasspathBoundaryTest {
 
     private ZoltLockfile lock(List<LockPackage> packages) throws IOException {
         return WorkspaceContentAddressedLockTestSupport.migrate(
-                tempDir.resolve("cache"), new ZoltLockfile(3, packages, List.of()));
+                tempDir.resolve("cache"), new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, packages, List.of()));
     }
 
     private Workspace workspace(

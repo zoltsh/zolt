@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.error.ActionableException;
+import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.LockfileSidecars;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
@@ -108,28 +109,38 @@ final class WorkspaceLockFreshnessServiceTest {
     @Test
     void rejectsLegacyEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
         writeWorkspace(root);
-        Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
+        Path lockfile = root.resolve("zolt.lock");
+        String legacy = "version = 5\n";
+        Files.writeString(lockfile, legacy);
 
-        ActionableException exception = assertThrows(ActionableException.class, () -> requireFresh(root));
+        LockfileReadException exception = assertThrows(LockfileReadException.class, () -> requireFresh(root));
 
-        assertTrue(exception.getMessage().contains("version 5 predates the version 6 executable lock contract"));
+        assertTrue(exception.getMessage().contains("version 5 is older than this Zolt supports (current 7)"));
         assertEquals(List.of(), verifications);
+        assertEquals(legacy, Files.readString(lockfile));
     }
 
     @Test
-    void verifiesVersionSixEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
+    void verifiesVersionSevenEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
         writeWorkspace(root);
-        Files.writeString(root.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
 
         assertEquals(WorkspaceLockFreshness.Outcome.VERIFIED, requireFresh(root).outcome());
         assertEquals(List.of("verify:zolt build --workspace"), verifications);
     }
 
     @Test
-    void rejectsStrippedVersionSixArtifactMetadata(@TempDir Path root) throws IOException {
+    void rejectsStrippedVersionSevenArtifactMetadata(@TempDir Path root) throws IOException {
         writeWorkspace(root);
         Files.writeString(root.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:demo"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
@@ -191,7 +202,7 @@ final class WorkspaceLockFreshnessServiceTest {
 
     private static String lockBody() {
         return """
-                version = 6
+                version = 7
                 projectResolutionFingerprint = "sha256:abc"
                 """;
     }

@@ -228,6 +228,6 @@ final class WorkspacePlanningServiceTest {
     }
 
     private void writeLockfile() throws IOException {
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
     }
 }

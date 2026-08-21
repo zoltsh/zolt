@@ -97,7 +97,10 @@ public final class WorkspaceMemberPolicyLockProjection {
                 List.copyOf(packages),
                 conflicts,
                 policyEffects,
-                List.copyOf(memberGraphs));
+                List.copyOf(memberGraphs),
+                aggregate.dependencyRoots().stream()
+                        .filter(root -> root.member().equals(memberPath))
+                        .toList());
     }
 
     private static Set<PackageIdentity> directIdentities(

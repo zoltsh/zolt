@@ -48,8 +48,15 @@ final class WorkspaceResolutionInputFingerprintTest {
             "com.example:lib" = { workspace = "lib" }
             """;
     private static final String LOCK = """
-            version = 5
+            version = 7
             projectResolutionFingerprint = "sha256:abc"
+
+            [[dependencyRoot]]
+            member = "lib"
+            id = "org.slf4j:slf4j-api"
+            version = "2.0.17"
+            lane = "implementation"
+            resolvedScope = "compile"
 
             [[package]]
             id = "org.slf4j:slf4j-api"
@@ -57,6 +64,7 @@ final class WorkspaceResolutionInputFingerprintTest {
             source = "maven-central"
             scope = "compile"
             direct = true
+            members = ["lib"]
             dependencies = []
             """;
 

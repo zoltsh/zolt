@@ -71,6 +71,16 @@ abstract class WorkspaceLockfileAggregatorTestSupport {
             boolean direct,
             List<String> dependencies,
             List<String> policies) {
+        return externalPackage(packageId, version, direct, dependencies, policies, List.of());
+    }
+
+    protected static LockPackage externalPackage(
+            PackageId packageId,
+            String version,
+            boolean direct,
+            List<String> dependencies,
+            List<String> policies,
+            List<String> members) {
         return new LockPackage(
                 packageId,
                 version,
@@ -84,8 +94,13 @@ abstract class WorkspaceLockfileAggregatorTestSupport {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 dependencies,
-                policies);
+                members,
+                List.of(),
+                policies,
+                List.of());
     }
 
     protected static LockPackage classifiedExternalPackage(PackageId packageId, String version, String classifier) {
