@@ -103,7 +103,7 @@ final class ZoltResolutionWorkspaceRootConfigTest {
         Files.writeString(member.resolve("zolt.toml"), memberConfig("app") + """
 
                 [dependencies]
-                "com.example:lib" = {}
+                "com.example:lib" = { managed = true }
                 """);
     }
 

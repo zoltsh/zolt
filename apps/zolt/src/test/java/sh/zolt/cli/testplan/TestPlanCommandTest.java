@@ -27,8 +27,8 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
                 [test.suites.fast]
                 classes = ["*Test"]
                 excludeClasses = ["*ContractTest"]
-                includeTag = ["fast"]
-                excludeTag = ["slow"]
+                tags = ["fast"]
+                excludeTags = ["slow"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/FastServiceTest.class");
         writeClass(projectDir, "target/test-classes/com/example/UserContractTest.class");
@@ -209,8 +209,18 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
 
                 [workspace.members]
                 include = ["modules/api"]
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
                 """);
         writeProjectConfig(memberDir, "https://repo.maven.apache.org/maven2");
+        // A workspace member cannot own dependency repositories; the root universe is authoritative.
+        Files.writeString(memberDir.resolve("zolt.toml"),
+                Files.readString(memberDir.resolve("zolt.toml")).replace("""
+                        [repositories.test]
+                        url = "https://repo.maven.apache.org/maven2"
+
+                        """.replace("                        ", "                "), ""));
         appendSuite(memberDir, """
 
                 [test.suites.fast]

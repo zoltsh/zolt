@@ -80,7 +80,7 @@ final class PlanCommandTest {
 
                 [test.runtime]
                 jvmArgs = ["--add-opens=java.base/java.lang=ALL-UNNAMED"]
-                properties = { "logs.dir" = "${project.root}/test-logs" }
+                properties = { "logs.dir" = "target/test-logs" }
                 env = { TZ = "America/Chicago" }
                 events = ["failed", "skipped"]
                 """);
