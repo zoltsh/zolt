@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.project.CoverageSettings;
@@ -997,6 +998,43 @@ final class ManifestProjectConfigEquivalenceTest {
         assertFalse(
                 message.contains("legacy") || message.contains("migrat") || message.contains("rename"),
                 () -> "design §21 Phase 2 forbids compatibility hints, got: " + message);
+    }
+
+    @Test
+    void everyStandaloneGoldenLoadsThroughTheFinalBoundary() throws IOException {
+        assertEquals("hello", golden("standalone-application.toml").project().name());
+        ProjectConfig library = golden("library-api-boundary.toml");
+        assertEquals("2.0.17", library.apiDependencies().get("org.slf4j:slf4j-api"));
+        assertEquals(
+                "2.19.0", library.dependencies().get("com.fasterxml.jackson.core:jackson-databind"));
+        ProjectConfig springBoot = golden("spring-boot-service.toml");
+        assertEquals(sh.zolt.project.PackageMode.SPRING_BOOT, springBoot.packageSettings().mode());
+        assertEquals(
+                "4.0.6",
+                springBoot.platforms().get("org.springframework.boot:spring-boot-dependencies"));
+        assertTrue(springBoot.managedDependencies()
+                .contains("org.springframework.boot:spring-boot-starter-webmvc"));
+        ProjectConfig central = golden("central-ready-library.toml");
+        assertEquals("Apache-2.0", central.packageSettings().metadata().license());
+        assertEquals(
+                "https://github.com/example/library",
+                central.packageSettings().metadata().scm());
+        assertTrue(central.packageSettings().sources());
+        ProjectConfig enterprise = golden("enterprise-repository.toml");
+        assertEquals(
+                "https://repo.example.com/maven", enterprise.repositories().get("company"));
+        assertEquals(
+                "MAVEN_USERNAME",
+                enterprise.repositoryCredentials().get("company").usernameEnv().orElseThrow());
+    }
+
+    private ProjectConfig golden(String resourceName) throws IOException {
+        try (java.io.InputStream stream =
+                getClass().getResourceAsStream("/golden/manifest-language/" + resourceName)) {
+            return loader.load(new String(
+                    java.util.Objects.requireNonNull(stream, resourceName).readAllBytes(),
+                    java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
 
     private ProjectConfig assertEquivalent(String legacySource, String finalSource) {

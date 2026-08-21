@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import sh.zolt.project.BomSettings;
+import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.Workspace;
@@ -26,6 +28,20 @@ import sh.zolt.workspace.service.WorkspaceProjectEdge;
  * deletes with {@link WorkspaceDiscoveryService}.
  */
 final class ManifestWorkspaceLoaderEquivalenceTest {
+    /** Root-owned configuration every legacy member had to repeat before the final language. */
+    private static final String LEGACY_SHARED = """
+            [repositories]
+            central = "https://repo.maven.apache.org/maven2"
+            company = { url = "https://repo.example.com/maven", credentials = "company" }
+
+            [repositoryCredentials.company]
+            usernameEnv = "MAVEN_USERNAME"
+            passwordEnv = "MAVEN_PASSWORD"
+
+            [platforms]
+            "com.acme:enterprise-platform" = "2026.1.0"
+            """;
+
     private final ManifestWorkspaceLoader loader = new ManifestWorkspaceLoader();
 
     @TempDir
@@ -65,6 +81,22 @@ final class ManifestWorkspaceLoaderEquivalenceTest {
     }
 
     @Test
+    void everyLegacyWorkspaceScopeIsProjected() throws IOException {
+        writeFinalWorkspace();
+
+        Workspace adapted = loader.load(finalRoot);
+
+        assertEquals(
+                List.of(
+                        "apps/api|modules/contract|compile|com.acme:contract|true|false",
+                        "apps/api|modules/core|compile|com.acme:core|false|true",
+                        "apps/api|modules/processor|processor|com.acme:processor|false|false",
+                        "apps/api|modules/testkit|test|com.acme:testkit|false|false",
+                        "modules/core|modules/processor|test-processor|com.acme:processor|false|false"),
+                edges(adapted));
+    }
+
+    @Test
     void finalCaptureRetainsEveryManifestAsAFreshnessInput() throws IOException {
         writeFinalWorkspace();
 
@@ -72,12 +104,12 @@ final class ManifestWorkspaceLoaderEquivalenceTest {
 
         Map<String, String> digests = adapted.inputs().digestsRelativeTo(adapted.root());
         assertTrue(digests.containsKey("zolt.toml"), () -> "root manifest missing from " + digests.keySet());
-        assertTrue(
-                digests.containsKey("apps/api/zolt.toml"),
-                () -> "member manifest missing from " + digests.keySet());
-        assertTrue(
-                digests.containsKey("modules/core/zolt.toml"),
-                () -> "member manifest missing from " + digests.keySet());
+        for (WorkspaceMember member : adapted.members()) {
+            String relative = member.path() + "/zolt.toml";
+            assertTrue(
+                    digests.containsKey(relative),
+                    () -> "member manifest " + relative + " missing from " + digests.keySet());
+        }
     }
 
     @Test
@@ -110,16 +142,75 @@ final class ManifestWorkspaceLoaderEquivalenceTest {
         writeFinalWorkspace();
 
         Workspace adapted = loader.load(finalRoot);
-        ProjectConfig core = adapted.members().stream()
-                .filter(member -> member.path().equals("modules/core"))
-                .findFirst()
-                .orElseThrow()
-                .config();
+        ProjectConfig core = member(adapted, "modules/core");
 
         assertEquals("com.acme", core.project().group());
         assertEquals("1.4.0", core.project().version());
         assertEquals("21", core.project().java());
         assertEquals("https://repo.example.com/maven", core.repositories().get("company"));
+        assertEquals("2026.1.0", core.platforms().get("com.acme:enterprise-platform"));
+    }
+
+    @Test
+    void workspaceBomMemberSelectsConsumableMembers() throws IOException {
+        write(finalRoot, "zolt.toml", """
+                [workspace]
+                name = "acme-platform"
+
+                [workspace.members]
+                include = ["apps/*", "modules/*"]
+
+                [workspace.project]
+                group = "com.acme"
+                version = "1.4.0"
+                java = 21
+
+                [versions]
+                jackson = "2.19.0"
+                """);
+        write(finalRoot, "apps/api/zolt.toml", """
+                [project]
+                name = "api"
+                main = "com.acme.api.Main"
+
+                [package]
+                mode = "uber-jar"
+                """);
+        write(finalRoot, "modules/core/zolt.toml", """
+                [project]
+                name = "core"
+                """);
+        write(finalRoot, "modules/platform-bom/zolt.toml", """
+                [project]
+                name = "platform-bom"
+
+                [bom]
+                members = true
+                exclude = ["apps/api"]
+
+                [bom.versions]
+                "org.postgresql:postgresql" = "42.7.4"
+
+                [bom.imports]
+                "com.fasterxml.jackson:jackson-bom" = { versionRef = "jackson" }
+                """);
+
+        Workspace adapted = loader.load(finalRoot);
+        ProjectConfig bom = member(adapted, "modules/platform-bom");
+
+        assertEquals(PackageMode.BOM, bom.packageSettings().mode());
+        assertEquals("", bom.project().java(), "design §12.6 gives a BOM no Java release");
+        BomSettings settings = bom.packageSettings().bom();
+        assertTrue(settings.members().all());
+        assertEquals(List.of("apps/api"), settings.members().exclude());
+        assertEquals(
+                List.of(new BomSettings.ManagedVersion(
+                        "org.postgresql:postgresql", "42.7.4", null, null, null)),
+                settings.versions());
+        assertEquals(
+                List.of(new BomSettings.ImportedBom(
+                        "com.fasterxml.jackson:jackson-bom", "2.19.0", "jackson")),
+                settings.imports());
     }
 
     @Test
@@ -159,66 +250,36 @@ final class ManifestWorkspaceLoaderEquivalenceTest {
         write(legacyRoot, "zolt-workspace.toml", """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+                members = ["apps/api", "modules/contract", "modules/core", "modules/processor", "modules/testkit"]
                 defaultMembers = ["apps/api"]
 
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
-                company = { url = "https://repo.example.com/maven", credentials = "company" }
-
-                [repositoryCredentials.company]
-                usernameEnv = "MAVEN_USERNAME"
-                passwordEnv = "MAVEN_PASSWORD"
-
-                [platforms]
-                "com.acme:enterprise-platform" = "2026.1.0"
-                """);
-        write(legacyRoot, "apps/api/zolt.toml", """
-                [project]
-                name = "api"
-                version = "1.4.0"
-                group = "com.acme"
-                java = "21"
+                """ + LEGACY_SHARED);
+        write(legacyRoot, "apps/api/zolt.toml", legacyMember("api", """
                 main = "com.acme.api.Main"
-
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
-                company = { url = "https://repo.example.com/maven", credentials = "company" }
-
-                [repositoryCredentials.company]
-                usernameEnv = "MAVEN_USERNAME"
-                passwordEnv = "MAVEN_PASSWORD"
-
-                [platforms]
-                "com.acme:enterprise-platform" = "2026.1.0"
+                """, """
+                [api.dependencies]
+                "com.acme:contract" = { workspace = "modules/contract" }
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = "modules/core", optional = true }
+
+                [annotationProcessors]
+                "com.acme:processor" = { workspace = "modules/processor" }
 
                 [test.dependencies]
+                "com.acme:testkit" = { workspace = "modules/testkit" }
                 "org.junit.jupiter:junit-jupiter" = "5.13.4"
-                """);
-        write(legacyRoot, "modules/core/zolt.toml", """
-                [project]
-                name = "core"
-                version = "1.4.0"
-                group = "com.acme"
-                java = "21"
-
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
-                company = { url = "https://repo.example.com/maven", credentials = "company" }
-
-                [repositoryCredentials.company]
-                usernameEnv = "MAVEN_USERNAME"
-                passwordEnv = "MAVEN_PASSWORD"
-
-                [platforms]
-                "com.acme:enterprise-platform" = "2026.1.0"
-
+                """));
+        write(legacyRoot, "modules/contract/zolt.toml", legacyMember("contract", "", ""));
+        write(legacyRoot, "modules/core/zolt.toml", legacyMember("core", "", """
                 [api.dependencies]
                 "org.slf4j:slf4j-api" = "2.0.17"
-                """);
+
+                [test.annotationProcessors]
+                "com.acme:processor" = { workspace = "modules/processor" }
+                """));
+        write(legacyRoot, "modules/processor/zolt.toml", legacyMember("processor", "", ""));
+        write(legacyRoot, "modules/testkit/zolt.toml", legacyMember("testkit", "", ""));
     }
 
     private void writeFinalWorkspace() throws IOException {
@@ -252,10 +313,21 @@ final class ManifestWorkspaceLoaderEquivalenceTest {
                 main = "com.acme.api.Main"
 
                 [dependencies]
-                "com.acme:core" = { workspace = true }
+                "com.acme:core" = { workspace = true, optional = true }
+
+                [dependencies.api]
+                "com.acme:contract" = { workspace = true }
 
                 [dependencies.test]
+                "com.acme:testkit" = { workspace = true }
                 "org.junit.jupiter:junit-jupiter" = "5.13.4"
+
+                [dependencies.processor]
+                "com.acme:processor" = { workspace = true }
+                """);
+        write(finalRoot, "modules/contract/zolt.toml", """
+                [project]
+                name = "contract"
                 """);
         write(finalRoot, "modules/core/zolt.toml", """
                 [project]
@@ -263,13 +335,45 @@ final class ManifestWorkspaceLoaderEquivalenceTest {
 
                 [dependencies.api]
                 "org.slf4j:slf4j-api" = "2.0.17"
+
+                [dependencies.test-processor]
+                "com.acme:processor" = { workspace = true }
                 """);
+        write(finalRoot, "modules/processor/zolt.toml", """
+                [project]
+                name = "processor"
+                """);
+        write(finalRoot, "modules/testkit/zolt.toml", """
+                [project]
+                name = "testkit"
+                """);
+    }
+
+    private static String legacyMember(String name, String identityExtras, String sections) {
+        return """
+                [project]
+                name = "%s"
+                version = "1.4.0"
+                group = "com.acme"
+                java = "21"
+                %s
+                """.formatted(name, identityExtras)
+                + LEGACY_SHARED
+                + (sections.isEmpty() ? "" : "\n" + sections);
     }
 
     private static void write(Path root, String relativePath, String content) throws IOException {
         Path path = root.resolve(relativePath);
         Files.createDirectories(path.getParent());
         Files.writeString(path, content);
+    }
+
+    private static ProjectConfig member(Workspace workspace, String path) {
+        return workspace.members().stream()
+                .filter(member -> member.path().equals(path))
+                .findFirst()
+                .orElseThrow()
+                .config();
     }
 
     private static List<String> edges(Workspace workspace) {
