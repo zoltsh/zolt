@@ -66,11 +66,19 @@ public final class ManifestPublishingTestSupport {
     }
 
     public static Optional<AuthoredPublishing> decodePublishing(String source) {
+        return decodePublishing(source, ignored -> {});
+    }
+
+    public static Optional<AuthoredPublishing> decodePublishing(
+            String source,
+            Consumer<AuthoredPublishing> observer) {
+        ManifestPublishingDecoder.PublishingPresenceObserver adapted =
+                observer == null ? null : observer::accept;
         return new ManifestPublishingDecoder().decode(
-                ManifestSemanticTestSupport.index(source));
+                ManifestSemanticTestSupport.index(source), adapted);
     }
 
     public static void decodePublishingWithNullIndex() {
-        new ManifestPublishingDecoder().decode(null);
+        new ManifestPublishingDecoder().decode(null, ignored -> {});
     }
 }

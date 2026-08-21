@@ -25,20 +25,36 @@ final class ManifestPublishingDecoder {
     private final ManifestCentralPublishingDecoder centralDecoder =
             new ManifestCentralPublishingDecoder();
 
-    Optional<AuthoredPublishing> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredPublishing> decode(
+            ManifestDecodeIndex index,
+            PublishingPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored publishing presence observer is required.");
         Optional<AuthoredPublicationRoutes> routes = routesDecoder.decode(index);
         Optional<Map<LocalId, AuthoredPublicationRepository>> decodedRepositories =
                 repositoriesDecoder.decode(index);
         Map<LocalId, AuthoredPublicationRepository> repositories =
                 decodedRepositories.orElseGet(Map::of);
         validateRoutes(index, routes, repositories);
+        if (routes.isPresent() || decodedRepositories.isPresent()) {
+            observeBase(index, observer, new AuthoredPublishing(
+                    routes, repositories, Optional.empty(), Optional.empty()));
+        }
 
         Optional<AuthoredPublicationSigning> signing = signingDecoder.decode(index);
+        signing.ifPresent(value -> ManifestSemanticDiagnostics.construct(
+                index.field(FinalManifestPublishingFields.PUBLISH_SIGNING_METHOD)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Decoded publication signing is missing its retained method field.")),
+                () -> observe(observer, new AuthoredPublishing(
+                        routes, repositories, Optional.of(value), Optional.empty()))));
         Optional<AuthoredCentralPublishing> central = centralDecoder.decode(
                 index,
-                partial -> new AuthoredPublishing(
-                        routes, repositories, signing, Optional.of(partial)));
+                partial -> {
+                    AuthoredPublishing publishing = new AuthoredPublishing(
+                            routes, repositories, signing, Optional.of(partial));
+                    observer.present(publishing);
+                });
         if (routes.isEmpty()
                 && decodedRepositories.isEmpty()
                 && signing.isEmpty()
@@ -47,6 +63,34 @@ final class ManifestPublishingDecoder {
         }
         return Optional.of(new AuthoredPublishing(
                 routes, repositories, signing, central));
+    }
+
+    private static void observeBase(
+            ManifestDecodeIndex index,
+            PublishingPresenceObserver observer,
+            AuthoredPublishing publishing) {
+        Optional<ValidatedManifestField> routeAnchor =
+                index.field(FinalManifestPublishingFields.PUBLISH_RELEASE)
+                        .or(() -> index.field(
+                                FinalManifestPublishingFields.PUBLISH_SNAPSHOT));
+        if (routeAnchor.isPresent()) {
+            ManifestSemanticDiagnostics.construct(
+                    routeAnchor.orElseThrow(), () -> observe(observer, publishing));
+            return;
+        }
+        ValidatedManifestSection repositories = index
+                .section(FinalManifestPaths.PUBLISH_REPOSITORIES)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Decoded publication repositories are missing their retained section."));
+        ManifestSemanticDiagnostics.construct(
+                repositories, () -> observe(observer, publishing));
+    }
+
+    private static AuthoredPublishing observe(
+            PublishingPresenceObserver observer,
+            AuthoredPublishing publishing) {
+        observer.present(publishing);
+        return publishing;
     }
 
     private static void validateRoutes(
@@ -84,6 +128,11 @@ final class ManifestPublishingDecoder {
                             Optional.empty(),
                             Optional.empty()));
         }
+    }
+
+    @FunctionalInterface
+    interface PublishingPresenceObserver {
+        void present(AuthoredPublishing publishing);
     }
 }
 
