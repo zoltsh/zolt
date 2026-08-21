@@ -303,7 +303,7 @@ final class ManifestResourcesDecoderTest {
 
     private static Optional<AuthoredResources> decode(String source) {
         return new ManifestResourcesDecoder().decode(
-                ManifestSemanticTestSupport.index(source));
+                ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private static ManifestRelativePath path(String value) {

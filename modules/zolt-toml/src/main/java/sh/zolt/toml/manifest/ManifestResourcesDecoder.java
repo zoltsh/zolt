@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import sh.zolt.manifest.EnvironmentVariableName;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
@@ -18,8 +20,11 @@ import sh.zolt.toml.schema.FinalManifestResourceFields;
 
 /** Decodes authored resource roots, filters, and token sources without applying defaults. */
 final class ManifestResourcesDecoder {
-    Optional<AuthoredResources> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredResources> decode(
+            ManifestDecodeIndex index,
+            ResourcesPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored resources presence observer is required.");
         Optional<ValidatedManifestField> mainField = index.field(
                 FinalManifestResourceFields.RESOURCES_MAIN);
         Optional<ValidatedManifestField> testField = index.field(
@@ -35,11 +40,19 @@ final class ManifestResourcesDecoder {
             return Optional.empty();
         }
 
+        AtomicBoolean observed = new AtomicBoolean();
+        Consumer<AuthoredResources> presence = resources -> {
+            if (observed.compareAndSet(false, true)) {
+                observer.present(resources);
+            }
+        };
         AuthoredResources resources = AuthoredResources.empty();
         if (mainField.isPresent()) {
             ValidatedManifestField field = mainField.orElseThrow();
-            List<ManifestRelativePath> main = roots(field, true);
             AuthoredResources prior = resources;
+            ManifestSemanticDiagnostics.construct(
+                    field, () -> observe(prior, presence));
+            List<ManifestRelativePath> main = roots(field, true);
             resources = ManifestSemanticDiagnostics.construct(
                     field,
                     () -> new AuthoredResources(
@@ -47,15 +60,17 @@ final class ManifestResourcesDecoder {
         }
         if (testField.isPresent()) {
             ValidatedManifestField field = testField.orElseThrow();
-            List<ManifestRelativePath> test = roots(field, false);
             AuthoredResources prior = resources;
+            ManifestSemanticDiagnostics.construct(
+                    field, () -> observe(prior, presence));
+            List<ManifestRelativePath> test = roots(field, false);
             resources = ManifestSemanticDiagnostics.construct(
                     field,
                     () -> new AuthoredResources(
                             prior.main(), test, prior.filter(), prior.tokens()));
         }
         if (filterSection.isPresent()) {
-            AuthoredResources.Filter filter = filter(index);
+            AuthoredResources.Filter filter = filter(index, resources, presence);
             AuthoredResources prior = resources;
             resources = ManifestSemanticDiagnostics.construct(
                     filterSection.orElseThrow(),
@@ -66,6 +81,10 @@ final class ManifestResourcesDecoder {
                             prior.tokens()));
         }
         if (tokensSection.isPresent()) {
+            ValidatedManifestSection section = tokensSection.orElseThrow();
+            AuthoredResources prior = resources;
+            resources = ManifestSemanticDiagnostics.construct(
+                    section, () -> observe(prior, presence));
             resources = tokens(index, resources);
         }
         return Optional.of(resources);
@@ -95,14 +114,18 @@ final class ManifestResourcesDecoder {
         return List.copyOf(roots);
     }
 
-    private static AuthoredResources.Filter filter(ManifestDecodeIndex index) {
+    private static AuthoredResources.Filter filter(
+            ManifestDecodeIndex index,
+            AuthoredResources base,
+            Consumer<AuthoredResources> presence) {
         Optional<ValidatedManifestField> targetsField = index.field(
                 FinalManifestResourceFields.RESOURCES_FILTER_TARGETS);
         Optional<List<AuthoredResources.Target>> targets = targetsField.map(
                 ManifestResourcesDecoder::targets);
         ValidatedManifestField includeField = ManifestSemanticDiagnostics.requiredField(
                 index, FinalManifestResourceFields.RESOURCES_FILTER_INCLUDE);
-        List<ResourceGlob> include = include(includeField);
+        List<ResourceGlob> include = include(
+                includeField, targetsField, targets, base, presence);
         AuthoredResources.Filter filter = ManifestSemanticDiagnostics.construct(
                 includeField,
                 () -> new AuthoredResources.Filter(
@@ -132,7 +155,12 @@ final class ManifestResourcesDecoder {
         return filter;
     }
 
-    private static List<ResourceGlob> include(ValidatedManifestField field) {
+    private static List<ResourceGlob> include(
+            ValidatedManifestField field,
+            Optional<ValidatedManifestField> targetsField,
+            Optional<List<AuthoredResources.Target>> targets,
+            AuthoredResources base,
+            Consumer<AuthoredResources> presence) {
         List<String> authored = ManifestTomlValues.strings(field);
         ArrayList<ResourceGlob> include = new ArrayList<>(authored.size());
         for (int item = 0; item < authored.size(); item++) {
@@ -140,11 +168,23 @@ final class ManifestResourcesDecoder {
             ResourceGlob glob = ManifestSemanticDiagnostics.construct(
                     field, index, () -> new ResourceGlob(authored.get(index)));
             include.add(glob);
-            ManifestSemanticDiagnostics.construct(
+            AuthoredResources.Filter filter = ManifestSemanticDiagnostics.construct(
                     field,
                     index,
                     () -> new AuthoredResources.Filter(
-                            Optional.empty(), include, Optional.empty()));
+                            targets, include, Optional.empty()));
+            ValidatedManifestField anchor = targetsField.orElse(field);
+            int anchorIndex = targetsField.isPresent() ? 0 : index;
+            ManifestSemanticDiagnostics.construct(
+                    anchor,
+                    anchorIndex,
+                    () -> observe(
+                            new AuthoredResources(
+                                    base.main(),
+                                    base.test(),
+                                    Optional.of(filter),
+                                    base.tokens()),
+                            presence));
         }
         return List.copyOf(include);
     }
@@ -266,6 +306,18 @@ final class ManifestResourcesDecoder {
         }
         throw new IllegalStateException(
                 "Unsupported resource enum mapping type `" + value.getClass().getName() + "`.");
+    }
+
+    @FunctionalInterface
+    interface ResourcesPresenceObserver {
+        void present(AuthoredResources resources);
+    }
+
+    private static AuthoredResources observe(
+            AuthoredResources resources,
+            Consumer<AuthoredResources> presence) {
+        presence.accept(resources);
+        return resources;
     }
 
     private static AuthoredResources withTokens(

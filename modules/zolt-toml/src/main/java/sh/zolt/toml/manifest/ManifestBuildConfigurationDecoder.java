@@ -31,7 +31,7 @@ final class ManifestBuildConfigurationDecoder {
         Objects.requireNonNull(index, "Manifest decode index is required.");
         Optional<AuthoredBuild> build = buildDecoder.decode(index, ignored -> {});
         Optional<AuthoredCompiler> compiler = compilerDecoder.decode(index, ignored -> {});
-        Optional<AuthoredResources> resources = resourcesDecoder.decode(index);
+        Optional<AuthoredResources> resources = resourcesDecoder.decode(index, ignored -> {});
         Optional<AuthoredGeneratedSources> generated = generatedDecoder.decode(index);
         Optional<AuthoredTests> tests = testsDecoder.decode(index);
         Optional<AuthoredCoverage> coverage = coverageDecoder.decode(index);
