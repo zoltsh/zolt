@@ -7,19 +7,10 @@ import java.util.function.Supplier;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredCompiler;
 import sh.zolt.toml.schema.FinalManifestCompilerFields;
-import sh.zolt.toml.schema.ManifestField;
+import sh.zolt.toml.schema.FinalManifestPaths;
 
 /** Decodes authored compiler settings without applying defaults or inheritance. */
 final class ManifestCompilerDecoder {
-    private static final List<ManifestField> COMPILER_FIELDS = List.of(
-            FinalManifestCompilerFields.COMPILER_ENCODING,
-            FinalManifestCompilerFields.COMPILER_JDK_API,
-            FinalManifestCompilerFields.COMPILER_ARGS,
-            FinalManifestCompilerFields.COMPILER_TEST_JDK_API,
-            FinalManifestCompilerFields.COMPILER_TEST_ARGS,
-            FinalManifestCompilerFields.COMPILER_GENERATED_MAIN,
-            FinalManifestCompilerFields.COMPILER_GENERATED_TEST);
-
     Optional<AuthoredCompiler> decode(
             ManifestDecodeIndex index,
             CompilerPresenceObserver observer) {
@@ -39,7 +30,11 @@ final class ManifestCompilerDecoder {
                 FinalManifestCompilerFields.COMPILER_GENERATED_MAIN);
         Optional<ValidatedManifestField> generatedTestField = index.field(
                 FinalManifestCompilerFields.COMPILER_GENERATED_TEST);
-        if (COMPILER_FIELDS.stream().map(index::field).allMatch(Optional::isEmpty)) {
+        Optional<ValidatedManifestField> firstField = index.firstDirectField(
+                FinalManifestPaths.COMPILER,
+                FinalManifestPaths.COMPILER_TEST,
+                FinalManifestPaths.COMPILER_GENERATED);
+        if (firstField.isEmpty()) {
             return Optional.empty();
         }
 
@@ -68,6 +63,7 @@ final class ManifestCompilerDecoder {
                 generatedMainField,
                 generatedTestField);
         Optional<AuthoredCompiler.Test> test = test(
+                index,
                 testJdkApiField,
                 testArgsField,
                 deferEmptyTest,
@@ -76,6 +72,7 @@ final class ManifestCompilerDecoder {
                 args,
                 presence);
         Optional<AuthoredCompiler.Generated> generated = generated(
+                index,
                 generatedMainField,
                 generatedTestField,
                 encoding,
@@ -83,7 +80,9 @@ final class ManifestCompilerDecoder {
                 args,
                 test,
                 presence);
-        ValidatedManifestField anchor = firstPresent(index, COMPILER_FIELDS);
+        ValidatedManifestField anchor = firstField.orElseThrow(() ->
+                new IllegalStateException(
+                        "Authored compiler aggregate has no direct field evidence."));
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 anchor,
                 () -> new AuthoredCompiler(encoding, jdkApi, args, test, generated)));
@@ -116,6 +115,7 @@ final class ManifestCompilerDecoder {
     }
 
     private static Optional<AuthoredCompiler.Test> test(
+            ManifestDecodeIndex decodeIndex,
             Optional<ValidatedManifestField> jdkApiField,
             Optional<ValidatedManifestField> argsField,
             boolean deferEmptyTest,
@@ -162,9 +162,10 @@ final class ManifestCompilerDecoder {
         if (deferEmptyTest) {
             return Optional.empty();
         }
-        ValidatedManifestField anchor = jdkApiField.or(() -> argsField).orElseThrow();
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredCompiler.Test(jdkApi, args)));
+                decodeIndex.firstDirectField(FinalManifestPaths.COMPILER_TEST)
+                        .orElseThrow(),
+                () -> new AuthoredCompiler.Test(jdkApi, args)));
     }
 
     private static boolean shouldDeferEmptyTest(
@@ -188,6 +189,7 @@ final class ManifestCompilerDecoder {
     }
 
     private static Optional<AuthoredCompiler.Generated> generated(
+            ManifestDecodeIndex decodeIndex,
             Optional<ValidatedManifestField> mainField,
             Optional<ValidatedManifestField> testField,
             Optional<String> encoding,
@@ -219,9 +221,10 @@ final class ManifestCompilerDecoder {
                     () -> compiler(
                             encoding, jdkApi, args, testSettings, Optional.of(partial)));
         }
-        ValidatedManifestField anchor = mainField.or(() -> testField).orElseThrow();
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredCompiler.Generated(main, testPath)));
+                decodeIndex.firstDirectField(FinalManifestPaths.COMPILER_GENERATED)
+                        .orElseThrow(),
+                () -> new AuthoredCompiler.Generated(main, testPath)));
     }
 
     private static ManifestRelativePath path(ValidatedManifestField field) {
@@ -298,14 +301,4 @@ final class ManifestCompilerDecoder {
         void present(AuthoredCompiler compiler);
     }
 
-    private static ValidatedManifestField firstPresent(
-            ManifestDecodeIndex index,
-            List<ManifestField> handles) {
-        return handles.stream()
-                .map(index::field)
-                .flatMap(Optional::stream)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Authored compiler aggregate has no direct field evidence."));
-    }
 }

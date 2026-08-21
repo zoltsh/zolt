@@ -83,15 +83,9 @@ final class ManifestTestSuiteDecoder {
                 .map(ManifestTestSuiteDecoder::locks)
                 .orElse(List.of());
 
-        ValidatedManifestField anchor = first(
-                classesField,
-                excludeClassesField,
-                tagsField,
-                excludeTagsField,
-                workersField,
-                locksField);
         AuthoredTestSuite suite = ManifestSemanticDiagnostics.construct(
-                anchor,
+                index.firstField(entry).orElseThrow(() -> new IllegalStateException(
+                        "Authored test suite has no source field.")),
                 () -> new AuthoredTestSuite(
                         classes, excludeClasses, tags, excludeTags, workers, locks));
         return new Decoded(id, suite);
@@ -232,17 +226,6 @@ final class ManifestTestSuiteDecoder {
                 excludeTags,
                 Optional.empty(),
                 List.of());
-    }
-
-    @SafeVarargs
-    private static ValidatedManifestField first(
-            Optional<ValidatedManifestField>... fields) {
-        for (Optional<ValidatedManifestField> field : fields) {
-            if (field.isPresent()) {
-                return field.orElseThrow();
-            }
-        }
-        throw new IllegalStateException("Authored test suite has no source field.");
     }
 
     record Decoded(LocalId id, AuthoredTestSuite suite) {

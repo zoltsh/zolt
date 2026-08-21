@@ -313,6 +313,10 @@ final class ManifestSchemaEvidence {
         return registered;
     }
 
+    static List<ManifestField> fields() {
+        return REGISTRY.fields();
+    }
+
     static ManifestSection sectionHandle(ManifestPath handle) {
         Objects.requireNonNull(handle, "Manifest section handle is required.");
         ManifestSection registered = REGISTRY.section(handle).orElseThrow(() ->

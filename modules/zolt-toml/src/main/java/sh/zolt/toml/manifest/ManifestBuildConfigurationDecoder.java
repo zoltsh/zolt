@@ -15,7 +15,7 @@ import sh.zolt.manifest.authored.AuthoredResources;
 import sh.zolt.manifest.authored.AuthoredTests;
 import sh.zolt.toml.schema.FinalManifestBuildFields;
 import sh.zolt.toml.schema.FinalManifestCoverageFields;
-import sh.zolt.toml.schema.ManifestField;
+import sh.zolt.toml.schema.FinalManifestPaths;
 
 /** Composes authored build and generated-source domains in canonical schema order. */
 final class ManifestBuildConfigurationDecoder {
@@ -83,25 +83,6 @@ final class ManifestBuildConfigurationDecoder {
 
 /** Decodes authored build roots, output paths, and metadata without applying defaults. */
 final class ManifestBuildDecoder {
-    private static final List<ManifestField> OUTPUT_FIELDS = List.of(
-            FinalManifestBuildFields.BUILD_OUTPUT_ROOT,
-            FinalManifestBuildFields.BUILD_OUTPUT_MAIN,
-            FinalManifestBuildFields.BUILD_OUTPUT_TEST,
-            FinalManifestBuildFields.BUILD_OUTPUT_INTEGRATION);
-    private static final List<ManifestField> METADATA_FIELDS = List.of(
-            FinalManifestBuildFields.BUILD_METADATA_BUILD_INFO,
-            FinalManifestBuildFields.BUILD_METADATA_GIT,
-            FinalManifestBuildFields.BUILD_METADATA_REPRODUCIBLE);
-    private static final List<ManifestField> BUILD_FIELDS = List.of(
-            FinalManifestBuildFields.BUILD_SOURCES,
-            FinalManifestBuildFields.BUILD_OUTPUT_ROOT,
-            FinalManifestBuildFields.BUILD_OUTPUT_MAIN,
-            FinalManifestBuildFields.BUILD_OUTPUT_TEST,
-            FinalManifestBuildFields.BUILD_OUTPUT_INTEGRATION,
-            FinalManifestBuildFields.BUILD_METADATA_BUILD_INFO,
-            FinalManifestBuildFields.BUILD_METADATA_GIT,
-            FinalManifestBuildFields.BUILD_METADATA_REPRODUCIBLE);
-
     Optional<AuthoredBuild> decode(
             ManifestDecodeIndex index,
             BuildPresenceObserver observer) {
@@ -118,9 +99,14 @@ final class ManifestBuildDecoder {
         if (sourcesField.isEmpty() && output.isEmpty() && metadata.isEmpty()) {
             return Optional.empty();
         }
-        ValidatedManifestField anchor = firstPresent(index, BUILD_FIELDS);
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredBuild(sources, output, metadata)));
+                index.firstDirectField(
+                                FinalManifestPaths.BUILD,
+                                FinalManifestPaths.BUILD_OUTPUT,
+                                FinalManifestPaths.BUILD_METADATA)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Authored build aggregate has no direct field evidence.")),
+                () -> new AuthoredBuild(sources, output, metadata)));
     }
 
     private static Optional<AuthoredBuild.Output> output(
@@ -160,9 +146,11 @@ final class ManifestBuildDecoder {
         if (root.isEmpty() && main.isEmpty() && test.isEmpty() && integration.isEmpty()) {
             return Optional.empty();
         }
-        ValidatedManifestField anchor = firstPresent(index, OUTPUT_FIELDS);
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredBuild.Output(root, main, test, integration)));
+                index.firstDirectField(FinalManifestPaths.BUILD_OUTPUT)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Authored build aggregate has no direct field evidence.")),
+                () -> new AuthoredBuild.Output(root, main, test, integration)));
     }
 
     private static Optional<AuthoredBuild.Metadata> metadata(
@@ -187,9 +175,11 @@ final class ManifestBuildDecoder {
         if (buildInfo.isEmpty() && git.isEmpty() && reproducible.isEmpty()) {
             return Optional.empty();
         }
-        ValidatedManifestField anchor = firstPresent(index, METADATA_FIELDS);
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredBuild.Metadata(buildInfo, git, reproducible)));
+                index.firstDirectField(FinalManifestPaths.BUILD_METADATA)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Authored build aggregate has no direct field evidence.")),
+                () -> new AuthoredBuild.Metadata(buildInfo, git, reproducible)));
     }
 
     private static List<ManifestRelativePath> paths(
@@ -284,16 +274,6 @@ final class ManifestBuildDecoder {
         void present(AuthoredBuild build);
     }
 
-    private static ValidatedManifestField firstPresent(
-            ManifestDecodeIndex index,
-            List<ManifestField> fields) {
-        return fields.stream()
-                .map(index::field)
-                .flatMap(Optional::stream)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Authored build aggregate has no direct field evidence."));
-    }
 }
 
 /** Decodes authored coverage floors without applying workspace minimums. */
@@ -319,13 +299,8 @@ final class ManifestCoverageDecoder {
         Optional<CoveragePercentage> branch = floor(branchField);
         Optional<CoveragePercentage> instruction = floor(instructionField);
         Optional<CoveragePercentage> method = floor(methodField);
-        ValidatedManifestField anchor = lineField
-                .or(() -> branchField)
-                .or(() -> instructionField)
-                .or(() -> methodField)
-                .orElseThrow();
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor,
+                index.firstDirectField(FinalManifestPaths.COVERAGE).orElseThrow(),
                 () -> new AuthoredCoverage(line, branch, instruction, method)));
     }
 

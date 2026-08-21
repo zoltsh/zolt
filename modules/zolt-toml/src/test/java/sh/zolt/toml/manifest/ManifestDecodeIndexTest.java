@@ -91,6 +91,11 @@ final class ManifestDecodeIndexTest {
         ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
                 resources = { tokens = { zeta = { value = "z" }, alpha = { value = "a" } } }
                 test = { suites = { zeta = { tags = ["z"] }, alpha = { tags = ["a"] } } }
+                compiler.generated.test = "generated/test"
+                compiler.test.args = []
+                compiler.args = []
+                [versions]
+                release = "1.0"
                 """);
 
         List<ManifestDecodeIndex.Entry> tokens =
@@ -108,12 +113,28 @@ final class ManifestDecodeIndexTest {
                 suites.stream().map(ManifestDecodeIndex.SectionEntry::key).toList());
         assertTrue(suites.stream().allMatch(entry ->
                 entry.section().source().origin() == ManifestShapeOrigin.INLINE_PARENT));
+        assertEquals(
+                "compiler.args",
+                index.firstDirectField(
+                                FinalManifestPaths.COMPILER_GENERATED,
+                                FinalManifestPaths.COMPILER_TEST,
+                                FinalManifestPaths.COMPILER)
+                        .orElseThrow().path().toString());
+        assertTrue(index.firstDirectField(FinalManifestPaths.TEST_SUITES).isEmpty());
+        assertTrue(index.firstDirectField(FinalManifestPaths.VERSIONS).isEmpty());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> index.firstDirectField(FinalManifestPaths.TEST_SUITE));
+        ManifestPath clone = new ManifestPath(FinalManifestPaths.COMPILER.segments());
+        assertThrows(IllegalArgumentException.class, () -> index.firstDirectField(
+                FinalManifestPaths.COMPILER, clone));
     }
 
     @Test
     void locatesNamedSectionChildrenWithoutLiteralPathsAndRejectsMismatchedRows() {
         ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
                 [repositories.primary]
+                credentials = "company"
                 url = "https://repo.example"
 
                 [repositories.backup]
@@ -130,25 +151,28 @@ final class ManifestDecodeIndexTest {
                         .orElseThrow()
                         .path()
                         .toString());
+        assertEquals(
+                "repositories.primary.url",
+                index.firstField(primary).orElseThrow().path().toString());
         assertTrue(index.field(backup, FinalManifestSharedFields.REPOSITORY_URL).isEmpty());
         assertThrows(
                 IllegalArgumentException.class,
                 () -> index.field(primary, FinalManifestSharedFields.CREDENTIAL_TOKEN_ENV));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> index.field(
-                        new ManifestDecodeIndex.SectionEntry("forged", primary.section()),
-                        FinalManifestSharedFields.REPOSITORY_URL));
+        ManifestDecodeIndex.SectionEntry forged =
+                new ManifestDecodeIndex.SectionEntry("forged", primary.section());
+        assertThrows(IllegalArgumentException.class, () -> index.field(
+                forged, FinalManifestSharedFields.REPOSITORY_URL));
+        assertThrows(IllegalArgumentException.class, () -> index.firstField(forged));
 
         ManifestDecodeIndex other = ManifestSemanticTestSupport.index("""
                 [repositories.primary]
                 url = "https://other.example"
                 """);
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> index.field(
-                        other.sectionEntries(FinalManifestPaths.REPOSITORY).getFirst(),
-                        FinalManifestSharedFields.REPOSITORY_URL));
+        ManifestDecodeIndex.SectionEntry foreign =
+                other.sectionEntries(FinalManifestPaths.REPOSITORY).getFirst();
+        assertThrows(IllegalArgumentException.class, () -> index.field(
+                foreign, FinalManifestSharedFields.REPOSITORY_URL));
+        assertThrows(IllegalArgumentException.class, () -> index.firstField(foreign));
     }
 
     @Test

@@ -34,7 +34,9 @@ final class ManifestPackagingDecoder {
         Objects.requireNonNull(observer, "Authored packaging presence observer is required.");
         Optional<AuthoredPackage> packageSettings = packageDecoder.decode(index);
         packageSettings.ifPresent(value -> ManifestSemanticDiagnostics.construct(
-                packageAnchor(index),
+                index.firstDirectField(FinalManifestPaths.PACKAGE)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Decoded package settings have no retained field.")),
                 () -> observe(observer, new AuthoredPackaging(
                         Optional.of(value), Optional.empty(), Optional.empty(),
                         Optional.empty(), Optional.empty()))));
@@ -79,14 +81,10 @@ final class ManifestPackagingDecoder {
 
         Optional<AuthoredNativeImage> nativeImage = nativeImageDecoder.decode(index);
         if (nativeImage.isPresent()) {
-            ValidatedManifestField anchor = index
-                    .field(FinalManifestPackagingFields.NATIVE_NAME)
-                    .or(() -> index.field(FinalManifestPackagingFields.NATIVE_OUTPUT))
-                    .or(() -> index.field(FinalManifestPackagingFields.NATIVE_ARGS))
-                    .orElseThrow(() -> new IllegalStateException(
-                            "Decoded native-image settings have no retained field."));
             packaging = ManifestSemanticDiagnostics.construct(
-                    anchor,
+                    index.firstDirectField(FinalManifestPaths.NATIVE)
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "Decoded native-image settings have no retained field.")),
                     () -> observe(observer, new AuthoredPackaging(
                             packageSettings,
                             manifest,
@@ -95,16 +93,6 @@ final class ManifestPackagingDecoder {
                             bom)));
         }
         return packaging;
-    }
-
-    private static ValidatedManifestField packageAnchor(ManifestDecodeIndex index) {
-        return index.field(FinalManifestPackagingFields.PACKAGE_MODE)
-                .or(() -> index.field(FinalManifestPackagingFields.PACKAGE_SOURCES))
-                .or(() -> index.field(FinalManifestPackagingFields.PACKAGE_JAVADOC))
-                .or(() -> index.field(FinalManifestPackagingFields.PACKAGE_TEST_JAR))
-                .or(() -> index.field(FinalManifestPackagingFields.PACKAGE_DUPLICATES))
-                .orElseThrow(() -> new IllegalStateException(
-                        "Decoded package settings have no retained field."));
     }
 
     private static AuthoredPackaging observe(
@@ -167,14 +155,8 @@ final class ManifestPackageDecoder {
         Optional<Boolean> testJar = testJarField.map(ManifestTomlValues::booleanValue);
         Optional<AuthoredPackage.DuplicatePolicy> duplicates = duplicatesField.map(
                 field -> duplicatePolicy(field, mode, sources, javadoc, testJar));
-        ValidatedManifestField anchor = modeField
-                .or(() -> sourcesField)
-                .or(() -> javadocField)
-                .or(() -> testJarField)
-                .or(() -> duplicatesField)
-                .orElseThrow();
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor,
+                index.firstDirectField(FinalManifestPaths.PACKAGE).orElseThrow(),
                 () -> new AuthoredPackage(mode, sources, javadoc, testJar, duplicates)));
     }
 
@@ -280,12 +262,9 @@ final class ManifestNativeImageDecoder {
                         field,
                         () -> new ManifestRelativePath(ManifestTomlValues.string(field))));
         Optional<List<String>> args = argsField.map(ManifestTomlValues::strings);
-        ValidatedManifestField anchor = nameField
-                .or(() -> outputField)
-                .or(() -> argsField)
-                .orElseThrow();
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredNativeImage(name, output, args)));
+                index.firstDirectField(FinalManifestPaths.NATIVE).orElseThrow(),
+                () -> new AuthoredNativeImage(name, output, args)));
     }
 
     private static String name(ValidatedManifestField field) {

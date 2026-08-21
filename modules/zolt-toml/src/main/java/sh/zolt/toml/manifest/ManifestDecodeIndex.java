@@ -35,6 +35,23 @@ final class ManifestDecodeIndex {
         return matches.stream().findFirst();
     }
 
+    Optional<ValidatedManifestField> firstDirectField(ManifestPath... sections) {
+        Objects.requireNonNull(sections, "Manifest section handles are required.");
+        ArrayList<ManifestSection> registered = new ArrayList<>(sections.length);
+        for (ManifestPath section : sections) {
+            ManifestSection handle = ManifestSchemaEvidence.sectionHandle(section);
+            requirePlaceholderCount(handle.path(), 0, "direct-field scan");
+            registered.add(handle);
+        }
+        return ManifestSchemaEvidence.fields().stream()
+                .filter(field -> field.path().placeholderNames().isEmpty())
+                .filter(field -> registered.stream()
+                        .anyMatch(section -> isDirectChild(section, field)))
+                .map(this::field)
+                .flatMap(Optional::stream)
+                .findFirst();
+    }
+
     List<Entry> entries(ManifestField handle) {
         ManifestField registered = requireFieldHandle(handle);
         requirePlaceholderCount(registered, 1, "entry");
@@ -104,6 +121,15 @@ final class ManifestDecodeIndex {
                 .child(registeredField.path().segments().getLast());
         return fields.getOrDefault(registeredField, List.of()).stream()
                 .filter(field -> field.path().equals(concretePath))
+                .findFirst();
+    }
+
+    Optional<ValidatedManifestField> firstField(SectionEntry entry) {
+        ManifestSection section = requireOwnedSectionEntry(entry);
+        return ManifestSchemaEvidence.fields().stream()
+                .filter(field -> isDirectChild(section, field))
+                .map(field -> field(entry, field))
+                .flatMap(Optional::stream)
                 .findFirst();
     }
 
@@ -223,16 +249,22 @@ final class ManifestDecodeIndex {
     private static void requireDirectChild(
             ManifestSection section,
             ManifestField field) {
-        List<String> sectionPath = section.path().segments();
-        List<String> fieldPath = field.path().segments();
-        boolean directChild = fieldPath.size() == sectionPath.size() + 1
-                && fieldPath.subList(0, sectionPath.size()).equals(sectionPath);
-        if (!directChild
-                || !field.path().placeholderNames().equals(section.path().placeholderNames())) {
+        if (!isDirectChild(section, field)) {
             throw new IllegalArgumentException(
                     "Manifest field `" + field.path() + "` is not a direct child of named section `"
                             + section.path() + "`.");
         }
+    }
+
+    private static boolean isDirectChild(
+            ManifestSection section,
+            ManifestField field) {
+        List<String> sectionPath = section.path().segments();
+        List<String> fieldPath = field.path().segments();
+        boolean directChild = fieldPath.size() == sectionPath.size() + 1
+                && fieldPath.subList(0, sectionPath.size()).equals(sectionPath);
+        return directChild
+                && field.path().placeholderNames().equals(section.path().placeholderNames());
     }
 
     private static IllegalStateException duplicateField(ManifestPath path) {

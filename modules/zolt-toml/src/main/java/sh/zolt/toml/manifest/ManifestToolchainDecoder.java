@@ -14,6 +14,7 @@ import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
 import sh.zolt.project.toolchain.ToolchainPolicy;
+import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestToolchainFields;
 import sh.zolt.toml.schema.ManifestField;
 
@@ -50,13 +51,10 @@ final class ManifestToolchainDecoder {
                 && policy.isEmpty()) {
             return Optional.empty();
         }
-        ValidatedManifestField anchor = firstPresent(index, List.of(
-                FinalManifestToolchainFields.JAVA_VERSION,
-                FinalManifestToolchainFields.JAVA_DISTRIBUTION,
-                FinalManifestToolchainFields.JAVA_FEATURES,
-                FinalManifestToolchainFields.JAVA_POLICY));
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor,
+                index.firstDirectField(FinalManifestPaths.TOOLCHAIN_JAVA)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Authored toolchain aggregate has no direct field evidence.")),
                 () -> new AuthoredJavaToolchain(
                         version, distribution, features, policy)));
     }
@@ -76,12 +74,10 @@ final class ManifestToolchainDecoder {
         if (version.isEmpty() && distribution.isEmpty() && policy.isEmpty()) {
             return Optional.empty();
         }
-        ValidatedManifestField anchor = firstPresent(index, List.of(
-                FinalManifestToolchainFields.JAVA_TEST_VERSION,
-                FinalManifestToolchainFields.JAVA_TEST_DISTRIBUTION,
-                FinalManifestToolchainFields.JAVA_TEST_POLICY));
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor,
+                index.firstDirectField(FinalManifestPaths.TOOLCHAIN_JAVA_TEST)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Authored toolchain aggregate has no direct field evidence.")),
                 () -> new AuthoredJavaTestToolchain(version, distribution, policy)));
     }
 
@@ -113,17 +109,6 @@ final class ManifestToolchainDecoder {
                             .toList();
                     return Set.copyOf(new LinkedHashSet<>(decoded));
                 }));
-    }
-
-    private static ValidatedManifestField firstPresent(
-            ManifestDecodeIndex index,
-            List<ManifestField> handles) {
-        return handles.stream()
-                .map(index::field)
-                .flatMap(Optional::stream)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Authored toolchain aggregate has no direct field evidence."));
     }
 
     private static <T> Optional<T> symbol(

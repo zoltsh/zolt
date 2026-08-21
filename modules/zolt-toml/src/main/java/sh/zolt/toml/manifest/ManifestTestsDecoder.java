@@ -28,15 +28,10 @@ final class ManifestTestsDecoder {
             TestsPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
         Objects.requireNonNull(observer, "Authored tests presence observer is required.");
-        Optional<ValidatedManifestField> firstField =
-                index.field(FinalManifestTestFields.TEST_SOURCES_JAVA)
-                        .or(() -> index.field(FinalManifestTestFields.TEST_SOURCES_GROOVY))
-                        .or(() -> index.field(FinalManifestTestFields.TEST_RUNTIME_JVM_ARGS))
-                        .or(() -> index.field(FinalManifestTestFields.TEST_RUNTIME_PROPERTIES))
-                        .or(() -> index.field(FinalManifestTestFields.TEST_RUNTIME_ENV))
-                        .or(() -> index.field(FinalManifestTestFields.TEST_RUNTIME_EVENTS))
-                        .or(() -> index.field(FinalManifestTestFields.TEST_INTEGRATION_SOURCES))
-                        .or(() -> index.field(FinalManifestTestFields.TEST_INTEGRATION_RESOURCES));
+        Optional<ValidatedManifestField> firstField = index.firstDirectField(
+                FinalManifestPaths.TEST_SOURCES,
+                FinalManifestPaths.TEST_RUNTIME,
+                FinalManifestPaths.TEST_INTEGRATION);
         if (firstField.isPresent()) {
             ManifestSemanticDiagnostics.construct(
                     firstField.orElseThrow(), () -> notify(observer));
@@ -93,9 +88,9 @@ final class ManifestTestRootsDecoder {
                 .map(field -> paths(
                         field, prefix -> new AuthoredTests.Sources(List.of(), prefix)))
                 .orElse(List.of());
-        ValidatedManifestField anchor = javaField.orElseGet(groovyField::orElseThrow);
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredTests.Sources(java, groovy)));
+                index.firstDirectField(FinalManifestPaths.TEST_SOURCES).orElseThrow(),
+                () -> new AuthoredTests.Sources(java, groovy)));
     }
 
     Optional<AuthoredTests.Integration> decodeIntegration(ManifestDecodeIndex index) {
@@ -116,9 +111,10 @@ final class ManifestTestRootsDecoder {
                 .map(field -> paths(
                         field, prefix -> new AuthoredTests.Integration(List.of(), prefix)))
                 .orElse(List.of());
-        ValidatedManifestField anchor = sourcesField.orElseGet(resourcesField::orElseThrow);
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredTests.Integration(sources, resources)));
+                index.firstDirectField(FinalManifestPaths.TEST_INTEGRATION)
+                        .orElseThrow(),
+                () -> new AuthoredTests.Integration(sources, resources)));
     }
 
     private static List<ManifestRelativePath> paths(
@@ -170,10 +166,11 @@ final class ManifestTestRuntimeDecoder {
         List<AuthoredTestRuntime.Event> events = eventsField
                 .map(field -> events(field, args, properties, env))
                 .orElse(List.of());
-        ValidatedManifestField anchor = first(
-                argsField, propertiesField, envField, eventsField);
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor, () -> new AuthoredTestRuntime(args, properties, env, events)));
+                index.firstDirectField(FinalManifestPaths.TEST_RUNTIME)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Authored test runtime has no source field.")),
+                () -> new AuthoredTestRuntime(args, properties, env, events)));
     }
 
     private static List<String> arguments(ValidatedManifestField field) {
@@ -254,17 +251,6 @@ final class ManifestTestRuntimeDecoder {
                 AuthoredTestRuntime.Event.values(),
                 AuthoredTestRuntime.Event::configValue,
                 "test runtime event");
-    }
-
-    @SafeVarargs
-    private static ValidatedManifestField first(
-            Optional<ValidatedManifestField>... fields) {
-        for (Optional<ValidatedManifestField> field : fields) {
-            if (field.isPresent()) {
-                return field.orElseThrow();
-            }
-        }
-        throw new IllegalStateException("Authored test runtime has no source field.");
     }
 
     private static <T> T keyed(

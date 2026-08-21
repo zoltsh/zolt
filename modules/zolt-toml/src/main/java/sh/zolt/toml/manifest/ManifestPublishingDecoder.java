@@ -70,9 +70,7 @@ final class ManifestPublishingDecoder {
             PublishingPresenceObserver observer,
             AuthoredPublishing publishing) {
         Optional<ValidatedManifestField> routeAnchor =
-                index.field(FinalManifestPublishingFields.PUBLISH_RELEASE)
-                        .or(() -> index.field(
-                                FinalManifestPublishingFields.PUBLISH_SNAPSHOT));
+                index.firstDirectField(FinalManifestPaths.PUBLISH);
         if (routeAnchor.isPresent()) {
             ManifestSemanticDiagnostics.construct(
                     routeAnchor.orElseThrow(), () -> observe(observer, publishing));
@@ -150,11 +148,8 @@ final class ManifestPublicationRoutesDecoder {
 
         Optional<LocalId> release = route(releaseField);
         Optional<LocalId> snapshot = route(snapshotField);
-        ValidatedManifestField anchor = releaseField
-                .or(() -> snapshotField)
-                .orElseThrow();
         return Optional.of(ManifestSemanticDiagnostics.construct(
-                anchor,
+                index.firstDirectField(FinalManifestPaths.PUBLISH).orElseThrow(),
                 () -> new AuthoredPublicationRoutes(release, snapshot)));
     }
 
