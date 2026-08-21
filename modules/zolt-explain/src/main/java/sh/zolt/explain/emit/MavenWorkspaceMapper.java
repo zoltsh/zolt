@@ -53,6 +53,9 @@ final class MavenWorkspaceMapper {
                 List.of(nonBlank(root.groupId())),
                 List.of(nonBlank(root.version())),
                 List.of(JavaVersionNotation.featureRelease(root.javaVersion())));
+        defaults.version()
+                .filter(sh.zolt.project.VersionPolicy::isSnapshot)
+                .ifPresent(version -> notes.add(MavenInspectionMapper.snapshotNote(version)));
         DraftWorkspaceRoot.Built built =
                 DraftWorkspaceRoot.build(root.artifactId(), memberPaths, defaults, notes);
 
