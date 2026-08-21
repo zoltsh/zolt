@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.project.RepositoryCredentialSettings;
-import sh.zolt.toml.manifest.ManifestProjectConfigLoader;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 
 /**
  * A publishing manifest written twice — once in the legacy dialect, once in the final language —

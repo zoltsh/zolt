@@ -1,4 +1,4 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.adapter;
 
 import sh.zolt.project.CoverageSettings;
 import sh.zolt.project.ProjectConfig;

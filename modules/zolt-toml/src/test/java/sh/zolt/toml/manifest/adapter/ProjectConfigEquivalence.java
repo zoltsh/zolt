@@ -1,4 +1,4 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.adapter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

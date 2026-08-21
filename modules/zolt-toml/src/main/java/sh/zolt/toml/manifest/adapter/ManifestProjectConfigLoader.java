@@ -1,4 +1,4 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.adapter;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,6 +12,8 @@ import sh.zolt.manifest.effective.EffectiveManifestComposer;
 import sh.zolt.project.CoverageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.toml.manifest.ZoltManifestDocument;
+import sh.zolt.toml.manifest.ZoltManifestParser;
 
 /**
  * Loads one standalone {@code zolt.toml} written in the final manifest language and projects it onto
@@ -32,7 +34,7 @@ public final class ManifestProjectConfigLoader {
         this(new ZoltManifestParser(), new EffectiveManifestComposer(), new EffectiveProjectConfigAdapter());
     }
 
-    ManifestProjectConfigLoader(
+    public ManifestProjectConfigLoader(
             ZoltManifestParser parser,
             EffectiveManifestComposer composer,
             EffectiveProjectConfigAdapter adapter) {
