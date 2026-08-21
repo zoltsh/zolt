@@ -2,7 +2,6 @@ package sh.zolt.cli.command.task;
 
 import sh.zolt.command.CommandAlias;
 import sh.zolt.command.CommandConfig;
-import sh.zolt.command.toml.CommandConfigParser;
 import sh.zolt.toml.ZoltConfigException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
@@ -10,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import picocli.CommandLine;
 import picocli.CommandLine.IParameterExceptionHandler;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.ParameterException;
 
 public final class CommandAliasExpansionHandler implements IParameterExceptionHandler {
@@ -28,9 +26,8 @@ public final class CommandAliasExpansionHandler implements IParameterExceptionHa
 
         CommandConfig config;
         try {
-            Path configPath = new CommandConfigRoots().discoverConfig(startDirectory(args));
-            CommandConfigParser parser = new CommandConfigParser(CommandConfigRoots.builtInCommandNames(rootSpec(commandLine)));
-            config = parser.parse(configPath);
+            CommandConfigRoots roots = new CommandConfigRoots();
+            config = roots.commands(roots.discoverConfig(startDirectory(args)));
         } catch (ZoltConfigException configException) {
             return printDefault(exception, commandLine, false);
         }
@@ -64,14 +61,6 @@ public final class CommandAliasExpansionHandler implements IParameterExceptionHa
         }
         err.flush();
         return commandLine.getCommandSpec().exitCodeOnInvalidInput();
-    }
-
-    private static CommandSpec rootSpec(CommandLine commandLine) {
-        CommandLine current = commandLine;
-        while (current.getParent() != null) {
-            current = current.getParent();
-        }
-        return current.getCommandSpec();
     }
 
     private static Path startDirectory(String[] args) {

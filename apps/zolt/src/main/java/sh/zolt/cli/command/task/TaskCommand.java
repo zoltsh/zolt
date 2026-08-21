@@ -49,7 +49,7 @@ public final class TaskCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            LoadedCommandConfig loaded = configLoader.load(projectDirectory, spec);
+            LoadedCommandConfig loaded = configLoader.load(projectDirectory);
             CommandTask task = Optional.ofNullable(loaded.config().tasks().get(name))
                     .orElseThrow(() -> unknownTask(loaded));
             return runTask(loaded, task);
@@ -118,7 +118,7 @@ public final class TaskCommand implements Callable<Integer> {
                             + task.name()
                             + "`: "
                             + cwd
-                            + ". Create the directory or update [commands.tasks."
+                            + ". Create the directory or update [tasks."
                             + task.name()
                             + "].cwd.");
         }

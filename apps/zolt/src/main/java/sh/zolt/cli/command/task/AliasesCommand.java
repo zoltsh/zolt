@@ -31,11 +31,11 @@ public final class AliasesCommand implements Runnable {
     @Override
     public void run() {
         try {
-            LoadedCommandConfig loaded = configLoader.load(projectDirectory, spec);
+            LoadedCommandConfig loaded = configLoader.load(projectDirectory);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             if (loaded.config().aliases().isEmpty()) {
                 output.detail("No aliases configured");
-                output.next("Add [commands.aliases] to " + loaded.configPath());
+                output.next("Add [aliases] to " + loaded.configPath());
                 return;
             }
 

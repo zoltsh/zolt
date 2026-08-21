@@ -31,11 +31,11 @@ public final class TasksCommand implements Runnable {
     @Override
     public void run() {
         try {
-            LoadedCommandConfig loaded = configLoader.load(projectDirectory, spec);
+            LoadedCommandConfig loaded = configLoader.load(projectDirectory);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             if (loaded.config().tasks().isEmpty()) {
                 output.detail("No tasks configured");
-                output.next("Add [commands.tasks.<name>] to " + loaded.configPath());
+                output.next("Add [tasks.<name>] to " + loaded.configPath());
                 return;
             }
 

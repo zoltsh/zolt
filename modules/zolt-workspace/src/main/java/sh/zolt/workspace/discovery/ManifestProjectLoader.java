@@ -2,8 +2,6 @@ package sh.zolt.workspace.discovery;
 
 import java.nio.file.Path;
 import java.util.Optional;
-import sh.zolt.command.CommandConfig;
-import sh.zolt.command.ManifestCommandConfigAdapter;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
 import sh.zolt.manifest.effective.EffectiveManifest;
@@ -85,15 +83,6 @@ public final class ManifestProjectLoader {
      */
     public CoverageSettings coverageFloors(Path projectDirectory) {
         return adapter.coverage(project(projectDirectory).effective());
-    }
-
-    /**
-     * Tasks and aliases for one project. A member sees the workspace root's commands merged with its
-     * own (design §4.5, Tasks and aliases).
-     */
-    public CommandConfig commands(Path projectDirectory) {
-        return ManifestCommandConfigAdapter.effective(
-                project(projectDirectory).effective().project().shared().commands());
     }
 
     private Optional<ManifestProject> member(DiscoveredWorkspace discovered, Path directory) {
