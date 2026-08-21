@@ -92,7 +92,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
   await t.step("fails the license policy check on a denied license and passes a permissive one", async () => {
     const denied = await copyFixture(root, work, "hello-zolt", "license-denied");
     await appendFile(join(denied, "zolt.toml"), [
-      "", "[dependencyPolicy.licenses]", 'deny = ["Apache-2.0"]', 'unknown = "fail"', "",
+      "", "[dependencies.policy.licenses]", 'deny = ["Apache-2.0"]', 'unknown = "fail"', "",
     ].join("\n"), "utf8");
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", denied, "--cache-root", zolt.cacheRoot]);
 
@@ -148,7 +148,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     const scoped = await copyFixture(root, work, "hello-zolt", "license-scope");
     await appendFile(join(scoped, "zolt.toml"), [
       "", "[dependencies.test]", '"org.apiguardian:apiguardian-api" = "1.1.2"',
-      "", "[dependencyPolicy.licenses]", 'deny = ["Apache-2.0"]', "",
+      "", "[dependencies.policy.licenses]", 'deny = ["Apache-2.0"]', "",
     ].join("\n"), "utf8");
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", scoped, "--cache-root", zolt.cacheRoot]);
 
@@ -174,7 +174,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
 
     const allowed = await copyFixture(root, work, "hello-zolt", "license-allowed");
     await appendFile(join(allowed, "zolt.toml"), [
-      "", "[dependencyPolicy.licenses]", 'allow = ["Apache-2.0", "MIT"]', 'unknown = "fail"', "",
+      "", "[dependencies.policy.licenses]", 'allow = ["Apache-2.0", "MIT"]', 'unknown = "fail"', "",
     ].join("\n"), "utf8");
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", allowed, "--cache-root", zolt.cacheRoot]);
     const passing = await runZolt(t, zolt, [

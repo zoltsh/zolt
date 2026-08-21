@@ -85,7 +85,7 @@ smoke.suite("build output cache smoke", { tags: ["build-cache", "enterprise"] },
       'credentials = "smoke-cache"',
       "push = true",
       "",
-      "[credentials.smoke-cache]",
+      "[repositoryCredentials.smoke-cache]",
       `usernameEnv = "${CACHE_USERNAME_ENV}"`,
       `passwordEnv = "${CACHE_TOKEN_ENV}"`,
     ]);

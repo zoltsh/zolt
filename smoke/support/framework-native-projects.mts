@@ -32,8 +32,8 @@ const FRAMEWORK_CONFIG: Readonly<Record<NativeDiagnosticFramework, readonly stri
     "[dependencies]",
     '"io.quarkus:quarkus-rest" = { managed = true }',
     "",
-    "[framework.quarkus]",
-    "enabled = true",
+    "[package]",
+    'mode = "quarkus"',
     'package = "fast-jar"',
   ],
 };
