@@ -122,7 +122,7 @@ final class PublishCommandPomTest {
         Path pom = projectDir.resolve("target/publish/publish-dry-run-pom-metadata-0.1.0.pom");
         String pomXml = Files.readString(pom);
         assertTrue(result.stdout().contains("Generated POM: target/publish/publish-dry-run-pom-metadata-0.1.0.pom"));
-        assertTrue(pomXml.contains("<name>Publish Metadata Fixture</name>"));
+        assertTrue(pomXml.contains("<description>Dependency metadata fixture for publish dry run.</description>"));
         assertTrue(pomXml.contains("<groupId>org.example</groupId>"));
         assertTrue(pomXml.contains("<artifactId>api</artifactId>"));
         assertTrue(pomXml.contains("<optional>true</optional>"));

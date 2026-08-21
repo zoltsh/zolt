@@ -55,7 +55,7 @@ public final class PublishReleasePolicyService {
         if (metadata.license().isBlank()) {
             blockers.add("release context requires [package.metadata].license.");
         }
-        if (metadata.developers().isEmpty()) {
+        if (metadata.developers().isEmpty() && metadata.developerEntries().isEmpty()) {
             blockers.add("release context requires at least one [package.metadata].developers entry.");
         }
         if (metadata.scm().isBlank()) {
