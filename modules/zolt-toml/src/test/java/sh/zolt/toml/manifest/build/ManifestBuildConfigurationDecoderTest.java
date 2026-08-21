@@ -1,10 +1,12 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.toml.manifest.ManifestBuildTestSupport.decodeBuildConfiguration;
+import static sh.zolt.toml.manifest.ManifestBuildTestSupport.decodeBuildConfigurationWithNullIndex;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -17,9 +19,6 @@ import sh.zolt.manifest.authored.AuthoredTests;
 import sh.zolt.toml.ZoltConfigException;
 
 final class ManifestBuildConfigurationDecoderTest {
-    private final ManifestBuildConfigurationDecoder decoder =
-            new ManifestBuildConfigurationDecoder();
-
     @Test
     void preservesCompleteOmissionWithoutDefaults() {
         assertEquals(AuthoredBuildConfiguration.empty(), decode(""));
@@ -135,14 +134,14 @@ final class ManifestBuildConfigurationDecoderTest {
 
     @Test
     void requiresANonNullDecodeIndex() {
-        assertThrows(NullPointerException.class, () -> decoder.decode(null));
+        assertThrows(NullPointerException.class, () -> decodeBuildConfigurationWithNullIndex());
     }
 
-    private AuthoredBuildConfiguration decode(String source) {
-        return decoder.decode(ManifestSemanticTestSupport.index(source));
+    private static AuthoredBuildConfiguration decode(String source) {
+        return decodeBuildConfiguration(source);
     }
 
-    private void assertFailure(String source, String path) {
+    private static void assertFailure(String source, String path) {
         ZoltConfigException failure = assertThrows(
                 ZoltConfigException.class,
                 () -> decode(source));
