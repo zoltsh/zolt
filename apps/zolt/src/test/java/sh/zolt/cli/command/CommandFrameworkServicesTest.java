@@ -28,7 +28,7 @@ final class CommandFrameworkServicesTest {
     void coverageCommandServicesOwnsDefaultCoverageWiring() {
         CommandCoverageServices services = CommandFrameworkServices.coverageCommandServices();
 
-        assertNotNull(services.tomlParser());
+        assertNotNull(services.projectLoader());
         assertNotNull(services.resolveService());
         assertNotNull(services.coverageService());
         assertNotNull(services.workspaceCoverageService());
@@ -49,7 +49,7 @@ final class CommandFrameworkServicesTest {
     void nativeCommandServicesOwnsDefaultNativeWiring() {
         CommandNativeServices services = CommandFrameworkServices.nativeCommandServices();
 
-        assertNotNull(services.tomlParser());
+        assertNotNull(services.projectLoader());
         assertNotNull(services.nativeBuildService());
         assertNotNull(services.workspaceNativeBuildService());
     }

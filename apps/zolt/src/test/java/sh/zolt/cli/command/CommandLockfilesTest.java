@@ -13,7 +13,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.fingerprint.ProjectResolutionFingerprint;
 import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -219,7 +219,7 @@ final class CommandLockfilesTest {
                     resolves.incrementAndGet();
                     options.set(resolveOptions);
                 },
-                new WorkspaceDiscoveryService(),
+                new ManifestWorkspaceLoader(),
                 new WorkspaceResolveService(),
                 new ZoltLockfileReader(),
                 new VerifiedArtifactIndex());

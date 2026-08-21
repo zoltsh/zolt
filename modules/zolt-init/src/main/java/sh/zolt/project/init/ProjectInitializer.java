@@ -1,27 +1,20 @@
 package sh.zolt.project.init;
 
-import sh.zolt.project.BuildSettings;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.project.ProjectConfigWriteException;
-import sh.zolt.project.ProjectConfigs;
-import sh.zolt.project.ProjectMetadata;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.toml.manifest.write.ManifestCanonicalWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 public final class ProjectInitializer {
-    private static final String DEFAULT_TEST_FRAMEWORK = "org.junit.jupiter:junit-jupiter";
-    private static final String DEFAULT_TEST_FRAMEWORK_VERSION = "5.14.4";
+    private final ManifestCanonicalWriter writer;
 
-    private final ProjectConfigWriter writer;
-    private final WorkspaceConfigWriter workspaceWriter;
+    public ProjectInitializer() {
+        this(new ManifestCanonicalWriter());
+    }
 
-    public ProjectInitializer(ProjectConfigWriter writer, WorkspaceConfigWriter workspaceWriter) {
+    public ProjectInitializer(ManifestCanonicalWriter writer) {
         this.writer = writer;
-        this.workspaceWriter = workspaceWriter;
     }
 
     public ProjectInitResult init(Path baseDirectory, String name, String group, String javaVersion) {
@@ -36,7 +29,7 @@ public final class ProjectInitializer {
             boolean includeTests) {
         validateProjectName(name);
         validateJavaPackage(group);
-        validateJavaVersion(javaVersion);
+        int javaRelease = javaRelease(javaVersion);
 
         Path projectDirectory = baseDirectory.resolve(name).normalize();
         if (Files.exists(projectDirectory) && directoryHasEntries(projectDirectory)) {
@@ -45,12 +38,8 @@ public final class ProjectInitializer {
         }
 
         String mainClass = group + ".Main";
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata(name, "0.1.0", group, javaVersion, Optional.of(mainClass)),
-                ProjectConfig.defaultRepositories(),
-                Map.of(),
-                testDependencies(includeTests),
-                BuildSettings.defaults());
+        AuthoredManifest config =
+                InitManifests.project(name, group, javaRelease, mainClass, includeTests);
 
         Path packagePath = Path.of(group.replace('.', '/'));
         Path mainSource = projectDirectory.resolve("src/main/java").resolve(packagePath).resolve("Main.java");
@@ -59,14 +48,14 @@ public final class ProjectInitializer {
 
         try {
             Files.createDirectories(mainSource.getParent());
-            writer.write(configFile, config);
+            writeManifest(configFile, config);
             Files.writeString(mainSource, mainSource(name, group));
             if (includeTests) {
                 Files.createDirectories(testSource.getParent());
                 Files.writeString(testSource, testSource(name, group));
             }
             Files.writeString(projectDirectory.resolve(".gitignore"), gitignore());
-        } catch (IOException | ProjectConfigWriteException exception) {
+        } catch (IOException exception) {
             throw new ProjectInitException(
                     "Could not create Zolt project at " + projectDirectory + ". Check filesystem permissions.");
         }
@@ -84,9 +73,23 @@ public final class ProjectInitializer {
             String group,
             String javaVersion,
             boolean includeTests) {
+        return initWorkspace(baseDirectory, name, group, javaVersion, includeTests, false);
+    }
+
+    /**
+     * Creates a virtual workspace root and its one application member. {@code allMembers} emits the
+     * implicit-all membership table that omits {@code default} (design §6.2).
+     */
+    public ProjectInitResult initWorkspace(
+            Path baseDirectory,
+            String name,
+            String group,
+            String javaVersion,
+            boolean includeTests,
+            boolean allMembers) {
         validateProjectName(name);
         validateJavaPackage(group);
-        validateJavaVersion(javaVersion);
+        int javaRelease = javaRelease(javaVersion);
 
         Path workspaceDirectory = baseDirectory.resolve(name).normalize();
         if (Files.exists(workspaceDirectory) && directoryHasEntries(workspaceDirectory)) {
@@ -97,18 +100,9 @@ public final class ProjectInitializer {
         String memberPath = "apps/" + name;
         Path projectDirectory = workspaceDirectory.resolve(memberPath).normalize();
         String mainClass = group + ".Main";
-        ProjectConfig config = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata(name, "0.1.0", group, javaVersion, Optional.of(mainClass)),
-                ProjectConfig.defaultRepositories(),
-                Map.of(),
-                testDependencies(includeTests),
-                BuildSettings.defaults());
-        WorkspaceInitConfig workspaceConfig = new WorkspaceInitConfig(
-                name,
-                List.of(memberPath),
-                List.of(memberPath),
-                ProjectConfig.defaultRepositories(),
-                Map.of());
+        AuthoredManifest config = InitManifests.member(name, mainClass, includeTests);
+        AuthoredManifest workspaceConfig =
+                InitManifests.workspaceRoot(name, group, javaRelease, memberPath, allMembers);
 
         Path packagePath = Path.of(group.replace('.', '/'));
         Path mainSource = projectDirectory.resolve("src/main/java").resolve(packagePath).resolve("Main.java");
@@ -118,20 +112,24 @@ public final class ProjectInitializer {
 
         try {
             Files.createDirectories(mainSource.getParent());
-            workspaceWriter.write(rootConfigFile, workspaceConfig);
-            writer.write(memberConfigFile, config);
+            writeManifest(rootConfigFile, workspaceConfig);
+            writeManifest(memberConfigFile, config);
             Files.writeString(mainSource, mainSource(name, group));
             if (includeTests) {
                 Files.createDirectories(testSource.getParent());
                 Files.writeString(testSource, testSource(name, group));
             }
             Files.writeString(workspaceDirectory.resolve(".gitignore"), gitignore());
-        } catch (IOException | ProjectConfigWriteException exception) {
+        } catch (IOException exception) {
             throw new ProjectInitException(
                     "Could not create Zolt workspace at " + workspaceDirectory + ". Check filesystem permissions.");
         }
 
         return new ProjectInitResult(workspaceDirectory, rootConfigFile, mainSource, testSource);
+    }
+
+    private void writeManifest(Path path, AuthoredManifest manifest) throws IOException {
+        Files.writeString(path, writer.write(manifest));
     }
 
     private static boolean directoryHasEntries(Path directory) {
@@ -179,12 +177,6 @@ public final class ProjectInitializer {
                 """.formatted(group, escapeJavaString(projectName));
     }
 
-    private static Map<String, String> testDependencies(boolean includeTests) {
-        return includeTests
-                ? Map.of(DEFAULT_TEST_FRAMEWORK, DEFAULT_TEST_FRAMEWORK_VERSION)
-                : Map.of();
-    }
-
     private static String gitignore() {
         return """
                 target/
@@ -217,9 +209,19 @@ public final class ProjectInitializer {
         }
     }
 
-    private static void validateJavaVersion(String javaVersion) {
+    /**
+     * The final language records the project Java release as an integer feature number (design
+     * §7.2), so a legacy spelling such as {@code 1.8} is rejected here rather than emitted.
+     */
+    private static int javaRelease(String javaVersion) {
         if (javaVersion == null || javaVersion.isBlank()) {
             throw new ProjectInitException("Java version is required. Pass a non-empty --java value.");
+        }
+        try {
+            return Integer.parseInt(javaVersion.trim());
+        } catch (NumberFormatException exception) {
+            throw new ProjectInitException(
+                    "Java version must be a feature release number such as 21, not `" + javaVersion + "`.");
         }
     }
 

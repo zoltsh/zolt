@@ -30,35 +30,35 @@ final class CommandServiceBundlesTest {
                         services.coverageServiceFactory(),
                         services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
-                        services.tomlParser(),
+                        services.projectLoader(),
                         null,
                         services.coverageService(),
                         services.workspaceCoverageService(),
                         services.coverageServiceFactory(),
                         services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
-                        services.tomlParser(),
+                        services.projectLoader(),
                         services.resolveService(),
                         null,
                         services.workspaceCoverageService(),
                         services.coverageServiceFactory(),
                         services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
-                        services.tomlParser(),
+                        services.projectLoader(),
                         services.resolveService(),
                         services.coverageService(),
                         null,
                         services.coverageServiceFactory(),
                         services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
-                        services.tomlParser(),
+                        services.projectLoader(),
                         services.resolveService(),
                         services.coverageService(),
                         services.workspaceCoverageService(),
                         null,
                         services.testRunServiceFactory()),
                 () -> new CommandCoverageServices(
-                        services.tomlParser(),
+                        services.projectLoader(),
                         services.resolveService(),
                         services.coverageService(),
                         services.workspaceCoverageService(),
@@ -76,11 +76,11 @@ final class CommandServiceBundlesTest {
                         services.nativeBuildService(),
                         services.workspaceNativeBuildService()),
                 () -> new CommandNativeServices(
-                        services.tomlParser(),
+                        services.projectLoader(),
                         null,
                         services.workspaceNativeBuildService()),
                 () -> new CommandNativeServices(
-                        services.tomlParser(),
+                        services.projectLoader(),
                         services.nativeBuildService(),
                         null));
     }

@@ -5,24 +5,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
-import sh.zolt.workspace.WorkspaceConfig;
-import sh.zolt.workspace.toml.WorkspaceConfigParser;
-import sh.zolt.workspace.toml.WorkspaceTomlWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.manifest.ZoltManifestParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 
+/**
+ * {@code zolt init} emits the final manifest language and nothing the language already defaults
+ * (design §5.1, §22.2). Every assertion here is on the emitted bytes.
+ */
 final class ProjectInitializerTest {
-    private final ZoltTomlParser parser = new ZoltTomlParser();
-    private final WorkspaceConfigParser workspaceParser = new WorkspaceConfigParser();
-    private final WorkspaceTomlWriter workspaceWriter = new WorkspaceTomlWriter();
-    private final ProjectInitializer initializer =
-            new ProjectInitializer(new ZoltTomlWriter()::write, this::writeWorkspaceConfig);
+    private final ManifestProjectConfigLoader loader = new ManifestProjectConfigLoader();
+    private final ZoltManifestParser parser = new ZoltManifestParser();
+    private final ProjectInitializer initializer = new ProjectInitializer();
 
     @TempDir
     private Path tempDir;
@@ -38,10 +39,29 @@ final class ProjectInitializerTest {
     }
 
     @Test
-    void generatedConfigParsesCleanly() {
+    void emitsTheSparseCanonicalStandaloneManifest() throws IOException {
         ProjectInitResult result = initializer.init(tempDir, "hello", "com.example", "21");
 
-        ProjectConfig config = parser.parse(result.configFile());
+        assertEquals(
+                """
+                [project]
+                name = "hello"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                main = "com.example.Main"
+
+                [dependencies.test]
+                "org.junit.jupiter:junit-jupiter" = "5.14.4"
+                """,
+                Files.readString(result.configFile()));
+    }
+
+    @Test
+    void generatedProjectLoadsThroughTheFinalBoundary() {
+        ProjectInitResult result = initializer.init(tempDir, "hello", "com.example", "21");
+
+        ProjectConfig config = loader.load(result.configFile());
 
         assertEquals("hello", config.project().name());
         assertEquals("com.example", config.project().group());
@@ -53,27 +73,76 @@ final class ProjectInitializerTest {
     }
 
     @Test
-    void createsWorkspaceRootConfigAndDefaultAppMember() {
+    void workspaceInitEmitsAMembersTableWithAnExplicitDefault() throws IOException {
         ProjectInitResult result = initializer.initWorkspace(tempDir, "platform", "com.example", "21");
 
-        Path workspaceRoot = tempDir.resolve("platform");
-        Path memberRoot = workspaceRoot.resolve("apps/platform");
-        assertEquals(workspaceRoot, result.projectDirectory());
-        assertTrue(Files.exists(workspaceRoot.resolve("zolt.toml")));
-        assertTrue(Files.exists(memberRoot.resolve("zolt.toml")));
-        assertTrue(Files.exists(result.mainSource()));
-        assertTrue(Files.exists(result.testSource()));
-
-        WorkspaceConfig workspaceConfig = workspaceParser.parseRootConfig(result.configFile());
-        ProjectConfig memberConfig = parser.parse(memberRoot.resolve("zolt.toml"));
-        assertEquals("platform", workspaceConfig.name());
-        assertEquals(java.util.List.of("apps/platform"), workspaceConfig.members());
-        assertEquals(java.util.List.of("apps/platform"), workspaceConfig.defaultMembers());
-        assertEquals("platform", memberConfig.project().name());
-        assertEquals("com.example.Main", memberConfig.project().main().orElseThrow());
         assertEquals(
-                java.util.Map.of("org.junit.jupiter:junit-jupiter", "5.14.4"),
-                memberConfig.testDependencies());
+                """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                default = ["apps/platform"]
+                include = ["apps/platform"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+                """,
+                Files.readString(result.configFile()));
+    }
+
+    @Test
+    void workspaceMemberDoesNotMaterializeInheritedIdentity() throws IOException {
+        ProjectInitResult result = initializer.initWorkspace(tempDir, "platform", "com.example", "21");
+        Path memberRoot = result.projectDirectory().resolve("apps/platform");
+
+        assertEquals(
+                """
+                [project]
+                name = "platform"
+                main = "com.example.Main"
+
+                [dependencies.test]
+                "org.junit.jupiter:junit-jupiter" = "5.14.4"
+                """,
+                Files.readString(memberRoot.resolve("zolt.toml")));
+    }
+
+    @Test
+    void workspaceInitAllMembersOmitsDefault() throws IOException {
+        ProjectInitResult result = initializer.initWorkspace(
+                tempDir, "platform", "com.example", "21", true, true);
+
+        assertEquals(
+                """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                include = ["apps/platform"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+                """,
+                Files.readString(result.configFile()));
+    }
+
+    @Test
+    void generatedWorkspaceManifestsParseAsFinalManifests() throws IOException {
+        ProjectInitResult result = initializer.initWorkspace(tempDir, "platform", "com.example", "21");
+        Path memberRoot = result.projectDirectory().resolve("apps/platform");
+
+        AuthoredManifest root = parser.parse(Files.readString(result.configFile())).authored();
+        AuthoredManifest member = parser.parse(Files.readString(memberRoot.resolve("zolt.toml"))).authored();
+
+        assertEquals("platform", root.workspace().orElseThrow().name().value());
+        assertTrue(root.project().isEmpty(), "the workspace root is virtual");
+        assertEquals(Optional.empty(), member.project().orElseThrow().identity().group());
+        assertEquals(Optional.empty(), member.project().orElseThrow().identity().version());
     }
 
     @Test
@@ -94,21 +163,25 @@ final class ProjectInitializerTest {
     void canCreateProjectWithoutTests() {
         ProjectInitResult result = initializer.init(tempDir, "hello", "com.example", "21", false);
 
-        ProjectConfig config = parser.parse(result.configFile());
+        ProjectConfig config = loader.load(result.configFile());
 
         assertTrue(config.testDependencies().isEmpty());
         assertFalse(Files.exists(result.testSource()));
     }
 
     @Test
-    void canCreateWorkspaceWithoutTests() {
+    void canCreateWorkspaceWithoutTests() throws IOException {
         ProjectInitResult result = initializer.initWorkspace(
                 tempDir, "platform", "com.example", "21", false);
         Path memberRoot = result.projectDirectory().resolve("apps/platform");
 
-        ProjectConfig config = parser.parse(memberRoot.resolve("zolt.toml"));
-
-        assertTrue(config.testDependencies().isEmpty());
+        assertEquals(
+                """
+                [project]
+                name = "platform"
+                main = "com.example.Main"
+                """,
+                Files.readString(memberRoot.resolve("zolt.toml")));
         assertFalse(Files.exists(memberRoot.resolve("src/test")));
         assertFalse(Files.exists(result.testSource()));
     }
@@ -132,6 +205,17 @@ final class ProjectInitializerTest {
     }
 
     @Test
+    void rejectsALegacyJavaVersionSpelling() {
+        ProjectInitException exception = assertThrows(
+                ProjectInitException.class,
+                () -> initializer.init(tempDir, "hello", "com.example", "1.8"));
+
+        assertEquals(
+                "Java version must be a feature release number such as 21, not `1.8`.",
+                exception.getMessage());
+    }
+
+    @Test
     void refusesNonEmptyDirectory() throws IOException {
         Path existing = tempDir.resolve("hello");
         Files.createDirectories(existing);
@@ -142,16 +226,5 @@ final class ProjectInitializerTest {
                 () -> initializer.init(tempDir, "hello", "com.example", "21"));
 
         assertTrue(exception.getMessage().contains("is not empty"));
-    }
-
-    private void writeWorkspaceConfig(Path path, WorkspaceInitConfig config) {
-        workspaceWriter.write(
-                path,
-                new WorkspaceConfig(
-                        config.name(),
-                        config.members(),
-                        config.defaultMembers(),
-                        config.repositories(),
-                        config.platforms()));
     }
 }

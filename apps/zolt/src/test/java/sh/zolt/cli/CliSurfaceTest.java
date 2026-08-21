@@ -131,6 +131,43 @@ final class CliSurfaceTest {
     }
 
     @Test
+    void initEmitsTheFinalWorkspaceMembersTable() throws IOException {
+        execute("init", "--workspace", "--directory", tempDir.toString(), "platform");
+
+        assertEquals(
+                """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                default = ["apps/platform"]
+                include = ["apps/platform"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+                """,
+                Files.readString(tempDir.resolve("platform/zolt.toml")));
+    }
+
+    @Test
+    void initAllMembersOmitsTheDefaultSelection() throws IOException {
+        execute("init", "--workspace", "--all-members", "--directory", tempDir.toString(), "platform");
+
+        assertFalse(Files.readString(tempDir.resolve("platform/zolt.toml")).contains("default ="));
+    }
+
+    @Test
+    void initRejectsAllMembersOutsideWorkspaceMode() {
+        CommandResult result = execute("init", "--all-members", "--directory", tempDir.toString(), "hello");
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains("--all-members requires --workspace."));
+        assertFalse(Files.exists(tempDir.resolve("hello/zolt.toml")));
+    }
+
+    @Test
     void initCanOmitTests() throws IOException {
         CommandResult result = execute(
                 "init",
