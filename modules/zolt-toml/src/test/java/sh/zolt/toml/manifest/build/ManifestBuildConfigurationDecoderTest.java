@@ -5,14 +5,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.toml.manifest.ManifestBuildTestSupport.constructBuildDomainsWithNullConfiguration;
+import static sh.zolt.toml.manifest.ManifestBuildTestSupport.constructBuildDomainsWithNullGeneratedSources;
 import static sh.zolt.toml.manifest.ManifestBuildTestSupport.decodeBuildConfiguration;
 import static sh.zolt.toml.manifest.ManifestBuildTestSupport.decodeBuildConfigurationWithNullIndex;
+import static sh.zolt.toml.manifest.ManifestBuildTestSupport.decodeGeneratedSources;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredCompiler;
+import sh.zolt.manifest.authored.AuthoredGeneratedSources;
+import sh.zolt.manifest.authored.AuthoredOpenApiStep;
 import sh.zolt.manifest.authored.AuthoredResources;
 import sh.zolt.manifest.authored.AuthoredTestRuntime;
 import sh.zolt.manifest.authored.AuthoredTests;
@@ -22,11 +28,12 @@ final class ManifestBuildConfigurationDecoderTest {
     @Test
     void preservesCompleteOmissionWithoutDefaults() {
         assertEquals(AuthoredBuildConfiguration.empty(), decode(""));
+        assertTrue(decodeGeneratedSources("").isEmpty());
     }
 
     @Test
-    void composesAllFiveChildrenWithoutMaterializingSiblingValues() {
-        AuthoredBuildConfiguration configuration = decode("""
+    void composesAllSixDomainsWithoutMaterializingSiblingValues() {
+        String source = """
                 [build.metadata]
                 git = false
 
@@ -36,12 +43,18 @@ final class ManifestBuildConfigurationDecoderTest {
                 [resources]
                 main = ["custom/resources"]
 
+                [generated.main.api]
+                kind = "openapi"
+                input = "api.yaml"
+
                 [test.runtime]
                 events = ["failed"]
 
                 [coverage]
                 branch = 74.5
-                """);
+                """;
+        AuthoredBuildConfiguration configuration = decode(source);
+        AuthoredGeneratedSources generated = decodeGeneratedSources(source).orElseThrow();
 
         assertTrue(configuration.build().orElseThrow().sources().isEmpty());
         assertFalse(configuration.build()
@@ -59,6 +72,10 @@ final class ManifestBuildConfigurationDecoderTest {
         AuthoredResources resources = configuration.resources().orElseThrow();
         assertEquals(List.of(path("custom/resources")), resources.main());
         assertTrue(resources.test().isEmpty());
+        assertTrue(generated.tools().declarations().isEmpty());
+        assertTrue(generated.presets().openApi().isEmpty());
+        assertInstanceOf(AuthoredOpenApiStep.class, generated.main().get(new LocalId("api")));
+        assertTrue(generated.test().isEmpty());
         AuthoredTests tests = configuration.tests().orElseThrow();
         assertEquals(
                 List.of(AuthoredTestRuntime.Event.FAILED),
@@ -76,11 +93,17 @@ final class ManifestBuildConfigurationDecoderTest {
         for (String source : List.of(
                 """
                 [resources.tokens]
+                [generated.tools]
                 [test.suites]
                 """,
-                "resources = { tokens = {} }\ntest = { suites = {} }\n")) {
+                "resources = { tokens = {} }\n"
+                        + "generated = { tools = {} }\n"
+                        + "test = { suites = {} }\n")) {
             AuthoredBuildConfiguration configuration = decode(source);
             assertEquals(AuthoredResources.empty(), configuration.resources().orElseThrow());
+            assertEquals(
+                    AuthoredGeneratedSources.empty(),
+                    decodeGeneratedSources(source).orElseThrow());
             assertEquals(AuthoredTests.empty(), configuration.tests().orElseThrow());
             assertTrue(configuration.build().isEmpty());
             assertTrue(configuration.compiler().isEmpty());
@@ -89,12 +112,15 @@ final class ManifestBuildConfigurationDecoderTest {
     }
 
     @Test
-    void propagatesChildFailuresInBuildCompilerResourcesTestsThenCoverageOrder() {
+    void propagatesChildFailuresInCanonicalBuildDomainOrder() {
         assertFailure("""
                 [coverage]
                 line = 101
                 [test.runtime]
                 jvmArgs = ["${project.root}"]
+                [generated.presets.invalid]
+                kind = "openapi"
+                generator = " "
                 [resources]
                 main = ["custom/resources", "custom/resources"]
                 [compiler]
@@ -107,6 +133,9 @@ final class ManifestBuildConfigurationDecoderTest {
                 line = 101
                 [test.runtime]
                 jvmArgs = ["${project.root}"]
+                [generated.presets.invalid]
+                kind = "openapi"
+                generator = " "
                 [resources]
                 main = ["custom/resources", "custom/resources"]
                 [compiler]
@@ -117,9 +146,21 @@ final class ManifestBuildConfigurationDecoderTest {
                 line = 101
                 [test.runtime]
                 jvmArgs = ["${project.root}"]
+                [generated.presets.invalid]
+                kind = "openapi"
+                generator = " "
                 [resources]
                 main = ["custom/resources", "custom/resources"]
                 """, "`resources.main[1]`");
+        assertFailure("""
+                [coverage]
+                line = 101
+                [test.runtime]
+                jvmArgs = ["${project.root}"]
+                [generated.presets.invalid]
+                kind = "openapi"
+                generator = " "
+                """, "`generated.presets.invalid.generator`");
         assertFailure("""
                 [coverage]
                 line = 101
@@ -133,8 +174,12 @@ final class ManifestBuildConfigurationDecoderTest {
     }
 
     @Test
-    void requiresANonNullDecodeIndex() {
+    void requiresNonNullDecodeInputsAndResults() {
         assertThrows(NullPointerException.class, () -> decodeBuildConfigurationWithNullIndex());
+        assertThrows(NullPointerException.class, () -> constructBuildDomainsWithNullConfiguration());
+        assertThrows(
+                NullPointerException.class,
+                () -> constructBuildDomainsWithNullGeneratedSources());
     }
 
     private static AuthoredBuildConfiguration decode(String source) {
