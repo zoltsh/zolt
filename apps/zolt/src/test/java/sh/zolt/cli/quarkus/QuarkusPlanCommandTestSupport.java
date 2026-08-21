@@ -19,23 +19,19 @@ final class QuarkusPlanCommandTestSupport {
 
     static void writeProjectConfig(Path projectDir, String outputRoot) throws IOException {
         Files.createDirectories(projectDir);
-        String output = outputRoot + "/classes";
-        String testOutput = outputRoot + "/test-classes";
+        // Output paths are relative to [build.output].root, so only the root moves.
+        String output = outputRoot.equals("target") ? "" : """
+
+                [build.output]
+                root = "%s"
+                """.formatted(outputRoot);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
-
-                [repositories.test]
-                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
                 [dependencies.test]
-
-                [build.output]
-                root = "%s"
-                main = "%s"
-                test = "%s"
-                """.formatted(outputRoot, output, testOutput));
+                """ + output);
     }
 
     static void enableQuarkus(Path projectDir) throws IOException {

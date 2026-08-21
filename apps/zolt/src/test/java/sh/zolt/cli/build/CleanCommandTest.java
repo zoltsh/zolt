@@ -79,9 +79,11 @@ final class CleanCommandTest {
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
-                Files.readString(projectDir.resolve("zolt.toml"))
-                        .replace("output = \"target/classes\"", "outputRoot = \".zolt/build\"\noutput = \".zolt/build/classes\"")
-                        .replace("testOutput = \"target/test-classes\"", "testOutput = \".zolt/build/test-classes\""));
+                Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build.output]
+                root = ".zolt/build"
+                """);
         Files.createDirectories(projectDir.resolve(".zolt/build/classes"));
         Files.writeString(projectDir.resolve(".zolt/build/classes/Main.class"), "compiled");
         Files.createDirectories(projectDir.resolve("target/classes"));
@@ -104,12 +106,15 @@ final class CleanCommandTest {
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
-                Files.readString(projectDir.resolve("zolt.toml"))
-                        .replace("output = \"target/classes\"", "output = \"out/main\"")
-                        .replace("testOutput = \"target/test-classes\"", "testOutput = \"out/test\""));
+                Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build.output]
+                main = "out/main"
+                test = "out/test"
+                """);
         enableQuarkus(projectDir);
-        Files.createDirectories(projectDir.resolve("out/main"));
-        Files.writeString(projectDir.resolve("out/main/Main.class"), "compiled");
+        Files.createDirectories(projectDir.resolve("target/out/main"));
+        Files.writeString(projectDir.resolve("target/out/main/Main.class"), "compiled");
         Files.createDirectories(projectDir.resolve("target/quarkus"));
         Files.writeString(projectDir.resolve("target/quarkus/zolt-augmentation.properties"), "metadata");
         Files.createDirectories(projectDir.resolve("target/quarkus-app"));
@@ -119,7 +124,7 @@ final class CleanCommandTest {
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Deleted 3 build output paths"));
-        assertFalse(Files.exists(projectDir.resolve("out/main")));
+        assertFalse(Files.exists(projectDir.resolve("target/out/main")));
         assertFalse(Files.exists(projectDir.resolve("target/quarkus")));
         assertFalse(Files.exists(projectDir.resolve("target/quarkus-app")));
     }
@@ -130,9 +135,12 @@ final class CleanCommandTest {
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
-                Files.readString(projectDir.resolve("zolt.toml"))
-                        .replace("output = \"target/classes\"", "output = \"out/main\"")
-                        .replace("testOutput = \"target/test-classes\"", "testOutput = \"out/test\""));
+                Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build.output]
+                main = "out/main"
+                test = "out/test"
+                """);
         enableSpringBootNative(projectDir);
         Files.createDirectories(projectDir.resolve("target/spring-aot/main/sources/com/example"));
         Files.writeString(projectDir.resolve("target/spring-aot/main/sources/com/example/Application__BeanDefinitions.java"), "aot");

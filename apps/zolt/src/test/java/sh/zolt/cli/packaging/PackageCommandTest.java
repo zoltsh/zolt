@@ -192,9 +192,11 @@ final class PackageCommandTest extends PackageCommandTestSupport {
                 """);
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
-                Files.readString(projectDir.resolve("zolt.toml"))
-                        .replace("output = \"target/classes\"", "outputRoot = \".zolt/build\"\noutput = \".zolt/build/classes\"")
-                        .replace("testOutput = \"target/test-classes\"", "testOutput = \".zolt/build/test-classes\""));
+                Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build.output]
+                root = ".zolt/build"
+                """);
         Files.createDirectories(projectDir.resolve("target/classes"));
         Files.writeString(projectDir.resolve("target/classes/MavenMain.class"), "maven output\n");
         writeMainSource(projectDir, """

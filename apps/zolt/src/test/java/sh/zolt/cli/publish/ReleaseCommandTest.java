@@ -167,8 +167,11 @@ final class ReleaseCommandTest {
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
-                Files.readString(projectDir.resolve("zolt.toml"))
-                        .replace("[build]\n", "[build]\n                outputRoot = \".zolt/build\"\n"));
+                Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build.output]
+                root = ".zolt/build"
+                """);
         CommandResult result = execute(
                 "release-verify",
                 "--directory", projectDir.toString(),
