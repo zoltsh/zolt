@@ -16,7 +16,7 @@ configuration — not a plugin system, not a task graph, not a lifecycle.
 
 One sentence a step can say: **run this pinned tool on these declared inputs to
 produce this owned output, consumed by the build.** Anything not expressible
-that way is out of scope by definition and belongs in `[commands.tasks]` or CI.
+that way is out of scope by definition and belongs in `[tasks.<id>]` or CI.
 
 ## The surface
 
@@ -27,11 +27,11 @@ Steps live on the existing generated-producer lane, not a new subsystem:
 jooq = "3.19.15"
 postgres = "42.7.4"
 
-# Named tool. runner discriminates acquisition: "jvm" = resolver-locked
+# Named tool. kind discriminates acquisition: "jvm" = resolver-locked
 # coordinates (SHA-256 in zolt.lock, tool-exec scope, never on app classpaths);
 # "process" = PATH binary (see the PATH gate below).
-[generated.execTools.jooq]
-runner = "jvm"
+[generated.tools.jooq]
+kind = "jvm"
 coordinates = [
   { coordinate = "org.jooq:jooq-codegen", versionRef = "jooq" },
   { coordinate = "org.postgresql:postgresql", versionRef = "postgres" },
@@ -51,8 +51,8 @@ cache = "content"                  # default
 
 ```toml
 # PATH tool (frontend). The triple gate: probe + explicit ack + advisory lock.
-[generated.execTools.node]
-runner = "process"
+[generated.tools.node]
+kind = "process"
 binary = "npm"
 versionCommand = ["npm", "--version"]   # probed stdout enters the fingerprint
 versionExpect = ">=10 <11"              # optional fail-fast guard
@@ -76,8 +76,7 @@ inputs = ["web/package-lock.json", "web/node_modules", "web/src/**", "web/vite.c
 output = "web/dist"
 produces = "resources"
 into = "static"
-[generated.main.frontend-build.env]
-NODE_ENV = "production"
+env = { NODE_ENV = "production" }
 ```
 
 `tool = "project"` is a built-in pseudo-tool: the member's own compiled classes
@@ -110,7 +109,7 @@ the whole truth.
 ## Determinism contract
 
 - Fingerprint (producer skip-gate, modeled on the OpenAPI cache): tool identity
-  (jvm: locked jar hashes; process: binary name + probed version), argv,
+  (`kind = "jvm"`: locked jar hashes; `kind = "process"`: binary name + probed version), argv,
   content hashes of declared inputs (globs expanded by Zolt, sorted),
   env NAMES and configured literal values, cwd, produces/into. Skip iff
   fingerprint matches and the output exists.
@@ -146,7 +145,7 @@ the whole truth.
 - In-process plugins / SPI / user classes in the build JVM (native-image
   closed world; also the plugin-swamp firewall).
 - Lifecycle hooks and phase attachment of any kind, including for
-  `[commands.tasks]` — tasks stay manual-invoke, uncached, outside the graph.
+  `[tasks.<id>]` — tasks stay manual-invoke, uncached, outside the graph.
 - Shell strings, ambient environment inheritance, build-time network fetch as
   an input mechanism (tools arrive only via the resolver or PATH; a step that
   reaches the network owns `cache = "none"`).
