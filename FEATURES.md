@@ -32,8 +32,8 @@ zolt run
 
 - **Projects.** Configure sources, resources, generated sources, tasks, aliases,
   and integration-test roots.
-- **Dependencies.** Use compile, runtime, provided, development, test, and
-  annotation-processor scopes.
+- **Dependencies.** Use API, implementation, runtime, provided, development,
+  test, and annotation-processor lanes under one `[dependencies]` namespace.
 - **Metadata.** Import BOMs and configure version aliases, exclusions,
   classifiers, artifact types, optional dependencies, and strict constraints.
 - **Resolution.** Write a deterministic lockfile with SHA-256 hashes. Build
@@ -82,7 +82,7 @@ zolt publish --dry-run --central
 zolt native
 ```
 
-- **Packages.** Thin jars, deterministic uber jars, WARs, Spring Boot, Quarkus,
+- **Packages.** Jars, deterministic uber jars, WARs, Spring Boot, Quarkus,
   BOMs, sources, and Javadoc.
 - **Metadata.** Manifest entries, Maven coordinates, project metadata,
   checksums, and package evidence.

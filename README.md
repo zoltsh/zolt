@@ -84,7 +84,7 @@ zolt           build, test, package, release
     </td>
     <td width="50%" valign="top">
       <strong>Packages and releases</strong><br>
-      Thin, uber, WAR, Spring Boot, Quarkus, native images, and Maven publishing.
+      Jar, uber-jar, WAR, Spring Boot, Quarkus, native images, and Maven publishing.
     </td>
   </tr>
   <tr>
