@@ -26,7 +26,7 @@ public final class WorkspaceDependencyTreeFormatter {
                     DependencyTreeLines.conflictsByPackage(lockfile),
                     projection.viewFor(member),
                     WorkspaceTreeProjection.REGENERATE_COMMAND)
-                    .write(output, projection.directPackagesFor(member));
+                    .writeRoots(output, projection.rootsFor(member));
             if (index + 1 < members.size()) {
                 output.append('\n');
             }

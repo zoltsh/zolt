@@ -24,16 +24,15 @@ final class WorkspaceDependencyTreeFormatterTest extends WorkspaceTreeTestSuppor
         assertEquals("""
                 demo-workspace
                 apps/api
-                +- com.example:core:0.1.0
+                +- org.example:shared:1.0.0 (lane: implementation; resolved scope: compile)
+                |  \\- org.example:extra:2.0.0
+                +- com.example:core:0.1.0 (lane: api; resolved scope: compile)
                 |  \\- org.example:shared:1.0.0
                 |     \\- org.example:extra:2.0.0
-                +- org.example:bundle:3.0.0:zip
-                \\- org.example:shared:1.0.0
-                   \\- org.example:extra:2.0.0
+                \\- org.example:bundle:3.0.0:zip (lane: runtime; resolved scope: runtime)
 
                 modules/core
-                +- org.example:shared:1.0.0
-                \\- org.example:shared:1.0.0
+                \\- org.example:shared:1.0.0 (lane: api; resolved scope: compile)
                 """, output);
     }
 

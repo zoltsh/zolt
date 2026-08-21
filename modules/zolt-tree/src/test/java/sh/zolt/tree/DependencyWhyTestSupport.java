@@ -15,10 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-abstract class DependencyWhyTestSupport {
+abstract class DependencyWhyTestSupport extends DependencyTreeTestSupport {
     protected static ZoltLockfile lockfile() {
-        return new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        return lockfile(
                 List.of(
                         lockPackage("com.example", "app", "1.0.0", true, List.of("com.example:lib:1.0.0")),
                         lockPackage("com.example", "lib", "1.0.0", false, List.of())),
@@ -78,8 +77,7 @@ abstract class DependencyWhyTestSupport {
     }
 
     protected static ZoltLockfile excludedLockfile() {
-        return new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        return lockfile(
                 List.of(lockPackage("com.example", "app", "1.0.0", true, List.of())),
                 List.of(),
                 List.of(new LockPolicyEffect(
@@ -91,8 +89,7 @@ abstract class DependencyWhyTestSupport {
     }
 
     protected static ZoltLockfile conflictedLockfile() {
-        return new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        return lockfile(
                 List.of(
                         lockPackage("com.example", "app", "1.0.0", true, List.of("com.example:lib:2.0.0")),
                         lockPackage("com.example", "lib", "2.0.0", false, List.of())),
@@ -104,8 +101,7 @@ abstract class DependencyWhyTestSupport {
     }
 
     protected static ZoltLockfile strictPolicyLockfile() {
-        return new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        return lockfile(
                 List.of(
                         lockPackage("com.example", "app", "1.0.0", true, List.of("com.example:lib:2.0.0")),
                         lockPackage(

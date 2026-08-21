@@ -16,8 +16,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
 
     @Test
     void formatsStableJsonWithPolicyEffects() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(lockPackage(
                         "com.example",
                         "app",
@@ -94,8 +93,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
 
     @Test
     void emitsQualifiedPackageAndConflictVariants() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(classified("io.netty", "netty", "4.1.100.Final", "linux-x86_64")),
                 List.of(new LockConflict(
                         new PackageId("io.netty", "netty"),

@@ -3,21 +3,24 @@ package sh.zolt.tree;
 import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockArtifactVariant;
-import sh.zolt.lockfile.LockDependencyIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.dependency.PackageId;
-import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
 public final class DependencyWhyFormatter {
     public String format(ProjectConfig config, ZoltLockfile lockfile, PackageId target) {
-        Optional<List<LockPackage>> resolvedPath = pathTo(lockfile, target);
+        DependencyRootProjection roots = DependencyRootProjection.standalone(lockfile);
+        Optional<DependencyRootProjection.ResolvedPath> resolvedPath = roots.pathTo(target);
         if (resolvedPath.isEmpty()) {
+            Optional<DependencyRootProjection.Root> publishOnly = roots.publishOnlyRoot(target);
+            if (publishOnly.isPresent()) {
+                return formatPublishOnly(config, publishOnly.orElseThrow());
+            }
             List<LockPolicyEffect> exclusionEffects = exclusionEffects(lockfile, target);
             if (!exclusionEffects.isEmpty()) {
                 return formatExcluded(config, target, exclusionEffects);
@@ -25,7 +28,8 @@ public final class DependencyWhyFormatter {
             throw new DependencyWhyException(
                     "Package " + target + " is not present in zolt.lock. Run `zolt resolve` after adding it or check the package id.");
         }
-        List<LockPackage> path = resolvedPath.orElseThrow();
+        DependencyRootProjection.ResolvedPath resolved = resolvedPath.orElseThrow();
+        List<LockPackage> path = resolved.packages();
         Optional<LockConflict> targetConflict = conflictFor(lockfile, path.getLast());
         StringBuilder output = new StringBuilder();
         output.append(config.project().group())
@@ -38,6 +42,9 @@ public final class DependencyWhyFormatter {
             output.append("   ".repeat(index))
                     .append("\\- ")
                     .append(coordinate(path.get(index)));
+            if (index == 0) {
+                output.append(" (").append(resolved.root().annotation()).append(')');
+            }
             if (path.get(index).packageId().equals(target)) {
                 targetConflict.ifPresent(conflict -> appendConflict(output, conflict));
             }
@@ -45,6 +52,16 @@ public final class DependencyWhyFormatter {
             output.append('\n');
         }
         return output.toString();
+    }
+
+    private static String formatPublishOnly(
+            ProjectConfig config,
+            DependencyRootProjection.Root root) {
+        return config.project().group() + ":"
+                + config.project().name() + ":"
+                + config.project().version() + "\n"
+                + "\\- " + root.coordinate()
+                + " (" + root.annotation() + ")\n";
     }
 
     private static String formatExcluded(
@@ -70,48 +87,12 @@ public final class DependencyWhyFormatter {
         return output.toString();
     }
 
-    private static Optional<List<LockPackage>> pathTo(ZoltLockfile lockfile, PackageId target) {
-        LockDependencyIndex packages = new LockDependencyIndex(lockfile.packages());
-        ArrayDeque<PathItem> queue = new ArrayDeque<>();
-        lockfile.packages().stream()
-                .filter(LockPackage::direct)
-                .sorted(Comparator.comparing(DependencyWhyFormatter::coordinate))
-                .forEach(lockPackage -> queue.add(new PathItem(lockPackage, List.of(lockPackage))));
-
-        while (!queue.isEmpty()) {
-            PathItem item = queue.removeFirst();
-            if (item.lockPackage().packageId().equals(target)) {
-                return Optional.of(item.path());
-            }
-            item.lockPackage().dependencies().stream()
-                    .sorted()
-                    .map(edge -> packages.resolveGraphEdge(edge, "zolt resolve").orElse(null))
-                    .filter(java.util.Objects::nonNull)
-                    .filter(dependency -> !contains(item.path(), dependency))
-                    .forEach(dependency -> queue.add(new PathItem(
-                            dependency,
-                            append(item.path(), dependency))));
-        }
-
-        return Optional.empty();
-    }
-
     private static String coordinate(LockPackage lockPackage) {
         LockArtifactVariant variant = LockArtifactVariant.of(lockPackage);
         return lockPackage.packageId()
                 + ":"
                 + lockPackage.version()
                 + (variant.isDefault() ? "" : ":" + variant.key());
-    }
-
-    private static boolean contains(List<LockPackage> path, LockPackage candidate) {
-        return path.stream().anyMatch(lockPackage -> coordinate(lockPackage).equals(coordinate(candidate)));
-    }
-
-    private static List<LockPackage> append(List<LockPackage> path, LockPackage lockPackage) {
-        java.util.ArrayList<LockPackage> updated = new java.util.ArrayList<>(path);
-        updated.add(lockPackage);
-        return List.copyOf(updated);
     }
 
     private static void appendPolicies(StringBuilder output, LockPackage lockPackage) {
@@ -182,11 +163,5 @@ public final class DependencyWhyFormatter {
             case NEWEST_VERSION -> "newest version wins";
             case SELECTED_GRAPH -> "selected materialized graph wins";
         };
-    }
-
-    private record PathItem(LockPackage lockPackage, List<LockPackage> path) {
-        private PathItem {
-            path = List.copyOf(path);
-        }
     }
 }

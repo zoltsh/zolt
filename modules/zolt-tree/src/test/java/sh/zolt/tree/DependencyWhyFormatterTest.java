@@ -20,7 +20,7 @@ final class DependencyWhyFormatterTest extends DependencyWhyTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    \\- com.example:lib:1.0.0
                 """, output);
     }
@@ -34,14 +34,13 @@ final class DependencyWhyFormatterTest extends DependencyWhyTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                 """, output);
     }
 
     @Test
     void showsPoliciesOnPathPackages() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(lockPackage(
                         "com.example",
                         "app",
@@ -55,7 +54,7 @@ final class DependencyWhyFormatterTest extends DependencyWhyTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0 (policy: managed-version: com.example:app -> 1.0.0 from com.example:platform:1.0.0)
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile) (policy: managed-version: com.example:app -> 1.0.0 from com.example:platform:1.0.0)
                 """, output);
     }
 
@@ -65,7 +64,7 @@ final class DependencyWhyFormatterTest extends DependencyWhyTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    \\- com.example:lib:2.0.0 (policy: strict-version: com.example:lib requested 1.0.0 -> 2.0.0 (baseline))
                 """, output);
     }
@@ -76,7 +75,7 @@ final class DependencyWhyFormatterTest extends DependencyWhyTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    \\- com.example:lib:2.0.0 (conflict: selected 2.0.0; requested 1.0.0, 2.0.0; newest version wins)
                 """, output);
     }

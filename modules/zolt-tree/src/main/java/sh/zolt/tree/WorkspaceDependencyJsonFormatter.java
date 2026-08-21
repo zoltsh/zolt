@@ -109,7 +109,7 @@ public final class WorkspaceDependencyJsonFormatter {
         nonDefaultVariant(lockPackage).ifPresent(variant ->
                 stringField(json, 3, "variant", variant.key(), true));
         stringField(json, 3, "scope", lockPackage.scope().lockfileName(), true);
-        booleanField(json, 3, "direct", lockPackage.direct(), true);
+        booleanField(json, 3, "direct", projection.direct(lockPackage), true);
         lockPackage.workspace().ifPresent(path -> stringField(json, 3, "workspace", path, true));
         stringArrayField(json, 3, "members", projection.members(lockPackage), true);
         stringArrayField(json, 3, "dependencies", projection.dependencies(lockPackage), false);

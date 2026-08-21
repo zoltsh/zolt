@@ -40,14 +40,17 @@ final class WorkspaceTreeProjection {
     private final LockDependencyIndex index;
     private final LockMemberGraphIndex memberGraphs;
     private final List<LockPackage> packages;
+    private final DependencyRootProjection authoredRoots;
 
     private WorkspaceTreeProjection(
             LockDependencyIndex index,
             LockMemberGraphIndex memberGraphs,
-            List<LockPackage> packages) {
+            List<LockPackage> packages,
+            DependencyRootProjection authoredRoots) {
         this.index = index;
         this.memberGraphs = memberGraphs;
         this.packages = packages;
+        this.authoredRoots = authoredRoots;
     }
 
     static WorkspaceTreeProjection of(ZoltLockfile lockfile, List<String> memberPaths) {
@@ -67,7 +70,9 @@ final class WorkspaceTreeProjection {
                         .comparing(DependencyTreeLines::coordinate)
                         .thenComparing(lockPackage -> lockPackage.scope().lockfileName()))
                 .toList();
-        return new WorkspaceTreeProjection(index, memberGraphs, packages);
+        DependencyRootProjection authoredRoots =
+                DependencyRootProjection.workspace(lockfile, memberPaths);
+        return new WorkspaceTreeProjection(index, memberGraphs, packages, authoredRoots);
     }
 
     LockDependencyIndex index() {
@@ -96,22 +101,18 @@ final class WorkspaceTreeProjection {
         return List.copyOf(edges);
     }
 
-    /** The union of every member's direct declarations, as display coordinates. */
+    /** Materialized graph roots across all members, as legacy schema display coordinates. */
     List<String> roots() {
-        TreeSet<String> roots = new TreeSet<>();
-        packages.stream()
-                .filter(LockPackage::direct)
-                .map(DependencyTreeLines::coordinate)
-                .forEach(roots::add);
-        return List.copyOf(roots);
+        return authoredRoots.graphRootCoordinates();
     }
 
-    /** The occurrences one member declares directly, in the standalone view's ordering. */
-    List<LockPackage> directPackagesFor(String member) {
-        return packages.stream()
-                .filter(LockPackage::direct)
-                .filter(lockPackage -> lockPackage.members().contains(member))
-                .toList();
+    /** The authored roots owned by one member, in canonical lane and coordinate order. */
+    List<DependencyRootProjection.Root> rootsFor(String member) {
+        return authoredRoots.rootsFor(member);
+    }
+
+    boolean direct(LockPackage lockPackage) {
+        return authoredRoots.selects(lockPackage);
     }
 
     /** One member's own graph and policy view of the collapsed lock entries. */

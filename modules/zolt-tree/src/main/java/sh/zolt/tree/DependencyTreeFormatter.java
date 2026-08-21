@@ -1,7 +1,6 @@
 package sh.zolt.tree;
 
 import sh.zolt.lockfile.LockDependencyIndex;
-import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
@@ -15,10 +14,7 @@ public final class DependencyTreeFormatter {
                 DependencyTreeLines.conflictsByPackage(lockfile),
                 DependencyTreeLines.lockView(),
                 "zolt resolve");
-        List<LockPackage> directPackages = lockfile.packages().stream()
-                .filter(LockPackage::direct)
-                .sorted(Comparator.comparing(DependencyTreeLines::coordinate))
-                .toList();
+        DependencyRootProjection roots = DependencyRootProjection.standalone(lockfile);
 
         StringBuilder output = new StringBuilder();
         output.append(config.project().group())
@@ -27,7 +23,7 @@ public final class DependencyTreeFormatter {
                 .append(':')
                 .append(config.project().version())
                 .append('\n');
-        lines.write(output, directPackages);
+        lines.writeRoots(output, roots.rootsFor("."));
         writePolicyEffects(output, lockfile);
         return output.toString();
     }

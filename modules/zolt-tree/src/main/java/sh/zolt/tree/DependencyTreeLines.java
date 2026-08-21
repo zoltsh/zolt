@@ -58,9 +58,24 @@ final class DependencyTreeLines {
         };
     }
 
-    void write(StringBuilder output, List<LockPackage> roots) {
+    void writeRoots(
+            StringBuilder output,
+            List<DependencyRootProjection.Root> roots) {
         for (int index = 0; index < roots.size(); index++) {
-            writePackage(output, roots.get(index), "", index == roots.size() - 1, List.of());
+            DependencyRootProjection.Root root = roots.get(index);
+            if (root.selected().isEmpty()) {
+                output.append(index == roots.size() - 1 ? "\\- " : "+- ")
+                        .append(root.coordinate())
+                        .append(" (").append(root.annotation()).append(")\n");
+            } else {
+                writePackage(
+                        output,
+                        root.selected().orElseThrow(),
+                        "",
+                        index == roots.size() - 1,
+                        List.of(),
+                        root.annotation());
+            }
         }
     }
 
@@ -69,9 +84,13 @@ final class DependencyTreeLines {
             LockPackage lockPackage,
             String prefix,
             boolean last,
-            List<String> ancestors) {
+            List<String> ancestors,
+            String rootAnnotation) {
         String coordinate = coordinate(lockPackage);
         output.append(prefix).append(last ? "\\- " : "+- ").append(coordinate);
+        if (!rootAnnotation.isEmpty()) {
+            output.append(" (").append(rootAnnotation).append(')');
+        }
         LockConflict conflict = conflicts.get(qualifiedKey(lockPackage));
         if (conflict != null) {
             output.append(" (conflict: selected ")
@@ -106,7 +125,8 @@ final class DependencyTreeLines {
                     dependencies.get(index),
                     childPrefix,
                     index == dependencies.size() - 1,
-                    nextAncestors);
+                    nextAncestors,
+                    "");
         }
     }
 
