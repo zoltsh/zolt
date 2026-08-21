@@ -2,11 +2,13 @@ package sh.zolt.toml.manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import sh.zolt.dependency.DependencyLane;
 import sh.zolt.manifest.authored.AuthoredDependencies;
@@ -134,8 +136,48 @@ final class ManifestDependenciesDecoderTest {
                 () -> dependencies.declarations().clear());
     }
 
+    @Test
+    void observesFirstCanonicalCollectionPresenceBeforeItsRows() {
+        AtomicInteger observations = new AtomicInteger();
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> new ManifestDependenciesDecoder().decode(
+                        ManifestSemanticTestSupport.index("""
+                                [dependencies.api]
+                                "org.example:later" = "LATEST"
+
+                                [dependencies]
+                                """),
+                        dependencies -> {
+                            assertTrue(dependencies.declarations().isEmpty());
+                            observations.incrementAndGet();
+                            throw new IllegalArgumentException("Observed dependencies.");
+                        }));
+
+        assertEquals(1, observations.get());
+        assertTrue(failure.getMessage().contains(
+                "Invalid manifest section `[dependencies]`: Observed dependencies."),
+                failure.getMessage());
+        assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+    }
+
+    @Test
+    void requiresObserverAndDoesNotObserveOmission() {
+        AtomicInteger observations = new AtomicInteger();
+        assertTrue(new ManifestDependenciesDecoder()
+                .decode(
+                        ManifestSemanticTestSupport.index(""),
+                        ignored -> observations.incrementAndGet())
+                .isEmpty());
+        assertEquals(0, observations.get());
+        assertThrows(
+                NullPointerException.class,
+                () -> new ManifestDependenciesDecoder()
+                        .decode(ManifestSemanticTestSupport.index(""), null));
+    }
+
     private static Optional<AuthoredDependencies> decode(String source) {
         return new ManifestDependenciesDecoder()
-                .decode(ManifestSemanticTestSupport.index(source));
+                .decode(ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 }

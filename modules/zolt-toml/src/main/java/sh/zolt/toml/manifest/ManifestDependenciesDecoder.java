@@ -51,17 +51,32 @@ final class ManifestDependenciesDecoder {
     private final ManifestDependencyEntryDecoder entries =
             new ManifestDependencyEntryDecoder();
 
-    Optional<AuthoredDependencies> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredDependencies> decode(
+            ManifestDecodeIndex index,
+            DependenciesPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored dependencies presence observer is required.");
         boolean present = false;
         ArrayList<AuthoredDependency> declarations = new ArrayList<>();
         AuthoredDependencies decoded = AuthoredDependencies.empty();
         for (Lane lane : LANES) {
             List<ManifestDecodeIndex.Entry> laneEntries = index.entries(lane.field());
-            present |= !laneEntries.isEmpty() || index.section(lane.section())
+            Optional<ValidatedManifestSection> section = index.section(lane.section());
+            boolean lanePresent = !laneEntries.isEmpty() || section
                     .map(ValidatedManifestSection::source)
                     .filter(ManifestShapeSource::authoredTable)
                     .isPresent();
+            if (!present && lanePresent) {
+                AuthoredDependencies observed = decoded;
+                decoded = ManifestSemanticDiagnostics.construct(
+                        section.orElseThrow(() -> new IllegalStateException(
+                                "Authored dependency lane has no retained section evidence.")),
+                        () -> {
+                            observer.present(observed);
+                            return observed;
+                        });
+            }
+            present |= lanePresent;
             for (ManifestDecodeIndex.Entry entry : laneEntries) {
                 declarations.add(entries.decode(lane.lane(), entry));
                 decoded = ManifestSemanticDiagnostics.construct(
@@ -69,6 +84,11 @@ final class ManifestDependenciesDecoder {
             }
         }
         return present ? Optional.of(decoded) : Optional.empty();
+    }
+
+    @FunctionalInterface
+    interface DependenciesPresenceObserver {
+        void present(AuthoredDependencies dependencies);
     }
 
     private record Lane(

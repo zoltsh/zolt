@@ -15,14 +15,23 @@ import sh.zolt.toml.schema.FinalManifestPaths;
 
 /** Decodes optional strict dependency constraints without resolving aliases. */
 final class ManifestDependencyConstraintsDecoder {
-    Optional<AuthoredDependencyConstraints> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredDependencyConstraints> decode(
+            ManifestDecodeIndex index,
+            ConstraintsPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(
+                observer, "Authored dependency constraints presence observer is required.");
         Optional<ValidatedManifestSection> section = index.section(
                 FinalManifestPaths.DEPENDENCY_CONSTRAINTS)
                 .filter(candidate -> candidate.source().authoredTable());
         if (section.isEmpty()) {
             return Optional.empty();
         }
+        AuthoredDependencyConstraints empty = AuthoredDependencyConstraints.empty();
+        ManifestSemanticDiagnostics.construct(section.orElseThrow(), () -> {
+            observer.present(empty);
+            return empty;
+        });
 
         var entries = index.entries(
                 FinalManifestDependencyFields.DEPENDENCY_CONSTRAINTS_ENTRY);
@@ -42,6 +51,11 @@ final class ManifestDependencyConstraintsDecoder {
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 section.orElseThrow(),
                 () -> new AuthoredDependencyConstraints(constraints)));
+    }
+
+    @FunctionalInterface
+    interface ConstraintsPresenceObserver {
+        void present(AuthoredDependencyConstraints constraints);
     }
 
     private static AuthoredDependencyConstraint constraint(

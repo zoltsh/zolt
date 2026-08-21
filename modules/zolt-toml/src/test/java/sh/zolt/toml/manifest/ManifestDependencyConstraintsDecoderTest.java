@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.DependencyConstraintSelector;
 import sh.zolt.manifest.DependencyCoordinate;
@@ -102,9 +103,47 @@ final class ManifestDependencyConstraintsDecoderTest {
                 "Unknown manifest field `dependencies.constraints.org.example:demo.kind`");
     }
 
+    @Test
+    void observesCollectionPresenceBeforeItsRows() {
+        AtomicInteger observations = new AtomicInteger();
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> new ManifestDependencyConstraintsDecoder().decode(
+                        ManifestSemanticTestSupport.index("""
+                                [dependencies.constraints]
+                                "org.example:later" = "LATEST"
+                                """),
+                        constraints -> {
+                            assertTrue(constraints.entries().isEmpty());
+                            observations.incrementAndGet();
+                            throw new IllegalArgumentException("Observed constraints.");
+                        }));
+
+        assertEquals(1, observations.get());
+        assertTrue(failure.getMessage().contains(
+                "Invalid manifest section `[dependencies.constraints]`: Observed constraints."),
+                failure.getMessage());
+        assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+    }
+
+    @Test
+    void requiresObserverAndDoesNotObserveOmission() {
+        AtomicInteger observations = new AtomicInteger();
+        assertTrue(new ManifestDependencyConstraintsDecoder()
+                .decode(
+                        ManifestSemanticTestSupport.index(""),
+                        ignored -> observations.incrementAndGet())
+                .isEmpty());
+        assertEquals(0, observations.get());
+        assertThrows(
+                NullPointerException.class,
+                () -> new ManifestDependencyConstraintsDecoder()
+                        .decode(ManifestSemanticTestSupport.index(""), null));
+    }
+
     private static Optional<AuthoredDependencyConstraints> decode(String source) {
         return new ManifestDependencyConstraintsDecoder()
-                .decode(ManifestSemanticTestSupport.index(source));
+                .decode(ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
     private static void assertFailure(String value, String path, String detail) {

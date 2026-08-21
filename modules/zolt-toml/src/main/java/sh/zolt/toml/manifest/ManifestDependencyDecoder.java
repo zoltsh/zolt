@@ -17,8 +17,10 @@ final class ManifestDependencyDecoder {
 
     Decoded decode(ManifestDecodeIndex index) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
-        Optional<AuthoredDependencies> decodedDependencies = dependencies.decode(index);
-        Optional<AuthoredDependencyConstraints> decodedConstraints = constraints.decode(index);
+        Optional<AuthoredDependencies> decodedDependencies =
+                dependencies.decode(index, ignored -> {});
+        Optional<AuthoredDependencyConstraints> decodedConstraints =
+                constraints.decode(index, ignored -> {});
         Optional<AuthoredDependencyPolicy> decodedPolicy = policy.decode(index);
         return new Decoded(decodedDependencies, decodedConstraints, decodedPolicy);
     }
