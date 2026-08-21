@@ -22,7 +22,7 @@ final class CliDependencyEditHelpSectionSurfaceTest {
                 "Add a dependency to zolt.toml and refresh zolt.lock.",
                 "Usage:",
                 "Arguments:",
-                "DEPENDENCY...",
+                "GROUP:ARTIFACT[:VERSION]",
                 "Options:",
                 "--color",
                 "--progress",
@@ -47,7 +47,7 @@ final class CliDependencyEditHelpSectionSurfaceTest {
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36mzolt add\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[36mDEPENDENCY...\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[36mGROUP:ARTIFACT[:VERSION]\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--directory\u001B[0m\u001B[36m <DIRECTORY>\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--managed\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--version-ref\u001B[0m"));
@@ -68,7 +68,7 @@ final class CliDependencyEditHelpSectionSurfaceTest {
                 "Remove a dependency and prune unused transitive packages.",
                 "Usage:",
                 "Arguments:",
-                "DEPENDENCY...",
+                "GROUP:ARTIFACT",
                 "Options:",
                 "--color",
                 "--progress",
@@ -76,8 +76,9 @@ final class CliDependencyEditHelpSectionSurfaceTest {
                 "--quiet",
                 "--help",
                 "--version",
-                "--directory");
-        assertFalse(result.stdout().contains("Resolution:"));
+                "--directory",
+                "Resolution:",
+                "--no-resolve");
     }
 
     @Test
@@ -89,16 +90,17 @@ final class CliDependencyEditHelpSectionSurfaceTest {
         assertTrue(result.stdout().contains("\u001B[1;32mArguments:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36mzolt remove\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[36mDEPENDENCY...\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[36mGROUP:ARTIFACT\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--directory\u001B[0m\u001B[36m <DIRECTORY>\u001B[0m"));
-        assertFalse(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--no-resolve\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32m--"));
         assertFalse(result.stdout().contains("\u001B[33m"));
     }
 
     @Test
-    void versionSetHelpGroupsArgumentsAndResolutionOptions() {
-        CommandResult result = execute("version", "set", "--help");
+    void versionsSetHelpGroupsArgumentsAndResolutionOptions() {
+        CommandResult result = execute("versions", "set", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
@@ -123,15 +125,15 @@ final class CliDependencyEditHelpSectionSurfaceTest {
     }
 
     @Test
-    void versionSetHelpColorsArgumentsResolutionAndOptionsWithoutWarningColor() {
-        CommandResult result = execute("--color=always", "version", "set", "--help");
+    void versionsSetHelpColorsArgumentsResolutionAndOptionsWithoutWarningColor() {
+        CommandResult result = execute("--color=always", "versions", "set", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertTrue(result.stdout().contains("\u001B[1;32mArguments:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[1;36mzolt version set\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36mzolt versions set\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[36mALIAS\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[36mVERSION\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--directory\u001B[0m\u001B[36m <DIRECTORY>\u001B[0m"));
@@ -141,8 +143,8 @@ final class CliDependencyEditHelpSectionSurfaceTest {
     }
 
     @Test
-    void versionRemoveHelpGroupsArgumentsAndResolutionOptions() {
-        CommandResult result = execute("version", "remove", "--help");
+    void versionsRemoveHelpGroupsArgumentsAndResolutionOptions() {
+        CommandResult result = execute("versions", "remove", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
@@ -166,15 +168,15 @@ final class CliDependencyEditHelpSectionSurfaceTest {
     }
 
     @Test
-    void versionRemoveHelpColorsArgumentsResolutionAndOptionsWithoutWarningColor() {
-        CommandResult result = execute("--color=always", "version", "remove", "--help");
+    void versionsRemoveHelpColorsArgumentsResolutionAndOptionsWithoutWarningColor() {
+        CommandResult result = execute("--color=always", "versions", "remove", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertTrue(result.stdout().contains("\u001B[1;32mArguments:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[1;36mzolt version remove\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36mzolt versions remove\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[36mALIAS\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--directory\u001B[0m\u001B[36m <DIRECTORY>\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--no-resolve\u001B[0m"));
@@ -183,18 +185,19 @@ final class CliDependencyEditHelpSectionSurfaceTest {
     }
 
     @Test
-    void platformAddHelpGroupsArgumentsAndResolutionOptions() {
-        CommandResult result = execute("platform", "add", "--help");
+    void platformsSetHelpGroupsArgumentsAndResolutionOptions() {
+        CommandResult result = execute("platforms", "set", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertFalse(result.stdout().contains("\u001B["));
         assertContainsInOrder(
                 result.stdout(),
-                "Add a platform BOM import to zolt.toml and refresh zolt.lock.",
+                "Set a platform in zolt.toml and refresh zolt.lock.",
                 "Usage:",
                 "Arguments:",
-                "GROUP:ARTIFACT[:VERSION]",
+                "GROUP:ARTIFACT",
+                "VERSION",
                 "Options:",
                 "--color",
                 "--progress",
@@ -209,16 +212,16 @@ final class CliDependencyEditHelpSectionSurfaceTest {
     }
 
     @Test
-    void platformAddHelpColorsArgumentsResolutionAndOptionsWithoutWarningColor() {
-        CommandResult result = execute("--color=always", "platform", "add", "--help");
+    void platformsSetHelpColorsArgumentsResolutionAndOptionsWithoutWarningColor() {
+        CommandResult result = execute("--color=always", "platforms", "set", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertTrue(result.stdout().contains("\u001B[1;32mArguments:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[1;36mzolt platform add\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[36mGROUP:ARTIFACT[:VERSION]\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36mzolt platforms set\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[36mGROUP:ARTIFACT\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--directory\u001B[0m\u001B[36m <DIRECTORY>\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--version-ref\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--no-resolve\u001B[0m"));
@@ -227,15 +230,15 @@ final class CliDependencyEditHelpSectionSurfaceTest {
     }
 
     @Test
-    void platformRemoveHelpGroupsArgumentsAndOptions() {
-        CommandResult result = execute("platform", "remove", "--help");
+    void platformsRemoveHelpGroupsArgumentsAndOptions() {
+        CommandResult result = execute("platforms", "remove", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertFalse(result.stdout().contains("\u001B["));
         assertContainsInOrder(
                 result.stdout(),
-                "Remove a platform BOM import and refresh zolt.lock.",
+                "Remove a platform and refresh zolt.lock.",
                 "Usage:",
                 "Arguments:",
                 "GROUP:ARTIFACT",
@@ -246,22 +249,24 @@ final class CliDependencyEditHelpSectionSurfaceTest {
                 "--quiet",
                 "--help",
                 "--version",
-                "--directory");
-        assertFalse(result.stdout().contains("Resolution:"));
+                "--directory",
+                "Resolution:",
+                "--no-resolve");
     }
 
     @Test
-    void platformRemoveHelpColorsArgumentsAndOptionsWithoutWarningColor() {
-        CommandResult result = execute("--color=always", "platform", "remove", "--help");
+    void platformsRemoveHelpColorsArgumentsAndOptionsWithoutWarningColor() {
+        CommandResult result = execute("--color=always", "platforms", "remove", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertTrue(result.stdout().contains("\u001B[1;32mArguments:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[1;36mzolt platform remove\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36mzolt platforms remove\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[36mGROUP:ARTIFACT\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36m--directory\u001B[0m\u001B[36m <DIRECTORY>\u001B[0m"));
-        assertFalse(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--no-resolve\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32m--"));
         assertFalse(result.stdout().contains("\u001B[33m"));
     }

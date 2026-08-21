@@ -248,7 +248,9 @@ final class CliSurfaceTest {
                 "check",
                 "add",
                 "remove",
-                "platform",
+                "platforms",
+                "versions",
+                "bom",
                 "resolve",
                 "tree",
                 "why",
@@ -284,6 +286,9 @@ final class CliSurfaceTest {
         assertEquals(commandClass("classpath"), "sh.zolt.cli.command.resolve.ClasspathCommand");
         assertEquals(commandClass("config"), "sh.zolt.cli.command.config.ConfigCommand");
         assertEquals(commandClass("version"), "sh.zolt.cli.command.dependency.VersionCommand");
+        assertEquals(commandClass("versions"), "sh.zolt.cli.command.dependency.VersionsCommand");
+        assertEquals(commandClass("platforms"), "sh.zolt.cli.command.dependency.PlatformsCommand");
+        assertEquals(commandClass("bom"), "sh.zolt.cli.command.dependency.BomCommand");
         assertEquals(commandClass("self"), "sh.zolt.cli.command.self.SelfCommand");
         assertEquals(commandClass("update"), "sh.zolt.cli.command.dependency.UpdateCommand");
         assertEquals(commandClass("native-smoke"), "sh.zolt.cli.command.nativeimage.NativeSmokeCommand");

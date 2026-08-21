@@ -11,15 +11,15 @@ import org.junit.jupiter.api.Test;
 
 final class CliCommandGroupHelpSectionSurfaceTest {
     @Test
-    void versionHelpShowsOptionsBeforeVersionCommands() {
-        CommandResult result = execute("version", "--help");
+    void versionsHelpShowsOptionsBeforeVersionCommands() {
+        CommandResult result = execute("versions", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertFalse(result.stdout().contains("\u001B["));
         assertContainsInOrder(
                 result.stdout(),
-                "Print the Zolt version.",
+                "Manage version aliases in [versions].",
                 "Usage:",
                 "Options:",
                 "--color",
@@ -35,14 +35,14 @@ final class CliCommandGroupHelpSectionSurfaceTest {
     }
 
     @Test
-    void versionHelpColorsOptionsAndCommandListWithoutWarningColor() {
-        CommandResult result = execute("--color=always", "version", "--help");
+    void versionsHelpColorsOptionsAndCommandListWithoutWarningColor() {
+        CommandResult result = execute("--color=always", "versions", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mCommands:\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[1;36mzolt version\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36mzolt versions\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36mset\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36mremove\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32m--"));
@@ -50,15 +50,15 @@ final class CliCommandGroupHelpSectionSurfaceTest {
     }
 
     @Test
-    void platformHelpShowsOptionsBeforePlatformCommands() {
-        CommandResult result = execute("platform", "--help");
+    void platformsHelpShowsOptionsBeforePlatformCommands() {
+        CommandResult result = execute("platforms", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertFalse(result.stdout().contains("\u001B["));
         assertContainsInOrder(
                 result.stdout(),
-                "Manage BOM/platform imports in zolt.toml.",
+                "Manage imported platforms in [platforms].",
                 "Usage:",
                 "Options:",
                 "--color",
@@ -68,21 +68,21 @@ final class CliCommandGroupHelpSectionSurfaceTest {
                 "--help",
                 "--version",
                 "Commands:",
-                "add",
+                "set",
                 "remove");
         assertFalse(result.stdout().contains("  Dependencies"));
     }
 
     @Test
-    void platformHelpColorsOptionsAndCommandListWithoutWarningColor() {
-        CommandResult result = execute("--color=always", "platform", "--help");
+    void platformsHelpColorsOptionsAndCommandListWithoutWarningColor() {
+        CommandResult result = execute("--color=always", "platforms", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;32mCommands:\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[1;36mzolt platform\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[1;36madd\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36mzolt platforms\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36mset\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36mremove\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32m--"));
         assertFalse(result.stdout().contains("\u001B[33m"));
