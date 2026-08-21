@@ -52,7 +52,7 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                     [repositories.test]
                     url = "%s"
                     """.formatted(repository.baseUri()));
-            writeMemberConfig(memberDir, repository.baseUri().toString(), "com.example:app");
+            writeMemberConfig(memberDir, "com.example:app");
             Path memberSource = memberDir.resolve("src/main/java/com/example/core/Core.java");
             Files.createDirectories(memberSource.getParent());
             Files.writeString(memberSource, """
@@ -74,7 +74,7 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                     "--cwd", memberDir.toString(),
                     "--cache-root", cacheRoot.toString());
             // Change a member input so the member-local zolt.lock is now stale.
-            writeMemberConfig(memberDir, repository.baseUri().toString(), "com.example:extra");
+            writeMemberConfig(memberDir, "com.example:extra");
 
             CommandResult result = execute(
                     "build",
@@ -116,7 +116,7 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                     """);
             Path projectDir = tempDir.resolve("standalone");
             Files.createDirectories(projectDir);
-            writeMemberConfig(projectDir, repository.baseUri().toString(), "com.example:app");
+            writeStandaloneConfig(projectDir, repository.baseUri().toString(), "com.example:app");
             Path mainSource = projectDir.resolve("src/main/java/com/example/core/Core.java");
             Files.createDirectories(mainSource.getParent());
             Files.writeString(mainSource, """
@@ -131,7 +131,7 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                     "resolve",
                     "--cwd", projectDir.toString(),
                     "--cache-root", cacheRoot.toString());
-            writeMemberConfig(projectDir, repository.baseUri().toString(), "com.example:extra");
+            writeStandaloneConfig(projectDir, repository.baseUri().toString(), "com.example:extra");
 
             CommandResult result = execute(
                     "build",
@@ -149,9 +149,10 @@ final class WorkspaceMemberDirectoryStaleLockTest {
         }
     }
 
-    private static void writeMemberConfig(Path memberDir, String repositoryUrl, String dependency)
+    /** The same project standing alone, so it owns its repository universe. */
+    private static void writeStandaloneConfig(Path projectDir, String repositoryUrl, String dependency)
             throws IOException {
-        Files.writeString(memberDir.resolve("zolt.toml"), CliTestSupport.memberConfig("core") + """
+        Files.writeString(projectDir.resolve("zolt.toml"), CliTestSupport.memberConfig("core") + """
 
                 [repositories]
                 central = false
@@ -162,5 +163,14 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                 [dependencies]
                 "%s" = "1.0.0"
                 """.formatted(repositoryUrl, dependency));
+    }
+
+    /** The workspace root owns the repository universe, so a member declares none (design 8.7). */
+    private static void writeMemberConfig(Path memberDir, String dependency) throws IOException {
+        Files.writeString(memberDir.resolve("zolt.toml"), CliTestSupport.memberConfig("core") + """
+
+                [dependencies]
+                "%s" = "1.0.0"
+                """.formatted(dependency));
     }
 }
