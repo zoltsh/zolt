@@ -63,11 +63,11 @@ public final class FinalManifestPaths {
     public static final ManifestPath FRAMEWORK_SPRING_BOOT =
             ManifestPath.of("framework", "spring-boot");
     public static final ManifestPath NATIVE = ManifestPath.of("native");
-    static final ManifestPath PUBLISH = ManifestPath.of("publish");
-    static final ManifestPath PUBLISH_REPOSITORIES = PUBLISH.child("repositories");
-    static final ManifestPath PUBLISH_REPOSITORY = PUBLISH_REPOSITORIES.child("<id>");
-    static final ManifestPath PUBLISH_SIGNING = PUBLISH.child("signing");
-    static final ManifestPath PUBLISH_CENTRAL = PUBLISH.child("central");
+    public static final ManifestPath PUBLISH = ManifestPath.of("publish");
+    public static final ManifestPath PUBLISH_REPOSITORIES = PUBLISH.child("repositories");
+    public static final ManifestPath PUBLISH_REPOSITORY = PUBLISH_REPOSITORIES.child("<id>");
+    public static final ManifestPath PUBLISH_SIGNING = PUBLISH.child("signing");
+    public static final ManifestPath PUBLISH_CENTRAL = PUBLISH.child("central");
     static final ManifestPath TASKS = ManifestPath.of("tasks");
     static final ManifestPath TASK = TASKS.child("<id>");
     static final ManifestPath ALIASES = ManifestPath.of("aliases");

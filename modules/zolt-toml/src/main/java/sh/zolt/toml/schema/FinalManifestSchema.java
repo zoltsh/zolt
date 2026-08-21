@@ -42,18 +42,8 @@ public final class FinalManifestSchema {
         fields.addAll(FinalManifestTestFields.fields());
         fields.addAll(FinalManifestCoverageFields.fields());
         fields.addAll(FinalManifestPackagingFields.fields());
+        fields.addAll(FinalManifestPublishingFields.fields());
         fields.addAll(List.of(
-                field(PUBLISH, "release", ManifestValueKind.STRING, 8_001),
-                field(PUBLISH, "snapshot", ManifestValueKind.STRING, 8_002),
-                field(PUBLISH_REPOSITORY, "url", ManifestValueKind.STRING, 8_101),
-                field(PUBLISH_REPOSITORY, "credentials", ManifestValueKind.STRING, 8_102),
-                field(PUBLISH_SIGNING, "method", ManifestValueKind.STRING, 8_201),
-                field(PUBLISH_SIGNING, "keyId", ManifestValueKind.STRING, 8_202),
-                field(PUBLISH_SIGNING, "passphraseEnv", ManifestValueKind.STRING, 8_203),
-                field(PUBLISH_CENTRAL, "tokenEnv", ManifestValueKind.STRING, 8_301),
-                field(PUBLISH_CENTRAL, "mode", ManifestValueKind.STRING, 8_302),
-                field(PUBLISH_CENTRAL, "name", ManifestValueKind.STRING, 8_303),
-                field(PUBLISH_CENTRAL, "url", ManifestValueKind.STRING, 8_304),
                 field(TASK, "description", ManifestValueKind.STRING, 9_001),
                 field(TASK, "run", ManifestValueKind.STRING_ARRAY, 9_002),
                 field(TASK, "cwd", ManifestValueKind.STRING, 9_003),

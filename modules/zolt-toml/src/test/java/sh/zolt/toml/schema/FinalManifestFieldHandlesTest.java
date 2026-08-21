@@ -333,15 +333,33 @@ final class FinalManifestFieldHandlesTest {
     }
 
     @Test
+    void publishingHandlesAreTheExactRegisteredDescriptors() {
+        assertCatalog(
+                FinalManifestPublishingFields.fields(),
+                List.of(
+                        field("publish.release", 8_001),
+                        field("publish.snapshot", 8_002),
+                        field("publish.repositories.<id>.url", 8_101),
+                        field("publish.repositories.<id>.credentials", 8_102),
+                        field("publish.signing.method", 8_201),
+                        field("publish.signing.keyId", 8_202),
+                        field("publish.signing.passphraseEnv", 8_203),
+                        field("publish.central.tokenEnv", 8_301),
+                        field("publish.central.mode", 8_302),
+                        field("publish.central.name", 8_303),
+                        field("publish.central.url", 8_304)));
+    }
+
+    @Test
     void handleCatalogsCoverTheCompleteRegisteredPrefixWithoutDuplicates() {
         List<ManifestField> handles = handles();
         List<ManifestField> registered = registry.fields().stream()
-                .filter(field -> field.canonicalOrder() < 8_000)
+                .filter(field -> field.canonicalOrder() < 9_000)
                 .toList();
 
-        assertEquals(213, handles.size());
-        assertEquals(213, handles.stream().map(ManifestField::path).distinct().count());
-        assertEquals(213, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
+        assertEquals(224, handles.size());
+        assertEquals(224, handles.stream().map(ManifestField::path).distinct().count());
+        assertEquals(224, handles.stream().map(ManifestField::canonicalOrder).distinct().count());
         assertEquals(handles, registered);
         for (int index = 0; index < handles.size(); index++) {
             assertSame(handles.get(index), registered.get(index));
@@ -375,6 +393,7 @@ final class FinalManifestFieldHandlesTest {
         handles.addAll(FinalManifestTestFields.fields());
         handles.addAll(FinalManifestCoverageFields.fields());
         handles.addAll(FinalManifestPackagingFields.fields());
+        handles.addAll(FinalManifestPublishingFields.fields());
         return List.copyOf(handles);
     }
 
