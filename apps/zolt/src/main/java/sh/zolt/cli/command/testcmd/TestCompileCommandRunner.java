@@ -14,7 +14,7 @@ import sh.zolt.cli.command.build.CommandBuildAttributes;
 import sh.zolt.cli.console.ProgressWriter;
 import sh.zolt.perf.TimingRecorder;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
@@ -25,7 +25,7 @@ import java.util.List;
 import picocli.CommandLine.Model.CommandSpec;
 
 final class TestCompileCommandRunner {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final WorkspaceTestService workspaceTestService;
     private final TestRunServiceFactory testRunServiceFactory;
     private final CommandLockfiles lockfiles;
@@ -33,13 +33,13 @@ final class TestCompileCommandRunner {
     private final CommandSpec spec;
 
     TestCompileCommandRunner(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             WorkspaceTestService workspaceTestService,
             TestRunServiceFactory testRunServiceFactory,
             CommandLockfiles lockfiles,
             CommandToolchainOptions toolchainOptions,
             CommandSpec spec) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.workspaceTestService = workspaceTestService;
         this.testRunServiceFactory = testRunServiceFactory;
         this.lockfiles = lockfiles;
@@ -113,7 +113,7 @@ final class TestCompileCommandRunner {
             ProgressWriter progress) {
         ProjectConfig config = timings.measure(
                 "config read",
-                () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                () -> projectLoader.load(projectRoot));
         var compileChecker = toolchainOptions.jdkChecker(projectRoot, config, "test");
         TestRunService projectTestRunService = testRunServiceFactory.create(
                         compileChecker,

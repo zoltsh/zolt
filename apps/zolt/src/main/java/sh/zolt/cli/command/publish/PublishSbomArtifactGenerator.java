@@ -14,7 +14,7 @@ import sh.zolt.sbom.LicenseIndex;
 import sh.zolt.sbom.LockSbomAssembler;
 import sh.zolt.sbom.SbomModel;
 import sh.zolt.sbom.SbomScopeSelection;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomGenerator;
 
 /**
@@ -24,7 +24,7 @@ import sh.zolt.workspace.publish.WorkspaceMemberSbomGenerator;
  * byte-reproducible (components, hashes, edges, and the config-authoritative root license).
  */
 final class PublishSbomArtifactGenerator {
-    private final ZoltTomlParser tomlParser = new ZoltTomlParser();
+    private final ManifestProjectLoader projectLoader = new ManifestProjectLoader();
     private final ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
     private final LockSbomAssembler assembler = new LockSbomAssembler();
     private final CycloneDxSbomWriter writer = new CycloneDxSbomWriter();
@@ -33,7 +33,7 @@ final class PublishSbomArtifactGenerator {
         if (!enabled) {
             return Optional.empty();
         }
-        ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+        ProjectConfig config = projectLoader.load(projectRoot);
         ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
         return Optional.of(write(projectRoot, config, lockfile, toolVersion));
     }

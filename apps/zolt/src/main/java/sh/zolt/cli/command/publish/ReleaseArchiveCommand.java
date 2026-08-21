@@ -13,7 +13,7 @@ import sh.zolt.release.archive.ReleaseArchiveResult;
 import sh.zolt.release.archive.ReleaseArchiveService;
 import sh.zolt.release.ReleaseTarget;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -26,7 +26,7 @@ import picocli.CommandLine.Spec;
         description = "Assemble a release archive from a native binary.",
         hidden = true)
 public final class ReleaseArchiveCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ReleaseArchiveService releaseArchiveService;
 
     @Option(names = "--target", description = "Release target. Supported: macos-arm64, macos-x64, linux-arm64, linux-x64, windows-x64.")
@@ -45,11 +45,11 @@ public final class ReleaseArchiveCommand implements Runnable {
     private CommandSpec spec;
 
     public ReleaseArchiveCommand() {
-        this(new ZoltTomlParser(), new ReleaseArchiveService(CommandBuildProvenance.source()));
+        this(new ManifestProjectLoader(), new ReleaseArchiveService(CommandBuildProvenance.source()));
     }
 
-    ReleaseArchiveCommand(ZoltTomlParser tomlParser, ReleaseArchiveService releaseArchiveService) {
-        this.tomlParser = tomlParser;
+    ReleaseArchiveCommand(ManifestProjectLoader projectLoader, ReleaseArchiveService releaseArchiveService) {
+        this.projectLoader = projectLoader;
         this.releaseArchiveService = releaseArchiveService;
     }
 
@@ -59,7 +59,7 @@ public final class ReleaseArchiveCommand implements Runnable {
         Path projectRoot = projectDirectory.path();
         try {
             ProjectConfig config = ProjectVersionOverride.apply(
-                    tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                    projectLoader.load(projectRoot));
             ReleaseTarget releaseTarget = target == null ? ReleaseTarget.current() : ReleaseTarget.fromId(target);
             Path nativeBinary = binary == null
                     ? defaultNativeBinary(config, releaseTarget)

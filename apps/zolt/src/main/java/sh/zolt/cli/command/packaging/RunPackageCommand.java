@@ -29,7 +29,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.WorkspaceConfigException;
@@ -48,7 +48,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "run-package", description = "Run a packaged thin jar with runtime dependencies.")
 public final class RunPackageCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final RunPackageService runPackageService;
     private final WorkspaceRunPackageService workspaceRunPackageService;
     private final CommandLockfiles lockfiles;
@@ -90,28 +90,28 @@ public final class RunPackageCommand implements Runnable {
 
     public RunPackageCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 CommandFrameworkServices.runPackageCommandServices(),
                 new CommandLockfiles());
     }
 
     RunPackageCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             CommandRunPackageServices runPackageServices,
             CommandLockfiles lockfiles) {
         this(
-                tomlParser,
+                projectLoader,
                 runPackageServices.runPackageService(),
                 runPackageServices.workspaceRunPackageService(),
                 lockfiles);
     }
 
     RunPackageCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             RunPackageService runPackageService,
             WorkspaceRunPackageService workspaceRunPackageService,
             CommandLockfiles lockfiles) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.runPackageService = runPackageService;
         this.workspaceRunPackageService = workspaceRunPackageService;
         this.lockfiles = lockfiles;
@@ -226,7 +226,7 @@ public final class RunPackageCommand implements Runnable {
         ProjectConfig config = PackageCommandModes.withPackageModeOverride(
                 timings.measure(
                         "config read",
-                        () -> tomlParser.parse(projectRoot.resolve("zolt.toml"))),
+                        () -> projectLoader.load(projectRoot)),
                 packageModeOverride);
         var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
         RunPackageResult result = timings.measure(

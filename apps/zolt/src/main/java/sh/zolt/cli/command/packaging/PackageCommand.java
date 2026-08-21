@@ -29,7 +29,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
@@ -48,7 +48,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "package", description = "Package compiled classes into a jar.")
 public final class PackageCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final PackagePlanService packagePlanService;
     private final PackagePlanFormatter packagePlanFormatter;
     private final PackageService packageService;
@@ -101,7 +101,7 @@ public final class PackageCommand implements Runnable {
 
     public PackageCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new PackagePlanFormatter(),
                 CommandFrameworkServices.packageCommandServices(),
                 new CommandPackageResultWriter(),
@@ -109,13 +109,13 @@ public final class PackageCommand implements Runnable {
     }
 
     PackageCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             PackagePlanFormatter packagePlanFormatter,
             CommandPackageServices packageServices,
             CommandPackageResultWriter packageResultWriter,
             CommandLockfiles lockfiles) {
         this(
-                tomlParser,
+                projectLoader,
                 packageServices.packagePlanService(),
                 packagePlanFormatter,
                 packageServices.packageService(),
@@ -126,7 +126,7 @@ public final class PackageCommand implements Runnable {
     }
 
     PackageCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             PackagePlanService packagePlanService,
             PackagePlanFormatter packagePlanFormatter,
             PackageService packageService,
@@ -134,7 +134,7 @@ public final class PackageCommand implements Runnable {
             WorkspacePackageService workspacePackageService,
             CommandLockfiles lockfiles) {
         this(
-                tomlParser,
+                projectLoader,
                 packagePlanService,
                 packagePlanFormatter,
                 packageService,
@@ -145,7 +145,7 @@ public final class PackageCommand implements Runnable {
     }
 
     PackageCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             PackagePlanService packagePlanService,
             PackagePlanFormatter packagePlanFormatter,
             PackageService packageService,
@@ -153,7 +153,7 @@ public final class PackageCommand implements Runnable {
             WorkspacePackageService workspacePackageService,
             CommandPackageResultWriter packageResultWriter,
             CommandLockfiles lockfiles) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.packagePlanService = packagePlanService;
         this.packagePlanFormatter = packagePlanFormatter;
         this.packageService = packageService;
@@ -264,7 +264,7 @@ public final class PackageCommand implements Runnable {
         ProjectConfig config = PackageCommandModes.withPackageModeOverride(
                 timings.measure(
                         "config read",
-                        () -> tomlParser.parse(projectRoot.resolve("zolt.toml"))),
+                        () -> projectLoader.load(projectRoot)),
                 packageModeOverride);
         if (!planOnly) {
             packageService.preparePackageToolingIfNeeded(projectRoot, config, cacheRoot);

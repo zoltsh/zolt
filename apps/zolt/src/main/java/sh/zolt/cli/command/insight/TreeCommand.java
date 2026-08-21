@@ -12,7 +12,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.tree.DependencyJsonFormatter;
 import sh.zolt.tree.DependencyTreeFormatter;
 import sh.zolt.tree.WorkspaceDependencyJsonFormatter;
@@ -34,7 +34,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "tree", description = "Display the resolved dependency graph.")
 public final class TreeCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ZoltLockfileReader lockfileReader;
     private final DependencyJsonFormatter jsonFormatter;
     private final DependencyTreeFormatter treeFormatter;
@@ -64,18 +64,18 @@ public final class TreeCommand implements Runnable {
 
     public TreeCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new ZoltLockfileReader(),
                 new DependencyJsonFormatter(),
                 new DependencyTreeFormatter());
     }
 
     TreeCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ZoltLockfileReader lockfileReader,
             DependencyJsonFormatter jsonFormatter,
             DependencyTreeFormatter treeFormatter) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.lockfileReader = lockfileReader;
         this.jsonFormatter = jsonFormatter;
         this.treeFormatter = treeFormatter;
@@ -96,7 +96,7 @@ public final class TreeCommand implements Runnable {
 
     private String formatProject() {
         Path projectRoot = projectDirectory.path();
-        ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+        ProjectConfig config = projectLoader.load(projectRoot);
         ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
         return format == Format.JSON
                 ? jsonFormatter.tree(config, lockfile)

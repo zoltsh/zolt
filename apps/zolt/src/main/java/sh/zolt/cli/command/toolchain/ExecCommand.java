@@ -13,7 +13,7 @@ import sh.zolt.process.ProcessSupervisor;
 import sh.zolt.process.SupervisedProcessResult;
 import sh.zolt.process.SupervisedProcessSpec;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.toolchain.JavaToolchainEnvironment;
 import sh.zolt.toolchain.JavaToolchainExecutionService;
 import sh.zolt.toolchain.ToolchainConfigReader;
@@ -36,7 +36,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "exec", description = "Run a command inside the resolved Java toolchain.")
 public final class ExecCommand implements java.util.concurrent.Callable<Integer> {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ToolchainConfigReader toolchainConfigReader;
     private final UserGlobalConfigParser globalConfigParser;
     private final JavaToolchainExecutionService toolchains;
@@ -68,7 +68,7 @@ public final class ExecCommand implements java.util.concurrent.Callable<Integer>
 
     public ExecCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new ToolchainConfigReader(),
                 new UserGlobalConfigParser(),
                 new JavaToolchainExecutionService(),
@@ -76,12 +76,12 @@ public final class ExecCommand implements java.util.concurrent.Callable<Integer>
     }
 
     ExecCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ToolchainConfigReader toolchainConfigReader,
             UserGlobalConfigParser globalConfigParser,
             JavaToolchainExecutionService toolchains,
             ProcessLauncher processLauncher) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.toolchainConfigReader = toolchainConfigReader;
         this.globalConfigParser = globalConfigParser;
         this.toolchains = toolchains;
@@ -132,7 +132,7 @@ public final class ExecCommand implements java.util.concurrent.Callable<Integer>
                     "Run `zolt toolchain status` for details, then `zolt toolchain sync`, or choose a project with a usable Java toolchain.");
         }
         ProjectConfig config = ProjectVersionOverride.apply(
-                tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                projectLoader.load(projectRoot));
         return toolchains.environment(
                 projectRoot,
                 config,

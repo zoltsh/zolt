@@ -15,6 +15,7 @@ import sh.zolt.publish.PublishDryRunService;
 import sh.zolt.quality.QualityCheckService;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService;
@@ -38,14 +39,14 @@ public final class CommandServiceBundles {
     }
 
     public record CommandCoverageServices(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ResolveService resolveService,
             CoverageService coverageService,
             WorkspaceCoverageService workspaceCoverageService,
             CoverageServiceFactory coverageServiceFactory,
             TestRunServiceFactory testRunServiceFactory) {
         public CommandCoverageServices {
-            Objects.requireNonNull(tomlParser, "tomlParser");
+            Objects.requireNonNull(projectLoader, "projectLoader");
             Objects.requireNonNull(resolveService, "resolveService");
             Objects.requireNonNull(coverageService, "coverageService");
             Objects.requireNonNull(workspaceCoverageService, "workspaceCoverageService");
@@ -55,11 +56,11 @@ public final class CommandServiceBundles {
     }
 
     public record CommandNativeServices(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             NativeBuildService nativeBuildService,
             WorkspaceNativeBuildService workspaceNativeBuildService) {
         public CommandNativeServices {
-            Objects.requireNonNull(tomlParser, "tomlParser");
+            Objects.requireNonNull(projectLoader, "projectLoader");
             Objects.requireNonNull(nativeBuildService, "nativeBuildService");
             Objects.requireNonNull(workspaceNativeBuildService, "workspaceNativeBuildService");
         }

@@ -12,7 +12,7 @@ import sh.zolt.policy.DependencyPolicyReportFormatter;
 import sh.zolt.policy.DependencyPolicyReportService;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -22,7 +22,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "policy", description = "Show dependency baseline and policy diagnostics.")
 public final class PolicyCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ZoltLockfileReader lockfileReader;
     private final DependencyPolicyReportService reportService;
     private final DependencyPolicyReportFormatter reportFormatter;
@@ -43,18 +43,18 @@ public final class PolicyCommand implements Runnable {
 
     public PolicyCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new ZoltLockfileReader(),
                 new DependencyPolicyReportService(),
                 new DependencyPolicyReportFormatter());
     }
 
     PolicyCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ZoltLockfileReader lockfileReader,
             DependencyPolicyReportService reportService,
             DependencyPolicyReportFormatter reportFormatter) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.lockfileReader = lockfileReader;
         this.reportService = reportService;
         this.reportFormatter = reportFormatter;
@@ -64,7 +64,7 @@ public final class PolicyCommand implements Runnable {
     public void run() {
         try {
             Path projectRoot = projectDirectory.path();
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ProjectConfig config = projectLoader.load(projectRoot);
             ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
             DependencyPolicyReport report = reportService.report(
                     projectRoot,

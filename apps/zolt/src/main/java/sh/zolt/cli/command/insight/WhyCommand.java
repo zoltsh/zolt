@@ -12,7 +12,7 @@ import sh.zolt.maven.CoordinateParseException;
 import sh.zolt.maven.CoordinateParser;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.tree.DependencyJsonFormatter;
 import sh.zolt.tree.DependencyWhyException;
 import sh.zolt.tree.DependencyWhyFormatter;
@@ -27,7 +27,7 @@ import picocli.CommandLine.Spec;
 @Command(name = "why", description = "Explain why a package is present.")
 public final class WhyCommand implements Runnable {
     private final CoordinateParser coordinateParser;
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ZoltLockfileReader lockfileReader;
     private final DependencyJsonFormatter jsonFormatter;
     private final DependencyWhyFormatter whyFormatter;
@@ -52,7 +52,7 @@ public final class WhyCommand implements Runnable {
     public WhyCommand() {
         this(
                 new CoordinateParser(),
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new ZoltLockfileReader(),
                 new DependencyJsonFormatter(),
                 new DependencyWhyFormatter());
@@ -60,12 +60,12 @@ public final class WhyCommand implements Runnable {
 
     WhyCommand(
             CoordinateParser coordinateParser,
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ZoltLockfileReader lockfileReader,
             DependencyJsonFormatter jsonFormatter,
             DependencyWhyFormatter whyFormatter) {
         this.coordinateParser = coordinateParser;
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.lockfileReader = lockfileReader;
         this.jsonFormatter = jsonFormatter;
         this.whyFormatter = whyFormatter;
@@ -76,7 +76,7 @@ public final class WhyCommand implements Runnable {
         try {
             Path projectRoot = projectDirectory.path();
             Coordinate coordinate = coordinateParser.parse(packageId);
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ProjectConfig config = projectLoader.load(projectRoot);
             ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
             PackageId target = new PackageId(coordinate.groupId(), coordinate.artifactId());
             String output = format == Format.JSON

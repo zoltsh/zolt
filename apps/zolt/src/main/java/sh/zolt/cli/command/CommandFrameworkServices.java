@@ -26,6 +26,7 @@ import sh.zolt.quarkus.testworker.QuarkusFrameworkTestRunner;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService;
@@ -228,7 +229,7 @@ public final class CommandFrameworkServices {
 
     public static CommandNativeServices nativeCommandServices() {
         return new CommandNativeServices(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new NativeBuildService(provenanceSource()),
                 workspaceNativeBuildService());
     }
@@ -247,7 +248,7 @@ public final class CommandFrameworkServices {
                 CommandWorkspaceTestRunServices.persistentFactory(
                         testFrameworkServices);
         return new CommandCoverageServices(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 resolveService,
                 new CoverageService(
                         testRunService(testFrameworkServices),

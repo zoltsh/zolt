@@ -11,7 +11,7 @@ import sh.zolt.release.verification.ReleaseVerificationException;
 import sh.zolt.release.verification.ReleaseVerificationResult;
 import sh.zolt.release.verification.ReleaseVerificationService;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import java.util.List;
 import picocli.CommandLine.Command;
@@ -26,7 +26,7 @@ import picocli.CommandLine.Spec;
         description = "Verify release archives by unpacking and smoking the binary.",
         hidden = true)
 public final class ReleaseVerifyCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ReleaseVerificationService releaseVerificationService;
 
     @Parameters(arity = "1..*", paramLabel = "ARCHIVE", description = "Release archive path to verify.")
@@ -42,11 +42,11 @@ public final class ReleaseVerifyCommand implements Runnable {
     private CommandSpec spec;
 
     public ReleaseVerifyCommand() {
-        this(new ZoltTomlParser(), new ReleaseVerificationService());
+        this(new ManifestProjectLoader(), new ReleaseVerificationService());
     }
 
-    ReleaseVerifyCommand(ZoltTomlParser tomlParser, ReleaseVerificationService releaseVerificationService) {
-        this.tomlParser = tomlParser;
+    ReleaseVerifyCommand(ManifestProjectLoader projectLoader, ReleaseVerificationService releaseVerificationService) {
+        this.projectLoader = projectLoader;
         this.releaseVerificationService = releaseVerificationService;
     }
 
@@ -56,7 +56,7 @@ public final class ReleaseVerifyCommand implements Runnable {
         Path projectRoot = projectDirectory.path();
         try {
             ProjectConfig config = ProjectVersionOverride.apply(
-                    tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                    projectLoader.load(projectRoot));
             List<Path> resolvedArchives = archives.stream()
                     .map(path -> projectRoot.resolve(path).normalize())
                     .toList();

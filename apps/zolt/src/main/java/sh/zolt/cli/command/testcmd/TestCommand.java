@@ -31,7 +31,7 @@ import sh.zolt.test.TestSelectionException;
 import sh.zolt.test.shard.TestShardException;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.*;
 import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import sh.zolt.workspace.WorkspaceConfigException;
@@ -47,7 +47,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "test", description = "Compile and run tests, starting with JUnit support.", subcommands = {TestPlanCommand.class})
 public final class TestCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final TestRunService testRunService;
     private final WorkspaceTestService workspaceTestService;
     private final CommandServiceBundles.TestRunServiceFactory testRunServiceFactory;
@@ -122,15 +122,15 @@ public final class TestCommand implements Runnable {
     private CommandSpec spec;
 
     public TestCommand() {
-        this(new ZoltTomlParser(), CommandFrameworkServices.testCommandServices(), new CommandLockfiles());
+        this(new ManifestProjectLoader(), CommandFrameworkServices.testCommandServices(), new CommandLockfiles());
     }
 
     TestCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             CommandTestServices testServices,
             CommandLockfiles lockfiles) {
         this(
-                tomlParser,
+                projectLoader,
                 testServices.testRunService(),
                 testServices.workspaceTestService(),
                 testServices.testRunServiceFactory(),
@@ -138,12 +138,12 @@ public final class TestCommand implements Runnable {
     }
 
     TestCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             TestRunService testRunService,
             WorkspaceTestService workspaceTestService,
             CommandServiceBundles.TestRunServiceFactory testRunServiceFactory,
             CommandLockfiles lockfiles) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.testRunService = testRunService;
         this.workspaceTestService = workspaceTestService;
         this.testRunServiceFactory = testRunServiceFactory;
@@ -270,7 +270,7 @@ public final class TestCommand implements Runnable {
             TestCommandRequest request) {
         ProjectConfig config = timings.measure(
                 "config read",
-                () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                () -> projectLoader.load(projectRoot));
         var compileChecker = toolchainOptions.jdkChecker(projectRoot, config, "test");
         TestRunService projectTestRunService =
                 testRunServiceFactory.create(
@@ -342,6 +342,6 @@ public final class TestCommand implements Runnable {
 
     private TestCompileCommandRunner compileRunner() {
         return new TestCompileCommandRunner(
-                tomlParser, workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec);
+                projectLoader, workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec);
     }
 }

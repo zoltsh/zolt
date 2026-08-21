@@ -16,7 +16,7 @@ import sh.zolt.toolchain.TestRuntimeToolchainResolver;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -28,7 +28,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "plan", description = "Show the typed Zolt command plan without executing it.")
 public final class PlanCommand implements Callable<Integer> {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final BuildPlanService buildPlanService;
     private final BuildPlanFormatter buildPlanFormatter;
 
@@ -56,14 +56,14 @@ public final class PlanCommand implements Callable<Integer> {
     private CommandSpec spec;
 
     public PlanCommand() {
-        this(new ZoltTomlParser(), new BuildPlanService(), new BuildPlanFormatter());
+        this(new ManifestProjectLoader(), new BuildPlanService(), new BuildPlanFormatter());
     }
 
     PlanCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             BuildPlanService buildPlanService,
             BuildPlanFormatter buildPlanFormatter) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.buildPlanService = buildPlanService;
         this.buildPlanFormatter = buildPlanFormatter;
     }
@@ -72,7 +72,7 @@ public final class PlanCommand implements Callable<Integer> {
     public Integer call() {
         try {
             Path projectRoot = projectDirectory.path();
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ProjectConfig config = projectLoader.load(projectRoot);
             TestReportSettings reportSettings = TestReportSettings.reportsDirectory(reportsDir);
             BuildPlan plan = buildPlanService.plan(
                     projectRoot,

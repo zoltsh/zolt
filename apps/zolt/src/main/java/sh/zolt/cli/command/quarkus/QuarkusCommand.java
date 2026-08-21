@@ -20,7 +20,7 @@ import sh.zolt.quarkus.testplan.QuarkusTestPlan;
 import sh.zolt.quarkus.testplan.QuarkusTestPlanFormatter;
 import sh.zolt.quarkus.testplan.QuarkusTestPlanService;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import java.util.Map;
 import picocli.CommandLine.Command;
@@ -47,7 +47,7 @@ public final class QuarkusCommand implements Runnable {
 
     @Command(name = "plan", description = "Print the Quarkus augmentation input plan.")
     public static final class PlanCommand implements Runnable {
-        private final ZoltTomlParser tomlParser;
+        private final ManifestProjectLoader projectLoader;
         private final QuarkusPlanService quarkusPlanService;
         private final QuarkusPlanFormatter quarkusPlanFormatter;
         private final QuarkusAugmentationRequestFactory augmentationRequestFactory;
@@ -66,18 +66,18 @@ public final class QuarkusCommand implements Runnable {
 
         public PlanCommand() {
             this(
-                    new ZoltTomlParser(),
+                    new ManifestProjectLoader(),
                     new QuarkusPlanService(),
                     new QuarkusPlanFormatter(),
                     new QuarkusAugmentationRequestFactory());
         }
 
         PlanCommand(
-                ZoltTomlParser tomlParser,
+                ManifestProjectLoader projectLoader,
                 QuarkusPlanService quarkusPlanService,
                 QuarkusPlanFormatter quarkusPlanFormatter,
                 QuarkusAugmentationRequestFactory augmentationRequestFactory) {
-            this.tomlParser = tomlParser;
+            this.projectLoader = projectLoader;
             this.quarkusPlanService = quarkusPlanService;
             this.quarkusPlanFormatter = quarkusPlanFormatter;
             this.augmentationRequestFactory = augmentationRequestFactory;
@@ -90,7 +90,7 @@ public final class QuarkusCommand implements Runnable {
             try {
                 ProjectConfig config = timings.measure(
                         "config read",
-                        () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                        () -> projectLoader.load(projectRoot));
                 QuarkusPlan plan = timings.measure(
                         "quarkus plan",
                         () -> quarkusPlanService.plan(projectRoot, config, cacheRoot),
@@ -114,7 +114,7 @@ public final class QuarkusCommand implements Runnable {
             name = "test-plan",
             description = "Print the Quarkus test bootstrap plan.")
     public static final class TestPlanCommand implements Runnable {
-        private final ZoltTomlParser tomlParser;
+        private final ManifestProjectLoader projectLoader;
         private final QuarkusTestPlanService quarkusTestPlanService;
         private final QuarkusTestPlanFormatter quarkusTestPlanFormatter;
 
@@ -125,14 +125,14 @@ public final class QuarkusCommand implements Runnable {
         private CommandSpec spec;
 
         public TestPlanCommand() {
-            this(new ZoltTomlParser(), new QuarkusTestPlanService(), new QuarkusTestPlanFormatter());
+            this(new ManifestProjectLoader(), new QuarkusTestPlanService(), new QuarkusTestPlanFormatter());
         }
 
         TestPlanCommand(
-                ZoltTomlParser tomlParser,
+                ManifestProjectLoader projectLoader,
                 QuarkusTestPlanService quarkusTestPlanService,
                 QuarkusTestPlanFormatter quarkusTestPlanFormatter) {
-            this.tomlParser = tomlParser;
+            this.projectLoader = projectLoader;
             this.quarkusTestPlanService = quarkusTestPlanService;
             this.quarkusTestPlanFormatter = quarkusTestPlanFormatter;
         }
@@ -141,7 +141,7 @@ public final class QuarkusCommand implements Runnable {
         public void run() {
             try {
                 Path projectRoot = projectDirectory.path();
-                ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+                ProjectConfig config = projectLoader.load(projectRoot);
                 QuarkusTestPlan plan = quarkusTestPlanService.plan(projectRoot, config);
                 CommandOutput.printAndFlush(spec, quarkusTestPlanFormatter.format(plan));
             } catch (QuarkusPlanException | ZoltConfigException exception) {

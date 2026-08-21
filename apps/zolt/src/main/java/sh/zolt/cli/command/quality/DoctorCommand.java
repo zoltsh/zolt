@@ -19,7 +19,7 @@ import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +40,7 @@ public final class DoctorCommand implements Runnable {
      */
     private static final String ENVIRONMENT_JAVA_BASELINE = "21";
 
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final SelfHostingCheckService selfHostingCheckService;
     private final JavaToolchainStatusService toolchainStatusService;
 
@@ -55,16 +55,16 @@ public final class DoctorCommand implements Runnable {
 
     public DoctorCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new SelfHostingCheckService(),
                 new JavaToolchainStatusService());
     }
 
     DoctorCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             SelfHostingCheckService selfHostingCheckService,
             JavaToolchainStatusService toolchainStatusService) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.selfHostingCheckService = selfHostingCheckService;
         this.toolchainStatusService = toolchainStatusService;
     }
@@ -83,7 +83,7 @@ public final class DoctorCommand implements Runnable {
                 checkEnvironment(projectRoot);
                 return;
             }
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ProjectConfig config = projectLoader.load(projectRoot);
             boolean ok = printProjectJdkStatus(projectRoot, config);
             Optional<TestRuntimeToolchain> testRuntime = new TestRuntimeToolchainResolver()
                     .resolve(projectRoot, projectRoot, config, HostPlatform.current(), ToolchainStore.defaults());
