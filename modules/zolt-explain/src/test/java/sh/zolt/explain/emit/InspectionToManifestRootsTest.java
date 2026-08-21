@@ -1,10 +1,13 @@
 package sh.zolt.explain.emit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.explain.gradle.GradleStaticProjectInspector;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.manifest.authored.AuthoredBuild;
+import sh.zolt.manifest.authored.AuthoredResources;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,11 +15,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-final class InspectionToProjectConfigRootsTest {
+final class InspectionToManifestRootsTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void mavenDraftCarriesAuditedBuildRootsIntoBuildSettings() throws IOException {
@@ -61,14 +64,19 @@ final class InspectionToProjectConfigRootsTest {
                 </project>
                 """);
 
-        ProjectConfig config = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir)).config();
+        DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
 
-        assertEquals("src/java", config.build().source());
-        assertEquals(List.of("src/java", "src/gen"), config.build().sourceRoots());
-        assertEquals("src/tests", config.build().test());
-        assertEquals(List.of("src/tests"), config.build().testSources());
-        assertEquals(List.of("config"), config.build().resourceRoots());
-        assertEquals(List.of("test-config"), config.build().testResourceRoots());
+        AuthoredBuild build = draft.manifest().build().build().orElseThrow();
+        assertEquals(List.of("src/gen", "src/java"), paths(build.sources()));
+        AuthoredResources resources = draft.manifest().build().resources().orElseThrow();
+        assertEquals(List.of("config"), paths(resources.main()));
+        assertEquals(List.of("test-config"), paths(resources.test()));
+        // The final language derives the test root from the build convention, so a non-conventional
+        // Maven testSourceDirectory has no authored counterpart; it survives as a review note.
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("Test sources live outside") && note.contains("src/tests")),
+                () -> "expected the non-conventional test root review note: " + draft.notes());
     }
 
     @Test
@@ -86,11 +94,14 @@ final class InspectionToProjectConfigRootsTest {
                 </project>
                 """);
 
-        ProjectConfig config = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir)).config();
+        DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
 
-        assertEquals("src/main/kotlin", config.build().source());
-        assertEquals("src/test/kotlin", config.build().test());
-        assertEquals(List.of("src/test/kotlin"), config.build().testSources());
+        AuthoredBuild build = draft.manifest().build().build().orElseThrow();
+        assertEquals(List.of("src/main/kotlin"), paths(build.sources()));
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("Test sources live outside") && note.contains("src/test/kotlin")),
+                () -> "expected the audited Kotlin test root as review data: " + draft.notes());
     }
 
     @Test
@@ -114,11 +125,20 @@ final class InspectionToProjectConfigRootsTest {
                 }
                 """);
 
-        ProjectConfig config = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir)).config();
+        DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
 
-        assertEquals("src/java", config.build().source());
-        assertEquals(List.of("src/java", "src/generated/java"), config.build().sourceRoots());
-        assertEquals("src/tests", config.build().test());
-        assertEquals(List.of("src/tests", "src/fixtures"), config.build().testSources());
+        AuthoredBuild build = draft.manifest().build().build().orElseThrow();
+        assertEquals(List.of("src/generated/java", "src/java"), paths(build.sources()));
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("Test sources live outside")
+                                && note.contains("src/tests")
+                                && note.contains("src/fixtures")),
+                () -> "expected the non-conventional test root review note: " + draft.notes());
+    }
+
+    /** {@code [build].sources} is a sorted, distinct path list in the authored model. */
+    private static List<String> paths(List<ManifestRelativePath> roots) {
+        return roots.stream().map(ManifestRelativePath::value).toList();
     }
 }

@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.gradle.GradleStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,14 +15,14 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Verifies Gradle {@code platform(...)} / {@code enforcedPlatform(...)} consumption routes to
  * {@code [platforms]} (never a regular {@code [dependencies]} entry) and that version-less deps in a
- * build file with a platform emit as platform-managed {@code {}} rather than a hard "add a version"
- * review item. Mirrors {@link MavenDependencyManagementEmitTest}.
+ * build file with a platform emit as platform-managed {@code { managed = true }} rather than a hard
+ * "add a version" review item. Mirrors {@link MavenDependencyManagementEmitTest}.
  */
 final class GradlePlatformConsumptionEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void groovyPlatformRoutesToPlatformsAndManagesVersionlessDependency() throws IOException {
@@ -38,17 +38,25 @@ final class GradlePlatformConsumptionEmitTest {
                 """);
 
         DraftZoltToml draft = draft();
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("2.18.2", config.platforms().get("com.fasterxml.jackson:jackson-bom"),
-                () -> "platform() import must land in [platforms]: " + config.platforms());
-        assertFalse(config.dependencies().containsKey("com.fasterxml.jackson:jackson-bom"),
-                () -> "the BOM pom must not land on the classpath as a dependency: " + config.dependencies());
-        assertTrue(config.managedDependencies().contains("com.fasterxml.jackson.core:jackson-databind"),
-                () -> "version-less managed dep must render as platform-managed {}: "
-                        + config.managedDependencies());
-        assertFalse(config.dependencies().containsKey("com.fasterxml.jackson.core:jackson-databind"),
-                () -> "platform-managed dep must not get a guessed version: " + config.dependencies());
+        assertEquals("2.18.2", subject.platforms().get("com.fasterxml.jackson:jackson-bom"),
+                () -> "platform() import must land in [platforms]: " + subject.platforms());
+        assertFalse(
+                subject.coordinates(DependencyLane.IMPLEMENTATION)
+                        .contains("com.fasterxml.jackson:jackson-bom"),
+                () -> "the BOM pom must not land on the classpath as a dependency: "
+                        + subject.coordinates(DependencyLane.IMPLEMENTATION));
+        assertTrue(
+                subject.managed(DependencyLane.IMPLEMENTATION)
+                        .contains("com.fasterxml.jackson.core:jackson-databind"),
+                () -> "version-less managed dep must render as { managed = true }: "
+                        + subject.managed(DependencyLane.IMPLEMENTATION));
+        assertFalse(
+                subject.fixed(DependencyLane.IMPLEMENTATION)
+                        .containsKey("com.fasterxml.jackson.core:jackson-databind"),
+                () -> "platform-managed dep must not get a guessed version: "
+                        + subject.fixed(DependencyLane.IMPLEMENTATION));
         assertTrue(draft.notes().stream().anyMatch(note ->
                         note.contains("com.fasterxml.jackson.core:jackson-databind")
                                 && note.contains("verify a declared platform manages this coordinate")),
@@ -72,15 +80,16 @@ final class GradlePlatformConsumptionEmitTest {
                 }
                 """);
 
-        ProjectConfig config = draft().config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft());
 
-        assertEquals("2.18.2", config.platforms().get("com.fasterxml.jackson:jackson-bom"),
-                () -> "Kotlin-DSL platform() import must land in [platforms]: " + config.platforms());
-        assertFalse(config.apiDependencies().containsKey("com.fasterxml.jackson:jackson-bom"),
-                () -> "the BOM pom must not land in [api.dependencies]: " + config.apiDependencies());
-        assertTrue(config.managedApiDependencies().contains("com.fasterxml.jackson.core:jackson-databind"),
-                () -> "version-less api dep must render as platform-managed {}: "
-                        + config.managedApiDependencies());
+        assertEquals("2.18.2", subject.platforms().get("com.fasterxml.jackson:jackson-bom"),
+                () -> "Kotlin-DSL platform() import must land in [platforms]: " + subject.platforms());
+        assertFalse(subject.coordinates(DependencyLane.API).contains("com.fasterxml.jackson:jackson-bom"),
+                () -> "the BOM pom must not land in [dependencies.api]: "
+                        + subject.coordinates(DependencyLane.API));
+        assertTrue(subject.managed(DependencyLane.API).contains("com.fasterxml.jackson.core:jackson-databind"),
+                () -> "version-less api dep must render as { managed = true }: "
+                        + subject.managed(DependencyLane.API));
     }
 
     @Test
@@ -100,13 +109,16 @@ final class GradlePlatformConsumptionEmitTest {
                 }
                 """);
 
-        ProjectConfig config = draft().config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft());
 
-        assertEquals("2.18.2", config.platforms().get("com.fasterxml.jackson:jackson-bom"),
+        assertEquals("2.18.2", subject.platforms().get("com.fasterxml.jackson:jackson-bom"),
                 () -> "platform(libs.x) must resolve through the version catalog into [platforms]: "
-                        + config.platforms());
-        assertFalse(config.dependencies().containsKey("com.fasterxml.jackson:jackson-bom"),
-                () -> "catalog platform import must not become a dependency: " + config.dependencies());
+                        + subject.platforms());
+        assertFalse(
+                subject.coordinates(DependencyLane.IMPLEMENTATION)
+                        .contains("com.fasterxml.jackson:jackson-bom"),
+                () -> "catalog platform import must not become a dependency: "
+                        + subject.coordinates(DependencyLane.IMPLEMENTATION));
     }
 
     @Test
@@ -122,17 +134,17 @@ final class GradlePlatformConsumptionEmitTest {
                 """);
 
         DraftZoltToml draft = draft();
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("2.18.2", config.platforms().get("com.fasterxml.jackson:jackson-bom"),
-                () -> "enforcedPlatform() import must land in [platforms]: " + config.platforms());
+        assertEquals("2.18.2", subject.platforms().get("com.fasterxml.jackson:jackson-bom"),
+                () -> "enforcedPlatform() import must land in [platforms]: " + subject.platforms());
         assertTrue(draft.notes().stream().anyMatch(note ->
                         note.contains("enforcedPlatform")
-                                && note.contains("kind = \"strict\"")),
+                                && note.contains("[dependencies.constraints]")),
                 () -> "enforcedPlatform needs a strict-constraint approximation note: " + draft.notes());
-        assertTrue(config.dependencyPolicy().constraints().isEmpty(),
-                () -> "enforcedPlatform must not auto-draft [dependencyConstraints]: "
-                        + config.dependencyPolicy().constraints());
+        assertTrue(subject.constraints().isEmpty(),
+                () -> "enforcedPlatform must not auto-draft [dependencies.constraints]: "
+                        + subject.constraints());
     }
 
     @Test
@@ -148,11 +160,11 @@ final class GradlePlatformConsumptionEmitTest {
                 """);
 
         DraftZoltToml draft = draft();
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertTrue(config.managedDependencies().isEmpty(),
+        assertTrue(subject.managed(DependencyLane.IMPLEMENTATION).isEmpty(),
                 () -> "no platform present: version-less dep must not be managed: "
-                        + config.managedDependencies());
+                        + subject.managed(DependencyLane.IMPLEMENTATION));
         assertTrue(draft.notes().stream().anyMatch(note ->
                         note.contains("com.example:needs-version")
                                 && note.contains("add one before resolving")),

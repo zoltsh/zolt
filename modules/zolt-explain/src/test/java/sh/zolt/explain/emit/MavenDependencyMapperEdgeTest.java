@@ -4,17 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.maven.MavenDependencyExclusion;
 import sh.zolt.explain.maven.MavenDependencyInspection;
-import sh.zolt.project.DependencyConstraint;
-import sh.zolt.project.DependencyConstraintKind;
-import sh.zolt.project.DependencyMetadata;
+import sh.zolt.manifest.DependencyConstraintSelector;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraint;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraints;
+import sh.zolt.manifest.authored.AuthoredPackaging;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class MavenDependencyMapperEdgeTest {
@@ -22,35 +24,15 @@ final class MavenDependencyMapperEdgeTest {
     void sectionMapperNotesUnsupportedScopesAndKeepsMappableEdges() {
         WorkspaceMemberRegistry registry = new WorkspaceMemberRegistry();
         registry.register("com.acme:lib", "lib");
-        Map<String, String> dependencies = new TreeMap<>();
-        Map<String, String> runtime = new TreeMap<>();
-        Map<String, String> provided = new TreeMap<>();
-        Map<String, String> test = new TreeMap<>();
-        Map<String, String> workspaceDependencies = new TreeMap<>();
-        Map<String, String> workspaceTest = new TreeMap<>();
-        Set<String> managedDependencies = new TreeSet<>();
-        Set<String> managedRuntime = new TreeSet<>();
-        Set<String> managedProvided = new TreeSet<>();
-        Set<String> managedTest = new TreeSet<>();
-        Map<String, DependencyMetadata> metadata = new TreeMap<>();
+        registry.register("com.acme:test-lib", "test-lib");
         List<String> notes = new ArrayList<>();
+        DraftDependencies dependencies = new DraftDependencies(notes);
+        // A platform import is what turns a version-less dependency into a { managed = true } entry.
+        dependencies.platform("com.acme:bom", "1.0.0");
         MavenDependencySectionMapper mapper = new MavenDependencySectionMapper(
                 registry,
-                new MavenDependencySectionMapper.VersionedSections(
-                        dependencies,
-                        runtime,
-                        provided,
-                        test,
-                        workspaceDependencies,
-                        workspaceTest),
-                new MavenDependencySectionMapper.ManagedSections(
-                        managedDependencies,
-                        managedRuntime,
-                        managedProvided,
-                        managedTest),
-                true,
+                dependencies,
                 Map.of("com.acme:pinned", "1.2.3"),
-                metadata,
                 notes);
 
         mapper.map(dependency("runtime", "com.acme:pinned", ""));
@@ -60,25 +42,43 @@ final class MavenDependencyMapperEdgeTest {
                 "",
                 List.of(new MavenDependencyExclusion("org.legacy", "legacy-api"))));
         mapper.map(dependency("compile", "com.acme:lib", "1.0.0"));
+        mapper.map(dependency("test", "com.acme:test-lib", "1.0.0"));
         mapper.map(dependency("test", "com.acme:lib", "1.0.0"));
         mapper.map(dependency("runtime", "com.acme:lib", "1.0.0"));
         mapper.map(dependency("integrationTest", "com.acme:custom", "1.0.0"));
         mapper.map(dependency("integrationTest", "com.acme:managed-custom", ""));
         mapper.map(dependency("compile", "com.acme:placeholder", "${revision}"));
 
-        assertEquals("1.2.3", runtime.get("com.acme:pinned"));
-        assertTrue(managedProvided.contains("com.acme:managed"), () -> managedProvided.toString());
-        assertTrue(metadata.containsKey(DependencyMetadata.key("provided.dependencies", "com.acme:managed")),
-                () -> metadata.toString());
-        assertEquals("lib", workspaceDependencies.get("com.acme:lib"));
-        assertEquals("lib", workspaceTest.get("com.acme:lib"));
-        assertFalse(runtime.containsKey("com.acme:lib"), () -> runtime.toString());
+        DraftManifestSubject subject = subjectOf(dependencies, notes);
+
+        assertEquals("1.2.3", subject.fixed(DependencyLane.RUNTIME).get("com.acme:pinned"),
+                () -> subject.fixed(DependencyLane.RUNTIME).toString());
+        assertTrue(subject.managed(DependencyLane.PROVIDED).contains("com.acme:managed"),
+                () -> subject.managed(DependencyLane.PROVIDED).toString());
+        assertEquals(
+                List.of("org.legacy:legacy-api"),
+                subject.dependency(DependencyLane.PROVIDED, "com.acme:managed").metadata().exclusions()
+                        .stream()
+                        .map(DependencyCoordinate::value)
+                        .toList());
+        assertTrue(subject.workspaceMembers(DependencyLane.IMPLEMENTATION).contains("com.acme:lib"),
+                () -> subject.workspaceMembers(DependencyLane.IMPLEMENTATION).toString());
+        assertTrue(subject.workspaceMembers(DependencyLane.TEST).contains("com.acme:test-lib"),
+                () -> subject.workspaceMembers(DependencyLane.TEST).toString());
+        // One coordinate resolves to one lane, so the second sibling edge is reported, not emitted.
+        assertFalse(subject.workspaceMembers(DependencyLane.TEST).contains("com.acme:lib"),
+                () -> subject.workspaceMembers(DependencyLane.TEST).toString());
+        assertTrue(notes.stream().anyMatch(note -> note.contains("com.acme:lib")
+                && note.contains("declared in both the implementation and test lanes")), () -> notes.toString());
+        assertFalse(subject.coordinates(DependencyLane.RUNTIME).contains("com.acme:lib"),
+                () -> subject.coordinates(DependencyLane.RUNTIME).toString());
         assertTrue(notes.stream().anyMatch(note -> note.contains("Maven scope `runtime`")
                 && note.contains("cannot express as a workspace edge")), () -> notes.toString());
-        assertTrue(notes.stream().anyMatch(note -> note.contains("Maven scope `integrationTest`")
-                && note.contains("has no direct Zolt section")), () -> notes.toString());
+        assertTrue(notes.stream().anyMatch(note -> note.contains("com.acme:custom")
+                && note.contains("Maven scope `integrationTest`")
+                && note.contains("has no direct Zolt lane")), () -> notes.toString());
         assertTrue(notes.stream().anyMatch(note -> note.contains("managed-custom")
-                && note.contains("no direct Zolt platform-managed section")), () -> notes.toString());
+                && note.contains("has no direct Zolt lane")), () -> notes.toString());
         assertTrue(notes.stream().anyMatch(note -> note.contains("placeholder")
                 && note.contains("property the static audit could not resolve")), () -> notes.toString());
     }
@@ -86,7 +86,7 @@ final class MavenDependencyMapperEdgeTest {
     @Test
     void constraintMapperSkipsDirectCoordinatesAndNotesUnmappableManagedEntries() {
         List<String> notes = new ArrayList<>();
-        Map<String, DependencyConstraint> constraints = MavenDependencyConstraintMapper.map(
+        AuthoredDependencyConstraints constraints = MavenDependencyConstraintMapper.map(
                 List.of(
                         dependency("compile", "com.acme:direct", "1.0.0"),
                         dependency("compile", "com.acme:classifier", "1.0.0", "jar", "tests"),
@@ -95,12 +95,15 @@ final class MavenDependencyMapperEdgeTest {
                         dependency("compile", "com.acme:blank", ""),
                         dependency("compile", "com.acme:constraint", "2.0.0")),
                 List.of(dependency("compile", "com.acme:direct", "1.0.0")),
-                notes);
+                notes).orElseThrow();
 
-        assertEquals(Set.of("com.acme:constraint"), constraints.keySet());
-        DependencyConstraint constraint = constraints.get("com.acme:constraint");
-        assertEquals("2.0.0", constraint.version());
-        assertEquals(DependencyConstraintKind.STRICT, constraint.kind());
+        assertEquals(
+                List.of("com.acme:constraint"),
+                constraints.entries().keySet().stream().map(DependencyCoordinate::value).toList());
+        AuthoredDependencyConstraint constraint =
+                constraints.entries().get(new DependencyCoordinate("com.acme:constraint"));
+        // [dependencies.constraints] entries are strict by construction; the selector carries the version.
+        assertEquals(new DependencyConstraintSelector.FixedVersion("2.0.0"), constraint.selector());
         assertEquals("Imported from Maven dependencyManagement.", constraint.reason().orElseThrow());
         assertTrue(notes.stream().anyMatch(note -> note.contains("com.acme:classifier")
                 && note.contains("classifier `tests`")), () -> notes.toString());
@@ -110,6 +113,23 @@ final class MavenDependencyMapperEdgeTest {
                 && note.contains("property the static audit could not resolve")), () -> notes.toString());
         assertFalse(notes.stream().anyMatch(note -> note.contains("com.acme:direct")), () -> notes.toString());
         assertFalse(notes.stream().anyMatch(note -> note.contains("com.acme:blank")), () -> notes.toString());
+    }
+
+    /** Wraps the drafted lanes in a minimal authored manifest so the shared subject can read them. */
+    private static DraftManifestSubject subjectOf(DraftDependencies dependencies, List<String> notes) {
+        return DraftManifestSubject.of(DraftManifests.project(
+                DraftManifests.identity(
+                        "edge-demo",
+                        Optional.of("com.acme"),
+                        Optional.of("1.0.0"),
+                        Optional.empty(),
+                        notes),
+                DraftManifests.metadata(Optional.empty(), notes),
+                dependencies,
+                Optional.empty(),
+                AuthoredBuildConfiguration.empty(),
+                Optional.empty(),
+                AuthoredPackaging.empty()));
     }
 
     private static MavenDependencyInspection dependency(String scope, String coordinate, String version) {

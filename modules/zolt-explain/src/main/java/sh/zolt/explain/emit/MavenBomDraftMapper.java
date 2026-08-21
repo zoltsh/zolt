@@ -2,22 +2,16 @@ package sh.zolt.explain.emit;
 
 import sh.zolt.explain.maven.MavenDependencyInspection;
 import sh.zolt.explain.maven.MavenProjectInspection;
-import sh.zolt.project.BomSettings;
-import sh.zolt.project.BuildSettings;
-import sh.zolt.project.CompilerSettings;
-import sh.zolt.project.NativeSettings;
-import sh.zolt.project.PackageMode;
-import sh.zolt.project.PackageSettings;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.project.ProjectConfigs;
-import sh.zolt.project.ProjectMetadata;
-import sh.zolt.project.PublicationMetadata;
-import java.util.ArrayList;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.authored.AuthoredBom;
+import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredPackaging;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.TreeMap;
 
 /**
  * Drafts a {@code [bom]} member from a standalone Maven {@code dependencyManagement} POM: import-scope
@@ -35,73 +29,40 @@ final class MavenBomDraftMapper {
     }
 
     static DraftZoltToml map(MavenProjectInspection primary, List<String> notes) {
-        Set<String> commentedProjectKeys = new TreeSet<>();
-        List<BomSettings.ImportedBom> imports = new ArrayList<>();
+        Map<DependencyCoordinate, PlatformSelector> imports = new TreeMap<>();
         for (MavenDependencyInspection bom : primary.importedBoms()) {
             String coordinate = MavenInspectionMapper.coordinateOf(bom.coordinate());
-            if (unusableBomVersion(coordinate, bom.version(), "[bom.imports]", notes)) {
-                continue;
-            }
-            imports.add(new BomSettings.ImportedBom(coordinate, bom.version(), null));
+            DraftBomEntries.addImport(imports, coordinate, bom.version(), notes);
         }
-        List<BomSettings.ManagedVersion> versions = new ArrayList<>();
+        Map<DependencyCoordinate, AuthoredBom.Version> versions = new TreeMap<>();
         for (MavenDependencyInspection pin : primary.dependencyManagement()) {
             String coordinate = MavenInspectionMapper.coordinateOf(pin.coordinate());
-            if (unusableBomVersion(coordinate, pin.version(), "[bom.versions]", notes)) {
-                continue;
-            }
-            versions.add(new BomSettings.ManagedVersion(coordinate, pin.version(), null, pin.classifier(), null));
+            DraftBomEntries.addVersion(
+                    versions,
+                    coordinate,
+                    pin.version(),
+                    Optional.of(pin.classifier()).filter(value -> !value.isBlank()),
+                    notes);
         }
-        BomSettings bomSettings = new BomSettings(BomSettings.Members.none(), versions, imports);
-        ProjectMetadata metadata = new ProjectMetadata(
-                primary.artifactId(),
-                MavenInspectionMapper.version(primary, notes),
-                MavenInspectionMapper.group(primary, notes),
-                MavenInspectionMapper.javaVersion(primary.javaVersion(), notes, commentedProjectKeys),
-                Optional.empty());
-        PackageSettings packageSettings = new PackageSettings(
-                        PackageMode.BOM, false, false, false, PublicationMetadata.empty())
-                .withBom(bomSettings);
-        ProjectConfig config = ProjectConfigs.withAllDependencySections(
-                metadata,
-                ProjectConfig.defaultRepositories(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                BuildSettings.defaults(),
-                NativeSettings.defaults(),
-                CompilerSettings.defaults(),
-                packageSettings);
+        // A BOM's own Java release and main class are rejected by the authored model (design §12.6),
+        // so identity carries only name, group, and version.
+        AuthoredManifest manifest = DraftManifests.project(
+                DraftManifests.identity(
+                        primary.artifactId(),
+                        Optional.of(MavenInspectionMapper.group(primary, notes)),
+                        Optional.of(MavenInspectionMapper.version(primary, notes)),
+                        Optional.empty(),
+                        notes),
+                DraftManifests.metadata(Optional.empty(), notes),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                AuthoredBuildConfiguration.empty(),
+                Optional.empty(),
+                DraftBomEntries.packaging(imports, versions));
         notes.add("Drafted a [bom] member from Maven dependencyManagement: import-scope BOMs became"
                 + " [bom.imports] and plain pins became [bom.versions]. Review the pins and set members if this"
                 + " BOM should manage a Zolt workspace family.");
-        return new DraftZoltToml(config, notes, List.copyOf(commentedProjectKeys), false);
-    }
-
-    private static boolean unusableBomVersion(
-            String coordinate, String version, String section, List<String> notes) {
-        if (version == null || version.isBlank() || version.contains("${")) {
-            notes.add("BOM entry `" + coordinate + "` has an unresolved version `" + version
-                    + "`; add it under " + section + " with a fixed version before publishing.");
-            return true;
-        }
-        return false;
+        return new DraftZoltToml(manifest, notes);
     }
 }

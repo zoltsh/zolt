@@ -7,15 +7,15 @@ import sh.zolt.explain.maven.MavenInspectionResult;
  * Converts a static Maven or Gradle migration audit into a {@link DraftEmit}.
  *
  * <p>A single-project audit maps to a {@link DraftZoltToml}: Maven scopes map to Zolt dependency
- * sections (compile -&gt; dependencies, runtime -&gt; runtime, provided -&gt; provided, test -&gt;
+ * lanes (compile -&gt; implementation, runtime -&gt; runtime, provided -&gt; provided, test -&gt;
  * test), imported BOMs map to platforms, and Gradle configurations map analogously. A multi-module
- * Maven reactor or Gradle multi-project build maps to a {@link DraftWorkspace}: a root
- * {@code [workspace]} document plus one member draft per module, with a dependency on a sibling
- * module rewritten to {@code { workspace = "<member-path>" }}. Anything the audit cannot map safely
+ * Maven reactor or Gradle multi-project build maps to a {@link DraftWorkspace}: a virtual workspace
+ * root plus one member draft per module, with a dependency on a sibling module rewritten to
+ * {@code { workspace = true }}. Anything the audit cannot map safely
  * (version-catalog aliases without a resolved coordinate, unresolved notations, Maven profiles,
  * custom repositories, unknown scopes) is returned as a review note rather than guessed into config.
  */
-public final class InspectionToProjectConfig {
+public final class InspectionToManifest {
     /** Emits either a single {@link DraftZoltToml} or, for a reactor, a {@link DraftWorkspace}. */
     public DraftEmit emitFromMaven(MavenInspectionResult result) {
         requireProject(result.projects().isEmpty(), "Maven");

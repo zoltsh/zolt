@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.explain.maven.MavenInspectionResult;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,7 +16,7 @@ final class MavenPlatformApiHostEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
     private final DraftZoltTomlRenderer renderer = new DraftZoltTomlRenderer();
 
     @Test
@@ -34,17 +34,17 @@ final class MavenPlatformApiHostEmitTest {
                 </project>
                 """);
 
-        assertTrue(draft.suggestCompilerPlatformApiHost());
+        assertTrue(draft.suggestCompilerJdkApiHost());
         assertTrue(draft.notes().stream().anyMatch(note ->
                 note.contains("source/target 8 below the build JDK")
                         && note.contains("forfeits cross-JDK reproducibility")),
                 () -> draft.notes().toString());
 
-        String rendered = renderer.render(draft, new FakeProjectRenderer());
+        String rendered = renderer.render(draft, new FakeManifestRenderer());
         assertTrue(rendered.contains("[compiler]"), rendered);
-        assertTrue(rendered.contains("# platformApi = \"host\""), rendered);
-        // The live value stays strict: no uncommented platformApi assignment.
-        assertFalse(rendered.contains("\nplatformApi = \"host\""), rendered);
+        assertTrue(rendered.contains("# jdkApi = \"host\""), rendered);
+        // The live value stays strict: no uncommented jdkApi assignment.
+        assertFalse(rendered.contains("\njdkApi = \"host\""), rendered);
     }
 
     @Test
@@ -61,12 +61,12 @@ final class MavenPlatformApiHostEmitTest {
                 </project>
                 """);
 
-        assertFalse(draft.suggestCompilerPlatformApiHost());
-        assertFalse(draft.notes().stream().anyMatch(note -> note.contains("platformApi")),
+        assertFalse(draft.suggestCompilerJdkApiHost());
+        assertFalse(draft.notes().stream().anyMatch(note -> note.contains("jdkApi")),
                 () -> draft.notes().toString());
 
-        String rendered = renderer.render(draft, new FakeProjectRenderer());
-        assertFalse(rendered.contains("platformApi"), rendered);
+        String rendered = renderer.render(draft, new FakeManifestRenderer());
+        assertFalse(rendered.contains("jdkApi"), rendered);
     }
 
     @Test
@@ -84,8 +84,8 @@ final class MavenPlatformApiHostEmitTest {
                 </project>
                 """);
 
-        String first = renderer.render(draft, new FakeProjectRenderer());
-        String second = renderer.render(draft, new FakeProjectRenderer());
+        String first = renderer.render(draft, new FakeManifestRenderer());
+        String second = renderer.render(draft, new FakeManifestRenderer());
         assertTrue(first.equals(second), first);
     }
 
@@ -95,20 +95,17 @@ final class MavenPlatformApiHostEmitTest {
         return mapper.fromMaven(result);
     }
 
-    private static final class FakeProjectRenderer implements ProjectConfigRenderer {
+    /** A sparse {@code [project]} table: absent identity values are not materialized. */
+    private static final class FakeManifestRenderer implements AuthoredManifestRenderer {
         @Override
-        public String render(ProjectConfig config) {
-            return """
-                    [project]
-                    name = "%s"
-                    version = "%s"
-                    group = "%s"
-                    java = "%s"
-                    """.formatted(
-                    config.project().name(),
-                    config.project().version(),
-                    config.project().group(),
-                    config.project().java());
+        public String render(AuthoredManifest manifest) {
+            DraftManifestSubject subject = DraftManifestSubject.of(manifest);
+            StringBuilder out = new StringBuilder("[project]\n");
+            out.append("name = \"").append(subject.name()).append("\"\n");
+            subject.version().ifPresent(value -> out.append("version = \"").append(value).append("\"\n"));
+            subject.group().ifPresent(value -> out.append("group = \"").append(value).append("\"\n"));
+            subject.javaRelease().ifPresent(value -> out.append("java = ").append(value).append('\n'));
+            return out.toString();
         }
     }
 }

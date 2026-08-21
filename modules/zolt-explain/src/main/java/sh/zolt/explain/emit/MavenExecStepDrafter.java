@@ -2,19 +2,29 @@ package sh.zolt.explain.emit;
 
 import sh.zolt.explain.maven.MavenExecInvocation;
 import sh.zolt.explain.maven.MavenPluginInspection;
-import sh.zolt.project.ExecGenerationSettings;
-import sh.zolt.project.ExecToolCoordinate;
-import sh.zolt.project.ExecToolSettings;
-import sh.zolt.project.GeneratedSourceKind;
-import sh.zolt.project.GeneratedSourceStep;
-import sh.zolt.project.OpenApiGenerationSettings;
-import sh.zolt.project.ProducesLane;
-import sh.zolt.project.ProtobufGenerationSettings;
-import java.util.ArrayList;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.EnvironmentVariableName;
+import sh.zolt.manifest.GeneratedArtifactRequest;
+import sh.zolt.manifest.GeneratedOutputKind;
+import sh.zolt.manifest.GeneratedProcessBinary;
+import sh.zolt.manifest.GeneratedStepSettings;
+import sh.zolt.manifest.JavaBinaryClassName;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.manifest.ResourceGlob;
+import sh.zolt.manifest.authored.AuthoredExecStep;
+import sh.zolt.manifest.authored.AuthoredGeneratedPresets;
+import sh.zolt.manifest.authored.AuthoredGeneratedSources;
+import sh.zolt.manifest.authored.AuthoredGeneratedStep;
+import sh.zolt.manifest.authored.AuthoredGeneratedTool;
+import sh.zolt.manifest.authored.AuthoredGeneratedTools;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Drafts {@code kind = "exec"} steps from statically extracted exec-shaped Maven plugin invocations.
@@ -29,37 +39,43 @@ import java.util.Set;
  */
 final class MavenExecStepDrafter {
     static final String INPUT_PLACEHOLDER = "REPLACE_ME";
+    private static final String TOOL_VERSION_PLACEHOLDER = "0.0.0";
+    private static final LocalId PROJECT_TOOL = new LocalId("project");
 
     private MavenExecStepDrafter() {
     }
 
-    record Drafted(List<GeneratedSourceStep> mainSteps, List<GeneratedSourceStep> testSteps) {
-        boolean isEmpty() {
-            return mainSteps.isEmpty() && testSteps.isEmpty();
-        }
-    }
-
-    static Drafted draft(List<MavenPluginInspection> plugins, List<String> notes) {
-        List<GeneratedSourceStep> mainSteps = new ArrayList<>();
-        List<GeneratedSourceStep> testSteps = new ArrayList<>();
+    static Optional<AuthoredGeneratedSources> draft(
+            List<MavenPluginInspection> plugins, List<String> notes) {
+        Map<LocalId, AuthoredGeneratedStep> mainSteps = new TreeMap<>();
+        Map<LocalId, AuthoredGeneratedStep> testSteps = new TreeMap<>();
+        Map<LocalId, AuthoredGeneratedTool> tools = new TreeMap<>();
         Set<String> usedIds = new LinkedHashSet<>();
         for (MavenPluginInspection plugin : plugins) {
             if (plugin.pluginManagement()) {
                 continue;
             }
             for (MavenExecInvocation invocation : plugin.execInvocations()) {
-                draftInvocation(plugin.coordinate(), invocation, usedIds, mainSteps, testSteps, notes);
+                draftInvocation(plugin.coordinate(), invocation, usedIds, mainSteps, testSteps, tools, notes);
             }
         }
-        return new Drafted(List.copyOf(mainSteps), List.copyOf(testSteps));
+        if (mainSteps.isEmpty() && testSteps.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new AuthoredGeneratedSources(
+                new AuthoredGeneratedTools(tools),
+                AuthoredGeneratedPresets.empty(),
+                mainSteps,
+                testSteps));
     }
 
     private static void draftInvocation(
             String coordinate,
             MavenExecInvocation invocation,
             Set<String> usedIds,
-            List<GeneratedSourceStep> mainSteps,
-            List<GeneratedSourceStep> testSteps,
+            Map<LocalId, AuthoredGeneratedStep> mainSteps,
+            Map<LocalId, AuthoredGeneratedStep> testSteps,
+            Map<LocalId, AuthoredGeneratedTool> tools,
             List<String> notes) {
         String kind = kind(coordinate);
         if (invocation.goal().startsWith("install-node")) {
@@ -70,49 +86,78 @@ final class MavenExecStepDrafter {
         if (!invocation.mappable()) {
             notes.add("Maven plugin `" + coordinate + "` invocation `" + describe(invocation)
                     + "` uses a shell or antrun control flow that the argv-array exec surface cannot express;"
-                    + " no exec step was drafted. Keep it in [commands.tasks] or CI.");
+                    + " no exec step was drafted. Keep it in [tasks] or CI.");
             return;
         }
         Optional<ToolDraft> tool = toolFor(kind, coordinate, invocation, notes);
         if (tool.isEmpty()) {
             return;
         }
-        String id = uniqueId(baseId(invocation, kind), usedIds);
-        ProducesLane lane = laneFor(kind, invocation, tool.orElseThrow().projectTool(), id, notes);
-        boolean test = lane == ProducesLane.TEST_SOURCES || lane == ProducesLane.TEST_RESOURCES;
-        GeneratedSourceStep step = step(id, tool.orElseThrow(), invocation, lane);
-        (test ? testSteps : mainSteps).add(step);
+        ToolDraft drafted = tool.orElseThrow();
+        LocalId id = new LocalId(uniqueId(baseId(invocation, kind), usedIds));
+        GeneratedOutputKind produces =
+                producedKind(kind, invocation, drafted.projectTool(), id.value(), notes);
+        boolean test = produces == GeneratedOutputKind.TEST_SOURCES
+                || produces == GeneratedOutputKind.TEST_RESOURCES;
+        Optional<AuthoredExecStep> step = step(id, drafted, invocation, produces, coordinate, notes);
+        if (step.isEmpty()) {
+            return;
+        }
+        drafted.declaration().ifPresent(declaration -> tools.put(drafted.tool(), declaration));
+        (test ? testSteps : mainSteps).put(id, step.orElseThrow());
     }
 
-    private static GeneratedSourceStep step(
-            String id, ToolDraft tool, MavenExecInvocation invocation, ProducesLane lane) {
-        ExecGenerationSettings exec = new ExecGenerationSettings(
-                tool.toolName(),
+    private static Optional<AuthoredExecStep> step(
+            LocalId id,
+            ToolDraft tool,
+            MavenExecInvocation invocation,
+            GeneratedOutputKind produces,
+            String pluginCoordinate,
+            List<String> notes) {
+        Map<EnvironmentVariableName, String> environment = new TreeMap<>();
+        invocation.environmentVariables().forEach((name, value) -> {
+            try {
+                environment.put(new EnvironmentVariableName(name), value);
+            } catch (IllegalArgumentException exception) {
+                notes.add("Maven plugin `" + pluginCoordinate + "` sets environment variable `" + name
+                        + "`, which is not a portable environment-variable name; add it by hand.");
+            }
+        });
+        Optional<ManifestRelativePath> cwd;
+        try {
+            cwd = invocation.workingDirectory().map(ManifestRelativePath::new);
+        } catch (IllegalArgumentException exception) {
+            notes.add("Maven plugin `" + pluginCoordinate + "` runs in working directory `"
+                    + invocation.workingDirectory().orElse("") + "`, which is not a project-relative"
+                    + " manifest path; no exec step was drafted for `" + id + "`.");
+            return Optional.empty();
+        }
+        return Optional.of(new AuthoredExecStep(
+                GeneratedStepSettings.defaultsOmitted(),
                 tool.tool(),
+                tool.mainClass(),
                 invocation.arguments(),
-                lane,
+                List.of(new ResourceGlob(INPUT_PLACEHOLDER)),
+                new ManifestRelativePath(output(id.value(), produces)),
+                produces,
                 Optional.empty(),
-                invocation.environmentVariables(),
-                "content",
-                invocation.workingDirectory(),
-                java.util.Map.of(),
+                Optional.empty(),
+                cwd,
+                environment,
+                Map.of(),
                 List.of(),
-                ExecGenerationSettings.DEFAULT_TIMEOUT_SECONDS,
-                Optional.empty());
-        return new GeneratedSourceStep(
-                id,
-                GeneratedSourceKind.EXEC,
-                "java",
-                output(id, lane),
-                List.of(INPUT_PLACEHOLDER),
-                true,
-                true,
-                OpenApiGenerationSettings.empty(),
-                ProtobufGenerationSettings.empty(),
-                exec);
+                Optional.empty()));
     }
 
-    private record ToolDraft(String toolName, ExecToolSettings tool, boolean projectTool) {
+    /**
+     * One drafted tool reference: the {@code [generated.tools.<id>]} declaration to emit (absent for
+     * the {@code project} pseudo-tool, which is never declared) plus the step's own tool reference.
+     */
+    private record ToolDraft(
+            LocalId tool,
+            Optional<AuthoredGeneratedTool> declaration,
+            Optional<JavaBinaryClassName> mainClass,
+            boolean projectTool) {
     }
 
     private static Optional<ToolDraft> toolFor(
@@ -121,84 +166,149 @@ final class MavenExecStepDrafter {
             return jvmOrProjectTool(coordinate, invocation, notes);
         }
         if (invocation.executable().isPresent()) {
-            String binary = invocation.executable().orElseThrow();
-            String toolName = binaryToolName(binary);
-            ExecToolSettings tool = ExecToolSettings.process(
-                    binary, List.of(binary, "--version"), Optional.empty(), true);
-            return Optional.of(new ToolDraft(toolName, tool, false));
+            String executable = invocation.executable().orElseThrow();
+            GeneratedProcessBinary binary = processBinary(executable, coordinate, notes);
+            if (binary == null) {
+                return Optional.empty();
+            }
+            LocalId toolName = new LocalId(binaryToolName(executable));
+            AuthoredGeneratedTool tool = new AuthoredGeneratedTool.Process(
+                    binary,
+                    List.of(binary.value(), "--version"),
+                    Optional.empty(),
+                    true);
+            return Optional.of(new ToolDraft(toolName, Optional.of(tool), Optional.empty(), false));
         }
         notes.add("Maven plugin `" + coordinate + "` declared an exec invocation without a main class or"
                 + " executable Zolt could read statically; no exec step was drafted.");
         return Optional.empty();
     }
 
-    private static Optional<ToolDraft> jvmOrProjectTool(
-            String coordinate, MavenExecInvocation invocation, List<String> notes) {
-        String mainClass = invocation.mainClass().orElseThrow();
-        if (invocation.executableDependencies().isEmpty()) {
-            return Optional.of(new ToolDraft("project", ExecToolSettings.project(mainClass), true));
+    /**
+     * A Zolt process tool names a bare executable resolved from the curated process path, so an
+     * absolute or shell-quoted Maven {@code <executable>} is reduced to its bare name and reported.
+     */
+    private static GeneratedProcessBinary processBinary(
+            String executable, String coordinate, List<String> notes) {
+        try {
+            return new GeneratedProcessBinary(executable);
+        } catch (IllegalArgumentException exception) {
+            String bare = binaryToolName(executable);
+            try {
+                GeneratedProcessBinary binary = new GeneratedProcessBinary(bare);
+                notes.add("Maven plugin `" + coordinate + "` runs `" + executable
+                        + "`; Zolt process tools name a bare executable resolved from the curated process"
+                        + " path, so the draft uses `" + bare + "`. Confirm it is on PATH in CI.");
+                return binary;
+            } catch (IllegalArgumentException failure) {
+                notes.add("Maven plugin `" + coordinate + "` runs `" + executable
+                        + "`, which is not a bare executable name; no exec step was drafted.");
+                return null;
+            }
         }
-        List<ExecToolCoordinate> coordinates = new ArrayList<>();
-        for (String dependency : invocation.executableDependencies()) {
-            coordinates.add(new ExecToolCoordinate(dependency, Optional.of(INPUT_PLACEHOLDER), Optional.empty()));
-        }
-        notes.add("Maven plugin `" + coordinate + "` pins its exec tool via <executableDependencies>; the"
-                + " drafted [generated.execTools] coordinates use a " + INPUT_PLACEHOLDER
-                + " version because the audit could not read one. Set the real versions before resolving.");
-        String toolName = binaryToolName(coordinate.substring(coordinate.indexOf(':') + 1));
-        return Optional.of(new ToolDraft(toolName, new ExecToolSettings("jvm", coordinates, mainClass), false));
     }
 
-    private static ProducesLane laneFor(
+    private static Optional<ToolDraft> jvmOrProjectTool(
+            String coordinate, MavenExecInvocation invocation, List<String> notes) {
+        Optional<JavaBinaryClassName> mainClass = mainClass(invocation, coordinate, notes);
+        if (mainClass.isEmpty()) {
+            return Optional.empty();
+        }
+        if (invocation.executableDependencies().isEmpty()) {
+            return Optional.of(new ToolDraft(PROJECT_TOOL, Optional.empty(), mainClass, true));
+        }
+        List<GeneratedArtifactRequest> coordinates = new java.util.ArrayList<>();
+        for (String dependency : invocation.executableDependencies()) {
+            try {
+                coordinates.add(new GeneratedArtifactRequest(
+                        new DependencyCoordinate(dependency),
+                        new sh.zolt.manifest.DependencySelector.FixedVersion(TOOL_VERSION_PLACEHOLDER)));
+            } catch (IllegalArgumentException exception) {
+                notes.add("Maven plugin `" + coordinate + "` pins exec tool dependency `" + dependency
+                        + "`, which is not an exact `group:artifact` coordinate; add it by hand.");
+            }
+        }
+        if (coordinates.isEmpty()) {
+            return Optional.of(new ToolDraft(PROJECT_TOOL, Optional.empty(), mainClass, true));
+        }
+        notes.add("Maven plugin `" + coordinate + "` pins its exec tool via <executableDependencies>; the"
+                + " drafted [generated.tools] coordinates use a placeholder " + TOOL_VERSION_PLACEHOLDER
+                + " version because the audit could not read one. Set the real versions before resolving.");
+        LocalId toolName = new LocalId(
+                binaryToolName(coordinate.substring(coordinate.indexOf(':') + 1)));
+        return Optional.of(new ToolDraft(
+                toolName,
+                Optional.of(new AuthoredGeneratedTool.Jvm(coordinates, mainClass.orElseThrow())),
+                Optional.empty(),
+                false));
+    }
+
+    private static Optional<JavaBinaryClassName> mainClass(
+            MavenExecInvocation invocation, String coordinate, List<String> notes) {
+        String value = invocation.mainClass().orElseThrow();
+        try {
+            return Optional.of(new JavaBinaryClassName(value));
+        } catch (IllegalArgumentException exception) {
+            notes.add("Maven plugin `" + coordinate + "` runs main class `" + value
+                    + "`, which is not a fully qualified Java binary name; no exec step was drafted.");
+            return Optional.empty();
+        }
+    }
+
+    private static GeneratedOutputKind producedKind(
             String kind, MavenExecInvocation invocation, boolean projectTool, String id, List<String> notes) {
-        ProducesLane lane = invocation.phase()
-                .flatMap(MavenExecStepDrafter::laneFromPhase)
-                .orElseGet(() -> defaultLane(kind, invocation));
-        if (projectTool && lane == ProducesLane.JAVA_SOURCES) {
+        GeneratedOutputKind produces = invocation.phase()
+                .flatMap(MavenExecStepDrafter::kindFromPhase)
+                .orElseGet(() -> defaultKind(kind, invocation));
+        if (projectTool && produces == GeneratedOutputKind.JAVA_SOURCES) {
             notes.add("Exec step `" + id + "` runs exec:java on the project classpath (tool = \"project\"),"
                     + " which Zolt schedules after compile, so it was drafted as resources rather than"
                     + " java-sources. To generate main sources, pin the tool with explicit jvm coordinates.");
-            return ProducesLane.RESOURCES;
+            return GeneratedOutputKind.RESOURCES;
         }
-        if (projectTool && lane == ProducesLane.TEST_SOURCES) {
+        if (projectTool && produces == GeneratedOutputKind.TEST_SOURCES) {
             notes.add("Exec step `" + id + "` runs exec:java on the project classpath (tool = \"project\"),"
                     + " scheduled after compile, so it was drafted as test-resources rather than test-sources.");
-            return ProducesLane.TEST_RESOURCES;
+            return GeneratedOutputKind.TEST_RESOURCES;
         }
-        return lane;
+        return produces;
     }
 
-    private static ProducesLane defaultLane(String kind, MavenExecInvocation invocation) {
+    private static GeneratedOutputKind defaultKind(String kind, MavenExecInvocation invocation) {
         if ("exec".equals(kind) && invocation.mainClass().isPresent()) {
-            return ProducesLane.JAVA_SOURCES;
+            return GeneratedOutputKind.JAVA_SOURCES;
         }
         if (invocation.arguments().stream().anyMatch(argument -> argument.equals("install") || argument.equals("ci"))) {
-            return ProducesLane.INTERMEDIATE;
+            return GeneratedOutputKind.INTERMEDIATE;
         }
-        return ProducesLane.RESOURCES;
+        return GeneratedOutputKind.RESOURCES;
     }
 
-    private static Optional<ProducesLane> laneFromPhase(String phase) {
+    private static Optional<GeneratedOutputKind> kindFromPhase(String phase) {
         return switch (phase) {
-            case "generate-sources", "process-sources", "generate" -> Optional.of(ProducesLane.JAVA_SOURCES);
-            case "generate-test-sources", "process-test-sources" -> Optional.of(ProducesLane.TEST_SOURCES);
-            case "generate-test-resources", "process-test-resources" -> Optional.of(ProducesLane.TEST_RESOURCES);
+            case "generate-sources", "process-sources", "generate" ->
+                    Optional.of(GeneratedOutputKind.JAVA_SOURCES);
+            case "generate-test-sources", "process-test-sources" ->
+                    Optional.of(GeneratedOutputKind.TEST_SOURCES);
+            case "generate-test-resources", "process-test-resources" ->
+                    Optional.of(GeneratedOutputKind.TEST_RESOURCES);
             case "generate-resources", "process-resources", "prepare-package", "package" ->
-                    Optional.of(ProducesLane.RESOURCES);
+                    Optional.of(GeneratedOutputKind.RESOURCES);
             default -> Optional.empty();
         };
     }
 
-    private static String output(String id, ProducesLane lane) {
-        return switch (lane) {
-            case JAVA_SOURCES, TEST_SOURCES -> "target/generated/sources/" + id;
-            case RESOURCES, TEST_RESOURCES -> "target/generated/resources/" + id;
-            case INTERMEDIATE -> "target/generated/" + id;
+    /** Output paths are relative to {@code [build.output].root}, which the draft leaves at {@code target}. */
+    private static String output(String id, GeneratedOutputKind produces) {
+        return switch (produces) {
+            case JAVA_SOURCES, TEST_SOURCES -> "generated/sources/" + id;
+            case RESOURCES, TEST_RESOURCES -> "generated/resources/" + id;
+            case INTERMEDIATE -> "generated/" + id;
         };
     }
 
     private static String kind(String coordinate) {
-        String lower = coordinate.toLowerCase();
+        String lower = coordinate.toLowerCase(Locale.ROOT);
         if (lower.contains(":exec-maven-plugin")) {
             return "exec";
         }
@@ -222,7 +332,7 @@ final class MavenExecStepDrafter {
         if (raw.isBlank()) {
             raw = kind;
         }
-        String id = raw.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        String id = raw.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^[^a-z]+|-+$", "");
         return id.isBlank() ? "exec" : id;
     }
 
@@ -245,7 +355,7 @@ final class MavenExecStepDrafter {
         if (dot > 0) {
             base = base.substring(0, dot);
         }
-        base = base.replaceAll("[^A-Za-z0-9_-]", "-").replaceAll("^-+|-+$", "");
+        base = base.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^[^a-z]+|-+$", "");
         return base.isBlank() ? "tool" : base;
     }
 }

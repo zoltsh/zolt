@@ -1,12 +1,11 @@
 package sh.zolt.explain.emit;
 
 import java.util.List;
-import java.util.Set;
 
 /**
  * Renders a {@link DraftZoltToml} to a deterministic zolt.toml string: a fixed review-before-use
- * notice, the ambiguous-fact comment lines, then the mappable config serialized through the injected
- * {@link ProjectConfigRenderer}.
+ * notice, the ambiguous-fact comment lines, then the mappable manifest serialized through the injected
+ * {@link AuthoredManifestRenderer}.
  *
  * <p>Output is stable across runs on the same input: no timestamps, no host paths, no ordering that
  * depends on hashing. Every comment line reads like Zolt's other errors — it states a fact and what
@@ -21,7 +20,7 @@ public final class DraftZoltTomlRenderer {
             "# Ambiguous facts the audit could not map are listed as comments below; resolve them by"
                     + " hand.");
 
-    public String render(DraftZoltToml draft, ProjectConfigRenderer renderer) {
+    public String render(DraftZoltToml draft, AuthoredManifestRenderer renderer) {
         StringBuilder out = new StringBuilder();
         for (String line : NOTICE) {
             out.append(line).append('\n');
@@ -31,10 +30,10 @@ public final class DraftZoltTomlRenderer {
     }
 
     /**
-     * Renders the review-items comments and the config, without the standalone review-before-use
+     * Renders the review-items comments and the manifest, without the standalone review-before-use
      * notice. Used for member documents inside a workspace bundle, whose notice lives once at the top.
      */
-    public String renderBody(DraftZoltToml draft, ProjectConfigRenderer renderer) {
+    public String renderBody(DraftZoltToml draft, AuthoredManifestRenderer renderer) {
         StringBuilder out = new StringBuilder();
         if (!draft.notes().isEmpty()) {
             out.append('\n');
@@ -44,25 +43,22 @@ public final class DraftZoltTomlRenderer {
             }
         }
         out.append('\n');
-        out.append(renderConfig(draft, renderer));
+        out.append(renderManifest(draft, renderer));
         return out.toString();
     }
 
-    private static final String COMPILER_PLATFORM_API_HOST_SUGGESTION =
-            "# platformApi = \"host\"  # uncomment only if a post-target-Java platform API"
+    private static final String COMPILER_JDK_API_HOST_SUGGESTION =
+            "# jdkApi = \"host\"  # uncomment only if a post-target-Java platform API"
                     + " (e.g. an annotation processor) fails the strict --release build";
 
     private static final String EXEC_INPUT_OUTPUT_TODO =
             "# TODO declare inputs/outputs: Zolt cannot infer them from the Maven plugin config;"
                     + " replace REPLACE_ME with the real inputs and confirm the output directory.";
 
-    private static String renderConfig(DraftZoltToml draft, ProjectConfigRenderer renderer) {
-        String rendered = renderer.render(draft.config());
-        if (!draft.commentedProjectKeys().isEmpty()) {
-            rendered = commentProjectAssignments(rendered, Set.copyOf(draft.commentedProjectKeys()));
-        }
-        if (draft.suggestCompilerPlatformApiHost()) {
-            rendered = withCompilerPlatformApiHostSuggestion(rendered);
+    private static String renderManifest(DraftZoltToml draft, AuthoredManifestRenderer renderer) {
+        String rendered = renderer.render(draft.manifest());
+        if (draft.suggestCompilerJdkApiHost()) {
+            rendered = withCompilerJdkApiHostSuggestion(rendered);
         }
         rendered = withExecInputOutputTodos(rendered);
         return rendered;
@@ -72,7 +68,7 @@ public final class DraftZoltTomlRenderer {
      * Inserts a {@code # TODO declare inputs/outputs} comment directly under every drafted
      * {@code [generated.main|test.<id>]} exec section header. The section is recognized by its header
      * shape and the {@code kind = "exec"} line the writer always emits immediately after it, so
-     * openapi/protobuf sections and the {@code [generated.execTools.*]} tables are left untouched.
+     * openapi/protobuf sections and the {@code [generated.tools.*]} tables are left untouched.
      */
     private static String withExecInputOutputTodos(String toml) {
         boolean trailingNewline = toml.endsWith("\n");
@@ -96,11 +92,11 @@ public final class DraftZoltTomlRenderer {
     }
 
     /**
-     * Adds the commented {@code # platformApi = "host"} suggestion as the last line of the
+     * Adds the commented {@code # jdkApi = "host"} suggestion as the last line of the
      * {@code [compiler]} section, synthesizing the section when the strict default meant the writer
      * emitted none.
      */
-    private static String withCompilerPlatformApiHostSuggestion(String toml) {
+    private static String withCompilerJdkApiHostSuggestion(String toml) {
         String[] lines = (toml.endsWith("\n") ? toml.substring(0, toml.length() - 1) : toml).split("\n", -1);
         int compilerHeader = -1;
         for (int i = 0; i < lines.length; i++) {
@@ -114,7 +110,7 @@ public final class DraftZoltTomlRenderer {
             if (appended.length() > 0 && appended.charAt(appended.length() - 1) != '\n') {
                 appended.append('\n');
             }
-            appended.append("\n[compiler]\n").append(COMPILER_PLATFORM_API_HOST_SUGGESTION).append('\n');
+            appended.append("\n[compiler]\n").append(COMPILER_JDK_API_HOST_SUGGESTION).append('\n');
             return appended.toString();
         }
         int insertAt = lines.length;
@@ -132,7 +128,7 @@ public final class DraftZoltTomlRenderer {
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < lines.length; i++) {
             if (i == insertAt) {
-                out.append(COMPILER_PLATFORM_API_HOST_SUGGESTION).append('\n');
+                out.append(COMPILER_JDK_API_HOST_SUGGESTION).append('\n');
             }
             out.append(lines[i]);
             if (i < lines.length - 1) {
@@ -140,40 +136,9 @@ public final class DraftZoltTomlRenderer {
             }
         }
         if (insertAt == lines.length) {
-            out.append('\n').append(COMPILER_PLATFORM_API_HOST_SUGGESTION);
+            out.append('\n').append(COMPILER_JDK_API_HOST_SUGGESTION);
         }
         out.append('\n');
         return out.toString();
-    }
-
-    private static String commentProjectAssignments(String toml, Set<String> keys) {
-        StringBuilder out = new StringBuilder();
-        boolean inProject = false;
-        String[] lines = toml.split("\n", -1);
-        for (int i = 0; i < lines.length; i++) {
-            if (i > 0) {
-                out.append('\n');
-            }
-            String line = lines[i];
-            String stripped = line.strip();
-            if ("[project]".equals(stripped)) {
-                inProject = true;
-            } else if (stripped.startsWith("[") && stripped.endsWith("]")) {
-                inProject = false;
-            }
-            if (inProject && isCommentedAssignment(line, keys)) {
-                out.append("# ");
-            }
-            out.append(line);
-        }
-        return out.toString();
-    }
-
-    private static boolean isCommentedAssignment(String line, Set<String> keys) {
-        String stripped = line.stripLeading();
-        if (stripped.startsWith("#")) {
-            return false;
-        }
-        return keys.stream().anyMatch(key -> stripped.startsWith(key + " = "));
     }
 }

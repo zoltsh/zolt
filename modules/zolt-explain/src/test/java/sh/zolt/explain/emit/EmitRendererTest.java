@@ -7,8 +7,9 @@ import sh.zolt.explain.gradle.GradleInspectionResult;
 import sh.zolt.explain.gradle.GradleStaticProjectInspector;
 import sh.zolt.explain.maven.MavenInspectionResult;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredProjectIdentity;
+import sh.zolt.manifest.authored.AuthoredWorkspace;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -116,41 +117,44 @@ final class EmitRendererTest {
 
     private static EmitRenderer renderer() {
         return new EmitRenderer(
-                new InspectionToProjectConfig(),
+                new InspectionToManifest(),
                 new DraftZoltTomlRenderer(),
                 new DraftWorkspaceRenderer(),
-                new FakeProjectRenderer(),
-                new FakeWorkspaceRenderer());
+                new FakeManifestRenderer());
     }
 
-    private static final class FakeProjectRenderer implements ProjectConfigRenderer {
+    /**
+     * Stands in for the canonical writer. A workspace root and a project are the same authored shape in
+     * the final language, so the fake branches on the {@code [workspace]} domain; each identity value is
+     * emitted only when authored, mirroring the sparse output the real writer produces.
+     */
+    private static final class FakeManifestRenderer implements AuthoredManifestRenderer {
         @Override
-        public String render(ProjectConfig config) {
-            return """
-                    [project]
-                    name = "%s"
-                    version = "%s"
-                    group = "%s"
-                    java = "%s"
-                    """.formatted(
-                    config.project().name(),
-                    config.project().version(),
-                    config.project().group(),
-                    config.project().java());
+        public String render(AuthoredManifest manifest) {
+            return manifest.workspace()
+                    .map(FakeManifestRenderer::renderWorkspace)
+                    .orElseGet(() -> renderProject(manifest));
         }
-    }
 
-    private static final class FakeWorkspaceRenderer implements WorkspaceConfigRenderer {
-        @Override
-        public String render(WorkspaceConfig config) {
-            String members = config.members().stream()
-                    .map(member -> "\"" + member + "\"")
+        private static String renderWorkspace(AuthoredWorkspace workspace) {
+            String members = workspace.members().include().stream()
+                    .map(member -> "\"" + member.value() + "\"")
                     .collect(Collectors.joining(", "));
             return """
                     [workspace]
                     name = "%s"
                     members = [%s]
-                    """.formatted(config.name(), members);
+                    """.formatted(workspace.name().value(), members);
+        }
+
+        private static String renderProject(AuthoredManifest manifest) {
+            AuthoredProjectIdentity identity = manifest.project().orElseThrow().identity();
+            StringBuilder out = new StringBuilder("[project]\n");
+            out.append("name = \"").append(identity.name().value()).append("\"\n");
+            identity.version().ifPresent(value -> out.append("version = \"").append(value.value()).append("\"\n"));
+            identity.group().ifPresent(value -> out.append("group = \"").append(value.value()).append("\"\n"));
+            identity.javaRelease().ifPresent(value -> out.append("java = ").append(value.value()).append('\n'));
+            return out.toString();
         }
     }
 }

@@ -8,6 +8,7 @@ import sh.zolt.explain.maven.MavenStaticProjectInspector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -15,7 +16,7 @@ final class MavenTestJavaVersionEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void divergentMavenTestJavaVersionBecomesReviewItem() throws IOException {
@@ -35,7 +36,7 @@ final class MavenTestJavaVersionEmitTest {
         MavenInspectionResult result = new MavenStaticProjectInspector().inspect(tempDir);
         DraftZoltToml draft = mapper.fromMaven(result);
 
-        assertEquals("8", draft.config().project().java());
+        assertEquals(Optional.of(8), DraftManifestSubject.of(draft).javaRelease());
         assertTrue(draft.notes().stream()
                 .anyMatch(note -> note.contains("test Java version `17` differs from main Java version `8`")),
                 () -> draft.notes().toString());

@@ -4,21 +4,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.gradle.GradleInspectionResult;
 import sh.zolt.explain.gradle.GradleStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-final class InspectionToProjectConfigGradleTest {
+final class InspectionToManifestGradleTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void gradleDraftUsesRootProjectNameGroupVersionAndMainClass() throws IOException {
@@ -35,13 +35,13 @@ final class InspectionToProjectConfigGradleTest {
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
         DraftZoltToml draft = mapper.fromGradle(result);
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("sales-report", config.project().name());
-        assertEquals("com.example", config.project().group());
-        assertEquals("0.3.1", config.project().version());
-        assertEquals("com.example.report.ReportApp", config.project().main().orElseThrow());
-        assertEquals("2.0.16", config.dependencies().get("org.slf4j:slf4j-api"));
+        assertEquals("sales-report", subject.name());
+        assertEquals(Optional.of("com.example"), subject.group());
+        assertEquals(Optional.of("0.3.1"), subject.version());
+        assertEquals("com.example.report.ReportApp", subject.mainClass().orElseThrow());
+        assertEquals("2.0.16", subject.fixed(DependencyLane.IMPLEMENTATION).get("org.slf4j:slf4j-api"));
         assertFalse(
                 draft.notes().stream().anyMatch(note -> note.contains("could not read")),
                 () -> "no cannot-read note expected when group/version are present: " + draft.notes());
@@ -59,12 +59,12 @@ final class InspectionToProjectConfigGradleTest {
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
         DraftZoltToml draft = mapper.fromGradle(result);
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("bare", config.project().name());
-        assertEquals("com.example", config.project().group());
-        assertEquals("0.1.0", config.project().version());
-        assertTrue(config.project().main().isEmpty());
+        assertEquals("bare", subject.name());
+        assertEquals(Optional.of("com.example"), subject.group());
+        assertEquals(Optional.of("0.1.0"), subject.version());
+        assertTrue(subject.mainClass().isEmpty());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
                         note.contains("group and version are placeholders")
@@ -88,10 +88,10 @@ final class InspectionToProjectConfigGradleTest {
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
         DraftZoltToml draft = mapper.fromGradle(result);
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("com.acme", config.project().group());
-        assertEquals("1.2.3", config.project().version());
+        assertEquals(Optional.of("com.acme"), subject.group());
+        assertEquals(Optional.of("1.2.3"), subject.version());
         assertFalse(
                 draft.notes().stream().anyMatch(note -> note.contains("placeholder")),
                 () -> "gradle.properties coordinates should avoid placeholder notes: " + draft.notes());
@@ -120,13 +120,15 @@ final class InspectionToProjectConfigGradleTest {
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
         DraftZoltToml draft = mapper.fromGradle(result);
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("2.0.13", config.dependencies().get("org.slf4j:slf4j-api"));
-        assertEquals("2.11.0", config.dependencies().get("com.google.code.gson:gson"));
-        assertEquals("5.10.2", config.testDependencies().get("org.junit.jupiter:junit-jupiter"));
-        assertFalse(config.dependencies().values().stream().anyMatch(version -> version.contains("$")));
-        assertFalse(config.testDependencies().values().stream().anyMatch(version -> version.contains("$")));
+        assertEquals("2.0.13", subject.fixed(DependencyLane.IMPLEMENTATION).get("org.slf4j:slf4j-api"));
+        assertEquals("2.11.0", subject.fixed(DependencyLane.IMPLEMENTATION).get("com.google.code.gson:gson"));
+        assertEquals("5.10.2", subject.fixed(DependencyLane.TEST).get("org.junit.jupiter:junit-jupiter"));
+        assertFalse(subject.fixed(DependencyLane.IMPLEMENTATION).values().stream()
+                .anyMatch(version -> version.contains("$")));
+        assertFalse(subject.fixed(DependencyLane.TEST).values().stream()
+                .anyMatch(version -> version.contains("$")));
     }
 
     @Test
@@ -153,10 +155,10 @@ final class InspectionToProjectConfigGradleTest {
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
         DraftZoltToml draft = mapper.fromGradle(result);
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("33.4.8-jre", config.dependencies().get("com.google.guava:guava"));
-        assertEquals("4.13.2", config.testDependencies().get("junit:junit"));
+        assertEquals("33.4.8-jre", subject.fixed(DependencyLane.IMPLEMENTATION).get("com.google.guava:guava"));
+        assertEquals("4.13.2", subject.fixed(DependencyLane.TEST).get("junit:junit"));
         assertFalse(
                 draft.notes().stream().anyMatch(note -> note.contains("no version")),
                 () -> "rich catalog aliases should emit concrete versions: " + draft.notes());
@@ -179,14 +181,15 @@ final class InspectionToProjectConfigGradleTest {
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
         DraftZoltToml draft = mapper.fromGradle(result);
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("33.4.8-jre", config.apiDependencies().get("com.google.guava:guava"),
-                () -> "api dep must land in [api.dependencies]: " + config.apiDependencies());
-        assertFalse(config.dependencies().containsKey("com.google.guava:guava"),
-                () -> "api dep must not collapse into [dependencies]: " + config.dependencies());
-        assertEquals("2.0.16", config.dependencies().get("org.slf4j:slf4j-api"));
-        assertFalse(config.apiDependencies().containsKey("org.slf4j:slf4j-api"));
+        assertEquals("33.4.8-jre", subject.fixed(DependencyLane.API).get("com.google.guava:guava"),
+                () -> "api dep must land in [dependencies.api]: " + subject.fixed(DependencyLane.API));
+        assertFalse(subject.coordinates(DependencyLane.IMPLEMENTATION).contains("com.google.guava:guava"),
+                () -> "api dep must not collapse into the implementation lane: "
+                        + subject.coordinates(DependencyLane.IMPLEMENTATION));
+        assertEquals("2.0.16", subject.fixed(DependencyLane.IMPLEMENTATION).get("org.slf4j:slf4j-api"));
+        assertFalse(subject.coordinates(DependencyLane.API).contains("org.slf4j:slf4j-api"));
     }
 
     @Test
@@ -214,10 +217,12 @@ final class InspectionToProjectConfigGradleTest {
                 """);
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
-        ProjectConfig config = mapper.fromGradle(result).config();
+        DraftManifestSubject subject = DraftManifestSubject.of(mapper.fromGradle(result));
 
-        assertEquals("2.17.1", config.apiDependencies().get("com.fasterxml.jackson.core:jackson-core"));
-        assertEquals("2.17.1", config.apiDependencies().get("com.fasterxml.jackson.core:jackson-databind"));
+        assertEquals("2.17.1",
+                subject.fixed(DependencyLane.API).get("com.fasterxml.jackson.core:jackson-core"));
+        assertEquals("2.17.1",
+                subject.fixed(DependencyLane.API).get("com.fasterxml.jackson.core:jackson-databind"));
     }
 
     @Test
@@ -242,11 +247,17 @@ final class InspectionToProjectConfigGradleTest {
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
         DraftZoltToml draft = mapper.fromGradle(result);
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals(List.of("src/test/groovy"), config.build().groovyTestSources());
-        assertEquals("4.0.22", config.testDependencies().get("org.apache.groovy:groovy"));
-        assertEquals("2.3-groovy-4.0", config.testDependencies().get("org.spockframework:spock-core"));
-        assertEquals("1.11.4", config.testDependencies().get("org.junit.platform:junit-platform-console-standalone"));
+        // The final language has no groovy test-source list: Zolt derives the test root from the build
+        // convention, so an audited src/test/groovy root is carried as review data instead.
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("Test sources live outside") && note.contains("src/test/groovy")),
+                () -> "expected the Groovy test root review note: " + draft.notes());
+        assertEquals("4.0.22", subject.fixed(DependencyLane.TEST).get("org.apache.groovy:groovy"));
+        assertEquals("2.3-groovy-4.0", subject.fixed(DependencyLane.TEST).get("org.spockframework:spock-core"));
+        assertEquals("1.11.4",
+                subject.fixed(DependencyLane.TEST).get("org.junit.platform:junit-platform-console-standalone"));
     }
 }

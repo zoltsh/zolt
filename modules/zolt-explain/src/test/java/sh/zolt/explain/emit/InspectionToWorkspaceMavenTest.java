@@ -5,14 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.maven.MavenInspectionResult;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.WorkspaceMemberPattern;
+import sh.zolt.manifest.authored.AuthoredWorkspace;
+import sh.zolt.manifest.authored.AuthoredWorkspaceProjectDefaults;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -21,7 +26,7 @@ final class InspectionToWorkspaceMavenTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     private DraftWorkspace emitReactor() throws IOException {
         Files.writeString(tempDir.resolve("pom.xml"), """
@@ -108,12 +113,18 @@ final class InspectionToWorkspaceMavenTest {
     }
 
     @Test
-    void reactorEmitsWorkspaceRootWithMembersAndDefaultMembers() throws IOException {
+    void reactorEmitsWorkspaceRootWithMembersAndNoDefaultSelection() throws IOException {
         DraftWorkspace workspace = emitReactor();
 
-        assertEquals("shop-parent", workspace.workspace().name());
-        assertEquals(List.of("orders-api", "orders-core"), workspace.workspace().members());
-        assertEquals(List.of("orders-api", "orders-core"), workspace.workspace().defaultMembers());
+        AuthoredWorkspace root = workspace.root().workspace().orElseThrow();
+        assertEquals("shop-parent", root.name().value());
+        assertEquals(
+                List.of("orders-api", "orders-core"),
+                root.members().include().stream().map(WorkspaceMemberPattern::value).toList());
+        assertEquals(
+                Optional.empty(),
+                root.members().defaultMembers(),
+                "a draft selects every member, which is what omitting `default` means");
         assertEquals(2, workspace.members().size());
     }
 
@@ -121,65 +132,69 @@ final class InspectionToWorkspaceMavenTest {
     void membersInheritConcreteParentManagedVersions() throws IOException {
         DraftWorkspace workspace = emitReactor();
 
-        ProjectConfig core = member(workspace, "orders-core");
-        assertEquals("21", core.project().java(), "member inherits the parent Java version");
-        assertEquals("1.4.0", core.project().version());
-        assertEquals("com.acme.shop", core.project().group());
+        AuthoredWorkspaceProjectDefaults shared =
+                workspace.root().workspace().orElseThrow().projectDefaults().orElseThrow();
+        assertEquals(21, shared.javaRelease().orElseThrow().value(), "the root hoists the parent Java version");
+        assertEquals("1.4.0", shared.version().orElseThrow().value());
+        assertEquals("com.acme.shop", shared.group().orElseThrow().value());
+
+        DraftManifestSubject core = member(workspace, "orders-core");
+        assertEquals(Optional.empty(), core.javaRelease(), "a member never re-authors an inherited value");
+        assertEquals(Optional.empty(), core.version(), "a member never re-authors an inherited value");
+        assertEquals(Optional.empty(), core.group(), "a member never re-authors an inherited value");
+        Map<String, String> coreDependencies = core.fixed(DependencyLane.IMPLEMENTATION);
         assertEquals(
                 "2.17.1",
-                core.dependencies().get("com.fasterxml.jackson.core:jackson-databind"),
-                () -> "member must carry the inherited concrete version: " + core.dependencies());
+                coreDependencies.get("com.fasterxml.jackson.core:jackson-databind"),
+                () -> "member must carry the inherited concrete version: " + coreDependencies);
     }
 
     @Test
     void interModuleDependencyBecomesWorkspaceEdgeNotExternalCoordinate() throws IOException {
         DraftWorkspace workspace = emitReactor();
 
-        ProjectConfig api = member(workspace, "orders-api");
-        Map<String, String> workspaceDeps = api.workspaceDependencies();
-        assertEquals(
-                "orders-core",
-                workspaceDeps.get("com.acme.shop:orders-core"),
-                () -> "sibling dep must be a { workspace = ... } edge: " + workspaceDeps);
+        DraftManifestSubject api = member(workspace, "orders-api");
+        Set<String> workspaceDeps = api.workspaceMembers(DependencyLane.IMPLEMENTATION);
+        assertTrue(
+                workspaceDeps.contains("com.acme.shop:orders-core"),
+                () -> "sibling dep must be a { workspace = true } edge: " + workspaceDeps);
+        Map<String, String> external = api.fixed(DependencyLane.IMPLEMENTATION);
         assertFalse(
-                api.dependencies().containsKey("com.acme.shop:orders-core"),
-                () -> "sibling dep must not be emitted as an external coordinate: " + api.dependencies());
+                external.containsKey("com.acme.shop:orders-core"),
+                () -> "sibling dep must not be emitted as an external coordinate: " + external);
+        Map<String, String> testDependencies = api.fixed(DependencyLane.TEST);
         assertEquals(
                 "5.11.4",
-                api.testDependencies().get("org.junit.jupiter:junit-jupiter"),
-                () -> "external test dep still resolves to a concrete version: " + api.testDependencies());
+                testDependencies.get("org.junit.jupiter:junit-jupiter"),
+                () -> "external test dep still resolves to a concrete version: " + testDependencies);
     }
 
     @Test
     void reactorInternalBomPinsVersionlessDependencyWithoutLivePlatform() throws IOException {
         DraftWorkspace workspace = emitReactorWithInternalBom("1.0.0");
 
-        ProjectConfig app = member(workspace, "app");
+        DraftManifestSubject app = member(workspace, "app");
         assertFalse(app.platforms().containsKey("com.acme:acme-bom"),
                 () -> "reactor-internal BOM must not be emitted as an external platform: " + app.platforms());
-        assertEquals("2.10.1", app.dependencies().get("com.google.code.gson:gson"),
+        assertEquals("2.10.1", app.fixed(DependencyLane.IMPLEMENTATION).get("com.google.code.gson:gson"),
                 () -> "direct versionless dependency should be pinned from the sibling BOM: "
-                        + app.dependencies());
-        assertFalse(app.managedDependencies().contains("com.google.code.gson:gson"),
+                        + app.fixed(DependencyLane.IMPLEMENTATION));
+        assertFalse(app.managed(DependencyLane.IMPLEMENTATION).contains("com.google.code.gson:gson"),
                 () -> "sibling BOM pin must not leave an orphaned platform-managed marker: "
-                        + app.managedDependencies());
+                        + app.managed(DependencyLane.IMPLEMENTATION));
         assertEquals(
                 "2.0.17",
-                app.dependencyPolicy()
-                        .constraints()
-                        .get("org.slf4j:slf4j-api")
-                        .version(),
-                () -> "non-direct sibling BOM pins should become dependency constraints: "
-                        + app.dependencyPolicy().constraints());
+                app.constraints().get("org.slf4j:slf4j-api"),
+                () -> "non-direct sibling BOM pins should become dependency constraints: " + app.constraints());
     }
 
     @Test
     void reactorInternalSnapshotBomEmitsNoLiveSnapshotPlatform() throws IOException {
         DraftWorkspace workspace = emitReactorWithInternalBom("1.0.0-SNAPSHOT");
 
-        ProjectConfig app = member(workspace, "app");
+        DraftManifestSubject app = member(workspace, "app");
         assertTrue(app.platforms().isEmpty(), () -> "SNAPSHOT sibling BOM must not be live: " + app.platforms());
-        assertEquals("2.10.1", app.dependencies().get("com.google.code.gson:gson"));
+        assertEquals("2.10.1", app.fixed(DependencyLane.IMPLEMENTATION).get("com.google.code.gson:gson"));
         assertTrue(memberDraft(workspace, "app").notes().stream()
                 .anyMatch(note -> note.contains("Reactor-internal BOM `com.acme:acme-bom`")),
                 () -> "dropped sibling BOM should leave a review note: " + memberDraft(workspace, "app").notes());
@@ -194,8 +209,8 @@ final class InspectionToWorkspaceMavenTest {
                 () -> "a pom aggregator with no deps needs no workspace note: " + workspace.notes());
     }
 
-    private static ProjectConfig member(DraftWorkspace workspace, String path) {
-        return memberDraft(workspace, path).config();
+    private static DraftManifestSubject member(DraftWorkspace workspace, String path) {
+        return DraftManifestSubject.of(memberDraft(workspace, path));
     }
 
     private static DraftZoltToml memberDraft(DraftWorkspace workspace, String path) {

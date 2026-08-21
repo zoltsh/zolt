@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.maven.MavenInspectionResult;
 import sh.zolt.explain.maven.MavenProjectInspection;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,7 +19,7 @@ final class MavenDependencyManagementEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void emitsConstraintsPlatformManagedDepsAndClassifierReviewNotes() throws IOException {
@@ -62,22 +62,23 @@ final class MavenDependencyManagementEmitTest {
                 """);
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("5.10.2", config.platforms().get("org.junit:junit-bom"));
-        assertTrue(config.managedTestDependencies().contains("org.junit.jupiter:junit-jupiter"),
+        assertEquals("5.10.2", subject.platforms().get("org.junit:junit-bom"),
+                () -> "import-scope BOM must land in [platforms]: " + subject.platforms());
+        assertTrue(subject.managed(DependencyLane.TEST).contains("org.junit.jupiter:junit-jupiter"),
                 () -> "version-less junit dependency should use the platform-managed marker: "
-                        + config.managedTestDependencies());
-        assertFalse(config.testDependencies().containsKey("org.junit.jupiter:junit-jupiter"),
-                () -> "platform-managed dependency must not get a guessed version: " + config.testDependencies());
-        assertEquals(
-                "1.1.0",
-                config.dependencyPolicy()
-                        .constraints()
-                        .get("org.apiguardian:apiguardian-api")
-                        .version());
-        assertFalse(config.dependencies().containsKey("org.jacoco:org.jacoco.agent"),
-                () -> "classifier dependency must not be emitted as the plain artifact: " + config.dependencies());
+                        + subject.managed(DependencyLane.TEST));
+        assertFalse(subject.fixed(DependencyLane.TEST).containsKey("org.junit.jupiter:junit-jupiter"),
+                () -> "platform-managed dependency must not get a guessed version: "
+                        + subject.fixed(DependencyLane.TEST));
+        assertEquals("1.1.0", subject.constraints().get("org.apiguardian:apiguardian-api"),
+                () -> "unconsumed dependencyManagement pin must become a [dependencies.constraints] entry: "
+                        + subject.constraints());
+        assertFalse(
+                subject.coordinates(DependencyLane.IMPLEMENTATION).contains("org.jacoco:org.jacoco.agent"),
+                () -> "classifier dependency must not be emitted as the plain artifact: "
+                        + subject.coordinates(DependencyLane.IMPLEMENTATION));
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
                         note.contains("org.jacoco:org.jacoco.agent")
@@ -103,8 +104,11 @@ final class MavenDependencyManagementEmitTest {
                 """);
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertTrue(draft.config().managedDependencies().isEmpty());
+        assertTrue(subject.managed(DependencyLane.IMPLEMENTATION).isEmpty(),
+                () -> "no platform present: version-less dep must not be managed: "
+                        + subject.managed(DependencyLane.IMPLEMENTATION));
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
                         note.contains("com.example:needs-version")
@@ -135,9 +139,10 @@ final class MavenDependencyManagementEmitTest {
                 """);
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertFalse(draft.config().platforms().containsKey("com.example:snapshot-bom"),
-                () -> "SNAPSHOT platform must not be emitted live: " + draft.config().platforms());
+        assertFalse(subject.platforms().containsKey("com.example:snapshot-bom"),
+                () -> "SNAPSHOT platform must not be emitted live: " + subject.platforms());
         assertTrue(draft.notes().stream()
                 .anyMatch(note -> note.contains("com.example:snapshot-bom")
                         && note.contains("unsupported platform version")
@@ -197,11 +202,12 @@ final class MavenDependencyManagementEmitTest {
                 .findFirst()
                 .orElseThrow();
         DraftZoltToml draft = mapper.fromMaven(new MavenInspectionResult(service, List.of(child), List.of()));
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("5.10.2", config.platforms().get("org.junit:junit-bom"));
-        assertTrue(config.managedTestDependencies().contains("org.junit.jupiter:junit-jupiter"),
+        assertEquals("5.10.2", subject.platforms().get("org.junit:junit-bom"),
+                () -> "inherited BOM must land in [platforms]: " + subject.platforms());
+        assertTrue(subject.managed(DependencyLane.TEST).contains("org.junit.jupiter:junit-jupiter"),
                 () -> "child should emit inherited BOM-managed test dependency: "
-                        + config.managedTestDependencies());
+                        + subject.managed(DependencyLane.TEST));
     }
 }

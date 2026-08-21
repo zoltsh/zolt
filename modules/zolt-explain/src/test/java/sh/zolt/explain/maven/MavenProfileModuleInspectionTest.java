@@ -11,7 +11,9 @@ import sh.zolt.explain.MigrationReadinessScorecardFormatter;
 import sh.zolt.explain.MigrationReadinessScorecards;
 import sh.zolt.explain.emit.DraftEmit;
 import sh.zolt.explain.emit.DraftWorkspace;
-import sh.zolt.explain.emit.InspectionToProjectConfig;
+import sh.zolt.explain.emit.InspectionToManifest;
+import sh.zolt.manifest.WorkspaceMemberPattern;
+import sh.zolt.manifest.authored.AuthoredWorkspace;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,11 +54,15 @@ final class MavenProfileModuleInspectionTest {
     void workspaceEmitNotesProfileDeclaredModulesOmittedFromMembers() throws IOException {
         MavenInspectionResult result = inspectProfileModuleFixture();
 
-        DraftEmit emit = new InspectionToProjectConfig().emitFromMaven(result);
+        DraftEmit emit = new InspectionToManifest().emitFromMaven(result);
         DraftWorkspace workspace = assertInstanceOf(DraftWorkspace.class, emit);
 
-        assertEquals(List.of("app"), workspace.workspace().members());
-        assertEquals(List.of("app"), workspace.workspace().defaultMembers());
+        AuthoredWorkspace root = workspace.root().workspace().orElseThrow();
+        assertEquals(
+                List.of("app"),
+                root.members().include().stream().map(WorkspaceMemberPattern::value).toList());
+        // Omitting `default` is the implicit-all selection, which is exactly every drafted member.
+        assertTrue(root.members().defaultMembers().isEmpty());
         assertTrue(workspace.notes().stream().anyMatch(note ->
                 note.contains("profile `extras`")
                         && note.contains("extra")

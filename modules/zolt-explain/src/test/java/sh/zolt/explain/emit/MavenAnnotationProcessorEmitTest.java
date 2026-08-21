@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,17 +16,19 @@ final class MavenAnnotationProcessorEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void mavenDraftEmitsAnnotationProcessorPaths() throws IOException {
         writePomWithProcessorVersion("${mapstruct.version}");
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals("1.6.3", draft.config().annotationProcessors().get("org.mapstruct:mapstruct-processor"),
-                () -> "[annotationProcessors] must carry maven-compiler-plugin processor paths: "
-                        + draft.config().annotationProcessors());
+        assertEquals("1.6.3",
+                subject.fixed(DependencyLane.PROCESSOR).get("org.mapstruct:mapstruct-processor"),
+                () -> "[dependencies.processor] must carry maven-compiler-plugin processor paths: "
+                        + subject.fixed(DependencyLane.PROCESSOR));
         assertFalse(draft.notes().stream().anyMatch(note -> note.contains("mapstruct-processor")),
                 () -> "resolved processors should not need review notes: " + draft.notes());
     }
@@ -35,10 +38,12 @@ final class MavenAnnotationProcessorEmitTest {
         writePomWithProcessorVersion("${missing.processor.version}");
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertFalse(draft.config().annotationProcessors().containsKey("org.mapstruct:mapstruct-processor"),
+        assertFalse(
+                subject.coordinates(DependencyLane.PROCESSOR).contains("org.mapstruct:mapstruct-processor"),
                 () -> "unresolved processors must not be emitted as real versions: "
-                        + draft.config().annotationProcessors());
+                        + subject.coordinates(DependencyLane.PROCESSOR));
         assertTrue(draft.notes().stream().anyMatch(note ->
                         note.contains("Annotation processor `org.mapstruct:mapstruct-processor`")
                                 && note.contains("property")

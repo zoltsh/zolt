@@ -9,8 +9,8 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-final class InspectionToProjectConfigEdgeTest {
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+final class InspectionToManifestEdgeTest {
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void emptyMavenAuditHasActionableEmitError() {

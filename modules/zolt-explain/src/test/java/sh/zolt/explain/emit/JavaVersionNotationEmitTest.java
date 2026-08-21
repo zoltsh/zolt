@@ -6,10 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.explain.gradle.GradleStaticProjectInspector;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -17,7 +18,7 @@ final class JavaVersionNotationEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void mavenDraftNormalizesLegacyJavaFeatureNotation() throws IOException {
@@ -35,12 +36,11 @@ final class JavaVersionNotationEmitTest {
                 """);
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
-        ProjectConfig config = draft.config();
         String rendered = render(draft);
 
-        assertEquals("8", config.project().java());
-        assertTrue(hasLine(rendered, "java = \"8\""), () -> rendered);
-        assertFalse(hasLine(rendered, "# java = \"8\""), () -> rendered);
+        assertEquals(Optional.of(8), DraftManifestSubject.of(draft).javaRelease());
+        assertTrue(hasLine(rendered, "java = 8"), () -> rendered);
+        assertFalse(hasLine(rendered, "# java = 8"), () -> rendered);
     }
 
     @Test
@@ -52,9 +52,9 @@ final class JavaVersionNotationEmitTest {
                 targetCompatibility = 1.8
                 """);
 
-        ProjectConfig config = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir)).config();
+        DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
 
-        assertEquals("8", config.project().java());
+        assertEquals(Optional.of(8), DraftManifestSubject.of(draft).javaRelease());
     }
 
     @Test
@@ -65,13 +65,13 @@ final class JavaVersionNotationEmitTest {
                 sourceCompatibility = JavaVersion.VERSION_1_8
                 """);
 
-        ProjectConfig config = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir)).config();
+        DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
 
-        assertEquals("8", config.project().java());
+        assertEquals(Optional.of(8), DraftManifestSubject.of(draft).javaRelease());
     }
 
     @Test
-    void mavenDraftCommentsUnknownJavaFromExecutionScopedCompilerConfig() throws IOException {
+    void mavenDraftOmitsUnknownJavaFromExecutionScopedCompilerConfig() throws IOException {
         Files.writeString(tempDir.resolve("pom.xml"), """
                 <project>
                   <modelVersion>4.0.0</modelVersion>
@@ -104,43 +104,51 @@ final class JavaVersionNotationEmitTest {
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
         String rendered = render(draft);
 
-        assertTrue(rendered.contains("# Review items:"), () -> rendered);
-        assertTrue(rendered.contains("Project Java version could not be determined"), () -> rendered);
-        assertTrue(hasLine(rendered, "# java = \"unknown\""), () -> rendered);
-        assertFalse(hasLine(rendered, "java = \"unknown\""), () -> rendered);
+        assertUnreadableJavaIsOmittedWithNote(draft, rendered);
     }
 
     @Test
-    void gradleDraftCommentsUnknownJavaWithoutDetectableToolchain() throws IOException {
+    void gradleDraftOmitsUnknownJavaWithoutDetectableToolchain() throws IOException {
         Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'unknown-gradle'\n");
         Files.writeString(tempDir.resolve("build.gradle"), "plugins { id 'java' }\n");
 
         DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
         String rendered = render(draft);
 
+        assertUnreadableJavaIsOmittedWithNote(draft, rendered);
+    }
+
+    /**
+     * {@code [project].java} is an integer in the final language, so an unreadable feature version
+     * cannot be drafted at all — not even as a commented-out line. The draft omits the key and keeps
+     * the audited notation in the review note instead.
+     */
+    private static void assertUnreadableJavaIsOmittedWithNote(DraftZoltToml draft, String rendered) {
+        assertTrue(DraftManifestSubject.of(draft).javaRelease().isEmpty(), () -> rendered);
         assertTrue(rendered.contains("# Review items:"), () -> rendered);
-        assertTrue(rendered.contains("Project Java version could not be determined"), () -> rendered);
-        assertTrue(hasLine(rendered, "# java = \"unknown\""), () -> rendered);
-        assertFalse(hasLine(rendered, "java = \"unknown\""), () -> rendered);
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("Project Java version could not be determined")
+                                && note.contains("`unknown`")
+                                && note.contains("add `[project].java`")),
+                () -> draft.notes().toString());
+        assertFalse(rendered.lines().anyMatch(line -> line.strip().startsWith("java =")), () -> rendered);
+        assertFalse(rendered.contains("# java ="), () -> rendered);
     }
 
     private static String render(DraftZoltToml draft) {
         return new DraftZoltTomlRenderer().render(draft, JavaVersionNotationEmitTest::projectOnlyToml);
     }
 
-    private static String projectOnlyToml(ProjectConfig config) {
-        return """
-                [project]
-                name = "%s"
-                version = "%s"
-                group = "%s"
-                java = "%s"
-
-                """.formatted(
-                config.project().name(),
-                config.project().version(),
-                config.project().group(),
-                config.project().java());
+    /** A sparse {@code [project]} table: absent identity values are not materialized. */
+    private static String projectOnlyToml(AuthoredManifest manifest) {
+        DraftManifestSubject subject = DraftManifestSubject.of(manifest);
+        StringBuilder out = new StringBuilder("[project]\n");
+        out.append("name = \"").append(subject.name()).append("\"\n");
+        subject.version().ifPresent(value -> out.append("version = \"").append(value).append("\"\n"));
+        subject.group().ifPresent(value -> out.append("group = \"").append(value).append("\"\n"));
+        subject.javaRelease().ifPresent(value -> out.append("java = ").append(value).append('\n'));
+        return out.append('\n').toString();
     }
 
     private static boolean hasLine(String rendered, String expected) {

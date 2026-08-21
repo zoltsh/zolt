@@ -4,37 +4,34 @@ import sh.zolt.explain.gradle.GradleInspectionResult;
 import sh.zolt.explain.gradle.GradleProjectInspection;
 import sh.zolt.explain.gradle.GradleRepositoryInspection;
 import sh.zolt.explain.gradle.GradleVersionCatalogAlias;
-import sh.zolt.project.BuildSettings;
-import sh.zolt.project.CompilerSettings;
-import sh.zolt.project.NativeSettings;
-import sh.zolt.project.PackageSettings;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.project.ProjectConfigs;
-import sh.zolt.project.ProjectMetadata;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredPackaging;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
 
 /** Maps a single-project {@link GradleInspectionResult} to a {@link DraftZoltToml}. */
 final class GradleInspectionMapper {
+    static final String PLACEHOLDER_GROUP = "com.example";
+    static final String PLACEHOLDER_VERSION = "0.1.0";
+
     private GradleInspectionMapper() {
     }
 
     static DraftZoltToml map(GradleInspectionResult result) {
         List<String> notes = skippedIncludedProjectNotes(result);
         GradleProjectInspection primary = result.projects().get(0);
-        return mapProject(primary, null, result.versionCatalogAliases(), notes);
+        return mapProject(
+                primary, null, result.versionCatalogAliases(), DraftIdentityDefaults.none(), notes);
     }
 
-    /** Maps one subproject, rewriting {@code project(...)} edges to {@code { workspace = ... }}. */
+    /** Maps one subproject, rewriting {@code project(...)} edges to {@code { workspace = true }}. */
     static DraftZoltToml mapMember(
             GradleProjectInspection project,
             WorkspaceMemberRegistry registry,
-            List<GradleVersionCatalogAlias> aliases) {
-        return mapProject(project, registry, aliases, new ArrayList<>());
+            List<GradleVersionCatalogAlias> aliases,
+            DraftIdentityDefaults defaults) {
+        return mapProject(project, registry, aliases, defaults, new ArrayList<>());
     }
 
     static List<String> skippedIncludedProjectNotes(GradleInspectionResult result) {
@@ -63,69 +60,55 @@ final class GradleInspectionMapper {
             GradleProjectInspection primary,
             WorkspaceMemberRegistry registry,
             List<GradleVersionCatalogAlias> aliases,
+            DraftIdentityDefaults defaults,
             List<String> notes) {
         // A standalone java-platform project drafts a [bom] member. Workspace members keep the existing
         // platform/dependency routing so multi-project emit stays stable.
         if (registry == null && GradleBomDraftMapper.isBom(primary)) {
             return GradleBomDraftMapper.map(primary, notes);
         }
-        GradleDependencySectionMapper sections = new GradleDependencySectionMapper(registry, notes);
-        sections.map(primary.dependencies());
+        DraftDependencies dependencies = new DraftDependencies(notes);
+        new GradleDependencySectionMapper(dependencies, registry, notes).map(primary.dependencies());
         addCatalogNotes(aliases, notes);
         addRepositoryNotes(primary.repositories(), notes);
 
-        Set<String> commentedProjectKeys = new TreeSet<>();
-        ProjectMetadata metadata = new ProjectMetadata(
-                primary.name(),
-                emittedVersion(primary),
-                emittedGroup(primary),
-                javaVersion(primary.javaVersion(), notes, commentedProjectKeys),
-                primary.mainClass().filter(value -> !value.isBlank()));
+        Optional<String> group = defaults.group(
+                primary.group().orElse(""), () -> PLACEHOLDER_GROUP);
+        Optional<String> version = defaults.version(
+                primary.version().orElse(""), () -> PLACEHOLDER_VERSION);
+        Optional<Integer> javaRelease = defaults.javaRelease(
+                JavaVersionNotation.featureRelease(primary.javaVersion()),
+                () -> notes.add(MavenInspectionMapper.unreadableJavaNote(primary.javaVersion())));
         addCoordinatePlaceholderNotes(primary, notes);
-        BuildSettings defaultBuild = BuildSettings.defaults();
-
-        ProjectConfig config = ProjectConfigs.withAllDependencySections(
-                metadata,
-                ProjectConfig.defaultRepositories(),
-                sections.platforms(),
-                sections.apiDependencies(),
-                sections.managedApi(),
-                sections.workspaceApi(),
-                sections.dependencies(),
-                sections.managedDependencies(),
-                sections.workspaceDependencies(),
-                sections.runtime(),
-                sections.managedRuntime(),
-                sections.provided(),
-                sections.managedProvided(),
-                Map.of(),
-                Set.of(),
-                sections.test(),
-                sections.managedTest(),
-                sections.workspaceTest(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
+        AuthoredManifest manifest = DraftManifests.project(
+                DraftManifests.identity(
+                        primary.name(),
+                        group,
+                        version,
+                        javaRelease,
+                        notes),
+                DraftManifests.metadata(
+                        primary.mainClass().filter(value -> !value.isBlank()), notes),
+                dependencies,
+                Optional.empty(),
                 InspectionBuildSettingsMapper.fromRoots(
                         primary.sourceRoots(),
                         primary.testSourceRoots(),
                         primary.groovyTestSourceRoots(),
-                        defaultBuild.resourceRoots(),
-                        defaultBuild.testResourceRoots(),
+                        List.of(),
+                        List.of(),
                         notes),
-                NativeSettings.defaults(),
-                CompilerSettings.defaults(),
-                PackageSettings.defaults());
-        return new DraftZoltToml(config, notes, List.copyOf(commentedProjectKeys));
+                Optional.empty(),
+                AuthoredPackaging.empty());
+        return new DraftZoltToml(manifest, notes);
     }
 
     static String emittedGroup(GradleProjectInspection project) {
-        return project.group().filter(value -> !value.isBlank()).orElse("com.example");
+        return project.group().filter(value -> !value.isBlank()).orElse(PLACEHOLDER_GROUP);
     }
 
     static String emittedVersion(GradleProjectInspection project) {
-        return project.version().filter(value -> !value.isBlank()).orElse("0.1.0");
+        return project.version().filter(value -> !value.isBlank()).orElse(PLACEHOLDER_VERSION);
     }
 
     /** Adds the group/version placeholder review notes when the static audit could not read them. */
@@ -145,23 +128,6 @@ final class GradleInspectionMapper {
                     "Project version is a placeholder; the static Gradle audit could not read it."
                             + " Set `version` to your real coordinate.");
         }
-    }
-
-    static String javaVersion(
-            String inspected,
-            List<String> notes,
-            Set<String> commentedProjectKeys) {
-        Optional<String> liveFeature = JavaVersionNotation.liveFeature(inspected);
-        if (liveFeature.isPresent()) {
-            return liveFeature.get();
-        }
-        String reviewValue = JavaVersionNotation.reviewValue(inspected);
-        commentedProjectKeys.add("java");
-        notes.add(
-                "Project Java version could not be determined from the static audit (`" + reviewValue
-                        + "`); uncomment `[project].java` and set it to the Java feature version before"
-                        + " resolving or building.");
-        return reviewValue;
     }
 
     private static void addCatalogNotes(List<GradleVersionCatalogAlias> aliases, List<String> notes) {

@@ -1,16 +1,23 @@
 package sh.zolt.explain.emit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.GeneratedSourceKind;
-import sh.zolt.project.GeneratedSourceStep;
-import sh.zolt.project.ProducesLane;
+import sh.zolt.manifest.DependencySelector;
+import sh.zolt.manifest.GeneratedOutputKind;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ResourceGlob;
+import sh.zolt.manifest.authored.AuthoredExecStep;
+import sh.zolt.manifest.authored.AuthoredGeneratedSources;
+import sh.zolt.manifest.authored.AuthoredGeneratedTool;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,7 +26,7 @@ final class MavenExecStepEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void draftsJvmExecToolStepForExecJavaWithExecutableDependencies() throws IOException {
@@ -43,14 +50,27 @@ final class MavenExecStepEmitTest {
                   </executions>
                 </plugin>
                 """);
-        GeneratedSourceStep step = execStep(draft);
-        assertEquals("jvm", step.exec().tool().runner());
-        assertEquals("com.example.tool.Main", step.exec().tool().mainClass());
-        assertEquals("com.example:codegen-tool", step.exec().tool().coordinates().getFirst().coordinate());
-        assertEquals(ProducesLane.JAVA_SOURCES, step.exec().produces());
-        assertEquals(List.of("--out", "target/generated"), step.exec().args());
-        assertEquals(List.of(MavenExecStepDrafter.INPUT_PLACEHOLDER), step.inputs());
-        assertTrue(draft.notes().stream().anyMatch(note -> note.contains("executableDependencies")), draft.notes()::toString);
+        AuthoredExecStep step = execStep(draft);
+        AuthoredGeneratedTool declaration = tools(draft).get(step.tool());
+
+        assertTrue(declaration instanceof AuthoredGeneratedTool.Jvm, () -> tools(draft).toString());
+        AuthoredGeneratedTool.Jvm jvm = (AuthoredGeneratedTool.Jvm) declaration;
+        // The main class now belongs to the [generated.tools.<id>] declaration, not the step: only the
+        // `project` pseudo-tool carries mainClass on the step itself.
+        assertEquals("com.example.tool.Main", jvm.mainClass().value());
+        assertTrue(step.mainClass().isEmpty(), () -> step.mainClass().toString());
+        assertEquals("com.example:codegen-tool", jvm.coordinates().getFirst().coordinate().value());
+        // A jvm exec tool whose version the audit cannot read is pinned to the legal placeholder 0.0.0.
+        assertEquals(
+                new DependencySelector.FixedVersion("0.0.0"),
+                jvm.coordinates().getFirst().selector());
+        assertEquals(GeneratedOutputKind.JAVA_SOURCES, step.produces());
+        assertEquals(List.of("--out", "target/generated"), step.args());
+        assertEquals(List.of(MavenExecStepDrafter.INPUT_PLACEHOLDER), globs(step.inputs()));
+        // Exec outputs are relative to [build.output].root, so the drafted path lost its `target/` prefix.
+        assertEquals("generated/sources/generate-api", step.output().value());
+        assertTrue(draft.notes().stream().anyMatch(note -> note.contains("executableDependencies")),
+                draft.notes()::toString);
     }
 
     @Test
@@ -71,11 +91,14 @@ final class MavenExecStepEmitTest {
                   </executions>
                 </plugin>
                 """);
-        GeneratedSourceStep step = execStep(draft);
-        assertEquals("process", step.exec().tool().runner());
-        assertEquals("protoc", step.exec().tool().binary());
-        assertTrue(step.exec().tool().allowUnpinnedTool());
-        assertEquals(ProducesLane.RESOURCES, step.exec().produces());
+        AuthoredExecStep step = execStep(draft);
+        AuthoredGeneratedTool declaration = tools(draft).get(step.tool());
+
+        assertTrue(declaration instanceof AuthoredGeneratedTool.Process, () -> tools(draft).toString());
+        AuthoredGeneratedTool.Process process = (AuthoredGeneratedTool.Process) declaration;
+        assertEquals("protoc", process.binary().value());
+        assertTrue(process.allowUnpinnedTool());
+        assertEquals(GeneratedOutputKind.RESOURCES, step.produces());
     }
 
     @Test
@@ -93,9 +116,14 @@ final class MavenExecStepEmitTest {
                   </executions>
                 </plugin>
                 """);
-        GeneratedSourceStep step = execStep(draft);
-        assertEquals("project", step.exec().tool().runner());
-        assertEquals(ProducesLane.RESOURCES, step.exec().produces());
+        AuthoredExecStep step = execStep(draft);
+
+        assertEquals(new LocalId("project"), step.tool());
+        assertEquals("com.example.Generator", step.mainClass().orElseThrow().value());
+        // `project` is a pseudo-tool: it is referenced by the step and never declared under
+        // [generated.tools].
+        assertTrue(tools(draft).isEmpty(), () -> tools(draft).toString());
+        assertEquals(GeneratedOutputKind.RESOURCES, step.produces());
         assertTrue(draft.notes().stream().anyMatch(note -> note.contains("tool = \"project\"")
                 && note.contains("after compile")), draft.notes()::toString);
         assertTrue(draft.notes().stream().anyMatch(note -> note.contains(MavenExecStepDrafter.INPUT_PLACEHOLDER)),
@@ -117,15 +145,21 @@ final class MavenExecStepEmitTest {
                   </executions>
                 </plugin>
                 """);
-        String rendered = new DraftZoltTomlRenderer().render(draft, config -> """
+        String rendered = new DraftZoltTomlRenderer().render(draft, manifest -> """
+                [generated.tools.protoc]
+                kind = "process"
+                binary = "protoc"
+
                 [generated.main.gen]
                 kind = "exec"
                 tool = "protoc"
                 inputs = ["REPLACE_ME"]
-                output = "target/generated/resources/gen"
+                output = "generated/resources/gen"
                 produces = "resources"
                 """);
         assertTrue(rendered.contains("[generated.main.gen]\n# TODO declare inputs/outputs"), rendered);
+        // Tool declarations are not exec sections; only the step headers get the TODO.
+        assertFalse(rendered.contains("[generated.tools.protoc]\n# TODO"), rendered);
     }
 
     private DraftZoltToml draft(String pluginXml) throws IOException {
@@ -141,12 +175,25 @@ final class MavenExecStepEmitTest {
         return mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
     }
 
-    private static GeneratedSourceStep execStep(DraftZoltToml draft) {
-        return java.util.stream.Stream
-                .concat(draft.config().build().generatedMainSources().stream(),
-                        draft.config().build().generatedTestSources().stream())
-                .filter(step -> step.kind() == GeneratedSourceKind.EXEC)
+    private static AuthoredExecStep execStep(DraftZoltToml draft) {
+        AuthoredGeneratedSources generated = generated(draft);
+        return Stream.concat(generated.main().values().stream(), generated.test().values().stream())
+                .filter(AuthoredExecStep.class::isInstance)
+                .map(AuthoredExecStep.class::cast)
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("no exec step drafted: " + draft.config().build()));
+                .orElseThrow(() -> new AssertionError("no exec step drafted: " + generated));
+    }
+
+    private static Map<LocalId, AuthoredGeneratedTool> tools(DraftZoltToml draft) {
+        return generated(draft).tools().declarations();
+    }
+
+    private static AuthoredGeneratedSources generated(DraftZoltToml draft) {
+        return draft.manifest().generated()
+                .orElseThrow(() -> new AssertionError("no generated sources drafted: " + draft.manifest()));
+    }
+
+    private static List<String> globs(List<ResourceGlob> inputs) {
+        return inputs.stream().map(ResourceGlob::value).toList();
     }
 }

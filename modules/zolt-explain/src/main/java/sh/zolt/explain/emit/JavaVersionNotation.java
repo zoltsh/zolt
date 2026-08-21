@@ -23,6 +23,11 @@ final class JavaVersionNotation {
         return value;
     }
 
+    /** The Java feature release the final language authors as an integer, when one is readable. */
+    static Optional<Integer> featureRelease(String value) {
+        return liveFeature(value).map(Integer::parseInt);
+    }
+
     static Optional<String> liveFeature(String value) {
         String normalized = normalizeLegacyFeature(value);
         if (normalized == null) {
