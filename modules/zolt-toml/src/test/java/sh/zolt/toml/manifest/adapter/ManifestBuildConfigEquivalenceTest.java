@@ -293,6 +293,8 @@ final class ManifestBuildConfigEquivalenceTest {
                 description = "A reusable Java library."
                 url = "https://example.com/library"
                 license = "Apache-2.0"
+                # The final dialect derives this from the SPDX identifier (design 7.3).
+                licenseUrl = "https://spdx.org/licenses/Apache-2.0.html"
                 scm = "https://github.com/example/library"
                 scmConnection = "scm:git:https://github.com/example/library.git"
                 scmDeveloperConnection = "scm:git:ssh://git@github.com/example/library.git"
