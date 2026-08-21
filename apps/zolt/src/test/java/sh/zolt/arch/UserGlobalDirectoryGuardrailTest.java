@@ -22,9 +22,9 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <p>Re-deriving the directory from {@code System.getProperty("user.home")} (or hard-coding a
  * {@code Path.of("~/.zolt/...")} literal) silently opts that one path out of the override, which is
- * exactly the split this seam removes: {@code zolt config show} reading the redirected config while
- * the artifact cache keeps writing under the real home. Reading {@code user.home} for something that
- * is genuinely the OS home stays legal — {@code ~/.m2/repository} and {@code ~} expansion of
+ * exactly the split this seam removes: {@code zolt toolchain global status} reading the redirected
+ * config while the artifact cache keeps writing under the real home. Reading {@code user.home} for
+ * something that is genuinely the OS home stays legal — {@code ~/.m2/repository} and {@code ~} expansion of
  * user-written config values are unaffected, because neither names the {@code .zolt} directory.
  */
 final class UserGlobalDirectoryGuardrailTest {
