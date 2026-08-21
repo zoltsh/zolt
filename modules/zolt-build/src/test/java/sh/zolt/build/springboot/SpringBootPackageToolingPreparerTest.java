@@ -178,11 +178,11 @@ final class SpringBootPackageToolingPreparerTest {
     }
 
     private static ZoltLockfile lockfile(String packageContent) {
-        return new ZoltLockfileReader().read("version = 1\n\n" + packageContent);
+        return new ZoltLockfileReader().read("version = 7\n\n" + packageContent);
     }
 
     private static String missingLoaderLockfile() {
-        return "version = 1\n\n" + springBootPackage();
+        return "version = 7\n\n" + springBootPackage();
     }
 
     private static String springBootPackage() {
@@ -192,7 +192,7 @@ final class SpringBootPackageToolingPreparerTest {
                 version = "3.3.6"
                 source = "maven-central"
                 scope = "compile"
-                direct = true
+                direct = false
                 dependencies = []
                 """;
     }
@@ -228,7 +228,7 @@ final class SpringBootPackageToolingPreparerTest {
                 version = "3.3.6"
                 source = "maven-central"
                 scope = "runtime"
-                direct = true
+                direct = false
                 jar = "org/springframework/boot/spring-boot-loader/3.3.6/spring-boot-loader-3.3.6-tests.jar"
                 dependencies = []
                 """;

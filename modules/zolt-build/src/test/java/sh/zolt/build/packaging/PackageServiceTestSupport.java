@@ -76,7 +76,7 @@ public final class PackageServiceTestSupport {
     }
 
     public static void writeLockfile(Path projectDir) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
     }
 
     public static void recordCurrentTestCompile(

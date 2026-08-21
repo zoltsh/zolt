@@ -178,7 +178,7 @@ final class PackageTestGeneratedProducerFreshnessTest {
                 generatedConfig));
         Files.writeString(
                 project.resolve("zolt.lock"),
-                "version = 1\n");
+                "version = 7\n");
         write(
                 project,
                 "src/test/java/com/example/DemoTest.java",

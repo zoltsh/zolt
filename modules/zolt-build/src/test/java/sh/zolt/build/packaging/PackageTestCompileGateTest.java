@@ -117,7 +117,7 @@ final class PackageTestCompileGateTest {
         writeToml(project, "-g");
         Files.writeString(
                 project.resolve("zolt.lock"),
-                "version = 1\n");
+                "version = 7\n");
         write(
                 project,
                 "src/main/java/com/example/Main.java",

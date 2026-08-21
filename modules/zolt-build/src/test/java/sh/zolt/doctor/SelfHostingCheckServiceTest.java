@@ -39,7 +39,7 @@ final class SelfHostingCheckServiceTest {
                 [native]
                 args = ["--no-fallback"]
                 """);
-        write("zolt.lock", "version = 1\n");
+        write("zolt.lock", "version = 7\n");
         Files.createDirectories(projectDir.resolve("src/main/java"));
         Files.createDirectories(projectDir.resolve("src/test/groovy"));
 

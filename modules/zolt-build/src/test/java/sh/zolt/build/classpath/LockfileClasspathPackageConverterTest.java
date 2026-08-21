@@ -31,7 +31,7 @@ final class LockfileClasspathPackageConverterTest {
     @Test
     void ignoresNonJarArtifacts() {
         ZoltLockfile lockfile = migrate(tempDir.resolve("cache"), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "io.quarkus.platform:quarkus-bom-quarkus-platform-properties"
@@ -52,8 +52,16 @@ final class LockfileClasspathPackageConverterTest {
 
     @Test
     void directConverterRefusesLegacyArtifactPaths() {
+        String digest = "a".repeat(64);
         ZoltLockfile legacy = reader.read("""
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:demo"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
@@ -62,21 +70,29 @@ final class LockfileClasspathPackageConverterTest {
                 scope = "compile"
                 direct = true
                 jar = "com/example/demo/1.0.0/demo.jar"
+                jarSha256 = "%s"
                 dependencies = []
-                """);
+                """.formatted(digest));
 
         ActionableException exception = assertThrows(
                 ActionableException.class,
                 () -> LockfileClasspathPackageConverter.classpathPackages(legacy));
 
-        assertTrue(exception.getMessage().contains("version 5 predates the version 6"));
+        assertTrue(exception.getMessage().contains("must start with `blobs/v2/sha256/`"));
     }
 
     @Test
-    void directConverterRefusesMalformedVersionSixPaths() {
+    void directConverterRefusesMalformedContentAddressedPaths() {
         String digest = "a".repeat(64);
         ZoltLockfile malformed = reader.read("""
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:demo"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
@@ -122,7 +138,14 @@ final class LockfileClasspathPackageConverterTest {
         }
         List<ResolvedClasspathPackage> packages = LockfileClasspathPackageConverter.classpathPackages(
                 migrate(cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.google.guava:guava"
+                version = "33.4.0-jre"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.google.guava:guava"
@@ -149,7 +172,14 @@ final class LockfileClasspathPackageConverterTest {
         Path cacheRoot = tempDir.resolve("cache");
         Path jar = write(cacheRoot.resolve("com/example/demo/1.0.0/demo-1.0.0.jar"), "actual jar bytes");
         ZoltLockfile lockfile = migrate(cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:demo"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
@@ -179,7 +209,14 @@ final class LockfileClasspathPackageConverterTest {
         Path workspaceRoot = tempDir.resolve("workspace");
         Files.createDirectories(workspaceRoot.resolve("modules/core"));
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"
@@ -205,7 +242,14 @@ final class LockfileClasspathPackageConverterTest {
     @Test
     void rejectsWorkspaceClasspathMemberThatEscapesWorkspaceRoot() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"
@@ -234,7 +278,14 @@ final class LockfileClasspathPackageConverterTest {
         Path workspaceRoot = tempDir.resolve("workspace");
         Files.createDirectories(workspaceRoot.resolve("modules/core"));
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"

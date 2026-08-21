@@ -21,7 +21,7 @@ final class BuildServiceIncrementalMainOutputDriftTest {
 
     @Test
     void untrackedOutputClassForcesFullMainCompilation() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path first = source(projectDir, "src/main/java/com/example/First.java", firstSource("one"));
         source(projectDir, "src/main/java/com/example/Second.java", secondSource());
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
@@ -39,7 +39,7 @@ final class BuildServiceIncrementalMainOutputDriftTest {
 
     @Test
     void deletedOutputClassOfUnchangedSourceForcesFullMainCompilation() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path first = source(projectDir, "src/main/java/com/example/First.java", firstSource("one"));
         source(projectDir, "src/main/java/com/example/Second.java", secondSource());
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
@@ -57,7 +57,7 @@ final class BuildServiceIncrementalMainOutputDriftTest {
 
     @Test
     void matchingOutputClassesKeepIncrementalMainCompilation() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path first = source(projectDir, "src/main/java/com/example/First.java", firstSource("one"));
         source(projectDir, "src/main/java/com/example/Second.java", secondSource());
         buildService.build(projectDir, config(), projectDir.resolve("cache"));

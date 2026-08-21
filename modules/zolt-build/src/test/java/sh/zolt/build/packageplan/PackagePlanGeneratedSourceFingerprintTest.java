@@ -28,7 +28,7 @@ final class PackagePlanGeneratedSourceFingerprintTest {
         Files.writeString(toolJar, "tool-v1\n");
         Files.createDirectories(projectRoot.resolve("schemas/api"));
         Files.writeString(projectRoot.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.jooq:jooq-codegen"
@@ -58,7 +58,7 @@ final class PackagePlanGeneratedSourceFingerprintTest {
     @Test
     void mainOnlyPlanDoesNotProbeUnavailableTestProcessGenerator()
             throws IOException {
-        Files.writeString(projectRoot.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectRoot.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectRoot.resolve("fixtures.sql"), "seed\n");
         PackagePlanService service = new PackagePlanService();
         Path cacheRoot = projectRoot.resolve("cache");
@@ -89,7 +89,7 @@ final class PackagePlanGeneratedSourceFingerprintTest {
     @Test
     void testGeneratorChangesAffectOnlyPlansThatIncludeTests()
             throws IOException {
-        Files.writeString(projectRoot.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectRoot.resolve("zolt.lock"), "version = 7\n");
         PackagePlanService service = new PackagePlanService();
         Path cacheRoot = projectRoot.resolve("cache");
 

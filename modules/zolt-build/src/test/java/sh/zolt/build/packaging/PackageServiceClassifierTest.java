@@ -45,7 +45,7 @@ final class PackageServiceClassifierTest {
         Path projectDir = tempDir.resolve(mode);
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "com.example:native-lib"

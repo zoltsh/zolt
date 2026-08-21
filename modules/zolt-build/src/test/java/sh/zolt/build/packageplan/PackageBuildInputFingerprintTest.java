@@ -85,7 +85,7 @@ final class PackageBuildInputFingerprintTest {
         return PackageBuildInputFingerprint.fingerprint(
                 projectRoot,
                 projectConfig,
-                new ZoltLockfile(1, List.of(), List.of()),
+                new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()),
                 List.of(),
                 producers);
     }

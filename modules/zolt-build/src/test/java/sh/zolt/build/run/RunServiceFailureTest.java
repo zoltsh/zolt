@@ -21,7 +21,7 @@ final class RunServiceFailureTest extends RunServiceTestSupport {
         Path projectDir = tempDir.resolve("demo-missing-runner");
         Path cacheRoot = tempDir.resolve("cache-missing-runner");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = config(true, Optional.empty());
         RunService service = service(
                 frameworkRunAugmenter(true, Optional.empty(), projectDir, config, cacheRoot),
@@ -47,7 +47,14 @@ final class RunServiceFailureTest extends RunServiceTestSupport {
         Files.writeString(runtimeJar, "corrupted runtime jar bytes");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:runtime-lib"
+                version = "1.0.0"
+                lane = "runtime"
+                resolvedScope = "runtime"
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -79,7 +86,7 @@ final class RunServiceFailureTest extends RunServiceTestSupport {
         Path projectDir = tempDir.resolve("demo");
         Path cacheRoot = tempDir.resolve("cache");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = config(false, Optional.of("com.example.Main"));
         CachingJdkChecker jdkChecker = new CachingJdkChecker();
         RunService service = service(

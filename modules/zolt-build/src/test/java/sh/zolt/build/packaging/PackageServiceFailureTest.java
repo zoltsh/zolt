@@ -87,7 +87,14 @@ final class PackageServiceFailureTest {
         Files.writeString(runtimeJar, "corrupted runtime jar bytes");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:runtime-lib"
+                version = "1.0.0"
+                lane = "runtime"
+                resolvedScope = "runtime"
 
                 [[package]]
                 id = "com.example:runtime-lib"

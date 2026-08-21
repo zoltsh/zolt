@@ -17,7 +17,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 
-/** Migrates concise legacy test fixtures onto the production version 6 artifact contract. */
+/** Adds content-addressed artifacts to concise current-schema test fixtures. */
 public final class ContentAddressedLockTestSupport {
     private static final Pattern SHA_256 = Pattern.compile("[0-9a-f]{64}");
 
@@ -66,7 +66,8 @@ public final class ContentAddressedLockTestSupport {
                 legacy.conflicts(),
                 legacy.policyEffects(),
                 legacy.memberGraphs(),
-                legacy.workspaceResolutionInputFingerprint());
+                legacy.workspaceResolutionInputFingerprint(),
+                legacy.dependencyRoots());
     }
 
     private static Artifact migrateArtifact(

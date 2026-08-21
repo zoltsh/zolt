@@ -42,7 +42,14 @@ final class BuildServiceTest {
                 processorJar,
                 StandardCopyOption.REPLACE_EXISTING);
         writeLockfile("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "com.example:processor"
@@ -88,7 +95,14 @@ final class BuildServiceTest {
                 processorJar,
                 StandardCopyOption.REPLACE_EXISTING);
         writeLockfile("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "com.example:processor"
@@ -141,7 +155,14 @@ final class BuildServiceTest {
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "corrupted jar bytes");
         writeLockfile("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:compile-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:compile-lib"
@@ -174,7 +195,7 @@ final class BuildServiceTest {
 
     @Test
     void generatesReproducibleBuildInfoMetadata() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         ProjectConfig config = config().withBuildSettings(new BuildSettings(
                 "src/main/java",
                 "src/test/java",
@@ -198,7 +219,7 @@ final class BuildServiceTest {
 
     @Test
     void springBootNativeRequiresLockedAotTooling() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 

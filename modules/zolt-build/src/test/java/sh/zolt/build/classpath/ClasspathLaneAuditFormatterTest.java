@@ -35,7 +35,28 @@ final class ClasspathLaneAuditFormatterTest {
 
     private static ZoltLockfile lockfile() {
         return new ZoltLockfileReader().read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:compile-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
 
                 [[package]]
                 id = "jakarta.servlet:jakarta.servlet-api"

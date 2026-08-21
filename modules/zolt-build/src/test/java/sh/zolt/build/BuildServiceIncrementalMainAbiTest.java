@@ -22,7 +22,7 @@ final class BuildServiceIncrementalMainAbiTest {
 
     @Test
     void publicAbiChangeRecompilesMainSourcesThatReferenceChangedClass() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         Path apiSource = source("src/main/java/com/example/api/Api.java", """
                 package com.example.api;
 
@@ -67,7 +67,7 @@ final class BuildServiceIncrementalMainAbiTest {
 
     @Test
     void privateOnlySourceChangeDoesNotRecompileMainDependents() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         Path apiSource = source("src/main/java/com/example/api/Api.java", """
                 package com.example.api;
 
@@ -116,7 +116,7 @@ final class BuildServiceIncrementalMainAbiTest {
 
     @Test
     void packagePrivateAbiChangeRecompilesSamePackageMainSources() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         Path apiSource = source("src/main/java/com/example/Api.java", """
                 package com.example;
 

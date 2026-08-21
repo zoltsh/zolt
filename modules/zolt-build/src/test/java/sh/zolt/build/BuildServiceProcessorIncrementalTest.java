@@ -205,7 +205,14 @@ final class BuildServiceProcessorIncrementalTest {
         Files.createDirectories(cached.getParent());
         Files.copy(processorJar, cached, StandardCopyOption.REPLACE_EXISTING);
         writeLockfile("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "com.example:processor"

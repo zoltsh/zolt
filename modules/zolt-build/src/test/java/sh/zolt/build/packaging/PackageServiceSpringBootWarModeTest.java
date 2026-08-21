@@ -45,7 +45,21 @@ final class PackageServiceSpringBootWarModeTest {
         createJarWithEntry(devJar, "com/example/dev/DevTools.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.apache.tomcat.embed:tomcat-embed-core"
+                version = "10.1.40"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"
@@ -178,7 +192,7 @@ final class PackageServiceSpringBootWarModeTest {
                 "fixtures/LoaderTests.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 root.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"
@@ -194,7 +208,7 @@ final class PackageServiceSpringBootWarModeTest {
                 version = "4.0.6"
                 source = "maven-central"
                 scope = "runtime"
-                direct = true
+                direct = false
                 jar = "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"
                 dependencies = []
                 """);

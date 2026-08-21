@@ -33,7 +33,7 @@ final class BuildFingerprintContentTest {
     @Test
     void fingerprintContentIsDeterministicAndFiltersResourceOutputs() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Path alpha = write("src/main/java/com/example/Alpha.java", "class Alpha {}\n");
         Path beta = write("src/main/java/com/example/Beta.java", "class Beta {}\n");
         write("target/classes/com/example/Alpha.class", "compiled");
@@ -62,7 +62,7 @@ final class BuildFingerprintContentTest {
     @Test
     void generatedSourceInputEscapeIsActionable() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = config(List.of(generatedStep("../api.yaml")));
 
         BuildException exception = assertThrows(
@@ -76,7 +76,7 @@ final class BuildFingerprintContentTest {
     @Test
     void resourceRootEscapeIsActionable() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = config(List.of()).withBuildSettings(new BuildSettings(
                 "src/main/java",
                 "src/test/java",
@@ -99,7 +99,7 @@ final class BuildFingerprintContentTest {
     @Test
     void fingerprintIgnoresDependencyDeclarationOrderButTracksProjectJava() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Map<String, String> firstDependencies = new LinkedHashMap<>();
         firstDependencies.put("com.example:first", "1.0.0");
         firstDependencies.put("com.example:second", "2.0.0");

@@ -2,6 +2,7 @@ package sh.zolt.build.packaging;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
@@ -160,7 +161,7 @@ final class PackageNestedArtifactAuthorityTestFixtures {
     }
 
     static String lockfile(List<LockPackage> packages) {
-        StringBuilder lockfile = new StringBuilder("version = 1\n");
+        StringBuilder lockfile = new StringBuilder("version = 7\n");
         for (LockPackage lockPackage : packages) {
             lockfile.append("\n[[package]]\n")
                     .append("id = \"")
@@ -174,6 +175,21 @@ final class PackageNestedArtifactAuthorityTestFixtures {
                     .append("\njar = \"")
                     .append(lockPackage.jar().orElseThrow())
                     .append("\"\ndependencies = []\n");
+        }
+        for (LockPackage lockPackage : packages) {
+            if (!lockPackage.direct()) {
+                continue;
+            }
+            LockArtifactVariant variant = LockArtifactVariant.of(lockPackage);
+            lockfile.append("\n[[dependencyRoot]]\nmember = \".\"\nid = \"")
+                    .append(lockPackage.packageId())
+                    .append("\"\nversion = \"")
+                    .append(lockPackage.version())
+                    .append("\"\nlane = \"provided\"\n");
+            if (!variant.isDefault()) {
+                lockfile.append("variant = \"").append(variant.key()).append("\"\n");
+            }
+            lockfile.append("resolvedScope = \"provided\"\n");
         }
         return lockfile.toString();
     }

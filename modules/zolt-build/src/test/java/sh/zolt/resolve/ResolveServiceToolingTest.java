@@ -1,6 +1,7 @@
 package sh.zolt.resolve;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.classpath.ClasspathBuilder;
@@ -134,7 +135,7 @@ final class ResolveServiceToolingTest extends ResolveServiceTestSupport {
     }
 
     @Test
-    void directTestDependencyRelocationLocksRelocatedArtifact() {
+    void directTestDependencyRelocationRequiresFinalAuthoredCoordinate() {
         addPom("io.quarkus", "quarkus-junit5", "3.33.2", """
                 <project>
                   <groupId>io.quarkus</groupId>
@@ -162,21 +163,15 @@ final class ResolveServiceToolingTest extends ResolveServiceTestSupport {
         Path cacheRoot = tempDir.resolve("cache");
         createDirectory(projectDir);
 
-        ResolveResult result = resolveService.resolve(
-                projectDir,
-                configWithTestDependencies(Map.of("io.quarkus:quarkus-junit5", "3.33.2")),
-                cacheRoot);
+        ResolveException exception = assertThrows(
+                ResolveException.class,
+                () -> resolveService.resolve(
+                        projectDir,
+                        configWithTestDependencies(Map.of("io.quarkus:quarkus-junit5", "3.33.2")),
+                        cacheRoot));
 
-        assertEquals(2, result.resolvedCount());
-        ZoltLockfile lockfile = lockfileReader.read(result.lockfilePath());
-        assertTrue(lockfile.packages().stream().anyMatch(lockPackage ->
-                lockPackage.packageId().equals(new PackageId("io.quarkus", "quarkus-junit"))
-                        && lockPackage.version().equals("3.33.2")
-                        && lockPackage.scope() == DependencyScope.TEST
-                        && lockPackage.direct()
-                        && lockPackage.jar().orElseThrow().startsWith("blobs/v2/sha256/")
-                        && lockPackage.jar().orElseThrow().endsWith("/quarkus-junit-3.33.2.jar")));
-        assertTrue(lockfile.packages().stream().noneMatch(lockPackage ->
-                lockPackage.packageId().equals(new PackageId("io.quarkus", "quarkus-junit5"))));
+        assertTrue(exception.getMessage().contains(
+                "cannot preserve the exact authored dependency-root identity required by lockfile version 7"));
+        assertTrue(exception.getMessage().contains("Replace the declaration with `io.quarkus:quarkus-junit:3.33.2`"));
     }
 }

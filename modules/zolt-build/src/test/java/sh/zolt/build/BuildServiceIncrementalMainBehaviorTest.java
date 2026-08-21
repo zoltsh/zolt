@@ -20,7 +20,7 @@ final class BuildServiceIncrementalMainBehaviorTest {
 
     @Test
     void bodyOnlySourceChangeUsesIncrementalMainCompilation() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path source = source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -60,7 +60,7 @@ final class BuildServiceIncrementalMainBehaviorTest {
 
     @Test
     void abiChangingSourceWithoutDependentsStaysIncrementalMainCompilation() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path source = source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -90,7 +90,7 @@ final class BuildServiceIncrementalMainBehaviorTest {
 
     @Test
     void deletedSourceFallsBackToFullMainCompilationAndDeletesOwnedClass() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 

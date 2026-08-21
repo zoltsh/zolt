@@ -23,7 +23,7 @@ final class BuildServiceIncrementalMainTransitiveAbiTest {
     // A single validation wave would recompile B but never revisit C.
     @Test
     void transitiveAbiChangeRecompilesGrandDependent() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path a = source(projectDir, "src/main/java/com/example/A.java", """
                 package com.example;
 
