@@ -346,7 +346,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
             String extra) {
         String jarName = coordinate.replace(':', '-') + "-" + version + ".jar";
         String dependencies = extra.contains("dependencies") ? "" : "dependencies = []";
-        return """
+        return dependencyRoot(coordinate, version, scope, direct) + """
 
                 [[package]]
                 id = "%s"
@@ -367,6 +367,35 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
                 jarName,
                 extra,
                 dependencies);
+    }
+
+    /** A v7 lock records one member-qualified authored root per direct package it selects. */
+    private static String dependencyRoot(
+            String coordinate,
+            String version,
+            String scope,
+            boolean direct) {
+        if (!direct) {
+            return "";
+        }
+        return """
+
+                [[dependencyRoot]]
+                member = "."
+                id = "%s"
+                version = "%s"
+                lane = "%s"
+                resolvedScope = "%s"
+                """.formatted(coordinate, version, lane(scope), scope);
+    }
+
+    private static String lane(String scope) {
+        return switch (scope) {
+            case "compile" -> "implementation";
+            case "test-processor" -> "test-processor";
+            case "runtime", "provided", "dev", "test", "processor" -> scope;
+            default -> throw new IllegalArgumentException("No authored lane for scope `" + scope + "`.");
+        };
     }
 
     private static void assertResult(

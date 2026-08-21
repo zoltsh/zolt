@@ -280,7 +280,8 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
         String artifact = coordinate.substring(coordinate.indexOf(':') + 1);
         String base = group.replace('.', '/') + "/" + artifact + "/" + version + "/" + artifact + "-" + version;
         String pomLine = withPom ? "pom = \"" + base + ".pom\"\n" : "";
-        return "\n[[package]]\n"
+        return dependencyRoot(coordinate, version)
+                + "\n[[package]]\n"
                 + "id = \"" + coordinate + "\"\n"
                 + "version = \"" + version + "\"\n"
                 + "source = \"maven-central\"\n"
@@ -291,9 +292,25 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 + "dependencies = []\n";
     }
 
+    /** A v7 lock records one member-qualified authored root per direct package it selects. */
+    private static String dependencyRoot(String coordinate, String version) {
+        return """
+
+                [[dependencyRoot]]
+                member = "."
+                id = "%s"
+                version = "%s"
+                lane = "implementation"
+                resolvedScope = "compile"
+                """.formatted(coordinate, version);
+    }
+
     private static String scopedPkg(CachedArtifact pom) {
         Coordinate coordinate = pom.coordinate();
-        return """
+        return dependencyRoot(
+                        coordinate.groupId() + ":" + coordinate.artifactId(),
+                        coordinate.version().orElseThrow())
+                + """
 
                 [[package]]
                 id = "%s:%s"
