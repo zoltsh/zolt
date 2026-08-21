@@ -142,12 +142,17 @@ final class ManifestBomMembersDecoderTest {
     }
 
     @Test
-    void requiresANonNullDecodeIndex() {
-        assertThrows(NullPointerException.class, () -> decoder.decode(null));
+    void requiresANonNullDecodeIndexAndObserver() {
+        assertThrows(
+                NullPointerException.class,
+                () -> decoder.decode(null, ignored -> { }));
+        assertThrows(
+                NullPointerException.class,
+                () -> decoder.decode(ManifestSemanticTestSupport.index(""), null));
     }
 
     private Optional<AuthoredBom.Members> decode(String source) {
-        return decoder.decode(ManifestSemanticTestSupport.index(source));
+        return decoder.decode(ManifestSemanticTestSupport.index(source), ignored -> { });
     }
 
     private ZoltConfigException assertSemanticFailure(

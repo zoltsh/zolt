@@ -1,10 +1,12 @@
 package sh.zolt.toml.manifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -132,12 +134,68 @@ final class ManifestBomDecoderTest {
     }
 
     @Test
-    void requiresANonNullDecodeIndex() {
-        assertThrows(NullPointerException.class, () -> decoder.decode(null));
+    void observesCanonicalBomPresenceBeforeLaterLeafFailures() {
+        assertObservedFailure(
+                """
+                [bom]
+                members = true
+                exclude = ["apps/api", "apps/api"]
+                """,
+                "`bom.members`");
+        assertObservedFailure(
+                "[bom.versions]\n\"org.example:demo\" = \"LATEST\"\n",
+                "[bom.versions]");
+        assertObservedFailure(
+                "[bom.imports]\n\"org.example:demo-bom\" = \"LATEST\"\n",
+                "[bom.imports]");
+
+        ZoltConfigException leaf = assertThrows(
+                ZoltConfigException.class,
+                () -> decodeWithRejectingObserver("[bom]\nmembers = false\n"));
+        assertTrue(leaf.getMessage().contains("`bom.members`"), leaf.getMessage());
+        assertFalse(leaf.getMessage().contains("staged packaging conflict"), leaf.getMessage());
+    }
+
+    @Test
+    void observesBomDomainsInCanonicalOrderWithValidPartialModels() {
+        ArrayList<AuthoredBom> observed = new ArrayList<>();
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [bom.imports]
+                "org.example:demo-bom" = "2.0"
+                [bom.versions]
+                "org.example:demo" = "1.0"
+                [bom]
+                members = true
+                """);
+
+        AuthoredBom complete = decoder.decode(index, observed::add).orElseThrow();
+
+        assertEquals(3, observed.size());
+        assertTrue(observed.get(0).members().isPresent());
+        assertTrue(observed.get(0).versions().isEmpty());
+        assertEquals(Optional.of(Map.of()), observed.get(1).versions());
+        assertTrue(observed.get(1).imports().isEmpty());
+        assertEquals(
+                List.of(coordinate("org.example:demo")),
+                List.copyOf(observed.get(2).versions().orElseThrow().keySet()));
+        assertEquals(Optional.of(Map.of()), observed.get(2).imports());
+        assertEquals(
+                List.of(coordinate("org.example:demo-bom")),
+                List.copyOf(complete.imports().orElseThrow().keySet()));
+    }
+
+    @Test
+    void requiresANonNullDecodeIndexAndObserver() {
+        assertThrows(
+                NullPointerException.class,
+                () -> decoder.decode(null, ignored -> { }));
+        assertThrows(
+                NullPointerException.class,
+                () -> decoder.decode(ManifestSemanticTestSupport.index(""), null));
     }
 
     private Optional<AuthoredBom> decode(String source) {
-        return decoder.decode(ManifestSemanticTestSupport.index(source));
+        return decoder.decode(ManifestSemanticTestSupport.index(source), ignored -> { });
     }
 
     private void assertFailure(String source, String path) {
@@ -146,6 +204,23 @@ final class ManifestBomDecoderTest {
                 () -> decode(source));
         assertTrue(failure.getMessage().contains(path), failure.getMessage());
         assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+    }
+
+    private void assertObservedFailure(String source, String path) {
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> decodeWithRejectingObserver(source));
+        assertTrue(failure.getMessage().contains(path), failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("staged packaging conflict"),
+                failure.getMessage());
+        assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+    }
+
+    private void decodeWithRejectingObserver(String source) {
+        decoder.decode(ManifestSemanticTestSupport.index(source), ignored -> {
+            throw new IllegalArgumentException("staged packaging conflict");
+        });
     }
 
     private static DependencyCoordinate coordinate(String value) {

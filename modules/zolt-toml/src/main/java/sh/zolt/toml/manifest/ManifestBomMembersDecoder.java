@@ -10,8 +10,11 @@ import sh.zolt.toml.schema.FinalManifestPackagingFields;
 
 /** Decodes an explicitly authored BOM member selection and exact exclusions. */
 final class ManifestBomMembersDecoder {
-    Optional<AuthoredBom.Members> decode(ManifestDecodeIndex index) {
+    Optional<AuthoredBom.Members> decode(
+            ManifestDecodeIndex index,
+            DecodedMembersObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Decoded BOM members observer is required.");
         Optional<ValidatedManifestField> membersField =
                 index.field(FinalManifestPackagingFields.BOM_MEMBERS);
         Optional<ValidatedManifestField> excludeField =
@@ -23,10 +26,16 @@ final class ManifestBomMembersDecoder {
         ValidatedManifestField requiredMembers = ManifestSemanticDiagnostics.requiredField(
                 index, FinalManifestPackagingFields.BOM_MEMBERS);
         AuthoredBom.MemberSelection selection = selection(requiredMembers);
+        AuthoredBom.Members selected = ManifestSemanticDiagnostics.construct(
+                requiredMembers,
+                () -> {
+                    AuthoredBom.Members value =
+                            new AuthoredBom.Members(selection, List.of());
+                    observer.decoded(value);
+                    return value;
+                });
         if (excludeField.isEmpty()) {
-            return Optional.of(ManifestSemanticDiagnostics.construct(
-                    requiredMembers,
-                    () -> new AuthoredBom.Members(selection, List.of())));
+            return Optional.of(selected);
         }
 
         ValidatedManifestField exclusions = excludeField.orElseThrow();
@@ -81,5 +90,10 @@ final class ManifestBomMembersDecoder {
         }
         return ManifestSemanticDiagnostics.construct(
                 field, () -> new AuthoredBom.Members(selection, paths));
+    }
+
+    @FunctionalInterface
+    interface DecodedMembersObserver {
+        void decoded(AuthoredBom.Members members);
     }
 }
