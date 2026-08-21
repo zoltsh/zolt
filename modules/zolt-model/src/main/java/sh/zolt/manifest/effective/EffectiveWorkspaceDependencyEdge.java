@@ -32,7 +32,8 @@ public record EffectiveWorkspaceDependencyEdge(
             return byConsumer;
         }
         int byLane = Integer.compare(
-                declaration.lane().ordinal(), other.declaration.lane().ordinal());
+                declaration.lane().canonicalOrder(),
+                other.declaration.lane().canonicalOrder());
         if (byLane != 0) {
             return byLane;
         }

@@ -16,5 +16,19 @@ public enum DependencyLane {
     DEV,
     TEST,
     PROCESSOR,
-    TEST_PROCESSOR
+    TEST_PROCESSOR;
+
+    /** Stable manifest/lock ordering from the frozen dependency section layout. */
+    public int canonicalOrder() {
+        return switch (this) {
+            case IMPLEMENTATION -> 0;
+            case API -> 1;
+            case RUNTIME -> 2;
+            case PROVIDED -> 3;
+            case DEV -> 4;
+            case TEST -> 5;
+            case PROCESSOR -> 6;
+            case TEST_PROCESSOR -> 7;
+        };
+    }
 }
