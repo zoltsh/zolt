@@ -20,14 +20,14 @@ import sh.zolt.project.RepositorySettings;
  * emits entries in the effective {@link EffectiveDependencyRepositories#lookupOrder()} instead of the
  * sorted named-repository map order.
  */
-final class ProjectConfigRepositories {
+public final class ProjectConfigRepositories {
     static final LocalId CENTRAL = new LocalId("central");
 
     private ProjectConfigRepositories() {
     }
 
     /** Legacy repository settings, keyed by ID, in effective lookup order. */
-    static Map<String, RepositorySettings> settings(EffectiveDependencyRepositories repositories) {
+    public static Map<String, RepositorySettings> settings(EffectiveDependencyRepositories repositories) {
         Map<String, RepositorySettings> settings = new LinkedHashMap<>();
         for (LocalId id : repositories.lookupOrder().value()) {
             settings.put(id.value(), CENTRAL.equals(id)
@@ -38,7 +38,7 @@ final class ProjectConfigRepositories {
     }
 
     /** Legacy repository credentials, keyed by ID. */
-    static Map<String, RepositoryCredentialSettings> credentials(
+    public static Map<String, RepositoryCredentialSettings> credentials(
             Map<LocalId, EffectiveValue<RepositoryCredential>> credentials) {
         Map<String, RepositoryCredentialSettings> settings = new LinkedHashMap<>();
         credentials.forEach((id, credential) ->

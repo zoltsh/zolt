@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.TreeMap;
 import sh.zolt.dependency.DependencyLane;
 import sh.zolt.manifest.DependencyCoordinate;
-import sh.zolt.manifest.DependencyRepository;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.PlatformSelector;
 import sh.zolt.manifest.RepositoryCredential;
@@ -17,13 +16,13 @@ import sh.zolt.manifest.VersionAliasValue;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
 import sh.zolt.manifest.adapter.LegacyDependencySection;
+import sh.zolt.manifest.adapter.ProjectConfigRepositories;
 import sh.zolt.manifest.authored.AuthoredCredentials;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPlatforms;
 import sh.zolt.manifest.authored.AuthoredVersionAliases;
 import sh.zolt.manifest.effective.EffectiveManifest;
 import sh.zolt.manifest.effective.EffectiveSharedConfiguration;
-import sh.zolt.manifest.effective.EffectiveValue;
 import sh.zolt.manifest.effective.EffectiveWorkspace;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
@@ -199,31 +198,8 @@ public final class ManifestWorkspaceLoader {
     }
 
     private static Map<String, RepositorySettings> repositorySettings(EffectiveWorkspace effective) {
-        EffectiveSharedConfiguration shared = rootRepositoryUniverse(effective);
-        Map<String, RepositorySettings> settings = new LinkedHashMap<>();
-        for (LocalId id : shared.repositories().lookupOrder().value()) {
-            settings.put(id.value(), repository(shared, id));
-        }
-        return Map.copyOf(settings);
-    }
-
-    private static RepositorySettings repository(EffectiveSharedConfiguration shared, LocalId id) {
-        if (id.value().equals("central")) {
-            return new RepositorySettings(
-                    id.value(),
-                    shared.repositories().central().value().repository().orElseThrow().url().value(),
-                    Optional.empty());
-        }
-        EffectiveValue<DependencyRepository> repository =
-                shared.repositories().named().get(id);
-        if (repository == null) {
-            throw new WorkspaceConfigException(
-                    "Workspace repository lookup order names undefined repository `" + id + "`.");
-        }
-        return new RepositorySettings(
-                id.value(),
-                repository.value().url().value(),
-                repository.value().credentials().map(LocalId::value));
+        return ProjectConfigRepositories.settings(
+                rootRepositoryUniverse(effective).repositories());
     }
 
     /**
