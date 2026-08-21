@@ -9,7 +9,7 @@ import sh.zolt.ide.IdeModel;
 import sh.zolt.ide.IdeModelJsonWriter;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.quarkus.production.QuarkusAugmentationMetadataWriter;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -234,10 +234,10 @@ final class QuarkusIdeFrameworkModelProviderTest {
                 name = "plain"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
-        return new ZoltTomlParser().parse(projectDir.resolve("zolt.toml"));
+        return new ManifestProjectConfigLoader().load(projectDir.resolve("zolt.toml"));
     }
 
     private ProjectConfig quarkusProject(Path projectDir, String outputRoot) throws IOException {
@@ -247,19 +247,18 @@ final class QuarkusIdeFrameworkModelProviderTest {
                 name = "quarkus"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [framework.quarkus]
-                enabled = true
-                package = "fast-jar"
+                [package]
+                mode = "quarkus"
                 """
                 + (outputRoot == null ? "" : """
 
-                [build]
-                outputRoot = "%s"
+                [build.output]
+                root = "%s"
                 """.formatted(outputRoot)));
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
-        return new ZoltTomlParser().parse(projectDir.resolve("zolt.toml"));
+        return new ManifestProjectConfigLoader().load(projectDir.resolve("zolt.toml"));
     }
 
     private IdeModel modelWith(IdeModel.FrameworkInfo frameworks, List<IdeModel.Diagnostic> diagnostics) {

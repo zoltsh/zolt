@@ -14,7 +14,7 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 
 final class DependencyPolicyReportArtifactIdentityTest {
     private static final PackageId LIB = new PackageId("com.example", "lib");
@@ -52,12 +52,12 @@ final class DependencyPolicyReportArtifactIdentityTest {
                 name = "demo"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:lib" = { version = "2.0.0", classifier = "linux" }
                 """);
-        return new ZoltTomlParser().parse(config);
+        return new ManifestProjectConfigLoader().load(config);
     }
 
     private static LockPackage lockPackage(

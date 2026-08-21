@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.AnnotationProcessorFixture;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -136,7 +136,7 @@ final class TestCompileServiceTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [generated.test.fixtures]
                 kind = "declared-root"
@@ -151,7 +151,7 @@ final class TestCompileServiceTest {
                 projectDir.resolve("zolt.toml"),
                 toml);
         ProjectConfig config =
-                new ZoltTomlParser().parse(toml);
+                new ManifestProjectConfigLoader().load(toml);
 
         testCompileService.compileTests(
                 projectDir,
