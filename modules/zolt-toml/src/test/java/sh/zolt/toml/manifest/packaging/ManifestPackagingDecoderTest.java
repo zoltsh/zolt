@@ -1,10 +1,12 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.packaging;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.toml.manifest.ManifestPackagingTestSupport.decodePackaging;
+import static sh.zolt.toml.manifest.ManifestPackagingTestSupport.decodePackagingWithNullIndex;
 
 import java.util.List;
 import java.util.Map;
@@ -17,8 +19,6 @@ import sh.zolt.manifest.authored.AuthoredPackaging;
 import sh.zolt.toml.ZoltConfigException;
 
 final class ManifestPackagingDecoderTest {
-    private final ManifestPackagingDecoder decoder = new ManifestPackagingDecoder();
-
     @Test
     void returnsTheEmptyAggregateForCompleteOmission() {
         assertEquals(AuthoredPackaging.empty(), decode(""));
@@ -182,15 +182,14 @@ final class ManifestPackagingDecoderTest {
     void forwardsBomPresenceBeforePackagingAndLaterBomFailures() {
         ZoltConfigException failure = assertThrows(
                 ZoltConfigException.class,
-                () -> decoder.decode(
-                        ManifestSemanticTestSupport.index("""
-                                package.mode = "jar"
-                                [package.manifest]
-                                Name = "demo"
-                                [bom]
-                                members = true
-                                exclude = ["apps/api", "apps/api"]
-                                """),
+                () -> decodePackaging("""
+                        package.mode = "jar"
+                        [package.manifest]
+                        Name = "demo"
+                        [bom]
+                        members = true
+                        exclude = ["apps/api", "apps/api"]
+                        """,
                         ignored -> {
                             throw new IllegalArgumentException(
                                     "Observed earlier authored-domain BOM conflict.");
@@ -263,14 +262,12 @@ final class ManifestPackagingDecoderTest {
 
     @Test
     void requiresNonNullInputs() {
-        assertThrows(NullPointerException.class, () -> decoder.decode(null, ignored -> {}));
-        assertThrows(
-                NullPointerException.class,
-                () -> decoder.decode(ManifestSemanticTestSupport.index(""), null));
+        assertThrows(NullPointerException.class, () -> decodePackagingWithNullIndex());
+        assertThrows(NullPointerException.class, () -> decodePackaging("", null));
     }
 
     private AuthoredPackaging decode(String source) {
-        return decoder.decode(ManifestSemanticTestSupport.index(source), ignored -> {});
+        return decodePackaging(source);
     }
 
     private ZoltConfigException assertSemanticFailure(
