@@ -95,6 +95,39 @@ for name in legal_documents:
 notices = pathlib.Path("THIRD_PARTY_NOTICES").read_text(encoding="utf-8")
 
 
+def require_current_lock(lock_text):
+    top_level = []
+    for line in lock_text.splitlines():
+        if line.lstrip().startswith("["):
+            break
+        match = re.fullmatch(r"version = ([0-9]+)", line)
+        if match:
+            top_level.append(int(match.group(1)))
+    if len(top_level) != 1:
+        raise ValueError("missing, malformed, or duplicate top-level version")
+    if top_level[0] != 7:
+        raise ValueError(f"unsupported version {top_level[0]}; current version is 7")
+
+
+invalid_lock_controls = {
+    "pre-v7": "version = 6\n\n[[package]]\n",
+    "missing": "[[package]]\n",
+    "malformed": 'version = "7"\n\n[[package]]\n',
+    "nested": "[metadata]\nversion = 7\n\n[[package]]\n",
+    "duplicate": "version = 7\nversion = 7\n\n[[package]]\n",
+}
+for label, control in invalid_lock_controls.items():
+    try:
+        require_current_lock(control)
+    except ValueError:
+        pass
+    else:
+        raise SystemExit(
+            f"error: zolt.lock version preflight accepted its {label} negative control"
+        )
+require_current_lock("version = 7\n\n[[package]]\n")
+
+
 def unattributed(components, notices_text):
     # Attribution only counts when one component entry names the exact Maven
     # identifier and the exact bundled version together. Searching the whole
@@ -150,8 +183,14 @@ for label, components, expected in controls:
             f"expected {expected} but reported {actual}"
         )
 
+lock_text = pathlib.Path("zolt.lock").read_text(encoding="utf-8")
+try:
+    require_current_lock(lock_text)
+except ValueError as error:
+    raise SystemExit(f"error: zolt.lock cannot drive zap attribution: {error}") from error
+
 bundled = []
-for block in pathlib.Path("zolt.lock").read_text(encoding="utf-8").split("[[package]]")[1:]:
+for block in lock_text.split("[[package]]")[1:]:
 
     def field(key, block=block):
         match = re.search(rf'^{key} = "([^"]*)"', block, re.M)
