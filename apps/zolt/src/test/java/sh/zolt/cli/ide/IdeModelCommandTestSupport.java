@@ -42,7 +42,7 @@ final class IdeModelCommandTestSupport {
                 [dependencies]
                 """.formatted(javaVersion, repositoryUrl));
         appendDependencies(config, dependencies);
-        config.append("\n[test.dependencies]\n");
+        config.append("\n[dependencies.test]\n");
         appendDependencies(config, testDependencies);
         config.append("""
 

@@ -73,7 +73,7 @@ final class ImportDeclarationGuardrailTest {
                 () -> "Cross-lib type usage without a declared workspace dependency:\n"
                         + describe(violations)
                         + "\nEach module must declare every other module it uses a sh.zolt.* type from "
-                        + "in its zolt.toml [dependencies] or [api.dependencies] block.");
+                        + "in its zolt.toml [dependencies] or [dependencies.api] block.");
     }
 
     @Test
@@ -421,9 +421,7 @@ final class ImportDeclarationGuardrailTest {
         for (String dependency : workspaceDependencies) {
             config.append("\"sh.zolt:")
                     .append(dependency)
-                    .append("\" = { workspace = \"modules/")
-                    .append(dependency)
-                    .append("\" }\n");
+                    .append("\" = { workspace = true }\n");
         }
         write(moduleRoot.resolve("zolt.toml"), config.toString());
     }
