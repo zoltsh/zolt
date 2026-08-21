@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sh.zolt.toml.manifest.ManifestCommandsTestSupport.decodeAliases;
 import static sh.zolt.toml.manifest.ManifestCommandsTestSupport.decodeAliasesWithNullIndex;
+import static sh.zolt.toml.manifest.ManifestCommandsTestSupport.decodeAliasesWithNullObserver;
 
 import java.util.List;
 import java.util.Map;
@@ -127,6 +128,7 @@ final class ManifestAliasesDecoderTest {
     @Test
     void requiresANonNullDecodeIndex() {
         assertThrows(NullPointerException.class, () -> decodeAliasesWithNullIndex());
+        assertThrows(NullPointerException.class, () -> decodeAliasesWithNullObserver("[aliases]\n"));
     }
 
     private static Optional<Map<LocalId, AuthoredAlias>> decode(String source) {

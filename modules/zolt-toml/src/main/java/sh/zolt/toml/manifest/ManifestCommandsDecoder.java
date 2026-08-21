@@ -19,10 +19,25 @@ import sh.zolt.toml.schema.FinalManifestCommandFields;
 import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestSymbols;
 
-/** Decodes authored task and built-in command alias collections. */
+/** Composes authored tasks and built-in command aliases without execution context. */
 final class ManifestCommandsDecoder {
     private static final BuiltInCommandCatalog BUILT_INS =
             BuiltInCommandCatalog.fromStrings(FinalManifestSymbols.builtInCommandNames());
+
+    Optional<AuthoredCommands> decode(ManifestDecodeIndex index) {
+        Objects.requireNonNull(index, "Manifest decode index is required.");
+        Optional<Map<LocalId, AuthoredTask>> decodedTasks = decodeTasks(index);
+        Map<LocalId, AuthoredTask> tasks = decodedTasks.orElseGet(Map::of);
+        Optional<Map<LocalId, AuthoredAlias>> decodedAliases = decodeAliases(
+                index,
+                (id, alias) -> new AuthoredCommands(
+                        tasks, Map.of(id, alias), BUILT_INS));
+        if (decodedTasks.isEmpty() && decodedAliases.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new AuthoredCommands(
+                tasks, decodedAliases.orElseGet(Map::of), BUILT_INS));
+    }
 
     Optional<Map<LocalId, AuthoredTask>> decodeTasks(ManifestDecodeIndex index) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
@@ -49,8 +64,11 @@ final class ManifestCommandsDecoder {
                 "Task"));
     }
 
-    Optional<Map<LocalId, AuthoredAlias>> decodeAliases(ManifestDecodeIndex index) {
+    Optional<Map<LocalId, AuthoredAlias>> decodeAliases(
+            ManifestDecodeIndex index,
+            DecodedAliasObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Decoded alias observer is required.");
         List<ManifestDecodeIndex.Entry> entries =
                 index.entries(FinalManifestCommandFields.ALIASES_ENTRY);
         if (index.section(FinalManifestPaths.ALIASES).isEmpty() && entries.isEmpty()) {
@@ -62,7 +80,7 @@ final class ManifestCommandsDecoder {
             ValidatedManifestField field = entry.field();
             LocalId id = ManifestSemanticDiagnostics.construct(
                     field, () -> new LocalId(entry.key()));
-            AuthoredAlias alias = decodeAlias(field, id);
+            AuthoredAlias alias = decodeAlias(field, id, observer);
             if (aliases.put(id, alias) != null) {
                 throw new IllegalStateException(
                         "Validated manifest contains duplicate alias `" + id + "`.");
@@ -183,7 +201,8 @@ final class ManifestCommandsDecoder {
 
     private static AuthoredAlias decodeAlias(
             ValidatedManifestField field,
-            LocalId id) {
+            LocalId id,
+            DecodedAliasObserver observer) {
         List<String> raw = ManifestTomlValues.strings(field);
         if (raw.isEmpty()) {
             return ManifestSemanticDiagnostics.construct(
@@ -199,6 +218,11 @@ final class ManifestCommandsDecoder {
                     field, index, () -> new AuthoredAlias(prefix));
             if (index == 0) {
                 alias = validateTarget(field, id, alias);
+                AuthoredAlias observed = alias;
+                alias = ManifestSemanticDiagnostics.construct(field, () -> {
+                    observer.decoded(id, observed);
+                    return observed;
+                });
             }
         }
         return Objects.requireNonNull(alias, "Decoded alias must not be null.");
@@ -215,5 +239,10 @@ final class ManifestCommandsDecoder {
                                 Map.of(), Map.of(id, alias), BUILT_INS)
                         .aliases()
                         .get(id));
+    }
+
+    @FunctionalInterface
+    interface DecodedAliasObserver {
+        void decoded(LocalId id, AuthoredAlias alias);
     }
 }
