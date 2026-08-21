@@ -19,23 +19,17 @@ final class RemoveCommandSectionTestSupport {
         StringBuilder config = new StringBuilder(memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 """.formatted(repositoryUrl));
         appendDependencies(config, dependencies);
-        config.append("\n[test.dependencies]\n");
+        config.append("\n[dependencies.test]\n");
         appendDependencies(config, testDependencies);
         config.append("""
 
-                [annotationProcessors]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.processor]
                 """);
         Files.writeString(projectDir.resolve("zolt.toml"), config.toString());
     }
@@ -47,20 +41,10 @@ final class RemoveCommandSectionTestSupport {
                 [repositories]
                 "central" = "https://repo.maven.apache.org/maven2"
 
-                [platforms]
-
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:contract" = "1.0.0"
 
-                [dependencies]
-
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
     }
 

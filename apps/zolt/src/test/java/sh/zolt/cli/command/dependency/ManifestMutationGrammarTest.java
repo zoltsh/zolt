@@ -62,7 +62,11 @@ final class ManifestMutationGrammarTest {
         String source = read(project);
         assertTrue(source.contains("[dependencies.api]\n\"com.example:lib\" = \"1.0.0\" # reviewed"), source);
         assertFalse(source.contains("[dependencies]\n\"com.example:lib\""), source);
-        assertTrue(result.stdout().contains("Moved dependency"), result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "Updated dependency com.example:lib from 1.0.0 in [dependencies] "
+                                + "to 1.0.0 in [dependencies.api]"),
+                result.stdout());
     }
 
     @Test

@@ -42,13 +42,13 @@ final class PlatformCommandTest extends PlatformCommandTestSupport {
             writeProjectConfig(projectDir, repository.baseUri().toString());
 
             CommandResult result = execute(
-                    "platform",
-                    "add",
+                    "platforms",
+                    "set",
                     "--cwd", projectDir.toString(),
                     "--cache-root", tempDir.resolve("cache").toString(),
-                    "com.example:enterprise-platform:2026.1.0");
+                    "com.example:enterprise-platform", "2026.1.0");
 
-            assertEquals(0, result.exitCode());
+            assertEquals(0, result.exitCode(), result.stderr());
             assertTrue(result.stdout().contains("Added platform com.example:enterprise-platform:2026.1.0 to [platforms]"));
             assertTrue(result.stdout().contains("Resolved 0 packages"));
             assertTrue(result.stdout().contains("1 downloaded"));
@@ -62,13 +62,13 @@ final class PlatformCommandTest extends PlatformCommandTestSupport {
         writeProjectConfig(projectDir);
 
         CommandResult result = execute(
-                "platform",
-                "add",
+                "platforms",
+                "set",
                 "--directory", projectDir.toString(),
                 "--no-resolve",
-                "com.example:enterprise-platform:2026.1.0");
+                "com.example:enterprise-platform", "2026.1.0");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains(
                 "Added platform com.example:enterprise-platform:2026.1.0 to [platforms]"));
         assertTrue(result.stdout().contains("Skipped resolve"));
@@ -86,20 +86,20 @@ final class PlatformCommandTest extends PlatformCommandTestSupport {
 
         CommandResult color = execute(
                 "--color=always",
-                "platform",
-                "add",
+                "platforms",
+                "set",
                 "--directory", colorProjectDir.toString(),
                 "--no-resolve",
-                "com.example:enterprise-platform:2026.1.0");
+                "com.example:enterprise-platform", "2026.1.0");
         CommandResult quiet = execute(
                 "--quiet",
-                "platform",
-                "add",
+                "platforms",
+                "set",
                 "--directory", quietProjectDir.toString(),
                 "--no-resolve",
-                "com.example:enterprise-platform:2026.1.0");
+                "com.example:enterprise-platform", "2026.1.0");
 
-        assertEquals(0, color.exitCode());
+        assertEquals(0, color.exitCode(), color.stderr());
         assertTrue(color.stdout().contains("\u001B[32m✔\u001B[0m Added platform "
                 + "com.example:enterprise-platform:2026.1.0 to [platforms]"));
         assertFalse(color.stdout().contains(
@@ -108,7 +108,7 @@ final class PlatformCommandTest extends PlatformCommandTestSupport {
                 "\u001B[32mSkipped\u001B[0m resolve; run zolt resolve to refresh zolt.lock."));
         assertFalse(color.stdout().contains(
                 "\u001B[32mSkipped resolve; run zolt resolve to refresh zolt.lock.\u001B[0m"));
-        assertEquals(0, quiet.exitCode());
+        assertEquals(0, quiet.exitCode(), quiet.stderr());
         assertEquals("", quiet.stdout());
         String quietConfig = Files.readString(quietProjectDir.resolve("zolt.toml"));
         assertTrue(quietConfig.contains("\"com.example:enterprise-platform\" = \"2026.1.0\""));
@@ -130,15 +130,15 @@ final class PlatformCommandTest extends PlatformCommandTestSupport {
 
         CommandResult result = execute(
                 "--color=always",
-                "platform",
-                "add",
+                "platforms",
+                "set",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
                 "--version-ref",
                 "enterprise",
                 "com.example:enterprise-platform");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains(
                 "\u001B[32m✔\u001B[0m Added platform com.example:enterprise-platform with versionRef `enterprise` = 2026.1.0 to [platforms]"));
         assertFalse(result.stdout().contains(
@@ -159,27 +159,27 @@ final class PlatformCommandTest extends PlatformCommandTestSupport {
         writeProjectConfig(projectDir);
 
         CommandResult unknown = execute(
-                "platform",
-                "add",
+                "platforms",
+                "set",
                 "--cwd", projectDir.toString(),
                 "--version-ref",
                 "enterprise",
                 "com.example:enterprise-platform");
         CommandResult explicit = execute(
-                "platform",
-                "add",
+                "platforms",
+                "set",
                 "--cwd", projectDir.toString(),
                 "--version-ref",
                 "enterprise",
-                "com.example:enterprise-platform:2026.1.0");
+                "com.example:enterprise-platform",
+                "2026.1.0");
 
         assertEquals(1, unknown.exitCode());
         assertTrue(unknown.stderr().contains("Unknown versionRef `enterprise`."));
         assertTrue(unknown.stderr().contains("Next: Add [versions].enterprise or use an explicit version."));
         assertEquals(1, explicit.exitCode());
-        assertTrue(explicit.stderr().contains("Version-ref platform coordinate must not include a version."));
         assertTrue(explicit.stderr().contains(
-                "Next: Use `--version-ref enterprise com.example:enterprise-platform`."));
+                "A platform declares either a version or `--version-ref <alias>`, not both."));
     }
 
     @Test
@@ -188,11 +188,11 @@ final class PlatformCommandTest extends PlatformCommandTestSupport {
         writeProjectConfig(projectDir);
 
         CommandResult result = execute(
-                "platform",
-                "add",
+                "platforms",
+                "set",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
-                "com.example:enterprise-platform:LATEST");
+                "com.example:enterprise-platform", "LATEST");
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains(

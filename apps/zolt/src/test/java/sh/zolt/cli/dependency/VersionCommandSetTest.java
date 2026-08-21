@@ -25,7 +25,7 @@ final class VersionCommandSetTest {
                 name = "version-alias-set"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
                 "central" = "https://repo.maven.apache.org/maven2"
@@ -33,14 +33,14 @@ final class VersionCommandSetTest {
 
         CommandResult added = execute(
                 "--color=always",
-                "version",
+                "versions",
                 "set",
                 "--directory", projectDir.toString(),
                 "--no-resolve",
                 "guava",
                 "33.4.8-jre");
 
-        assertEquals(0, added.exitCode());
+        assertEquals(0, added.exitCode(), added.stderr());
         assertTrue(added.stdout().contains("\u001B[32mAdded\u001B[0m version alias guava = 33.4.8-jre to [versions]"));
         assertFalse(added.stdout().contains(
                 "\u001B[32mAdded version alias guava = 33.4.8-jre to [versions]\u001B[0m"));
@@ -50,27 +50,27 @@ final class VersionCommandSetTest {
                 "\u001B[32mSkipped resolve; run zolt resolve to refresh zolt.lock.\u001B[0m"));
         assertEquals("", added.stderr());
         String addedConfig = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(addedConfig.contains("[versions]\n\"guava\" = \"33.4.8-jre\""));
+        assertTrue(addedConfig.contains("[versions]\nguava = \"33.4.8-jre\""));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
 
         CommandResult updated = execute(
-                "version",
+                "versions",
                 "set",
                 "--directory", projectDir.toString(),
                 "--no-resolve",
                 "guava",
                 "33.4.9-jre");
 
-        assertEquals(0, updated.exitCode());
+        assertEquals(0, updated.exitCode(), updated.stderr());
         assertTrue(updated.stdout().contains("Updated version alias guava from 33.4.8-jre to 33.4.9-jre in [versions]"));
         assertEquals("", updated.stderr());
         String updatedConfig = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(updatedConfig.contains("[versions]\n\"guava\" = \"33.4.9-jre\""));
+        assertTrue(updatedConfig.contains("[versions]\nguava = \"33.4.9-jre\""));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
 
         CommandResult quiet = execute(
                 "--quiet",
-                "version",
+                "versions",
                 "set",
                 "--directory", projectDir.toString(),
                 "--no-resolve",
@@ -78,7 +78,7 @@ final class VersionCommandSetTest {
                 "5.12.1");
         assertEquals(0, quiet.exitCode(), quiet.stderr());
         assertEquals("", quiet.stdout());
-        assertTrue(Files.readString(projectDir.resolve("zolt.toml")).contains("\"junit\" = \"5.12.1\""));
+        assertTrue(Files.readString(projectDir.resolve("zolt.toml")).contains("junit = \"5.12.1\""));
     }
 
     @Test
@@ -90,11 +90,11 @@ final class VersionCommandSetTest {
                 name = "version-alias-invalid"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
 
         CommandResult result = execute(
-                "version",
+                "versions",
                 "set",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
@@ -103,7 +103,7 @@ final class VersionCommandSetTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains(
-                "Invalid version alias `spring boot`. Alias names may contain only letters, digits, dot, underscore, and hyphen."));
+                "Invalid version alias `spring boot`. Alias names use lowercase kebab-case."));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
         assertFalse(config.contains("[versions]"));
     }
@@ -117,11 +117,11 @@ final class VersionCommandSetTest {
                 name = "version-alias-invalid-value"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
 
         CommandResult result = execute(
-                "version",
+                "versions",
                 "set",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
@@ -144,17 +144,17 @@ final class VersionCommandSetTest {
                 name = "version-alias-resolve"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
 
         CommandResult result = execute(
-                "version",
+                "versions",
                 "set",
                 "--cwd", projectDir.toString(),
                 "guava",
                 "33.4.8-jre");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("Added version alias guava = 33.4.8-jre to [versions]"));
         assertTrue(result.stdout().contains("Resolved 0 packages"));
         assertTrue(Files.exists(projectDir.resolve("zolt.lock")));
@@ -169,7 +169,7 @@ final class VersionCommandSetTest {
                 name = "version-alias-current"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 guava = "33.4.8-jre"
@@ -177,7 +177,7 @@ final class VersionCommandSetTest {
         String original = Files.readString(projectDir.resolve("zolt.toml"));
 
         CommandResult result = execute(
-                "version",
+                "versions",
                 "set",
                 "--cwd", projectDir.toString(),
                 "guava",

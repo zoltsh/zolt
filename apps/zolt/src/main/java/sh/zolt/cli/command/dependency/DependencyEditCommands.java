@@ -124,20 +124,28 @@ final class DependencyEditCommands {
         }
     }
 
-    static String describe(DependencySelector selector) {
+    /** How one selector reads in command output, with an alias shown beside the value it resolves to. */
+    static String describe(AuthoredManifest manifest, DependencySelector selector) {
         return switch (selector) {
             case DependencySelector.FixedVersion fixed -> fixed.value();
-            case DependencySelector.VersionReference reference -> "versionRef `" + reference.alias() + "`";
+            case DependencySelector.VersionReference reference -> alias(manifest, reference.alias());
             case DependencySelector.Managed ignored -> "a platform-managed version";
             case DependencySelector.Workspace ignored -> "its workspace member";
         };
     }
 
-    static String describe(PlatformSelector selector) {
+    static String describe(AuthoredManifest manifest, PlatformSelector selector) {
         return switch (selector) {
             case PlatformSelector.FixedVersion fixed -> fixed.value();
-            case PlatformSelector.VersionReference reference -> "versionRef `" + reference.alias() + "`";
+            case PlatformSelector.VersionReference reference -> alias(manifest, reference.alias());
         };
+    }
+
+    private static String alias(AuthoredManifest manifest, LocalId id) {
+        VersionAliasValue value = versionAliases(manifest).get(id);
+        return value == null
+                ? "versionRef `" + id + "`"
+                : "versionRef `" + id + "` = " + value.value();
     }
 
     static <T extends RuntimeException> void validateCommandVersion(

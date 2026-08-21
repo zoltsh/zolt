@@ -212,14 +212,13 @@ public final class AddCommand implements Runnable {
 
     private void printSummary(CommandHumanOutput output, AuthoredManifest original, AddRequest request) {
         String section = DependencyEditCommands.section(request.lane());
-        String requested = DependencyEditCommands.describe(request.selector());
+        String requested = DependencyEditCommands.describe(original, request.selector());
         Optional<AuthoredDependency> existing = DependencyEditCommands.find(
                 original, request.lane(), request.coordinate());
         if (existing.isPresent()) {
-            String current = DependencyEditCommands.describe(existing.orElseThrow().selector());
+            String current = DependencyEditCommands.describe(original, existing.orElseThrow().selector());
             if (current.equals(requested)) {
-                output.detail("Dependency " + request.coordinate() + " already uses " + requested
-                        + " in [" + section + "]");
+                output.detail(alreadyPresent(request, requested, section));
             } else {
                 output.summary("Updated dependency " + request.coordinate() + " from " + current
                         + " to " + requested + " in [" + section + "]");
@@ -229,12 +228,27 @@ public final class AddCommand implements Runnable {
         Optional<AuthoredDependency> moved = DependencyEditCommands.findMovable(
                 original, request.lane(), request.coordinate());
         if (moved.isPresent()) {
-            output.summary("Moved dependency " + request.coordinate() + " from ["
-                    + DependencyEditCommands.section(moved.orElseThrow().lane()) + "] to [" + section
-                    + "] with " + requested);
+            output.summary("Updated dependency " + request.coordinate() + " from "
+                    + DependencyEditCommands.describe(original, moved.orElseThrow().selector())
+                    + " in [" + DependencyEditCommands.section(moved.orElseThrow().lane())
+                    + "] to " + requested + " in [" + section + "]");
+            return;
+        }
+        if (request.selector() instanceof DependencySelector.FixedVersion fixed) {
+            output.summary("Added dependency " + request.coordinate() + ":" + fixed.value()
+                    + " to [" + section + "]");
             return;
         }
         output.summary("Added dependency " + request.coordinate() + " with " + requested
                 + " to [" + section + "]");
+    }
+
+    private static String alreadyPresent(AddRequest request, String requested, String section) {
+        if (request.selector() instanceof DependencySelector.FixedVersion fixed) {
+            return "Dependency " + request.coordinate() + ":" + fixed.value()
+                    + " already exists in [" + section + "]";
+        }
+        return "Dependency " + request.coordinate() + " already uses " + requested
+                + " in [" + section + "]";
     }
 }

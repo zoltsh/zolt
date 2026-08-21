@@ -37,7 +37,7 @@ final class ConflictsCommandTest {
 
         CommandResult result = execute("conflicts", "--directory", projectDir.toString());
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertEquals("""
                 Dependency conflicts:
                 - org.slf4j:slf4j-api
@@ -64,7 +64,7 @@ final class ConflictsCommandTest {
 
         CommandResult result = execute("conflicts", "--directory", projectDir.toString());
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertEquals("""
                 Dependency conflicts:
                 - com.example:shared
@@ -83,7 +83,7 @@ final class ConflictsCommandTest {
 
         CommandResult result = execute("conflicts", "--cwd", projectDir.toString());
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertEquals("No dependency conflicts found.\n", result.stdout());
     }
 
@@ -107,7 +107,7 @@ final class ConflictsCommandTest {
                 "conflicts",
                 "--directory", projectDir.toString());
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertEquals("", result.stderr());
         assertEquals("""
                 Dependency conflicts:

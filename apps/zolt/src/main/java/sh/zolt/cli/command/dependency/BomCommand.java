@@ -105,8 +105,9 @@ public final class BomCommand implements Runnable {
                         "[bom.versions]",
                         versions(edit.original()).get(pin) == null
                                 ? null
-                                : DependencyEditCommands.describe(versions(edit.original()).get(pin).selector()),
-                        DependencyEditCommands.describe(selector(edit.original())));
+                                : DependencyEditCommands.describe(
+                                        edit.original(), versions(edit.original()).get(pin).selector()),
+                        DependencyEditCommands.describe(edit.original(), selector(edit.original())));
             }
 
             private PlatformSelector selector(AuthoredManifest manifest) {
@@ -180,8 +181,8 @@ public final class BomCommand implements Runnable {
                         edit,
                         "BOM import " + imported,
                         "[bom.imports]",
-                        existing == null ? null : DependencyEditCommands.describe(existing),
-                        DependencyEditCommands.describe(selector(edit.original())));
+                        existing == null ? null : DependencyEditCommands.describe(edit.original(), existing),
+                        DependencyEditCommands.describe(edit.original(), selector(edit.original())));
             }
 
             private PlatformSelector selector(AuthoredManifest manifest) {

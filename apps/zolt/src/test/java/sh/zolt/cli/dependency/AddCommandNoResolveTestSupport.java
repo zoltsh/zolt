@@ -26,8 +26,11 @@ final class AddCommandNoResolveTestSupport {
         StringBuilder config = new StringBuilder(memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
+
+                [platforms]
+                "com.example:platform" = "1.0.0"
 
                 [dependencies]
                 """.formatted(repositoryUrl));
@@ -40,13 +43,7 @@ final class AddCommandNoResolveTestSupport {
                         .append("\"\n"));
         config.append("""
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
         Files.writeString(projectDir.resolve("zolt.toml"), config.toString());
     }

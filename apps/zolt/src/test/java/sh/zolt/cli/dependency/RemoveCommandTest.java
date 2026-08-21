@@ -61,10 +61,10 @@ final class RemoveCommandTest {
                     "--cache-root", tempDir.resolve("cache").toString(),
                     "com.example:app");
 
-            assertEquals(0, resolve.exitCode());
+            assertEquals(0, resolve.exitCode(), resolve.stderr());
             assertTrue(initialLockfile.contains("com.example:app"));
             assertTrue(initialLockfile.contains("com.example:lib"));
-            assertEquals(0, remove.exitCode());
+            assertEquals(0, remove.exitCode(), remove.stderr());
             assertFalse(remove.stdout().contains("Warning:"));
             assertTrue(remove.stdout().contains("Removed dependency com.example:app from [dependencies]"));
             assertTrue(remove.stdout().contains("Resolved 0 packages"));
@@ -130,7 +130,7 @@ final class RemoveCommandTest {
                 "--directory", projectDir.toString(),
                 "com.example:missing");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains(
                 "Dependency com.example:missing is not present in [dependencies]; nothing to remove."));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
@@ -149,21 +149,15 @@ final class RemoveCommandTest {
         StringBuilder config = new StringBuilder(memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 """.formatted(repositoryUrl));
         appendDependencies(config, dependencies);
-        config.append("\n[test.dependencies]\n");
+        config.append("\n[dependencies.test]\n");
         appendDependencies(config, testDependencies);
         config.append("""
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
                 """);
         Files.writeString(projectDir.resolve("zolt.toml"), config.toString());
     }

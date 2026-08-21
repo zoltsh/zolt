@@ -20,7 +20,7 @@ final class VersionCommandTest {
     void versionPrintsZoltVersion() {
         CommandResult result = execute("--version");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertEquals("0.1.0-SNAPSHOT\n", result.stdout());
     }
 
@@ -28,7 +28,7 @@ final class VersionCommandTest {
     void versionCommandPrintsZoltVersion() {
         CommandResult result = execute("version");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertEquals("0.1.0-SNAPSHOT\n", result.stdout());
     }
 
@@ -41,7 +41,7 @@ final class VersionCommandTest {
                 name = "version-alias-remove"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 guava = "33.4.8-jre"
@@ -50,13 +50,13 @@ final class VersionCommandTest {
 
         CommandResult result = execute(
                 "--color=always",
-                "version",
+                "versions",
                 "remove",
                 "--directory", projectDir.toString(),
                 "--no-resolve",
                 "guava");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("\u001B[32mRemoved\u001B[0m version alias guava from [versions]"));
         assertFalse(result.stdout().contains("\u001B[32mRemoved version alias guava from [versions]\u001B[0m"));
         assertTrue(result.stdout().contains(
@@ -79,19 +79,19 @@ final class VersionCommandTest {
                 name = "version-alias-remove-resolve"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 guava = "33.4.8-jre"
                 """);
 
         CommandResult result = execute(
-                "version",
+                "versions",
                 "remove",
                 "--cwd", projectDir.toString(),
                 "guava");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("Removed version alias guava from [versions]"));
         assertTrue(result.stdout().contains("Resolved 0 packages"));
         assertTrue(Files.exists(projectDir.resolve("zolt.lock")));
@@ -107,7 +107,7 @@ final class VersionCommandTest {
                 name = "version-alias-remove-referenced"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 guava = "33.4.8-jre"
@@ -117,7 +117,7 @@ final class VersionCommandTest {
                 """);
 
         CommandResult result = execute(
-                "version",
+                "versions",
                 "remove",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
@@ -139,7 +139,7 @@ final class VersionCommandTest {
                 name = "version-alias-remove-reference-categories"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 shared = "1.0.0"
@@ -147,10 +147,10 @@ final class VersionCommandTest {
                 [platforms]
                 "com.example:platform" = { versionRef = "shared" }
 
-                [dependencyConstraints]
-                "com.example:core" = { versionRef = "shared", kind = "strict" }
+                [dependencies.constraints]
+                "com.example:core" = { versionRef = "shared" }
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "shared"
 
@@ -163,7 +163,7 @@ final class VersionCommandTest {
                 """);
 
         CommandResult result = execute(
-                "version",
+                "versions",
                 "remove",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
@@ -171,8 +171,8 @@ final class VersionCommandTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains("[platforms].com.example:platform"));
-        assertTrue(result.stderr().contains("[dependencyConstraints].com.example:core"));
-        assertTrue(result.stderr().contains("[generated.openapiTool].versionRef"));
+        assertTrue(result.stderr().contains("[dependencies.constraints].com.example:core"));
+        assertTrue(result.stderr().contains("[generated.tools.openapi].versionRef"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
         assertTrue(config.contains("shared = \"1.0.0\""));
     }

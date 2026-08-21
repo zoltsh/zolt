@@ -121,18 +121,23 @@ public final class PlatformsCommand implements Runnable {
 
         private void printSummary(
                 CommandHumanOutput output, AuthoredManifest original, DependencyCoordinate platform) {
-            String requested = DependencyEditCommands.describe(selector(original));
+            PlatformSelector selector = selector(original);
+            String requested = DependencyEditCommands.describe(original, selector);
             Map<DependencyCoordinate, PlatformSelector> entries = original.platforms()
                     .map(AuthoredPlatforms::entries)
                     .orElseGet(Map::of);
             PlatformSelector existing = entries.get(platform);
             if (existing == null) {
-                output.summary("Added platform " + platform + " with " + requested + " to [platforms]");
+                output.summary(selector instanceof PlatformSelector.FixedVersion fixed
+                        ? "Added platform " + platform + ":" + fixed.value() + " to [platforms]"
+                        : "Added platform " + platform + " with " + requested + " to [platforms]");
                 return;
             }
-            String current = DependencyEditCommands.describe(existing);
+            String current = DependencyEditCommands.describe(original, existing);
             if (current.equals(requested)) {
-                output.detail("Platform " + platform + " already uses " + requested + " in [platforms]");
+                output.detail(selector instanceof PlatformSelector.FixedVersion fixed
+                        ? "Platform " + platform + ":" + fixed.value() + " already exists in [platforms]"
+                        : "Platform " + platform + " already uses " + requested + " in [platforms]");
             } else {
                 output.summary("Updated platform " + platform + " from " + current + " to " + requested
                         + " in [platforms]");

@@ -27,7 +27,7 @@ final class AddCommandNoResolveVersionRefTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [repositories]
@@ -46,7 +46,7 @@ final class AddCommandNoResolveVersionRefTest {
                 "guava",
                 "com.google.guava:guava");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains(
                 "\u001B[32m✔\u001B[0m Added dependency com.google.guava:guava with versionRef `guava` = 33.4.8-jre to [dependencies]"));
         assertFalse(result.stdout().contains(

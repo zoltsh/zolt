@@ -21,21 +21,21 @@ final class PlatformRemoveCommandTest extends PlatformCommandTestSupport {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir);
         CommandResult add = execute(
-                "platform",
-                "add",
+                "platforms",
+                "set",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
-                "com.example:enterprise-platform:2026.1.0");
+                "com.example:enterprise-platform", "2026.1.0");
 
         CommandResult remove = execute(
-                "platform",
+                "platforms",
                 "remove",
                 "--directory", projectDir.toString(),
                 "--cache-root", tempDir.resolve("cache").toString(),
                 "com.example:enterprise-platform");
 
-        assertEquals(0, add.exitCode());
-        assertEquals(0, remove.exitCode());
+        assertEquals(0, add.exitCode(), add.stderr());
+        assertEquals(0, remove.exitCode(), remove.stderr());
         assertTrue(remove.stdout().contains("Removed platform com.example:enterprise-platform from [platforms]"));
         assertTrue(remove.stdout().contains("Resolved 0 packages"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
@@ -48,13 +48,12 @@ final class PlatformRemoveCommandTest extends PlatformCommandTestSupport {
         writeProjectConfig(projectDir);
 
         CommandResult result = execute(
-                "platform",
+                "platforms",
                 "remove",
                 "--cwd", projectDir.toString(),
                 "com.example:enterprise-platform:2026.1.0");
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("Platform remove coordinate must not include a version."));
-        assertTrue(result.stderr().contains("Next: Use `group:artifact`."));
+        assertTrue(result.stderr().contains("Invalid dependency coordinate"));
     }
 }

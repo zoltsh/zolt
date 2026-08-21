@@ -16,18 +16,8 @@ abstract class PlatformCommandTestSupport {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
-
-                [dependencies]
-
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [repositories.test]
+                url = "%s"
                 """.formatted(repositoryUrl));
     }
 }

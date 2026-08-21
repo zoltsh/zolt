@@ -29,7 +29,7 @@ final class AddCommandNoResolveTest {
                 "--no-resolve",
                 "com.google.guava:guava:33.4.0-jre");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains("Added dependency com.google.guava:guava:33.4.0-jre to [dependencies]"));
         assertTrue(result.stdout().contains("Skipped resolve"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
@@ -50,7 +50,7 @@ final class AddCommandNoResolveTest {
                 "--no-resolve",
                 "com.google.guava:guava:33.4.0-jre");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertFalse(result.stdout().contains("Warning:"));
         assertTrue(Files.readString(configPath).contains("# kept for humans"));
     }
@@ -77,7 +77,7 @@ final class AddCommandNoResolveTest {
                 "--no-resolve",
                 "com.google.guava:guava:33.4.0-jre");
 
-        assertEquals(0, color.exitCode());
+        assertEquals(0, color.exitCode(), color.stderr());
         assertTrue(color.stdout().contains("\u001B[32m✔\u001B[0m Added dependency "
                 + "com.google.guava:guava:33.4.0-jre to [dependencies]"));
         assertFalse(color.stdout().contains(
@@ -86,7 +86,7 @@ final class AddCommandNoResolveTest {
                 "\u001B[32mSkipped\u001B[0m resolve; run zolt resolve to refresh zolt.lock."));
         assertFalse(color.stdout().contains(
                 "\u001B[32mSkipped resolve; run zolt resolve to refresh zolt.lock.\u001B[0m"));
-        assertEquals(0, quiet.exitCode());
+        assertEquals(0, quiet.exitCode(), quiet.stderr());
         assertEquals("", quiet.stdout());
         String quietConfig = Files.readString(quietConfigPath);
         assertTrue(quietConfig.contains("\"com.google.guava:guava\" = \"33.4.0-jre\""));
@@ -103,19 +103,19 @@ final class AddCommandNoResolveTest {
                 "add",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
-                "test",
-                "org.junit.jupiter:junit-jupiter:5.11.4");
+                "org.junit.jupiter:junit-jupiter:5.11.4",
+                "--scope", "test");
         CommandResult second = execute(
                 "add",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
-                "test",
-                "org.junit.jupiter:junit-jupiter:5.11.4");
+                "org.junit.jupiter:junit-jupiter:5.11.4",
+                "--scope", "test");
 
-        assertEquals(0, first.exitCode());
-        assertEquals(0, second.exitCode());
-        assertTrue(first.stdout().contains("Added dependency org.junit.jupiter:junit-jupiter:5.11.4 to [test.dependencies]"));
-        assertTrue(second.stdout().contains("already exists in [test.dependencies]"));
+        assertEquals(0, first.exitCode(), first.stderr());
+        assertEquals(0, second.exitCode(), second.stderr());
+        assertTrue(first.stdout().contains("Added dependency org.junit.jupiter:junit-jupiter:5.11.4 to [dependencies.test]"));
+        assertTrue(second.stdout().contains("already exists in [dependencies.test]"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
         assertEquals(1, occurrences(config, "\"org.junit.jupiter:junit-jupiter\" = \"5.11.4\""));
     }
@@ -132,12 +132,12 @@ final class AddCommandNoResolveTest {
                 "--managed",
                 "com.example:legacy-api");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains(
                 "Added dependency com.example:legacy-api with a platform-managed version to [dependencies]"));
         assertTrue(result.stdout().contains("Skipped resolve"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(config.contains("\"com.example:legacy-api\" = {}"));
+        assertTrue(config.contains("\"com.example:legacy-api\" = { managed = true }"));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
     }
 
