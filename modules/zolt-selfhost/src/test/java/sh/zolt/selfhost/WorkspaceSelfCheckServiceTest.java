@@ -25,34 +25,27 @@ final class WorkspaceSelfCheckServiceTest {
         Path app = root.resolve("zolt");
         Files.createDirectories(app.resolve("src/main/java"));
         Files.createDirectories(app.resolve("src/test/java"));
-        Files.writeString(root.resolve("zolt-workspace.toml"), """
+        Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "zolt"
-                members = ["zolt"]
-                defaultMembers = ["zolt"]
+
+                [workspace.members]
+                default = ["zolt"]
+                include = ["zolt"]
                 """);
         Files.writeString(app.resolve("zolt.toml"), """
                 [project]
                 name = "zolt"
                 version = "0.2.0"
                 group = "sh.zolt"
-                java = "21"
+                java = 21
                 main = "sh.zolt.cli.ZoltCli"
 
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
-
-                [test.dependencies]
+                [dependencies.test]
                 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
-
                 [native]
-                imageName = "zolt"
+                name = "zolt"
                 output = "target/native"
                 args = ["--no-fallback"]
                 """);
