@@ -5,6 +5,7 @@ import java.util.Optional;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.authored.AuthoredPublicationRepository;
 import sh.zolt.manifest.authored.AuthoredPublicationRoutes;
+import sh.zolt.manifest.authored.AuthoredPublicationSigning;
 
 /** Cross-package test seam for package-private final-manifest publishing decoders. */
 public final class ManifestPublishingTestSupport {
@@ -28,5 +29,14 @@ public final class ManifestPublishingTestSupport {
 
     public static void decodeRepositoriesWithNullIndex() {
         new ManifestPublicationRepositoriesDecoder().decode(null);
+    }
+
+    public static Optional<AuthoredPublicationSigning> decodeSigning(String source) {
+        return new ManifestPublicationSigningDecoder().decode(
+                ManifestSemanticTestSupport.index(source));
+    }
+
+    public static void decodeSigningWithNullIndex() {
+        new ManifestPublicationSigningDecoder().decode(null);
     }
 }
