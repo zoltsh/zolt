@@ -16,7 +16,7 @@ export interface FrameworkNativeDiagnosticContract {
 export const FRAMEWORK_NATIVE_DIAGNOSTIC_CONTRACTS: readonly FrameworkNativeDiagnosticContract[] = [
   {
     framework: "spring-boot",
-    mode: "Spring Boot native images require `[framework.springBoot.native] enabled = true`",
+    mode: "Spring Boot native images require `[framework.spring-boot] native = true`",
     nextStep: "`[package].mode = \"spring-boot\"`, run `zolt resolve`",
   },
   {

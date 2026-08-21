@@ -9,8 +9,10 @@ export async function writeNativeWorkspace(root: string): Promise<void> {
   await writeFile(join(root, "zolt.toml"), [
     "[workspace]",
     'name = "workspace-real-native"',
-    'members = ["apps/api", "modules/core"]',
-    'defaultMembers = ["apps/api"]',
+    "",
+    "[workspace.members]",
+    'default = ["apps/api"]',
+    'include = ["apps/api", "modules/core"]',
     "",
   ].join("\n"), "utf8");
   await writeFile(join(core, "zolt.toml"), [
@@ -18,7 +20,7 @@ export async function writeNativeWorkspace(root: string): Promise<void> {
     'name = "core"',
     'version = "0.1.0"',
     'group = "com.acme"',
-    'java = "21"',
+    "java = 21",
     "",
   ].join("\n"), "utf8");
   await writeFile(join(core, "src/main/java/com/acme/core/Core.java"), [
@@ -35,14 +37,14 @@ export async function writeNativeWorkspace(root: string): Promise<void> {
     'name = "api"',
     'version = "0.1.0"',
     'group = "com.acme"',
-    'java = "21"',
+    "java = 21",
     'main = "com.acme.api.Api"',
     "",
     "[dependencies]",
-    '"com.acme:core" = { workspace = "modules/core" }',
+    '"com.acme:core" = { workspace = true }',
     "",
     "[native]",
-    'imageName = "workspace-api"',
+    'name = "workspace-api"',
     'args = ["--no-fallback"]',
     "",
   ].join("\n"), "utf8");
@@ -66,8 +68,7 @@ export async function addVertxNativeConfig(project: string): Promise<void> {
   await appendFile(join(project, "zolt.toml"), [
     "",
     "[native]",
-    'imageName = "vertx-http"',
-    'output = "target/native"',
+    'name = "vertx-http"',
     "args = [",
     '  "--no-fallback",',
     '  "--initialize-at-run-time=io.netty.channel,io.netty.handler.ssl,io.netty.util.internal.shaded.org.jctools.util.UnsafeLongArrayAccess",',

@@ -147,7 +147,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     // listed by `--include-test` with no marker at all, and never joins the summary's denominator.
     const scoped = await copyFixture(root, work, "hello-zolt", "license-scope");
     await appendFile(join(scoped, "zolt.toml"), [
-      "", "[test.dependencies]", '"org.apiguardian:apiguardian-api" = "1.1.2"',
+      "", "[dependencies.test]", '"org.apiguardian:apiguardian-api" = "1.1.2"',
       "", "[dependencyPolicy.licenses]", 'deny = ["Apache-2.0"]', "",
     ].join("\n"), "utf8");
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", scoped, "--cache-root", zolt.cacheRoot]);

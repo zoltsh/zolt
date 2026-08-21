@@ -24,7 +24,7 @@ smoke.suite("zolt release archive smoke", { tags: ["jvm", "release"] }, async (t
 name = "zolt"
 version = "0.1.0-SNAPSHOT"
 group = "sh.zolt"
-java = "21"
+java = 21
 `,
       "utf8",
     );
@@ -89,7 +89,9 @@ java = "21"
       join(workspaceRoot, "zolt.toml"),
       `[workspace]
 name = "zolt"
-members = ["apps/zolt"]
+
+[workspace.members]
+include = ["apps/zolt"]
 `,
       "utf8",
     );
@@ -106,7 +108,7 @@ members = ["apps/zolt"]
 name = "zolt"
 version = "0.1.0-SNAPSHOT"
 group = "sh.zolt"
-java = "21"
+java = 21
 `,
       "utf8",
     );
