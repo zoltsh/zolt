@@ -31,15 +31,19 @@ task with `zolt task NAME -- ARGS`.
 
 ```sh
 zolt add GROUP:ARTIFACT:VERSION
-zolt add test GROUP:ARTIFACT:VERSION
-zolt add runtime GROUP:ARTIFACT:VERSION
-zolt add provided GROUP:ARTIFACT:VERSION
-zolt add processor GROUP:ARTIFACT:VERSION
-zolt remove GROUP:ARTIFACT
-zolt platform add GROUP:ARTIFACT:VERSION
+zolt add GROUP:ARTIFACT:VERSION --scope test
+zolt remove GROUP:ARTIFACT --scope test
+zolt versions set ALIAS VERSION
+zolt platforms set GROUP:ARTIFACT VERSION
 zolt resolve --locked
 zolt resolve --offline
 ```
+
+Dependency scope is an explicit option, not a positional prefix. Scope values
+are `implementation` (default), `api`, `runtime`, `provided`, `dev`, `test`,
+`processor`, and `test-processor`. Every mutation refreshes `zolt.lock` unless
+`--no-resolve` is given, which commits only the source-safe manifest edit and
+names the resolve command that refreshes the stale lock.
 
 Inspect and update the graph:
 

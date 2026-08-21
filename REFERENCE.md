@@ -38,14 +38,19 @@ Dependency and lockfile commands:
 
 ```sh
 zolt add GROUP:ARTIFACT:VERSION
-zolt add test GROUP:ARTIFACT:VERSION
-zolt add runtime GROUP:ARTIFACT:VERSION
-zolt add provided GROUP:ARTIFACT:VERSION
-zolt add processor GROUP:ARTIFACT:VERSION
-zolt remove GROUP:ARTIFACT
-zolt platform add GROUP:ARTIFACT:VERSION
-zolt version set ALIAS VERSION
-zolt version remove ALIAS
+zolt add GROUP:ARTIFACT:VERSION --scope test
+zolt add GROUP:ARTIFACT --managed
+zolt add GROUP:ARTIFACT --version-ref ALIAS
+zolt remove GROUP:ARTIFACT --scope test
+zolt versions set ALIAS VERSION
+zolt versions remove ALIAS
+zolt platforms set GROUP:ARTIFACT VERSION
+zolt platforms set GROUP:ARTIFACT --version-ref ALIAS
+zolt platforms remove GROUP:ARTIFACT
+zolt bom versions set GROUP:ARTIFACT VERSION
+zolt bom versions remove GROUP:ARTIFACT
+zolt bom imports set GROUP:ARTIFACT --version-ref ALIAS
+zolt bom imports remove GROUP:ARTIFACT
 zolt resolve --locked
 zolt resolve --offline
 zolt tree
