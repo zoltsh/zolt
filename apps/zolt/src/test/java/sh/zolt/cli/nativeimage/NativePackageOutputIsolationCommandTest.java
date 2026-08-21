@@ -62,13 +62,14 @@ final class NativePackageOutputIsolationCommandTest {
     void nativeRejectsReservedAndConfiguredOutputCollisionsBeforeReplacingAnything() throws IOException {
         Path nativeImage = NativeCommandTestSupport.writeFakeNativeImage(
                 tempDir.resolve("collision-native-image"));
+        // Native output paths are relative to [build.output].root (design 10.2), so a collision with a
+        // package artifact is authored by pointing a build output at the native directory instead.
         for (Collision collision : List.of(
-                new Collision("uber", "target/native", "native-image.log"),
-                new Collision("uber", "target/native", "spring-aot-evidence.json"),
-                new Collision("uber", "target/native", "input"),
-                new Collision("uber", "target", "demo-0.1.0.jar"),
-                new Collision("war", "target", "demo-0.1.0.war"),
-                new Collision("uber", "target", "demo-0.1.0.jar.zolt-package.json"))) {
+                new Collision("uber", "native", "native-image.log", ""),
+                new Collision("uber", "native", "spring-aot-evidence.json", ""),
+                new Collision("uber", "native", "input", ""),
+                new Collision("uber", "native", "demo", "native"),
+                new Collision("war", "native", "demo", "native"))) {
             Path project = writeCollisionProject(collision);
             Path cache = tempDir.resolve("collision-cache-" + collision.id());
             assertSuccess(execute(
@@ -154,13 +155,16 @@ final class NativePackageOutputIsolationCommandTest {
                 [package]
                 mode = "%s"
                 sources = true
-
+                %s
                 [native]
                 output = "%s"
                 name = "%s"
                 """.formatted(
                 Runtime.version().feature(),
                 authoredMode(collision.mode()),
+                collision.buildOutputMain().isEmpty()
+                        ? ""
+                        : "\n[build.output]\nmain = \"" + collision.buildOutputMain() + "\"\n",
                 collision.output(),
                 collision.imageName()));
         Path source = project.resolve("src/main/java/com/example/Main.java");
@@ -295,9 +299,10 @@ final class NativePackageOutputIsolationCommandTest {
                 """;
     }
 
-    private record Collision(String mode, String output, String imageName) {
+    private record Collision(String mode, String output, String imageName, String buildOutputMain) {
         String id() {
-            return mode + "-" + output.replace('/', '-') + "-" + imageName.replace('.', '-');
+            return mode + "-" + output.replace('/', '-') + "-" + imageName.replace('.', '-')
+                    + (buildOutputMain.isEmpty() ? "" : "-" + buildOutputMain);
         }
     }
 }
