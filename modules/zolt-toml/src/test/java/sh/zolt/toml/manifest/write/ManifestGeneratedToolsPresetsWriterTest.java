@@ -185,7 +185,7 @@ final class ManifestGeneratedToolsPresetsWriterTest {
 
     private static String write(Optional<AuthoredGeneratedSources> generated) {
         ManifestTomlEmitter emitter = new ManifestTomlEmitter();
-        new ManifestGeneratedSourcesWriter().write(emitter, generated);
+        new ManifestGeneratedSourcesWriter().write(emitter, generated, path("target"));
         return emitter.finish();
     }
 

@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.ProjectName;
 import sh.zolt.manifest.authored.AuthoredBom;
 import sh.zolt.manifest.authored.AuthoredNativeImage;
 import sh.zolt.manifest.authored.AuthoredPackage;
@@ -34,17 +35,22 @@ final class ManifestPackagingWriter {
             section(FinalManifestPaths.FRAMEWORK_SPRING_BOOT);
     private static final ManifestSection NATIVE = section(FinalManifestPaths.NATIVE);
 
-    void write(ManifestTomlEmitter emitter, AuthoredPackaging packaging) {
+    void write(
+            ManifestTomlEmitter emitter,
+            AuthoredPackaging packaging,
+            Optional<ProjectName> projectName) {
         Objects.requireNonNull(emitter, "Manifest TOML emitter is required.");
         AuthoredPackaging authored = Objects.requireNonNull(
                 packaging, "Authored packaging is required.");
+        Optional<ProjectName> name = Objects.requireNonNull(
+                projectName, "Authored project name is required.");
         authored.packageSettings().ifPresent(value -> writePackage(emitter, value));
         authored.manifest()
                 .filter(value -> !value.attributes().isEmpty())
                 .ifPresent(value -> writeManifest(emitter, value));
         authored.bom().ifPresent(value -> writeBom(emitter, value));
         authored.springBoot().ifPresent(value -> writeSpringBoot(emitter, value));
-        authored.nativeImage().ifPresent(value -> writeNative(emitter, value));
+        authored.nativeImage().ifPresent(value -> writeNative(emitter, value, name));
     }
 
     private static void writePackage(ManifestTomlEmitter emitter, AuthoredPackage settings) {
@@ -179,10 +185,16 @@ final class ManifestPackagingWriter {
     }
 
     private static void writeNative(
-            ManifestTomlEmitter emitter, AuthoredNativeImage nativeImage) {
+            ManifestTomlEmitter emitter,
+            AuthoredNativeImage nativeImage,
+            Optional<ProjectName> projectName) {
         emitter.section(NATIVE);
-        nativeImage.name().ifPresent(value -> emitter.field(
-                FinalManifestPackagingFields.NATIVE_NAME, string(value)));
+        nativeImage.name()
+                .filter(value -> projectName
+                        .map(name -> !name.value().equals(value))
+                        .orElse(true))
+                .ifPresent(value -> emitter.field(
+                        FinalManifestPackagingFields.NATIVE_NAME, string(value)));
         nativeImage.output()
                 .filter(value -> !value.value().equals("native"))
                 .ifPresent(value -> emitter.field(

@@ -6,6 +6,7 @@ import sh.zolt.manifest.GeneratedCachePolicy;
 import sh.zolt.manifest.GeneratedLanguage;
 import sh.zolt.manifest.GeneratedStepSettings;
 import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.authored.AuthoredDeclaredRootStep;
 import sh.zolt.manifest.authored.AuthoredExecStep;
 import sh.zolt.manifest.authored.AuthoredGeneratedStep;
@@ -23,41 +24,58 @@ import sh.zolt.toml.schema.ManifestSection;
 final class ManifestGeneratedStepsWriter {
     private static final LocalId OPENAPI = new LocalId("openapi");
     private static final LocalId PROTOBUF = new LocalId("protobuf");
-    private static final Lane MAIN = new Lane(section(FinalManifestPaths.GENERATED_MAIN), true);
-    private static final Lane TEST = new Lane(section(FinalManifestPaths.GENERATED_TEST), false);
+    private static final Lane MAIN = new Lane(
+            section(FinalManifestPaths.GENERATED_MAIN), true, "generated/sources");
+    private static final Lane TEST = new Lane(
+            section(FinalManifestPaths.GENERATED_TEST), false, "generated/test-sources");
 
     void write(
             ManifestTomlEmitter emitter,
             Map<LocalId, AuthoredGeneratedStep> main,
-            Map<LocalId, AuthoredGeneratedStep> test) {
+            Map<LocalId, AuthoredGeneratedStep> test,
+            ManifestRelativePath buildOutputRoot) {
         Objects.requireNonNull(emitter, "Manifest TOML emitter is required.");
-        writeLane(emitter, MAIN, Objects.requireNonNull(main, "Main generated steps are required."));
-        writeLane(emitter, TEST, Objects.requireNonNull(test, "Test generated steps are required."));
+        ManifestRelativePath outputRoot = Objects.requireNonNull(
+                buildOutputRoot, "Build output root is required.");
+        writeLane(
+                emitter,
+                MAIN,
+                Objects.requireNonNull(main, "Main generated steps are required."),
+                outputRoot);
+        writeLane(
+                emitter,
+                TEST,
+                Objects.requireNonNull(test, "Test generated steps are required."),
+                outputRoot);
     }
 
     private static void writeLane(
             ManifestTomlEmitter emitter,
             Lane lane,
-            Map<LocalId, AuthoredGeneratedStep> steps) {
+            Map<LocalId, AuthoredGeneratedStep> steps,
+            ManifestRelativePath outputRoot) {
         steps.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> writeStep(
-                        emitter, lane, entry.getKey(), entry.getValue()));
+                        emitter, lane, entry.getKey(), entry.getValue(), outputRoot));
     }
 
     private static void writeStep(
             ManifestTomlEmitter emitter,
             Lane lane,
             LocalId id,
-            AuthoredGeneratedStep step) {
+            AuthoredGeneratedStep step,
+            ManifestRelativePath outputRoot) {
         emitter.namedSection(lane.section(), id.value());
         emitter.field(field(lane,
                 FinalManifestGeneratedMainFields.GENERATED_MAIN_KIND,
                 FinalManifestGeneratedTestFields.GENERATED_TEST_KIND), string(kind(step)));
         writeLanguage(emitter, lane, step.settings());
         switch (step) {
-            case AuthoredOpenApiStep openApi -> writeOpenApi(emitter, lane, openApi);
-            case AuthoredProtobufStep protobuf -> writeProtobuf(emitter, lane, protobuf);
+            case AuthoredOpenApiStep openApi ->
+                writeOpenApi(emitter, lane, id, openApi, outputRoot);
+            case AuthoredProtobufStep protobuf ->
+                writeProtobuf(emitter, lane, id, protobuf, outputRoot);
             case AuthoredExecStep exec -> writeExec(emitter, lane, exec);
             case AuthoredDeclaredRootStep declared -> writeDeclared(emitter, lane, declared);
         }
@@ -84,7 +102,11 @@ final class ManifestGeneratedStepsWriter {
     }
 
     private static void writeOpenApi(
-            ManifestTomlEmitter emitter, Lane lane, AuthoredOpenApiStep step) {
+            ManifestTomlEmitter emitter,
+            Lane lane,
+            LocalId id,
+            AuthoredOpenApiStep step,
+            ManifestRelativePath outputRoot) {
         step.tool().filter(value -> !value.equals(OPENAPI)).ifPresent(value -> emitter.field(
                 field(lane,
                         FinalManifestGeneratedMainFields.GENERATED_MAIN_TOOL,
@@ -94,10 +116,12 @@ final class ManifestGeneratedStepsWriter {
                 FinalManifestGeneratedMainFields.GENERATED_MAIN_INPUT,
                 FinalManifestGeneratedTestFields.GENERATED_TEST_INPUT),
                 string(step.input().value()));
-        step.output().ifPresent(value -> emitter.field(field(lane,
-                        FinalManifestGeneratedMainFields.GENERATED_MAIN_OUTPUT,
-                        FinalManifestGeneratedTestFields.GENERATED_TEST_OUTPUT),
-                string(value.value())));
+        step.output()
+                .filter(value -> !isDerivedOutput(lane, id, outputRoot, value))
+                .ifPresent(value -> emitter.field(field(lane,
+                                FinalManifestGeneratedMainFields.GENERATED_MAIN_OUTPUT,
+                                FinalManifestGeneratedTestFields.GENERATED_TEST_OUTPUT),
+                        string(value.value())));
         step.preset().ifPresent(value -> emitter.field(field(lane,
                         FinalManifestGeneratedMainFields.GENERATED_MAIN_PRESET,
                         FinalManifestGeneratedTestFields.GENERATED_TEST_PRESET),
@@ -107,7 +131,11 @@ final class ManifestGeneratedStepsWriter {
     }
 
     private static void writeProtobuf(
-            ManifestTomlEmitter emitter, Lane lane, AuthoredProtobufStep step) {
+            ManifestTomlEmitter emitter,
+            Lane lane,
+            LocalId id,
+            AuthoredProtobufStep step,
+            ManifestRelativePath outputRoot) {
         step.tool().filter(value -> !value.equals(PROTOBUF)).ifPresent(value -> emitter.field(
                 field(lane,
                         FinalManifestGeneratedMainFields.GENERATED_MAIN_TOOL,
@@ -118,10 +146,12 @@ final class ManifestGeneratedStepsWriter {
                 FinalManifestGeneratedTestFields.GENERATED_TEST_INPUTS);
         emitter.field(inputsField, ManifestGeneratedWriterValues.strings(
                 inputsField, step.inputs(), value -> value.value()));
-        step.output().ifPresent(value -> emitter.field(field(lane,
-                        FinalManifestGeneratedMainFields.GENERATED_MAIN_OUTPUT,
-                        FinalManifestGeneratedTestFields.GENERATED_TEST_OUTPUT),
-                string(value.value())));
+        step.output()
+                .filter(value -> !isDerivedOutput(lane, id, outputRoot, value))
+                .ifPresent(value -> emitter.field(field(lane,
+                                FinalManifestGeneratedMainFields.GENERATED_MAIN_OUTPUT,
+                                FinalManifestGeneratedTestFields.GENERATED_TEST_OUTPUT),
+                        string(value.value())));
         step.javaPackage().ifPresent(value -> emitter.field(field(lane,
                         FinalManifestGeneratedMainFields.GENERATED_MAIN_JAVA_PACKAGE,
                         FinalManifestGeneratedTestFields.GENERATED_TEST_JAVA_PACKAGE),
@@ -266,6 +296,15 @@ final class ManifestGeneratedStepsWriter {
         return lane.main() ? main : test;
     }
 
+    private static boolean isDerivedOutput(
+            Lane lane,
+            LocalId id,
+            ManifestRelativePath outputRoot,
+            ManifestRelativePath output) {
+        String derived = outputRoot.value() + "/" + lane.outputDirectory() + "/" + id.value();
+        return output.value().equals(derived);
+    }
+
     private static String string(String value) {
         return ManifestGeneratedWriterValues.string(value);
     }
@@ -274,6 +313,6 @@ final class ManifestGeneratedStepsWriter {
         return FinalManifestSchema.registry().section(path).orElseThrow();
     }
 
-    private record Lane(ManifestSection section, boolean main) {
+    private record Lane(ManifestSection section, boolean main, String outputDirectory) {
     }
 }

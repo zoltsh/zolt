@@ -165,6 +165,25 @@ final class ManifestGeneratedStepsWriterTest {
         assertEquals(output, write(Lane.MAIN, decoded.main()));
     }
 
+    @ParameterizedTest
+    @MethodSource("lanes")
+    void omitsExplicitOutputsEqualToTheLaneDerivedDefault(Lane lane) {
+        ManifestRelativePath root = path("custom-output");
+        String directory = lane == Lane.MAIN ? "generated/sources" : "generated/test-sources";
+        AuthoredOpenApiStep step = new AuthoredOpenApiStep(
+                GeneratedStepSettings.defaultsOmitted(),
+                Optional.empty(),
+                glob("api.yaml"),
+                Optional.of(path(root.value() + "/" + directory + "/client")),
+                Optional.empty(),
+                AuthoredOpenApiOptions.empty());
+
+        String output = write(lane, Map.of(id("client"), step), root);
+
+        assertFalse(output.contains("output ="));
+        assertFalse(Toml.parse(output).hasErrors());
+    }
+
     static Stream<Lane> lanes() {
         return Stream.of(Lane.values());
     }
@@ -310,11 +329,19 @@ final class ManifestGeneratedStepsWriterTest {
     }
 
     private static String write(Lane lane, Map<LocalId, AuthoredGeneratedStep> steps) {
+        return write(lane, steps, path("target"));
+    }
+
+    private static String write(
+            Lane lane,
+            Map<LocalId, AuthoredGeneratedStep> steps,
+            ManifestRelativePath outputRoot) {
         ManifestTomlEmitter emitter = new ManifestTomlEmitter();
         new ManifestGeneratedStepsWriter().write(
                 emitter,
                 lane == Lane.MAIN ? steps : Map.of(),
-                lane == Lane.TEST ? steps : Map.of());
+                lane == Lane.TEST ? steps : Map.of(),
+                outputRoot);
         return emitter.finish();
     }
 

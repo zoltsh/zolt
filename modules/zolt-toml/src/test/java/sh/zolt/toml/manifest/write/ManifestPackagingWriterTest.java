@@ -13,6 +13,7 @@ import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
 import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.ProjectName;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.authored.AuthoredBom;
 import sh.zolt.manifest.authored.AuthoredNativeImage;
@@ -166,11 +167,20 @@ final class ManifestPackagingWriterTest {
         assertEquals("", write(AuthoredPackaging.empty()));
         assertEquals("", write(defaults));
         assertEquals("", write(emptyBomCollections));
+        AuthoredPackaging redundantNativeName = new AuthoredPackaging(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new AuthoredNativeImage(
+                        Optional.of("round-trip"), Optional.empty(), Optional.empty())),
+                Optional.empty());
+        assertEquals("", write(redundantNativeName));
     }
 
     private static String write(AuthoredPackaging packaging) {
         ManifestTomlEmitter emitter = new ManifestTomlEmitter();
-        new ManifestPackagingWriter().write(emitter, packaging);
+        new ManifestPackagingWriter().write(
+                emitter, packaging, Optional.of(new ProjectName("round-trip")));
         return emitter.finish();
     }
 
