@@ -5,230 +5,260 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BuildSettings;
+import sh.zolt.project.DependencyExclusionSpec;
 import sh.zolt.project.DependencyMetadata;
-import sh.zolt.project.NativeSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.publish.PublishException;
 import sh.zolt.publish.PublishPomGenerator;
 import sh.zolt.toml.ZoltTomlParser;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class WorkspaceMemberPomLockProjectionTest {
     private final WorkspaceMemberPomLockProjection projection = new WorkspaceMemberPomLockProjection();
 
     @Test
-    void projectsDirectnessFromConfigAndVersionsFromAggregatedLock() {
-        // acme-http declares slf4j directly (at a stale 2.0.9) and a workspace dep on acme-core.
-        ProjectConfig memberConfig = ProjectConfigs.withWorkspaceDependencySections(
-                new ProjectMetadata("acme-http", "1.0.0", "com.acme", "21", Optional.empty()),
-                Map.of("central", ProjectConfig.MAVEN_CENTRAL),
-                Map.of(),
-                Map.of("org.slf4j:slf4j-api", "2.0.9"),
-                Set.of(),
-                Map.of("com.acme:acme-core", "acme-core"),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                BuildSettings.defaults(),
-                NativeSettings.defaults());
-
-        // The aggregated lock: acme-core workspace package, slf4j resolved to 2.0.13, and guava which is
-        // direct for SOME OTHER member (its direct flag is OR'd in) but never declared by acme-http.
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
+    void filtersExactMemberAndPublishesFromAuthoredLanes() {
+        ProjectConfig config = publishedLaneConfig();
+        List<LockPackage> packages = List.of(
+                external("org.example", "api", "1", DependencyScope.COMPILE, "apps/http"),
+                external("org.example", "implementation", "2", DependencyScope.COMPILE, "apps/http"),
+                external("org.example", "runtime", "3", DependencyScope.RUNTIME, "apps/http"),
+                external("org.example", "provided", "4", DependencyScope.PROVIDED, "apps/http"),
+                external("org.example", "dev", "5", DependencyScope.DEV, "apps/http"),
+                external("org.example", "test", "6", DependencyScope.TEST, "apps/http"),
+                external("org.example", "processor", "7", DependencyScope.PROCESSOR, "apps/http"),
+                external("org.example", "test-processor", "8", DependencyScope.TEST_PROCESSOR, "apps/http"),
+                external("org.example", "sibling", "6", DependencyScope.COMPILE, "apps/worker"));
+        ZoltLockfile aggregate = lockfile(
+                packages,
                 List.of(
-                        workspacePackage("com.acme", "acme-core", "1.0.0"),
-                        external("org.slf4j", "slf4j-api", "2.0.13", true),
-                        external("com.google.guava", "guava", "33.0.0-jre", true)),
-                List.of());
+                        root("apps/http", "api", "1", DependencyLane.API, DependencyScope.COMPILE),
+                        root("apps/http", "implementation", "2", DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE),
+                        root("apps/http", "runtime", "3", DependencyLane.RUNTIME, DependencyScope.RUNTIME),
+                        root("apps/http", "provided", "4", DependencyLane.PROVIDED, DependencyScope.PROVIDED),
+                        root("apps/http", "dev", "5", DependencyLane.DEV, DependencyScope.DEV),
+                        root("apps/http", "test", "6", DependencyLane.TEST, DependencyScope.TEST),
+                        root("apps/http", "processor", "7", DependencyLane.PROCESSOR, DependencyScope.PROCESSOR),
+                        root("apps/http", "test-processor", "8", DependencyLane.TEST_PROCESSOR, DependencyScope.TEST_PROCESSOR),
+                        root("apps/worker", "sibling", "6", DependencyLane.API, DependencyScope.COMPILE)));
 
-        ZoltLockfile projected = projection.project("acme-http", memberConfig, aggregated);
+        ZoltLockfile projected = projection.project("apps/http", config, aggregate);
+        String pom = new PublishPomGenerator().generate(config, projected);
 
-        Map<String, LockPackage> byCoordinate = index(projected);
-        // Directness from config: guava is direct in the aggregated lock but NOT declared by acme-http.
-        assertFalse(byCoordinate.containsKey("com.google.guava:guava"));
-        assertEquals(2, projected.packages().size());
-        // Versions from lock: slf4j is 2.0.13 (aggregated), not the stale 2.0.9 declared in config.
-        assertEquals("2.0.13", byCoordinate.get("org.slf4j:slf4j-api").version());
-        // Inter-member: acme-core carries the provider GAV, provider version, and workspace marker.
-        LockPackage core = byCoordinate.get("com.acme:acme-core");
-        assertEquals("1.0.0", core.version());
-        assertTrue(core.workspace().isPresent());
-        // Every projected coordinate is direct.
-        assertTrue(projected.packages().stream().allMatch(LockPackage::direct));
+        assertEquals(
+                List.of(
+                        DependencyLane.API,
+                        DependencyLane.IMPLEMENTATION,
+                        DependencyLane.RUNTIME,
+                        DependencyLane.PROVIDED),
+                projected.dependencyRoots().stream().map(LockDependencyRoot::lane).toList());
+        assertTrue(projected.dependencyRoots().stream().allMatch(root -> root.member().equals(".")));
+        assertEquals(4, projected.packages().size());
+        assertTrue(projected.packages().stream().allMatch(lockPackage -> lockPackage.members().isEmpty()));
+        assertFalse(pom.contains("<artifactId>dev</artifactId>"));
+        assertFalse(pom.contains("<artifactId>test</artifactId>"));
+        assertFalse(pom.contains("<artifactId>processor</artifactId>"));
+        assertFalse(pom.contains("<artifactId>test-processor</artifactId>"));
+        assertFalse(pom.contains("<artifactId>sibling</artifactId>"));
+        assertDependencyScope(pom, "api", null);
+        assertDependencyScope(pom, "implementation", "runtime");
+        assertDependencyScope(pom, "runtime", "runtime");
+        assertDependencyScope(pom, "provided", "provided");
     }
 
     @Test
-    void takesTheMembersOwnClassifierVariantVersionNotASiblingVariant() {
-        // acme-worker depends on the osx-classified netty (resolved 4.1.100); a sibling uses the linux
-        // variant at 4.1.90. The projection must take the member's OWN variant version, never the sibling's.
-        String coordinate = "io.netty:netty-transport-native-epoll";
-        ProjectConfig memberConfig = ProjectConfigs.withDirectDependencies(
-                new ProjectMetadata("acme-worker", "1.0.0", "com.acme", "21", Optional.empty()),
-                Map.of("central", ProjectConfig.MAVEN_CENTRAL),
-                Map.of(coordinate, "4.1.100.Final"),
-                Map.of(),
-                BuildSettings.defaults())
-                .withDependencyMetadata(Map.of(
-                        DependencyMetadata.key("dependencies", coordinate),
-                        new DependencyMetadata("dependencies", coordinate, null, null, false, null, false, false,
-                                List.of(), "osx-aarch_64", null)));
+    void retainsPublishOnlyRootWithoutForgingAPackageNode() {
+        String coordinate = "org.example:metadata-helper";
+        DependencyMetadata metadata = new DependencyMetadata(
+                "dependencies",
+                coordinate,
+                "9.4.0",
+                false,
+                null,
+                true,
+                true,
+                List.of(new DependencyExclusionSpec("org.legacy", "bridge")));
+        ProjectConfig config = config(Map.of(DependencyMetadata.key("dependencies", coordinate), metadata));
+        LockDependencyRoot publishOnly = new LockDependencyRoot(
+                "apps/http",
+                new PackageId("org.example", "metadata-helper"),
+                "9.4.0",
+                null,
+                DependencyLane.IMPLEMENTATION,
+                Optional.empty(),
+                true,
+                true);
+        ZoltLockfile aggregate = lockfile(List.of(), List.of(publishOnly));
 
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
-                List.of(
-                        classifiedExternal("io.netty", "netty-transport-native-epoll", "4.1.90.Final",
-                                "linux-x86_64", "sibling"),
-                        classifiedExternal("io.netty", "netty-transport-native-epoll", "4.1.100.Final",
-                                "osx-aarch_64", "acme-worker")),
-                List.of());
+        ZoltLockfile projected = projection.project("apps/http", config, aggregate);
+        String pom = new PublishPomGenerator().generate(config, projected);
 
-        ZoltLockfile projected = projection.project("acme-worker", memberConfig, aggregated);
-
-        LockPackage netty = index(projected).get(coordinate);
-        assertEquals("4.1.100.Final", netty.version());
+        assertTrue(projected.packages().isEmpty());
+        assertEquals(1, projected.dependencyRoots().size());
+        assertTrue(projected.dependencyRoots().getFirst().publishOnly());
+        assertTrue(projected.dependencyRoots().getFirst().optional());
+        assertTrue(pom.contains("<version>9.4.0</version>"));
+        assertDependencyScope(pom, "metadata-helper", "runtime");
+        assertTrue(pom.contains("<optional>true</optional>"));
+        assertTrue(pom.contains("<artifactId>bridge</artifactId>"));
     }
 
     @Test
-    void classifiedApiDependencyProjectsExactlyAndPublishesItsMetadata() {
-        String coordinate = "io.netty:netty-transport-native-epoll";
-        ProjectConfig memberConfig = new ZoltTomlParser().parse("""
+    void projectsTheExactLockedVariantRatherThanASiblingVariant() {
+        LockArtifactVariant linux = new LockArtifactVariant("jar", Optional.of("linux-x86_64"));
+        LockArtifactVariant osx = new LockArtifactVariant("jar", Optional.of("osx-aarch_64"));
+        String artifact = "native-transport";
+        LockPackage sibling = variantPackage(artifact, "1", linux, "apps/worker");
+        LockPackage selected = variantPackage(artifact, "2", osx, "apps/http");
+        ProjectConfig config = new ZoltTomlParser().parse("""
                 [project]
-                name = "acme-core"
+                name = "http"
+                version = "1.0.0"
+                group = "com.acme"
+                java = "21"
+
+                [dependencies]
+                "org.example:native-transport" = { version = "2", classifier = "osx-aarch_64" }
+                """);
+        ZoltLockfile aggregate = lockfile(
+                List.of(sibling, selected),
+                List.of(
+                        root("apps/worker", artifact, "1", linux, DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE),
+                        root("apps/http", artifact, "2", osx, DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE)));
+
+        ZoltLockfile projected = projection.project("apps/http", config, aggregate);
+        String pom = new PublishPomGenerator().generate(config, projected);
+
+        assertEquals(1, projected.packages().size());
+        assertEquals(selected.packageId(), projected.packages().getFirst().packageId());
+        assertEquals(selected.version(), projected.packages().getFirst().version());
+        assertEquals(LockArtifactVariant.of(selected), LockArtifactVariant.of(projected.packages().getFirst()));
+        assertTrue(projected.packages().getFirst().members().isEmpty());
+        assertTrue(pom.contains("<version>2</version>"));
+        assertTrue(pom.contains("<classifier>osx-aarch_64</classifier>"));
+        assertFalse(pom.contains("linux-x86_64"));
+    }
+
+    @Test
+    void rejectsPreV7AndMissingMemberRootCoverage() {
+        PublishException old = assertThrows(
+                PublishException.class,
+                () -> projection.project(
+                        "apps/http", config(Map.of()), new ZoltLockfile(6, List.of(), List.of())));
+        assertTrue(old.getMessage().contains("requires zolt.lock version 7"));
+
+        ProjectConfig declared = ProjectConfigs.withDirectDependencies(
+                new ProjectMetadata("http", "1.0.0", "com.acme", "21", Optional.empty()),
+                Map.of("central", ProjectConfig.MAVEN_CENTRAL),
+                Map.of("org.example:missing", "1"),
+                Map.of(),
+                BuildSettings.defaults());
+        PublishException missing = assertThrows(
+                PublishException.class,
+                () -> projection.project(
+                        "apps/http", declared, lockfile(List.of(), List.of())));
+        assertTrue(missing.getMessage().contains("implementation:org.example:missing:jar"));
+    }
+
+    private static void assertDependencyScope(String pom, String artifact, String scope) {
+        int start = pom.indexOf("<artifactId>" + artifact + "</artifactId>");
+        int end = pom.indexOf("</dependency>", start);
+        String dependency = pom.substring(start, end);
+        if (scope == null) {
+            assertFalse(dependency.contains("<scope>"));
+        } else {
+            assertTrue(dependency.contains("<scope>" + scope + "</scope>"));
+        }
+    }
+
+    private static ProjectConfig config(Map<String, DependencyMetadata> metadata) {
+        return ProjectConfigs.withDirectDependencies(
+                        new ProjectMetadata("http", "1.0.0", "com.acme", "21", Optional.empty()),
+                        Map.of("central", ProjectConfig.MAVEN_CENTRAL),
+                        Map.of(),
+                        Map.of(),
+                        BuildSettings.defaults())
+                .withDependencyMetadata(metadata);
+    }
+
+    private static ProjectConfig publishedLaneConfig() {
+        return new ZoltTomlParser().parse("""
+                [project]
+                name = "http"
                 version = "1.0.0"
                 group = "com.acme"
                 java = "21"
 
                 [api.dependencies]
-                "io.netty:netty-transport-native-epoll" = { version = "4.1.100.Final", classifier = "linux-x86_64", optional = true, exclusions = [{ group = "io.netty", artifact = "netty-common" }] }
+                "org.example:api" = "1"
+
+                [dependencies]
+                "org.example:implementation" = "2"
+
+                [runtime.dependencies]
+                "org.example:runtime" = "3"
+
+                [provided.dependencies]
+                "org.example:provided" = "4"
                 """);
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
-                List.of(classifiedExternal(
-                        "io.netty",
-                        "netty-transport-native-epoll",
-                        "4.1.100.Final",
-                        "linux-x86_64",
-                        "acme-core")),
-                List.of());
-
-        ZoltLockfile projected = projection.project("acme-core", memberConfig, aggregated);
-        LockPackage netty = projected.packages().getFirst();
-        String pom = new PublishPomGenerator().generate(memberConfig, projected);
-
-        assertEquals("4.1.100.Final", netty.version());
-        assertTrue(netty.jar().orElseThrow().endsWith(
-                "netty-transport-native-epoll-4.1.100.Final-linux-x86_64.jar"));
-        assertTrue(pom.contains("<classifier>linux-x86_64</classifier>"));
-        assertTrue(pom.contains("<optional>true</optional>"));
-        assertTrue(pom.contains("<artifactId>netty-common</artifactId>"));
     }
 
-    @Test
-    void missingDeclaredNonDefaultVariantRequiresLockRegeneration() {
-        String coordinate = "io.netty:netty-transport-native-epoll";
-        ProjectConfig memberConfig = ProjectConfigs.withDirectDependencies(
-                        new ProjectMetadata("acme-worker", "1.0.0", "com.acme", "21", Optional.empty()),
-                        Map.of("central", ProjectConfig.MAVEN_CENTRAL),
-                        Map.of(coordinate, "4.1.100.Final"),
-                        Map.of(),
-                        BuildSettings.defaults())
-                .withDependencyMetadata(Map.of(
-                        DependencyMetadata.key("dependencies", coordinate),
-                        new DependencyMetadata(
-                                "dependencies",
-                                coordinate,
-                                null,
-                                null,
-                                false,
-                                null,
-                                false,
-                                false,
-                                List.of(),
-                                "osx-aarch_64",
-                                null)));
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
-                List.of(classifiedExternal(
-                        "io.netty",
-                        "netty-transport-native-epoll",
-                        "4.1.90.Final",
-                        "linux-x86_64",
-                        "acme-worker")),
-                List.of());
-
-        PublishException exception = assertThrows(
-                PublishException.class,
-                () -> projection.project("acme-worker", memberConfig, aggregated));
-
-        assertTrue(exception.getMessage().contains("osx-aarch_64"));
-        assertTrue(exception.getMessage().contains("zolt resolve --workspace"));
+    private static LockDependencyRoot root(
+            String member,
+            String artifact,
+            String version,
+            DependencyLane lane,
+            DependencyScope scope) {
+        return root(member, artifact, version, LockArtifactVariant.defaultVariant(), lane, scope);
     }
 
-    private static Map<String, LockPackage> index(ZoltLockfile lockfile) {
-        java.util.LinkedHashMap<String, LockPackage> byCoordinate = new java.util.LinkedHashMap<>();
-        for (LockPackage lockPackage : lockfile.packages()) {
-            byCoordinate.put(
-                    lockPackage.packageId().groupId() + ":" + lockPackage.packageId().artifactId(), lockPackage);
-        }
-        return byCoordinate;
-    }
-
-    private static LockPackage external(String group, String artifact, String version, boolean direct) {
-        return new LockPackage(
-                new PackageId(group, artifact),
+    private static LockDependencyRoot root(
+            String member,
+            String artifact,
+            String version,
+            LockArtifactVariant variant,
+            DependencyLane lane,
+            DependencyScope scope) {
+        return new LockDependencyRoot(
+                member,
+                new PackageId("org.example", artifact),
                 version,
-                ProjectConfig.MAVEN_CENTRAL,
-                DependencyScope.COMPILE,
-                direct,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                List.of(),
-                List.of("acme-http"),
-                List.of(),
-                List.of(),
-                List.of());
+                variant,
+                lane,
+                Optional.of(scope),
+                false,
+                false);
     }
 
-    private static LockPackage classifiedExternal(
+    private static LockPackage external(
             String group,
             String artifact,
             String version,
-            String classifier,
+            DependencyScope scope,
             String member) {
-        String base = group.replace('.', '/') + "/" + artifact + "/" + version + "/" + artifact + "-" + version;
         return new LockPackage(
                 new PackageId(group, artifact),
                 version,
                 ProjectConfig.MAVEN_CENTRAL,
-                DependencyScope.COMPILE,
-                false,
-                Optional.of(base + "-" + classifier + ".jar"),
-                Optional.of(base + ".pom"),
-                Optional.of("jar-" + classifier),
-                Optional.of("pom-sha"),
+                scope,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -236,24 +266,40 @@ final class WorkspaceMemberPomLockProjectionTest {
                 Optional.empty(),
                 List.of(),
                 List.of(member),
-                List.of(),
-                List.of(),
                 List.of());
     }
 
-    private static LockPackage workspacePackage(String group, String artifact, String version) {
+    private static LockPackage variantPackage(
+            String artifact,
+            String version,
+            LockArtifactVariant variant,
+            String member) {
+        String path = "org/example/" + artifact + "/" + version + "/" + artifact + "-" + version
+                + "-" + variant.classifier().orElseThrow() + ".jar";
         return new LockPackage(
-                new PackageId(group, artifact),
+                new PackageId("org.example", artifact),
                 version,
-                "workspace",
+                ProjectConfig.MAVEN_CENTRAL,
                 DependencyScope.COMPILE,
                 true,
+                Optional.of(path),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(artifact),
-                Optional.of("target/classes"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of(member),
                 List.of());
+    }
+
+    private static ZoltLockfile lockfile(
+            List<LockPackage> packages,
+            List<LockDependencyRoot> roots) {
+        return new ZoltLockfile(
+                7, Optional.empty(), Optional.empty(), List.of(), packages, List.of(), List.of(), List.of(), roots);
     }
 }

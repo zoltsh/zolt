@@ -56,7 +56,11 @@ public final class WorkspaceBomPackager {
 
     /** Writes the BOM POM + evidence for a standalone (non-workspace) BOM with no family members. */
     public PackageResult packageStandaloneBom(Path projectDirectory, ProjectConfig config, BuildResult buildResult) {
-        return write(projectDirectory, config, new ZoltLockfile(1, List.of(), List.of()), buildResult);
+        return write(
+                projectDirectory,
+                config,
+                new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()),
+                buildResult);
     }
 
     private PackageResult write(

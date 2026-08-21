@@ -54,7 +54,7 @@ public final class WorkspaceBomFamily {
                     Optional.empty(),
                     List.of()));
         }
-        return new ZoltLockfile(1, List.copyOf(packages), List.of());
+        return new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.copyOf(packages), List.of());
     }
 
     private static List<WorkspaceMember> familyMembers(Workspace workspace, WorkspaceMember bomMember) {

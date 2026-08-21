@@ -281,7 +281,7 @@ final class WorkspacePublishServiceTest {
         }
         toml.append("]\n");
         Files.writeString(root.resolve("zolt-workspace.toml"), toml.toString());
-        Files.writeString(root.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
     }
 
     private static void writeMember(Path member, String toml) throws IOException {

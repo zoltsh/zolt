@@ -2,12 +2,9 @@ package sh.zolt.workspace.publish;
 
 import static sh.zolt.workspace.publish.MemberDependencyVariants.ref;
 
-import sh.zolt.dependency.DependencyScope;
-import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.dependency.DependencyLane;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.publish.PublishException;
-import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.util.ArrayDeque;
@@ -27,175 +24,72 @@ import java.util.Set;
  * recursed the same way. Feeds {@link WorkspaceMemberSbomLockProjection}'s closure BFS.
  */
 final class WorkspaceMemberSiblingClosure {
-    private final Workspace workspace;
-    private final WorkspaceMemberPolicyResolver policyResolver;
-    private final Map<String, LockPackage> workspaceByCoordinate;
-    private final Map<String, List<LockPackage>> externalCandidates;
-    private final Map<String, WorkspaceMember> membersByCoordinate = new LinkedHashMap<>();
-    private final Map<String, ProjectConfig> effectiveConfigs = new LinkedHashMap<>();
+    private final Map<String, LockPackage> workspaceByRef;
+    private final List<LockPackage> packages;
+    private final List<LockDependencyRoot> roots;
+    private final Map<String, WorkspaceMember> membersByPath = new LinkedHashMap<>();
     private final Map<String, LockPackage> populated = new LinkedHashMap<>();
     private final Set<String> visited = new LinkedHashSet<>();
 
     WorkspaceMemberSiblingClosure(
             Workspace workspace,
-            WorkspaceMemberPolicyResolver policyResolver,
-            Map<String, LockPackage> workspaceByCoordinate,
-            Map<String, List<LockPackage>> externalCandidates) {
-        this.workspace = workspace;
-        this.policyResolver = policyResolver;
-        this.workspaceByCoordinate = workspaceByCoordinate;
-        this.externalCandidates = externalCandidates;
+            Map<String, LockPackage> workspaceByRef,
+            List<LockPackage> packages,
+            List<LockDependencyRoot> roots) {
+        this.workspaceByRef = workspaceByRef;
+        this.packages = packages;
+        this.roots = roots;
         for (WorkspaceMember member : workspace.members()) {
-            membersByCoordinate.putIfAbsent(memberCoordinate(member.config()), member);
+            membersByPath.putIfAbsent(member.path(), member);
         }
     }
 
     /**
-     * Populates every sibling reachable from {@code seedCoordinates}, returning a coordinate&#8594;copy
+     * Populates every sibling occurrence reachable from {@code seedRefs}, returning an exact-ref&#8594;copy
      * map whose values carry the synthesized dependency edges. Siblings with no propagating externals
      * (and no workspace siblings) come back byte-identical to their aggregated entry.
      */
-    Map<String, LockPackage> populate(Set<String> seedCoordinates) {
-        Deque<String> queue = new ArrayDeque<>(seedCoordinates);
+    Map<String, LockPackage> populate(Set<String> seedRefs) {
+        Deque<String> queue = new ArrayDeque<>(seedRefs);
         while (!queue.isEmpty()) {
-            String coordinate = queue.removeFirst();
-            if (!visited.add(coordinate)) {
+            String siblingRef = queue.removeFirst();
+            if (!visited.add(siblingRef)) {
                 continue;
             }
-            LockPackage siblingPackage = workspaceByCoordinate.get(coordinate);
-            WorkspaceMember member = membersByCoordinate.get(coordinate);
+            LockPackage siblingPackage = workspaceByRef.get(siblingRef);
+            WorkspaceMember member = siblingPackage == null
+                    ? null
+                    : siblingPackage.workspace().map(membersByPath::get).orElse(null);
             if (siblingPackage == null || member == null) {
                 // Sibling absent from the lock, or not a known member: it is still carried as a bare
                 // first-party component by the BFS, matching the prior sibling-only behavior.
                 continue;
             }
-            ProjectConfig config = effectiveConfig(member);
             List<String> edges = new ArrayList<>();
             Set<String> seen = new LinkedHashSet<>();
-            // Propagating externals only: api + compile + runtime. provided/dev/test are NOT
-            // transitive, so a sibling's provided/test externals never reach the consumer's SBOM.
-            addExternalEdges(
-                    edges, seen, member.path(), config, DependencyScope.COMPILE, config.apiDependencies().keySet());
-            addExternalEdges(
-                    edges, seen, member.path(), config, DependencyScope.COMPILE, config.managedApiDependencies());
-            addExternalEdges(
-                    edges, seen, member.path(), config, DependencyScope.COMPILE, config.dependencies().keySet());
-            addExternalEdges(
-                    edges, seen, member.path(), config, DependencyScope.COMPILE, config.managedDependencies());
-            addExternalEdges(
-                    edges, seen, member.path(), config, DependencyScope.RUNTIME, config.runtimeDependencies().keySet());
-            addExternalEdges(
-                    edges, seen, member.path(), config, DependencyScope.RUNTIME, config.managedRuntimeDependencies());
-            // Siblings-of-siblings: edge to the workspace sibling, and recurse into it the same way.
-            addWorkspaceEdges(
-                    edges,
-                    seen,
-                    queue,
-                    config,
-                    config.workspaceApiDependencies().keySet());
-            addWorkspaceEdges(
-                    edges,
-                    seen,
-                    queue,
-                    config,
-                    config.workspaceDependencies().keySet());
-            populated.put(coordinate, withDependencies(siblingPackage, List.copyOf(edges)));
+            roots.stream()
+                    .filter(root -> root.member().equals(member.path()))
+                    .filter(root -> !root.publishOnly() && !root.optional())
+                    .filter(root -> propagates(root.lane()))
+                    .map(root -> packages.stream().filter(root::selects).findFirst().orElseThrow())
+                    .forEach(resolved -> {
+                        if (seen.add(ref(resolved))) {
+                            edges.add(ref(resolved));
+                        }
+                        if (resolved.workspace().isPresent()) {
+                            queue.addLast(ref(resolved));
+                        }
+                    });
+            populated.put(siblingRef, withDependencies(siblingPackage, List.copyOf(edges)));
         }
         return populated;
     }
 
-    private void addExternalEdges(
-            List<String> edges,
-            Set<String> seen,
-            String memberPath,
-            ProjectConfig config,
-            DependencyScope scope,
-            Set<String> coordinates) {
-        for (String coordinate : coordinates) {
-            if (MemberDependencyVariants.optional(
-                    config, coordinate, scope)) {
-                continue;
-            }
-            LockPackage resolved = resolveExternal(
-                    coordinate,
-                    MemberDependencyVariants.declaredVariant(config, coordinate, scope),
-                    scope,
-                    memberPath);
-            if (resolved != null && seen.add(ref(resolved))) {
-                edges.add(ref(resolved));
-            }
-        }
-    }
-
-    private void addWorkspaceEdges(
-            List<String> edges,
-            Set<String> seen,
-            Deque<String> queue,
-            ProjectConfig config,
-            Set<String> coordinates) {
-        for (String coordinate : coordinates) {
-            if (MemberDependencyVariants.optional(
-                    config, coordinate, DependencyScope.COMPILE)) {
-                continue;
-            }
-            LockPackage resolved = workspaceByCoordinate.get(coordinate);
-            if (resolved != null && seen.add(ref(resolved))) {
-                edges.add(ref(resolved));
-            }
-            queue.addLast(coordinate);
-        }
-    }
-
-    /** Resolves the exact variant declared by the sibling and confirms that entry is attributed to it. */
-    private LockPackage resolveExternal(
-            String coordinate,
-            LockArtifactVariant declaredVariant,
-            DependencyScope scope,
-            String memberPath) {
-        List<LockPackage> candidates = externalCandidates.get(coordinate);
-        if (candidates == null || candidates.isEmpty()) {
-            return null;
-        }
-        boolean qualifiedEntryPresent = false;
-        for (LockPackage candidate : candidates) {
-            if (!LockArtifactVariant.of(candidate).equals(declaredVariant)
-                    || candidate.scope() != scope) {
-                continue;
-            }
-            qualifiedEntryPresent = true;
-            if (candidate.members().contains(memberPath)) {
-                return candidate;
-            }
-        }
-        if (!qualifiedEntryPresent) {
-            throw new PublishException(
-                    "Workspace zolt.lock does not contain the declared artifact variant `"
-                            + coordinate
-                            + ":"
-                            + declaredVariant.key()
-                            + "` in scope `"
-                            + scope.lockfileName()
-                            + "` for sibling `"
-                            + memberPath
-                            + "`. Run `zolt resolve --workspace` to regenerate the lock before publishing.");
-        }
-        throw new PublishException(
-                "Workspace zolt.lock contains `"
-                        + coordinate
-                        + ":"
-                        + declaredVariant.key()
-                        + "` but does not attribute it to sibling `"
-                        + memberPath
-                        + "`. Run `zolt resolve --workspace` to regenerate the lock before publishing.");
-    }
-
-    private ProjectConfig effectiveConfig(WorkspaceMember member) {
-        return effectiveConfigs.computeIfAbsent(
-                member.path(), key -> policyResolver.merge(workspace, member));
-    }
-
-    private static String memberCoordinate(ProjectConfig config) {
-        return config.project().group() + ":" + config.project().name();
+    private static boolean propagates(DependencyLane lane) {
+        return switch (lane) {
+            case API, IMPLEMENTATION, RUNTIME -> true;
+            case PROVIDED, DEV, TEST, PROCESSOR, TEST_PROCESSOR -> false;
+        };
     }
 
     /** Carries a workspace-sibling package through unchanged except for a populated {@code dependencies} list. */

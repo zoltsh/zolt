@@ -46,7 +46,9 @@ final class WorkspaceBomFamilyTest {
         // Only acme-core is depended upon (so only it has a workspace package in the aggregated lock);
         // acme-http's version must fall back to its own declared version.
         ZoltLockfile aggregated = new ZoltLockfile(
-                1, List.of(workspacePackage("com.acme", "acme-core", "1.0.0")), List.of());
+                ZoltLockfile.CURRENT_VERSION,
+                List.of(workspacePackage("com.acme", "acme-core", "1.0.0")),
+                List.of());
 
         ZoltLockfile familyLock = family.familyLock(workspace, aggregated, bom);
 

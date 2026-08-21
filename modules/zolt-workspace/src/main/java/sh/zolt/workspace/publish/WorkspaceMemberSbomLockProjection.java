@@ -2,12 +2,14 @@ package sh.zolt.workspace.publish;
 
 import static sh.zolt.workspace.publish.MemberDependencyVariants.ref;
 
-import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockDependencyIndex;
+import sh.zolt.lockfile.LockDependencyRoot;
+import sh.zolt.lockfile.LockGraphRootSelector;
 import sh.zolt.lockfile.LockMemberGraphIndex;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.publish.PublishException;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
 import java.util.ArrayDeque;
@@ -32,8 +34,8 @@ import java.util.Set;
  * and the external&#8594;external edges. The two projections coexist — the POM one feeds POM
  * generation, this one feeds SBOM generation.
  *
- * <p><strong>Closure.</strong> Starting from the member's direct coordinates (resolved against the
- * aggregated lock) and its workspace siblings, it walks {@link LockPackage#dependencies()} edges
+ * <p><strong>Closure.</strong> Starting from the member's exact non-publish-only v7 dependency roots
+ * and its workspace siblings, it walks {@link LockPackage#dependencies()} edges
  * breadth-first and retains every reached package <em>as-is</em> — preserving artifact paths,
  * jar/pom/artifact SHA-256 hashes, source repositories, scopes, policies, and the edge lists. Nothing
  * is reconstructed; scope filtering (dev/test/provided excluded by default) is left to the assembler's
@@ -45,8 +47,7 @@ import java.util.Set;
  * {@link LockPackage#dependencies()} — aggregation cannot attribute a sibling's own edges — so a plain
  * BFS would stop at the sibling and drop guava from acme-http's SBOM. This projection is therefore
  * workspace-aware: for every sibling reachable from the member it resolves the sibling's own
- * policy-merged {@link ProjectConfig} (via {@link WorkspaceMemberPolicyResolver}, exactly as
- * {@code WorkspacePublishService} does) and materializes a populated copy of the sibling's lock entry
+ * dependency roots and materializes a populated copy of the sibling's lock entry
  * whose {@code dependencies} list carries synthetic edges to the sibling's <em>propagating</em> direct
  * externals — its api/compile/runtime dependencies, the scopes that transitively land on a consumer's
  * classpath ({@code provided}/{@code dev}/{@code test} are NOT transitive and are excluded). Its own
@@ -54,18 +55,17 @@ import java.util.Set;
  * fully resolves. The unified BFS then walks those synthetic edges and each external's own edges,
  * pulling the sibling-owned transitive externals into the member's SBOM as-is.
  *
- * <p><strong>Directness (fact 6).</strong> The aggregated lock's {@code direct} flag is OR'd across
- * every member and must NOT drive a member's SBOM. {@code LockSbomAssembler} turns each
- * {@code direct()} package into a {@code root -> package} edge, so every closure package's flag is
- * re-stamped to this member's view: {@code true} only for a coordinate the member ITSELF declares
- * direct; sibling-owned externals and transitively-reached siblings are {@code false}.
+ * <p><strong>Root authority.</strong> The aggregated lock's {@code direct} flag is OR'd across every
+ * member and must NOT drive a member's SBOM. Member-qualified {@code dependencyRoot} records select
+ * the exact version, variant, and resolved scope. The projected lock preserves those member-qualified
+ * roots and package attribution; {@code direct} is retained only as a compatible derived view.
  */
 public final class WorkspaceMemberSbomLockProjection {
     /**
-     * @param memberConfig the member's (policy-merged) effective config — the sole source of directness
+     * @param memberConfig retained for the established publication call shape; lock v7 is root authority
      * @param aggregatedLock the workspace root lock — the source of resolved versions, hashes, and edges
      * @param workspace the enclosing workspace — supplies the sibling members whose configs are recursed
-     * @param policyResolver merges each sibling's effective config, exactly as the publish flow resolves it
+     * @param policyResolver retained for the established publication call shape
      * @return an SBOM-shaped lockfile: the member's full reachable closure, carried through as-is
      */
     public ZoltLockfile project(
@@ -74,63 +74,76 @@ public final class WorkspaceMemberSbomLockProjection {
             ZoltLockfile aggregatedLock,
             Workspace workspace,
             WorkspaceMemberPolicyResolver policyResolver) {
+        if (aggregatedLock.version() != ZoltLockfile.CURRENT_VERSION) {
+            throw new PublishException(
+                    "Workspace SBOM generation requires zolt.lock version " + ZoltLockfile.CURRENT_VERSION
+                            + ", but found version " + aggregatedLock.version()
+                            + ". Run `zolt resolve --workspace` to regenerate the lockfile.");
+        }
         Map<String, LockPackage> byRef = new LinkedHashMap<>();
-        MemberDependencyVariants.ExternalIndex externalIndex = new MemberDependencyVariants.ExternalIndex();
-        Map<String, List<LockPackage>> externalCandidates = new LinkedHashMap<>();
-        Map<String, LockPackage> workspaceByCoordinate = new LinkedHashMap<>();
+        Map<String, LockPackage> workspaceByRef = new LinkedHashMap<>();
         for (LockPackage lockPackage : aggregatedLock.packages()) {
             byRef.putIfAbsent(ref(lockPackage), lockPackage);
-            String coordinate = coordinate(lockPackage);
             if (lockPackage.workspace().isPresent()) {
-                workspaceByCoordinate.putIfAbsent(coordinate, lockPackage);
-            } else {
-                externalIndex.add(coordinate, lockPackage);
-                externalCandidates.computeIfAbsent(coordinate, key -> new ArrayList<>()).add(lockPackage);
+                workspaceByRef.putIfAbsent(ref(lockPackage), lockPackage);
             }
         }
+
+        List<LockDependencyRoot> memberRoots = aggregatedLock.dependencyRoots().stream()
+                .filter(root -> root.member().equals(memberPath))
+                .filter(root -> !root.publishOnly())
+                .toList();
+        LockMemberGraphIndex memberGraphs = new LockMemberGraphIndex(aggregatedLock.memberGraphs());
+        List<LockPackage> memberPackages = aggregatedLock.packages().stream()
+                .filter(lockPackage -> lockPackage.members().contains(memberPath))
+                .map(lockPackage -> withMemberView(
+                        lockPackage,
+                        lockPackage.direct(),
+                        memberGraphs.dependenciesFor(memberPath, lockPackage),
+                        memberGraphs.policiesFor(memberPath, lockPackage)))
+                .toList();
+        memberPackages.forEach(lockPackage -> byRef.put(ref(lockPackage), lockPackage));
+        List<LockPackage> rootPackages = memberRoots.stream()
+                .map(root -> memberPackages.stream()
+                        .filter(root::selects)
+                        .findFirst()
+                        .orElseThrow())
+                .toList();
+        List<LockPackage> closureRoots = LockGraphRootSelector.select(
+                memberPackages,
+                memberRoots,
+                "zolt resolve --workspace");
 
         // Resolve the member's transitive workspace-sibling closure and synthesize each sibling's edges.
         // A workspace lock entry carries no edges, so this materializes a populated copy per sibling whose
         // dependencies point at its propagating direct externals (and its own workspace siblings). Both
         // root resolution and the BFS below then see those edges through the overlay.
         WorkspaceMemberSiblingClosure closure = new WorkspaceMemberSiblingClosure(
-                workspace, policyResolver, workspaceByCoordinate, externalCandidates);
-        Map<String, LockPackage> populatedSiblings = closure.populate(directWorkspaceCoordinates(memberConfig));
+                workspace,
+                workspaceByRef,
+                aggregatedLock.packages(),
+                aggregatedLock.dependencyRoots());
+        Set<String> workspaceRootRefs = closureRoots.stream()
+                .filter(lockPackage -> lockPackage.workspace().isPresent())
+                .map(MemberDependencyVariants::ref)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Map<String, LockPackage> populatedSiblings = closure.populate(workspaceRootRefs);
         for (Map.Entry<String, LockPackage> entry : populatedSiblings.entrySet()) {
-            byRef.put(ref(entry.getValue()), entry.getValue());
-            workspaceByCoordinate.put(entry.getKey(), entry.getValue());
+            byRef.put(entry.getKey(), entry.getValue());
         }
 
-        // The member's authoritative direct set (by variant-qualified ref) and the closure's BFS roots,
-        // ordered exactly like the POM projection: api, workspace-api, compile, workspace, runtime,
-        // provided. External roots resolve to the member's OWN variant (its declared classifier/type), so a
-        // member's SBOM roots at its osx-classified netty, never a sibling's linux variant at the same GA.
-        Set<String> directRefs = new LinkedHashSet<>();
+        Set<String> directRefs = rootPackages.stream()
+                .map(MemberDependencyVariants::ref)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         Deque<LockPackage> roots = new ArrayDeque<>();
-        addWorkspaceRoots(roots, directRefs, memberConfig.workspaceApiDependencies().keySet(), workspaceByCoordinate);
-        addExternalRoots(roots, directRefs, memberConfig.apiDependencies().keySet(), DependencyScope.COMPILE,
-                memberPath, memberConfig, externalIndex);
-        addExternalRoots(roots, directRefs, memberConfig.managedApiDependencies(), DependencyScope.COMPILE,
-                memberPath, memberConfig, externalIndex);
-        addWorkspaceRoots(roots, directRefs, memberConfig.workspaceDependencies().keySet(), workspaceByCoordinate);
-        addExternalRoots(roots, directRefs, memberConfig.dependencies().keySet(), DependencyScope.COMPILE,
-                memberPath, memberConfig, externalIndex);
-        addExternalRoots(roots, directRefs, memberConfig.managedDependencies(), DependencyScope.COMPILE,
-                memberPath, memberConfig, externalIndex);
-        addExternalRoots(roots, directRefs, memberConfig.runtimeDependencies().keySet(), DependencyScope.RUNTIME,
-                memberPath, memberConfig, externalIndex);
-        addExternalRoots(roots, directRefs, memberConfig.managedRuntimeDependencies(), DependencyScope.RUNTIME,
-                memberPath, memberConfig, externalIndex);
-        addExternalRoots(roots, directRefs, memberConfig.providedDependencies().keySet(), DependencyScope.PROVIDED,
-                memberPath, memberConfig, externalIndex);
-        addExternalRoots(roots, directRefs, memberConfig.managedProvidedDependencies(), DependencyScope.PROVIDED,
-                memberPath, memberConfig, externalIndex);
+        closureRoots.stream()
+                .map(lockPackage -> byRef.getOrDefault(ref(lockPackage), lockPackage))
+                .forEach(roots::addLast);
 
         // Breadth-first over the aggregated lock's variant-qualified dependency edges, retaining each
         // reached package as-is. A variant-qualified edge resolves to its exact variant; a bare edge to the
         // default/sole one. Insertion-ordered so the projected lock is deterministic.
         LockDependencyIndex edges = new LockDependencyIndex(byRef.values());
-        LockMemberGraphIndex memberGraphs = new LockMemberGraphIndex(aggregatedLock.memberGraphs());
         Map<String, LockPackage> reached = new LinkedHashMap<>();
         Map<String, Set<String>> reachedDependencies = new LinkedHashMap<>();
         Map<String, Set<String>> reachedPolicies = new LinkedHashMap<>();
@@ -179,48 +192,16 @@ public final class WorkspaceMemberSbomLockProjection {
                     List.copyOf(reachedDependencies.getOrDefault(ref, Set.of())),
                     List.copyOf(reachedPolicies.getOrDefault(ref, Set.of()))));
         }
-        return new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.copyOf(projected), List.of());
-    }
-
-    /** The member's own direct workspace-dependency coordinates: the seed for the sibling closure. */
-    private static Set<String> directWorkspaceCoordinates(ProjectConfig config) {
-        Set<String> coordinates = new LinkedHashSet<>();
-        coordinates.addAll(config.workspaceApiDependencies().keySet());
-        coordinates.addAll(config.workspaceDependencies().keySet());
-        return coordinates;
-    }
-
-    private static void addWorkspaceRoots(
-            Deque<LockPackage> roots,
-            Set<String> directRefs,
-            Set<String> coordinates,
-            Map<String, LockPackage> workspaceByCoordinate) {
-        for (String coordinate : coordinates) {
-            LockPackage resolved = workspaceByCoordinate.get(coordinate);
-            if (resolved != null && directRefs.add(ref(resolved))) {
-                roots.addLast(resolved);
-            }
-        }
-    }
-
-    private static void addExternalRoots(
-            Deque<LockPackage> roots,
-            Set<String> directRefs,
-            Set<String> coordinates,
-            DependencyScope scope,
-            String memberPath,
-            ProjectConfig memberConfig,
-            MemberDependencyVariants.ExternalIndex externalIndex) {
-        for (String coordinate : coordinates) {
-            LockPackage resolved = externalIndex.resolve(
-                    coordinate,
-                    MemberDependencyVariants.declaredVariant(memberConfig, coordinate, scope),
-                    scope,
-                    memberPath);
-            if (resolved != null && directRefs.add(ref(resolved))) {
-                roots.addLast(resolved);
-            }
-        }
+        return new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                java.util.Optional.empty(),
+                java.util.Optional.empty(),
+                List.of(),
+                List.copyOf(projected),
+                List.of(),
+                List.of(),
+                List.of(),
+                memberRoots);
     }
 
     /** Re-stamps aggregate facts to the member-qualified graph view used by this projected SBOM. */
@@ -254,10 +235,6 @@ public final class WorkspaceMemberSbomLockProjection {
                 lockPackage.exportedBy(),
                 policies.stream().sorted().toList(),
                 lockPackage.toolGroups());
-    }
-
-    private static String coordinate(LockPackage lockPackage) {
-        return lockPackage.packageId().groupId() + ":" + lockPackage.packageId().artifactId();
     }
 
     private record MemberPackage(String member, LockPackage lockPackage) {

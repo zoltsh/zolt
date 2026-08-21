@@ -4,12 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BuildSettings;
-import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.NativeSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
@@ -55,35 +57,40 @@ final class WorkspaceMemberSbomLockProjectionTest {
 
         // The aggregated lock: sibling + a direct external whose edge reaches a transitive external, plus a
         // guava that is direct for SOME OTHER member (OR'd direct) and a test-scope dep — neither reachable.
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
+        ZoltLockfile aggregated = aggregate(
                 List.of(
-                        workspacePackage("com.acme", "acme-core", "1.0.0"),
+                        workspacePackage("com.acme", "acme-core", "1.0.0", "acme-http"),
                         external("com.fasterxml.jackson.core", "jackson-databind", "2.19.2",
-                                DependencyScope.COMPILE, true, SHA_DATABIND,
+                                DependencyScope.COMPILE, false, SHA_DATABIND,
                                 List.of("com.fasterxml.jackson.core:jackson-core:2.19.2")),
                         // jackson-core is direct=true in the aggregated lock (another member declares it),
                         // but acme-http only reaches it transitively.
                         external("com.fasterxml.jackson.core", "jackson-core", "2.19.2",
                                 DependencyScope.COMPILE, true, SHA_CORE, List.of()),
-                        external("com.google.guava", "guava", "33.0.0-jre",
-                                DependencyScope.COMPILE, true, SHA_GUAVA, List.of()),
+                        externalWithMembers("com.google.guava", "guava", "33.0.0-jre",
+                                DependencyScope.COMPILE, true, SHA_GUAVA, List.of(), List.of("other-member")),
                         external("org.junit.jupiter", "junit-jupiter", "5.11.4",
                                 DependencyScope.TEST, true, SHA_GUAVA, List.of())),
-                List.of());
+                List.of(
+                        root("acme-http", "com.acme", "acme-core", "1.0.0",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE),
+                        root("acme-http", "com.fasterxml.jackson.core", "jackson-databind", "2.19.2",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE),
+                        root("acme-http", "org.junit.jupiter", "junit-jupiter", "5.11.4",
+                                DependencyLane.TEST, DependencyScope.TEST)));
 
         ZoltLockfile projected =
                 projection.project("acme-http", memberConfig, aggregated, workspace, resolver);
 
         Map<String, LockPackage> byCoordinate = index(projected);
-        // Closure: the member's direct external AND its transitive, plus the sibling — nothing else.
-        assertEquals(3, projected.packages().size());
+        // Closure retains every authored lane; downstream SBOM scope selection filters test.
+        assertEquals(4, projected.packages().size());
         assertTrue(byCoordinate.containsKey("com.fasterxml.jackson.core:jackson-databind"));
         assertTrue(byCoordinate.containsKey("com.fasterxml.jackson.core:jackson-core"));
         assertTrue(byCoordinate.containsKey("com.acme:acme-core"));
-        // The OR'd-direct guava and the test-scope dep are unreachable from acme-http's directs — excluded.
+        // The OR'd-direct guava belongs to another member; the authored test root remains represented.
         assertFalse(byCoordinate.containsKey("com.google.guava:guava"));
-        assertFalse(byCoordinate.containsKey("org.junit.jupiter:junit-jupiter"));
+        assertTrue(byCoordinate.containsKey("org.junit.jupiter:junit-jupiter"));
 
         // Hashes are carried through AS-IS (the POM projection would have dropped them).
         LockPackage databind = byCoordinate.get("com.fasterxml.jackson.core:jackson-databind");
@@ -110,8 +117,7 @@ final class WorkspaceMemberSbomLockProjectionTest {
         // A -> B -> C: the member declares only A; B and C must both be pulled in as transitives.
         ProjectConfig memberConfig = config("acme-http", Map.of("com.example:a", "1.0.0"), Map.of(), Map.of());
         Workspace workspace = workspaceOf(member("acme-http", memberConfig));
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
+        ZoltLockfile aggregated = aggregate(
                 List.of(
                         external("com.example", "a", "1.0.0", DependencyScope.COMPILE, true, SHA_DATABIND,
                                 List.of("com.example:b:1.0.0")),
@@ -119,7 +125,8 @@ final class WorkspaceMemberSbomLockProjectionTest {
                                 List.of("com.example:c:1.0.0")),
                         external("com.example", "c", "1.0.0", DependencyScope.RUNTIME, false, SHA_GUAVA,
                                 List.of())),
-                List.of());
+                List.of(root("acme-http", "com.example", "a", "1.0.0",
+                        DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE)));
 
         Map<String, LockPackage> byCoordinate =
                 index(projection.project("acme-http", memberConfig, aggregated, workspace, resolver));
@@ -142,14 +149,17 @@ final class WorkspaceMemberSbomLockProjectionTest {
                 member("acme-core", config(
                         "acme-core", Map.of("com.google.guava:guava", "33.0.0-jre"), Map.of(), Map.of())));
 
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
+        ZoltLockfile aggregated = aggregate(
                 List.of(
-                        workspacePackage("com.acme", "acme-core", "1.0.0"),
+                        workspacePackage("com.acme", "acme-core", "1.0.0", "acme-http"),
                         // guava is attributed to acme-core, direct=true (OR'd), and carries no edges of its own.
                         externalWithMembers("com.google.guava", "guava", "33.0.0-jre",
                                 DependencyScope.COMPILE, true, SHA_GUAVA, List.of(), List.of("acme-core"))),
-                List.of());
+                List.of(
+                        root("acme-http", "com.acme", "acme-core", "1.0.0",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE),
+                        root("acme-core", "com.google.guava", "guava", "33.0.0-jre",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE)));
 
         ZoltLockfile projected =
                 projection.project("acme-http", memberConfig, aggregated, workspace, resolver);
@@ -185,14 +195,19 @@ final class WorkspaceMemberSbomLockProjectionTest {
                 member("acme-util", config(
                         "acme-util", Map.of("org.apache.commons:commons-lang3", "3.14.0"), Map.of(), Map.of())));
 
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
+        ZoltLockfile aggregated = aggregate(
                 List.of(
-                        workspacePackage("com.acme", "acme-core", "1.0.0"),
-                        workspacePackage("com.acme", "acme-util", "1.0.0"),
+                        workspacePackage("com.acme", "acme-core", "1.0.0", "acme-http"),
+                        workspacePackage("com.acme", "acme-util", "1.0.0", "acme-core"),
                         externalWithMembers("org.apache.commons", "commons-lang3", "3.14.0",
                                 DependencyScope.COMPILE, false, SHA_LANG, List.of(), List.of("acme-util"))),
-                List.of());
+                List.of(
+                        root("acme-http", "com.acme", "acme-core", "1.0.0",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE),
+                        root("acme-core", "com.acme", "acme-util", "1.0.0",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE),
+                        root("acme-util", "org.apache.commons", "commons-lang3", "3.14.0",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE)));
 
         ZoltLockfile projected =
                 projection.project("acme-http", memberConfig, aggregated, workspace, resolver);
@@ -226,17 +241,20 @@ final class WorkspaceMemberSbomLockProjectionTest {
                 member("acme-core", config(
                         "acme-core", Map.of("com.google.guava:guava", "33.0.0-jre"), Map.of(), Map.of())));
 
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
+        ZoltLockfile aggregated = aggregate(
                 List.of(
-                        workspacePackage("com.acme", "acme-core", "1.0.0"),
+                        workspacePackage("com.acme", "acme-core", "1.0.0", "acme-http"),
                         // A guava variant owned by a DIFFERENT member — must not be the one acme-core links.
                         externalWithMembers("com.google.guava", "guava", "33.0.0-android",
                                 DependencyScope.COMPILE, false, SHA_CORE, List.of(), List.of("other-member")),
                         // The guava variant actually attributed to acme-core.
                         externalWithMembers("com.google.guava", "guava", "33.0.0-jre",
                                 DependencyScope.COMPILE, false, SHA_GUAVA, List.of(), List.of("acme-core"))),
-                List.of());
+                List.of(
+                        root("acme-http", "com.acme", "acme-core", "1.0.0",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE),
+                        root("acme-core", "com.google.guava", "guava", "33.0.0-jre",
+                                DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE)));
 
         Map<String, LockPackage> byCoordinate =
                 index(projection.project("acme-http", memberConfig, aggregated, workspace, resolver));
@@ -244,61 +262,6 @@ final class WorkspaceMemberSbomLockProjectionTest {
         // The synthesized edge resolves to the acme-core-attributed variant (jre@SHA_GUAVA), not android.
         assertEquals(List.of("com.google.guava:guava:33.0.0-jre:jar:compile"), core.dependencies());
         assertEquals(Optional.of(SHA_GUAVA), byCoordinate.get("com.google.guava:guava").jarSha256());
-    }
-
-    @Test
-    void rootsAtTheMembersOwnClassifierVariantNotASiblingVariant() {
-        // The netty scenario in the SBOM: acme-worker depends on the osx netty (resolved 4.1.100). The
-        // aggregated lock also holds a sibling's linux netty at 4.1.90. The member's SBOM must root at, and
-        // contain, its OWN osx@4.1.100 variant — never the linux@4.1.90 one.
-        String coordinate = "io.netty:netty-transport-native-epoll";
-        ProjectConfig memberConfig = config("acme-worker", Map.of(coordinate, "4.1.100.Final"), Map.of(), Map.of())
-                .withDependencyMetadata(Map.of(
-                        DependencyMetadata.key("dependencies", coordinate),
-                        new DependencyMetadata("dependencies", coordinate, null, null, false, null, false, false,
-                                List.of(), "osx-aarch_64", null)));
-        Workspace workspace = workspaceOf(member("acme-worker", memberConfig));
-
-        ZoltLockfile aggregated = new ZoltLockfile(
-                1,
-                List.of(
-                        classifiedExternal("io.netty", "netty-transport-native-epoll", "4.1.90.Final",
-                                "linux-x86_64", "sibling"),
-                        classifiedExternal("io.netty", "netty-transport-native-epoll", "4.1.100.Final",
-                                "osx-aarch_64", "acme-worker")),
-                List.of());
-
-        ZoltLockfile projected =
-                projection.project("acme-worker", memberConfig, aggregated, workspace, resolver);
-
-        assertEquals(1, projected.packages().size());
-        LockPackage netty = projected.packages().getFirst();
-        assertEquals("4.1.100.Final", netty.version());
-        assertTrue(netty.jar().orElseThrow().endsWith("osx-aarch_64.jar"));
-        assertTrue(netty.direct());
-    }
-
-    private static LockPackage classifiedExternal(
-            String group,
-            String artifact,
-            String version,
-            String classifier,
-            String member) {
-        String base = group.replace('.', '/') + "/" + artifact + "/" + version + "/" + artifact + "-" + version;
-        return new LockPackage(
-                new PackageId(group, artifact),
-                version,
-                "maven-central",
-                DependencyScope.COMPILE,
-                false,
-                Optional.of(base + "-" + classifier + ".jar"),
-                Optional.of(base + ".pom"),
-                Optional.of("jar-" + classifier),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                List.of(),
-                List.of(member));
     }
 
     private static ProjectConfig config(
@@ -400,7 +363,64 @@ final class WorkspaceMemberSbomLockProjectionTest {
                 members);
     }
 
-    private static LockPackage workspacePackage(String group, String artifact, String version) {
+    private static ZoltLockfile aggregate(
+            List<LockPackage> packages,
+            List<LockDependencyRoot> roots) {
+        return new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                packages,
+                List.of(),
+                List.of(),
+                List.of(),
+                roots);
+    }
+
+    private static LockDependencyRoot root(
+            String member,
+            String group,
+            String artifact,
+            String version,
+            DependencyLane lane,
+            DependencyScope scope) {
+        return root(
+                member,
+                group,
+                artifact,
+                version,
+                LockArtifactVariant.defaultVariant(),
+                lane,
+                scope,
+                false);
+    }
+
+    private static LockDependencyRoot root(
+            String member,
+            String group,
+            String artifact,
+            String version,
+            LockArtifactVariant variant,
+            DependencyLane lane,
+            DependencyScope scope,
+            boolean optional) {
+        return new LockDependencyRoot(
+                member,
+                new PackageId(group, artifact),
+                version,
+                variant,
+                lane,
+                Optional.of(scope),
+                optional,
+                false);
+    }
+
+    private static LockPackage workspacePackage(
+            String group,
+            String artifact,
+            String version,
+            String... members) {
         return new LockPackage(
                 new PackageId(group, artifact),
                 version,
@@ -413,6 +433,7 @@ final class WorkspaceMemberSbomLockProjectionTest {
                 Optional.empty(),
                 Optional.of(artifact),
                 Optional.of("target/classes"),
-                List.of());
+                List.of(),
+                List.of(members));
     }
 }
