@@ -61,7 +61,7 @@ final class WorkspacePackageModeOverrideRejectionTest {
         Path member = workspace.resolve("apps/app");
         Files.createDirectories(member);
         Files.writeString(
-                workspace.resolve("zolt-workspace.toml"),
+                workspace.resolve("zolt.toml"),
                 """
                 [workspace]
                 name = "mode-override"

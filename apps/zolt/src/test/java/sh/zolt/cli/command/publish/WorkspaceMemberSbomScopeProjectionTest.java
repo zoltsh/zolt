@@ -92,7 +92,7 @@ final class WorkspaceMemberSbomScopeProjectionTest {
         List<String> paths = List.of("modules/core", "apps/worker");
         return new Workspace(
                 Path.of("/ws"),
-                Path.of("/ws/zolt-workspace.toml"),
+                Path.of("/ws/zolt.toml"),
                 new WorkspaceConfig("acme", paths, List.of(), Map.of(), Map.of()),
                 List.of(
                         new WorkspaceMember("modules/core", Path.of("/ws/modules/core"), core),

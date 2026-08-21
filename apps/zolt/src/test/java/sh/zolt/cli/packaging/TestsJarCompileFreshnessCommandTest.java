@@ -88,7 +88,7 @@ final class TestsJarCompileFreshnessCommandTest {
                 workspace.resolve("apps/app"),
                 "app");
         Files.writeString(
-                workspace.resolve("zolt-workspace.toml"),
+                workspace.resolve("zolt.toml"),
                 """
                 [workspace]
                 name = "stale-tests-workspace"

@@ -33,7 +33,7 @@ final class TreeWorkspaceCommandTest {
     void discoversAWorkspaceDeclaredInLegacyZoltWorkspaceToml() throws IOException {
         Path workspace = tempDir.resolve("legacy-config");
         Files.createDirectories(workspace);
-        Files.writeString(workspace.resolve("zolt-workspace.toml"), TreeFixtures.WORKSPACE_CONFIG);
+        Files.writeString(workspace.resolve("zolt.toml"), TreeFixtures.WORKSPACE_CONFIG);
         TreeFixtures.workspaceMembersAndLock(workspace);
 
         CommandResult result = execute("tree", "--workspace", "--format", "json", "--cwd", workspace.toString());

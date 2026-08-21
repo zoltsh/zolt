@@ -160,7 +160,7 @@ final class CommandToolchainOptionsTest {
         LockedJavaToolchain locked = ManagedJavaToolchainTestFixture.locked();
         Path memberDir = tempDir.resolve("apps/api");
         Files.createDirectories(memberDir);
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "legacy-toolchain-workspace"
 

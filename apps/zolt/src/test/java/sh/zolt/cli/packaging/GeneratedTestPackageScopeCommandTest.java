@@ -129,7 +129,7 @@ final class GeneratedTestPackageScopeCommandTest {
         Path workspace = tempDir.resolve("workspace-test-tool");
         Path member = workspace.resolve("apps/app");
         Files.createDirectories(member);
-        Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+        Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "test-tool-workspace"
 

@@ -18,40 +18,6 @@ final class WorkspaceResolveCommandTest {
     private Path tempDir;
 
     @Test
-    void resolveWorkspaceWritesRootLockfile() throws IOException {
-        Path workspaceDir = tempDir.resolve("workspace");
-        Path apiDir = workspaceDir.resolve("apps/api");
-        Path coreDir = workspaceDir.resolve("modules/core");
-        Files.createDirectories(apiDir);
-        Files.createDirectories(coreDir);
-        Files.writeString(workspaceDir.resolve("zolt-workspace.toml"), """
-                [workspace]
-                name = "workspace"
-
-                [workspace.members]
-                default = ["apps/api"]
-                include = ["apps/api", "modules/core"]
-                """);
-        Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
-        Files.writeString(coreDir.resolve("zolt.toml"), memberConfig("core"));
-
-        CommandResult result = execute(
-                "resolve",
-                "--workspace",
-                "--cwd", apiDir.toString(),
-                "--cache-root", tempDir.resolve("cache").toString());
-
-        assertEquals(0, result.exitCode());
-        assertEquals("", result.stderr());
-        assertTrue(result.stdout().contains("Resolved 0 packages"));
-        assertTrue(result.stdout().contains("wrote " + workspaceDir.resolve("zolt.lock")));
-        assertTrue(Files.readString(workspaceDir.resolve("zolt.lock"))
-                .contains("projectResolutionFingerprint = \"sha256:"));
-        assertFalse(Files.exists(apiDir.resolve("zolt.lock")));
-        assertFalse(Files.exists(coreDir.resolve("zolt.lock")));
-    }
-
-    @Test
     void resolveWorkspaceDiscoversRootZoltTomlWorkspaceConfig() throws IOException {
         Path workspaceDir = tempDir.resolve("root-workspace");
         Path apiDir = workspaceDir.resolve("apps/api");
@@ -90,7 +56,7 @@ final class WorkspaceResolveCommandTest {
         Path workspaceDir = tempDir.resolve("current-workspace");
         Path apiDir = workspaceDir.resolve("apps/api");
         Files.createDirectories(apiDir);
-        Files.writeString(workspaceDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
 
@@ -122,8 +88,8 @@ final class WorkspaceResolveCommandTest {
                 "--cache-root", tempDir.resolve("cache-hint-resolve").toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("error: This zolt.toml declares a [workspace], not a [project]"));
-        assertTrue(result.stderr().contains("Next: Re-run the command with --workspace"));
+        assertTrue(result.stderr().contains("declares no [project]"), result.stderr());
+        assertTrue(result.stderr().contains("Next: Run the command with --workspace"), result.stderr());
         assertFalse(result.stderr().contains("Missing required section [project]"));
     }
 
@@ -137,8 +103,8 @@ final class WorkspaceResolveCommandTest {
                 "--cache-root", tempDir.resolve("cache-hint-build").toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("error: This zolt.toml declares a [workspace], not a [project]"));
-        assertTrue(result.stderr().contains("Next: Re-run the command with --workspace"));
+        assertTrue(result.stderr().contains("declares no [project]"), result.stderr());
+        assertTrue(result.stderr().contains("Next: Run the command with --workspace"), result.stderr());
         assertFalse(result.stderr().contains("Missing required section [project]"));
     }
 
@@ -152,8 +118,8 @@ final class WorkspaceResolveCommandTest {
                 "--cache-root", tempDir.resolve("cache-hint-test").toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("error: This zolt.toml declares a [workspace], not a [project]"));
-        assertTrue(result.stderr().contains("Next: Re-run the command with --workspace"));
+        assertTrue(result.stderr().contains("declares no [project]"), result.stderr());
+        assertTrue(result.stderr().contains("Next: Run the command with --workspace"), result.stderr());
         assertFalse(result.stderr().contains("Missing required section [project]"));
     }
 

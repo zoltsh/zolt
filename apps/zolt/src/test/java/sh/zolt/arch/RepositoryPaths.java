@@ -53,9 +53,6 @@ final class RepositoryPaths {
     }
 
     private static boolean isWorkspaceRoot(Path current) {
-        if (Files.isRegularFile(current.resolve("zolt-workspace.toml"))) {
-            return true;
-        }
         Path rootConfig = current.resolve("zolt.toml");
         if (!Files.isRegularFile(rootConfig)) {
             return false;
