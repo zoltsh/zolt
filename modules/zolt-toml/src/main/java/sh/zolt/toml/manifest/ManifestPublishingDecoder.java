@@ -3,12 +3,15 @@ package sh.zolt.toml.manifest;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import sh.zolt.manifest.EnvironmentVariableName;
 import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.RepositoryUrl;
 import sh.zolt.manifest.authored.AuthoredCentralPublishing;
 import sh.zolt.manifest.authored.AuthoredPublicationRepository;
 import sh.zolt.manifest.authored.AuthoredPublicationRoutes;
 import sh.zolt.manifest.authored.AuthoredPublicationSigning;
 import sh.zolt.manifest.authored.AuthoredPublishing;
+import sh.zolt.toml.schema.FinalManifestPaths;
 import sh.zolt.toml.schema.FinalManifestPublishingFields;
 
 /** Composes the complete authored publishing domain in canonical schema order. */
@@ -81,5 +84,168 @@ final class ManifestPublishingDecoder {
                             Optional.empty(),
                             Optional.empty()));
         }
+    }
+}
+
+/** Decodes authored release and snapshot publication repository selections. */
+final class ManifestPublicationRoutesDecoder {
+    Optional<AuthoredPublicationRoutes> decode(ManifestDecodeIndex index) {
+        Objects.requireNonNull(index, "Manifest decode index is required.");
+        Optional<ValidatedManifestField> releaseField =
+                index.field(FinalManifestPublishingFields.PUBLISH_RELEASE);
+        Optional<ValidatedManifestField> snapshotField =
+                index.field(FinalManifestPublishingFields.PUBLISH_SNAPSHOT);
+        if (releaseField.isEmpty() && snapshotField.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Optional<LocalId> release = route(releaseField);
+        Optional<LocalId> snapshot = route(snapshotField);
+        ValidatedManifestField anchor = releaseField
+                .or(() -> snapshotField)
+                .orElseThrow();
+        return Optional.of(ManifestSemanticDiagnostics.construct(
+                anchor,
+                () -> new AuthoredPublicationRoutes(release, snapshot)));
+    }
+
+    private static Optional<LocalId> route(
+            Optional<ValidatedManifestField> field) {
+        return field.map(value -> ManifestSemanticDiagnostics.construct(
+                value,
+                () -> new LocalId(ManifestTomlValues.string(value))));
+    }
+}
+
+/** Decodes authored publication signing without inspecting the execution environment. */
+final class ManifestPublicationSigningDecoder {
+    Optional<AuthoredPublicationSigning> decode(ManifestDecodeIndex index) {
+        Objects.requireNonNull(index, "Manifest decode index is required.");
+        if (index.section(FinalManifestPaths.PUBLISH_SIGNING).isEmpty()) {
+            return Optional.empty();
+        }
+
+        ValidatedManifestField methodField = ManifestSemanticDiagnostics.requiredField(
+                index, FinalManifestPublishingFields.PUBLISH_SIGNING_METHOD);
+        AuthoredPublicationSigning.Method method = method(methodField);
+        AuthoredPublicationSigning signing = ManifestSemanticDiagnostics.construct(
+                methodField,
+                () -> new AuthoredPublicationSigning(
+                        method, Optional.empty(), Optional.empty()));
+
+        Optional<ValidatedManifestField> keyField =
+                index.field(FinalManifestPublishingFields.PUBLISH_SIGNING_KEY_ID);
+        Optional<String> keyId = keyField.map(ManifestTomlValues::string);
+        if (keyField.isPresent()) {
+            ValidatedManifestField field = keyField.orElseThrow();
+            signing = ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new AuthoredPublicationSigning(
+                            method, keyId, Optional.empty()));
+        }
+
+        Optional<ValidatedManifestField> passphraseField = index.field(
+                FinalManifestPublishingFields.PUBLISH_SIGNING_PASSPHRASE_ENV);
+        if (passphraseField.isPresent()) {
+            ValidatedManifestField field = passphraseField.orElseThrow();
+            EnvironmentVariableName environment = ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new EnvironmentVariableName(ManifestTomlValues.string(field)));
+            signing = ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new AuthoredPublicationSigning(
+                            method, keyId, Optional.of(environment)));
+        }
+        return Optional.of(signing);
+    }
+
+    private static AuthoredPublicationSigning.Method method(
+            ValidatedManifestField field) {
+        String value = ManifestTomlValues.string(field);
+        for (AuthoredPublicationSigning.Method method
+                : AuthoredPublicationSigning.Method.values()) {
+            if (method.configValue().equals(value)) {
+                return method;
+            }
+        }
+        throw new IllegalStateException(
+                "Final manifest schema accepted publication signing method `" + value
+                        + "` at `" + field.path() + "` but the model does not recognize it.");
+    }
+}
+
+/** Decodes authored Central publishing without applying service defaults or reading secrets. */
+final class ManifestCentralPublishingDecoder {
+    Optional<AuthoredCentralPublishing> decode(
+            ManifestDecodeIndex index,
+            CentralPresenceObserver observer) {
+        Objects.requireNonNull(index, "Manifest decode index is required.");
+        Objects.requireNonNull(observer, "Authored Central presence observer is required.");
+        if (index.section(FinalManifestPaths.PUBLISH_CENTRAL).isEmpty()) {
+            return Optional.empty();
+        }
+
+        ValidatedManifestField tokenField = ManifestSemanticDiagnostics.requiredField(
+                index, FinalManifestPublishingFields.PUBLISH_CENTRAL_TOKEN_ENV);
+        EnvironmentVariableName tokenEnvironment = ManifestSemanticDiagnostics.construct(
+                tokenField,
+                () -> new EnvironmentVariableName(ManifestTomlValues.string(tokenField)));
+        ValidatedManifestField modeField = ManifestSemanticDiagnostics.requiredField(
+                index, FinalManifestPublishingFields.PUBLISH_CENTRAL_MODE);
+        AuthoredCentralPublishing.Mode mode = mode(modeField);
+        AuthoredCentralPublishing central = ManifestSemanticDiagnostics.construct(
+                modeField,
+                () -> new AuthoredCentralPublishing(
+                        tokenEnvironment,
+                        mode,
+                        Optional.empty(),
+                        Optional.empty()));
+        AuthoredCentralPublishing observed = central;
+        central = ManifestSemanticDiagnostics.construct(tokenField, () -> {
+            observer.present(observed);
+            return observed;
+        });
+
+        Optional<ValidatedManifestField> nameField =
+                index.field(FinalManifestPublishingFields.PUBLISH_CENTRAL_NAME);
+        Optional<String> name = nameField.map(ManifestTomlValues::string);
+        if (nameField.isPresent()) {
+            ValidatedManifestField field = nameField.orElseThrow();
+            central = ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new AuthoredCentralPublishing(
+                            tokenEnvironment, mode, name, Optional.empty()));
+        }
+
+        Optional<ValidatedManifestField> urlField =
+                index.field(FinalManifestPublishingFields.PUBLISH_CENTRAL_URL);
+        if (urlField.isPresent()) {
+            ValidatedManifestField field = urlField.orElseThrow();
+            RepositoryUrl url = ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new RepositoryUrl(ManifestTomlValues.string(field)));
+            central = ManifestSemanticDiagnostics.construct(
+                    field,
+                    () -> new AuthoredCentralPublishing(
+                            tokenEnvironment, mode, name, Optional.of(url)));
+        }
+        return Optional.of(central);
+    }
+
+    private static AuthoredCentralPublishing.Mode mode(ValidatedManifestField field) {
+        String value = ManifestTomlValues.string(field);
+        for (AuthoredCentralPublishing.Mode mode : AuthoredCentralPublishing.Mode.values()) {
+            if (mode.configValue().equals(value)) {
+                return mode;
+            }
+        }
+        throw new IllegalStateException(
+                "Final manifest schema accepted Central publication mode `" + value
+                        + "` at `" + field.path() + "` but the model does not recognize it.");
+    }
+
+    @FunctionalInterface
+    interface CentralPresenceObserver {
+        void present(AuthoredCentralPublishing central);
     }
 }
