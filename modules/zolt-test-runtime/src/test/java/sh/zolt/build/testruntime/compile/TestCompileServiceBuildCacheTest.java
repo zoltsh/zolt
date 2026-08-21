@@ -35,7 +35,7 @@ final class TestCompileServiceBuildCacheTest {
         TestCompileService service = new TestCompileService()
                 .withBuildCache(BuildCacheService.create(
                         new BuildCacheSettings(true, cacheHome.resolve("build-cache"), 0L), "test-version"));
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         source("src/test/java/com/example/MainTest.java",
                 "package com.example; public final class MainTest { public String go() { return new Main().toString(); } }\n");

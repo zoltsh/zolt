@@ -150,7 +150,14 @@ final class TestCompileServiceProcessorIncrementalTest {
         Files.createDirectories(cached.getParent());
         Files.copy(processorJar, cached, StandardCopyOption.REPLACE_EXISTING);
         TestCompileServiceTestSupport.writeLockfile(projectDir, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-processor"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "com.example:test-processor"

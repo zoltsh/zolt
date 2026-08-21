@@ -28,7 +28,7 @@ final class TestCompileServiceIncrementalStateTest {
 
     @Test
     void repeatedTestCompilationSkipsJavacWhenInputsAreCurrent() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         source("src/test/java/com/example/MainTest.java", "package com.example; public final class MainTest {}\n");
 
@@ -55,7 +55,7 @@ final class TestCompileServiceIncrementalStateTest {
 
     @Test
     void fullTestCompileWritesIncrementalOwnershipState() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         Path testSource = source("src/test/java/com/example/MainTest.java", """
                 package com.example;
@@ -95,7 +95,7 @@ final class TestCompileServiceIncrementalStateTest {
 
     @Test
     void testSourceChangeInvalidatesTestCompileFingerprint() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         Path testSource = source(
                 "src/test/java/com/example/MainTest.java",
@@ -113,7 +113,7 @@ final class TestCompileServiceIncrementalStateTest {
 
     @Test
     void failedIncrementalTestCompileInvalidatesStateForNextRun() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         Path testSource = source("src/test/java/com/example/MainTest.java", """
                 package com.example;
@@ -156,7 +156,7 @@ final class TestCompileServiceIncrementalStateTest {
 
     @Test
     void missingExpectedTestClassPreventsTestCompileSkip() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         source("src/test/java/com/example/MainTest.java", "package com.example; public final class MainTest {}\n");
         testCompileService.compileTests(projectDir, config(), projectDir.resolve("cache"));

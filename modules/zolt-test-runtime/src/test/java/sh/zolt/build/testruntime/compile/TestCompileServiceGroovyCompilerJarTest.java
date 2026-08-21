@@ -26,7 +26,14 @@ final class TestCompileServiceGroovyCompilerJarTest extends TestCompileServiceGr
         Path groovyJar = cacheRoot.resolve("org/apache/groovy/groovy/4.0.24/groovy-4.0.24.jar");
         createFakeGroovyCompilerJar(projectDir, groovyJar);
         TestCompileServiceGroovyTest.writeLockfile(projectDir, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.apache.groovy:groovy"
+                version = "4.0.24"
+                lane = "test"
+                resolvedScope = "test"
 
                 [[package]]
                 id = "org.apache.groovy:groovy"

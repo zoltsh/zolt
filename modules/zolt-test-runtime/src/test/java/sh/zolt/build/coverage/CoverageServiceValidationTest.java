@@ -68,7 +68,7 @@ final class CoverageServiceValidationTest {
 
     @Test
     void missingCoverageToolingExplainsHowToRefreshLockfile() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         CoverageService service = service(
                 (projectDirectory, config, cacheRoot, selection, jvmArguments, reportSettings, cliEvents, suiteName, shard) ->
                         new TestRunResult(null, ""),
@@ -91,7 +91,7 @@ final class CoverageServiceValidationTest {
     @Test
     void nonCoverageScopedToolingIsIgnoredWithRefreshGuidance() throws IOException {
         write(projectDir, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.jacoco:org.jacoco.agent"
@@ -124,7 +124,7 @@ final class CoverageServiceValidationTest {
     @Test
     void missingCoverageAgentExplainsHowToRefreshLockfile() throws IOException {
         write(projectDir, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.jacoco:org.jacoco.cli"
@@ -158,7 +158,7 @@ final class CoverageServiceValidationTest {
     @Test
     void nonRuntimeJacocoAgentExplainsHowToRefreshLockfile() throws IOException {
         write(projectDir, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.jacoco:org.jacoco.agent"
@@ -200,7 +200,7 @@ final class CoverageServiceValidationTest {
     @Test
     void missingCoverageCliExplainsHowToRefreshLockfile() throws IOException {
         write(projectDir, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.jacoco:org.jacoco.agent"

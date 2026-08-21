@@ -24,7 +24,7 @@ final class TestCompileServiceIncrementalCompileTest {
 
     @Test
     void bodyOnlyTestSourceChangeUsesIncrementalTestCompilation() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         Path testSource = source("src/test/java/com/example/MainTest.java", """
                 package com.example;
@@ -58,7 +58,7 @@ final class TestCompileServiceIncrementalCompileTest {
 
     @Test
     void abiChangingTestSourceWithoutDependentsStaysIncrementalTestCompilation() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         Path testSource = source("src/test/java/com/example/MainTest.java", """
                 package com.example;
@@ -89,7 +89,7 @@ final class TestCompileServiceIncrementalCompileTest {
 
     @Test
     void deletedSourceFallsBackToFullTestCompilationAndDeletesOwnedClass() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         source("src/test/java/com/example/MainTest.java", """
                 package com.example;
