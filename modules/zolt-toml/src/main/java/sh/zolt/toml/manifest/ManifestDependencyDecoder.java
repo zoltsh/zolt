@@ -30,14 +30,23 @@ final class ManifestDependencyDecoder {
     private final ManifestDependencyPolicyDecoder policy =
             new ManifestDependencyPolicyDecoder();
 
-    Decoded decode(ManifestDecodeIndex index) {
+    Decoded decode(
+            ManifestDecodeIndex index,
+            DependencyPresenceObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
-        Optional<AuthoredDependencies> decodedDependencies =
-                dependencies.decode(index, ignored -> {});
-        Optional<AuthoredDependencyConstraints> decodedConstraints =
-                constraints.decode(index, ignored -> {});
-        Optional<AuthoredDependencyPolicy> decodedPolicy =
-                policy.decode(index, ignored -> {});
+        Objects.requireNonNull(observer, "Authored dependency presence observer is required.");
+        Optional<AuthoredDependencies> decodedDependencies = dependencies.decode(
+                index,
+                partial -> observer.present(new Decoded(
+                        Optional.of(partial), Optional.empty(), Optional.empty())));
+        Optional<AuthoredDependencyConstraints> decodedConstraints = constraints.decode(
+                index,
+                partial -> observer.present(new Decoded(
+                        decodedDependencies, Optional.of(partial), Optional.empty())));
+        Optional<AuthoredDependencyPolicy> decodedPolicy = policy.decode(
+                index,
+                partial -> observer.present(new Decoded(
+                        decodedDependencies, decodedConstraints, Optional.of(partial))));
         return new Decoded(decodedDependencies, decodedConstraints, decodedPolicy);
     }
 
@@ -53,6 +62,11 @@ final class ManifestDependencyDecoder {
             policy = Objects.requireNonNull(
                     policy, "Decoded dependency policy must not be null.");
         }
+    }
+
+    @FunctionalInterface
+    interface DependencyPresenceObserver {
+        void present(Decoded dependencies);
     }
 }
 

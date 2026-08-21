@@ -12,10 +12,35 @@ public final class ManifestDependencyTestSupport {
     private ManifestDependencyTestSupport() {}
 
     public static Decoded decodeDependencies(String source) {
-        ManifestDependencyDecoder.Decoded decoded = new ManifestDependencyDecoder().decode(
-                ManifestSemanticTestSupport.index(source));
-        return new Decoded(
-                decoded.dependencies(), decoded.constraints(), decoded.policy());
+        return decodeDependencies(source, ignored -> {});
+    }
+
+    public static Decoded decodeDependencies(
+            String source, Consumer<Decoded> observer) {
+        ManifestDependencyDecoder.DependencyPresenceObserver adapted =
+                observer == null ? null : decoded -> observer.accept(project(decoded));
+        return project(new ManifestDependencyDecoder().decode(
+                ManifestSemanticTestSupport.index(source), adapted));
+    }
+
+    public static void decodeDependenciesWithNullIndex() {
+        new ManifestDependencyDecoder().decode(null, ignored -> {});
+    }
+
+    public static void decodeDependenciesWithNullObserver() {
+        new ManifestDependencyDecoder().decode(ManifestSemanticTestSupport.index(""), null);
+    }
+
+    public static void constructDependencyDomainsWithNullDependencies() {
+        new ManifestDependencyDecoder.Decoded(null, Optional.empty(), Optional.empty());
+    }
+
+    public static void constructDependencyDomainsWithNullConstraints() {
+        new ManifestDependencyDecoder.Decoded(Optional.empty(), null, Optional.empty());
+    }
+
+    public static void constructDependencyDomainsWithNullPolicy() {
+        new ManifestDependencyDecoder.Decoded(Optional.empty(), Optional.empty(), null);
     }
 
     public static Optional<AuthoredDependencyPolicy> decodePolicy(
@@ -38,4 +63,9 @@ public final class ManifestDependencyTestSupport {
             Optional<AuthoredDependencies> dependencies,
             Optional<AuthoredDependencyConstraints> constraints,
             Optional<AuthoredDependencyPolicy> policy) {}
+
+    private static Decoded project(ManifestDependencyDecoder.Decoded decoded) {
+        return new Decoded(
+                decoded.dependencies(), decoded.constraints(), decoded.policy());
+    }
 }
