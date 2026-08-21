@@ -1,6 +1,9 @@
 package sh.zolt.toml.manifest;
 
+import java.util.Map;
 import java.util.Optional;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.authored.AuthoredPublicationRepository;
 import sh.zolt.manifest.authored.AuthoredPublicationRoutes;
 
 /** Cross-package test seam for package-private final-manifest publishing decoders. */
@@ -15,5 +18,15 @@ public final class ManifestPublishingTestSupport {
 
     public static void decodeRoutesWithNullIndex() {
         new ManifestPublicationRoutesDecoder().decode(null);
+    }
+
+    public static Optional<Map<LocalId, AuthoredPublicationRepository>>
+            decodeRepositories(String source) {
+        return new ManifestPublicationRepositoriesDecoder().decode(
+                ManifestSemanticTestSupport.index(source));
+    }
+
+    public static void decodeRepositoriesWithNullIndex() {
+        new ManifestPublicationRepositoriesDecoder().decode(null);
     }
 }
