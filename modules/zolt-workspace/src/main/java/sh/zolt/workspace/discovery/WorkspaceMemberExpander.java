@@ -94,18 +94,11 @@ final class WorkspaceMemberExpander {
         for (String segment : pattern.segments()) {
             ArrayList<Traversal> next = new ArrayList<>();
             for (Traversal parent : current) {
-                List<Path> entries = entries(parent.directory(), capture);
                 if (segment.equals("*")) {
-                    entries.stream()
-                            .filter(entry -> !entry.getFileName().toString().startsWith("."))
-                            .filter(entry -> Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS))
+                    sorted(capture.wildcardDirectories(parent.directory()))
                             .forEach(entry -> next.add(parent.child(entry)));
                 } else {
-                    List<Path> exact = entries.stream()
-                            .filter(entry -> Unicode17Portability.normalizeNfc(
-                                            entry.getFileName().toString())
-                                    .equals(segment))
-                            .toList();
+                    List<Path> exact = sorted(capture.namedEntries(parent.directory(), segment));
                     if (exact.size() > 1) {
                         throw new WorkspaceConfigException(
                                 "Directory entries under " + parent.directory()
@@ -129,10 +122,8 @@ final class WorkspaceMemberExpander {
         return current.stream().map(Traversal::candidate).toList();
     }
 
-    private static List<Path> entries(
-            Path directory,
-            WorkspaceInputCapture capture) {
-        return capture.list(directory).stream()
+    private static List<Path> sorted(List<Path> entries) {
+        return entries.stream()
                 .sorted((left, right) -> compareNames(
                         left.getFileName().toString(), right.getFileName().toString()))
                 .toList();

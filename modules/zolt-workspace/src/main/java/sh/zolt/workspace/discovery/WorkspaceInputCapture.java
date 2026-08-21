@@ -2,6 +2,8 @@ package sh.zolt.workspace.discovery;
 
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.unicode.Unicode17Portability;
+import sh.zolt.workspace.service.WorkspaceDirectoryEvidence;
 import sh.zolt.workspace.service.WorkspaceInputs;
 import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.io.IOException;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Reads each authoritative workspace config path at most once.
@@ -24,7 +27,8 @@ import java.util.Set;
 final class WorkspaceInputCapture {
     private final Map<Path, byte[]> captured = new LinkedHashMap<>();
     private final Set<Path> missing = new LinkedHashSet<>();
-    private final Map<Path, List<String>> directoryListings = new LinkedHashMap<>();
+    private final Map<EvidenceKey, WorkspaceDirectoryEvidence> directoryEvidence =
+            new LinkedHashMap<>();
 
     Optional<String> read(Path path) {
         Path normalized = path.toAbsolutePath().normalize();
@@ -90,28 +94,48 @@ final class WorkspaceInputCapture {
                         false));
     }
 
-    List<Path> list(Path directory) {
+    /** Every non-dot child directory, the exact set a {@code *} pattern segment consults. */
+    List<Path> wildcardDirectories(Path directory) {
+        return select(
+                directory,
+                WorkspaceDirectoryEvidence.WILDCARD,
+                path -> !path.getFileName().toString().startsWith(".")
+                        && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS));
+    }
+
+    /** Every child whose name normalizes to {@code segment}, what a literal segment consults. */
+    List<Path> namedEntries(Path directory, String segment) {
+        return select(
+                directory,
+                segment,
+                path -> segment.equals(
+                        Unicode17Portability.normalizeNfc(path.getFileName().toString())));
+    }
+
+    private List<Path> select(Path directory, String selector, Predicate<Path> relevant) {
         Path normalized = directory.toAbsolutePath().normalize();
-        List<String> existing = directoryListings.get(normalized);
-        if (existing != null) {
-            return paths(normalized, existing);
-        }
         try {
             if (!Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)) {
                 throw new WorkspaceConfigException(
                         "Workspace member traversal path must be a real directory: "
                                 + normalized + ".");
             }
-            ArrayList<Path> paths;
+            ArrayList<Path> paths = new ArrayList<>();
             try (var stream = Files.list(normalized)) {
-                paths = new ArrayList<>(stream.toList());
+                for (Path path : stream.toList()) {
+                    if (relevant.test(path)) {
+                        paths.add(path);
+                    }
+                }
             }
             ArrayList<String> evidence = new ArrayList<>(paths.size());
             for (Path path : paths) {
                 evidence.add(directoryEntry(path));
             }
             evidence.sort(null);
-            directoryListings.put(normalized, List.copyOf(evidence));
+            directoryEvidence.putIfAbsent(
+                    new EvidenceKey(normalized, selector),
+                    new WorkspaceDirectoryEvidence(normalized, selector, List.copyOf(evidence)));
             return List.copyOf(paths);
         } catch (IOException exception) {
             throw new WorkspaceConfigException(
@@ -119,6 +143,8 @@ final class WorkspaceInputCapture {
                             + ". Check that it exists and is readable.");
         }
     }
+
+    private record EvidenceKey(Path directory, String selector) {}
 
     static Optional<Path> locate(
             Path root,
@@ -144,15 +170,8 @@ final class WorkspaceInputCapture {
     }
 
     WorkspaceInputs snapshot() {
-        return WorkspaceInputs.captured(captured, missing, directoryListings);
-    }
-
-    private static List<Path> paths(
-            Path directory,
-            List<String> evidence) {
-        return evidence.stream()
-                .map(entry -> directory.resolve(entry.substring(2)))
-                .toList();
+        return WorkspaceInputs.captured(
+                captured, missing, List.copyOf(directoryEvidence.values()));
     }
 
     private static String directoryEntry(Path path) throws IOException {

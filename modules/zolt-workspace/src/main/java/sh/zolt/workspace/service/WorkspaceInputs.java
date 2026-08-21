@@ -1,6 +1,7 @@
 package sh.zolt.workspace.service;
 
 import sh.zolt.build.BuildException;
+import sh.zolt.unicode.Unicode17Portability;
 import sh.zolt.workspace.state.WorkspaceHash;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,28 +26,25 @@ import java.util.TreeMap;
 public final class WorkspaceInputs {
     private final Map<Path, byte[]> files;
     private final Set<Path> missing;
-    private final Map<Path, List<String>> directoryListings;
+    private final List<WorkspaceDirectoryEvidence> directoryEvidence;
 
     private WorkspaceInputs(
             Map<Path, byte[]> files,
             Set<Path> missing) {
-        this(files, missing, Map.of());
+        this(files, missing, List.of());
     }
 
     private WorkspaceInputs(
             Map<Path, byte[]> files,
             Set<Path> missing,
-            Map<Path, List<String>> directoryListings) {
+            List<WorkspaceDirectoryEvidence> directoryEvidence) {
         LinkedHashMap<Path, byte[]> copied = new LinkedHashMap<>();
         files.forEach((path, content) -> copied.put(normalize(path), content.clone()));
         this.files = Map.copyOf(copied);
         LinkedHashSet<Path> normalizedMissing = new LinkedHashSet<>();
         missing.forEach(path -> normalizedMissing.add(normalize(path)));
         this.missing = Set.copyOf(normalizedMissing);
-        LinkedHashMap<Path, List<String>> normalizedListings = new LinkedHashMap<>();
-        directoryListings.forEach((path, listing) ->
-                normalizedListings.put(normalize(path), List.copyOf(listing)));
-        this.directoryListings = Map.copyOf(normalizedListings);
+        this.directoryEvidence = List.copyOf(directoryEvidence);
     }
 
     public static WorkspaceInputs captured(
@@ -55,12 +53,16 @@ public final class WorkspaceInputs {
         return new WorkspaceInputs(files, missing);
     }
 
-    /** Captures file inputs plus opaque NOFOLLOW directory-entry evidence used only for CAS checks. */
+    /**
+     * Captures file inputs plus opaque NOFOLLOW directory-entry evidence used only for CAS checks.
+     * Each record covers exactly the entries one pattern segment consulted, so a captured plan is
+     * invalidated by a membership change and never by an output the command itself wrote.
+     */
     public static WorkspaceInputs captured(
             Map<Path, byte[]> files,
             Set<Path> missing,
-            Map<Path, List<String>> directoryListings) {
-        return new WorkspaceInputs(files, missing, directoryListings);
+            List<WorkspaceDirectoryEvidence> directoryEvidence) {
+        return new WorkspaceInputs(files, missing, directoryEvidence);
     }
 
     public static WorkspaceInputs unchecked() {
@@ -89,7 +91,7 @@ public final class WorkspaceInputs {
         updated.put(normalized, content.clone());
         LinkedHashSet<Path> updatedMissing = new LinkedHashSet<>(missing);
         updatedMissing.remove(normalized);
-        return new WorkspaceInputs(updated, updatedMissing, directoryListings);
+        return new WorkspaceInputs(updated, updatedMissing, directoryEvidence);
     }
 
     public WorkspaceInputs withMissing(Path path) {
@@ -98,11 +100,11 @@ public final class WorkspaceInputs {
         updated.remove(normalized);
         LinkedHashSet<Path> updatedMissing = new LinkedHashSet<>(missing);
         updatedMissing.add(normalized);
-        return new WorkspaceInputs(updated, updatedMissing, directoryListings);
+        return new WorkspaceInputs(updated, updatedMissing, directoryEvidence);
     }
 
     public void requireCurrent() {
-        if (files.isEmpty() && missing.isEmpty() && directoryListings.isEmpty()) {
+        if (files.isEmpty() && missing.isEmpty() && directoryEvidence.isEmpty()) {
             return;
         }
         for (Map.Entry<Path, byte[]> entry : files.entrySet()) {
@@ -115,9 +117,10 @@ public final class WorkspaceInputs {
                 throw changed();
             }
         }
-        for (Map.Entry<Path, List<String>> entry : directoryListings.entrySet()) {
-            List<String> current = currentDirectoryListing(entry.getKey());
-            if (current == null || !current.equals(entry.getValue())) {
+        for (WorkspaceDirectoryEvidence evidence : directoryEvidence) {
+            List<String> current = currentDirectoryListing(
+                    evidence.directory(), evidence.selector());
+            if (current == null || !current.equals(evidence.entries())) {
                 throw changed();
             }
         }
@@ -132,7 +135,7 @@ public final class WorkspaceInputs {
 
     /** True when nothing was captured, so no digest over these inputs can be trusted. */
     public boolean isEmpty() {
-        return files.isEmpty() && missing.isEmpty() && directoryListings.isEmpty();
+        return files.isEmpty() && missing.isEmpty() && directoryEvidence.isEmpty();
     }
 
     /**
@@ -169,7 +172,7 @@ public final class WorkspaceInputs {
         }
     }
 
-    private static List<String> currentDirectoryListing(Path directory) {
+    private static List<String> currentDirectoryListing(Path directory, String selector) {
         try {
             if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
                 return null;
@@ -177,7 +180,12 @@ public final class WorkspaceInputs {
             ArrayList<String> entries = new ArrayList<>();
             try (var paths = Files.list(directory)) {
                 for (Path path : paths.toList()) {
-                    entries.add(directoryEntry(path));
+                    if (WorkspaceDirectoryEvidence.WILDCARD.equals(selector)
+                            ? wildcardCandidate(path)
+                            : selector.equals(Unicode17Portability.normalizeNfc(
+                                    path.getFileName().toString()))) {
+                        entries.add(directoryEntry(path));
+                    }
                 }
             }
             entries.sort(null);
@@ -189,6 +197,11 @@ public final class WorkspaceInputs {
                     "Could not verify workspace member directory " + directory + ".",
                     exception);
         }
+    }
+
+    private static boolean wildcardCandidate(Path path) {
+        return !path.getFileName().toString().startsWith(".")
+                && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS);
     }
 
     private static String directoryEntry(Path path) throws IOException {
