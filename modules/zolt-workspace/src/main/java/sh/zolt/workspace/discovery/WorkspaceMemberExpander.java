@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.stream.Stream;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.WorkspaceMemberPattern;
 import sh.zolt.unicode.Unicode17Portability;
@@ -23,9 +22,17 @@ final class WorkspaceMemberExpander {
             Path root,
             List<WorkspaceMemberPattern> includes,
             List<WorkspaceMemberPattern> excludes) {
+        return expand(root, includes, excludes, new WorkspaceInputCapture());
+    }
+
+    Expansion expand(
+            Path root,
+            List<WorkspaceMemberPattern> includes,
+            List<WorkspaceMemberPattern> excludes,
+            WorkspaceInputCapture capture) {
         TreeMap<WorkspaceMemberPath, MutableCandidate> candidates = new TreeMap<>();
         for (WorkspaceMemberPattern include : includes) {
-            List<DirectoryCandidate> matches = expand(root, include);
+            List<DirectoryCandidate> matches = expand(root, include, capture);
             if (!include.hasWildcard() && matches.isEmpty()) {
                 throw new WorkspaceConfigException(
                         "Exact workspace include `" + include
@@ -77,7 +84,8 @@ final class WorkspaceMemberExpander {
 
     private static List<DirectoryCandidate> expand(
             Path root,
-            WorkspaceMemberPattern pattern) {
+            WorkspaceMemberPattern pattern,
+            WorkspaceInputCapture capture) {
         if (pattern.value().equals(".")) {
             return List.of(new DirectoryCandidate(
                     new WorkspaceMemberPath("."), root, "."));
@@ -86,7 +94,7 @@ final class WorkspaceMemberExpander {
         for (String segment : pattern.segments()) {
             ArrayList<Traversal> next = new ArrayList<>();
             for (Traversal parent : current) {
-                List<Path> entries = entries(parent.directory());
+                List<Path> entries = entries(parent.directory(), capture);
                 if (segment.equals("*")) {
                     entries.stream()
                             .filter(entry -> !entry.getFileName().toString().startsWith("."))
@@ -121,16 +129,13 @@ final class WorkspaceMemberExpander {
         return current.stream().map(Traversal::candidate).toList();
     }
 
-    private static List<Path> entries(Path directory) {
-        try (Stream<Path> stream = Files.list(directory)) {
-            return stream.sorted((left, right) -> compareNames(
-                            left.getFileName().toString(), right.getFileName().toString()))
-                    .toList();
-        } catch (IOException exception) {
-            throw new WorkspaceConfigException(
-                    "Could not enumerate workspace member directory " + directory
-                            + ". Check that it exists and is readable.");
-        }
+    private static List<Path> entries(
+            Path directory,
+            WorkspaceInputCapture capture) {
+        return capture.list(directory).stream()
+                .sorted((left, right) -> compareNames(
+                        left.getFileName().toString(), right.getFileName().toString()))
+                .toList();
     }
 
     private static List<Traversal> deduplicated(List<Traversal> traversals) {

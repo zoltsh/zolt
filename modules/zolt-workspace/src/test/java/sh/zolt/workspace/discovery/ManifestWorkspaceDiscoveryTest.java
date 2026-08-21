@@ -95,6 +95,9 @@ final class ManifestWorkspaceDiscoveryTest {
         assertFalse(workspace.inputs().digestsRelativeTo(tempDir)
                 .containsKey("apps/experimental/zolt.toml"));
         assertTrue(workspace.staleExclusions().isEmpty());
+
+        Files.writeString(excluded.resolve("zolt.toml"), "still not valid [toml");
+        workspace.inputs().requireCurrent();
     }
 
     @Test

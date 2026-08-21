@@ -7,9 +7,13 @@ import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -20,6 +24,7 @@ import java.util.Set;
 final class WorkspaceInputCapture {
     private final Map<Path, byte[]> captured = new LinkedHashMap<>();
     private final Set<Path> missing = new LinkedHashSet<>();
+    private final Map<Path, List<String>> directoryListings = new LinkedHashMap<>();
 
     Optional<String> read(Path path) {
         Path normalized = path.toAbsolutePath().normalize();
@@ -85,6 +90,36 @@ final class WorkspaceInputCapture {
                         false));
     }
 
+    List<Path> list(Path directory) {
+        Path normalized = directory.toAbsolutePath().normalize();
+        List<String> existing = directoryListings.get(normalized);
+        if (existing != null) {
+            return paths(normalized, existing);
+        }
+        try {
+            if (!Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)) {
+                throw new WorkspaceConfigException(
+                        "Workspace member traversal path must be a real directory: "
+                                + normalized + ".");
+            }
+            ArrayList<Path> paths;
+            try (var stream = Files.list(normalized)) {
+                paths = new ArrayList<>(stream.toList());
+            }
+            ArrayList<String> evidence = new ArrayList<>(paths.size());
+            for (Path path : paths) {
+                evidence.add(directoryEntry(path));
+            }
+            evidence.sort(null);
+            directoryListings.put(normalized, List.copyOf(evidence));
+            return List.copyOf(paths);
+        } catch (IOException exception) {
+            throw new WorkspaceConfigException(
+                    "Could not enumerate workspace member directory " + normalized
+                            + ". Check that it exists and is readable.");
+        }
+    }
+
     static Optional<Path> locate(
             Path root,
             WorkspaceConfigParser parser) {
@@ -109,7 +144,26 @@ final class WorkspaceInputCapture {
     }
 
     WorkspaceInputs snapshot() {
-        return WorkspaceInputs.captured(captured, missing);
+        return WorkspaceInputs.captured(captured, missing, directoryListings);
+    }
+
+    private static List<Path> paths(
+            Path directory,
+            List<String> evidence) {
+        return evidence.stream()
+                .map(entry -> directory.resolve(entry.substring(2)))
+                .toList();
+    }
+
+    private static String directoryEntry(Path path) throws IOException {
+        BasicFileAttributes attributes = Files.readAttributes(
+                path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        char kind = attributes.isSymbolicLink()
+                ? 'l'
+                : attributes.isDirectory()
+                        ? 'd'
+                        : attributes.isRegularFile() ? 'f' : 'o';
+        return kind + "\0" + path.getFileName();
     }
 
     private static String text(byte[] content) {

@@ -98,7 +98,7 @@ public final class ManifestWorkspaceDiscovery {
                 .orElseThrow()
                 .members();
         WorkspaceMemberExpander.Expansion expansion = expander.expand(
-                root, membership.include(), membership.exclude());
+                root, membership.include(), membership.exclude(), capture);
         LinkedHashMap<WorkspaceMemberPath, AuthoredManifest> authoredMembers = new LinkedHashMap<>();
         LinkedHashMap<WorkspaceMemberPath, DiscoveredWorkspaceMember> discoveredMembers =
                 new LinkedHashMap<>();
