@@ -2555,11 +2555,11 @@ version = "1.0.0"
 group = "com.example"
 java = 21
 
-[dependencies.api]
-"org.slf4j:slf4j-api" = "2.0.17"
-
 [dependencies]
 "com.fasterxml.jackson.core:jackson-databind" = "2.19.0"
+
+[dependencies.api]
+"org.slf4j:slf4j-api" = "2.0.17"
 
 [dependencies.test]
 "org.junit.jupiter:junit-jupiter" = "5.13.4"
