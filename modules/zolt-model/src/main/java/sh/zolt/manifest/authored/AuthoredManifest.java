@@ -89,8 +89,8 @@ public record AuthoredManifest(
         rejectVirtualProjectDomain(build.build().isPresent(), "build layout");
         rejectVirtualProjectDomain(build.compiler().isPresent(), "compiler settings");
         rejectVirtualProjectDomain(build.resources().isPresent(), "resources");
-        rejectVirtualProjectDomain(build.tests().isPresent(), "tests");
         rejectVirtualProjectDomain(generated.isPresent(), "generated sources");
+        rejectVirtualProjectDomain(build.tests().isPresent(), "tests");
         rejectVirtualProjectDomain(hasPackagingDomain(packaging), "packaging");
         rejectVirtualProjectDomain(publishing.isPresent(), "publishing");
     }
@@ -106,21 +106,22 @@ public record AuthoredManifest(
             Optional<AuthoredGeneratedSources> generated) {
         rejectBomDomain(project.identity().javaRelease().isPresent(), "project.java");
         rejectBomDomain(project.metadata().main().isPresent(), "project.main");
-        rejectBomDomain(
-                build.build().filter(value -> !value.sources().isEmpty()).isPresent(),
-                "compilable sources");
-        rejectBomDomain(dependencies.isPresent(), "dependencies");
-        rejectBomDomain(dependencyConstraints.isPresent(), "dependency constraints");
-        rejectBomDomain(dependencyPolicy.isPresent(), "dependency policy");
-        rejectBomDomain(build.compiler().isPresent(), "compiler settings");
-        rejectBomDomain(build.resources().isPresent(), "resources");
-        rejectBomDomain(build.tests().isPresent(), "tests");
-        rejectBomDomain(generated.filter(AuthoredManifest::hasGeneratedContent).isPresent(), "generated sources");
-
         if (workspace.isEmpty()) {
             rejectBomDomain(toolchains.mainJava().isPresent(), "project-local main Java toolchain");
             rejectBomDomain(toolchains.testJava().isPresent(), "project-local test Java toolchain");
         }
+        rejectBomDomain(dependencies.isPresent(), "dependencies");
+        rejectBomDomain(dependencyConstraints.isPresent(), "dependency constraints");
+        rejectBomDomain(dependencyPolicy.isPresent(), "dependency policy");
+        rejectBomDomain(
+                build.build().filter(value -> !value.sources().isEmpty()).isPresent(),
+                "compilable sources");
+        rejectBomDomain(build.compiler().isPresent(), "compiler settings");
+        rejectBomDomain(build.resources().isPresent(), "resources");
+        rejectBomDomain(
+                generated.filter(AuthoredManifest::hasGeneratedContent).isPresent(),
+                "generated sources");
+        rejectBomDomain(build.tests().isPresent(), "tests");
     }
 
     private static boolean hasPackagingDomain(AuthoredPackaging packaging) {
