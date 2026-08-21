@@ -1,5 +1,6 @@
 package sh.zolt.quality.execution;
 
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,7 +45,7 @@ final class CredentialQualityCheckTest {
                 passwordEnv = "ARTIFACTORY_ACCESS_TOKEN"
                 """);
         ProjectConfig config = parser.parse(projectDir.resolve("zolt.toml"));
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         assertEquals(List.of(), check.checkRepositoryCredentials(Optional.empty(), config, QualityCheckContext.LOCAL));
         assertEquals(List.of(), check.checkPublishCredentials(Optional.empty(), projectDir, config, QualityCheckContext.LOCAL));
@@ -63,7 +64,7 @@ final class CredentialQualityCheckTest {
                 [repositories]
                 company = "https://repo-user:super-secret@repo.example.test/maven"
                 """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         List<QualityCheckResult> results = check.checkRepositoryCredentials(Optional.empty(), config, QualityCheckContext.CI);
 
@@ -87,7 +88,7 @@ final class CredentialQualityCheckTest {
                 [repositories]
                 company = "https://["
                 """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         QualityCheckResult result = check.checkRepositoryCredentials(
                 Optional.of("modules/api"),
@@ -120,7 +121,7 @@ final class CredentialQualityCheckTest {
                         "company",
                         "https://repo.example.test/maven",
                         Optional.of("company-artifactory"))));
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         QualityCheckResult result = check.checkRepositoryCredentials(
                 Optional.empty(),
@@ -151,7 +152,7 @@ final class CredentialQualityCheckTest {
                 passwordEnv = "ARTIFACTORY_ACCESS_TOKEN"
                 """);
         CredentialQualityCheck check = new CredentialQualityCheck(
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 Map.of("ARTIFACTORY_USERNAME", "ci-user")::get);
 
         QualityCheckResult result = check.checkRepositoryCredentials(
@@ -190,7 +191,7 @@ final class CredentialQualityCheckTest {
                 usernameEnv = "BETA_USERNAME"
                 passwordEnv = "BETA_TOKEN"
                 """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.of(
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.of(
                         "ALPHA_USERNAME", "alpha-user",
                         "ALPHA_TOKEN", "alpha-token",
                         "BETA_USERNAME", "beta-user",
@@ -223,7 +224,7 @@ final class CredentialQualityCheckTest {
                 usernameEnv = "COMPANY_USERNAME"
                 passwordEnv = "COMPANY_TOKEN"
                 """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.of(
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.of(
                         "COMPANY_USERNAME", "ci-user",
                         "COMPANY_TOKEN", "ci-token")
                 ::get);
@@ -254,7 +255,7 @@ final class CredentialQualityCheckTest {
                 apiToken = { env = "API_TOKEN" }
                 literalName = { value = "demo" }
                 """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         QualityCheckResult result = check.checkResourceTokens(
                 Optional.empty(),
@@ -289,7 +290,7 @@ final class CredentialQualityCheckTest {
                 projectVersion = { project = "version" }
                 """);
         CredentialQualityCheck check = new CredentialQualityCheck(
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 Map.of("BUILD_NUMBER", "42")::get);
 
         QualityCheckResult result = check.checkResourceTokens(

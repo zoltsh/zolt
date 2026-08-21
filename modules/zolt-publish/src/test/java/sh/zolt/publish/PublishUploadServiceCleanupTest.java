@@ -1,5 +1,6 @@
 package sh.zolt.publish;
 
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -58,8 +59,8 @@ final class PublishUploadServiceCleanupTest {
             Function<String, String> environment = key -> null;
             PublishUploadService service = new PublishUploadService(
                     new PublishDryRunService(environment),
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new MavenRepositoryClient(),
                     environment,
                     manifest -> java.util.Optional.of(

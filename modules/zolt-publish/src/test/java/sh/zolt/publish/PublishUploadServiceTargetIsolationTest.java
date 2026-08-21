@@ -1,5 +1,6 @@
 package sh.zolt.publish;
 
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -57,8 +58,8 @@ final class PublishUploadServiceTargetIsolationTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishUploadService service = new PublishUploadService(
                     new PublishDryRunService(environment),
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new MavenRepositoryClient(),
                     environment);
             String coordinate = "com.example:multi-target-signed-lib:0.1.0";

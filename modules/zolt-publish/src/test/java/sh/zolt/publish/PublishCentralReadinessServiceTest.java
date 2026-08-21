@@ -1,5 +1,6 @@
 package sh.zolt.publish;
 
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -113,7 +114,7 @@ final class PublishCentralReadinessServiceTest {
     }
 
     private static PublishCentralReadinessService service(UnaryOperator<String> environment) {
-        return new PublishCentralReadinessService(new ZoltTomlParser(), new PublishSettingsReader(), environment);
+        return new PublishCentralReadinessService(new ManifestProjectConfigLoader(), new ManifestPublishSettingsLoader(), environment);
     }
 
     private static UnaryOperator<String> env(String sourceDateEpoch) {

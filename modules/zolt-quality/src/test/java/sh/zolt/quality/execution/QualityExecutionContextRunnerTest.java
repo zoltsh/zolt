@@ -1,5 +1,6 @@
 package sh.zolt.quality.execution;
 
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,7 +33,7 @@ final class QualityExecutionContextRunnerTest {
     private final ZoltTomlParser parser = new ZoltTomlParser();
     private final QualityExecutionContextRunner runner = QualityExecutionContextRunner.create(
             new ZoltLockfileReader(),
-            new PublishSettingsReader(),
+            new ManifestPublishSettingsLoader(),
             Map.<String, String>of()::get,
             new PublishDryRunService());
 

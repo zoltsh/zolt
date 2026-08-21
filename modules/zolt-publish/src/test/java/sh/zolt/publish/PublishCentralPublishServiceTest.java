@@ -1,5 +1,6 @@
 package sh.zolt.publish;
 
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -72,8 +73,8 @@ final class PublishCentralPublishServiceTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishDryRunPlan plan = new PublishDryRunService(environment).plan(root, false);
             PublishCentralPublishService service = new PublishCentralPublishService(
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new CentralPortalClient(NetworkTransport.direct()),
                     environment);
 
@@ -122,8 +123,8 @@ final class PublishCentralPublishServiceTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishDryRunPlan plan = new PublishDryRunService(environment).plan(root, false);
             PublishCentralPublishService service = new PublishCentralPublishService(
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new CentralPortalClient(NetworkTransport.direct()),
                     environment);
 
@@ -163,8 +164,8 @@ final class PublishCentralPublishServiceTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishDryRunPlan plan = new PublishDryRunService(environment).plan(root, false);
             PublishCentralPublishService service = new PublishCentralPublishService(
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new CentralPortalClient(NetworkTransport.direct()),
                     environment);
 

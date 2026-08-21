@@ -1,5 +1,6 @@
 package sh.zolt.quality.execution;
 
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,7 +44,7 @@ final class CredentialPublishQualityCheckTest {
                 """;
         Files.writeString(projectDir.resolve("zolt.toml"), toml);
         ProjectConfig config = parser.parse(toml);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         List<QualityCheckResult> results = check.checkPublishCredentials(
                 Optional.empty(),
@@ -79,7 +80,7 @@ final class CredentialPublishQualityCheckTest {
                 """;
         Files.writeString(projectDir.resolve("zolt.toml"), toml);
         ProjectConfig config = parser.parse(toml);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         QualityCheckResult result = check.checkPublishCredentials(
                 Optional.empty(),
@@ -107,7 +108,7 @@ final class CredentialPublishQualityCheckTest {
                 """;
         Files.writeString(projectDir.resolve("zolt.toml"), toml);
         ProjectConfig config = parser.parse(toml);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         assertEquals(List.of(), check.checkPublishCredentials(
                 Optional.empty(),
@@ -130,7 +131,7 @@ final class CredentialPublishQualityCheckTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), toml);
         ProjectConfig config = parser.parse(toml);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         QualityCheckResult result = check.checkPublishCredentials(
                 Optional.empty(),
@@ -171,7 +172,7 @@ final class CredentialPublishQualityCheckTest {
                 """;
         Files.writeString(projectDir.resolve("zolt.toml"), toml);
         ProjectConfig config = parser.parse(toml);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.of(
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.of(
                         "PUBLISH_USERNAME", "publisher",
                         "PUBLISH_ACCESS_TOKEN", "token-123")
                 ::get);
