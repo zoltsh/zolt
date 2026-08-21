@@ -89,6 +89,9 @@ final class DoctorCommandTest {
         Path memberDir = workspaceDir.resolve("modules/member");
         Files.createDirectories(memberDir);
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
+                [workspace]
+                name = "enclosing-workspace"
+
                 [workspace.members]
                 include = ["modules/member"]
                 """);

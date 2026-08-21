@@ -273,9 +273,15 @@ public final class DoctorCommand implements Runnable {
      * manifest declares rather than which file name it uses.
      */
     private static boolean isWorkspaceRoot(Path root) {
-        return new ManifestWorkspaceLoader().discoverRoot(root)
-                .map(discovered -> discovered.equals(root))
-                .orElse(false);
+        try {
+            return new ManifestWorkspaceLoader().discoverRoot(root)
+                    .map(discovered -> discovered.equals(root))
+                    .orElse(false);
+        } catch (RuntimeException exception) {
+            // This notice only labels a nearby root; a manifest it cannot read is reported by the
+            // command the user is being pointed at, not by the hint itself.
+            return false;
+        }
     }
 
     private static boolean writable(Path path) {
