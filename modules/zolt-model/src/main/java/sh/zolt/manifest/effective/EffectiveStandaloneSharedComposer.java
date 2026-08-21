@@ -48,7 +48,7 @@ final class EffectiveStandaloneSharedComposer {
                 commands(authored.commands(), manifestPath));
     }
 
-    private static EffectiveDependencyRepositories repositories(
+    static EffectiveDependencyRepositories repositories(
             Optional<AuthoredDependencyRepositories> authored,
             String manifestPath) {
         if (authored.isEmpty()) {
@@ -90,7 +90,7 @@ final class EffectiveStandaloneSharedComposer {
                         AuthoredDependencyRepositories.MAVEN_CENTRAL_URL)));
     }
 
-    private static EffectiveCoverage coverage(
+    static EffectiveCoverage coverage(
             Optional<AuthoredCoverage> authored,
             String manifestPath) {
         if (authored.isEmpty()) {
@@ -108,7 +108,7 @@ final class EffectiveStandaloneSharedComposer {
                         value, source(manifestPath, "coverage", "method"))));
     }
 
-    private static EffectiveCommands commands(
+    static EffectiveCommands commands(
             Optional<AuthoredCommands> authored,
             String manifestPath) {
         if (authored.isEmpty()) {
@@ -120,7 +120,7 @@ final class EffectiveStandaloneSharedComposer {
                 effectiveValues(commands.aliases(), manifestPath, "aliases", LocalId::value));
     }
 
-    private static <K, V> Map<K, EffectiveValue<V>> effectiveValues(
+    static <K, V> Map<K, EffectiveValue<V>> effectiveValues(
             Map<K, V> values,
             String manifestPath,
             String table,
@@ -132,7 +132,7 @@ final class EffectiveStandaloneSharedComposer {
                         source(manifestPath, table, keyName.apply(entry.getKey())))));
     }
 
-    private static ManifestSource source(String manifestPath, String... path) {
+    static ManifestSource source(String manifestPath, String... path) {
         return new ManifestSource(manifestPath, List.of(path));
     }
 }

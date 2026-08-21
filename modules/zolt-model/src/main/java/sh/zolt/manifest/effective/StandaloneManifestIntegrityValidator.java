@@ -12,31 +12,66 @@ import sh.zolt.manifest.authored.AuthoredDependencyConstraint;
 import sh.zolt.manifest.authored.AuthoredGeneratedTool;
 import sh.zolt.manifest.authored.AuthoredManifest;
 
-/** Fails closed on references that can be resolved within one standalone manifest. */
+/** Fails closed on references available at standalone or workspace composition boundaries. */
 final class StandaloneManifestIntegrityValidator {
     void validate(AuthoredManifest authored) {
         Set<LocalId> versions = authored.versions()
                 .map(value -> value.entries().keySet())
                 .orElseGet(Set::of);
-        validateDependencies(authored, versions);
+        Set<LocalId> credentials = authored.credentials()
+                .map(value -> value.entries().keySet())
+                .orElseGet(Set::of);
+        validate(authored, versions, credentials, hasPlatforms(authored), false, false);
+    }
+
+    void validateWorkspaceRoot(AuthoredManifest authored) {
+        Set<LocalId> versions = authored.versions()
+                .map(value -> value.entries().keySet())
+                .orElseGet(Set::of);
+        Set<LocalId> credentials = authored.credentials()
+                .map(value -> value.entries().keySet())
+                .orElseGet(Set::of);
+        validate(authored, versions, credentials, hasPlatforms(authored), true, true);
+    }
+
+    void validateWorkspaceMember(
+            AuthoredManifest authored,
+            EffectiveSharedConfiguration shared) {
+        validate(
+                authored,
+                shared.versions().keySet(),
+                shared.credentials().keySet(),
+                !shared.platforms().isEmpty(),
+                true,
+                true);
+    }
+
+    private static void validate(
+            AuthoredManifest authored,
+            Set<LocalId> versions,
+            Set<LocalId> credentials,
+            boolean hasPlatforms,
+            boolean allowWorkspaceDependencies,
+            boolean allowBomMembers) {
+        validateDependencies(authored, versions, hasPlatforms, allowWorkspaceDependencies);
         validateConstraints(authored, versions);
         validatePlatforms(authored, versions);
         validateGenerated(authored, versions);
-        validateBom(authored, versions);
-        validateCredentials(authored);
+        validateBom(authored, versions, allowBomMembers);
+        validateCredentials(authored, credentials);
     }
 
     private static void validateDependencies(
             AuthoredManifest authored,
-            Set<LocalId> versions) {
-        boolean hasPlatforms = authored.platforms()
-                .filter(value -> !value.entries().isEmpty())
-                .isPresent();
+            Set<LocalId> versions,
+            boolean hasPlatforms,
+            boolean allowWorkspaceDependencies) {
         authored.dependencies().ifPresent(dependencies -> {
             for (AuthoredDependency dependency : dependencies.declarations()) {
                 String subject = "Dependency `" + dependency.coordinate() + "`";
                 requireVersionAlias(dependency.selector(), versions, subject);
-                if (dependency.selector() instanceof DependencySelector.Workspace) {
+                if (!allowWorkspaceDependencies
+                        && dependency.selector() instanceof DependencySelector.Workspace) {
                     throw new IllegalArgumentException(
                             subject + " cannot use `workspace = true` in a standalone manifest.");
                 }
@@ -101,9 +136,10 @@ final class StandaloneManifestIntegrityValidator {
 
     private static void validateBom(
             AuthoredManifest authored,
-            Set<LocalId> versions) {
+            Set<LocalId> versions,
+            boolean allowMembers) {
         authored.packaging().bom().ifPresent(bom -> {
-            if (bom.members().isPresent()) {
+            if (!allowMembers && bom.members().isPresent()) {
                 throw new IllegalArgumentException(
                         "A standalone BOM cannot declare workspace members or exclusions.");
             }
@@ -116,10 +152,9 @@ final class StandaloneManifestIntegrityValidator {
         });
     }
 
-    private static void validateCredentials(AuthoredManifest authored) {
-        Set<LocalId> credentials = authored.credentials()
-                .map(value -> value.entries().keySet())
-                .orElseGet(Set::of);
+    private static void validateCredentials(
+            AuthoredManifest authored,
+            Set<LocalId> credentials) {
         authored.repositories().ifPresent(repositories -> repositories.credentialReferences()
                 .stream()
                 .sorted()
@@ -128,6 +163,12 @@ final class StandaloneManifestIntegrityValidator {
         authored.publishing().ifPresent(publishing -> publishing.credentialReferences()
                 .forEach(reference ->
                         requireCredential(reference, credentials, "Publication repository")));
+    }
+
+    private static boolean hasPlatforms(AuthoredManifest authored) {
+        return authored.platforms()
+                .filter(value -> !value.entries().isEmpty())
+                .isPresent();
     }
 
     private static void requireConstraintAlias(
