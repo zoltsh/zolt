@@ -1,4 +1,4 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.publish;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.toml.manifest.ManifestPublishingTestSupport.decodeRoutes;
+import static sh.zolt.toml.manifest.ManifestPublishingTestSupport.decodeRoutesWithNullIndex;
 
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -14,9 +16,6 @@ import sh.zolt.manifest.authored.AuthoredPublicationRoutes;
 import sh.zolt.toml.ZoltConfigException;
 
 final class ManifestPublicationRoutesDecoderTest {
-    private final ManifestPublicationRoutesDecoder decoder =
-            new ManifestPublicationRoutesDecoder();
-
     @Test
     void preservesOmissionWhenRoutesAreAbsent() {
         assertTrue(decode("").isEmpty());
@@ -93,11 +92,11 @@ final class ManifestPublicationRoutesDecoderTest {
 
     @Test
     void requiresANonNullDecodeIndex() {
-        assertThrows(NullPointerException.class, () -> decoder.decode(null));
+        assertThrows(NullPointerException.class, () -> decodeRoutesWithNullIndex());
     }
 
-    private Optional<AuthoredPublicationRoutes> decode(String source) {
-        return decoder.decode(ManifestSemanticTestSupport.index(source));
+    private static Optional<AuthoredPublicationRoutes> decode(String source) {
+        return decodeRoutes(source);
     }
 
     private ZoltConfigException assertSemanticFailure(String source, String path) {
