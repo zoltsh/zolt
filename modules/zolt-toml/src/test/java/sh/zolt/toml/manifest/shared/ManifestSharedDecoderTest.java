@@ -1,18 +1,20 @@
-package sh.zolt.toml.manifest;
+package sh.zolt.toml.manifest.shared;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.toml.manifest.ManifestSharedTestSupport.decodeShared;
 
 import org.junit.jupiter.api.Test;
 import sh.zolt.manifest.authored.AuthoredCredentials;
 import sh.zolt.manifest.authored.AuthoredPlatforms;
 import sh.zolt.manifest.authored.AuthoredVersionAliases;
+import sh.zolt.toml.manifest.ManifestSharedTestSupport.Decoded;
 
 final class ManifestSharedDecoderTest {
     @Test
     void preservesOmittedSharedDomains() {
-        ManifestSharedDecoder.Decoded decoded = decode("");
+        Decoded decoded = decode("");
 
         assertTrue(decoded.versions().isEmpty());
         assertTrue(decoded.repositories().isEmpty());
@@ -22,7 +24,7 @@ final class ManifestSharedDecoderTest {
 
     @Test
     void preservesExplicitEmptyCollectionDomains() {
-        ManifestSharedDecoder.Decoded decoded = decode("""
+        Decoded decoded = decode("""
                 [versions]
 
                 [credentials]
@@ -38,7 +40,7 @@ final class ManifestSharedDecoderTest {
 
     @Test
     void coordinatesAllFourPresentDomainsWithoutComposingReferences() {
-        ManifestSharedDecoder.Decoded decoded = decode("""
+        Decoded decoded = decode("""
                 [versions]
                 release = "1.0.0"
 
@@ -60,7 +62,7 @@ final class ManifestSharedDecoderTest {
         assertEquals(1, decoded.platforms().orElseThrow().entries().size());
     }
 
-    private static ManifestSharedDecoder.Decoded decode(String source) {
-        return new ManifestSharedDecoder().decode(ManifestSemanticTestSupport.index(source));
+    private static Decoded decode(String source) {
+        return decodeShared(source);
     }
 }
