@@ -79,11 +79,12 @@ PATCH.
 ## `zolt outdated` (new module modules/zolt-update, thin CLI command)
 
 Surfaces enumerated: `[versions]` aliases (primary lever; `governs` lists
-referencing coordinates), literal-versioned deps in every scope (skip
+referencing coordinates), literal-versioned deps in every lane (skip
 versionRef entries — they report under their alias), `[platforms]` (managed
 deps report under the PLATFORM, never per-dep; effective versions shown from
-lock), `[annotationProcessors]`/test, `[dependencyConstraints]`,
-`[generated.execTools]` jvm coordinates + protobuf/openapi tool refs. Ignored:
+lock), `[dependencies.processor]`/`[dependencies.test-processor]`,
+`[dependencies.constraints]`, `[generated.tools.<id>]` jvm coordinates +
+protobuf/openapi tool refs. Ignored:
 `[toolchain.*]` (separate lifecycle), workspace-member deps, SNAPSHOT
 literals. Flags: `--format text|json`, `--include-prereleases`, `--all`,
 `--offline`, selectors (coordinate | alias | section token). Workspace: per-
@@ -109,11 +110,11 @@ Apply path uses ONLY existing mutation machinery: aliases via
 withVersionAliases (the primary lever; ALWAYS warn with the full fan-out list
 — extend VersionAliasCommands.references to also scan execTool/protobuf
 versionRefs, which it misses today); literal deps via
-ProjectConfigDependencyMutator.addDependency in their actual section
-(metadata — exclusions/classifier/type/optional — is preserved by the
+ProjectConfigDependencyMutator.addDependency in their actual lane
+(metadata — exclude/classifier/type/optional — is preserved by the
 retained-metadata path); platforms via addPlatform; constraints rebuilt
-through `DependencyPolicySettings.withConstraints`, preserving exclusions,
-conflict behavior, the complete license policy, kind, and reason. A
+through `DependencyPolicySettings.withConstraints`, preserving policy deny
+entries, conflict behavior, the complete license policy, and reason. A
 versionRef-backed coordinate NEVER gets a literal
 written — its alias updates instead. Literal execTool coordinate mutation is
 stage 3; until then update reports them as skipped. Comment-rewrite warning
@@ -147,7 +148,7 @@ discovery. Availability is proved by the existing staged resolve transaction.
 
 Workspace lookup catalogs all declared members plus literal `[platforms]` owned
 by the workspace-root policy manifest under one confirmed root lock. Root policy
-uses its actual canonical path (`zolt.toml` or legacy `zolt-workspace.toml`) in
+uses its canonical path (the workspace root `zolt.toml`) in
 target identity. A root project declared as member `.` owns that shared manifest
 once, so its platforms are not duplicated as a second root scope. Schema v1
 selection remains member-only. Root-platform discovery plans each distinct
@@ -176,11 +177,11 @@ retain that schema number. Policy JSON stays schema v1.
 ## Renovate manager spec (appendix — external repo, not built here)
 
 File match `(^|/)zolt\.toml$`; datasource=maven; registryUrls from
-`[repositories]`. Shapes: inline `"g:a" = "v"` in all dependency scopes;
+`[repositories]`. Shapes: inline `"g:a" = "v"` in all dependency lanes;
 inline table `{ version = "v", ... }`; versionRef indirection → the updatable
 unit is `[versions].<name>`; `[platforms]` (packaging=pom);
-`[dependencyConstraints]`; execTools coordinate arrays + protobuf/openapi
-tool refs through `[versions]`. Must never touch `[toolchain.*]`, workspace
+`[dependencies.constraints]`; `[generated.tools.<id>]` coordinate arrays +
+protobuf/openapi tool refs through `[versions]`. Must never touch `[toolchain.*]`, workspace
 paths, SNAPSHOTs; must only write fixed literals. PREFERRED bridge:
 `zolt outdated --format json` as a custom datasource — Zolt's own comparator
 and stability rules are the single source of truth; regex shapes are the
