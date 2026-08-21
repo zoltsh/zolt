@@ -73,6 +73,40 @@ final class ConfigShowFormatter {
         return out.toString();
     }
 
+    /**
+     * The effective view of a virtual workspace root, which has no project to compose. Every shared
+     * value here is authored by this one manifest, so the report states that once instead of repeating
+     * it on every line, and adds the membership the root actually selects.
+     */
+    String effectiveWorkspace(
+            String manifestPath,
+            AuthoredManifest authored,
+            String selectionSource,
+            List<WorkspaceMemberPath> members) {
+        AuthoredWorkspace workspace = authored.workspace().orElseThrow();
+        StringBuilder out = new StringBuilder();
+        out.append("Effective workspace ").append(workspace.name().value()).append('\n');
+        field(out, "manifest", manifestPath);
+        field(out, "selection", selectionSource);
+        field(out, "selected", join(members.stream().map(WorkspaceMemberPath::value).toList()));
+        field(out, "shared values", "authored by this workspace root");
+        workspace.projectDefaults().ifPresent(defaults -> {
+            section(out, "Workspace project defaults");
+            defaults.group().ifPresent(value -> field(out, "group", value.value()));
+            defaults.version().ifPresent(value -> field(out, "version", value.value()));
+            defaults.javaRelease().ifPresent(
+                    value -> field(out, "java", Integer.toString(value.value())));
+            defaults.license().ifPresent(value -> field(out, "license", license(value)));
+        });
+        toolchains(out, authored.toolchains());
+        authored.versions().ifPresent(versions -> versions(out, versions));
+        repositories(out, authored.repositories().orElseGet(AuthoredDependencyRepositories::defaults));
+        authored.credentials().ifPresent(credentials -> credentials(out, credentials));
+        authored.platforms().ifPresent(platforms -> platforms(out, platforms));
+        authored.build().coverage().ifPresent(coverage -> coverage(out, coverage));
+        return out.toString();
+    }
+
     /** The composed project with the origin of every value (design §20.2). */
     String effective(
             String manifestPath,

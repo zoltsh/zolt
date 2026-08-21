@@ -139,6 +139,24 @@ final class ConfigCommandTest {
     }
 
     @Test
+    void effectiveViewAtAVirtualWorkspaceRootReportsTheWorkspaceItself() throws IOException {
+        writeWorkspace();
+
+        CommandResult result = execute(
+                "config", "show", "--effective", "--directory", tempDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("Effective workspace platform"), result.stdout());
+        assertTrue(result.stdout().contains("selection: implicit-all"), result.stdout());
+        assertTrue(result.stdout().contains("selected: apps/api"), result.stdout());
+        // A virtual root has no project to compose, so every shared value is authored right here.
+        assertTrue(result.stdout().contains("shared values: authored by this workspace root"),
+                result.stdout());
+        assertTrue(result.stdout().contains("group: com.example"), result.stdout());
+        assertTrue(result.stdout().contains("line: 88"), result.stdout());
+    }
+
+    @Test
     void neitherViewReadsUserGlobalConfiguration() throws IOException {
         writeStandalone();
 

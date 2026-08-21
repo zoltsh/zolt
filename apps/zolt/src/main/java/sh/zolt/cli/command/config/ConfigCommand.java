@@ -115,6 +115,15 @@ public final class ConfigCommand implements Runnable {
                             composed,
                             Optional.of(discovered.selection().source().value()));
                 }
+                // A virtual workspace root has no project to compose, so the effective view there is
+                // the workspace itself: its membership and the shared configuration it owns.
+                if (discovered.rootDocument().authored().project().isEmpty()) {
+                    return formatter.effectiveWorkspace(
+                            MANIFEST,
+                            discovered.rootDocument().authored(),
+                            discovered.selection().source().value(),
+                            discovered.selection().members());
+                }
             }
             Path manifest = nearestManifest(directory);
             return formatter.effective(
