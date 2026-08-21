@@ -7,7 +7,6 @@ import sh.zolt.manifest.PlatformSelector;
 import sh.zolt.manifest.authored.AuthoredBom;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredManifest;
-import sh.zolt.manifest.authored.AuthoredPackaging;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
