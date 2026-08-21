@@ -13,7 +13,7 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport;
 import java.io.IOException;
@@ -110,7 +110,7 @@ final class WorkspaceClasspathBoundaryTest {
         ProjectConfig otherConfig = config(
                 "other",
                 """
-                [provided.dependencies]
+                [dependencies.provided]
                 "org.example:shared-util" = "1.0.0"
                 """);
         Workspace workspace = workspace(
@@ -259,13 +259,13 @@ final class WorkspaceClasspathBoundaryTest {
             List<String> members,
             List<WorkspaceProjectEdge> edges,
             Map<String, ProjectConfig> configs) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), "");
+        Files.writeString(tempDir.resolve("zolt.toml"), "");
         for (String member : members) {
             Files.createDirectories(tempDir.resolve(member));
         }
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("acme-platform", members, List.of(), Map.of(), Map.of()),
                 members.stream()
                         .map(member -> new WorkspaceMember(
@@ -297,12 +297,12 @@ final class WorkspaceClasspathBoundaryTest {
     private static ProjectConfig config(
             String name,
             String dependencies) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 %s

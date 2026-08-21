@@ -27,7 +27,7 @@ final class WorkspaceMemberPolicyResolverTest {
                 Map.of()));
         Workspace workspace = new Workspace(
                 Path.of("/workspace/demo"),
-                Path.of("/workspace/demo/zolt-workspace.toml"),
+                Path.of("/workspace/demo/zolt.toml"),
                 new WorkspaceConfig(
                         "demo",
                         List.of(member.path()),

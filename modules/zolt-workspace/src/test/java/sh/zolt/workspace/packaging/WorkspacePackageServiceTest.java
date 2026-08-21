@@ -27,7 +27,9 @@ final class WorkspacePackageServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core", "apps/worker"]
                 """);
         member("modules/core", "core", "");
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -46,7 +48,7 @@ final class WorkspacePackageServiceTest {
                 main = "com.acme.api.Api"
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -102,7 +104,9 @@ final class WorkspacePackageServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member("modules/core", "core", "");
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -121,10 +125,10 @@ final class WorkspacePackageServiceTest {
                 main = "com.acme.api.Api"
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
 
                 [package]
-                mode = "uber"
+                mode = "uber-jar"
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -161,7 +165,9 @@ final class WorkspacePackageServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/api", "modules/binding"]
+
+                [workspace.members]
+                include = ["modules/api", "modules/binding"]
                 """);
         member("modules/api", "api", "");
         source("modules/api/src/main/java/com/acme/api/Logger.java", """
@@ -175,8 +181,8 @@ final class WorkspacePackageServiceTest {
                 """);
         member("modules/binding", "binding", """
 
-                [api.dependencies]
-                "com.acme:api" = { workspace = "modules/api" }
+                [dependencies.api]
+                "com.acme:api" = { workspace = true }
 
                 [package]
                 sources = true
@@ -215,7 +221,9 @@ final class WorkspacePackageServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/alpha", "modules/beta"]
+
+                [workspace.members]
+                include = ["modules/alpha", "modules/beta"]
                 """);
         member("modules/alpha", "alpha", "");
         member("modules/beta", "beta", "");
@@ -251,7 +259,7 @@ final class WorkspacePackageServiceTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     private void member(String path, String name, String extraToml) throws IOException {
@@ -262,7 +270,7 @@ final class WorkspacePackageServiceTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
+                java = %s
                 %s""".formatted(name, currentJavaMajorVersion(), extraToml));
     }
 

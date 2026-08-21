@@ -10,7 +10,7 @@ abstract class WorkspaceBuildServiceTestSupport {
     protected Path tempDir;
 
     protected void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     protected void member(String path, String name, String extraToml) throws IOException {
@@ -21,7 +21,7 @@ abstract class WorkspaceBuildServiceTestSupport {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
+                java = %s
                 %s""".formatted(name, currentJavaMajorVersion(), extraToml));
     }
 

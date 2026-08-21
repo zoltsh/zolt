@@ -64,7 +64,7 @@ abstract class WorkspaceResolveServiceTestSupport {
     }
 
     void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     void member(String path, String name, String extraToml) throws IOException {
@@ -75,7 +75,7 @@ abstract class WorkspaceResolveServiceTestSupport {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
     }
 
@@ -89,7 +89,7 @@ abstract class WorkspaceResolveServiceTestSupport {
                 "com.example:platform" = { versionRef = "%s" }
 
                 [dependencies]
-                "com.example:app" = {}
+                "com.example:app" = { managed = true }
                 """.formatted(alias, alias));
     }
 

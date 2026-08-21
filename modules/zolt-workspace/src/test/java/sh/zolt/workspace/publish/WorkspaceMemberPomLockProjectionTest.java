@@ -23,7 +23,7 @@ import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.publish.PublishException;
 import sh.zolt.publish.PublishPomGenerator;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import org.junit.jupiter.api.Test;
 
 final class WorkspaceMemberPomLockProjectionTest {
@@ -123,12 +123,12 @@ final class WorkspaceMemberPomLockProjectionTest {
         String artifact = "native-transport";
         LockPackage sibling = variantPackage(artifact, "1", linux, "apps/worker");
         LockPackage selected = variantPackage(artifact, "2", osx, "apps/http");
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "http"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "org.example:native-transport" = { version = "2", classifier = "osx-aarch_64" }
@@ -195,23 +195,23 @@ final class WorkspaceMemberPomLockProjectionTest {
     }
 
     private static ProjectConfig publishedLaneConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "http"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
-                [api.dependencies]
+                [dependencies.api]
                 "org.example:api" = "1"
 
                 [dependencies]
                 "org.example:implementation" = "2"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "org.example:runtime" = "3"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "org.example:provided" = "4"
                 """);
     }

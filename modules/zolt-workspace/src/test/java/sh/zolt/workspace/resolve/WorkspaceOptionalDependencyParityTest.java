@@ -11,8 +11,8 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.publish.PublishPomGenerator;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.publish.WorkspaceMemberPomLockProjection;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.service.Workspace;
@@ -38,27 +38,32 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
         workspace("""
                 [workspace]
                 name = "optional-required-reachability"
-                members = ["modules/core", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:shared" = { version = "1.0.0", optional = true }
                 "com.example:required-root" = "1.0.0"
                 """);
         member("apps/app", "app", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
 
         Path cache = tempDir.resolve("cache");
         service.resolve(tempDir, cache, false, false);
         ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
-        Workspace workspace = new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        Workspace workspace = new ManifestWorkspaceLoader().discover(tempDir).orElseThrow();
         var app = new WorkspaceClasspathService()
                 .classpathsFor(workspace, lockfile, cache, "apps/app");
 
@@ -86,15 +91,18 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
         assertTrue(pomXml.contains("<optional>true</optional>"));
 
         addArtifact("com.acme", "core", "0.1.0", pomXml);
-        ProjectConfig consumer = new ZoltTomlParser().parse("""
+        ProjectConfig consumer = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "published-consumer"
                 version = "1.0.0"
                 group = "com.consumer"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "com.acme:core" = "0.1.0"
@@ -136,7 +144,7 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
 
             ZoltLockfile lockfile =
                     lockfileReader.read(root.resolve("zolt.lock"));
-            Workspace workspace = new WorkspaceDiscoveryService()
+            Workspace workspace = new ManifestWorkspaceLoader()
                     .discover(root)
                     .orElseThrow();
             var app = new WorkspaceClasspathService()
@@ -162,15 +170,18 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
             assertTrue(pomXml.contains("<artifactId>leaf</artifactId>"));
 
             addArtifact("com.acme", "core", "0.1.0", pomXml);
-            ProjectConfig consumer = new ZoltTomlParser().parse("""
+            ProjectConfig consumer = new ManifestProjectConfigLoader().load("""
                     [project]
                     name = "published-consumer"
                     version = "1.0.0"
                     group = "com.consumer"
-                    java = "21"
+                    java = 21
 
                     [repositories]
-                    test = "%s"
+                    central = false
+
+                    [repositories.test]
+                    url = "%s"
 
                     [dependencies]
                     "com.acme:core" = "0.1.0"
@@ -233,36 +244,41 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
         workspace("""
                 [workspace]
                 name = "optional-parity"
-                members = ["modules/feature-api", "modules/feature-impl", "modules/core", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/feature-api", "modules/feature-impl", "modules/core", "apps/app"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/feature-api", "feature-api", "");
         member("modules/feature-impl", "feature-impl", "");
         member("modules/core", "core", """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:optional-api" = { version = "1.0.0", optional = true }
-                "com.acme:feature-api" = { workspace = "modules/feature-api", optional = true }
+                "com.acme:feature-api" = { workspace = true, optional = true }
 
                 [dependencies]
                 "com.example:optional-impl" = { version = "1.0.0", optional = true }
-                "com.acme:feature-impl" = { workspace = "modules/feature-impl", optional = true }
+                "com.acme:feature-impl" = { workspace = true, optional = true }
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:optional-runtime" = { version = "1.0.0", optional = true }
                 """);
         member("apps/app", "app", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
 
         Path cache = tempDir.resolve("cache");
         service.resolve(tempDir, cache, false, false);
         ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
-        Workspace workspace = new WorkspaceDiscoveryService()
+        Workspace workspace = new ManifestWorkspaceLoader()
                 .discover(tempDir)
                 .orElseThrow();
         WorkspaceClasspathService classpaths = new WorkspaceClasspathService();
@@ -372,31 +388,36 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
             Path root,
             boolean optionalFirst) throws IOException {
         Files.createDirectories(root);
-        Files.writeString(root.resolve("zolt-workspace.toml"), """
+        Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "path-aware-optional-%s"
-                members = ["modules/core", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(optionalFirst ? "first" : "last", baseUri));
         writeMember(root, "modules/core", "core", optionalFirst
                 ? """
 
-                  [api.dependencies]
+                  [dependencies.api]
                   "com.example:optional-root" = { version = "1.0.0", optional = true }
-                  "com.example:required-root" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "leaf" }] }
+                  "com.example:required-root" = { version = "1.0.0", exclude = ["com.example:leaf"] }
                   """
                 : """
 
-                  [api.dependencies]
-                  "com.example:required-root" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "leaf" }] }
+                  [dependencies.api]
+                  "com.example:required-root" = { version = "1.0.0", exclude = ["com.example:leaf"] }
                   "com.example:optional-root" = { version = "1.0.0", optional = true }
                   """);
         writeMember(root, "apps/app", "app", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
     }
 
@@ -412,7 +433,7 @@ final class WorkspaceOptionalDependencyParityTest extends WorkspaceResolveServic
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
     }
 

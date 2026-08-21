@@ -298,7 +298,7 @@ final class WorkspaceMemberSbomLockProjectionTest {
         }
         return new Workspace(
                 Path.of("/ws"),
-                Path.of("/ws/zolt-workspace.toml"),
+                Path.of("/ws/zolt.toml"),
                 new WorkspaceConfig("acme", paths, List.of(), Map.of(), Map.of()),
                 List.of(members));
     }

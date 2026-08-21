@@ -139,7 +139,7 @@ final class WorkspaceExecToolLockAggregationTest {
                 new WorkspaceMember("apps/worker", tempDir.resolve("apps/worker"), config("worker")));
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "acme-platform",
                         members.stream().map(WorkspaceMember::path).toList(),

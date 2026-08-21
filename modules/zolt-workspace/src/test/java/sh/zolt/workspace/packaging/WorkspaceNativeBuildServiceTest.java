@@ -30,8 +30,10 @@ final class WorkspaceNativeBuildServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api", "modules/core"]
                 """);
         member("modules/core", "core", "");
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -50,10 +52,10 @@ final class WorkspaceNativeBuildServiceTest {
                 main = "com.acme.api.Api"
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
 
                 [package]
-                mode = "uber"
+                mode = "uber-jar"
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -118,7 +120,9 @@ final class WorkspaceNativeBuildServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core"]
+
+                [workspace.members]
+                include = ["modules/core"]
                 """);
         member("modules/core", "core", "");
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -142,7 +146,7 @@ final class WorkspaceNativeBuildServiceTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     private void member(String path, String name, String extraToml) throws IOException {
@@ -153,7 +157,7 @@ final class WorkspaceNativeBuildServiceTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
+                java = %s
                 %s""".formatted(name, currentJavaMajorVersion(), extraToml));
     }
 

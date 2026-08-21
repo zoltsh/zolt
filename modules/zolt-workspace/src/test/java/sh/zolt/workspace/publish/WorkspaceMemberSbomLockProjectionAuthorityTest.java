@@ -19,7 +19,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.publish.PublishException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
@@ -132,12 +132,12 @@ final class WorkspaceMemberSbomLockProjectionAuthorityTest {
     }
 
     private static ProjectConfig config(String name, String body) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "%s"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s
                 """.formatted(name, body));
     }
@@ -150,7 +150,7 @@ final class WorkspaceMemberSbomLockProjectionAuthorityTest {
         List<String> paths = java.util.Arrays.stream(members).map(WorkspaceMember::path).toList();
         return new Workspace(
                 Path.of("/ws"),
-                Path.of("/ws/zolt-workspace.toml"),
+                Path.of("/ws/zolt.toml"),
                 new WorkspaceConfig("acme", paths, List.of(), Map.of(), Map.of()),
                 List.of(members));
     }

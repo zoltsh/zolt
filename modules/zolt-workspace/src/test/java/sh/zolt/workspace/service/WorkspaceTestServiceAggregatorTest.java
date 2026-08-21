@@ -71,7 +71,9 @@ final class WorkspaceTestServiceAggregatorTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["core", "api"]
+
+                [workspace.members]
+                include = ["core", "api"]
                 """);
         member(tempDir, "core", "core", aggregatorTestDependencies());
         source(tempDir, "core/src/main/java/com/acme/core/Core.java", """
@@ -117,7 +119,7 @@ final class WorkspaceTestServiceAggregatorTest {
     private static String aggregatorTestDependencies() {
         return """
 
-                [test.dependencies]
+                [dependencies.test]
                 "org.junit.jupiter:junit-jupiter" = "5.11.4"
                 """;
     }

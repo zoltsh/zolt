@@ -89,13 +89,13 @@ final class WorkspaceClasspathScopeIdentityTest {
 
     private Workspace workspace() throws IOException {
         List<String> members = List.of("modules/core", "apps/api", "apps/worker");
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), "");
+        Files.writeString(tempDir.resolve("zolt.toml"), "");
         for (String member : members) {
             Files.createDirectories(tempDir.resolve(member));
         }
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("acme-platform", members, List.of(), Map.of(), Map.of()),
                 members.stream()
                         .map(member -> new WorkspaceMember(member, tempDir.resolve(member), null))

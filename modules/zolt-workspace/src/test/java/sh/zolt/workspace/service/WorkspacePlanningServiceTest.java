@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import sh.zolt.build.BuildException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.test.WorkspaceTestService;
@@ -118,7 +118,7 @@ final class WorkspacePlanningServiceTest {
         writeLockfile();
         CountDownLatch discovered = new CountDownLatch(1);
         CountDownLatch changed = new CountDownLatch(1);
-        WorkspaceDiscoveryService discovery = new WorkspaceDiscoveryService();
+        ManifestWorkspaceLoader discovery = new ManifestWorkspaceLoader();
         WorkspaceBuildPlanner planner = new WorkspaceBuildPlanner(
                 start -> {
                     var workspace = discovery.discover(start);
@@ -144,10 +144,12 @@ final class WorkspacePlanningServiceTest {
         });
 
         discovered.await();
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "replacement"
-                members = ["apps/worker"]
+
+                [workspace.members]
+                include = ["apps/worker"]
                 """);
         changed.countDown();
         planning.join();
@@ -159,15 +161,17 @@ final class WorkspacePlanningServiceTest {
     @Test
     void missingLockResolveNeverMixesCapturedWorkspaceWithNewerMemberList() throws Exception {
         writeWorkspaceWithApiDependency();
-        WorkspaceDiscoveryService discovery = new WorkspaceDiscoveryService();
+        ManifestWorkspaceLoader discovery = new ManifestWorkspaceLoader();
         WorkspaceBuildPlanner planner = new WorkspaceBuildPlanner(
                 start -> {
                     var captured = discovery.discover(start);
                     try {
-                        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+                        Files.writeString(tempDir.resolve("zolt.toml"), """
                                 [workspace]
                                 name = "replacement"
-                                members = ["apps/worker"]
+
+                                [workspace.members]
+                                include = ["apps/worker"]
                                 """);
                     } catch (IOException exception) {
                         throw new IllegalStateException(exception);
@@ -201,16 +205,18 @@ final class WorkspacePlanningServiceTest {
     }
 
     private void writeWorkspaceWithApiDependency() throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core", "apps/worker"]
                 """);
         member("modules/core", "core", "");
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("apps/worker", "worker", "");
     }
@@ -223,7 +229,7 @@ final class WorkspacePlanningServiceTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
     }
 

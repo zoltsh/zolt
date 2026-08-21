@@ -18,15 +18,20 @@ final class WorkspaceResolveServiceSnapshotTest extends WorkspaceResolveServiceT
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         snapshotMember("modules/core", "core", "0.1.0-SNAPSHOT");
 
@@ -58,7 +63,7 @@ final class WorkspaceResolveServiceSnapshotTest extends WorkspaceResolveServiceT
                 name = "%s"
                 version = "%s"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 """.formatted(name, version));
     }
 }

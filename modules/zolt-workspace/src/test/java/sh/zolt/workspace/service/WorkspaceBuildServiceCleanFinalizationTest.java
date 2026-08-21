@@ -96,7 +96,7 @@ final class WorkspaceBuildServiceCleanFinalizationTest {
         prepareWorkspace("""
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "temurin"
                 """.formatted(currentJavaMajorVersion()));
         WorkspaceBuildService service =
@@ -127,10 +127,12 @@ final class WorkspaceBuildServiceCleanFinalizationTest {
     }
 
     private void prepareWorkspace(String extraToml) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Path member = tempDir.resolve("apps/api");
         Files.createDirectories(member);
@@ -139,7 +141,7 @@ final class WorkspaceBuildServiceCleanFinalizationTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
+                java = %s
                 %s""".formatted(currentJavaMajorVersion(), extraToml));
         Path source = member.resolve("src/main/java/com/acme/api/Api.java");
         Files.createDirectories(source.getParent());

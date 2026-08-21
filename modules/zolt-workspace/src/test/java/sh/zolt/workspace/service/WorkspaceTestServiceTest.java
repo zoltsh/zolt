@@ -36,7 +36,9 @@ final class WorkspaceTestServiceTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member(tempDir, "modules/core", "core", "");
         source(tempDir, "modules/core/src/main/java/com/acme/core/Core.java", """
@@ -54,7 +56,7 @@ final class WorkspaceTestServiceTest {
         member(tempDir, "apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source(tempDir, "apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -142,7 +144,9 @@ final class WorkspaceTestServiceTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core", "apps/worker"]
                 """);
         member(tempDir, "modules/core", "core", "");
         source(tempDir, "modules/core/src/main/java/com/acme/core/Core.java", """
@@ -160,7 +164,7 @@ final class WorkspaceTestServiceTest {
         member(tempDir, "apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source(tempDir, "apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -252,7 +256,9 @@ final class WorkspaceTestServiceTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member(tempDir, "apps/api", "api", "");
         source(tempDir, "apps/api/src/main/java/com/acme/api/Api.java", """

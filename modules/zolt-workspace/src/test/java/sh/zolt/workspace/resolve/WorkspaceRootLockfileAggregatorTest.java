@@ -56,7 +56,7 @@ final class WorkspaceRootLockfileAggregatorTest
                 List.of());
         Workspace workspace = new Workspace(
                 Path.of("/repo"),
-                Path.of("/repo/zolt-workspace.toml"),
+                Path.of("/repo/zolt.toml"),
                 new WorkspaceConfig(
                         "zolt",
                         List.of("."),

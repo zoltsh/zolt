@@ -12,6 +12,7 @@ import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveResult;
+import sh.zolt.workspace.WorkspaceConfigException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
@@ -23,15 +24,20 @@ final class WorkspaceResolveServiceTest extends WorkspaceResolveServiceTestSuppo
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 "com.example:app" = "1.0.0"
                 """);
         member("modules/core", "core", """
@@ -82,17 +88,19 @@ final class WorkspaceResolveServiceTest extends WorkspaceResolveServiceTestSuppo
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "apps/worker", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "apps/worker", "modules/core"]
                 """);
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("apps/worker", "worker", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("modules/core", "core", "");
 
@@ -114,25 +122,26 @@ final class WorkspaceResolveServiceTest extends WorkspaceResolveServiceTestSuppo
         workspace("""
                 [workspace]
                 name = "bad"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("modules/core", "core", """
 
-                [build]
-                output = "../classes"
+                [build.output]
+                main = "../classes"
                 """);
 
-        ResolveException exception = assertThrows(
-                ResolveException.class,
+        WorkspaceConfigException exception = assertThrows(
+                WorkspaceConfigException.class,
                 () -> service.resolve(tempDir, tempDir.resolve("cache"), false, false));
 
-        assertTrue(exception.getMessage().contains("Workspace member `modules/core` has an invalid [build].output"));
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("modules/core"));
         assertTrue(exception.getMessage().contains("../classes"));
         assertFalse(Files.exists(tempDir.resolve("zolt.lock")));
     }
@@ -142,15 +151,20 @@ final class WorkspaceResolveServiceTest extends WorkspaceResolveServiceTestSuppo
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.example:app" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "lib" }] }
+                "com.example:app" = { version = "1.0.0", exclude = ["com.example:lib"] }
                 """);
 
         ResolveResult result = service.resolve(tempDir, tempDir.resolve("cache"), false, false);
@@ -184,10 +198,15 @@ final class WorkspaceResolveServiceTest extends WorkspaceResolveServiceTestSuppo
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.example:platform" = "1.0.0"
@@ -195,7 +214,7 @@ final class WorkspaceResolveServiceTest extends WorkspaceResolveServiceTestSuppo
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.example:app" = {}
+                "com.example:app" = { managed = true }
                 """);
 
         ResolveResult result = service.resolve(tempDir, tempDir.resolve("cache"), false, false);

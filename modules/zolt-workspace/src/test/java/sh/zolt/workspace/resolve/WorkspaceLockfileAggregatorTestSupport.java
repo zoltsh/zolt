@@ -39,7 +39,7 @@ abstract class WorkspaceLockfileAggregatorTestSupport {
                 new WorkspaceMember("modules/processor", tempDir.resolve("modules/processor"), config("processor")));
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "acme-platform",
                         members.stream().map(WorkspaceMember::path).toList(),

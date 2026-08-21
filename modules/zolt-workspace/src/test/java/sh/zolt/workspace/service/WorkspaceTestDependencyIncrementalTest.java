@@ -76,7 +76,9 @@ final class WorkspaceTestDependencyIncrementalTest {
         workspace(tempDir, """
                 [workspace]
                 name = "incremental-test-dependency"
-                members = ["apps/a", "apps/b"]
+
+                [workspace.members]
+                include = ["apps/a", "apps/b"]
                 """);
         member(tempDir, "apps/a", "a", "");
         member(tempDir, "apps/b", "b", "");

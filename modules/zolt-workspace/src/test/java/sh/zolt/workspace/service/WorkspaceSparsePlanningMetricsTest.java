@@ -20,7 +20,9 @@ final class WorkspaceSparsePlanningMetricsTest extends WorkspaceBuildServiceTest
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "modules/util", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "modules/util", "apps/api"]
                 """);
         member("modules/core", "core", "");
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -35,7 +37,7 @@ final class WorkspaceSparsePlanningMetricsTest extends WorkspaceBuildServiceTest
         member("modules/util", "util", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("modules/util/src/main/java/com/acme/util/Util.java", """
                 package com.acme.util;
@@ -51,7 +53,7 @@ final class WorkspaceSparsePlanningMetricsTest extends WorkspaceBuildServiceTest
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:util" = { workspace = "modules/util" }
+                "com.acme:util" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;

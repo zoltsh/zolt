@@ -31,13 +31,15 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core", "apps/worker"]
                 """);
         member("modules/core", "core", "");
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("apps/worker", "worker", "");
         output("modules/core/target/classes/Core.class");
@@ -63,7 +65,9 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
                 """);
         member("modules/core", "core", "");
         member("apps/api", "api", "");
@@ -74,7 +78,7 @@ final class WorkspaceCleanServiceTest {
                 tempDir,
                 new WorkspaceSelectionRequest(true, List.of()));
 
-        assertEquals(List.of("modules/core", "apps/api"), result.selection().includedMembers());
+        assertEquals(List.of("apps/api", "modules/core"), result.selection().includedMembers());
         assertEquals(2, result.deletedCount());
         assertFalse(Files.exists(tempDir.resolve("modules/core/target")));
         assertFalse(Files.exists(tempDir.resolve("apps/api/target")));
@@ -85,7 +89,9 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", "");
         output("apps/api/target/classes/Api.class");
@@ -103,7 +109,9 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", "");
         Path output = output("apps/api/target/classes/Api.class");
@@ -162,7 +170,9 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", "");
         output("apps/api/target/classes/Api.class");
@@ -176,7 +186,7 @@ final class WorkspaceCleanServiceTest {
         assertFalse(Files.exists(tempDir.resolve("apps/api/target")));
         assertTrue(Files.exists(tempDir.resolve("apps/api/.zolt/cache/artifact.jar")));
         assertTrue(Files.exists(tempDir.resolve(".zolt/cache/artifact.jar")));
-        assertTrue(Files.exists(tempDir.resolve("zolt-workspace.toml")));
+        assertTrue(Files.exists(tempDir.resolve("zolt.toml")));
         assertTrue(Files.exists(tempDir.resolve("zolt.lock")));
         assertTrue(Files.exists(tempDir.resolve("apps/api/zolt.toml")));
         assertTrue(Files.exists(tempDir.resolve("apps/api/src/main/java/com/acme/Api.java")));
@@ -187,16 +197,14 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", """
 
-                [build]
-                outputRoot = ".zolt/build"
-                source = "src/main/java"
-                test = "src/test/java"
-                output = ".zolt/build/classes"
-                testOutput = ".zolt/build/test-classes"
+                [build.output]
+                root = ".zolt/build"
                 """);
         output("apps/api/.zolt/build/classes/Api.class");
         output("apps/api/target/classes/MavenApi.class");
@@ -215,7 +223,9 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", """
 
@@ -253,36 +263,37 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/quarkus", "apps/plain", "apps/spring"]
+
+                [workspace.members]
+                include = ["apps/quarkus", "apps/plain", "apps/spring"]
                 """);
         member("apps/quarkus", "quarkus", nonTargetBuildSection() + """
 
-                [framework.quarkus]
-                enabled = true
-                package = "fast-jar"
+                [package]
+                mode = "quarkus"
                 """);
         member("apps/plain", "plain", nonTargetBuildSection());
         member("apps/spring", "spring", nonTargetBuildSection() + """
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 """);
         output("apps/quarkus/out/main/Api.class");
-        output("apps/quarkus/target/quarkus/zolt-augmentation.properties");
-        output("apps/quarkus/target/quarkus-app/quarkus-run.jar");
+        output("apps/quarkus/out/quarkus/zolt-augmentation.properties");
+        output("apps/quarkus/out/quarkus-app/quarkus-run.jar");
         output("apps/plain/out/main/Plain.class");
-        output("apps/plain/target/quarkus/zolt-augmentation.properties");
-        output("apps/plain/target/spring-aot/main/classes/Plain__BeanDefinitions.class");
+        output("apps/plain/out/quarkus/zolt-augmentation.properties");
+        output("apps/plain/out/spring-aot/main/classes/Plain__BeanDefinitions.class");
         output("apps/spring/out/main/Spring.class");
-        output("apps/spring/target/spring-aot/main/classes/Spring__BeanDefinitions.class");
+        output("apps/spring/out/spring-aot/main/classes/Spring__BeanDefinitions.class");
 
         service.clean(tempDir, new WorkspaceSelectionRequest(true, List.of()));
 
-        assertFalse(Files.exists(tempDir.resolve("apps/quarkus/target/quarkus")));
-        assertFalse(Files.exists(tempDir.resolve("apps/quarkus/target/quarkus-app")));
-        assertTrue(Files.exists(tempDir.resolve("apps/plain/target/quarkus/zolt-augmentation.properties")));
-        assertTrue(Files.exists(tempDir.resolve("apps/plain/target/spring-aot/main/classes/Plain__BeanDefinitions.class")));
-        assertFalse(Files.exists(tempDir.resolve("apps/spring/target/spring-aot")));
+        assertFalse(Files.exists(tempDir.resolve("apps/quarkus/out/quarkus")));
+        assertFalse(Files.exists(tempDir.resolve("apps/quarkus/out/quarkus-app")));
+        assertTrue(Files.exists(tempDir.resolve("apps/plain/out/quarkus/zolt-augmentation.properties")));
+        assertTrue(Files.exists(tempDir.resolve("apps/plain/out/spring-aot/main/classes/Plain__BeanDefinitions.class")));
+        assertFalse(Files.exists(tempDir.resolve("apps/spring/out/spring-aot")));
     }
 
     @Test
@@ -290,27 +301,27 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", """
 
-                [build]
-                output = "../outside/classes"
-                testOutput = "target/test-classes"
+                [build.output]
+                main = "../outside/classes"
                 """);
 
-        CleanException exception = assertThrows(
-                CleanException.class,
+        WorkspaceConfigException exception = assertThrows(
+                WorkspaceConfigException.class,
                 () -> service.clean(tempDir, WorkspaceSelectionRequest.defaults()));
 
-        assertTrue(exception.getMessage().contains("Workspace member `apps/api` could not be cleaned."));
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("apps/api"));
         assertTrue(exception.getMessage().contains("../outside/classes"));
-        assertTrue(Files.exists(tempDir.resolve("zolt-workspace.toml")));
+        assertTrue(Files.exists(tempDir.resolve("zolt.toml")));
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     private void assertCleanCannotSlipBetweenCommandPhases()
@@ -318,7 +329,9 @@ final class WorkspaceCleanServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", "");
         Path output = output("apps/api/target/classes/Api.class");
@@ -377,28 +390,14 @@ final class WorkspaceCleanServiceTest {
     private void member(String path, String name, String extraToml) throws IOException {
         Path directory = tempDir.resolve(path);
         Files.createDirectories(directory);
-        String buildSection = extraToml.contains("[build]")
-                ? extraToml
-                : """
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
-                %s
-                """.formatted(extraToml);
         Files.writeString(directory.resolve("zolt.toml"), """
                 [project]
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
-
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
-
+                java = %s
                 %s
-                """.formatted(name, currentJavaMajorVersion(), buildSection));
+                """.formatted(name, currentJavaMajorVersion(), extraToml));
     }
 
     private Path output(String path) throws IOException {
@@ -411,11 +410,10 @@ final class WorkspaceCleanServiceTest {
     private static String nonTargetBuildSection() {
         return """
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "out/main"
-                testOutput = "out/test"
+                [build.output]
+                root = "out"
+                main = "main"
+                test = "test"
                 """;
     }
 

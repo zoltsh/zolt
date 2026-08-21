@@ -19,7 +19,7 @@ final class WorkspaceTestServiceTestSupport {
     }
 
     static void workspace(Path tempDir, String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     static void member(Path tempDir, String path, String name, String extraToml) throws IOException {
@@ -30,7 +30,7 @@ final class WorkspaceTestServiceTestSupport {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
+                java = %s
                 %s""".formatted(name, currentJavaMajorVersion(), extraToml));
     }
 

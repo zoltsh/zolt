@@ -28,7 +28,9 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
                 """);
         member("modules/core", "core", "");
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -43,7 +45,7 @@ final class WorkspaceDirtyPlannerReasonTest extends WorkspaceBuildServiceTestSup
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;

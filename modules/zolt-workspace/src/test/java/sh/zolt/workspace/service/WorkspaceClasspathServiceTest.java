@@ -427,13 +427,13 @@ final class WorkspaceClasspathServiceTest {
     private Workspace workspace(
             List<String> members,
             List<WorkspaceProjectEdge> edges) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), "");
+        Files.writeString(tempDir.resolve("zolt.toml"), "");
         for (String member : members) {
             Files.createDirectories(tempDir.resolve(member));
         }
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("acme-platform", members, List.of(), Map.of(), Map.of()),
                 members.stream()
                         .map(member -> new WorkspaceMember(member, tempDir.resolve(member), null))

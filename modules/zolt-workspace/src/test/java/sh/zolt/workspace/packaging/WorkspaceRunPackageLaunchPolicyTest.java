@@ -42,7 +42,9 @@ final class WorkspaceRunPackageLaunchPolicyTest {
         workspace("""
                 [workspace]
                 name = "launch-policy"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api");
         Path cache = tempDir.resolve("launch-policy-cache");
@@ -128,7 +130,9 @@ final class WorkspaceRunPackageLaunchPolicyTest {
         workspace("""
                 [workspace]
                 name = "quarkus-launch-policy"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api");
         WorkspaceBuildPlan plan = service.planRunPackages(
@@ -179,7 +183,7 @@ final class WorkspaceRunPackageLaunchPolicyTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     private void member(String path, String name) throws IOException {
@@ -190,7 +194,7 @@ final class WorkspaceRunPackageLaunchPolicyTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
+                java = %s
                 main = "com.acme.api.Api"
                 """.formatted(name, currentJavaMajorVersion()));
     }

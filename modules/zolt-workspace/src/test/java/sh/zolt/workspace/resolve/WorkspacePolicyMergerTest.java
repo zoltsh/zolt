@@ -10,7 +10,7 @@ import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
 import sh.zolt.project.RepositoryCredentialSettings;
 import sh.zolt.project.RepositorySettings;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.WorkspaceConfig;
@@ -64,24 +64,28 @@ final class WorkspacePolicyMergerTest {
         ResolveException exception = assertThrows(ResolveException.class, () -> merger.merge(workspace, member));
 
         assertTrue(exception.getMessage().contains("Workspace platform `com.example:platform`"));
-        assertTrue(exception.getMessage().contains("zolt-workspace.toml"));
+        assertTrue(exception.getMessage().contains("zolt.toml"));
         assertTrue(exception.getMessage().contains("member `lib` declares `2.0.0`"));
         assertTrue(exception.getMessage().contains("Make the values match"));
     }
 
     @Test
     void preservesMemberRepositoryAuthenticationWhenWorkspaceUrlMatches() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                internal = { url = "https://repo.example/internal", credentials = "company" }
+                central = false
 
-                [repositoryCredentials.company]
+                [repositories.internal]
+                url = "https://repo.example/internal"
+                credentials = "company"
+
+                [credentials.company]
                 tokenEnv = "COMPANY_REPOSITORY_TOKEN"
                 """);
         WorkspaceMember member = member("app", config);
@@ -102,12 +106,12 @@ final class WorkspacePolicyMergerTest {
 
     @Test
     void inheritsAuthenticatedWorkspaceRepositoryWithoutMemberRepetition() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         WorkspaceMember member = member("app", config);
         Workspace workspace = new Workspace(
@@ -153,7 +157,7 @@ final class WorkspacePolicyMergerTest {
             WorkspaceMember member) {
         return new Workspace(
                 Path.of("/workspace/demo"),
-                Path.of("/workspace/demo/zolt-workspace.toml"),
+                Path.of("/workspace/demo/zolt.toml"),
                 new WorkspaceConfig("demo", List.of(member.path()), List.of(), repositories, platforms),
                 List.of(member));
     }

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -16,15 +16,15 @@ final class WorkspaceCanonicalBuildPolicyTest {
         WorkspaceMember member = new WorkspaceMember(
                 "apps/api",
                 Path.of("apps/api"),
-                new ZoltTomlParser().parse("""
+                new ManifestProjectConfigLoader().load("""
                         [project]
                         name = "api"
                         version = "0.1.0"
                         group = "com.acme"
-                        java = "21"
+                        java = 21
 
-                        [framework.springBoot.native]
-                        enabled = true
+                        [framework.spring-boot]
+                        native = true
                         """));
 
         assertTrue(WorkspaceCanonicalBuildPolicy.hasFrameworkOutputs(member));
@@ -35,12 +35,12 @@ final class WorkspaceCanonicalBuildPolicyTest {
         WorkspaceMember member = new WorkspaceMember(
                 "apps/api",
                 Path.of("apps/api"),
-                new ZoltTomlParser().parse("""
+                new ManifestProjectConfigLoader().load("""
                         [project]
                         name = "api"
                         version = "0.1.0"
                         group = "com.acme"
-                        java = "21"
+                        java = 21
                         """));
 
         assertFalse(WorkspaceCanonicalBuildPolicy.hasGeneratedInputs(

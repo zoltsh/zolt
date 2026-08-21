@@ -18,10 +18,15 @@ final class WorkspaceResolveServiceLockedFailureTest extends WorkspaceResolveSer
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
@@ -50,10 +55,15 @@ final class WorkspaceResolveServiceLockedFailureTest extends WorkspaceResolveSer
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
@@ -65,10 +75,15 @@ final class WorkspaceResolveServiceLockedFailureTest extends WorkspaceResolveSer
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s./"
+                central = false
+
+                [repositories.test]
+                url = "%s./"
                 """.formatted(baseUri));
 
         ResolveException exception = assertThrows(
@@ -103,10 +118,15 @@ final class WorkspaceResolveServiceLockedFailureTest extends WorkspaceResolveSer
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         platformVersionRefMember("platform-one");
         ResolveResult first = service.resolve(tempDir, tempDir.resolve("cache"), false, false);
@@ -128,7 +148,9 @@ final class WorkspaceResolveServiceLockedFailureTest extends WorkspaceResolveSer
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         unusedAliasMember("unused-one");
         ResolveResult first = service.resolve(tempDir, tempDir.resolve("cache"), false, false);

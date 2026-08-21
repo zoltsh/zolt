@@ -4,8 +4,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.WorkspaceMemberPath;
+import sh.zolt.manifest.WorkspaceMemberPattern;
+import sh.zolt.manifest.authored.AuthoredDependencyRepositories;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredPlatforms;
+import sh.zolt.manifest.authored.AuthoredWorkspace;
+import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
+import sh.zolt.manifest.effective.EffectiveManifestComposer;
+import sh.zolt.manifest.effective.EffectiveWorkspace;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.project.RepositorySettings;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceInputs;
@@ -32,7 +44,7 @@ final class WorkspaceResolutionInputFingerprintTest {
             name = "lib"
             version = "0.1.0"
             group = "com.example"
-            java = "21"
+            java = 21
 
             [dependencies]
             "org.slf4j:slf4j-api" = "2.0.17"
@@ -42,10 +54,10 @@ final class WorkspaceResolutionInputFingerprintTest {
             name = "app"
             version = "0.1.0"
             group = "com.example"
-            java = "21"
+            java = 21
 
             [dependencies]
-            "com.example:lib" = { workspace = "lib" }
+            "com.example:lib" = { workspace = true }
             """;
     private static final String LOCK = """
             version = 7
@@ -99,7 +111,9 @@ final class WorkspaceResolutionInputFingerprintTest {
                 """
                 [workspace]
                 name = "demo"
-                members = ["lib"]
+
+                [workspace.members]
+                include = ["lib"]
                 """,
                 Map.of("lib", LIB));
 
@@ -111,7 +125,9 @@ final class WorkspaceResolutionInputFingerprintTest {
         Workspace before = workspace(defaultWorkspaceConfig(), Map.of("lib", LIB, "app", APP));
         Workspace after = workspace(
                 defaultWorkspaceConfig(),
-                Map.of("lib", LIB.replace("group = \"com.example\"", "group = \"com.other\""), "app", APP));
+                Map.of(
+                        "lib", LIB.replace("group = \"com.example\"", "group = \"com.other\""),
+                        "app", APP.replace("com.example:lib", "com.other:lib")));
 
         assertNotEquals(fingerprint(before), fingerprint(after));
     }
@@ -143,7 +159,9 @@ final class WorkspaceResolutionInputFingerprintTest {
                 """
                 [workspace]
                 name = "demo"
-                members = ["lib", "app"]
+
+                [workspace.members]
+                include = ["lib", "app"]
 
                 [platforms]
                 "com.example:platform" = "1.0.0"
@@ -163,20 +181,30 @@ final class WorkspaceResolutionInputFingerprintTest {
                 """
                 [workspace]
                 name = "demo"
-                members = ["lib", "app"]
+
+                [workspace.members]
+                include = ["lib", "app"]
 
                 [repositories]
-                internal = "https://repo.example/internal"
+                central = false
+
+                [repositories.internal]
+                url = "https://repo.example/internal"
                 """,
                 Map.of("lib", LIB, "app", APP));
         Workspace after = workspace(
                 """
                 [workspace]
                 name = "demo"
-                members = ["lib", "app"]
+
+                [workspace.members]
+                include = ["lib", "app"]
 
                 [repositories]
-                internal = "https://repo.example/mirror"
+                central = false
+
+                [repositories.internal]
+                url = "https://repo.example/mirror"
                 """,
                 Map.of("lib", LIB, "app", APP));
 
@@ -206,7 +234,7 @@ final class WorkspaceResolutionInputFingerprintTest {
         Workspace absent = workspace(defaultWorkspaceConfig(), Map.of("lib", LIB, "app", APP));
         Workspace present = absent.withInputs(
                 absent.inputs().withContent(
-                        ROOT.resolve("zolt-workspace.toml"),
+                        ROOT.resolve("zolt.toml"),
                         defaultWorkspaceConfig().getBytes(StandardCharsets.UTF_8)));
 
         assertNotEquals(fingerprint(absent), fingerprint(present));
@@ -293,7 +321,9 @@ final class WorkspaceResolutionInputFingerprintTest {
         return """
                 [workspace]
                 name = "demo"
-                members = ["lib", "app"]
+
+                [workspace.members]
+                include = ["lib", "app"]
                 """;
     }
 
@@ -318,7 +348,7 @@ final class WorkspaceResolutionInputFingerprintTest {
                 members,
                 workspace.edges(),
                 workspace.buildOrder(),
-                WorkspaceInputs.captured(files, Set.of(root.resolve("zolt-workspace.toml"))));
+                WorkspaceInputs.captured(files, Set.of(root.resolve("zolt.toml"))));
     }
 
     private static <T> List<T> reversed(List<T> values) {
@@ -334,11 +364,12 @@ final class WorkspaceResolutionInputFingerprintTest {
     private static Workspace workspace(
             String workspaceToml,
             Map<String, String> memberTomls) {
-        ZoltTomlParser parser = new ZoltTomlParser();
+        ManifestProjectConfigLoader manifestLoader = new ManifestProjectConfigLoader();
         Path configPath = ROOT.resolve("zolt.toml");
         Map<Path, byte[]> files = new LinkedHashMap<>();
         files.put(configPath, workspaceToml.getBytes(StandardCharsets.UTF_8));
-        List<WorkspaceMember> members = new ArrayList<>();
+        AuthoredManifest root = manifestLoader.document(workspaceToml).authored();
+        Map<WorkspaceMemberPath, AuthoredManifest> authoredMembers = new LinkedHashMap<>();
         List<String> declared = declaredMembers(workspaceToml);
         for (String path : declared) {
             String toml = memberTomls.get(path);
@@ -346,22 +377,79 @@ final class WorkspaceResolutionInputFingerprintTest {
                 continue;
             }
             files.put(ROOT.resolve(path).resolve("zolt.toml"), toml.getBytes(StandardCharsets.UTF_8));
-            members.add(new WorkspaceMember(path, ROOT.resolve(path), parser.parse(toml)));
+            authoredMembers.put(
+                    new WorkspaceMemberPath(path), manifestLoader.document(toml).authored());
+        }
+        EffectiveWorkspace effective =
+                new EffectiveManifestComposer().composeWorkspace(root, authoredMembers);
+        EffectiveProjectConfigAdapter adapter = new EffectiveProjectConfigAdapter();
+        List<WorkspaceMember> members = new ArrayList<>();
+        for (String path : declared) {
+            WorkspaceMemberPath memberPath = new WorkspaceMemberPath(path);
+            if (!authoredMembers.containsKey(memberPath)) {
+                continue;
+            }
+            members.add(new WorkspaceMember(
+                    path,
+                    ROOT.resolve(path),
+                    adapter.adapt(
+                            effective.members().get(memberPath),
+                            EffectiveProjectConfigAdapter.workspacePaths(effective, memberPath))));
         }
         return new Workspace(
                 ROOT,
                 configPath,
-                new sh.zolt.workspace.toml.WorkspaceConfigParser().parseRootConfig(workspaceToml),
+                workspaceConfig(workspaceToml),
                 members,
                 edges(members),
                 declared,
-                WorkspaceInputs.captured(files, Set.of(ROOT.resolve("zolt-workspace.toml"))));
+                WorkspaceInputs.captured(files, Set.of(ROOT.resolve("zolt.toml"))));
     }
 
     private static List<String> declaredMembers(String workspaceToml) {
-        WorkspaceConfig config =
-                new sh.zolt.workspace.toml.WorkspaceConfigParser().parseRootConfig(workspaceToml);
-        return config.members();
+        return workspaceConfig(workspaceToml).members();
+    }
+
+    /**
+     * The legacy workspace view of one final root manifest. Includes are exact member paths in these
+     * fixtures, so the final member set is the include list itself.
+     */
+    private static WorkspaceConfig workspaceConfig(String workspaceToml) {
+        AuthoredManifest authored = new ManifestProjectConfigLoader()
+                .document(workspaceToml)
+                .authored();
+        AuthoredWorkspace workspace = authored.workspace().orElseThrow();
+        Map<String, RepositorySettings> repositorySettings = new LinkedHashMap<>();
+        authored.repositories()
+                .map(AuthoredDependencyRepositories::named)
+                .orElseGet(Map::of)
+                .forEach((id, repository) -> repositorySettings.put(
+                        id.value(),
+                        new RepositorySettings(
+                                id.value(),
+                                repository.url().value(),
+                                repository.credentials().map(LocalId::value))));
+        Map<String, String> repositories = new LinkedHashMap<>();
+        repositorySettings.forEach((id, settings) -> repositories.put(id, settings.url()));
+        Map<String, String> platforms = new LinkedHashMap<>();
+        authored.platforms()
+                .map(AuthoredPlatforms::entries)
+                .orElseGet(Map::of)
+                .forEach((coordinate, selector) -> platforms.put(
+                        coordinate.value(),
+                        ((PlatformSelector.FixedVersion) selector).value()));
+        return new WorkspaceConfig(
+                workspace.name().value(),
+                workspace.members().include().stream()
+                        .map(WorkspaceMemberPattern::value)
+                        .toList(),
+                workspace.members().defaultMembers()
+                        .map(paths -> paths.stream().map(WorkspaceMemberPath::value).toList())
+                        .orElseGet(List::of),
+                Map.copyOf(repositories),
+                Map.copyOf(platforms),
+                Map.copyOf(repositorySettings),
+                Map.of());
     }
 
     private static List<WorkspaceProjectEdge> edges(List<WorkspaceMember> members) {

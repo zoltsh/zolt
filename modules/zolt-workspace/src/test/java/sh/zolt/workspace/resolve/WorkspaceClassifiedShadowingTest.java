@@ -27,18 +27,23 @@ final class WorkspaceClassifiedShadowingTest extends WorkspaceResolveServiceTest
         workspace("""
                 [workspace]
                 name = "classified-shadow"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", "");
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
 
-                [test.dependencies]
+                [dependencies.test]
                 "com.acme:core" = { version = "2.8.7", classifier = "tests" }
                 """);
 

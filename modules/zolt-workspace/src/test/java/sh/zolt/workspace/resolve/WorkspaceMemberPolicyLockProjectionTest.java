@@ -22,7 +22,7 @@ import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -39,16 +39,16 @@ final class WorkspaceMemberPolicyLockProjectionTest {
     void retainsOnlyTheMembersExactAllScopeGraphPoliciesAndConflicts() throws IOException {
         WorkspaceMember app = member("apps/app", "app", """
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:lib" = { version = "2.0.0", classifier = "linux" }
 
-                [test.dependencies]
+                [dependencies.test]
                 "com.example:test-lib" = "1.0.0"
                 """);
         WorkspaceMember admin = member("apps/admin", "admin", "");
         Workspace workspace = new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "demo",
                         List.of("apps/app", "apps/admin"),
@@ -128,7 +128,7 @@ final class WorkspaceMemberPolicyLockProjectionTest {
         WorkspaceMember app = member("apps/app", "app", "");
         Workspace workspace = new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("demo", List.of("apps/app"), List.of(), Map.of(), Map.of()),
                 List.of(app),
                 List.of());
@@ -159,7 +159,7 @@ final class WorkspaceMemberPolicyLockProjectionTest {
         WorkspaceMember admin = member("apps/admin", "admin", "");
         Workspace workspace = new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "demo", List.of("apps/app", "apps/admin"), List.of(), Map.of(), Map.of()),
                 List.of(app, admin),
@@ -211,10 +211,10 @@ final class WorkspaceMemberPolicyLockProjectionTest {
                 name = "%s"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 %s
                 """.formatted(name, body));
-        ProjectConfig parsed = new ZoltTomlParser().parse(config);
+        ProjectConfig parsed = new ManifestProjectConfigLoader().load(config);
         return new WorkspaceMember(path, directory, parsed);
     }
 

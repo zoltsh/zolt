@@ -162,13 +162,13 @@ final class WorkspaceClasspathArtifactIndexTest {
     }
 
     private Workspace workspace() throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), "");
+        Files.writeString(tempDir.resolve("zolt.toml"), "");
         for (String member : MEMBERS) {
             Files.createDirectories(tempDir.resolve(member));
         }
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("acme-platform", MEMBERS, List.of(), Map.of(), Map.of()),
                 MEMBERS.stream()
                         .map(member -> new WorkspaceMember(member, tempDir.resolve(member), null))

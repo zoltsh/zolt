@@ -289,7 +289,9 @@ final class WorkspaceLockFreshnessRecoveryTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["lib"]
+
+                [workspace.members]
+                include = ["lib"]
                 """);
         Files.createDirectories(root.resolve("lib"));
         Files.writeString(root.resolve("lib").resolve("zolt.toml"), """
@@ -297,7 +299,7 @@ final class WorkspaceLockFreshnessRecoveryTest {
                 name = "lib"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "org.slf4j:slf4j-api" = "%s"

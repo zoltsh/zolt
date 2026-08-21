@@ -8,7 +8,7 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.resolve.ResolveResult;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
@@ -39,10 +39,15 @@ final class WorkspaceResolveServiceVersionSelectionTest extends WorkspaceResolve
         workspace("""
                 [workspace]
                 name = "bad"
-                members = ["apps/api", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "apps/worker"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
@@ -102,10 +107,15 @@ final class WorkspaceResolveServiceVersionSelectionTest extends WorkspaceResolve
         workspace("""
                 [workspace]
                 name = "direct-wins"
-                members = ["apps/api", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "apps/worker"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
@@ -182,19 +192,24 @@ final class WorkspaceResolveServiceVersionSelectionTest extends WorkspaceResolve
         workspace("""
                 [workspace]
                 name = "scope-mediation"
-                members = ["apps/api", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "apps/worker"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:engine" = "1.0.0"
                 """);
         member("apps/worker", "worker", """
 
-                [dev.dependencies]
+                [dependencies.dev]
                 "com.example:engine" = "2.0.0"
                 """);
 
@@ -214,7 +229,7 @@ final class WorkspaceResolveServiceVersionSelectionTest extends WorkspaceResolve
         assertFalse(lockfile.packages().stream().anyMatch(lockPackage ->
                 lockPackage.packageId().equals(new PackageId("com.example", "legacy-driver"))));
 
-        Workspace workspace = new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        Workspace workspace = new ManifestWorkspaceLoader().discover(tempDir).orElseThrow();
         List<Path> runtimeEntries = new WorkspaceClasspathService()
                 .classpathsFor(workspace, lockfile, cache, "apps/api")
                 .runtime()
