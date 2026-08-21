@@ -11,6 +11,7 @@ import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.doctor.JdkChecker;
 import sh.zolt.cli.command.CommandServiceBundles.*;
 import sh.zolt.cli.command.CommandServiceClusters.*;
+import sh.zolt.cli.command.dependency.ManifestMutationServices;
 import sh.zolt.cli.net.CommandNetwork;
 import sh.zolt.framework.FrameworkBuildAugmenter;
 import sh.zolt.framework.FrameworkPackageAugmenter;
@@ -25,9 +26,7 @@ import sh.zolt.quarkus.QuarkusRunAugmenter;
 import sh.zolt.quarkus.testworker.QuarkusFrameworkTestRunner;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
-import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService;
 import sh.zolt.workspace.packaging.WorkspaceNativeBuildService;
@@ -50,10 +49,7 @@ public final class CommandFrameworkServices {
     }
 
     static CommandConfigEditServices configEditServices() {
-        return new CommandConfigEditServices(
-                new ZoltTomlParser(),
-                new ZoltTomlWriter(),
-                resolveService());
+        return ManifestMutationServices.configEditServices(resolveService());
     }
 
     public static CommandDependencyEditServices dependencyEditCommandServices() {
