@@ -18,6 +18,8 @@ import sh.zolt.manifest.authored.AuthoredGeneratedTool;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPlatforms;
 import sh.zolt.manifest.authored.AuthoredVersionAliases;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,10 +75,19 @@ final class SurfaceCollector {
         });
     }
 
+    /**
+     * Lane order is the canonical dependency-table order the authored model already guarantees;
+     * within a lane, entries are reported by normalized coordinate so a report never depends on the
+     * order a human happened to type (design §5.6).
+     */
     private void collectDependencies(AuthoredManifest manifest, Map<String, SurfaceRequest> requests) {
-        for (AuthoredDependency dependency : manifest.dependencies()
+        List<AuthoredDependency> declarations = new ArrayList<>(manifest.dependencies()
                 .map(AuthoredDependencies::declarations)
-                .orElseGet(List::of)) {
+                .orElseGet(List::of));
+        declarations.sort(Comparator
+                .comparingInt((AuthoredDependency dependency) -> dependency.lane().canonicalOrder())
+                .thenComparing(AuthoredDependency::coordinate));
+        for (AuthoredDependency dependency : declarations) {
             if (!(dependency.selector() instanceof DependencySelector.FixedVersion fixed)
                     || isSnapshot(fixed.value())) {
                 continue;

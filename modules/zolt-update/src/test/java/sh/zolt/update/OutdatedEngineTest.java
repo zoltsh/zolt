@@ -7,7 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.dependency.UpdateClass;
 import sh.zolt.maven.metadata.VersionDiscovery;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class OutdatedEngineTest {
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
 
     @Test
     void reportsLiteralDependencyUpdate() {
@@ -176,28 +179,27 @@ final class OutdatedEngineTest {
     void workspaceRootPlatformUsesRootManifestIdentityAndDefaultCentralRepository() {
         FakeVersionDiscovery discovery = new FakeVersionDiscovery()
                 .listing("org.junit:junit-bom", "central", "5.10.2", "5.11.4");
-        WorkspaceConfig workspace = new WorkspaceConfig(
-                "demo",
-                List.of("apps/api"),
-                List.of(),
-                Map.of(),
-                Map.of("org.junit:junit-bom", "5.10.2"));
+        String body = """
+                [platforms]
+                "org.junit:junit-bom" = "5.10.2"
+                """;
         OutdatedReport report = engine(discovery).report(
-                List.of(new WorkspaceOutdatedScope(
+                List.of(new OutdatedScope(
                         "workspace-root",
-                        "zolt-workspace.toml",
+                        "zolt.toml",
                         "zolt.lock",
-                        workspace,
+                        manifest(body),
+                        discovery(body),
                         Optional.empty())),
                 OutdatedOptions.defaults());
 
         OutdatedEntry entry = single(report);
         assertEquals(OutdatedSurface.PLATFORM, entry.surface());
         assertEquals("5.11.4", entry.candidates().selectedLatest().orElseThrow());
-        assertEquals("zolt-workspace.toml", entry.target().manifestPath());
+        assertEquals("zolt.toml", entry.target().manifestPath());
         assertEquals(
                 UpdateTargetId.create(
-                        "zolt-workspace.toml",
+                        "zolt.toml",
                         OutdatedSurface.PLATFORM,
                         "[platforms]",
                         "org.junit:junit-bom"),
@@ -215,24 +217,20 @@ final class OutdatedEngineTest {
             versions.forEach(version -> sources.put(version, "private"));
             return new sh.zolt.maven.metadata.MetadataDiscovery(true, versions, sources, List.of());
         };
-        WorkspaceConfig workspace = new WorkspaceConfig(
-                "demo",
-                List.of("apps/alpha", "apps/beta"),
-                List.of(),
-                Map.of(),
-                Map.of("com.acme:private-bom", "1.0.0"));
         ProjectConfig alpha = repositoryConfig("https://alpha.example.test/maven");
         ProjectConfig beta = repositoryConfig("https://beta.example.test/maven");
 
         OutdatedReport report = new OutdatedEngine(discovery).report(
-                List.of(new WorkspaceOutdatedScope(
+                List.of(new OutdatedScope(
                         "workspace-root",
                         "zolt.toml",
                         "zolt.lock",
-                        workspace,
-                        Optional.empty(),
+                        manifest("""
+                                [platforms]
+                                "com.acme:private-bom" = "1.0.0"
+                                """),
                         List.of(alpha, beta),
-                        Map.of())),
+                        Optional.empty())),
                 OutdatedOptions.defaults());
 
         OutdatedEntry entry = single(report);
@@ -244,12 +242,12 @@ final class OutdatedEngineTest {
     void workspaceSharedCoordinatesAreAnnotated() {
         FakeVersionDiscovery discovery = new FakeVersionDiscovery()
                 .listing("com.example:lib", "central", "1.0.0", "1.1.0");
-        ProjectConfig config = config("""
+        String body = """
                 [dependencies]
                 "com.example:lib" = "1.0.0"
-                """);
+                """;
         OutdatedReport report = engine(discovery).report(
-                List.of(OutdatedScope.of("alpha", config), OutdatedScope.of("zeta", config)),
+                List.of(scope("alpha", body), scope("zeta", body)),
                 OutdatedOptions.defaults());
 
         assertEquals(List.of("alpha", "zeta"), report.scopes().get(0).entries().get(0).members());
@@ -260,10 +258,10 @@ final class OutdatedEngineTest {
     void schemaV1PreservesDisplayLabelsAndDescriptiveVersionText() {
         String decomposed = "cafe\u0301";
         OutdatedReport report = engine(new FakeVersionDiscovery()).report(
-                List.of(OutdatedScope.of(decomposed, config("""
+                List.of(scope(decomposed, """
                         [dependencies]
                         "com.example:lib" = "1.0.0-%s"
-                        """.formatted(decomposed)))),
+                        """.formatted(decomposed))),
                 OutdatedOptions.defaults());
 
         assertEquals(decomposed, report.scopes().getFirst().label());
@@ -278,35 +276,40 @@ final class OutdatedEngineTest {
     }
 
     private List<OutdatedScope> scopes(String body) {
-        return List.of(OutdatedScope.of("demo", config(body)));
+        return List.of(scope("demo", body));
     }
 
-    private ProjectConfig config(String body) {
-        return new ZoltTomlParser().parse(
-                """
+    private static OutdatedScope scope(String label, String body) {
+        return new OutdatedScope(label, manifest(body), discovery(body), Optional.empty());
+    }
+
+    private static AuthoredManifest manifest(String body) {
+        return LOADER.document(source(body)).authored();
+    }
+
+    private static ProjectConfig discovery(String body) {
+        return LOADER.load(source(body));
+    }
+
+    private static String source(String body) {
+        return """
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
-
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
+                java = 21
 
                 %s
-                """.formatted(body));
+                """.formatted(body);
     }
 
     private ProjectConfig repositoryConfig(String url) {
-        return new ZoltTomlParser().parse("""
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
+        return discovery("""
                 [repositories]
-                private = "%s"
+                central = false
+
+                [repositories.private]
+                url = "%s"
                 """.formatted(url));
     }
 

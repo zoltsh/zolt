@@ -23,7 +23,7 @@ final class UpdatePlanTextRendererTest {
         UpdateSkip skip = new UpdateSkip(
                 OutdatedSurface.EXEC_TOOL_COORDINATE,
                 "com.tool:cli",
-                "[generated.execTools.codegen]",
+                "[generated.tools.codegen]",
                 "route it through a [versions] alias.");
         UpdatePlan plan = new UpdatePlan(List.of(edit), List.of(skip), List.of("alias fan-out warning"));
 
@@ -31,7 +31,7 @@ final class UpdatePlanTextRendererTest {
         assertTrue(text.contains("Updated:"));
         assertTrue(text.contains("[versions].guava  30.0-jre -> 33.0-jre  (major)"));
         assertTrue(text.contains("Skipped:"));
-        assertTrue(text.contains("[generated.execTools.codegen].com.tool:cli"));
+        assertTrue(text.contains("[generated.tools.codegen].com.tool:cli"));
         assertTrue(text.contains("route it through a [versions] alias."));
         assertTrue(text.contains("warning: alias fan-out warning"));
     }

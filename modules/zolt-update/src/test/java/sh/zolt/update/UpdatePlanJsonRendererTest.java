@@ -63,7 +63,7 @@ final class UpdatePlanJsonRendererTest {
         UpdateSkip skip = new UpdateSkip(
                 OutdatedSurface.EXEC_TOOL_COORDINATE,
                 "com.tool:cli",
-                "[generated.execTools.codegen]",
+                "[generated.tools.codegen]",
                 "not supported");
         UpdatePlan plan = new UpdatePlan(List.of(), List.of(skip), List.of());
 
