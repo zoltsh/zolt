@@ -49,7 +49,7 @@ abstract class NativeBuildServiceTestSupport {
         String digest = sha256(jar);
         String relativeJar = cacheRoot.relativize(jar).toString().replace('\\', '/');
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
 
                 [[package]]
                 id = "com.example:runtime-lib"
