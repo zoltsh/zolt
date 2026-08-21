@@ -202,6 +202,43 @@ final class ManifestGeneratedStepsDecoderTest {
         }
     }
 
+    @Test
+    void rejectsForgedKindBeforeLaterForgedLanguage() {
+        String source = """
+                [generated.main.step]
+                kind = "declared-root"
+                language = "java"
+                inputs = ["input"]
+                output = "target/generated"
+                """;
+        ValidatedManifestShape shape = new ManifestShapeValidator().validate(
+                new TomlSyntaxParser().parse(source));
+        List<ValidatedManifestField> fields = shape.fields().stream()
+                .map(field -> {
+                    String path = field.path().toString();
+                    if (path.endsWith(".kind")) {
+                        return new ValidatedManifestField(
+                                field.path(), field.schema(), "future-kind", field.source());
+                    }
+                    if (path.endsWith(".language")) {
+                        return new ValidatedManifestField(
+                                field.path(), field.schema(), "future-language", field.source());
+                    }
+                    return field;
+                })
+                .toList();
+
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class,
+                () -> new ManifestGeneratedStepsDecoder().decode(new ManifestDecodeIndex(
+                        new ValidatedManifestShape(shape.sections(), fields))));
+
+        assertEquals(
+                "Final manifest schema accepted generated-step kind `future-kind` at "
+                        + "`generated.main.step.kind` but the decoder does not recognize it.",
+                failure.getMessage());
+    }
+
     private static void assertSymbolParity(
             ManifestField main,
             ManifestField test,

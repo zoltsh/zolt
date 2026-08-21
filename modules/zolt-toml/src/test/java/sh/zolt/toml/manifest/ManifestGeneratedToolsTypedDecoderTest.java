@@ -23,6 +23,35 @@ import sh.zolt.toml.schema.FinalManifestSchema;
 
 final class ManifestGeneratedToolsTypedDecoderTest {
     @Test
+    void failsClosedWhenValidatedToolKindEvidenceDriftsPastTheSchema() {
+        ValidatedManifestShape shape = new ManifestShapeValidator().validate(
+                new TomlSyntaxParser().parse("""
+                        [generated.tools.custom]
+                        kind = "process"
+                        binary = "tool"
+                        versionCommand = ["tool", "--version"]
+                        allowUnpinnedTool = true
+                        """));
+        List<ValidatedManifestField> fields = shape.fields().stream()
+                .map(field -> field.schema().descriptor()
+                                == FinalManifestGeneratedToolFields.GENERATED_TOOL_KIND
+                        ? new ValidatedManifestField(
+                                field.path(), field.schema(), "future-kind", field.source())
+                        : field)
+                .toList();
+
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class,
+                () -> new ManifestGeneratedToolsDecoder().decode(new ManifestDecodeIndex(
+                        new ValidatedManifestShape(shape.sections(), fields))));
+
+        assertEquals(
+                "Final manifest schema accepted generated-tool kind `future-kind` at "
+                        + "`generated.tools.custom.kind` but the decoder does not recognize it.",
+                failure.getMessage());
+    }
+
+    @Test
     void preservesOmissionAndExplicitEmptyCollectionPresence() {
         assertTrue(decode("").isEmpty());
 

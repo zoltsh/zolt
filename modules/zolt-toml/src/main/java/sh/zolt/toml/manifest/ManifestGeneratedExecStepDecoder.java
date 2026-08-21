@@ -294,30 +294,21 @@ final class ManifestGeneratedExecStepDecoder {
     }
 
     private static GeneratedOutputKind outputKind(ValidatedManifestField field, String value) {
-        for (GeneratedOutputKind kind : GeneratedOutputKind.values()) {
-            if (kind.configValue().equals(value)) {
-                return kind;
-            }
-        }
-        throw schemaDrift(field, "output kind", value);
+        return ManifestAuthoredSymbols.model(
+                field,
+                value,
+                GeneratedOutputKind.values(),
+                GeneratedOutputKind::configValue,
+                "generated output kind");
     }
 
     private static GeneratedCachePolicy cachePolicy(ValidatedManifestField field, String value) {
-        for (GeneratedCachePolicy policy : GeneratedCachePolicy.values()) {
-            if (policy.configValue().equals(value)) {
-                return policy;
-            }
-        }
-        throw schemaDrift(field, "cache policy", value);
-    }
-
-    private static IllegalStateException schemaDrift(
-            ValidatedManifestField field,
-            String kind,
-            String value) {
-        return new IllegalStateException(
-                "Final manifest schema accepted generated " + kind + " `" + value
-                        + "` at `" + field.path() + "` but the model does not recognize it.");
+        return ManifestAuthoredSymbols.model(
+                field,
+                value,
+                GeneratedCachePolicy.values(),
+                GeneratedCachePolicy::configValue,
+                "generated cache policy");
     }
 
     private static GeneratedStepSettings validationSettings(

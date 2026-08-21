@@ -143,15 +143,12 @@ final class ManifestPackageDecoder {
     }
 
     private static AuthoredPackage.Mode mode(ValidatedManifestField field) {
-        String value = ManifestTomlValues.string(field);
-        for (AuthoredPackage.Mode mode : AuthoredPackage.Mode.values()) {
-            if (mode.configValue().equals(value)) {
-                return mode;
-            }
-        }
-        throw new IllegalStateException(
-                "Final manifest schema accepted package mode `" + value
-                        + "` at `" + field.path() + "` but the model does not recognize it.");
+        return ManifestAuthoredSymbols.model(
+                field,
+                ManifestTomlValues.string(field),
+                AuthoredPackage.Mode.values(),
+                AuthoredPackage.Mode::configValue,
+                "package mode");
     }
 
     private static AuthoredPackage.DuplicatePolicy duplicatePolicy(
@@ -174,16 +171,12 @@ final class ManifestPackageDecoder {
 
     private static AuthoredPackage.DuplicatePolicy duplicatePolicy(
             ValidatedManifestField field) {
-        String value = ManifestTomlValues.string(field);
-        for (AuthoredPackage.DuplicatePolicy policy
-                : AuthoredPackage.DuplicatePolicy.values()) {
-            if (policy.configValue().equals(value)) {
-                return policy;
-            }
-        }
-        throw new IllegalStateException(
-                "Final manifest schema accepted package duplicate policy `" + value
-                        + "` at `" + field.path() + "` but the model does not recognize it.");
+        return ManifestAuthoredSymbols.model(
+                field,
+                ManifestTomlValues.string(field),
+                AuthoredPackage.DuplicatePolicy.values(),
+                AuthoredPackage.DuplicatePolicy::configValue,
+                "package duplicate policy");
     }
 }
 

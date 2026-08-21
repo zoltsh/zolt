@@ -67,19 +67,25 @@ final class ManifestGeneratedToolsDecoder {
     }
 
     private static AuthoredGeneratedTool tool(Row row, LocalId id) {
-        ToolKind kind;
-        if (id.equals(OPENAPI) || id.equals(PROTOBUF)) {
+        if (id.equals(OPENAPI)) {
             row.reject(GENERATED_TOOL_KIND, "reserved built-in tool overrides derive their kind");
-            kind = id.equals(OPENAPI) ? ToolKind.OPENAPI : ToolKind.PROTOBUF;
-        } else {
-            ValidatedManifestField field = row.required(GENERATED_TOOL_KIND);
-            kind = ToolKind.from(field, ManifestTomlValues.string(field));
+            return openApi(row);
         }
+        if (id.equals(PROTOBUF)) {
+            row.reject(GENERATED_TOOL_KIND, "reserved built-in tool overrides derive their kind");
+            return protobuf(row);
+        }
+        ValidatedManifestField field = row.required(GENERATED_TOOL_KIND);
+        String kind = ManifestTomlValues.string(field);
         return switch (kind) {
-            case OPENAPI -> openApi(row);
-            case PROTOBUF -> protobuf(row);
-            case JVM -> jvm(row);
-            case PROCESS -> process(row);
+            case "openapi" -> openApi(row);
+            case "protobuf" -> protobuf(row);
+            case "jvm" -> jvm(row);
+            case "process" -> process(row);
+            default -> throw new IllegalStateException(
+                    "Final manifest schema accepted generated-tool kind `" + kind
+                            + "` at `" + field.path()
+                            + "` but the decoder does not recognize it.");
         };
     }
 
@@ -290,30 +296,6 @@ final class ManifestGeneratedToolsDecoder {
         return ManifestSemanticDiagnostics.construct(field, () -> {
             throw new IllegalArgumentException(message);
         });
-    }
-
-    private enum ToolKind {
-        OPENAPI("openapi"),
-        PROTOBUF("protobuf"),
-        JVM("jvm"),
-        PROCESS("process");
-
-        private final String configValue;
-
-        ToolKind(String configValue) {
-            this.configValue = configValue;
-        }
-
-        private static ToolKind from(ValidatedManifestField field, String value) {
-            for (ToolKind kind : values()) {
-                if (kind.configValue.equals(value)) {
-                    return kind;
-                }
-            }
-            throw new IllegalStateException(
-                    "Final manifest schema accepted generated-tool kind `" + value
-                            + "` at `" + field.path() + "` but the decoder does not recognize it.");
-        }
     }
 
     private record Row(

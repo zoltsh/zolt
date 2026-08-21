@@ -196,8 +196,11 @@ final class ManifestResourcesDecoder {
         List<ResourceGlob> validationInclude = List.of(new ResourceGlob("*"));
         for (int item = 0; item < authored.size(); item++) {
             int index = item;
-            targets.add(requiredSchemaValue(
-                    field, authored.get(index), AuthoredResources.Target.values()));
+            targets.add(ManifestAuthoredSymbols.authored(
+                    field,
+                    authored.get(index),
+                    AuthoredResources.Target.values(),
+                    AuthoredResources.Target::configValue));
             ManifestSemanticDiagnostics.construct(
                     field,
                     index,
@@ -215,10 +218,11 @@ final class ManifestResourcesDecoder {
 
     private static AuthoredResources.MissingTokenPolicy missing(
             ValidatedManifestField field) {
-        return requiredSchemaValue(
+        return ManifestAuthoredSymbols.authored(
                 field,
                 ManifestTomlValues.string(field),
-                AuthoredResources.MissingTokenPolicy.values());
+                AuthoredResources.MissingTokenPolicy.values(),
+                AuthoredResources.MissingTokenPolicy::configValue);
     }
 
     private static AuthoredResources tokens(
@@ -282,30 +286,6 @@ final class ManifestResourcesDecoder {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Unsupported resource token project field `" + value + "`."));
-    }
-
-    private static <T extends Enum<T>> T requiredSchemaValue(
-            ValidatedManifestField field,
-            String value,
-            T[] values) {
-        return Arrays.stream(values)
-                .filter(candidate -> configValue(candidate).equals(value))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Final manifest schema accepted symbol `" + value + "` for `"
-                                + field.path()
-                                + "` but the authored model does not recognize it."));
-    }
-
-    private static String configValue(Enum<?> value) {
-        if (value instanceof AuthoredResources.Target target) {
-            return target.configValue();
-        }
-        if (value instanceof AuthoredResources.MissingTokenPolicy missing) {
-            return missing.configValue();
-        }
-        throw new IllegalStateException(
-                "Unsupported resource enum mapping type `" + value.getClass().getName() + "`.");
     }
 
     @FunctionalInterface

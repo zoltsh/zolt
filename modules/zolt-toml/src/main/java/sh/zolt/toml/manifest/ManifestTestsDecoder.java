@@ -248,14 +248,12 @@ final class ManifestTestRuntimeDecoder {
     private static AuthoredTestRuntime.Event event(
             ValidatedManifestField field,
             String value) {
-        for (AuthoredTestRuntime.Event event : AuthoredTestRuntime.Event.values()) {
-            if (event.configValue().equals(value)) {
-                return event;
-            }
-        }
-        throw new IllegalStateException(
-                "Final manifest schema accepted test runtime event `" + value
-                        + "` at `" + field.path() + "` but the model does not recognize it.");
+        return ManifestAuthoredSymbols.model(
+                field,
+                value,
+                AuthoredTestRuntime.Event.values(),
+                AuthoredTestRuntime.Event::configValue,
+                "test runtime event");
     }
 
     @SafeVarargs

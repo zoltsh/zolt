@@ -1,6 +1,5 @@
 package sh.zolt.toml.manifest;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -91,14 +90,11 @@ final class ManifestCompilerDecoder {
     }
 
     private static AuthoredCompiler.JdkApiMode jdkApi(ValidatedManifestField field) {
-        String value = ManifestTomlValues.string(field);
-        return Arrays.stream(AuthoredCompiler.JdkApiMode.values())
-                .filter(mode -> mode.configValue().equals(value))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Final manifest schema accepted symbol `" + value + "` for `"
-                                + field.path()
-                                + "` but the authored model does not recognize it."));
+        return ManifestAuthoredSymbols.authored(
+                field,
+                ManifestTomlValues.string(field),
+                AuthoredCompiler.JdkApiMode.values(),
+                AuthoredCompiler.JdkApiMode::configValue);
     }
 
     private static List<String> mainArguments(

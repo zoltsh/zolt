@@ -108,7 +108,7 @@ final class ManifestToolchainDecoder {
                 .map(field -> ManifestSemanticDiagnostics.construct(field, () -> {
                     List<String> values = ManifestTomlValues.strings(field);
                     List<JavaFeature> decoded = values.stream()
-                            .map(value -> requiredSchemaSymbol(
+                            .map(value -> ManifestAuthoredSymbols.authored(
                                     field, value, JavaFeature::fromId))
                             .toList();
                     return Set.copyOf(new LinkedHashSet<>(decoded));
@@ -130,16 +130,7 @@ final class ManifestToolchainDecoder {
             ManifestDecodeIndex index,
             ManifestField handle,
             Function<String, Optional<T>> modelLookup) {
-        return index.field(handle).map(field -> requiredSchemaSymbol(
+        return index.field(handle).map(field -> ManifestAuthoredSymbols.authored(
                 field, ManifestTomlValues.string(field), modelLookup));
-    }
-
-    private static <T> T requiredSchemaSymbol(
-            ValidatedManifestField field,
-            String value,
-            Function<String, Optional<T>> modelLookup) {
-        return modelLookup.apply(value).orElseThrow(() -> new IllegalStateException(
-                "Final manifest schema accepted symbol `" + value + "` for `"
-                        + field.path() + "` but the authored model does not recognize it."));
     }
 }

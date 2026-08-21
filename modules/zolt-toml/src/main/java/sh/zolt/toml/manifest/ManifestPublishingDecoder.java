@@ -161,16 +161,12 @@ final class ManifestPublicationSigningDecoder {
 
     private static AuthoredPublicationSigning.Method method(
             ValidatedManifestField field) {
-        String value = ManifestTomlValues.string(field);
-        for (AuthoredPublicationSigning.Method method
-                : AuthoredPublicationSigning.Method.values()) {
-            if (method.configValue().equals(value)) {
-                return method;
-            }
-        }
-        throw new IllegalStateException(
-                "Final manifest schema accepted publication signing method `" + value
-                        + "` at `" + field.path() + "` but the model does not recognize it.");
+        return ManifestAuthoredSymbols.model(
+                field,
+                ManifestTomlValues.string(field),
+                AuthoredPublicationSigning.Method.values(),
+                AuthoredPublicationSigning.Method::configValue,
+                "publication signing method");
     }
 }
 
@@ -233,15 +229,12 @@ final class ManifestCentralPublishingDecoder {
     }
 
     private static AuthoredCentralPublishing.Mode mode(ValidatedManifestField field) {
-        String value = ManifestTomlValues.string(field);
-        for (AuthoredCentralPublishing.Mode mode : AuthoredCentralPublishing.Mode.values()) {
-            if (mode.configValue().equals(value)) {
-                return mode;
-            }
-        }
-        throw new IllegalStateException(
-                "Final manifest schema accepted Central publication mode `" + value
-                        + "` at `" + field.path() + "` but the model does not recognize it.");
+        return ManifestAuthoredSymbols.model(
+                field,
+                ManifestTomlValues.string(field),
+                AuthoredCentralPublishing.Mode.values(),
+                AuthoredCentralPublishing.Mode::configValue,
+                "Central publication mode");
     }
 
     @FunctionalInterface

@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.toml.schema.FinalManifestCompilerFields;
 import sh.zolt.toml.schema.FinalManifestDependencyFields;
 import sh.zolt.toml.schema.FinalManifestIdentityFields;
 import sh.zolt.toml.schema.FinalManifestObjectShapes;
@@ -15,6 +17,64 @@ import sh.zolt.toml.schema.FinalManifestSharedFields;
 import sh.zolt.toml.schema.ManifestSchemaMatch;
 
 final class ManifestSemanticDiagnosticsTest {
+    @Test
+    void mapsAuthoredSymbolsAndFailsClosedOnForgedValidatedEvidence() {
+        ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
+                [compiler]
+                jdkApi = "release"
+                """);
+        ValidatedManifestField field = index
+                .field(FinalManifestCompilerFields.COMPILER_JDK_API)
+                .orElseThrow();
+
+        assertEquals(
+                "release",
+                ManifestAuthoredSymbols.authored(
+                        field, ManifestTomlValues.string(field),
+                        new String[] {"release", "host"}, value -> value));
+        assertEquals(
+                "release",
+                ManifestAuthoredSymbols.authored(
+                        field,
+                        ManifestTomlValues.string(field),
+                        value -> value.equals("release")
+                                ? Optional.of(value)
+                                : Optional.empty()));
+
+        ValidatedManifestField forged = new ValidatedManifestField(
+                field.path(), field.schema(), "future", field.source());
+        String message = "Final manifest schema accepted symbol `future` for "
+                + "`compiler.jdkApi` but the authored model does not recognize it.";
+        IllegalStateException candidatesFailure = assertThrows(
+                IllegalStateException.class,
+                () -> ManifestAuthoredSymbols.authored(
+                        forged,
+                        ManifestTomlValues.string(forged),
+                        new String[] {"release", "host"},
+                        value -> value));
+        IllegalStateException lookupFailure = assertThrows(
+                IllegalStateException.class,
+                () -> ManifestAuthoredSymbols.authored(
+                        forged,
+                        ManifestTomlValues.string(forged),
+                        value -> Optional.empty()));
+        IllegalStateException schemaFailure = assertThrows(
+                IllegalStateException.class,
+                () -> ManifestAuthoredSymbols.model(
+                        forged,
+                        ManifestTomlValues.string(forged),
+                        new String[] {"release", "host"},
+                        value -> value,
+                        "compiler JDK API mode"));
+
+        assertEquals(message, candidatesFailure.getMessage());
+        assertEquals(message, lookupFailure.getMessage());
+        assertEquals(
+                "Final manifest schema accepted compiler JDK API mode `future` at "
+                        + "`compiler.jdkApi` but the model does not recognize it.",
+                schemaFailure.getMessage());
+    }
+
     @Test
     void reportsRequiredFieldAndSectionHandlesWithFrozenText() {
         ManifestDecodeIndex index = ManifestSemanticTestSupport.index("");

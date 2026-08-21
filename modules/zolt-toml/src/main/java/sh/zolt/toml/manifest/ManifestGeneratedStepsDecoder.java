@@ -57,13 +57,16 @@ final class ManifestGeneratedStepsDecoder {
 
     private static AuthoredGeneratedStep step(Row row) {
         ValidatedManifestField kindField = row.required(ManifestGeneratedStepFields.Slot.KIND);
-        Kind kind = Kind.from(kindField, ManifestTomlValues.string(kindField));
-        Optional<GeneratedLanguage> language = row.language();
+        String kind = ManifestTomlValues.string(kindField);
         return switch (kind) {
-            case OPEN_API -> openApi(row, language);
-            case PROTOBUF -> protobuf(row, language);
-            case EXEC -> ManifestGeneratedExecStepDecoder.decode(row, language);
-            case DECLARED_ROOT -> declaredRoot(row, language);
+            case "openapi" -> openApi(row, row.language());
+            case "protobuf" -> protobuf(row, row.language());
+            case "exec" -> ManifestGeneratedExecStepDecoder.decode(row, row.language());
+            case "declared-root" -> declaredRoot(row, row.language());
+            default -> throw new IllegalStateException(
+                    "Final manifest schema accepted generated-step kind `" + kind
+                            + "` at `" + kindField.path()
+                            + "` but the decoder does not recognize it.");
         };
     }
 
@@ -313,37 +316,13 @@ final class ManifestGeneratedStepsDecoder {
         }
     }
 
-    private enum Kind {
-        OPEN_API("openapi"),
-        PROTOBUF("protobuf"),
-        EXEC("exec"),
-        DECLARED_ROOT("declared-root");
-
-        private final String configValue;
-
-        Kind(String configValue) {
-            this.configValue = configValue;
-        }
-
-        private static Kind from(ValidatedManifestField field, String value) {
-            for (Kind kind : values()) {
-                if (kind.configValue.equals(value)) {
-                    return kind;
-                }
-            }
-            throw new IllegalStateException(
-                    "Final manifest schema accepted generated-step kind `" + value
-                            + "` at `" + field.path() + "` but the decoder does not recognize it.");
-        }
-    }
-
     private static GeneratedLanguage generatedLanguage(
             ValidatedManifestField field, String value) {
-        if (GeneratedLanguage.JAVA.configValue().equals(value)) {
-            return GeneratedLanguage.JAVA;
-        }
-        throw new IllegalStateException(
-                "Final manifest schema accepted generated language `" + value
-                        + "` at `" + field.path() + "` but the model does not recognize it.");
+        return ManifestAuthoredSymbols.model(
+                field,
+                value,
+                GeneratedLanguage.values(),
+                GeneratedLanguage::configValue,
+                "generated language");
     }
 }
