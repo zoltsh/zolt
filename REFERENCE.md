@@ -521,8 +521,8 @@ spring-boot = "4.0.6"
 [dependencies]
 "org.springframework.boot:spring-boot-starter-webmvc" = { managed = true, exclude = ["org.apache.tomcat.embed:tomcat-embed-core"] }
 # classifier and type select a specific published artifact for a coordinate and
-# are independent; both work in every dependency scope, with or without a
-# version or platform-managed version.
+# are independent; both work in every external dependency lane, alongside a
+# fixed version, a version alias, or a platform-managed version.
 "io.netty:netty-transport-native-epoll" = { version = "4.1.100.Final", classifier = "linux-x86_64" }
 
 [dependencies.constraints]
@@ -1288,6 +1288,19 @@ matches `include`, survives `exclude`, and contains a valid project `zolt.toml`.
 conventional member manifest is one `[project]` header and its own `name`. This
 is a closed list, not general parent-POM inheritance: `main`, description, URLs,
 developers, packaging, dependencies, and every build setting stay project-local.
+A member declares its own name and its own dependencies, and refers to a sibling
+by coordinate rather than by path:
+
+```toml
+[project]
+name = "orders-core"
+
+[dependencies]
+"com.example:orders-model" = { workspace = true }
+
+[dependencies.test]
+"org.junit.jupiter:junit-jupiter" = "5.14.4"
+```
 
 Workspace commands resolve one root lockfile and run selected members in
 dependency order.
