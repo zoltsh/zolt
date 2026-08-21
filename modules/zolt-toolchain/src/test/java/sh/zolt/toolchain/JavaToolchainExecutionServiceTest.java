@@ -11,7 +11,7 @@ import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.project.toolchain.ToolchainPolicy;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.toolchain.jvm.JavaRuntimeInfo;
 import sh.zolt.toolchain.jvm.JavaToolchainSource;
 import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
@@ -179,10 +179,10 @@ final class JavaToolchainExecutionServiceTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "%s"
                 features = [%s]
                 policy = "%s"
@@ -202,7 +202,7 @@ final class JavaToolchainExecutionServiceTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         return project;
     }
@@ -221,7 +221,7 @@ final class JavaToolchainExecutionServiceTest {
     }
 
     private static ProjectConfig parse(Path project) {
-        return new ZoltTomlParser().parse(project.resolve("zolt.toml"));
+        return new ManifestProjectConfigLoader().load(project.resolve("zolt.toml"));
     }
 
     private static LockedJavaToolchain locked(

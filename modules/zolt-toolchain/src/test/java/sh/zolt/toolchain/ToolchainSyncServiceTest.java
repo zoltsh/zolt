@@ -256,16 +256,16 @@ final class ToolchainSyncServiceTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "17"
+                java = 17
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"
 
                 [toolchain.java.test]
-                version = "%s"
+                version = %s
                 """.formatted(name, testVersion));
         Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
@@ -279,10 +279,10 @@ final class ToolchainSyncServiceTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "temurin"
                 features = []
                 policy = "require-managed"
