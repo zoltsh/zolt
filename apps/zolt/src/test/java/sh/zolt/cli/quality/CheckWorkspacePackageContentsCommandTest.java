@@ -3,6 +3,7 @@ package sh.zolt.cli.quality;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.cli.CliTestSupport.bomConfig;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 
@@ -313,7 +314,7 @@ final class CheckWorkspacePackageContentsCommandTest {
         writeMember(
                 workspace,
                 "platform",
-                memberConfig("platform")
+                bomConfig("platform")
                         + """
 
                         [bom]

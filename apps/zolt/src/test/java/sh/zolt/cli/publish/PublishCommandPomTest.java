@@ -24,9 +24,11 @@ final class PublishCommandPomTest {
         Path projectDir = tempDir.resolve("publish-dry-run-pom-metadata");
         Files.createDirectories(projectDir.resolve("target"));
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-pom-metadata") + """
+                description = "Dependency metadata fixture for publish dry run."
+                url = "https://example.com/publish-metadata"
 
                 [dependencies]
-                "org.example:api" = { version = "1.2.3", optional = true, exclusions = [{ group = "org.legacy", artifact = "bad-lib" }] }
+                "org.example:api" = { version = "1.2.3", optional = true, exclude = ["org.legacy:bad-lib"] }
                 "org.example:publish-helper" = { version = "2.0.0", publishOnly = true }
 
                 [dependencies.runtime]

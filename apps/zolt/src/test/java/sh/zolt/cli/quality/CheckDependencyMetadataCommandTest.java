@@ -49,7 +49,7 @@ final class CheckDependencyMetadataCommandTest {
                     url = "%s"
 
                     [dependencies]
-                    "org.example:lib" = { version = "1.0.0", optional = true, exclusions = [{ group = "org.example", artifact = "excluded" }] }
+                    "org.example:lib" = { version = "1.0.0", optional = true, exclude = ["org.example:excluded"] }
                     "org.example:publish-only" = { version = "1.0.0", publishOnly = true }
                     """.formatted(repository.baseUri()));
             Path cacheRoot = tempDir.resolve("cache");
@@ -112,7 +112,7 @@ final class CheckDependencyMetadataCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-exclusion-leak") + """
 
                 [dependencies]
-                "org.example:lib" = { version = "1.0.0", exclusions = [{ group = "org.example", artifact = "excluded" }] }
+                "org.example:lib" = { version = "1.0.0", exclude = ["org.example:excluded"] }
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
                 version = 7

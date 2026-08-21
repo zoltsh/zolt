@@ -29,7 +29,6 @@ final class PublishCommandArtifactSelectionTest {
 
                 [publish]
                 release = "company-releases"
-                artifacts = ["spring-boot-war"]
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -71,7 +70,6 @@ final class PublishCommandArtifactSelectionTest {
 
                 [publish]
                 release = "company-releases"
-                artifacts = ["spring-boot-war"]
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

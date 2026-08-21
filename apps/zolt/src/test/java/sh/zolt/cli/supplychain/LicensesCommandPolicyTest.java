@@ -102,7 +102,7 @@ final class LicensesCommandPolicyTest {
                 allow = ["MIT"]
                 unknown = "fail"
 
-                [dependencies.license-exceptions.example:lib"]
+                [dependencies.license-exceptions."org.example:lib"]
                 allow = ["BSD-3-Clause"]
                 version = "1.0.0"
                 reason = "Reviewed transitive expression"
@@ -130,7 +130,7 @@ final class LicensesCommandPolicyTest {
                 [dependencies.policy.licenses]
                 allow = ["MIT"]
 
-                [dependencies.license-exceptions.example:missing"]
+                [dependencies.license-exceptions."org.example:missing"]
                 allow = ["BSD-3-Clause"]
                 version = "1.0.0"
                 reason = "Old review"

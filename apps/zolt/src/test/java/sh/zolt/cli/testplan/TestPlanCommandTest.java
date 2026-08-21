@@ -25,8 +25,8 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
-                excludeClassname = ["*ContractTest"]
+                classes = ["*Test"]
+                excludeClasses = ["*ContractTest"]
                 includeTag = ["fast"]
                 excludeTag = ["slow"]
                 """);
@@ -61,7 +61,7 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*MissingTest"]
+                classes = ["*MissingTest"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/FastServiceTest.class");
 
@@ -85,10 +85,10 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
 
                 [test.suites.contract]
-                includeClassname = ["*ContractTest"]
+                classes = ["*ContractTest"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/UserContractTest.class");
 
@@ -128,7 +128,7 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/AlphaTest.class");
         writeClass(projectDir, "target/test-classes/com/example/BetaTest.class");
@@ -156,7 +156,7 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/AlphaTest.class");
         writeClass(projectDir, "target/test-classes/com/example/BetaTest.class");
@@ -214,7 +214,7 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(memberDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
                 """);
         writeClass(memberDir, "target/test-classes/com/example/AlphaTest.class");
         writeClass(memberDir, "target/test-classes/com/example/BetaTest.class");

@@ -25,7 +25,6 @@ final class PublishCommandDryRunTest {
                 [publish]
                 release = "company-releases"
                 snapshot = "company-snapshots"
-                artifacts = ["main"]
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

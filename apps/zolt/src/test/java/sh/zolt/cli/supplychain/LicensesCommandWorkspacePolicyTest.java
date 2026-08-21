@@ -126,7 +126,7 @@ final class LicensesCommandWorkspacePolicyTest {
                     allow = ["MIT"]
                     unknown = "fail"
 
-                    [dependencies.license-exceptions.example:matchit"]
+                    [dependencies.license-exceptions."org.example:matchit"]
                     allow = ["BSD-3-Clause"]
                     version = "1.0.0"
                     reason = "Reviewed matchit for core"
@@ -261,7 +261,7 @@ final class LicensesCommandWorkspacePolicyTest {
                     allow = ["MIT"]
                     unknown = "fail"
 
-                    [dependencies.license-exceptions.example:missing"]
+                    [dependencies.license-exceptions."org.example:missing"]
                     allow = ["BSD-3-Clause"]
                     reason = "Reviewed dependency"
                     """;

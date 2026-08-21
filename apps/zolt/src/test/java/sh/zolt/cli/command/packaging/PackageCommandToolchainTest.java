@@ -78,7 +78,6 @@ final class PackageCommandToolchainTest {
                 name = "platform-bom"
                 version = "1.0.0"
                 group = "com.example"
-                java = 21
 
                 [toolchain.java]
                 version = 21

@@ -134,7 +134,10 @@ final class WorkspaceCoverageCommandResolverTest {
 
                 [workspace.members]
                 include = ["apps/api"]
-                """);
+
+                [repositories.test]
+                url = "%s"
+                """.formatted(repositoryUri()));
         Files.writeString(member.resolve("zolt.toml"), memberConfig());
 
         new WorkspaceResolveService(services.resolveService())
@@ -161,10 +164,6 @@ final class WorkspaceCoverageCommandResolverTest {
     }
 
     private String memberConfig() {
-        URI repository = URI.create(
-                "http://127.0.0.1:"
-                        + server.getAddress().getPort()
-                        + "/maven2/");
         return """
                 [project]
                 name = "api"
@@ -175,15 +174,19 @@ final class WorkspaceCoverageCommandResolverTest {
                 [package]
                 mode = "quarkus"
 
-                [repositories.test]
-                url = "%s"
-
                 [dependencies]
                 "io.quarkus:quarkus-rest" = "3.33.0"
 
                 [dependencies.test]
                 "org.junit.jupiter:junit-jupiter" = "5.11.4"
-                """.formatted(repository);
+                """;
+    }
+
+    private URI repositoryUri() {
+        return URI.create(
+                "http://127.0.0.1:"
+                        + server.getAddress().getPort()
+                        + "/maven2/");
     }
 
     private void addArtifact(

@@ -39,7 +39,7 @@ final class GeneratedTestCommandFixture {
                 project(name)
                         + jvmGeneratorConfig()
                         + (packageTests
-                                ? "\n[package]\ntests = true\n"
+                                ? "\n[package]\ntestJar = true\n"
                                 : "")
                         + (integration
                                 ? integrationConfig()
@@ -123,7 +123,6 @@ final class GeneratedTestCommandFixture {
                         + """
 
                         [generated.tools.openapi]
-                        kind = "openapi"
                         coordinate = "com.example:openapi-generator"
                         version = "1.0.0"
 

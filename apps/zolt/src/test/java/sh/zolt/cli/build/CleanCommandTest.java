@@ -333,9 +333,6 @@ final class CleanCommandTest {
                 version = "0.1.0"
                 group = "com.example"
                 java = %s
-
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
                 %s
                 """.formatted(name, currentJavaMajorVersion(), extraToml));
     }

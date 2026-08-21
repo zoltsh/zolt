@@ -1,5 +1,6 @@
 package sh.zolt.cli.supplychain;
 
+import static sh.zolt.cli.CliTestSupport.bomConfig;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,7 +69,7 @@ final class SbomCommandTest {
     void bomWithoutAResolvedGraphProducesMetadataOnly() throws IOException {
         Path projectDir = tempDir.resolve("platform");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("platform") + """
+        Files.writeString(projectDir.resolve("zolt.toml"), bomConfig("platform") + """
 
                 [bom]
                 members = true

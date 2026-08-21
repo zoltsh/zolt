@@ -133,6 +133,10 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
 
                 [repositories.internal]
                 url = "%s"
+                credentials = "company"
+
+                [credentials.company]
+                tokenEnv = "PATH"
                 """.formatted(repository.baseUri()));
         Files.writeString(member.resolve("zolt.toml"), """
                 [project]
@@ -140,13 +144,6 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
                 version = "1.0.0"
                 group = "com.acme"
                 java = 21
-
-                [repositories.internal]
-                url = "%s"
-                credentials = "company"
-
-                [credentials.company]
-                tokenEnv = "PATH"
 
                 [dependencies]
                 "org.example:dependency" = "1.0.0"
@@ -157,7 +154,7 @@ final class WorkspaceRepositoryAuthenticationCommandTest {
                 [publish.repositories.internal]
                 url = "%s"
                 credentials = "company"
-                """.formatted(repository.baseUri(), repository.baseUri()));
+                """.formatted(repository.baseUri()));
         Path artifact = member.resolve("target/lib-1.0.0.jar");
         Files.writeString(artifact, "authenticated command fixture\n");
         Files.writeString(

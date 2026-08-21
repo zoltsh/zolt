@@ -83,7 +83,7 @@ final class PublishCommandCentralUploadTest {
 
                 [publish.central]
                 tokenEnv = "ZOLT_CENTRAL_TOKEN"
-                publishingType = "automatic"
+                mode = "automatic"
                 """);
         CliTestPackageEvidence.write(projectDir);
         return projectDir;

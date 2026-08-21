@@ -30,7 +30,6 @@ final class PlanCommandGeneratedNativeTest {
                 openapi = "7.11.0"
 
                 [generated.tools.openapi]
-                kind = "openapi"
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 

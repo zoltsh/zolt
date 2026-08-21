@@ -27,7 +27,7 @@ final class PublishCommandMemberCentralDryRunTest {
     @Test
     void memberDirectoryRendersTheCentralChecklistFromTheAggregatedLockWithoutNetwork() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
-            Path memberDir = workspace(repository, "core", readyMemberConfig("core", repository));
+            Path memberDir = workspace(repository, "core", readyMemberConfig("core"));
             Path cacheRoot = tempDir.resolve("cache");
             assertEquals(0, resolveWorkspace(memberDir, cacheRoot).exitCode());
             // A --workspace resolve writes only the root lock; the member deliberately has none.
@@ -63,7 +63,7 @@ final class PublishCommandMemberCentralDryRunTest {
     @Test
     void memberWithIncompleteReadinessShowsTheUncheckedBoxes() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
-            Path memberDir = workspace(repository, "bare", bareMemberConfig("bare", repository));
+            Path memberDir = workspace(repository, "bare", bareMemberConfig("bare"));
             Path cacheRoot = tempDir.resolve("cache");
             assertEquals(0, resolveWorkspace(memberDir, cacheRoot).exitCode());
             repository.clearAuthorizations();
@@ -95,7 +95,7 @@ final class PublishCommandMemberCentralDryRunTest {
     @Test
     void offlineMemberDryRunWithNoRootLockFailsWithoutTouchingTheNetwork() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
-            Path memberDir = workspace(repository, "core", readyMemberConfig("core", repository));
+            Path memberDir = workspace(repository, "core", readyMemberConfig("core"));
             Path cacheRoot = tempDir.resolve("cache");
             // Deliberately no `resolve --workspace`: the root lock is absent, which is what forces the
             // planner to resolve rather than read.
@@ -121,13 +121,13 @@ final class PublishCommandMemberCentralDryRunTest {
     @Test
     void staleRootLockRefusesTheMemberDryRunOnlineAndOffline() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
-            Path memberDir = workspace(repository, "core", readyMemberConfig("core", repository));
+            Path memberDir = workspace(repository, "core", readyMemberConfig("core"));
             Path workspaceDir = memberDir.getParent().getParent();
             Path cacheRoot = tempDir.resolve("cache");
             assertEquals(0, resolveWorkspace(memberDir, cacheRoot).exitCode());
             String freshLockfile = Files.readString(workspaceDir.resolve("zolt.lock"));
-            // Change a resolution input so the root lock no longer matches the workspace config. The
-            // repository URL is declared in both files and they must agree, so both move together.
+            // Change a resolution input so the root lock no longer matches the workspace config.
+            // The workspace root owns the repository universe, so only the root manifest moves.
             String changed = repository.baseUri() + "./";
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
@@ -139,7 +139,7 @@ final class PublishCommandMemberCentralDryRunTest {
                     [repositories.test]
                     url = "%s"
                     """.formatted(changed));
-            Files.writeString(memberDir.resolve("zolt.toml"), readyMemberConfig("core", changed));
+            Files.writeString(memberDir.resolve("zolt.toml"), readyMemberConfig("core"));
 
             CommandResult online = execute("publish", "--dry-run", "--central",
                     "--cwd", memberDir.toString(),
@@ -172,7 +172,7 @@ final class PublishCommandMemberCentralDryRunTest {
     @Test
     void aStaleWorkspaceLockNeverRefusesANestedNonMemberProject() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
-            Path memberDir = workspace(repository, "core", readyMemberConfig("core", repository));
+            Path memberDir = workspace(repository, "core", readyMemberConfig("core"));
             Path workspaceDir = memberDir.getParent().getParent();
             Path cacheRoot = tempDir.resolve("cache");
             assertEquals(0, resolveWorkspace(memberDir, cacheRoot).exitCode());
@@ -181,7 +181,7 @@ final class PublishCommandMemberCentralDryRunTest {
             // its own zolt.lock, resolved and packaged on the standalone path.
             Path outsider = workspaceDir.resolve("modules/outsider");
             Files.createDirectories(outsider);
-            Files.writeString(outsider.resolve("zolt.toml"), readyMemberConfig("outsider", repository));
+            Files.writeString(outsider.resolve("zolt.toml"), readyStandaloneConfig("outsider", repository));
             Path source = outsider.resolve("src/main/java/com/example/outsider/Main.java");
             Files.createDirectories(source.getParent());
             Files.writeString(source, """
@@ -207,7 +207,7 @@ final class PublishCommandMemberCentralDryRunTest {
                     [repositories.test]
                     url = "%s"
                     """.formatted(changed));
-            Files.writeString(memberDir.resolve("zolt.toml"), readyMemberConfig("core", changed));
+            Files.writeString(memberDir.resolve("zolt.toml"), readyMemberConfig("core"));
             repository.clearAuthorizations();
 
             CommandResult result = execute("publish", "--dry-run", "--central",
@@ -225,13 +225,13 @@ final class PublishCommandMemberCentralDryRunTest {
     @Test
     void nonMemberDirectoryInsideAWorkspaceTreeKeepsTheStandaloneLockPath() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
-            Path memberDir = workspace(repository, "core", readyMemberConfig("core", repository));
+            Path memberDir = workspace(repository, "core", readyMemberConfig("core"));
             Path workspaceDir = memberDir.getParent().getParent();
             // A directory under the workspace tree that is NOT a declared member stays standalone, so it
             // still needs its own zolt.lock rather than borrowing the workspace one.
             Path outsider = workspaceDir.resolve("modules/outsider");
             Files.createDirectories(outsider);
-            Files.writeString(outsider.resolve("zolt.toml"), readyMemberConfig("outsider", repository));
+            Files.writeString(outsider.resolve("zolt.toml"), readyStandaloneConfig("outsider", repository));
 
             CommandResult result = execute("publish", "--dry-run", "--central", "--cwd", outsider.toString());
 
@@ -280,22 +280,12 @@ final class PublishCommandMemberCentralDryRunTest {
                 "--cache-root", cacheRoot.toString());
     }
 
-    private static String readyMemberConfig(String name, CliTestRepository repository) {
-        return readyMemberConfig(name, repository.baseUri().toString());
-    }
-
-    private static String readyMemberConfig(String name, String repositoryUri) {
+    /** A workspace member: the root owns the repository universe (design 8.7). */
+    private static String readyMemberConfig(String name) {
         return memberConfig(name) + """
-
-                [repositories.test]
-                url = "%s"
-
-                [dependencies]
-                "com.example:app" = "1.0.0"
-
-                [package]
-                sources = true
-                javadoc = true
+                description = "A Central-ready workspace member."
+                url = "https://example.com/family-core"
+                license = "Apache-2.0"
 
                 [project.scm]
                 url = "https://github.com/example/family"
@@ -304,6 +294,13 @@ final class PublishCommandMemberCentralDryRunTest {
                 [project.developers.ada]
                 name = "Ada Lovelace"
                 email = "ada@example.com"
+
+                [dependencies]
+                "com.example:app" = "1.0.0"
+
+                [package]
+                sources = true
+                javadoc = true
 
                 [publish]
                 release = "company-releases"
@@ -314,14 +311,20 @@ final class PublishCommandMemberCentralDryRunTest {
                 [publish.signing]
                 method = "gpg"
                 keyId = "ABCDEF0123456789"
-                """.formatted(repositoryUri);
+                """;
     }
 
-    private static String bareMemberConfig(String name, CliTestRepository repository) {
-        return memberConfig(name) + """
+    /** The same project standing alone outside the workspace, so it owns its own repositories. */
+    private static String readyStandaloneConfig(String name, CliTestRepository repository) {
+        return readyMemberConfig(name) + """
 
                 [repositories.test]
                 url = "%s"
+                """.formatted(repository.baseUri());
+    }
+
+    private static String bareMemberConfig(String name) {
+        return memberConfig(name) + """
 
                 [dependencies]
                 "com.example:app" = "1.0.0"
@@ -331,6 +334,6 @@ final class PublishCommandMemberCentralDryRunTest {
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
-                """.formatted(repository.baseUri());
+                """;
     }
 }

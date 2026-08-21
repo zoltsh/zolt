@@ -56,7 +56,6 @@ final class CheckProjectModelCommandTest {
                 "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat" }
 
                 [generated.tools.openapi]
-                kind = "openapi"
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 

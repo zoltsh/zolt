@@ -104,9 +104,12 @@ final class NativeCommandWorkspaceSpringBootTest {
                 [workspace.members]
                 default = ["apps/implicit"]
                 include = ["apps/implicit", "apps/second"]
-                """);
-        writeMember(workspace.resolve("apps/implicit"), "implicit", repositoryUrl, false);
-        writeMember(workspace.resolve("apps/second"), "second", repositoryUrl, false);
+
+                [repositories.test]
+                url = "%s"
+                """.formatted(repositoryUrl));
+        writeMember(workspace.resolve("apps/implicit"), "implicit", false);
+        writeMember(workspace.resolve("apps/second"), "second", false);
         return workspace;
     }
 
@@ -120,22 +123,24 @@ final class NativeCommandWorkspaceSpringBootTest {
                 [workspace.members]
                 default = ["apps/declared"]
                 include = ["apps/declared"]
-                """);
-        writeMember(workspace.resolve("apps/declared"), "declared", repositoryUrl, true);
+
+                [repositories.test]
+                url = "%s"
+                """.formatted(repositoryUrl));
+        writeMember(workspace.resolve("apps/declared"), "declared", true);
         return workspace;
     }
 
     private static void writeMember(
             Path member,
             String name,
-            String repositoryUrl,
             boolean declaredLoader) throws IOException {
         Files.createDirectories(member);
         String loader = declaredLoader
                 ? """
 
                 [dependencies.runtime]
-                "org.springframework.boot:spring-boot-loader" = {}
+                "org.springframework.boot:spring-boot-loader" = { managed = true }
                 """
                 : "";
         Files.writeString(member.resolve("zolt.toml"), """
@@ -146,9 +151,6 @@ final class NativeCommandWorkspaceSpringBootTest {
                 java = 21
                 main = "com.example.Main"
 
-                [repositories.test]
-                url = "%s"
-
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
 
@@ -158,7 +160,7 @@ final class NativeCommandWorkspaceSpringBootTest {
                 [framework.spring-boot]
                 native = true
                 %s
-                """.formatted(name, repositoryUrl, loader));
+                """.formatted(name, loader));
         Path source = member.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, """

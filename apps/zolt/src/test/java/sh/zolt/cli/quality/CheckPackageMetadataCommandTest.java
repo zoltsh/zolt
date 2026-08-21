@@ -143,31 +143,32 @@ final class CheckPackageMetadataCommandTest {
     }
 
     private static String libraryPackageConfig(String displayName, String moduleName, boolean tests) {
-        String testsSetting = tests ? "tests = true\n" : "";
+        String testsSetting = tests ? "testJar = true\n" : "";
         return """
+                description = "Fixture library metadata for zolt check."
+                url = "https://example.com/%s"
+                issues = "https://example.com/%s/issues"
+                license = "Apache-2.0"
+
+                [project.scm]
+                url = "https://example.com/%s.git"
+
+                [project.developers.zolt]
+                name = "%s"
+                email = "team@example.com"
 
                 [package]
-                mode = "thin"
                 sources = true
                 javadoc = true
                 %s
-                [package.metadata]
-                name = "%s"
-                description = "Fixture library metadata for zolt check."
-                url = "https://example.com/%s"
-                license = "Apache-2.0"
-                developers = ["Zolt Team"]
-                scm = "https://example.com/%s.git"
-                issues = "https://example.com/%s/issues"
-
                 [package.manifest]
                 "Automatic-Module-Name" = "%s"
                 """.formatted(
-                testsSetting,
+                moduleName,
+                moduleName,
+                moduleName,
                 displayName,
-                moduleName,
-                moduleName,
-                moduleName,
+                testsSetting,
                 moduleName);
     }
 }

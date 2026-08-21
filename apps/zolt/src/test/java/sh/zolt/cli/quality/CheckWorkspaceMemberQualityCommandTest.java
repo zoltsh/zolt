@@ -303,7 +303,7 @@ final class CheckWorkspaceMemberQualityCommandTest {
 
                 [dependencies]
                 "org.example:dual" = {}
-                "org.example:parent" = { version = "1.0.0", exclusions = [{ group = "org.example", artifact = "excluded" }] }
+                "org.example:parent" = { version = "1.0.0", exclude = ["org.example:excluded"] }
 
                 [dependencies.policy.licenses]
                 deny = ["Apache-2.0"]

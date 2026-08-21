@@ -29,6 +29,8 @@ final class PublishCommandSourcesJavadocTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
+                description = "Demo library for sources and javadoc publishing."
+                url = "https://example.com/demo"
 
                 [repositories]
                 central = "https://repo.maven.apache.org/maven2"
