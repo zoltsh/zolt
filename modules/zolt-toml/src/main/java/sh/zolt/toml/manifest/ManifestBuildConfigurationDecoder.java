@@ -142,17 +142,17 @@ final class ManifestBuildDecoder {
             Presence presence) {
         Optional<ValidatedManifestField> buildInfoField = index.field(
                 FinalManifestBuildFields.BUILD_METADATA_BUILD_INFO);
-        Optional<Boolean> buildInfo = bool(buildInfoField);
+        Optional<Boolean> buildInfo = buildInfoField.map(ManifestTomlValues::booleanValue);
         buildInfoField.ifPresent(field -> presence.metadata(
                 field, sources, buildInfo, Optional.empty(), Optional.empty()));
         Optional<ValidatedManifestField> gitField = index.field(
                 FinalManifestBuildFields.BUILD_METADATA_GIT);
-        Optional<Boolean> git = bool(gitField);
+        Optional<Boolean> git = gitField.map(ManifestTomlValues::booleanValue);
         gitField.ifPresent(field -> presence.metadata(
                 field, sources, buildInfo, git, Optional.empty()));
         Optional<ValidatedManifestField> reproducibleField = index.field(
                 FinalManifestBuildFields.BUILD_METADATA_REPRODUCIBLE);
-        Optional<Boolean> reproducible = bool(reproducibleField);
+        Optional<Boolean> reproducible = reproducibleField.map(ManifestTomlValues::booleanValue);
         reproducibleField.ifPresent(field -> presence.metadata(
                 field, sources, buildInfo, git, reproducible));
         if (buildInfo.isEmpty() && git.isEmpty() && reproducible.isEmpty()) {
@@ -183,11 +183,6 @@ final class ManifestBuildDecoder {
         return field.map(value -> ManifestSemanticDiagnostics.construct(
                 value,
                 () -> new ManifestRelativePath(ManifestTomlValues.string(value))));
-    }
-
-    private static Optional<Boolean> bool(
-            Optional<ValidatedManifestField> field) {
-        return field.map(ManifestTomlValues::booleanValue);
     }
 
     private static final class Presence {

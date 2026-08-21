@@ -46,7 +46,11 @@ final class ManifestGeneratedSourcesDecoder {
         Objects.requireNonNull(index, "Manifest decode index is required.");
         Objects.requireNonNull(
                 observer, "Authored generated sources presence observer is required.");
-        firstPresentCollection(index).ifPresent(section ->
+        index.section(FinalManifestPaths.GENERATED_TOOLS)
+                .or(() -> index.section(FinalManifestPaths.GENERATED_PRESETS))
+                .or(() -> index.section(FinalManifestPaths.GENERATED_MAIN_STEPS))
+                .or(() -> index.section(FinalManifestPaths.GENERATED_TEST_STEPS))
+                .ifPresent(section ->
                 ManifestSemanticDiagnostics.construct(section, () -> {
                     AuthoredGeneratedSources empty = AuthoredGeneratedSources.empty();
                     observer.present(empty);
@@ -65,15 +69,7 @@ final class ManifestGeneratedSourcesDecoder {
                 && decodedSteps.test().isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(composition.generated());
-    }
-
-    private static Optional<ValidatedManifestSection> firstPresentCollection(
-            ManifestDecodeIndex index) {
-        return index.section(FinalManifestPaths.GENERATED_TOOLS)
-                .or(() -> index.section(FinalManifestPaths.GENERATED_PRESETS))
-                .or(() -> index.section(FinalManifestPaths.GENERATED_MAIN_STEPS))
-                .or(() -> index.section(FinalManifestPaths.GENERATED_TEST_STEPS));
+        return Optional.of(composition.generated);
     }
 
     private static AuthoredGeneratedSources appendStep(
@@ -206,10 +202,6 @@ final class ManifestGeneratedSourcesDecoder {
         private AuthoredGeneratedSources aggregate() {
             return new AuthoredGeneratedSources(tools, presets, main, test);
         }
-
-        private AuthoredGeneratedSources generated() {
-            return generated;
-        }
     }
 }
 
@@ -239,10 +231,9 @@ final class ManifestGeneratedPresetsDecoder {
             AuthoredGeneratedPresets presets = AuthoredGeneratedPresets.empty();
             for (ManifestDecodeIndex.SectionEntry entry :
                     index.sectionEntries(FinalManifestPaths.GENERATED_PRESET)) {
-                Row row = new Row(index, entry);
                 LocalId id = ManifestSemanticDiagnostics.construct(
                         entry.section(), () -> new LocalId(entry.key()));
-                requireOpenApiKind(row);
+                requireOpenApiKind(index, entry);
                 AuthoredOpenApiOptions options = ManifestOpenApiOptionsDecoder.decode(
                         index, entry, OPEN_API_FIELDS);
                 if (declarations.put(id, options) != null) {
@@ -256,26 +247,16 @@ final class ManifestGeneratedPresetsDecoder {
         });
     }
 
-    private static void requireOpenApiKind(Row row) {
-        ValidatedManifestField field = row.required(GENERATED_PRESET_KIND);
+    private static void requireOpenApiKind(
+            ManifestDecodeIndex index,
+            ManifestDecodeIndex.SectionEntry entry) {
+        ValidatedManifestField field = ManifestSemanticDiagnostics.requiredField(
+                index, entry, GENERATED_PRESET_KIND);
         String value = ManifestTomlValues.string(field);
         if (!value.equals("openapi")) {
             throw new IllegalStateException(
                     "Final manifest schema accepted generated-preset kind `" + value
                             + "` at `" + field.path() + "` but the decoder does not recognize it.");
-        }
-    }
-
-    private record Row(
-            ManifestDecodeIndex index,
-            ManifestDecodeIndex.SectionEntry entry) {
-        private Row {
-            Objects.requireNonNull(index, "Manifest decode index is required.");
-            Objects.requireNonNull(entry, "Generated preset section entry is required.");
-        }
-
-        private ValidatedManifestField required(ManifestField handle) {
-            return ManifestSemanticDiagnostics.requiredField(index, entry, handle);
         }
     }
 }
