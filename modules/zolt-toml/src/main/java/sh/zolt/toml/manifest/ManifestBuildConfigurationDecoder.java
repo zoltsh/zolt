@@ -27,18 +27,47 @@ final class ManifestBuildConfigurationDecoder {
     private final ManifestTestsDecoder testsDecoder = new ManifestTestsDecoder();
     private final ManifestCoverageDecoder coverageDecoder = new ManifestCoverageDecoder();
 
-    Decoded decode(ManifestDecodeIndex index) {
+    Decoded decode(
+            ManifestDecodeIndex index,
+            BuildDomainObserver observer) {
         Objects.requireNonNull(index, "Manifest decode index is required.");
-        Optional<AuthoredBuild> build = buildDecoder.decode(index, ignored -> {});
-        Optional<AuthoredCompiler> compiler = compilerDecoder.decode(index, ignored -> {});
-        Optional<AuthoredResources> resources = resourcesDecoder.decode(index, ignored -> {});
-        Optional<AuthoredGeneratedSources> generated =
-                generatedDecoder.decode(index, ignored -> {});
-        Optional<AuthoredTests> tests = testsDecoder.decode(index, ignored -> {});
+        Objects.requireNonNull(observer, "Authored build domain observer is required.");
+        Optional<AuthoredBuild> build = buildDecoder.decode(index, partial ->
+                observer.present(snapshot(
+                        Optional.of(partial), Optional.empty(), Optional.empty(),
+                        Optional.empty(), Optional.empty())));
+        Optional<AuthoredCompiler> compiler = compilerDecoder.decode(index, partial ->
+                observer.present(snapshot(
+                        build, Optional.of(partial), Optional.empty(),
+                        Optional.empty(), Optional.empty())));
+        Optional<AuthoredResources> resources = resourcesDecoder.decode(index, partial ->
+                observer.present(snapshot(
+                        build, compiler, Optional.of(partial),
+                        Optional.empty(), Optional.empty())));
+        Optional<AuthoredGeneratedSources> generated = generatedDecoder.decode(index, partial ->
+                observer.present(snapshot(
+                        build, compiler, resources, Optional.empty(), Optional.of(partial))));
+        Optional<AuthoredTests> tests = testsDecoder.decode(index, partial -> observer.present(
+                snapshot(build, compiler, resources, Optional.of(partial), generated)));
         Optional<AuthoredCoverage> coverage = coverageDecoder.decode(index);
-        AuthoredBuildConfiguration configuration = new AuthoredBuildConfiguration(
-                build, compiler, resources, tests, coverage);
-        return new Decoded(configuration, generated);
+        return new Decoded(
+                new AuthoredBuildConfiguration(build, compiler, resources, tests, coverage),
+                generated);
+    }
+
+    private static Decoded snapshot(
+            Optional<AuthoredBuild> build,
+            Optional<AuthoredCompiler> compiler,
+            Optional<AuthoredResources> resources,
+            Optional<AuthoredTests> tests,
+            Optional<AuthoredGeneratedSources> generated) {
+        return new Decoded(new AuthoredBuildConfiguration(
+                build, compiler, resources, tests, Optional.empty()), generated);
+    }
+
+    @FunctionalInterface
+    interface BuildDomainObserver {
+        void present(Decoded domains);
     }
 
     record Decoded(

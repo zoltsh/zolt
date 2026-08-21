@@ -15,11 +15,23 @@ public final class ManifestBuildTestSupport {
     }
 
     public static AuthoredBuildConfiguration decodeBuildConfiguration(String source) {
-        return decode(source).build();
+        return decodeBuildDomains(source).build();
     }
 
     public static Optional<AuthoredGeneratedSources> decodeGeneratedSources(String source) {
-        return decode(source).generated();
+        return decodeBuildDomains(source).generated();
+    }
+
+    public static Decoded decodeBuildDomains(String source) {
+        return decodeBuildDomains(source, ignored -> {});
+    }
+
+    public static Decoded decodeBuildDomains(
+            String source, Consumer<Decoded> observer) {
+        ManifestBuildConfigurationDecoder.BuildDomainObserver adapted =
+                observer == null ? null : domains -> observer.accept(project(domains));
+        return project(new ManifestBuildConfigurationDecoder().decode(
+                ManifestSemanticTestSupport.index(source), adapted));
     }
 
     public static Optional<AuthoredGeneratedSources> decodeGeneratedSources(
@@ -95,7 +107,7 @@ public final class ManifestBuildTestSupport {
     }
 
     public static void decodeBuildConfigurationWithNullIndex() {
-        new ManifestBuildConfigurationDecoder().decode(null);
+        new ManifestBuildConfigurationDecoder().decode(null, ignored -> {});
     }
 
     public static void constructBuildDomainsWithNullConfiguration() {
@@ -106,8 +118,11 @@ public final class ManifestBuildTestSupport {
         new ManifestBuildConfigurationDecoder.Decoded(AuthoredBuildConfiguration.empty(), null);
     }
 
-    private static ManifestBuildConfigurationDecoder.Decoded decode(String source) {
-        return new ManifestBuildConfigurationDecoder().decode(
-                ManifestSemanticTestSupport.index(source));
+    public record Decoded(
+            AuthoredBuildConfiguration build,
+            Optional<AuthoredGeneratedSources> generated) {}
+
+    private static Decoded project(ManifestBuildConfigurationDecoder.Decoded decoded) {
+        return new Decoded(decoded.build(), decoded.generated());
     }
 }
