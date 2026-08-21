@@ -72,7 +72,7 @@ the selected Zolt root rather than constructing or decoding them.
 
 For a workspace, schema v2 also emits literal workspace-root `[platforms]` as a
 distinct `workspace-root` scope. Its `manifestPath` is the policy manifest that
-owns the entry (`zolt.toml` or `zolt-workspace.toml`), and its `lockfilePath` is
+owns the entry (the workspace root `zolt.toml`), and its `lockfilePath` is
 the aggregate root `zolt.lock`. When the root manifest is itself member `.`, the
 ordinary member scope owns those entries and no duplicate root target is emitted.
 Root-platform candidates must be visible through every distinct effective member
