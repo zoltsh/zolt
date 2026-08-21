@@ -50,7 +50,7 @@ final class PublishCommandEvidenceTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-supplemental-artifacts") + """
 
                 [package]
@@ -91,7 +91,7 @@ final class PublishCommandEvidenceTest {
                 }
                 """.formatted(sha256(artifact)));
         Files.writeString(artifact, "tampered\n", StandardOpenOption.APPEND);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-stale-package-evidence") + """
 
                 [publish]
@@ -131,7 +131,7 @@ final class PublishCommandEvidenceTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(sha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-evidence-archive-mismatch") + """
 
                 [publish]

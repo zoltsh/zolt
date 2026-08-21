@@ -57,7 +57,7 @@ final class PublishCommandReleaseContextSnapshotTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-snapshot")
                 .replace("version = \"0.1.0\"", "version = \"0.1.0-SNAPSHOT\"") + """
 

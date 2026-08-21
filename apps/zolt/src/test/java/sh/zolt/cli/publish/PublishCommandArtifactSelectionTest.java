@@ -34,7 +34,7 @@ final class PublishCommandArtifactSelectionTest {
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Path artifact = projectDir.resolve("target/demo-0.1.0.war");
         Files.createDirectories(artifact.getParent());
         Files.writeString(artifact, "fake spring boot war\n");

@@ -271,13 +271,24 @@ final class LicensesCommandPolicyTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + policy);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
                 projectResolutionFingerprint = "sha256:cli-licenses-policy"
                 """ + packages);
     }
 
     private static String lockPackage(String artifact, String scope) {
+        String lane = scope.equals("compile") ? "implementation" : scope;
+        String variant = scope.equals("test") ? "variant = \"jar|tests\"\n" : "";
+        String classifier = scope.equals("test") ? "-tests" : "";
         return """
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:%1$s"
+                version = "1.0.0"
+                %4$s
+                lane = "%3$s"
+                resolvedScope = "%2$s"
 
                 [[package]]
                 id = "org.example:%1$s"
@@ -285,11 +296,11 @@ final class LicensesCommandPolicyTest {
                 source = "maven-central"
                 scope = "%2$s"
                 direct = true
-                jar = "org/example/%1$s/1.0.0/%1$s-1.0.0.jar"
+                jar = "org/example/%1$s/1.0.0/%1$s-1.0.0%5$s.jar"
                 pom = "org/example/%1$s/1.0.0/%1$s-1.0.0.pom"
                 jarSha256 = "1111111111111111111111111111111111111111111111111111111111111111"
                 dependencies = []
-                """.formatted(artifact, scope);
+                """.formatted(artifact, scope, lane, variant, classifier);
     }
 
     private static void writePom(Path cache, String licenseName) throws IOException {

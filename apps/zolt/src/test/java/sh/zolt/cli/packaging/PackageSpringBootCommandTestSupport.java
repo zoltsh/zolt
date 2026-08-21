@@ -66,7 +66,28 @@ final class PackageSpringBootCommandTestSupport {
 
     static void writeSpringBootWarProvidedTomcatLockfile(Path projectDir, Path cacheRoot) throws IOException {
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.apache.tomcat.embed:tomcat-embed-core"
+                version = "10.1.40"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"
@@ -145,7 +166,7 @@ final class PackageSpringBootCommandTestSupport {
                 cacheRoot.resolve("com/example/runtime-lib/1.0.0/runtime-lib-1.0.0.jar"),
                 "com/example/runtime/RuntimeLib.class");
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"

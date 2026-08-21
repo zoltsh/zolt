@@ -94,12 +94,19 @@ final class PublishCommandSbomTest {
     }
 
     @Test
-    void publishSbomRefusesAmbiguousLegacyGraphBeforePlanningUploads() throws IOException {
+    void publishSbomRefusesAmbiguousCurrentGraphBeforePlanningUploads() throws IOException {
         Path projectDir = tempDir.resolve("ambiguous-publish-sbom");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo"));
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 2
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:parent"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.example:parent"

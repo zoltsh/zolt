@@ -83,7 +83,7 @@ final class PublishCommandUploadTest {
                 sha256(sourcesArtifact),
                 sha256(javadocArtifact),
                 sha256(testsArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (UploadRepository repository = UploadRepository.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-upload-release") + """

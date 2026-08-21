@@ -41,7 +41,7 @@ final class PublishCommandCredentialTest {
                 usernameEnv = "ZOLT_TEST_MISSING_PUBLISH_USERNAME"
                 passwordEnv = "ZOLT_TEST_MISSING_PUBLISH_PASSWORD"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "publish",
@@ -70,7 +70,7 @@ final class PublishCommandCredentialTest {
                 [publish.repositories.company-releases]
                 url = "https://publish-user:super-secret@repo.example.test/releases"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "publish",
@@ -135,7 +135,7 @@ final class PublishCommandCredentialTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         // A configured internal Nexus whose credential env vars are UNSET, plus a Central deployment.
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("nexus-central") + """
 

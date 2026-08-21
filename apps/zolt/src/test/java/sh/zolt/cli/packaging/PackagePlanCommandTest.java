@@ -73,7 +73,14 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
                 enabled = true
                 """);
         write(projectDir.resolve("zolt.lock"), projectDir.resolve(".zolt/cache"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "io.quarkus:quarkus-rest"
+                version = "3.33.0"
+                lane = "runtime"
+                resolvedScope = "runtime"
 
                 [[package]]
                 id = "io.quarkus:quarkus-rest"

@@ -28,7 +28,7 @@ final class CheckPackageContentsEvidenceTest {
         Path projectDir = tempDir.resolve("check-context-ci-require-package-missing");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), CliTestSupport.memberConfig("check-context-ci-require-package-missing"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",

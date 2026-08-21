@@ -40,7 +40,7 @@ final class PublishCommandReleaseContextTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-blocked") + """
 
                 [publish]
@@ -108,7 +108,7 @@ final class PublishCommandReleaseContextTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-ok") + """
 
                 [package]

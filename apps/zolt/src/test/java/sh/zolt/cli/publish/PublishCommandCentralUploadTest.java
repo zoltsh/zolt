@@ -66,7 +66,7 @@ final class PublishCommandCentralUploadTest {
                   ]
                 }
                 """.formatted(name, sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig(name) + """
 
                 [package]

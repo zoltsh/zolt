@@ -31,7 +31,35 @@ abstract class PackagePlanCommandTestSupport {
                 """
                 : "";
         write(projectDir.resolve("zolt.lock"), projectDir.resolve(".zolt/cache"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-lib"
+                version = "1.0.0"
+                lane = "test"
+                resolvedScope = "test"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"
