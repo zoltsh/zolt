@@ -86,6 +86,11 @@ public final class ManifestProjectConfigLoader {
         return ProjectConfigCoverage.authored(document(source).authored().build().coverage());
     }
 
+    /** Parses and composes the manifest at {@code path} into its effective standalone view. */
+    public EffectiveManifest effective(Path path) {
+        return effective(read(path));
+    }
+
     /** Parses and composes {@code source} into its effective standalone view. */
     public EffectiveManifest effective(String source) {
         Objects.requireNonNull(source, "Manifest source is required.");
