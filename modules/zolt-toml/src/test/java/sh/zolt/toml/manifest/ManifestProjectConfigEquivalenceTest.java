@@ -1001,6 +1001,56 @@ final class ManifestProjectConfigEquivalenceTest {
     }
 
     @Test
+    void projectPseudoToolExecStepPairIsEquivalent() {
+        assertEquivalent(
+                """
+                [project]
+                name = "secrets"
+                version = "1.0.0"
+                group = "com.example"
+                java = "21"
+
+                [generated.main.codegen]
+                kind = "exec"
+                language = "java"
+                tool = "project"
+                mainClass = "com.example.Codegen"
+                inputs = ["src/main/codegen"]
+                output = "target/generated/sources/codegen"
+                produces = "java-sources"
+                cache = "none"
+                secretEnv = { DB_PASSWORD = "CODEGEN_DB_PASSWORD" }
+                """,
+                """
+                [project]
+                name = "secrets"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [generated.main.codegen]
+                kind = "exec"
+                tool = "project"
+                mainClass = "com.example.Codegen"
+                inputs = ["src/main/codegen"]
+                output = "target/generated/sources/codegen"
+                produces = "java-sources"
+                cache = "none"
+                secretEnv = { DB_PASSWORD = "CODEGEN_DB_PASSWORD" }
+                """);
+    }
+
+    @Test
+    void virtualWorkspaceRootCoverageFloorsLoadWithoutAProjectDomain() throws IOException {
+        CoverageSettings floors = loader.coverageFloors(goldenSource("virtual-workspace.toml"));
+
+        assertEquals(Optional.of(88.0), floors.minLine());
+        assertEquals(Optional.of(74.0), floors.minBranch());
+        assertEquals(Optional.empty(), floors.minInstruction());
+        assertEquals(Optional.empty(), floors.minMethod());
+    }
+
+    @Test
     void everyStandaloneGoldenLoadsThroughTheFinalBoundary() throws IOException {
         assertEquals("hello", golden("standalone-application.toml").project().name());
         ProjectConfig library = golden("library-api-boundary.toml");
@@ -1029,11 +1079,15 @@ final class ManifestProjectConfigEquivalenceTest {
     }
 
     private ProjectConfig golden(String resourceName) throws IOException {
+        return loader.load(goldenSource(resourceName));
+    }
+
+    private String goldenSource(String resourceName) throws IOException {
         try (java.io.InputStream stream =
                 getClass().getResourceAsStream("/golden/manifest-language/" + resourceName)) {
-            return loader.load(new String(
+            return new String(
                     java.util.Objects.requireNonNull(stream, resourceName).readAllBytes(),
-                    java.nio.charset.StandardCharsets.UTF_8));
+                    java.nio.charset.StandardCharsets.UTF_8);
         }
     }
 

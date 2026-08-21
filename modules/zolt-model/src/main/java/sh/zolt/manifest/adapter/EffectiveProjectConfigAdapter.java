@@ -6,13 +6,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import sh.zolt.dependency.DependencyLane;
-import sh.zolt.manifest.CoveragePercentage;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.PlatformSelector;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.authored.AuthoredBuild;
 import sh.zolt.manifest.authored.ProjectLocalDomains;
-import sh.zolt.manifest.effective.EffectiveCoverage;
 import sh.zolt.manifest.effective.EffectiveManifest;
 import sh.zolt.manifest.effective.EffectiveProject;
 import sh.zolt.manifest.effective.EffectiveSharedConfiguration;
@@ -134,15 +132,10 @@ public final class EffectiveProjectConfigAdapter {
                 lanes.metadata());
     }
 
-    /** The effective {@code [coverage]} floors as legacy {@link CoverageSettings}. */
+    /** The effective {@code [coverage]} floors, after workspace inheritance, as legacy settings. */
     public CoverageSettings coverage(EffectiveManifest manifest) {
         Objects.requireNonNull(manifest, "Effective manifest must not be null.");
-        EffectiveCoverage coverage = manifest.project().shared().coverage();
-        return new CoverageSettings(
-                floor(coverage.line()),
-                floor(coverage.branch()),
-                floor(coverage.instruction()),
-                floor(coverage.method()));
+        return ProjectConfigCoverage.effective(manifest.project().shared().coverage());
     }
 
     /**
@@ -193,7 +186,4 @@ public final class EffectiveProjectConfigAdapter {
         return Map.copyOf(platforms);
     }
 
-    private static Optional<Double> floor(Optional<EffectiveValue<CoveragePercentage>> value) {
-        return value.map(EffectiveValue::value).map(CoveragePercentage::value);
-    }
 }

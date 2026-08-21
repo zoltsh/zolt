@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 import sh.zolt.error.ActionableError;
 import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
+import sh.zolt.manifest.adapter.ProjectConfigCoverage;
 import sh.zolt.manifest.effective.EffectiveManifest;
 import sh.zolt.manifest.effective.EffectiveManifestComposer;
 import sh.zolt.project.CoverageSettings;
@@ -74,9 +75,13 @@ public final class ManifestProjectConfigLoader {
         return coverageFloors(read(path));
     }
 
-    /** Reads the {@code [coverage]} floors from already-captured manifest bytes. */
+    /**
+     * Reads the {@code [coverage]} floors from already-captured manifest bytes. The floors are read
+     * exactly as authored so a virtual workspace root, which carries {@code [coverage]} but no
+     * {@code [project]} to compose, is a valid input.
+     */
     public CoverageSettings coverageFloors(String source) {
-        return adapter.coverage(effective(source));
+        return ProjectConfigCoverage.authored(document(source).authored().build().coverage());
     }
 
     /** Parses and composes {@code source} into its effective standalone view. */
