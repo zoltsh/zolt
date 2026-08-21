@@ -168,7 +168,7 @@ public final class SbomCommand implements Runnable {
                             + "dependency graph, so listing components would be misleading).");
             SbomModel model = assembler.assemble(
                     configForMode,
-                    new ZoltLockfile(1, List.of(), List.of()),
+                    new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()),
                     selection,
                     timestampValue,
                     toolVersion,
