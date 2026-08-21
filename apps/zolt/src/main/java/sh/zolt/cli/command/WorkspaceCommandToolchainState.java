@@ -187,11 +187,20 @@ final class WorkspaceCommandToolchainState {
         }
         return captured(
                 workspace,
-                JavaToolchainRequest.projectDefault(
-                        member.config().project().java()),
+                JavaToolchainRequest.projectDefault(compilationRelease(member)),
                 false,
                 "[project].java",
                 Optional.empty());
+    }
+
+    /**
+     * A BOM has no compilation target, so design 12.6 forbids it a {@code [project].java}. It still
+     * needs a request to key the shared toolchain lane on; the host release is used because nothing
+     * of the BOM is ever compiled.
+     */
+    private static String compilationRelease(WorkspaceMember member) {
+        String release = member.config().project().java();
+        return release.isBlank() ? String.valueOf(Runtime.version().feature()) : release;
     }
 
     private CapturedMainToolchain captured(

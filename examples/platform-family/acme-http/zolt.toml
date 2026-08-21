@@ -2,26 +2,20 @@
 name = "acme-http"
 version = "1.0.0"
 group = "com.acme"
-java = "21"
-
-[build]
-source = "src/main/java"
-output = "target/classes"
-
-[api.dependencies]
-"com.acme:acme-core" = { workspace = "acme-core" }
-
-[package.metadata]
-name = "Acme HTTP"
+java = 21
 description = "HTTP client built on Acme Core."
 url = "https://example.test/acme"
 license = "Apache-2.0"
-licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-scm = "https://github.com/example/acme"
-scmConnection = "scm:git:https://github.com/example/acme.git"
+
+[project.scm]
+url = "https://github.com/example/acme"
+connection = "scm:git:https://github.com/example/acme.git"
+
+[dependencies.api]
+"com.acme:acme-core" = { workspace = true }
 
 [publish]
-releaseRepository = "local"
+release = "local"
 
 [publish.repositories.local]
 url = "https://repo.example.test/releases"

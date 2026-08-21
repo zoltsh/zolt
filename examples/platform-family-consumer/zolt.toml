@@ -2,11 +2,11 @@
 name = "platform-consumer"
 version = "0.1.0"
 group = "com.acme"
-java = "21"
+java = 21
 main = "com.acme.app.Main"
 
-[repositories]
-fixture = "https://fixture.example.test/repo"
+[repositories.fixture]
+url = "https://fixture.example.test/repo"
 
 # The Acme platform BOM supplies the managed version for every Acme dependency.
 [platforms]
@@ -14,4 +14,4 @@ fixture = "https://fixture.example.test/repo"
 
 # Declared version-less: the version is provided by the imported BOM above.
 [dependencies]
-"com.acme:acme-http" = {}
+"com.acme:acme-http" = { managed = true }
