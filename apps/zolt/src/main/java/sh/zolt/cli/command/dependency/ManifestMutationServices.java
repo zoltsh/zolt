@@ -1,24 +1,56 @@
 package sh.zolt.cli.command.dependency;
 
-import sh.zolt.cli.command.CommandServiceClusters.CommandConfigEditServices;
-import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.AtomicManifestWriter;
+import sh.zolt.toml.manifest.ZoltManifestDocument;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import sh.zolt.toml.manifest.edit.ManifestSourceEditor;
+import java.nio.file.Path;
 
 /**
- * The manifest read/write pair the source-safe mutation commands construct.
+ * The final-language read/edit/write trio every source-safe mutation command shares.
  *
- * <p>Every other command reads through the final loaders. Keeping the legacy parser and writer
- * behind this one factory inside the mutation package makes their remaining reach explicit and gives
- * the cleanup phase a single call site to retire.
+ * <p>Reads parse only the final manifest language and keep the exact captured source beside the
+ * authored model; edits go through {@link ManifestSourceEditor}, which patches only schema-declared
+ * mutable entries and fails closed rather than regenerating a file; writes replace the manifest
+ * atomically and only while the captured bytes are still on disk (design §18.5, §19).
  */
 public final class ManifestMutationServices {
-    private ManifestMutationServices() {
+    private final ManifestProjectConfigLoader loader;
+    private final ManifestSourceEditor editor;
+
+    public ManifestMutationServices() {
+        this(new ManifestProjectConfigLoader(), new ManifestSourceEditor());
     }
 
-    /** The read/write/resolve trio shared by the dependency and version-alias mutation commands. */
-    public static CommandConfigEditServices configEditServices(ResolveService resolveService) {
-        return new CommandConfigEditServices(
-                new ZoltTomlParser(), new ZoltTomlWriter(), resolveService);
+    public ManifestMutationServices(ManifestProjectConfigLoader loader, ManifestSourceEditor editor) {
+        this.loader = loader;
+        this.editor = editor;
+    }
+
+    /** Captures the manifest at {@code path} as source plus authored model. */
+    public ZoltManifestDocument document(Path path) {
+        return loader.document(path);
+    }
+
+    /** Captures already-read manifest bytes as source plus authored model. */
+    public ZoltManifestDocument document(String source) {
+        return loader.document(source);
+    }
+
+    /** Applies one authored delta to {@code original} without touching unrelated source. */
+    public ZoltManifestDocument edit(ZoltManifestDocument original, AuthoredManifest requested) {
+        return editor.edit(original, requested);
+    }
+
+    /** The standalone project view of edited manifest bytes, used to stage a resolve. */
+    public ProjectConfig standaloneConfig(String source) {
+        return loader.load(source);
+    }
+
+    /** Replaces {@code path} atomically, refusing when its captured bytes already changed. */
+    public void writePrepared(Path path, String original, String edited) {
+        AtomicManifestWriter.writePrepared(path, original, edited);
     }
 }

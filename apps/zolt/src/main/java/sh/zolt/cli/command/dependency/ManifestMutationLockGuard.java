@@ -1,7 +1,7 @@
 package sh.zolt.cli.command.dependency;
 
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -17,7 +17,7 @@ final class ManifestMutationLockGuard {
     static <T> T withLock(Path projectRoot, Function<Path, T> action) {
         Objects.requireNonNull(projectRoot, "projectRoot");
         Objects.requireNonNull(action, "action");
-        WorkspaceDiscoveryService discovery = new WorkspaceDiscoveryService();
+        ManifestWorkspaceLoader discovery = new ManifestWorkspaceLoader();
         Path standaloneRoot = projectRoot.toAbsolutePath().normalize();
         for (int attempt = 0; attempt < ROOT_CONFIRMATION_ATTEMPTS; attempt++) {
             Path lockRoot = discovery.discoverRoot(projectRoot)

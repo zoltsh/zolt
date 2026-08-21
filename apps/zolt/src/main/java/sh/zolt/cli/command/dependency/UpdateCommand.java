@@ -16,8 +16,6 @@ import sh.zolt.maven.repository.RepositoryAccessException;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.update.ExactUpdateOptions;
 import sh.zolt.update.UpdateCeiling;
 import sh.zolt.update.UpdateEngine;
@@ -100,35 +98,28 @@ public final class UpdateCommand implements Runnable {
 
     public UpdateCommand() {
         this(
-                CommandFrameworkServices.versionAliasCommandServices().tomlParser(),
-                CommandFrameworkServices.versionAliasCommandServices().tomlWriter(),
+                CommandFrameworkServices.versionAliasCommandServices().manifests(),
                 CommandFrameworkServices.versionAliasCommandServices().resolveService(),
                 defaultEngine());
     }
 
     UpdateCommand(
-            ZoltTomlParser tomlParser,
-            ZoltTomlWriter tomlWriter,
+            ManifestMutationServices manifests,
             ResolveService resolveService,
             UpdateEngine engine) {
-        this(tomlParser, tomlWriter, resolveService, engine, () -> {});
+        this(manifests, resolveService, engine, () -> {});
     }
 
     UpdateCommand(
-            ZoltTomlParser tomlParser,
-            ZoltTomlWriter tomlWriter,
+            ManifestMutationServices manifests,
             ResolveService resolveService,
             UpdateEngine engine,
             Runnable beforeExecution) {
         DependencyUpdateScopeResolver scopeResolver = new DependencyUpdateScopeResolver();
         this.policyRunner = new PolicyUpdateRunner(
-                tomlParser, tomlWriter, resolveService, engine, scopeResolver, beforeExecution);
+                manifests, resolveService, engine, scopeResolver, beforeExecution);
         this.exactRunner = new ExactUpdateRunner(
-                tomlParser,
-                tomlWriter,
-                resolveService,
-                scopeResolver,
-                beforeExecution);
+                manifests, resolveService, scopeResolver, beforeExecution);
     }
 
     @Override

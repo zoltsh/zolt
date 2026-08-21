@@ -2,8 +2,7 @@ package sh.zolt.cli.command.dependency;
 
 import sh.zolt.error.ActionableError;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.charset.StandardCharsets;
@@ -28,7 +27,7 @@ record ManifestMutationScope(
         if (!normalizedProject.equals(normalizedLockRoot)) {
             throw changedWorkspaceRoot();
         }
-        Workspace workspace = new WorkspaceDiscoveryService().load(normalizedProject);
+        Workspace workspace = new ManifestWorkspaceLoader().load(normalizedProject);
         if (!workspace.root().toAbsolutePath().normalize().equals(normalizedLockRoot)) {
             throw changedWorkspaceRoot();
         }
@@ -49,7 +48,7 @@ record ManifestMutationScope(
     static ManifestMutationScope discover(Path projectRoot, Path lockRoot) {
         Path normalizedProject = projectRoot.toAbsolutePath().normalize();
         Path normalizedLockRoot = lockRoot.toAbsolutePath().normalize();
-        Workspace workspace = discoverWorkspace(normalizedProject, normalizedLockRoot);
+        Workspace workspace = new ManifestWorkspaceLoader().discover(normalizedProject).orElse(null);
         if (workspace != null) {
             WorkspaceMember member = workspace.members().stream()
                     .filter(candidate -> candidate.directory().toAbsolutePath().normalize().equals(normalizedProject))
@@ -66,7 +65,7 @@ record ManifestMutationScope(
             }
             throw new ZoltConfigException(ActionableError.of(
                     "Manifest mutations require a standalone project or a declared workspace member.",
-                    "Run the command from a member directory, or add `.` to [workspace].members before editing "
+                    "Run the command from a member directory, or add `.` to [workspace.members] include before editing "
                             + normalizedProject
                             + "."));
         }
@@ -77,19 +76,6 @@ record ManifestMutationScope(
                 normalizedProject.resolve("zolt.lock"),
                 normalizedProject.resolve(".zolt").resolve(ManifestEditRecovery.TRANSACTION_DIRECTORY),
                 null);
-    }
-
-    private static Workspace discoverWorkspace(Path projectRoot, Path lockRoot) {
-        try {
-            return new WorkspaceDiscoveryService().discover(projectRoot).orElse(null);
-        } catch (WorkspaceConfigException exception) {
-            // Project manifests may retain an inert [workspace] domain for source-preservation.
-            if (projectRoot.equals(lockRoot)
-                    && RetainedEmptyWorkspaceDomain.existsAt(projectRoot)) {
-                return null;
-            }
-            throw exception;
-        }
     }
 
     private static Path workspaceTransaction(Path lockRoot, String identity) {

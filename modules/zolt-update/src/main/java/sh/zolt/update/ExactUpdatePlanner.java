@@ -5,9 +5,8 @@ import sh.zolt.dependency.VersionClassifier;
 import sh.zolt.dependency.VersionComparator;
 import sh.zolt.dependency.VersionStability;
 import sh.zolt.error.ActionableException;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.project.VersionPolicy;
-import sh.zolt.workspace.WorkspaceConfig;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,29 +18,14 @@ public final class ExactUpdatePlanner {
     private final VersionClassifier classifier = new VersionClassifier();
 
     public ExactUpdatePlan plan(
-            ProjectConfig config,
+            AuthoredManifest manifest,
             String manifestPath,
             String lockfilePath,
             UpdateTargetId targetId,
             ExactUpdateOptions options) {
         UpdateTarget target;
         try {
-            target = catalog.require(config, manifestPath, lockfilePath, targetId);
-        } catch (IllegalArgumentException exception) {
-            throw unknownTarget(targetId);
-        }
-        return plan(target, options);
-    }
-
-    public ExactUpdatePlan plan(
-            WorkspaceConfig config,
-            String manifestPath,
-            String lockfilePath,
-            UpdateTargetId targetId,
-            ExactUpdateOptions options) {
-        UpdateTarget target;
-        try {
-            target = catalog.require(config, manifestPath, lockfilePath, targetId);
+            target = catalog.require(manifest, manifestPath, lockfilePath, targetId);
         } catch (IllegalArgumentException exception) {
             throw unknownTarget(targetId);
         }
@@ -113,7 +97,7 @@ public final class ExactUpdatePlanner {
         return switch (surface) {
             case VERSION_ALIAS -> VersionPolicy.Context.VERSION_ALIAS;
             case DEPENDENCY, ANNOTATION_PROCESSOR -> VersionPolicy.Context.EXTERNAL_DEPENDENCY;
-            case PLATFORM -> VersionPolicy.Context.PLATFORM;
+            case PLATFORM, BOM_VERSION, BOM_IMPORT -> VersionPolicy.Context.PLATFORM;
             case DEPENDENCY_CONSTRAINT -> VersionPolicy.Context.CONSTRAINT;
             case EXEC_TOOL_COORDINATE, PROTOBUF_TOOL, OPENAPI_TOOL -> VersionPolicy.Context.TOOL_DEPENDENCY;
         };

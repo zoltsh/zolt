@@ -49,7 +49,7 @@ public final class CommandFrameworkServices {
     }
 
     static CommandConfigEditServices configEditServices() {
-        return ManifestMutationServices.configEditServices(resolveService());
+        return new CommandConfigEditServices(new ManifestMutationServices(), resolveService());
     }
 
     public static CommandDependencyEditServices dependencyEditCommandServices() {

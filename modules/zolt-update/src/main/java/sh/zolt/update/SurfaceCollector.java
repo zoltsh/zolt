@@ -1,232 +1,228 @@
 package sh.zolt.update;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.VersionStability;
-import sh.zolt.project.DependencyConstraint;
-import sh.zolt.project.DependencyMetadata;
-import sh.zolt.project.ExecToolCoordinate;
-import sh.zolt.project.GeneratedSourceKind;
-import sh.zolt.project.GeneratedSourceStep;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.workspace.WorkspaceConfig;
-import java.util.ArrayList;
-import java.util.Comparator;
+import sh.zolt.manifest.DependencyConstraintSelector;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.DependencySelector;
+import sh.zolt.manifest.GeneratedArtifactRequest;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.VersionAliasValue;
+import sh.zolt.manifest.authored.AuthoredBom;
+import sh.zolt.manifest.authored.AuthoredDependencies;
+import sh.zolt.manifest.authored.AuthoredDependency;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraint;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraints;
+import sh.zolt.manifest.authored.AuthoredGeneratedTool;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredPlatforms;
+import sh.zolt.manifest.authored.AuthoredVersionAliases;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * Walks a {@link ProjectConfig} and enumerates every discoverable version surface: version aliases,
- * literal-versioned dependencies in every scope, annotation processors, platforms, dependency
- * constraints, and generated exec/protobuf/openapi tool coordinates. versionRef-backed entries are
- * skipped (they report under their alias); SNAPSHOT literals and workspace-member dependencies are
- * ignored.
+ * Walks one {@link AuthoredManifest} and enumerates every literal version it declares: version
+ * aliases, fixed-version dependencies in every lane, platforms, dependency constraints, BOM pins and
+ * imports, and named generated-tool coordinates.
+ *
+ * <p>Only authored declarations are collected. A versionRef-backed entry reports under its alias, a
+ * platform-managed or workspace dependency has no literal to advance, SNAPSHOT literals are ignored,
+ * and a built-in tool default has no source span to update, so none of them are targets (design
+ * §20.1: one logical value, one source location).
  */
 final class SurfaceCollector {
-    private static final String PROJECT_TOOL = "project";
 
-    List<SurfaceRequest> collect(ProjectConfig config) {
+    List<SurfaceRequest> collect(AuthoredManifest manifest) {
         Map<String, SurfaceRequest> requests = new LinkedHashMap<>();
-        collectAliases(config, requests);
-        collectDependencyMap(config, config.dependencies(), "dependencies", OutdatedSurface.DEPENDENCY, requests);
-        collectDependencyMap(config, config.apiDependencies(), "api.dependencies", OutdatedSurface.DEPENDENCY, requests);
-        collectDependencyMap(
-                config, config.runtimeDependencies(), "runtime.dependencies", OutdatedSurface.DEPENDENCY, requests);
-        collectDependencyMap(
-                config, config.providedDependencies(), "provided.dependencies", OutdatedSurface.DEPENDENCY, requests);
-        collectDependencyMap(config, config.devDependencies(), "dev.dependencies", OutdatedSurface.DEPENDENCY, requests);
-        collectDependencyMap(config, config.testDependencies(), "test.dependencies", OutdatedSurface.DEPENDENCY, requests);
-        collectDependencyMap(
-                config,
-                config.annotationProcessors(),
-                "annotationProcessors",
-                OutdatedSurface.ANNOTATION_PROCESSOR,
-                requests);
-        collectDependencyMap(
-                config,
-                config.testAnnotationProcessors(),
-                "test.annotationProcessors",
-                OutdatedSurface.ANNOTATION_PROCESSOR,
-                requests);
-        collectDependencyMap(config, config.platforms(), "platforms", OutdatedSurface.PLATFORM, requests);
-        collectConstraints(config, requests);
-        collectGenerated(config, requests);
+        collectAliases(manifest, requests);
+        collectDependencies(manifest, requests);
+        collectPlatforms(manifest, requests);
+        collectConstraints(manifest, requests);
+        collectBom(manifest, requests);
+        collectGeneratedTools(manifest, requests);
         return List.copyOf(requests.values());
     }
 
-    List<SurfaceRequest> collect(WorkspaceConfig config) {
-        Map<String, SurfaceRequest> requests = new LinkedHashMap<>();
-        config.platforms().entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> {
-                    if (isSnapshot(entry.getValue())) {
-                        return;
-                    }
-                    DiscoveryCoordinate.of(entry.getKey()).ifPresent(discovery -> add(
+    private void collectAliases(AuthoredManifest manifest, Map<String, SurfaceRequest> requests) {
+        Map<LocalId, VersionAliasValue> aliases = manifest.versions()
+                .map(AuthoredVersionAliases::entries)
+                .orElseGet(Map::of);
+        aliases.forEach((alias, value) -> {
+            if (isSnapshot(value.value())) {
+                return;
+            }
+            List<AliasReference> references = AliasReferences.referencing(manifest, alias.value());
+            List<DiscoveryCoordinate> coordinates = references.stream()
+                    .map(AliasReference::coordinate)
+                    .flatMap(Optional::stream)
+                    .map(DiscoveryCoordinate::of)
+                    .flatMap(Optional::stream)
+                    .distinct()
+                    .toList();
+            add(requests, new SurfaceRequest(
+                    OutdatedSurface.VERSION_ALIAS,
+                    alias.value(),
+                    ManifestSections.VERSIONS,
+                    value.value(),
+                    coordinates,
+                    true,
+                    references.stream().map(AliasReference::label).toList()));
+        });
+    }
+
+    private void collectDependencies(AuthoredManifest manifest, Map<String, SurfaceRequest> requests) {
+        for (AuthoredDependency dependency : manifest.dependencies()
+                .map(AuthoredDependencies::declarations)
+                .orElseGet(List::of)) {
+            if (!(dependency.selector() instanceof DependencySelector.FixedVersion fixed)
+                    || isSnapshot(fixed.value())) {
+                continue;
+            }
+            add(
+                    requests,
+                    dependency.coordinate(),
+                    surfaceOf(dependency.lane()),
+                    ManifestSections.lane(dependency.lane()),
+                    fixed.value());
+        }
+    }
+
+    private void collectPlatforms(AuthoredManifest manifest, Map<String, SurfaceRequest> requests) {
+        manifest.platforms()
+                .map(AuthoredPlatforms::entries)
+                .orElseGet(Map::of)
+                .forEach((coordinate, selector) -> addPlatform(
+                        requests, coordinate, selector, OutdatedSurface.PLATFORM, ManifestSections.PLATFORMS));
+    }
+
+    private void collectConstraints(AuthoredManifest manifest, Map<String, SurfaceRequest> requests) {
+        Map<DependencyCoordinate, AuthoredDependencyConstraint> constraints = manifest.dependencyConstraints()
+                .map(AuthoredDependencyConstraints::entries)
+                .orElseGet(Map::of);
+        constraints.forEach((coordinate, constraint) -> {
+            if (!(constraint.selector() instanceof DependencyConstraintSelector.FixedVersion fixed)
+                    || isSnapshot(fixed.value())) {
+                return;
+            }
+            add(
+                    requests,
+                    coordinate,
+                    OutdatedSurface.DEPENDENCY_CONSTRAINT,
+                    ManifestSections.DEPENDENCY_CONSTRAINTS,
+                    fixed.value());
+        });
+    }
+
+    private void collectBom(AuthoredManifest manifest, Map<String, SurfaceRequest> requests) {
+        Optional<AuthoredBom> bom = manifest.packaging().bom();
+        if (bom.isEmpty()) {
+            return;
+        }
+        bom.orElseThrow().versions().orElseGet(Map::of).forEach((coordinate, version) -> addPlatform(
+                requests,
+                coordinate,
+                version.selector(),
+                OutdatedSurface.BOM_VERSION,
+                ManifestSections.BOM_VERSIONS));
+        bom.orElseThrow().imports().orElseGet(Map::of).forEach((coordinate, selector) -> addPlatform(
+                requests, coordinate, selector, OutdatedSurface.BOM_IMPORT, ManifestSections.BOM_IMPORTS));
+    }
+
+    private void collectGeneratedTools(AuthoredManifest manifest, Map<String, SurfaceRequest> requests) {
+        manifest.generated().ifPresent(generated -> generated.tools().declarations()
+                .forEach((id, tool) -> collectTool(requests, id, tool)));
+    }
+
+    private void collectTool(
+            Map<String, SurfaceRequest> requests,
+            LocalId id,
+            AuthoredGeneratedTool tool) {
+        String section = ManifestSections.generatedTool(id);
+        switch (tool) {
+            case AuthoredGeneratedTool.OpenApi openApi -> addTool(
+                    requests,
+                    OutdatedSurface.OPENAPI_TOOL,
+                    section,
+                    openApi.coordinate(),
+                    openApi.version());
+            case AuthoredGeneratedTool.Protobuf protobuf -> {
+                addTool(
+                        requests,
+                        OutdatedSurface.PROTOBUF_TOOL,
+                        section,
+                        protobuf.protocCoordinate(),
+                        protobuf.protocVersion());
+                addTool(
+                        requests,
+                        OutdatedSurface.PROTOBUF_TOOL,
+                        section,
+                        protobuf.grpcCoordinate(),
+                        protobuf.grpcVersion());
+            }
+            case AuthoredGeneratedTool.Jvm jvm -> {
+                for (GeneratedArtifactRequest request : jvm.coordinates()) {
+                    addTool(
                             requests,
-                            new SurfaceRequest(
-                                    OutdatedSurface.PLATFORM,
-                                    entry.getKey(),
-                                    "[platforms]",
-                                    entry.getValue(),
-                                    List.of(discovery),
-                                    false,
-                                    List.of())));
-                });
-        return List.copyOf(requests.values());
-    }
-
-    private void collectAliases(ProjectConfig config, Map<String, SurfaceRequest> requests) {
-        config.versionAliases().entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> {
-                    if (isSnapshot(entry.getValue())) {
-                        return;
-                    }
-                    List<AliasReference> references = AliasReferences.referencing(config, entry.getKey());
-                    List<DiscoveryCoordinate> coordinates = references.stream()
-                            .map(AliasReference::coordinate)
-                            .flatMap(Optional::stream)
-                            .map(DiscoveryCoordinate::of)
-                            .flatMap(Optional::stream)
-                            .distinct()
-                            .toList();
-                    List<String> governs = references.stream().map(AliasReference::label).toList();
-                    add(requests, new SurfaceRequest(
-                            OutdatedSurface.VERSION_ALIAS,
-                            entry.getKey(),
-                            "[versions]",
-                            entry.getValue(),
-                            coordinates,
-                            true,
-                            governs));
-                });
-    }
-
-    private void collectDependencyMap(
-            ProjectConfig config,
-            Map<String, String> dependencies,
-            String section,
-            OutdatedSurface surface,
-            Map<String, SurfaceRequest> requests) {
-        dependencies.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> {
-                    String coordinate = entry.getKey();
-                    String version = entry.getValue();
-                    if (isVersionRef(config, section, coordinate) || isSnapshot(version)) {
-                        return;
-                    }
-                    DiscoveryCoordinate.of(coordinate).ifPresent(discovery -> add(requests, new SurfaceRequest(
-                            surface, coordinate, "[" + section + "]", version, List.of(discovery), false, List.of())));
-                });
-    }
-
-    private void collectConstraints(ProjectConfig config, Map<String, SurfaceRequest> requests) {
-        config.dependencyPolicy().constraints().values().stream()
-                .sorted(Comparator.comparing(DependencyConstraint::coordinate))
-                .forEach(constraint -> {
-                    if (constraint.versionRef().isPresent()) {
-                        return;
-                    }
-                    String version = constraint.version();
-                    if (version == null || version.isBlank() || isSnapshot(version)) {
-                        return;
-                    }
-                    DiscoveryCoordinate.of(constraint.coordinate()).ifPresent(discovery -> add(requests, new SurfaceRequest(
-                            OutdatedSurface.DEPENDENCY_CONSTRAINT,
-                            constraint.coordinate(),
-                            "[dependencyConstraints]",
-                            version,
-                            List.of(discovery),
-                            false,
-                            List.of())));
-                });
-    }
-
-    private void collectGenerated(ProjectConfig config, Map<String, SurfaceRequest> requests) {
-        List<GeneratedSourceStep> steps = new ArrayList<>(config.build().generatedMainSources());
-        steps.addAll(config.build().generatedTestSources());
-        for (GeneratedSourceStep step : steps) {
-            collectExec(step, requests);
-            collectProtobuf(step, requests);
-            collectOpenApi(step, requests);
-        }
-    }
-
-    private void collectExec(GeneratedSourceStep step, Map<String, SurfaceRequest> requests) {
-        if (step.kind() != GeneratedSourceKind.EXEC || PROJECT_TOOL.equals(step.exec().toolName())) {
-            return;
-        }
-        for (ExecToolCoordinate coordinate : step.exec().tool().coordinates()) {
-            if (coordinate.versionRef().isPresent() || coordinate.version().isEmpty()) {
-                continue;
+                            OutdatedSurface.EXEC_TOOL_COORDINATE,
+                            section,
+                            Optional.of(request.coordinate()),
+                            Optional.of(request.selector()));
+                }
             }
-            String version = coordinate.version().orElseThrow();
-            if (isSnapshot(version)) {
-                continue;
+            case AuthoredGeneratedTool.Process ignored -> {
+                // A process tool runs a PATH binary and declares no artifact coordinate to advance.
             }
-            DiscoveryCoordinate.of(coordinate.coordinate()).ifPresent(discovery -> add(requests, new SurfaceRequest(
-                    OutdatedSurface.EXEC_TOOL_COORDINATE,
-                    coordinate.coordinate(),
-                    "[generated.execTools." + step.exec().toolName() + "]",
-                    version,
-                    List.of(discovery),
-                    false,
-                    List.of())));
         }
     }
 
-    private void collectProtobuf(GeneratedSourceStep step, Map<String, SurfaceRequest> requests) {
-        if (step.kind() != GeneratedSourceKind.PROTOBUF) {
-            return;
-        }
-        addToolRef(
-                requests,
-                OutdatedSurface.PROTOBUF_TOOL,
-                step.protobuf().protocCoordinate(),
-                step.protobuf().protocVersion(),
-                step.protobuf().protocVersionRef(),
-                "[generated.protobufTool]");
-        addToolRef(
-                requests,
-                OutdatedSurface.PROTOBUF_TOOL,
-                step.protobuf().grpcPluginCoordinate(),
-                step.protobuf().grpcPluginVersion(),
-                step.protobuf().grpcPluginVersionRef(),
-                "[generated.protobufTool]");
-    }
-
-    private void collectOpenApi(GeneratedSourceStep step, Map<String, SurfaceRequest> requests) {
-        if (step.kind() != GeneratedSourceKind.OPENAPI) {
-            return;
-        }
-        addToolRef(
-                requests,
-                OutdatedSurface.OPENAPI_TOOL,
-                step.openApi().toolCoordinate(),
-                step.openApi().toolVersion(),
-                step.openApi().toolVersionRef(),
-                "[generated.openapiTool]");
-    }
-
-    private void addToolRef(
+    private void addTool(
             Map<String, SurfaceRequest> requests,
             OutdatedSurface surface,
-            Optional<String> coordinate,
-            Optional<String> version,
-            Optional<String> versionRef,
-            String section) {
-        if (versionRef.isPresent() || coordinate.isEmpty() || version.isEmpty() || isSnapshot(version.orElseThrow())) {
+            String section,
+            Optional<DependencyCoordinate> coordinate,
+            Optional<DependencySelector> selector) {
+        if (coordinate.isEmpty() || selector.isEmpty()) {
             return;
         }
-        DiscoveryCoordinate.of(coordinate.orElseThrow()).ifPresent(discovery -> add(requests, new SurfaceRequest(
-                surface, coordinate.orElseThrow(), section, version.orElseThrow(), List.of(discovery), false, List.of())));
+        if (!(selector.orElseThrow() instanceof DependencySelector.FixedVersion fixed)
+                || isSnapshot(fixed.value())) {
+            return;
+        }
+        add(requests, coordinate.orElseThrow(), surface, section, fixed.value());
     }
 
-    private static boolean isVersionRef(ProjectConfig config, String section, String coordinate) {
-        DependencyMetadata metadata = config.dependencyMetadata().get(DependencyMetadata.key(section, coordinate));
-        return metadata != null && metadata.versionRef() != null;
+    private void addPlatform(
+            Map<String, SurfaceRequest> requests,
+            DependencyCoordinate coordinate,
+            PlatformSelector selector,
+            OutdatedSurface surface,
+            String section) {
+        if (!(selector instanceof PlatformSelector.FixedVersion fixed) || isSnapshot(fixed.value())) {
+            return;
+        }
+        add(requests, coordinate, surface, section, fixed.value());
+    }
+
+    private void add(
+            Map<String, SurfaceRequest> requests,
+            DependencyCoordinate coordinate,
+            OutdatedSurface surface,
+            String section,
+            String version) {
+        DiscoveryCoordinate.of(coordinate.value()).ifPresent(discovery -> add(
+                requests,
+                new SurfaceRequest(
+                        surface, coordinate.value(), section, version, List.of(discovery), false, List.of())));
+    }
+
+    private static OutdatedSurface surfaceOf(DependencyLane lane) {
+        return switch (lane) {
+            case PROCESSOR, TEST_PROCESSOR -> OutdatedSurface.ANNOTATION_PROCESSOR;
+            case API, IMPLEMENTATION, RUNTIME, PROVIDED, DEV, TEST -> OutdatedSurface.DEPENDENCY;
+        };
     }
 
     private static boolean isSnapshot(String version) {

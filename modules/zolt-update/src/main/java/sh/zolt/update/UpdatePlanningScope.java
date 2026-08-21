@@ -1,25 +1,24 @@
 package sh.zolt.update;
 
-import sh.zolt.project.ProjectConfig;
-import java.util.Map;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.project.RepositoryConfiguration;
 import java.util.Objects;
 
-/** Raw mutation identity plus the effective repository configuration used for policy discovery. */
+/** The authored manifest a policy update mutates plus the repositories it discovers through. */
 public record UpdatePlanningScope(
-        ProjectConfig mutationConfig,
-        ProjectConfig discoveryConfig,
+        AuthoredManifest manifest,
+        RepositoryConfiguration discovery,
         String manifestPath,
-        String lockfilePath,
-        Map<UpdateTargetKey, String> targetBlockers) {
+        String lockfilePath) {
     public UpdatePlanningScope {
-        mutationConfig = Objects.requireNonNull(mutationConfig, "mutationConfig");
-        discoveryConfig = discoveryConfig == null ? mutationConfig : discoveryConfig;
+        manifest = Objects.requireNonNull(manifest, "manifest");
+        discovery = Objects.requireNonNull(discovery, "discovery");
         manifestPath = UpdateTargetKey.requirePath(manifestPath, "manifest path");
         lockfilePath = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
-        targetBlockers = targetBlockers == null ? Map.of() : Map.copyOf(targetBlockers);
     }
 
-    public static UpdatePlanningScope standalone(ProjectConfig config) {
-        return new UpdatePlanningScope(config, config, "zolt.toml", "zolt.lock", Map.of());
+    public static UpdatePlanningScope standalone(
+            AuthoredManifest manifest, RepositoryConfiguration discovery) {
+        return new UpdatePlanningScope(manifest, discovery, "zolt.toml", "zolt.lock");
     }
 }

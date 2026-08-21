@@ -1,6 +1,6 @@
 package sh.zolt.cli.command.dependency;
 
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.resolve.ResolveResult;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -9,8 +9,8 @@ import java.util.Objects;
 
 /** Actual byte-level effects of a completed manifest edit transaction. */
 record ManifestEditResult(
-        ProjectConfig original,
-        ProjectConfig updated,
+        AuthoredManifest original,
+        AuthoredManifest updated,
         ResolveResult resolveResult,
         Path manifestPath,
         Path lockfilePath,

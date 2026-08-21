@@ -40,30 +40,20 @@ public final class OutdatedEngine {
         this.planner = planner;
     }
 
-    public OutdatedReport report(List<? extends UpdateReportScope> scopes, OutdatedOptions options) {
+    public OutdatedReport report(List<OutdatedScope> scopes, OutdatedOptions options) {
         List<OutdatedScopeReport> scopeReports = new ArrayList<>();
-        for (UpdateReportScope scope : scopes) {
+        for (OutdatedScope scope : scopes) {
             scopeReports.add(reportScope(scope, options));
         }
         return applyWorkspaceDedup(scopeReports);
     }
 
-    private OutdatedScopeReport reportScope(UpdateReportScope scope, OutdatedOptions options) {
-        List<List<RepositoryAccess>> repositorySets;
-        List<UpdateTargetCatalog.Entry> catalogEntries;
-        if (scope instanceof OutdatedScope project) {
-            repositorySets = List.of(planner.plan(project.discoveryConfig()));
-            catalogEntries = catalog.entries(
-                    project.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
-        } else if (scope instanceof WorkspaceOutdatedScope workspace) {
-            repositorySets = workspace.repositoryConfigurations().stream()
-                    .map(planner::plan)
-                    .toList();
-            catalogEntries = catalog.entries(
-                    workspace.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
-        } else {
-            throw new IllegalStateException("Unknown outdated scope type " + scope.getClass().getName() + ".");
-        }
+    private OutdatedScopeReport reportScope(OutdatedScope scope, OutdatedOptions options) {
+        List<List<RepositoryAccess>> repositorySets = scope.discovery().stream()
+                .map(planner::plan)
+                .toList();
+        List<UpdateTargetCatalog.Entry> catalogEntries = catalog.entries(
+                scope.manifest(), scope.manifestPath(), scope.lockfilePath());
         List<Map<String, MetadataDiscovery>> memos = new ArrayList<>();
         repositorySets.forEach(ignored -> memos.add(new LinkedHashMap<>()));
         List<OutdatedEntry> entries = new ArrayList<>();

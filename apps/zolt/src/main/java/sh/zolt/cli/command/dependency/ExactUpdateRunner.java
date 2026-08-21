@@ -4,9 +4,8 @@ import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandResolveOutput;
 import sh.zolt.error.ActionableException;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.update.ExactUpdateJsonRenderer;
 import sh.zolt.update.ExactUpdateOptions;
 import sh.zolt.update.ExactUpdatePlan;
@@ -17,43 +16,36 @@ import sh.zolt.update.UpdateApplier;
 import sh.zolt.update.UpdateTarget;
 import sh.zolt.update.UpdateTargetCatalog;
 import sh.zolt.update.UpdateTargetId;
-import sh.zolt.workspace.toml.WorkspaceConfigParser;
-import sh.zolt.workspace.toml.WorkspaceTomlWriter;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.UnaryOperator;
 import picocli.CommandLine.Model.CommandSpec;
 
 /** Selects, revalidates, and applies one opaque exact target through the shared transaction. */
 final class ExactUpdateRunner {
-    private final ZoltTomlParser tomlParser;
-    private final ZoltTomlWriter tomlWriter;
+    private final ManifestMutationServices manifests;
     private final ResolveService resolveService;
     private final DependencyUpdateScopeResolver scopeResolver;
     private final Runnable beforeExecution;
     private final UpdateTargetCatalog catalog = new UpdateTargetCatalog();
     private final ExactUpdatePlanner planner = new ExactUpdatePlanner();
     private final UpdateApplier applier = new UpdateApplier();
-    private final WorkspaceConfigParser workspaceParser = new WorkspaceConfigParser();
-    private final WorkspaceTomlWriter workspaceWriter = new WorkspaceTomlWriter();
 
     ExactUpdateRunner(
-            ZoltTomlParser tomlParser,
-            ZoltTomlWriter tomlWriter,
+            ManifestMutationServices manifests,
             ResolveService resolveService,
             DependencyUpdateScopeResolver scopeResolver) {
-        this(tomlParser, tomlWriter, resolveService, scopeResolver, () -> {});
+        this(manifests, resolveService, scopeResolver, () -> {});
     }
 
     ExactUpdateRunner(
-            ZoltTomlParser tomlParser,
-            ZoltTomlWriter tomlWriter,
+            ManifestMutationServices manifests,
             ResolveService resolveService,
             DependencyUpdateScopeResolver scopeResolver,
             Runnable beforeExecution) {
-        this.tomlParser = tomlParser;
-        this.tomlWriter = tomlWriter;
+        this.manifests = manifests;
         this.resolveService = resolveService;
         this.scopeResolver = scopeResolver;
         this.beforeExecution = beforeExecution;
@@ -72,56 +64,36 @@ final class ExactUpdateRunner {
                 start,
                 lockRoot -> select(scopeResolver.catalogScopes(start, lockRoot), targetId, options));
         ExactUpdateResult result;
-        ManifestCommitResult edit = null;
+        ManifestEditResult edit = null;
         if (dryRun) {
             result = new ExactUpdateResult(selected.plan(), true, false, false, List.of());
         } else {
             beforeExecution.run();
             AtomicReference<ExactUpdatePlan> executedPlan = new AtomicReference<>();
-            CatalogUpdateScope scope = selected.scope();
-            ScopeExpectation expectation =
-                    new ScopeExpectation(
-                            scope.absoluteManifestPath(),
-                            scope.absoluteLockfilePath(),
-                            List.of(selected.plan().target().key()));
-            if (scope instanceof ResolvedUpdateScope project) {
-                ManifestEditResult projectEdit = ManifestEditTransaction.execute(
-                        project.projectDirectory(),
-                        cacheRoot,
-                        noResolve,
-                        tomlParser,
-                        tomlWriter,
-                        resolveService,
-                        expectation,
-                        current -> {
-                            ExactUpdatePlan currentPlan = planner.plan(
-                                    current, project.manifestPath(), project.lockfilePath(), targetId, options);
-                            executedPlan.set(currentPlan);
-                            return applier.apply(current, currentPlan);
-                        });
-                edit = ManifestCommitResult.from(projectEdit);
-            } else if (scope instanceof ResolvedWorkspaceUpdateScope workspace) {
-                edit = WorkspaceManifestEditTransaction.execute(
-                        workspace.projectDirectory(),
-                        cacheRoot,
-                        noResolve,
-                        workspaceParser,
-                        workspaceWriter,
-                        resolveService,
-                        expectation,
-                        current -> {
-                            ExactUpdatePlan currentPlan = planner.plan(
-                                    current,
-                                    workspace.manifestPath(),
-                                    workspace.lockfilePath(),
-                                    targetId,
-                                    options);
-                            executedPlan.set(currentPlan);
-                            return applier.apply(current, currentPlan);
-                        });
-            } else {
-                throw new IllegalStateException("Unknown exact-update scope " + scope.getClass().getName() + ".");
-            }
+            ResolvedUpdateScope scope = selected.scope();
+            UnaryOperator<AuthoredManifest> mutation = current -> {
+                ExactUpdatePlan currentPlan = planner.plan(
+                        current, scope.manifestPath(), scope.lockfilePath(), targetId, options);
+                executedPlan.set(currentPlan);
+                return applier.apply(current, currentPlan);
+            };
+            edit = scope.workspaceRoot()
+                    ? ManifestEditTransaction.executeWorkspaceRoot(
+                            scope.projectDirectory(),
+                            cacheRoot,
+                            noResolve,
+                            manifests,
+                            resolveService,
+                            scope.expectation(),
+                            mutation)
+                    : ManifestEditTransaction.execute(
+                            scope.projectDirectory(),
+                            cacheRoot,
+                            noResolve,
+                            manifests,
+                            resolveService,
+                            scope.expectation(),
+                            mutation);
             result = new ExactUpdateResult(
                     executedPlan.get(),
                     false,
@@ -133,21 +105,13 @@ final class ExactUpdateRunner {
     }
 
     private SelectedExactUpdate select(
-            List<CatalogUpdateScope> scopes,
+            List<ResolvedUpdateScope> scopes,
             UpdateTargetId targetId,
             ExactUpdateOptions options) {
         List<SelectedExactUpdate> matches = new ArrayList<>();
-        for (CatalogUpdateScope scope : scopes) {
-            List<UpdateTarget> targets;
-            if (scope instanceof ResolvedUpdateScope project) {
-                targets = catalog.collect(
-                        project.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
-            } else if (scope instanceof ResolvedWorkspaceUpdateScope workspace) {
-                targets = catalog.collect(
-                        workspace.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
-            } else {
-                throw new IllegalStateException("Unknown exact-update scope " + scope.getClass().getName() + ".");
-            }
+        for (ResolvedUpdateScope scope : scopes) {
+            List<UpdateTarget> targets = catalog.collect(
+                    scope.manifest(), scope.manifestPath(), scope.lockfilePath());
             for (UpdateTarget target : targets) {
                 if (target.targetId().equals(targetId)) {
                     matches.add(new SelectedExactUpdate(scope, planner.plan(target, options)));
@@ -165,7 +129,7 @@ final class ExactUpdateRunner {
         return matches.getFirst();
     }
 
-    private static List<String> changedFiles(Path mutationRoot, ManifestCommitResult edit) {
+    private static List<String> changedFiles(Path mutationRoot, ManifestEditResult edit) {
         return edit.changedPaths().stream()
                 .map(path -> CanonicalUpdatePath.relative(mutationRoot, path))
                 .toList();
@@ -174,7 +138,7 @@ final class ExactUpdateRunner {
     private static void render(
             CommandSpec spec,
             ExactUpdateResult result,
-            ManifestCommitResult edit,
+            ManifestEditResult edit,
             boolean noResolve,
             boolean json) {
         if (json) {
@@ -189,6 +153,6 @@ final class ExactUpdateRunner {
         }
     }
 
-    private record SelectedExactUpdate(CatalogUpdateScope scope, ExactUpdatePlan plan) {
+    private record SelectedExactUpdate(ResolvedUpdateScope scope, ExactUpdatePlan plan) {
     }
 }

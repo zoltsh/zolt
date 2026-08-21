@@ -14,9 +14,8 @@ import sh.zolt.maven.CoordinateParser;
 import sh.zolt.publish.PublishDryRunService;
 import sh.zolt.quality.QualityCheckService;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.cli.command.dependency.ManifestMutationServices;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
-import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.workspace.service.WorkspaceBuildService;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService;
 import sh.zolt.workspace.packaging.WorkspaceNativeBuildService;
@@ -72,12 +71,8 @@ public final class CommandServiceBundles {
             Objects.requireNonNull(configEditServices, "configEditServices");
         }
 
-        public ZoltTomlParser tomlParser() {
-            return configEditServices.tomlParser();
-        }
-
-        public ZoltTomlWriter tomlWriter() {
-            return configEditServices.tomlWriter();
+        public ManifestMutationServices manifests() {
+            return configEditServices.manifests();
         }
 
         public ResolveService resolveService() {
@@ -93,12 +88,8 @@ public final class CommandServiceBundles {
             Objects.requireNonNull(configEditServices, "configEditServices");
         }
 
-        public ZoltTomlParser tomlParser() {
-            return configEditServices.tomlParser();
-        }
-
-        public ZoltTomlWriter tomlWriter() {
-            return configEditServices.tomlWriter();
+        public ManifestMutationServices manifests() {
+            return configEditServices.manifests();
         }
 
         public ResolveService resolveService() {

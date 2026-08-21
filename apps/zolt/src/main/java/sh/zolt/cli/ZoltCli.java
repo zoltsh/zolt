@@ -8,9 +8,11 @@ import sh.zolt.cli.command.config.ConfigCommand;
 import sh.zolt.cli.command.config.InitCommand;
 import sh.zolt.cli.command.dependency.AddCommand;
 import sh.zolt.cli.command.dependency.ConflictsCommand;
-import sh.zolt.cli.command.dependency.PlatformCommand;
+import sh.zolt.cli.command.dependency.BomCommand;
+import sh.zolt.cli.command.dependency.PlatformsCommand;
 import sh.zolt.cli.command.dependency.RemoveCommand;
 import sh.zolt.cli.command.dependency.VersionCommand;
+import sh.zolt.cli.command.dependency.VersionsCommand;
 import sh.zolt.cli.command.ide.IdeCommand;
 import sh.zolt.cli.command.insight.ExplainCommand;
 import sh.zolt.cli.command.insight.TreeCommand;
@@ -54,6 +56,7 @@ import picocli.CommandLine.Spec;
                 ZoltHelpCommand.class,
                 InitCommand.class,
                 VersionCommand.class,
+                VersionsCommand.class,
                 WorkspaceCommand.class,
                 sh.zolt.cli.command.self.SelfCommand.class,
                 ConfigCommand.class,
@@ -61,7 +64,8 @@ import picocli.CommandLine.Spec;
                 CheckCommand.class,
                 AddCommand.class,
                 RemoveCommand.class,
-                PlatformCommand.class,
+                PlatformsCommand.class,
+                BomCommand.class,
                 ResolveCommand.class,
                 TreeCommand.class,
                 WhyCommand.class,
