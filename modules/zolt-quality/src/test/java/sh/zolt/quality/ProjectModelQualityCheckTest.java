@@ -42,6 +42,9 @@ final class ProjectModelQualityCheckTest extends QualityCheckServiceTestSupport 
         assertEquals(QualityCheckStatus.FAILED, result.status());
         assertEquals("[generated.main].api.inputs[0]", result.subject());
         assertEquals("Path `../api.yaml` must be project-relative and stay inside the project.", result.message());
+        assertEquals(
+                "Edit zolt.toml to use a relative path such as `src/main/java` or `target/classes`.",
+                result.nextStep());
     }
 
     @Test

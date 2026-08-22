@@ -13,7 +13,7 @@ import sh.zolt.quality.coverage.CoverageMeasurement;
 import sh.zolt.quality.coverage.CoverageReportException;
 import sh.zolt.quality.coverage.JacocoCoverageReport;
 import sh.zolt.quality.execution.ExecutionSplitEvidence.ShardEvidenceManifest;
-import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,13 +22,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+/**
+ * Design §4.5: a member's coverage floor is the maximum of the workspace root's floor and its own,
+ * so the floors this check enforces are read through the composing project loader. Reading the
+ * member's authored manifest alone would let a member silently escape a root floor.
+ */
 final class ExecutionCoverageEvidenceCheck {
     private final ExecutionSplitEvidence splitEvidence;
-    private final ManifestProjectConfigLoader manifestLoader;
+    private final ManifestProjectLoader projectLoader;
 
-    ExecutionCoverageEvidenceCheck(ExecutionSplitEvidence splitEvidence, ManifestProjectConfigLoader manifestLoader) {
+    ExecutionCoverageEvidenceCheck(ExecutionSplitEvidence splitEvidence, ManifestProjectLoader projectLoader) {
         this.splitEvidence = splitEvidence;
-        this.manifestLoader = manifestLoader;
+        this.projectLoader = projectLoader;
     }
 
     List<QualityCheckResult> check(
@@ -156,7 +161,12 @@ final class ExecutionCoverageEvidenceCheck {
             Path projectRoot,
             Path absoluteCoverageDir,
             Path commandCoverageDir) {
-        CoverageSettings floors = manifestLoader.coverageFloors(root.resolve("zolt.toml"));
+        if (!Files.isRegularFile(root.resolve("zolt.toml"))) {
+            // "No config" reads as "no floors", so coverage evidence for a directory without a
+            // manifest stays evidence rather than becoming a floor failure.
+            return List.of();
+        }
+        CoverageSettings floors = projectLoader.coverageFloors(root);
         if (!floors.hasAnyFloor()) {
             return List.of();
         }

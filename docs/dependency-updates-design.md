@@ -150,8 +150,11 @@ Workspace lookup catalogs all declared members plus literal `[platforms]` owned
 by the workspace-root policy manifest under one confirmed root lock. Root policy
 uses its canonical path (the workspace root `zolt.toml`) in
 target identity. A root project declared as member `.` owns that shared manifest
-once, so its platforms are not duplicated as a second root scope. Schema v1
-selection remains member-only. Root-platform discovery plans each distinct
+once, so its platforms are not duplicated as a second root scope. Both schemas
+report the root scope when the root owns surfaces of its own; the schema
+difference is path certification, not scope selection, because hiding a
+reportable surface from schema v1 would make it unreportable rather than
+member-owned. Root-platform discovery plans each distinct
 effective member repository configuration and intersects their available
 versions, because a root policy update must remain resolvable by every member.
 When an otherwise valid workspace mirrors a root platform in a member, either

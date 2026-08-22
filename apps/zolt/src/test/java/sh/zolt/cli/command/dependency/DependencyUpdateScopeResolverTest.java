@@ -157,12 +157,19 @@ final class DependencyUpdateScopeResolverTest {
         Path api = writeProject(root.resolve("apps/api"), "api");
 
         List<OutdatedScope> reports = resolver.reportScopes(api, 2);
+        List<OutdatedScope> schemaOneReports = resolver.reportScopes(api, 1);
         List<ResolvedUpdateScope> catalog = resolver.catalogScopes(api, root);
 
         assertEquals(List.of("workspace-root", "apps/api"),
                 reports.stream().map(OutdatedScope::label).toList());
         assertEquals(List.of("zolt.toml", "apps/api/zolt.toml"),
                 reports.stream().map(OutdatedScope::manifestPath).toList());
+        // A root-owned surface has exactly one source location in both schemas; only path
+        // certification differs, so schema v1 reports the root scope rather than hiding it.
+        assertEquals(List.of("workspace-root", "apps/api"),
+                schemaOneReports.stream().map(OutdatedScope::label).toList());
+        assertEquals(List.of("zolt.toml", "apps/api/zolt.toml"),
+                schemaOneReports.stream().map(OutdatedScope::manifestPath).toList());
         assertEquals(
                 Map.of(
                         new DependencyCoordinate("org.junit:junit-bom"),
