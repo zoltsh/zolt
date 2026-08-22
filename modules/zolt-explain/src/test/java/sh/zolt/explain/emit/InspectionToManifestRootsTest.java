@@ -96,12 +96,25 @@ final class InspectionToManifestRootsTest {
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
 
-        AuthoredBuild build = draft.manifest().build().build().orElseThrow();
-        assertEquals(List.of("src/main/kotlin"), paths(build.sources()));
+        // §10.1 rejects Kotlin roots, so drafting one would emit a manifest Zolt cannot parse. The
+        // audited reality survives as review data instead.
+        assertTrue(
+                draft.manifest().build().build().isEmpty(),
+                () -> "expected no authored [build] roots: " + draft.manifest().build().build());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
-                        note.contains("Test sources live outside") && note.contains("src/test/kotlin")),
+                        note.contains("a main source root at `src/main/kotlin`")
+                                && note.contains("Kotlin is not supported in the public beta")),
+                () -> "expected the audited Kotlin main root as review data: " + draft.notes());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("a test source root at `src/test/kotlin`")
+                                && note.contains("Kotlin is not supported in the public beta")),
                 () -> "expected the audited Kotlin test root as review data: " + draft.notes());
+        assertTrue(
+                draft.notes().stream().anyMatch(note ->
+                        note.contains("names a language Zolt cannot build")),
+                () -> "expected the convention fallback note: " + draft.notes());
     }
 
     @Test

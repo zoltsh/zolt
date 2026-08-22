@@ -1,6 +1,7 @@
 package sh.zolt.explain.emit;
 
 import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.manifest.SourceRootLanguage;
 import sh.zolt.manifest.authored.AuthoredBuild;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredResources;
@@ -50,8 +51,11 @@ final class InspectionBuildSettingsMapper {
         testRoots.addAll(paths(groovyTestSourceRoots, "a test source root", notes));
         testRoots = distinct(testRoots);
         if (mainRoots.isEmpty()) {
-            notes.add(
-                    "No main source root was found by the static audit; the draft keeps the Zolt"
+            notes.add(unsupported(sourceRoots)
+                    ? "Every audited main source root names a language Zolt cannot build; the draft"
+                            + " keeps the Zolt convention `src/main/java`. Migrate a plain Java module"
+                            + " first, then set [build].sources to its real source root."
+                    : "No main source root was found by the static audit; the draft keeps the Zolt"
                             + " convention `src/main/java`. Set [build].sources to the real source root"
                             + " before building.");
         }
@@ -115,6 +119,13 @@ final class InspectionBuildSettingsMapper {
         return conventional(roots, convention) ? List.of() : roots;
     }
 
+    /** Whether the audit found roots, but only for languages Zolt cannot build. */
+    private static boolean unsupported(List<String> roots) {
+        return roots != null && roots.stream()
+                .filter(root -> root != null && !root.isBlank())
+                .anyMatch(root -> SourceRootLanguage.unsupported(root.strip()).isPresent());
+    }
+
     private static boolean isProjectRoot(String root) {
         String value = root.strip();
         return value.equals(".") || value.equals("./");
@@ -130,10 +141,19 @@ final class InspectionBuildSettingsMapper {
             if (value == null || value.isBlank()) {
                 continue;
             }
+            String root = value.strip();
+            Optional<SourceRootLanguage> unsupported = SourceRootLanguage.unsupported(root);
+            if (unsupported.isPresent()) {
+                // Emitting the root would produce a manifest the parser rejects (design §10.1), so the
+                // audited reality is carried as review data instead.
+                notes.add("The static audit reported " + subject + " at `" + root + "`, which Zolt"
+                        + " cannot build: " + unsupported.orElseThrow().remedy());
+                continue;
+            }
             try {
-                paths.add(new ManifestRelativePath(value.strip()));
+                paths.add(new ManifestRelativePath(root));
             } catch (IllegalArgumentException exception) {
-                notes.add("The static audit reported " + subject + " at `" + value.strip()
+                notes.add("The static audit reported " + subject + " at `" + root
                         + "`, which is not a project-relative manifest path: " + exception.getMessage()
                         + " Add it by hand after moving it beneath the project.");
             }
