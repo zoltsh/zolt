@@ -13,7 +13,9 @@ import org.junit.jupiter.api.Test;
 import sh.zolt.project.DependencyConstraint;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.DependencyPolicyExclusion;
+import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.VersionConflictPolicy;
 
 /**
  * Identity, dependency-lane, repository, and policy manifests asserted to reach the expected
@@ -242,6 +244,39 @@ final class ManifestProjectConfigAdapterTest {
         assertEquals(
                 List.of("BSD-3-Clause"),
                 adapted.dependencyPolicy().licenses().exceptions().get("org.example:matchit").allow());
+    }
+
+    /**
+     * Design §9.11: the three conflict symbols mean three different things, so the boundary must carry
+     * the symbol rather than a fail/not-fail boolean that would make {@code warn} indistinguishable
+     * from {@code resolve}.
+     */
+    @Test
+    void everyConflictSymbolSurvivesTheBoundaryDistinctly() {
+        assertEquals(VersionConflictPolicy.RESOLVE, policy("").conflicts(), "omitted conflicts");
+        for (VersionConflictPolicy expected : VersionConflictPolicy.values()) {
+            assertEquals(
+                    expected,
+                    policy("\n[dependencies.policy]\nconflicts = \"" + expected.configValue() + "\"\n")
+                            .conflicts(),
+                    expected.configValue());
+        }
+
+        assertTrue(policy("\n[dependencies.policy]\nconflicts = \"fail\"\n").failOnVersionConflict());
+        assertFalse(policy("\n[dependencies.policy]\nconflicts = \"fail\"\n").warnOnVersionConflict());
+        assertTrue(policy("\n[dependencies.policy]\nconflicts = \"warn\"\n").warnOnVersionConflict());
+        assertFalse(policy("\n[dependencies.policy]\nconflicts = \"warn\"\n").failOnVersionConflict());
+        assertFalse(policy("\n[dependencies.policy]\nconflicts = \"resolve\"\n").warnOnVersionConflict());
+    }
+
+    private static DependencyPolicySettings policy(String authoredPolicy) {
+        return FinalManifests.load("""
+                [project]
+                name = "policy"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+                """ + authoredPolicy).dependencyPolicy();
     }
 
     @Test

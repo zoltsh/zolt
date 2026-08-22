@@ -272,7 +272,9 @@ public final class WorkspaceResolveService {
                 downloadCount,
                 lockfile.conflicts().size(),
                 lockfilePath,
-                metrics);
+                metrics,
+                WorkspaceMediationPolicyEnforcer.warnings(
+                        lockfile.packages(), lockfile.conflicts(), effectiveConfigs));
         return new WorkspaceResolveSnapshot(
                 result,
                 committed.bytes(),

@@ -146,7 +146,8 @@ public final class ResolveService {
                 output.downloadCount(),
                 lockfile.conflicts().size(),
                 lockfilePath,
-                metrics);
+                metrics,
+                output.warnings());
     }
 
     public ResolveResult resolveWithCoverageTooling(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
@@ -227,14 +228,15 @@ public final class ResolveService {
                         options.retryCommand(),
                         snapshotAllowance,
                         options.versionOverrides());
-        VersionConflictPolicyEnforcer.enforce(
+        List<String> warnings = VersionConflictPolicyEnforcer.enforce(
                 context.config().dependencyPolicy(), resolved.selection(), execResolutions, options.retryCommand());
         ZoltLockfile lockfile = lockfile(context, resolved.graph(), resolved.selection(), allRequests, execResolutions);
         return new ResolveOutput(
                 lockfile,
                 context.downloadCount(),
                 context.metrics(),
-                ResolvedDependencyReachability.from(resolved.graph()));
+                ResolvedDependencyReachability.from(resolved.graph()),
+                warnings);
     }
 
     private List<ExecToolResolution> resolveExecTools(

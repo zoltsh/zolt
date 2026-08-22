@@ -26,6 +26,7 @@ import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.project.LicensePolicyException;
 import sh.zolt.project.LicensePolicySettings;
 import sh.zolt.project.UnknownLicensePolicy;
+import sh.zolt.project.VersionConflictPolicy;
 
 /**
  * Projects the final {@code [dependencies.policy]}, {@code [dependencies.constraints]}, and
@@ -44,9 +45,17 @@ final class ProjectConfigPolicy {
                 exclusions(policy),
                 constraints(constraints, versions),
                 policy.flatMap(AuthoredDependencyPolicy::conflicts)
-                        .map(conflicts -> conflicts == DependencyConflictPolicy.FAIL)
-                        .orElse(false),
+                        .map(ProjectConfigPolicy::conflicts)
+                        .orElse(VersionConflictPolicy.RESOLVE),
                 licenses(policy));
+    }
+
+    private static VersionConflictPolicy conflicts(DependencyConflictPolicy conflicts) {
+        return switch (conflicts) {
+            case RESOLVE -> VersionConflictPolicy.RESOLVE;
+            case WARN -> VersionConflictPolicy.WARN;
+            case FAIL -> VersionConflictPolicy.FAIL;
+        };
     }
 
     private static List<DependencyPolicyExclusion> exclusions(

@@ -540,6 +540,11 @@ deny = [
 ]
 ```
 
+`conflicts` accepts `resolve` (the default: mediate silently), `warn` (mediate,
+then report the mediation as a `zolt resolve` warning and as a
+`dependency-policy` warning in `zolt check`), and `fail` (reject any mediated
+version conflict).
+
 Per-edge `exclude` takes exact `group:artifact` coordinates and describes one
 transitive edge; `[dependencies.policy] deny` blocks a coordinate project-wide.
 Constraints are strict exact-version requirements, so there is no mode selector

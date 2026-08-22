@@ -10,9 +10,11 @@ import sh.zolt.policy.DependencyPolicyReportException;
 import sh.zolt.policy.DependencyPolicyReportService;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.dependency.ConflictSelectionReason;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -77,6 +79,7 @@ final class DependencyPolicyQualityCheck {
             DependencyPolicyReport report = dependencyPolicyReportService.report(root, config, lockfile);
             List<QualityCheckResult> results = new ArrayList<>();
             results.add(summary(member, config, report));
+            addConflictPolicyDiagnostics(results, member, config, lockfile, workspace);
             addConstraintDiagnostics(results, member, report, workspace);
             addExclusionDiagnostics(results, member, report);
             addDirectVersionDiagnostics(results, member, report, workspace);
@@ -116,6 +119,47 @@ final class DependencyPolicyQualityCheck {
                         + " direct explicit "
                         + QualityCheckText.plural(report.directVersions().size(), "version", "versions")
                         + ".");
+    }
+
+    /**
+     * Design §9.11: {@code conflicts = "warn"} resolves and reports. The lock is the durable record of
+     * what was mediated, so the machine-readable report of a warn policy is a severity-tagged check
+     * result rather than a resolve-time-only message.
+     */
+    private static void addConflictPolicyDiagnostics(
+            List<QualityCheckResult> results,
+            Optional<String> member,
+            ProjectConfig config,
+            ZoltLockfile lockfile,
+            boolean workspace) {
+        if (!config.dependencyPolicy().warnOnVersionConflict()) {
+            return;
+        }
+        List<String> mediated = lockfile.conflicts().stream()
+                .filter(conflict -> conflict.reason() != ConflictSelectionReason.SELECTED_GRAPH)
+                .filter(conflict -> member.isEmpty() || conflict.members().isEmpty()
+                        || conflict.members().contains(member.orElseThrow()))
+                .sorted(Comparator.comparing(conflict -> conflict.packageId().toString()))
+                .map(conflict -> conflict.packageId()
+                        + " selected "
+                        + conflict.selectedVersion()
+                        + ", requested "
+                        + String.join(", ", conflict.requestedVersions()))
+                .toList();
+        if (mediated.isEmpty()) {
+            return;
+        }
+        results.add(QualityCheckResult.warning(
+                DEPENDENCY_POLICY,
+                member,
+                "[dependencies.policy].conflicts",
+                "Dependency version conflicts were mediated under `conflicts = \"warn\"`: "
+                        + String.join("; ", mediated)
+                        + ".",
+                "Align the conflicting versions with a [platforms] BOM, a direct dependency, or a "
+                        + "[dependencies.constraints] strict constraint, then run `"
+                        + resolveCommand(workspace)
+                        + "` again; set `conflicts = \"fail\"` to make this an error."));
     }
 
     private static void addConstraintDiagnostics(

@@ -125,6 +125,7 @@ public final class ResolveCommand implements Runnable {
                         ResolveCommand::workspaceResolveAttributes));
                 ResolveResult result = snapshot.result();
                 CommandResolveOutput.printWorkspace(spec, result, locked, snapshot.resolutionSkipped());
+                printPolicyWarnings(result);
                 CommandHumanOutput.of(spec).action("zolt build --workspace");
                 progress.result("Resolved " + result.resolvedCount() + " packages");
                 return;
@@ -145,6 +146,7 @@ public final class ResolveCommand implements Runnable {
                             options),
                     ResolveCommand::resolveAttributes));
             CommandResolveOutput.print(spec, result, !locked);
+            printPolicyWarnings(result);
             Optional<String> draftWarning = ResolveDraftWarning.forResult(projectRoot, config, result);
             if (draftWarning.isPresent()) {
                 CommandHumanOutput.of(spec).statusDetail("warning", draftWarning.get());
@@ -156,6 +158,13 @@ public final class ResolveCommand implements Runnable {
             throw CommandFailures.user(spec, exception);
         } finally {
             CommandTimings.print(spec, "resolve", projectRoot, timingOptions, timings);
+        }
+    }
+
+    /** Design §9.11: a mediating-but-reporting policy surfaces every warning it produced. */
+    private void printPolicyWarnings(ResolveResult result) {
+        for (String warning : result.warnings()) {
+            CommandHumanOutput.of(spec).statusDetail("warning", warning);
         }
     }
 
