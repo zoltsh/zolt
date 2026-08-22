@@ -150,7 +150,7 @@ public final class PublishDryRunService {
             Optional<Path> sbomFile,
             Path cacheRoot) {
         Path root = projectRoot.toAbsolutePath().normalize();
-        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.loadProject(root);
         PublishSettings publish = publishSettingsLoader.read(root.resolve("zolt.toml"));
         if (!publish.configured()) {
             throw new PublishException("No [publish] configuration found. Add release/snapshot publish repositories before running `zolt publish --dry-run`.");

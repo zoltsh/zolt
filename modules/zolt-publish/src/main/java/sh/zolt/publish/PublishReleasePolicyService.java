@@ -22,7 +22,7 @@ public final class PublishReleasePolicyService {
     }
 
     public PublishDryRunPlan apply(Path projectRoot, PublishDryRunPlan plan) {
-        ProjectConfig config = manifestLoader.load(projectRoot.toAbsolutePath().normalize().resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.loadProject(projectRoot);
         List<String> blockers = new ArrayList<>();
         if (VersionPolicy.violation(
                 VersionPolicy.Context.PUBLISH_RELEASE,

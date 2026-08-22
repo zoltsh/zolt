@@ -95,7 +95,7 @@ public final class PublishUploadService {
         if (!plan.ok()) {
             throw new PublishException("Publish is blocked. Run `zolt publish --dry-run` and resolve the reported blockers before uploading.");
         }
-        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.loadProject(root);
         PublishSettings settings = publishSettingsLoader.read(root.resolve("zolt.toml"));
         PublishRepositorySettings repository = selectedRepository(settings, plan);
         Optional<RepositoryAuthentication> authentication = authentication(repository, config);

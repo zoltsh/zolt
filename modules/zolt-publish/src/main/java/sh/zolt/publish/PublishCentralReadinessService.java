@@ -35,7 +35,7 @@ public final class PublishCentralReadinessService {
 
     public List<PublishCentralRequirement> evaluate(Path projectRoot, PublishDryRunPlan plan) {
         Path root = projectRoot.toAbsolutePath().normalize();
-        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.loadProject(root);
         PublishSettings publish = publishSettingsLoader.read(root.resolve("zolt.toml"));
         return evaluate(config, publish, plan);
     }

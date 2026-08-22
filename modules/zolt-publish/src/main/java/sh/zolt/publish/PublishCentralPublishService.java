@@ -100,7 +100,7 @@ public final class PublishCentralPublishService {
     }
 
     private PublishSettings read(Path root) {
-        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.loadProject(root);
         return publishSettingsLoader.read(root.resolve("zolt.toml"));
     }
 }
