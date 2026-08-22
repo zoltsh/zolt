@@ -174,7 +174,7 @@ final class WorkspaceCoverageToolchainContextTest {
 
         assertTrue(mutated.get());
         assertTrue(Files.readString(root.resolve("zolt.toml"))
-                .contains("version = \"999\""));
+                .contains("version = 999"));
         assertTrue(Files.readString(buildJavacMarker)
                 .contains("javac=" + store.javac(buildToolchain)));
         assertFalse(Files.exists(runtimeJavacMarker));

@@ -49,7 +49,7 @@ final class NativeCommandValidationTest {
                 "--cache-root", tempDir.resolve("cache").toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("Spring Boot native images require `[framework.springBoot.native] enabled = true`"));
+        assertTrue(result.stderr().contains("Spring Boot native images require `[framework.spring-boot] native = true`"));
         assertTrue(result.stderr().contains("Spring Boot JVM build, test, run, and executable packaging"));
         assertTrue(result.stderr().contains("explicit Zolt-owned Spring Boot AOT/native canary path"));
         assertTrue(result.stderr().contains("[package].mode = \"spring-boot\""));

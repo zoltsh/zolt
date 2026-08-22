@@ -63,8 +63,8 @@ final class CheckPackageMetadataCommandTest {
         CommandResult result = execute("check", "--cwd", projectDir.toString(), "--check", "package-metadata");
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error package-metadata [package].tests Test sources are present"));
-        assertTrue(result.stdout().contains("next: Set [package].tests = true"));
+        assertTrue(result.stdout().contains("error package-metadata [package].testJar Test sources are present"));
+        assertTrue(result.stdout().contains("next: Set [package].testJar = true"));
         assertEquals("", result.stderr());
     }
 
