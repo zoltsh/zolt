@@ -1,5 +1,6 @@
 package sh.zolt.manifest.adapter;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -19,6 +20,10 @@ import sh.zolt.project.RepositorySettings;
  * <p>The legacy engine treated {@code [repositories]} document order as lookup order, so the adapter
  * emits entries in the effective {@link EffectiveDependencyRepositories#lookupOrder()} instead of the
  * sorted named-repository map order.
+ *
+ * <p>Both projections are iteration-order carriers, never {@code Map.copyOf} values: design §8.5 makes
+ * the lookup order authored policy, and {@code Map.copyOf} publishes an unspecified, salt-randomized
+ * iteration order that would silently discard it.
  */
 public final class ProjectConfigRepositories {
     static final LocalId CENTRAL = new LocalId("central");
@@ -34,7 +39,7 @@ public final class ProjectConfigRepositories {
                     ? central(id, repositories.central().value())
                     : named(id, repositories.named().get(id)));
         }
-        return Map.copyOf(settings);
+        return Collections.unmodifiableMap(settings);
     }
 
     /** Legacy repository credentials, keyed by ID. */
@@ -43,7 +48,7 @@ public final class ProjectConfigRepositories {
         Map<String, RepositoryCredentialSettings> settings = new LinkedHashMap<>();
         credentials.forEach((id, credential) ->
                 settings.put(id.value(), credential(id, credential.value())));
-        return Map.copyOf(settings);
+        return Collections.unmodifiableMap(settings);
     }
 
     private static RepositorySettings central(LocalId id, EffectiveCentralRepository central) {
