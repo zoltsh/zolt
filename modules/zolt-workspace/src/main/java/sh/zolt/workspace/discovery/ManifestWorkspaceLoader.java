@@ -146,9 +146,9 @@ public final class ManifestWorkspaceLoader {
     }
 
     /**
-     * The legacy explicit default-member list. An implicit-all final selection has no legacy analogue
-     * beyond "no {@code defaultMembers} were declared", which the legacy selector already reads as
-     * "every member" (design §6.2 {@code default}).
+     * The explicit default-member list the engine model carries. An implicit-all selection reports an
+     * empty list, which the engine already reads as "every member" (design §6.2 {@code
+     * [workspace.members].default}).
      */
     private static List<String> defaultMembers(DiscoveredWorkspace discovered) {
         if (discovered.selection().source() != WorkspaceMemberSelection.Source.EXPLICIT_DEFAULT) {
