@@ -2,9 +2,11 @@ package sh.zolt.manifest.authored;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import sh.zolt.manifest.ManifestModelValues;
 import sh.zolt.manifest.ManifestRelativePath;
 
@@ -24,6 +26,18 @@ public record AuthoredOpenApiOptions(
         Map<String, String> globalProperties,
         Map<String, String> typeMappings,
         Map<String, String> importMappings) {
+    /**
+     * Generator options that make the OpenAPI generator shell out to an external command once per
+     * generated file. Zolt never runs generator post-processing hooks: the hook would execute outside
+     * process supervision and outside generated-source fingerprinting, so it is rejected at the model
+     * boundary — for presets and for step-local overrides alike, whatever authored source produced them.
+     */
+    private static final Set<String> POST_PROCESS_KEYS = Set.of(
+            "enablepostprocessfile",
+            "postprocessfile",
+            "apifilepostprocessfile",
+            "modelfilepostprocessfile");
+
     public AuthoredOpenApiOptions {
         generator = optionalText(generator, "OpenAPI generator");
         library = optionalText(library, "OpenAPI library");
@@ -35,11 +49,11 @@ public record AuthoredOpenApiOptions(
                 templateDir, "OpenAPI template-directory path must not be null.");
         validateSpec = Objects.requireNonNull(
                 validateSpec, "OpenAPI validate-spec setting must not be null.");
-        options = immutableStringMap(options, "OpenAPI option");
-        additionalProperties = immutableStringMap(
+        options = generatorOptionMap(options, "OpenAPI option");
+        additionalProperties = generatorOptionMap(
                 additionalProperties, "OpenAPI additional-property");
-        configOptions = immutableStringMap(configOptions, "OpenAPI config-option");
-        globalProperties = immutableStringMap(
+        configOptions = generatorOptionMap(configOptions, "OpenAPI config-option");
+        globalProperties = generatorOptionMap(
                 globalProperties, "OpenAPI global-property");
         typeMappings = immutableStringMap(typeMappings, "OpenAPI type-mapping");
         importMappings = immutableStringMap(importMappings, "OpenAPI import-mapping");
@@ -59,6 +73,22 @@ public record AuthoredOpenApiOptions(
             ManifestModelValues.rejectControlCharacters(text, label);
         });
         return value;
+    }
+
+    private static Map<String, String> generatorOptionMap(
+            Map<String, String> values, String label) {
+        Map<String, String> copy = immutableStringMap(values, label);
+        for (String key : copy.keySet()) {
+            String normalized = key.toLowerCase(Locale.ROOT);
+            if (POST_PROCESS_KEYS.contains(normalized) || normalized.contains("postprocess")) {
+                throw new IllegalArgumentException(
+                        "Unsupported " + label + " `" + key
+                                + "`. Zolt does not run generator post-processing hooks; remove the"
+                                + " option or model the behavior as a Zolt-owned generated-source"
+                                + " feature.");
+            }
+        }
+        return copy;
     }
 
     private static Map<String, String> immutableStringMap(
