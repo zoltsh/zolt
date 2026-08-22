@@ -7,26 +7,22 @@ import java.util.Objects;
 import sh.zolt.project.ProjectConfig;
 
 /**
- * Shared plumbing for the legacy/final manifest pair tests: one loader, one pair assertion, and one
- * golden-fixture reader.
+ * Shared plumbing for the final-language boundary tests: one loader and one golden-fixture reader.
  */
-final class FinalManifestPairs {
+final class FinalManifests {
     private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
     private static final String GOLDEN_ROOT = "/golden/manifest-language/";
 
-    private FinalManifestPairs() {
+    private FinalManifests() {
     }
 
     static ManifestProjectConfigLoader loader() {
         return LOADER;
     }
 
-    /** Asserts that both dialects of the same manifest produce the same legacy config. */
-    static ProjectConfig assertEquivalent(String legacySource, String finalSource) {
-        ProjectConfig legacy = LegacyManifestDialect.parse(legacySource);
-        ProjectConfig adapted = LOADER.load(finalSource);
-        ProjectConfigEquivalence.assertEquivalent(legacy, adapted);
-        return adapted;
+    /** Loads one final-language manifest through the project boundary. */
+    static ProjectConfig load(String finalSource) {
+        return LOADER.load(finalSource);
     }
 
     /** Loads one canonical golden manifest through the final boundary. */
@@ -37,7 +33,7 @@ final class FinalManifestPairs {
     /** The exact bytes of one canonical golden manifest. */
     static String goldenSource(String resourceName) throws IOException {
         try (InputStream stream =
-                FinalManifestPairs.class.getResourceAsStream(GOLDEN_ROOT + resourceName)) {
+                FinalManifests.class.getResourceAsStream(GOLDEN_ROOT + resourceName)) {
             return new String(
                     Objects.requireNonNull(stream, resourceName).readAllBytes(),
                     StandardCharsets.UTF_8);

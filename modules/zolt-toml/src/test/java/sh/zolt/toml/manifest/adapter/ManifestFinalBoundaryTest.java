@@ -21,25 +21,25 @@ final class ManifestFinalBoundaryTest {
     @Test
     void everyStandaloneGoldenLoadsThroughTheFinalBoundary() throws IOException {
         assertEquals(
-                "hello", FinalManifestPairs.golden("standalone-application.toml").project().name());
-        ProjectConfig library = FinalManifestPairs.golden("library-api-boundary.toml");
+                "hello", FinalManifests.golden("standalone-application.toml").project().name());
+        ProjectConfig library = FinalManifests.golden("library-api-boundary.toml");
         assertEquals("2.0.17", library.apiDependencies().get("org.slf4j:slf4j-api"));
         assertEquals(
                 "2.19.0", library.dependencies().get("com.fasterxml.jackson.core:jackson-databind"));
-        ProjectConfig springBoot = FinalManifestPairs.golden("spring-boot-service.toml");
+        ProjectConfig springBoot = FinalManifests.golden("spring-boot-service.toml");
         assertEquals(PackageMode.SPRING_BOOT, springBoot.packageSettings().mode());
         assertEquals(
                 "4.0.6",
                 springBoot.platforms().get("org.springframework.boot:spring-boot-dependencies"));
         assertTrue(springBoot.managedDependencies()
                 .contains("org.springframework.boot:spring-boot-starter-webmvc"));
-        ProjectConfig central = FinalManifestPairs.golden("central-ready-library.toml");
+        ProjectConfig central = FinalManifests.golden("central-ready-library.toml");
         assertEquals("Apache-2.0", central.packageSettings().metadata().license());
         assertEquals(
                 "https://github.com/example/library",
                 central.packageSettings().metadata().scm());
         assertTrue(central.packageSettings().sources());
-        ProjectConfig enterprise = FinalManifestPairs.golden("enterprise-repository.toml");
+        ProjectConfig enterprise = FinalManifests.golden("enterprise-repository.toml");
         assertEquals(
                 "https://repo.example.com/maven", enterprise.repositories().get("company"));
         assertEquals(
@@ -48,22 +48,8 @@ final class ManifestFinalBoundaryTest {
     }
 
     @Test
-    void coverageFloorsPairIsEquivalent() {
-        CoverageSettings legacy = LegacyManifestDialect.coverageFloors(
-                """
-                [project]
-                name = "covered"
-                version = "1.0.0"
-                group = "com.example"
-                java = "21"
-
-                [coverage]
-                minLine = 88
-                minBranch = 74
-                minInstruction = 80
-                minMethod = 85
-                """);
-        CoverageSettings adapted = FinalManifestPairs.loader().coverageFloors(
+    void coverageFloorsReachTheCoverageSettings() {
+        CoverageSettings adapted = FinalManifests.loader().coverageFloors(
                 """
                 [project]
                 name = "covered"
@@ -77,14 +63,17 @@ final class ManifestFinalBoundaryTest {
                 instruction = 80
                 method = 85
                 """);
-        assertEquals(legacy, adapted);
+
         assertEquals(Optional.of(88.0), adapted.minLine());
+        assertEquals(Optional.of(74.0), adapted.minBranch());
+        assertEquals(Optional.of(80.0), adapted.minInstruction());
+        assertEquals(Optional.of(85.0), adapted.minMethod());
     }
 
     @Test
     void virtualWorkspaceRootCoverageFloorsLoadWithoutAProjectDomain() throws IOException {
-        CoverageSettings floors = FinalManifestPairs.loader()
-                .coverageFloors(FinalManifestPairs.goldenSource("virtual-workspace.toml"));
+        CoverageSettings floors = FinalManifests.loader()
+                .coverageFloors(FinalManifests.goldenSource("virtual-workspace.toml"));
 
         assertEquals(Optional.of(88.0), floors.minLine());
         assertEquals(Optional.of(74.0), floors.minBranch());
@@ -96,7 +85,7 @@ final class ManifestFinalBoundaryTest {
     void absentCoverageSectionHasNoFloors() {
         assertEquals(
                 CoverageSettings.none(),
-                FinalManifestPairs.loader().coverageFloors(
+                FinalManifests.loader().coverageFloors(
                         """
                         [project]
                         name = "uncovered"
@@ -144,7 +133,7 @@ final class ManifestFinalBoundaryTest {
     void workspaceSelectorsAreRejectedInAStandaloneManifest() {
         ZoltConfigException failure = assertThrows(
                 ZoltConfigException.class,
-                () -> FinalManifestPairs.loader().load(
+                () -> FinalManifests.loader().load(
                         """
                         [project]
                         name = "standalone"
@@ -164,7 +153,7 @@ final class ManifestFinalBoundaryTest {
         ZoltConfigException failure =
                 assertThrows(
                         ZoltConfigException.class,
-                        () -> FinalManifestPairs.loader().load(finalSource));
+                        () -> FinalManifests.loader().load(finalSource));
         String message = failure.getMessage();
         assertFalse(
                 message.contains("legacy") || message.contains("migrat") || message.contains("rename"),
