@@ -10,6 +10,7 @@ import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandFrameworkServices;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.command.CommandResolveOutput;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.cli.command.CommandServiceBundles.CommandResolveServices;
 import sh.zolt.cli.command.CommandTimings;
 import sh.zolt.cli.console.ProgressPhase;
@@ -106,33 +107,20 @@ public final class ResolveCommand implements Runnable {
         Path projectRoot = projectDirectory.path();
         try {
             if (workspace) {
-                if (!repositoryOverlays.isEmpty() || noLocalOverlays) {
-                    throw ResolveException.actionable(
-                            "Repository overlay options are currently supported for single-project resolve only.",
-                            "Run without --workspace or wait for workspace overlay policy support.");
-                }
-                ProgressPhase phase = progress.phase("Resolving workspace dependencies");
-                ResolveOptions options = ResolveOptions.offline(offline)
-                        .withRetryCommand("zolt resolve --workspace")
-                        .withArtifactProgressListener(progress.artifactProgressListener());
-                WorkspaceResolveSnapshot snapshot = resolveInPhase(phase, () -> timings.measure(
-                        "resolve workspace",
-                        () -> workspaceResolveService.resolveSnapshot(
-                                projectRoot,
-                                cacheRoot,
-                                locked,
-                                options),
-                        ResolveCommand::workspaceResolveAttributes));
-                ResolveResult result = snapshot.result();
-                CommandResolveOutput.printWorkspace(spec, result, locked, snapshot.resolutionSkipped());
-                printPolicyWarnings(result);
-                CommandHumanOutput.of(spec).action("zolt build --workspace");
-                progress.result("Resolved " + result.resolvedCount() + " packages");
+                resolveWorkspace(timings, progress, projectRoot, "zolt build --workspace");
                 return;
             }
-            ProjectConfig config = timings.measure(
+            ProjectCommandContext context = timings.measure(
                     "config read",
-                    () -> projectLoader.load(projectRoot));
+                    () -> ProjectCommandContext.load(projectLoader, projectRoot));
+            if (context.workspaceMember()) {
+                // Design §4.5: a workspace has one authoritative lock, and a resolving command started
+                // inside a member updates the COMPLETE workspace snapshot rather than resolving the
+                // member alone into a lock of its own.
+                resolveWorkspace(timings, progress, context.lockRoot(), "zolt build");
+                return;
+            }
+            ProjectConfig config = context.config();
             ProgressPhase phase = progress.phase("Resolving dependencies");
             ResolveOptions options = resolveOptions()
                     .withArtifactProgressListener(progress.artifactProgressListener());
@@ -159,6 +147,41 @@ public final class ResolveCommand implements Runnable {
         } finally {
             CommandTimings.print(spec, "resolve", projectRoot, timingOptions, timings);
         }
+    }
+
+    /**
+     * Resolves the workspace rooted at (or discovered from) {@code startDirectory} and writes its one
+     * root lock. Reached both by {@code --workspace} and by a member-directory resolve, which are the
+     * same operation: the whole workspace, resolved into the authoritative snapshot.
+     */
+    private void resolveWorkspace(
+            TimingRecorder timings,
+            ProgressWriter progress,
+            Path startDirectory,
+            String nextAction) {
+        if (!repositoryOverlays.isEmpty() || noLocalOverlays) {
+            throw ResolveException.actionable(
+                    "Repository overlay options are currently supported for single-project resolve only.",
+                    "Run them from a project outside every workspace, or wait for workspace overlay "
+                            + "policy support.");
+        }
+        ProgressPhase phase = progress.phase("Resolving workspace dependencies");
+        ResolveOptions options = ResolveOptions.offline(offline)
+                .withRetryCommand("zolt resolve --workspace")
+                .withArtifactProgressListener(progress.artifactProgressListener());
+        WorkspaceResolveSnapshot snapshot = resolveInPhase(phase, () -> timings.measure(
+                "resolve workspace",
+                () -> workspaceResolveService.resolveSnapshot(
+                        startDirectory,
+                        cacheRoot,
+                        locked,
+                        options),
+                ResolveCommand::workspaceResolveAttributes));
+        ResolveResult result = snapshot.result();
+        CommandResolveOutput.printWorkspace(spec, result, locked, snapshot.resolutionSkipped());
+        printPolicyWarnings(result);
+        CommandHumanOutput.of(spec).action(nextAction);
+        progress.result("Resolved " + result.resolvedCount() + " packages");
     }
 
     /** Design §9.11: a mediating-but-reporting policy surfaces every warning it produced. */

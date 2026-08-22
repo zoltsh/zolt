@@ -68,11 +68,9 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                     "--workspace",
                     "--cwd", memberDir.toString(),
                     "--cache-root", cacheRoot.toString());
-            // Standalone resolve on the member writes modules/core/zolt.lock; a --workspace resolve never does.
-            CommandResult memberResolve = execute(
-                    "resolve",
-                    "--cwd", memberDir.toString(),
-                    "--cache-root", cacheRoot.toString());
+            // The leftover an older standalone command wrote into the member directory. No command
+            // creates one any more, so the fixture plants it directly.
+            Files.writeString(memberDir.resolve("zolt.lock"), "version = 7\n");
             // Change a member input so the member-local zolt.lock is now stale.
             writeMemberConfig(memberDir, "com.example:extra");
 
@@ -82,7 +80,6 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                     "--cache-root", cacheRoot.toString());
 
             assertEquals(0, workspaceResolve.exitCode());
-            assertEquals(0, memberResolve.exitCode());
             assertEquals(1, result.exitCode());
             assertTrue(Files.exists(memberDir.resolve("zolt.lock")));
             // No dead-end bare `zolt resolve` next-step.
