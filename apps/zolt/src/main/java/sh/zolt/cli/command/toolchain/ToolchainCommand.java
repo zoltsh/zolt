@@ -4,6 +4,7 @@ import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.cli.net.CommandNetwork;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
@@ -139,7 +140,7 @@ public final class ToolchainCommand implements Runnable {
                 return statusService.status(
                         configured,
                         "[toolchain.java]",
-                        projectRoot.resolve("zolt.lock"),
+                        CommandProjectLockfile.path(projectRoot),
                         HostPlatform.parse(target),
                         new ToolchainStore(installRoot));
             }
@@ -273,7 +274,7 @@ public final class ToolchainCommand implements Runnable {
             return syncService().sync(
                     request,
                     toolchainConfigReader.readJavaTest(projectRoot.resolve("zolt.toml")),
-                    projectRoot.resolve("zolt.lock"),
+                    CommandProjectLockfile.path(projectRoot),
                     HostPlatform.parse(target),
                     new ToolchainStore(installRoot),
                     refresh);

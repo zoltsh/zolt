@@ -204,6 +204,14 @@ final class ExecCommandTest {
                 features = []
                 policy = "%s"
                 """.formatted(name, policy.id()));
+        Files.createDirectories(workspace.resolve("apps/demo"));
+        Files.writeString(workspace.resolve("apps/demo/zolt.toml"), """
+                [project]
+                name = "demo-member"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
         Files.writeString(workspace.resolve("zolt.lock"), "version = 7\n\n");
         return workspace;
     }

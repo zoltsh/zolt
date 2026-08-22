@@ -3,6 +3,7 @@ package sh.zolt.cli.command.toolchain;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.config.UserGlobalConfig;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
@@ -92,7 +93,8 @@ public final class ToolchainListCommand implements Callable<Integer> {
             UserGlobalConfig globalConfig = globalConfigParser.read(globalConfigPath);
             Optional<JavaToolchainStatus> project = projectStatus(projectRoot, platform, store);
             Optional<JavaToolchainStatus> global = globalStatus(globalConfig, platform, store);
-            List<LockedJavaToolchain> projectLocks = lockfiles.readJava(projectRoot.resolve("zolt.lock"));
+            List<LockedJavaToolchain> projectLocks = lockfiles.readJava(
+                    CommandProjectLockfile.path(projectRoot));
             List<LockedJavaToolchain> globalLocks = lockfiles.readJava(GlobalToolchainPaths.lockfile(globalConfigPath));
             print(projectRoot, project, global, projectLocks, globalLocks, store);
             return 0;
@@ -114,7 +116,7 @@ public final class ToolchainListCommand implements Callable<Integer> {
             return Optional.of(statusService.status(
                     configured.orElseThrow(),
                     "[toolchain.java]",
-                    projectRoot.resolve("zolt.lock"),
+                    CommandProjectLockfile.path(projectRoot),
                     platform,
                     store));
         }

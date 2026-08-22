@@ -30,13 +30,42 @@ public final class CommandProjectLockfile {
      * needing the project's configuration. Only a directory the workspace actually expanded into — its
      * root or one of its members — is governed by the root lock; anything else keeps its own.
      */
+    /** The authoritative lockfile path for a directory, discovering its workspace on the spot. */
+    public static Path path(Path projectDirectory) {
+        return path(projectDirectory, new ManifestWorkspaceLoader());
+    }
+
+    /** Whether a workspace governs {@code projectDirectory}'s lockfile. */
+    public static boolean governedByWorkspace(Path projectDirectory) {
+        return governedByWorkspace(projectDirectory, new ManifestWorkspaceLoader());
+    }
+
     public static Path path(Path projectDirectory, ManifestWorkspaceLoader workspaceLoader) {
+        return root(projectDirectory, workspaceLoader).resolve(LOCKFILE);
+    }
+
+    /**
+     * The directory that owns {@code projectDirectory}'s lockfile, for the callers that need the root
+     * itself rather than the file — a toolchain sync target, a plan request, a provenance probe.
+     */
+    public static Path root(Path projectDirectory, ManifestWorkspaceLoader workspaceLoader) {
         Path directory = projectDirectory.toAbsolutePath().normalize();
         return workspaceLoader.discover(directory)
                 .filter(workspace -> owns(workspace, directory))
                 .map(Workspace::root)
-                .orElse(directory)
-                .resolve(LOCKFILE);
+                .orElse(directory);
+    }
+
+    /**
+     * Whether a workspace governs {@code projectDirectory}'s lockfile, i.e. the directory is that
+     * workspace's root or one of its members.
+     */
+    public static boolean governedByWorkspace(
+            Path projectDirectory, ManifestWorkspaceLoader workspaceLoader) {
+        Path directory = projectDirectory.toAbsolutePath().normalize();
+        return workspaceLoader.discover(directory)
+                .filter(workspace -> owns(workspace, directory))
+                .isPresent();
     }
 
     private static boolean owns(Workspace workspace, Path directory) {

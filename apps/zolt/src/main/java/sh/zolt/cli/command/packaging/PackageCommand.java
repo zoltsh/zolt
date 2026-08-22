@@ -280,7 +280,7 @@ public final class PackageCommand implements Runnable {
                     () -> packagePlanService.plan(
                             projectRoot,
                             config,
-                            projectRoot.resolve("zolt.lock"),
+                            CommandProjectLockfile.path(projectRoot),
                             cacheRoot),
                     CommandPackageAttributes::packagePlan);
             if (planOutputFormat == PackageCommandModes.PlanOutputFormat.JSON) {

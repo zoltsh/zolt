@@ -2,6 +2,7 @@ package sh.zolt.cli.command.toolchain;
 
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
 import sh.zolt.error.ActionableException;
@@ -125,7 +126,7 @@ public final class ExecCommand implements java.util.concurrent.Callable<Integer>
             return toolchains.environment(
                     configured,
                     "[toolchain.java]",
-                    projectRoot.resolve("zolt.lock"),
+                    CommandProjectLockfile.path(projectRoot),
                     HostPlatform.parse(toolchainTarget),
                     new ToolchainStore(toolchainInstallRoot),
                     "Java toolchain is not ready for exec",

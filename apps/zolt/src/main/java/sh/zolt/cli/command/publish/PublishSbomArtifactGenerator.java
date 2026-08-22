@@ -14,6 +14,7 @@ import sh.zolt.sbom.LicenseIndex;
 import sh.zolt.sbom.LockSbomAssembler;
 import sh.zolt.sbom.SbomModel;
 import sh.zolt.sbom.SbomScopeSelection;
+import sh.zolt.workspace.discovery.ManifestProject;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomGenerator;
 
@@ -33,9 +34,10 @@ final class PublishSbomArtifactGenerator {
         if (!enabled) {
             return Optional.empty();
         }
-        ProjectConfig config = projectLoader.load(projectRoot);
-        ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
-        return Optional.of(write(projectRoot, config, lockfile, toolVersion));
+        ManifestProject project = projectLoader.project(projectRoot);
+        ZoltLockfile lockfile = lockfileReader.read(
+                sh.zolt.cli.command.CommandProjectLockfile.path(project));
+        return Optional.of(write(projectRoot, project.config(), lockfile, toolVersion));
     }
 
     /**

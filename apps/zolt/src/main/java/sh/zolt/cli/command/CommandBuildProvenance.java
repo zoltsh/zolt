@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.util.Optional;
 
 public final class CommandBuildProvenance {
+
     private CommandBuildProvenance() {
     }
 
@@ -28,7 +29,7 @@ public final class CommandBuildProvenance {
     }
 
     private static Optional<String> resolutionFingerprint(Path projectRoot) {
-        Path lockfile = projectRoot.resolve("zolt.lock");
+        Path lockfile = CommandProjectLockfile.path(projectRoot);
         if (!Files.isRegularFile(lockfile)) {
             return Optional.empty();
         }
