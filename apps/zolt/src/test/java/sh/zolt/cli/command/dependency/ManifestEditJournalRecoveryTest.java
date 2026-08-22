@@ -105,7 +105,7 @@ final class ManifestEditJournalRecoveryTest {
     void preCommitJournalStatesRestoreOriginalFiles() throws IOException {
         for (String state : new String[] {"STAGING", "PREPARED"}) {
             Path root = tempDir.resolve(state.toLowerCase());
-            Path transaction = root.resolve(".zolt/manifest-edit-transaction");
+            Path transaction = root.resolve(".zolt/manifest-edits/project");
             Files.createDirectories(transaction);
             Files.writeString(root.resolve("zolt.toml"), "manifest = \"original\"\n");
             Files.writeString(root.resolve("zolt.lock"), "lock = \"original\"\n");
@@ -215,6 +215,6 @@ final class ManifestEditJournalRecoveryTest {
     }
 
     private Path transactionDirectory() {
-        return tempDir.resolve(".zolt").resolve("manifest-edit-transaction");
+        return tempDir.resolve(".zolt").resolve("manifest-edits").resolve("project");
     }
 }

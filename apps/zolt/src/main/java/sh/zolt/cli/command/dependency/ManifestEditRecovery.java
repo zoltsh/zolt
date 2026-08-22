@@ -11,12 +11,15 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /** Recovery state machine for interrupted standalone, member, and workspace-root manifest edits. */
 final class ManifestEditRecovery {
-    static final String TRANSACTION_DIRECTORY = "manifest-edit-transaction";
-    static final String WORKSPACE_TRANSACTIONS_DIRECTORY = "manifest-edits";
+    /** Design §19.1: every journal lives under {@code .zolt/manifest-edits}. */
+    static final String JOURNALS_DIRECTORY = "manifest-edits";
+    /** The reserved journal name for a standalone project's own manifest. */
+    static final String STANDALONE_JOURNAL = "project";
     static final String STATE = "state";
     static final String STAGING = "STAGING";
     static final String PREPARED = "PREPARED";
@@ -124,35 +127,66 @@ final class ManifestEditRecovery {
     }
 
     static void recoverAll(Path projectRoot, Path lockRoot) {
-        Path normalizedProject = projectRoot.toAbsolutePath().normalize();
-        Path normalizedLockRoot = lockRoot.toAbsolutePath().normalize();
-        Set<Path> legacyRoots = new LinkedHashSet<>();
-        legacyRoots.add(normalizedProject);
-        legacyRoots.add(normalizedLockRoot);
-        for (Path legacyRoot : legacyRoots) {
-            recover(legacyRoot.resolve(".zolt").resolve(TRANSACTION_DIRECTORY), legacyRoot, legacyRoot);
+        Set<Path> roots = new LinkedHashSet<>();
+        roots.add(projectRoot.toAbsolutePath().normalize());
+        roots.add(lockRoot.toAbsolutePath().normalize());
+        for (Path root : roots) {
+            recoverJournals(root);
         }
+    }
 
-        Path workspaceTransactions = normalizedLockRoot.resolve(".zolt").resolve(WORKSPACE_TRANSACTIONS_DIRECTORY);
-        if (!Files.exists(workspaceTransactions)) {
+    /**
+     * Recovers every journal under {@code root/.zolt/manifest-edits}.
+     *
+     * <p>The journal area is Zolt's, but it lives in a directory a user, an editor, or a backup tool
+     * can also write to. Nothing found there may permanently block every mutation: an entry that
+     * cannot be a journal is ignored, a journal that recorded no on-disk change is cleaned, and the
+     * one case Zolt genuinely cannot interpret fails naming exactly the one path to remove.
+     */
+    private static void recoverJournals(Path root) {
+        Path journals = root.resolve(".zolt").resolve(JOURNALS_DIRECTORY);
+        if (!Files.exists(journals, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
-        if (!Files.isDirectory(workspaceTransactions)) {
-            throw new ZoltConfigException(
-                    "Workspace manifest transaction journal is not a directory: " + workspaceTransactions);
+        if (!Files.isDirectory(journals)) {
+            throw new ZoltConfigException(ActionableError.of(
+                    "The manifest edit journal area " + journals + " is not a directory.",
+                    "Delete " + journals + ", then retry."));
         }
-        try (var entries = Files.list(workspaceTransactions)) {
-            for (Path transaction : entries.sorted().toList()) {
-                if (!Files.isDirectory(transaction)) {
-                    throw new IOException("Unexpected workspace transaction entry " + transaction);
-                }
-                Path memberRoot = recordedManifestRoot(transaction, normalizedLockRoot);
-                recover(transaction, memberRoot, normalizedLockRoot);
+        List<Path> entries;
+        try (var stream = Files.list(journals)) {
+            entries = stream.sorted().toList();
+        } catch (IOException exception) {
+            throw new ZoltConfigException(ActionableError.of(
+                    "Could not list the manifest edit journal area " + journals + ".",
+                    "Check that " + journals + " is readable, then retry.",
+                    exception));
+        }
+        for (Path journal : entries) {
+            if (!Files.isDirectory(journal, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                // Only a directory can be a journal, so anything else here is not Zolt's to read.
+                continue;
             }
-        } catch (IOException | IllegalArgumentException exception) {
-            throw new ZoltConfigException(
-                    "Could not inspect workspace manifest transaction journals at " + workspaceTransactions + ".");
+            recoverJournal(journal, root);
         }
+    }
+
+    private static void recoverJournal(Path journal, Path root) {
+        if (!Files.isRegularFile(journal.resolve(STATE))) {
+            // No state record means no committed change; recover() cleans it up.
+            recover(journal, root, root);
+            return;
+        }
+        Path manifestRoot;
+        try {
+            manifestRoot = recordedManifestRoot(journal, root);
+        } catch (IOException | IllegalArgumentException exception) {
+            throw new ZoltConfigException(ActionableError.of(
+                    "Manifest edit journal " + journal + " does not name a manifest inside " + root + ".",
+                    "Remove " + journal + " after inspecting its backups, then retry.",
+                    exception));
+        }
+        recover(journal, manifestRoot, root);
     }
 
     private static Path decodedMemberRoot(Path workspaceRoot, String encodedMember) throws IOException {
@@ -167,7 +201,10 @@ final class ManifestEditRecovery {
     private static Path recordedManifestRoot(Path transaction, Path workspaceRoot) throws IOException {
         Path recorded = transaction.resolve(MANIFEST_ROOT);
         if (!Files.isRegularFile(recorded)) {
-            return decodedMemberRoot(workspaceRoot, transaction.getFileName().toString());
+            String name = transaction.getFileName().toString();
+            return STANDALONE_JOURNAL.equals(name)
+                    ? workspaceRoot
+                    : decodedMemberRoot(workspaceRoot, name);
         }
         String relative = Files.readString(recorded).strip();
         if (relative.isBlank()) {
@@ -265,10 +302,8 @@ final class ManifestEditRecovery {
         if (!Files.exists(directory)) {
             return;
         }
-        Path name = directory.getFileName();
         Path parentName = directory.getParent() == null ? null : directory.getParent().getFileName();
-        boolean expected = name != null && TRANSACTION_DIRECTORY.equals(name.toString());
-        expected |= parentName != null && WORKSPACE_TRANSACTIONS_DIRECTORY.equals(parentName.toString());
+        boolean expected = parentName != null && JOURNALS_DIRECTORY.equals(parentName.toString());
         if (!expected) {
             throw new IOException("Refusing to clean unexpected transaction directory " + directory);
         }

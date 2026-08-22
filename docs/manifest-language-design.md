@@ -3017,6 +3017,8 @@ authoritativeLockfile = workspace/zolt.lock
 journalDirectory      = workspace/.zolt/manifest-edits/<member-id>
 ```
 
+`.zolt/manifest-edits` is Zolt's journal area, but it sits in a directory editors, backup tools, and people can also write to, so nothing found there may permanently block every mutation. A non-directory entry cannot be a journal and is ignored. A journal directory with no `state` record wrote nothing and is cleaned. The single case Zolt cannot interpret — a journal whose recorded manifest root is missing or escapes its root — fails naming exactly one path to remove, so removing that one directory unblocks every command.
+
 ## 19.2 Workspace member mutation
 
 A member mutation:

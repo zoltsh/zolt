@@ -125,7 +125,7 @@ final class ManifestMutationRecoveryCommandTest {
         assertTrue(Files.readString(workspace.resolve("zolt.toml")).contains("added = \"1.0.0\""));
         assertTrue(Files.readString(workspace.resolve("zolt.lock"))
                 .contains("workspaceResolutionInputFingerprint = \"sha256:"));
-        assertFalse(Files.exists(workspace.resolve(".zolt/manifest-edit-transaction")));
+        assertFalse(Files.exists(workspace.resolve(".zolt/manifest-edits/project")));
         assertFalse(Files.exists(workspace.resolve(".zolt/manifest-edits/Lg")));
     }
 
@@ -160,7 +160,7 @@ final class ManifestMutationRecoveryCommandTest {
 
     private PendingTransaction pending(String name, String originalTail, String stagedTail) throws IOException {
         Path project = tempDir.resolve(name);
-        Path transaction = project.resolve(".zolt/manifest-edit-transaction");
+        Path transaction = project.resolve(".zolt/manifest-edits/project");
         Files.createDirectories(transaction);
         String prefix = """
                 [project]

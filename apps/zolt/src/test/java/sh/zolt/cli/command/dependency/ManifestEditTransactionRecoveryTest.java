@@ -92,7 +92,7 @@ final class ManifestEditTransactionRecoveryTest {
      * A concurrent manifest edit during the network resolve aborts the transaction while the journal
      * is still in STAGING. Nothing was written, so the journal must not survive: a journal that no
      * live content can match would make every later mutation command fail until the user deleted
-     * {@code .zolt/manifest-edit-transaction} by hand.
+     * {@code .zolt/manifest-edits/project} by hand.
      */
     @Test
     void concurrentManifestEditDuringResolveLeavesNoJournalBehind() throws IOException {
@@ -275,6 +275,6 @@ final class ManifestEditTransactionRecoveryTest {
     }
 
     private Path transactionDirectory() {
-        return tempDir.resolve(".zolt").resolve("manifest-edit-transaction");
+        return tempDir.resolve(".zolt").resolve("manifest-edits").resolve("project");
     }
 }
