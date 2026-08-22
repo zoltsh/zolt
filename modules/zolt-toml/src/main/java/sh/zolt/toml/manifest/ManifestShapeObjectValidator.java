@@ -165,9 +165,24 @@ final class ManifestShapeText {
     }
 
     static String mutableMessage(List<String> parent, List<String> field) {
+        return mutableMessage(parent, field, null);
+    }
+
+    /**
+     * The design §9.9 physical-line diagnostic. When the offending value is available it also shows
+     * the exact canonical one-line rewrite, because naming the field alone leaves the author to
+     * guess the inline form the failure-safe editor requires.
+     */
+    static String mutableMessage(List<String> parent, List<String> field, Object value) {
+        String rewrite = field.size() > parent.size()
+                ? ManifestTomlOneLine.assignment(field.getLast(), value)
+                : "";
         return "Entries in " + sectionPath(parent)
                 + " must use one physical assignment line under the explicit canonical table header. "
-                + "Rewrite `" + dotted(field) + "` beneath `" + sectionPath(parent) + "`.";
+                + "This source shape is required by Zolt's failure-safe manifest editor. "
+                + "Rewrite `" + dotted(field) + "`"
+                + (rewrite.isEmpty() ? "" : " as `" + rewrite + "`")
+                + " beneath `" + sectionPath(parent) + "`.";
     }
 
     static String dotted(List<String> path) {

@@ -57,6 +57,23 @@ final class ManifestShapeMutationValidatorTest {
         assertFailureContains(map.noncanonicalHeader(), "must use the exact canonical header");
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("tableValuedMutableMaps")
+    void showsTheExactCanonicalOneLineRewriteForLongFormEntries(MutableMap map) {
+        String message = failure(map.longForm()).getMessage();
+
+        assertTrue(message.contains("failure-safe manifest editor"), message);
+        assertTrue(message.contains("as `" + map.renderedKey() + " = { version = \"1.0.0\" }`"), message);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("mutableMaps")
+    void showsTheExactCanonicalOneLineRewriteForDottedEntries(MutableMap map) {
+        String message = failure(map.dotted()).getMessage();
+
+        assertTrue(message.contains("as `" + map.renderedKey() + " = \"1.0.0\"`"), message);
+    }
+
     @Test
     void oneLineStaticFieldsStillAllowDottedAndInlineParentToml() {
         validate("project.license = { id = \"MIT\" }\n");
@@ -121,6 +138,14 @@ final class ManifestShapeMutationValidatorTest {
     }
 
     record MutableMap(String path, String key) {
+        /** The key as canonical TOML: bare when the grammar allows it, quoted otherwise. */
+        String renderedKey() {
+            return key.chars().allMatch(character -> Character.isLetterOrDigit(character)
+                    || character == '_' || character == '-')
+                    ? key
+                    : "\"" + key + "\"";
+        }
+
         String direct() {
             return "[" + path + "]\n\"" + key + "\" = \"1.0.0\"\n";
         }

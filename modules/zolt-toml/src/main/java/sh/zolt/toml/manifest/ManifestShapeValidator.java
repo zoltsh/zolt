@@ -43,7 +43,7 @@ final class ManifestShapeValidator {
         String source = parsedSyntax.source();
         ManifestSyntax syntax = parsedSyntax.syntax();
         ManifestShapeValidationContext context = new ManifestShapeValidationContext(source, syntax, registry);
-        validateExplicitTables(context);
+        validateExplicitTables(parsedSyntax.parsed(), context);
         walkTable(parsedSyntax.parsed(), List.of(), context);
         context.diagnostics.throwIfAny();
         context.sections.sort(NODE_ORDER);
@@ -51,14 +51,15 @@ final class ManifestShapeValidator {
         return new ValidatedManifestShape(context.sections, context.fields);
     }
 
-    private static void validateExplicitTables(ManifestShapeValidationContext context) {
+    private static void validateExplicitTables(TomlTable parsed, ManifestShapeValidationContext context) {
         context.syntax.tables().stream()
                 .filter(TableSyntax::explicit)
                 .sorted(Comparator.comparingInt(table -> table.headerSpan().start()))
-                .forEach(table -> validateExplicitTable(table, context));
+                .forEach(table -> validateExplicitTable(table, parsed, context));
     }
 
-    private static void validateExplicitTable(TableSyntax table, ManifestShapeValidationContext context) {
+    private static void validateExplicitTable(
+            TableSyntax table, TomlTable parsed, ManifestShapeValidationContext context) {
         ManifestShapeSource source = context.sources.table(table.path());
         if (table.arrayTable()) {
             context.diagnostics.add(source,
@@ -94,7 +95,8 @@ final class ManifestShapeValidator {
             ManifestField field = resolution.field().orElseThrow().descriptor();
             if (field.mutation() == MutationPolicy.REPLACE_ENTRY) {
                 List<String> parent = context.navigator.mutableParent(field, table.path());
-                context.diagnostics.add(source, mutableMessage(parent, table.path()));
+                context.diagnostics.add(source,
+                        mutableMessage(parent, table.path(), valueAt(parsed, table.path())));
             } else {
                 context.diagnostics.add(source, "Manifest field `" + dotted(table.path())
                         + "` must be authored as an assignment, not a table header.");
@@ -102,6 +104,18 @@ final class ManifestShapeValidator {
         } else if (resolution.kind() == Kind.UNKNOWN) {
             unknownSection(table.path(), source, context);
         }
+    }
+
+    /** The parsed value at one table path, or null when the path is not a plain table walk. */
+    private static Object valueAt(TomlTable parsed, List<String> path) {
+        Object current = parsed;
+        for (String segment : path) {
+            if (!(current instanceof TomlTable table)) {
+                return null;
+            }
+            current = table.get(List.of(segment));
+        }
+        return current;
     }
 
     private static void walkTable(TomlTable table, List<String> parent, ManifestShapeValidationContext context) {
@@ -146,7 +160,7 @@ final class ManifestShapeValidator {
         if (source.origin() == ManifestShapeOrigin.EXPLICIT_TABLE) {
             if (!context.diagnostics.hasViolationAt(source.span().start())) {
                 context.diagnostics.add(source, field.mutation() == MutationPolicy.REPLACE_ENTRY
-                        ? mutableMessage(context.navigator.mutableParent(field, path), path)
+                        ? mutableMessage(context.navigator.mutableParent(field, path), path, value)
                         : "Manifest field `" + dotted(path)
                                 + "` must be authored as an assignment, not a table header.");
             }
@@ -162,7 +176,7 @@ final class ManifestShapeValidator {
         if (field.mutation() == MutationPolicy.REPLACE_ENTRY
                 && !isDirectMutableEntry(path, source, context)) {
             context.diagnostics.add(source,
-                    mutableMessage(context.navigator.mutableParent(field, path), path));
+                    mutableMessage(context.navigator.mutableParent(field, path), path, value));
             return false;
         }
         if (field.formatting() == FormattingPolicy.ONE_LINE
