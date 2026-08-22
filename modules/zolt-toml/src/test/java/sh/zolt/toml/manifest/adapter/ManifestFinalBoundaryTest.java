@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.project.CoverageSettings;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
@@ -79,6 +82,33 @@ final class ManifestFinalBoundaryTest {
         assertEquals(Optional.of(74.0), floors.minBranch());
         assertEquals(Optional.empty(), floors.minInstruction());
         assertEquals(Optional.empty(), floors.minMethod());
+    }
+
+    @Test
+    void coverageFloorsReadFromAWrittenManifestAndFromAnAbsentPath(@TempDir Path tempDir)
+            throws IOException {
+        Path manifest = tempDir.resolve("zolt.toml");
+        Files.writeString(manifest, """
+                [project]
+                name = "covered"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [coverage]
+                line = 88
+                branch = 74
+                """);
+
+        CoverageSettings floors = FinalManifests.loader().coverageFloors(manifest);
+
+        assertEquals(Optional.of(88.0), floors.minLine());
+        assertEquals(Optional.of(74.0), floors.minBranch());
+        assertEquals(Optional.empty(), floors.minInstruction());
+        // "no config" reads as "no floors" so a project without a manifest is not a coverage failure.
+        assertEquals(
+                CoverageSettings.none(),
+                FinalManifests.loader().coverageFloors(tempDir.resolve("missing/zolt.toml")));
     }
 
     @Test

@@ -83,9 +83,11 @@ final class ManifestProjectConfigAdapterTest {
 
                 [dependencies.processor]
                 "org.mapstruct:mapstruct-processor" = "1.6.3"
+                "org.springframework.boot:spring-boot-configuration-processor" = { managed = true }
 
                 [dependencies.test-processor]
                 "org.projectlombok:lombok" = "1.18.38"
+                "org.springframework.boot:spring-boot-autoconfigure-processor" = { managed = true }
                 """);
 
         assertEquals(Map.of("junit", "5.13.4"), adapted.versionAliases());
@@ -108,6 +110,13 @@ final class ManifestProjectConfigAdapterTest {
         assertEquals(
                 Set.of("org.springframework.boot:spring-boot-devtools"),
                 Set.copyOf(adapted.managedDevDependencies()));
+        // Both processor lanes route `managed = true` to their own managed set, not to the versioned map.
+        assertEquals(
+                Set.of("org.springframework.boot:spring-boot-configuration-processor"),
+                Set.copyOf(adapted.managedAnnotationProcessors()));
+        assertEquals(
+                Set.of("org.springframework.boot:spring-boot-autoconfigure-processor"),
+                Set.copyOf(adapted.managedTestAnnotationProcessors()));
         assertTrue(adapted.workspaceDependencies().isEmpty(), "no workspace selectors were authored");
     }
 

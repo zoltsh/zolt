@@ -194,6 +194,20 @@ final class ManifestShapeValidatorStructureTest {
         return validator.validate(parser.parse(source));
     }
 
+    /**
+     * A scalar written where a section belongs names the section and what was found instead, rather
+     * than reporting an unknown key at a path the author never wrote.
+     */
+    @Test
+    void scalarWrittenInPlaceOfASectionIsReportedAsSuch() {
+        assertFailureContains(
+                "[toolchain]\njava = 21\n",
+                "Manifest section `[toolchain.java]` must be a table, not Long.");
+        assertFailureContains(
+                "[resources]\nfilter = \"x\"\n",
+                "Manifest section `[resources.filter]` must be a table, not String.");
+    }
+
     private ZoltConfigException failure(String source) {
         return assertThrows(ZoltConfigException.class, () -> validate(source));
     }

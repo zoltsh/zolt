@@ -251,6 +251,25 @@ final class ManifestBuildConfigAdapterTest {
         assertEquals(UberDuplicatePolicy.FIRST_WINS, adapted.packageSettings().uberDuplicates());
     }
 
+    /** An omitted {@code duplicates} keeps the strict default: a colliding uber-jar entry fails. */
+    @Test
+    void uberJarWithoutADuplicatePolicyDefaultsToFail() {
+        ProjectConfig adapted = FinalManifests.load(
+                """
+                [project]
+                name = "tool"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [package]
+                mode = "uber-jar"
+                """);
+
+        assertEquals(PackageMode.UBER, adapted.packageSettings().mode());
+        assertEquals(UberDuplicatePolicy.FAIL, adapted.packageSettings().uberDuplicates());
+    }
+
     @Test
     void centralReadyLibraryPublicationMetadataReachesTheProjectConfig() {
         ProjectConfig adapted = FinalManifests.load(
