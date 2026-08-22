@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.project.ProjectConfig;
@@ -14,53 +15,53 @@ import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 
 /**
- * A root-plus-members workspace written twice — once in the legacy dialect, once in the final
- * language — asserted to produce the same legacy {@link Workspace} graph.
- *
- * <p>The legacy half goes through {@link LegacyWorkspaceDialect}, the one helper the cleanup phase
- * deletes with {@link WorkspaceDiscoveryService}.
+ * A root-plus-members workspace asserted to reach the expected {@link Workspace} graph through the
+ * final loader: membership, shared root configuration, edges, capture, and hoisted identity.
  */
-final class ManifestWorkspaceLoaderEquivalenceTest {
+final class ManifestWorkspaceLoaderProjectionTest {
     private final ManifestWorkspaceLoader loader = new ManifestWorkspaceLoader();
-
-    @TempDir
-    private Path legacyRoot;
 
     @TempDir
     private Path finalRoot;
 
     @Test
-    void workspacePairIsEquivalent() throws IOException {
-        FinalWorkspaceFixtures.writeLegacyWorkspace(legacyRoot);
+    void rootConfigurationAndMembershipReachTheWorkspace() throws IOException {
         FinalWorkspaceFixtures.writeFinalWorkspace(finalRoot);
 
-        Workspace legacy = LegacyWorkspaceDialect.load(legacyRoot);
         Workspace adapted = loader.load(finalRoot);
 
-        assertEquals(legacy.config().name(), adapted.config().name(), "workspace name");
-        assertEquals(legacy.config().members(), adapted.config().members(), "workspace members");
+        assertEquals("acme-platform", adapted.config().name());
         assertEquals(
-                legacy.config().defaultMembers(),
-                adapted.config().defaultMembers(),
-                "workspace default members");
-        assertEquals(legacy.config().repositories(), adapted.config().repositories(), "repositories");
+                List.of("apps/api", "modules/contract", "modules/core", "modules/processor",
+                        "modules/testkit"),
+                adapted.config().members());
+        assertEquals(List.of("apps/api"), adapted.config().defaultMembers());
         assertEquals(
-                legacy.config().repositorySettings(),
-                adapted.config().repositorySettings(),
-                "repository settings");
+                "https://repo.maven.apache.org/maven2",
+                adapted.config().repositories().get("central"),
+                "design §6.1 keeps Maven Central implicit");
         assertEquals(
-                legacy.config().repositoryCredentials(),
-                adapted.config().repositoryCredentials(),
-                "repository credentials");
-        assertEquals(legacy.config().platforms(), adapted.config().platforms(), "workspace platforms");
-        assertEquals(legacy.buildOrder(), adapted.buildOrder(), "build order");
-        assertEquals(FinalWorkspaceFixtures.edges(legacy), FinalWorkspaceFixtures.edges(adapted), "workspace project edges");
-        assertEquals(FinalWorkspaceFixtures.directories(legacy, legacyRoot), FinalWorkspaceFixtures.directories(adapted, finalRoot), "member directories");
-        assertEquals(FinalWorkspaceFixtures.configs(legacy), FinalWorkspaceFixtures.configs(adapted), "member project configs");
+                "https://repo.example.com/maven", adapted.config().repositories().get("company"));
+        assertEquals(
+                Optional.of("MAVEN_USERNAME"),
+                adapted.config().repositoryCredentials().get("company").usernameEnv());
+        assertEquals(
+                Optional.of("MAVEN_PASSWORD"),
+                adapted.config().repositoryCredentials().get("company").passwordEnv());
+        assertEquals(
+                Map.of("com.acme:enterprise-platform", "2026.1.0"), adapted.config().platforms());
+        assertEquals(
+                List.of("modules/contract", "modules/processor", "modules/core", "modules/testkit",
+                        "apps/api"),
+                adapted.buildOrder());
+        assertEquals(
+                List.of("apps/api", "modules/contract", "modules/core", "modules/processor",
+                        "modules/testkit"),
+                FinalWorkspaceFixtures.directories(adapted, finalRoot));
     }
 
     @Test
-    void everyLegacyWorkspaceScopeIsProjected() throws IOException {
+    void everyWorkspaceScopeIsProjected() throws IOException {
         FinalWorkspaceFixtures.writeFinalWorkspace(finalRoot);
 
         Workspace adapted = loader.load(finalRoot);
