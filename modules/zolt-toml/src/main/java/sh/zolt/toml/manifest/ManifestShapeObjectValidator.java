@@ -2,6 +2,7 @@ package sh.zolt.toml.manifest;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.StringJoiner;
 import org.tomlj.TomlArray;
 import org.tomlj.TomlTable;
 import sh.zolt.toml.schema.ManifestObjectMember;
@@ -164,25 +165,51 @@ final class ManifestShapeText {
         return text.indexOf('\n') < 0 && text.indexOf('\r') < 0;
     }
 
-    static String mutableMessage(List<String> parent, List<String> field) {
-        return mutableMessage(parent, field, null);
-    }
-
     /**
-     * The design §9.9 physical-line diagnostic. When the offending value is available it also shows
-     * the exact canonical one-line rewrite, because naming the field alone leaves the author to
-     * guess the inline form the failure-safe editor requires.
+     * The design §9.9 physical-line diagnostic, which also shows the exact canonical one-line
+     * rewrite: naming the field alone leaves the author to guess the inline form the failure-safe
+     * editor requires.
      */
-    static String mutableMessage(List<String> parent, List<String> field, Object value) {
-        String rewrite = field.size() > parent.size()
-                ? ManifestTomlOneLine.assignment(field.getLast(), value)
-                : "";
+    static String mutableMessage(
+            List<String> parent, List<String> field, ManifestShapeValidationContext context) {
+        String rewrite = field.size() > parent.size() ? oneLineRewrite(field, context) : "";
         return "Entries in " + sectionPath(parent)
                 + " must use one physical assignment line under the explicit canonical table header. "
                 + "This source shape is required by Zolt's failure-safe manifest editor. "
                 + "Rewrite `" + dotted(field) + "`"
                 + (rewrite.isEmpty() ? "" : " as `" + rewrite + "`")
                 + " beneath `" + sectionPath(parent) + "`.";
+    }
+
+    /**
+     * One rejected entry restated as the canonical single assignment line, built from the exact
+     * source the author wrote. Empty when any part of it cannot be stated on one line.
+     */
+    private static String oneLineRewrite(List<String> field, ManifestShapeValidationContext context) {
+        String source = context.source;
+        String key = entryKey(field.getLast()) + " = ";
+        var direct = context.syntax.sourceIndex().assignmentsAt(field);
+        if (!direct.isEmpty()) {
+            SourceSpan value = direct.getFirst().valueSpan();
+            return spanIsOneLine(value, source) ? key + value.text(source) : "";
+        }
+        StringJoiner inline = new StringJoiner(", ", "{ ", " }");
+        var members = context.syntax.sourceIndex().assignmentsInTable(field);
+        for (var member : members) {
+            if (!spanIsOneLine(member.assignmentSpan(), source)) {
+                return "";
+            }
+            inline.add(member.keySpan().text(source) + " = " + member.valueSpan().text(source));
+        }
+        return members.isEmpty() ? "" : key + inline;
+    }
+
+    /** A mutable-map key as canonical TOML: bare when the grammar allows it, quoted otherwise. */
+    private static String entryKey(String key) {
+        return !key.isEmpty() && key.chars().allMatch(character -> character < 128
+                && (Character.isLetterOrDigit(character) || character == '_' || character == '-'))
+                ? key
+                : "\"" + key.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     static String dotted(List<String> path) {

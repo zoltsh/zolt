@@ -18,10 +18,10 @@ import java.util.regex.Pattern;
  * The pre-release manifest spellings the hard cut removed, and the source surface that must no
  * longer carry them (design §21.1 and §21.3 Phase 0).
  *
- * <p>The scanned surface is every tracked file {@code git ls-files} reports, so a new directory,
- * an extensionless script, or a workflow file cannot quietly escape the gate. Tracked is the right
- * boundary: it is what a review and CI see, and it inherits {@code .gitignore} rather than
- * re-deriving which directories hold build output. Java is scanned
+ * <p>The scanned surface is every tracked file {@code git ls-files} reports and the working tree
+ * still holds, so a new directory, an extensionless script, or a workflow file cannot quietly
+ * escape the gate. Tracked is the right boundary: it is what a review and CI see, and it inherits
+ * {@code .gitignore} rather than re-deriving which directories hold build output. Java is scanned
  * through its string literals, text blocks, and comments only: the engine model deliberately keeps
  * pre-cut identifiers such as {@code ProjectConfig.dependencyPolicy()} and the {@code
  * section|coordinate} metadata keys, and those are code, not something an author ever reads or
@@ -98,9 +98,13 @@ final class RemovedManifestSpellings {
             if (tracked.startsWith(SKIPPED_ROOT_DIRECTORY) || !scanned(tracked)) {
                 continue;
             }
+            Path file = repositoryRoot.resolve(tracked);
+            if (!Files.isRegularFile(file)) {
+                continue;
+            }
             int slash = tracked.indexOf('/');
             String root = slash < 0 ? "." : tracked.substring(0, slash);
-            byRoot.computeIfAbsent(root, key -> new ArrayList<>()).add(repositoryRoot.resolve(tracked));
+            byRoot.computeIfAbsent(root, key -> new ArrayList<>()).add(file);
         }
         byRoot.replaceAll((root, files) -> List.copyOf(files));
         return Map.copyOf(byRoot);
