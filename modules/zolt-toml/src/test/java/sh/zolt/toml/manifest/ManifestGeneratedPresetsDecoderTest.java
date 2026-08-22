@@ -212,6 +212,24 @@ final class ManifestGeneratedPresetsDecoderTest {
     }
 
     @Test
+    void rejectsGeneratorPostProcessingHooksInEveryOptionMap() {
+        for (String map : List.of("options", "additionalProperties", "configOptions", "globalProperties")) {
+            for (String key : List.of(
+                    "enablePostProcessFile",
+                    "ENABLEPOSTPROCESSFILE",
+                    "apiFilePostProcessFile",
+                    "modelFilePostProcessFile")) {
+                assertFailure(
+                        "[generated.presets.client]\nkind = \"openapi\"\n"
+                                + map + " = { " + key + " = \"true\" }\n",
+                        "Invalid value for `generated.presets.client." + map + "`",
+                        key,
+                        "does not run generator post-processing hooks");
+            }
+        }
+    }
+
+    @Test
     void leavesIdsAndEmptyNamedTablesToShapeValidation() {
         assertFailure(
                 "[generated.presets.Bad_Id]\nkind = \"openapi\"\n",

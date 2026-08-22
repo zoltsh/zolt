@@ -206,7 +206,26 @@ final class ManifestGeneratedTypedStepsDecoderTest {
                 Arguments.of(
                         lane,
                         "kind = \"protobuf\"\ninputs = [\"../proto.proto\"]\n",
-                        details(lane, "inputs", "Invalid resource glob"))));
+                        details(lane, "inputs", "Invalid resource glob")),
+                // Step-local overrides reject generator post-processing hooks exactly as presets do:
+                // the hook shells out per generated file, outside supervision and fingerprinting.
+                Arguments.of(
+                        lane,
+                        "kind = \"openapi\"\ninput = \"api.yaml\"\n"
+                                + "additionalProperties = { enablePostProcessFile = \"true\" }\n",
+                        details(
+                                lane,
+                                "additionalProperties",
+                                "enablePostProcessFile",
+                                "does not run generator post-processing hooks")),
+                Arguments.of(
+                        lane,
+                        "kind = \"openapi\"\ninput = \"api.yaml\"\n"
+                                + "configOptions = { MODELFILEPOSTPROCESSFILE = \"/bin/sh\" }\n",
+                        details(
+                                lane,
+                                "configOptions",
+                                "does not run generator post-processing hooks"))));
     }
 
     static Stream<Lane> lanes() {
