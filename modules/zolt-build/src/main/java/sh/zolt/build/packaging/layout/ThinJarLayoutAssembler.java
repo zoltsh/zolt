@@ -1,5 +1,6 @@
 package sh.zolt.build.packaging.layout;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.manifest.GeneratedManifest;
 import sh.zolt.build.manifest.ManifestGenerator;
@@ -128,7 +129,7 @@ public final class ThinJarLayoutAssembler {
             Path projectDirectory,
             Path cacheRoot,
             Path runtimeClasspathPath) throws IOException {
-        ZoltLockfile lockfile = lockfileReader.read(projectDirectory.resolve("zolt.lock"));
+        ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
         writeRuntimeClasspath(runtimeClasspathPath, packagedClasspathPackages(lockfile, cacheRoot));
     }
 

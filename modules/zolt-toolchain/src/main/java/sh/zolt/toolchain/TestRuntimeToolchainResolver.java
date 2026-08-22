@@ -1,5 +1,6 @@
 package sh.zolt.toolchain;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toolchain.lock.LockedJavaToolchain;
@@ -44,7 +45,7 @@ public final class TestRuntimeToolchainResolver {
         JavaToolchainStatus status = statusService.status(
                 request.orElseThrow(),
                 SOURCE,
-                lockRoot.resolve("zolt.lock"),
+                ProjectLockfile.in(lockRoot),
                 effectivePlatform,
                 effectiveStore);
         return Optional.of(new TestRuntimeToolchain(request.orElseThrow(), status, config.project().java()));

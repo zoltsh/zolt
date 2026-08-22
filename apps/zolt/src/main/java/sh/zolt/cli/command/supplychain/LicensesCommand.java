@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.supplychain;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,9 +14,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cli.ZoltCli;
-import sh.zolt.cli.command.CommandFailures;
-import sh.zolt.cli.command.CommandOutput;
-import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.*;
 import sh.zolt.error.ActionableError;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.LockPackage;
@@ -182,7 +181,7 @@ public final class LicensesCommand implements Runnable {
                 .orElseThrow(() -> new ActionableException(ActionableError.of(
                         "No Zolt workspace was found for `zolt licenses --workspace`.",
                         "Run from a workspace root, or drop --workspace for a single-project report.")));
-        Path lockfilePath = discovered.root().resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(discovered.root());
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",

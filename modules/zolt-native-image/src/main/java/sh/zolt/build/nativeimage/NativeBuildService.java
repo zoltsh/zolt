@@ -1,5 +1,6 @@
 package sh.zolt.build.nativeimage;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.NativeImageException;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
@@ -108,7 +109,7 @@ public final class NativeBuildService {
                 packageConfig,
                 cacheRoot,
                 artifactIndex);
-        ZoltLockfile lockfile = lockfileReader.read(projectDirectory.resolve("zolt.lock"));
+        ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
         ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
                         lockfile,
                         cacheRoot,

@@ -1,5 +1,6 @@
 package sh.zolt.doctor;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.project.NativeSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
@@ -35,7 +36,7 @@ public final class SelfHostingCheckService {
                 "project main is " + config.project().main().orElse("<missing>"),
                 "add [project].main so Zolt can run and package itself");
         add(checks, "lockfile",
-                Files.isRegularFile(root.resolve("zolt.lock")),
+                Files.isRegularFile(ProjectLockfile.in(root)),
                 "zolt.lock exists",
                 "run zolt resolve to create zolt.lock");
         add(checks, "main sources",

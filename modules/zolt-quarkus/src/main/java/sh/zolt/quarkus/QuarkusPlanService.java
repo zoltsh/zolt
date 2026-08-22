@@ -1,5 +1,6 @@
 package sh.zolt.quarkus;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
@@ -61,7 +62,7 @@ public final class QuarkusPlanService {
 
     public QuarkusPlan plan(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
         requireEnabled(config);
-        ZoltLockfile lockfile = lockfileReader.read(projectDirectory.resolve("zolt.lock"));
+        ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
         return plan(projectDirectory, config, lockfile, cacheRoot);
     }
 

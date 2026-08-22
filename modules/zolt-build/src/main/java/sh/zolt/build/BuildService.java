@@ -1,5 +1,6 @@
 package sh.zolt.build;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -227,7 +228,7 @@ public final class BuildService {
 
         Path outputDirectory = projectDirectory.resolve(config.build().output());
         Path generatedSourcesDirectory = generatedSourcesDirectory(projectDirectory, config.compilerSettings().generatedSources());
-        Path lockfilePath = projectDirectory.resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(projectDirectory);
         long fingerprintCheckStarted = System.nanoTime();
         BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkMainCompileCurrent(
                 projectDirectory,

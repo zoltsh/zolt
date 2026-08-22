@@ -1,5 +1,6 @@
 package sh.zolt.build.nativeimage;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
@@ -35,7 +36,7 @@ final class NativeProtectedPaths {
 
     private static void addFixedProjectFiles(List<ProtectedPath> paths, Path root) {
         paths.add(new ProtectedPath("project manifest", root.resolve("zolt.toml")));
-        paths.add(new ProtectedPath("project lockfile", root.resolve("zolt.lock")));
+        paths.add(new ProtectedPath("project lockfile", ProjectLockfile.in(root)));
     }
 
     private static void addBuildInputs(List<ProtectedPath> paths, Path root, BuildSettings build) {

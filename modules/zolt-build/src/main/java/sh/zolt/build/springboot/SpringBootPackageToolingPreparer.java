@@ -1,5 +1,6 @@
 package sh.zolt.build.springboot;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.lockfile.SpringBootLoaderArtifact;
@@ -27,7 +28,7 @@ public final class SpringBootPackageToolingPreparer {
         if (!isSpringBootArchive(config.packageSettings().mode())) {
             return;
         }
-        Path lockfilePath = projectRoot.resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(projectRoot);
         if (!Files.isRegularFile(lockfilePath)) {
             return;
         }

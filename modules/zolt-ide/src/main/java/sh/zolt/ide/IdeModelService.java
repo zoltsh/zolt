@@ -1,5 +1,6 @@
 package sh.zolt.ide;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.cache.ArtifactCacheException;
 import sh.zolt.error.ActionableException;
 import sh.zolt.generated.GeneratedSourceEvidenceService;
@@ -81,7 +82,7 @@ public final class IdeModelService {
             IdeTimingRecorder timings) {
         Path root = projectDirectory.toAbsolutePath().normalize();
         Path configPath = root.resolve("zolt.toml").normalize();
-        Path lockfilePath = root.resolve("zolt.lock").normalize();
+        Path lockfilePath = ProjectLockfile.in(root).normalize();
         Path normalizedCacheRoot = cacheRoot.toAbsolutePath().normalize();
         List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
 

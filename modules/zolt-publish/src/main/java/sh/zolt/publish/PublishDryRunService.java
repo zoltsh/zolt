@@ -1,5 +1,6 @@
 package sh.zolt.publish;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestReader;
 import sh.zolt.build.packageevidence.PackageEvidenceManifestWriter;
 import sh.zolt.build.packageplan.PackagePlan;
@@ -297,7 +298,7 @@ public final class PublishDryRunService {
 
     private ZoltLockfile lockfile(Path root) {
         try {
-            return lockfileReader.read(root.resolve("zolt.lock"));
+            return lockfileReader.read(ProjectLockfile.in(root));
         } catch (LockfileReadException exception) {
             throw new PublishException("Could not read zolt.lock for publish metadata: " + exception.getMessage());
         }
@@ -311,7 +312,7 @@ public final class PublishDryRunService {
             return packagePlanService.plan(
                     root,
                     config,
-                    root.resolve("zolt.lock"),
+                    ProjectLockfile.in(root),
                     cacheRoot);
         } catch (LockfileReadException exception) {
             throw new PublishException("Could not plan publish artifact: " + exception.getMessage());

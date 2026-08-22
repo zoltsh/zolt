@@ -1,5 +1,6 @@
 package sh.zolt.quality;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import static sh.zolt.quality.QualityCheckService.CACHE_INTEGRITY;
 import static sh.zolt.quality.QualityCheckService.LOCKFILE;
 
@@ -33,7 +34,7 @@ final class LockfileQualityCheck {
     }
 
     QualityCheckResult checkProjectLockfile(QualityCheckRequest request, ProjectConfig config) {
-        Path lockfile = request.projectRoot().resolve("zolt.lock");
+        Path lockfile = ProjectLockfile.in(request.projectRoot());
         boolean requireOfflineReady = request.context() == QualityCheckContext.CI && request.requireOfflineReady();
         boolean offline = request.offline() || requireOfflineReady;
         if (!Files.isRegularFile(lockfile)) {
@@ -77,7 +78,7 @@ final class LockfileQualityCheck {
     QualityCheckResult checkProjectCacheIntegrity(QualityCheckRequest request) {
         return checkCacheIntegrity(
                 Optional.empty(),
-                request.projectRoot().resolve("zolt.lock"),
+                ProjectLockfile.in(request.projectRoot()),
                 request.cacheRoot(),
                 false);
     }
@@ -85,13 +86,13 @@ final class LockfileQualityCheck {
     QualityCheckResult checkWorkspaceCacheIntegrity(QualityCheckRequest request, Workspace workspace) {
         return checkCacheIntegrity(
                 Optional.empty(),
-                workspace.root().resolve("zolt.lock"),
+                ProjectLockfile.in(workspace.root()),
                 request.cacheRoot(),
                 true);
     }
 
     QualityCheckResult checkWorkspaceLockfile(QualityCheckRequest request, Workspace workspace) {
-        Path lockfile = workspace.root().resolve("zolt.lock");
+        Path lockfile = ProjectLockfile.in(workspace.root());
         boolean requireOfflineReady = request.context() == QualityCheckContext.CI && request.requireOfflineReady();
         boolean offline = request.offline() || requireOfflineReady;
         if (!Files.isRegularFile(lockfile)) {

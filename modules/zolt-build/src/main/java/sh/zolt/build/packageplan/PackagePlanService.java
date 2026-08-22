@@ -1,5 +1,6 @@
 package sh.zolt.build.packageplan;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.classpath.NestedArtifactIdentity;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.PackageException;
@@ -64,7 +65,7 @@ public final class PackagePlanService {
         return plan(
                 projectRoot,
                 config,
-                projectRoot.resolve("zolt.lock"),
+                ProjectLockfile.in(projectRoot),
                 LocalArtifactCache.defaultRoot());
     }
 

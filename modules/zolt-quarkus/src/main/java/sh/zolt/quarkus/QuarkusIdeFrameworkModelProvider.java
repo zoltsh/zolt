@@ -1,5 +1,6 @@
 package sh.zolt.quarkus;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.ide.IdeFrameworkModelProvider;
 import sh.zolt.ide.IdeModel;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -78,7 +79,7 @@ public final class QuarkusIdeFrameworkModelProvider implements IdeFrameworkModel
                     "warning",
                     "QUARKUS_MODEL_UNAVAILABLE",
                     exception.getMessage(),
-                    root.resolve("zolt.lock").normalize(),
+                    ProjectLockfile.in(root).normalize(),
                     "Run zolt resolve, then run zolt build."));
             return quarkusInfoWithoutPlan(root, config, outputLayout, "unknown");
         }

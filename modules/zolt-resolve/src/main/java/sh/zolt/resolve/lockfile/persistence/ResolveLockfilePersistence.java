@@ -1,5 +1,6 @@
 package sh.zolt.resolve.lockfile.persistence;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.LockfileFreshnessSummary;
@@ -25,7 +26,7 @@ public final class ResolveLockfilePersistence {
     }
 
     public Path lockfilePath(Path projectDirectory) {
-        return projectDirectory.resolve("zolt.lock");
+        return ProjectLockfile.in(projectDirectory);
     }
 
     public ResolveOptions prepare(Path lockfilePath, boolean locked, ResolveOptions options) {

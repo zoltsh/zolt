@@ -1,5 +1,6 @@
 package sh.zolt.toolchain;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.error.ActionableException;
 import sh.zolt.net.NetworkTransport;
 import sh.zolt.project.ProjectConfig;
@@ -86,7 +87,7 @@ public final class ToolchainSyncService {
                     "Set distribution to graalvm-community or temurin, then rerun `zolt toolchain sync`.");
         }
         Optional<JavaToolchainRequest> testRequest = configReader.readJavaTest(projectRoot.resolve("zolt.toml"));
-        return sync(request, testRequest, projectRoot.resolve("zolt.lock"), platform, store, refresh);
+        return sync(request, testRequest, ProjectLockfile.in(projectRoot), platform, store, refresh);
     }
 
     public ToolchainSyncResult sync(

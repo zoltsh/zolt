@@ -1,0 +1,9 @@
+# path|reason
+# Files allowed to derive a `zolt.lock` PATH from a directory. Everything else asks
+# sh.zolt.lockfile.ProjectLockfile, whose parameter is named lockRoot so the caller has to have
+# decided which directory owns the lock. Naming "zolt.lock" in a message, a report label, or a plan
+# input list is not path derivation and needs no entry here.
+#
+# Allowances are intentionally strict: remove the entry when the file stops deriving the path.
+apps/zolt/src/main/java/sh/zolt/cli/command/dependency/ManifestEditCommitter.java|manifest-edit transaction seam; the resolve staging directory is a transaction scratch root, not a project, and the file is owned by the concurrent manifest-edit wave
+apps/zolt/src/main/java/sh/zolt/cli/command/dependency/ManifestEditRecovery.java|manifest-edit transaction seam; recovery reads the journal's recorded lock root, and the file is owned by the concurrent manifest-edit wave

@@ -1,5 +1,6 @@
 package sh.zolt.build.coverage;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.CoverageException;
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -25,10 +26,7 @@ final class CoverageToolingLock {
     }
 
     CoverageTooling read(Path lockfileDirectory, Path cacheRoot) {
-        Path lockfile = lockfileDirectory
-                .toAbsolutePath()
-                .normalize()
-                .resolve("zolt.lock");
+        Path lockfile = ProjectLockfile.in(lockfileDirectory.toAbsolutePath().normalize());
         return read(lockfiles.read(lockfile), cacheRoot);
     }
 

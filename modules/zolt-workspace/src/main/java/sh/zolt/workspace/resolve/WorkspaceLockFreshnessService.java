@@ -1,5 +1,6 @@
 package sh.zolt.workspace.resolve;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -76,7 +77,7 @@ public final class WorkspaceLockFreshnessService {
         }
         Workspace workspace = discovered.orElseThrow();
         VerifiedArtifactIndex artifactIndex = new VerifiedArtifactIndex();
-        Path lockfilePath = workspace.root().resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(workspace.root());
         Optional<String> content = readLockfile(lockfilePath);
         if (content.isEmpty()) {
             return Optional.of(freshness(

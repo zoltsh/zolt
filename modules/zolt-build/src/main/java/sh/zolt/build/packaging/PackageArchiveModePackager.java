@@ -1,5 +1,6 @@
 package sh.zolt.build.packaging;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.PackageException;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -61,7 +62,7 @@ final class PackageArchiveModePackager {
         List<PackageRuntimeJar> runtimeJars = classpathPackages
                 .map(runtimeJarSelector::runtimeJars)
                 .orElseGet(() -> runtimeJarSelector.runtimeJars(
-                        lockfileReader.read(projectDirectory.resolve("zolt.lock")),
+                        lockfileReader.read(ProjectLockfile.in(projectDirectory)),
                         cacheRoot));
         PackageRuntimeJarMaterializer.Result inputs =
                 runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
@@ -82,7 +83,7 @@ final class PackageArchiveModePackager {
         Path outputDirectory = requireOutputDirectory(buildResult);
         List<ResolvedClasspathPackage> resolvedPackages = classpathPackages
                 .orElseGet(() -> runtimeJarSelector.allClasspathPackages(
-                        lockfileReader.read(projectDirectory.resolve("zolt.lock")),
+                        lockfileReader.read(ProjectLockfile.in(projectDirectory)),
                         cacheRoot));
         ProvidedPackagingOverrides providedOverrides =
                 ProvidedPackagingOverrides.fromConfigAndClasspathPackages(
@@ -121,7 +122,7 @@ final class PackageArchiveModePackager {
         List<PackageRuntimeJar> runtimeJars = classpathPackages
                 .map(runtimeJarSelector::runtimeJars)
                 .orElseGet(() -> runtimeJarSelector.runtimeJars(
-                        lockfileReader.read(projectDirectory.resolve("zolt.lock")),
+                        lockfileReader.read(ProjectLockfile.in(projectDirectory)),
                         cacheRoot));
         return uberJarLayoutAssembler.assemble(
                 projectDirectory,
@@ -146,7 +147,7 @@ final class PackageArchiveModePackager {
         Path outputDirectory = requireOutputDirectory(buildResult);
         List<ResolvedClasspathPackage> resolvedPackages = classpathPackages
                 .orElseGet(() -> runtimeJarSelector.allClasspathPackages(
-                        lockfileReader.read(projectDirectory.resolve("zolt.lock")),
+                        lockfileReader.read(ProjectLockfile.in(projectDirectory)),
                         cacheRoot));
         ProvidedPackagingOverrides providedOverrides =
                 ProvidedPackagingOverrides.fromConfigAndClasspathPackages(

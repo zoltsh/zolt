@@ -1,5 +1,6 @@
 package sh.zolt.quality;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -99,7 +100,7 @@ final class WorkspaceQualityProjectionService {
             Map<String, WorkspaceMember> members,
             boolean includePackagePlans,
             Path cacheRoot) {
-        Path lockfilePath = workspace.root().resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(workspace.root());
         if (!Files.isRegularFile(lockfilePath)) {
             throw new WorkspaceQualityProjectionException(
                     "Workspace zolt.lock is missing.",

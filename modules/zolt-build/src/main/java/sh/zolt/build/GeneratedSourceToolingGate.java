@@ -1,5 +1,6 @@
 package sh.zolt.build;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -62,7 +63,7 @@ final class GeneratedSourceToolingGate {
         if (!hasSteps) {
             return false;
         }
-        Path lockfilePath = projectDirectory.resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(projectDirectory);
         if (!Files.isRegularFile(lockfilePath)) {
             return false;
         }

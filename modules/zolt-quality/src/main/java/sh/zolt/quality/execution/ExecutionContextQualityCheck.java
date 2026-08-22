@@ -1,5 +1,6 @@
 package sh.zolt.quality.execution;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import static sh.zolt.quality.QualityCheckService.EXECUTION_CONTEXT;
 
 import sh.zolt.lockfile.LockPackage;
@@ -46,7 +47,7 @@ final class ExecutionContextQualityCheck {
                     "Unsupported execution context `" + context.configValue() + "`.",
                     "Use --context ci for the current Zolt-owned context policy."));
         }
-        Path lockfile = root.resolve("zolt.lock");
+        Path lockfile = ProjectLockfile.in(root);
         if (!Files.isRegularFile(lockfile)) {
             return List.of(QualityCheckResult.failed(
                     EXECUTION_CONTEXT,

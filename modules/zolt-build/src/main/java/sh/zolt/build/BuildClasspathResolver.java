@@ -1,5 +1,6 @@
 package sh.zolt.build;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -23,7 +24,7 @@ final class BuildClasspathResolver {
     }
 
     Result resolve(BuildRequest request) {
-        Path lockfilePath = request.projectDirectory().resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(request.projectDirectory());
         Optional<ResolveResult> resolveResult = Optional.empty();
         if (!Files.isRegularFile(lockfilePath) || generatedToolingMissing(request)) {
             resolveResult = Optional.of(resolveService.resolve(

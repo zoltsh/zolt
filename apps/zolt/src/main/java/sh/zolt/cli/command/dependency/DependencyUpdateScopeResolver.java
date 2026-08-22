@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.dependency;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.toml.ZoltConfigException;
@@ -25,7 +26,7 @@ import java.util.function.BiFunction;
  */
 final class DependencyUpdateScopeResolver {
     private static final String MANIFEST = "zolt.toml";
-    private static final String LOCKFILE = "zolt.lock";
+    private static final String LOCKFILE = ProjectLockfile.NAME;
 
     private final OutdatedScopes scopes;
     private final ManifestWorkspaceLoader workspaceLoader;
@@ -53,7 +54,7 @@ final class DependencyUpdateScopeResolver {
             return List.of(scopes.fromDirectory(labelFor(start), start));
         }
         Workspace workspace = discovered.orElseThrow();
-        Optional<ZoltLockfile> lockfile = scopes.readLockfile(workspace.root().resolve(LOCKFILE));
+        Optional<ZoltLockfile> lockfile = scopes.readLockfile(ProjectLockfile.in(workspace.root()));
         List<OutdatedScope> reportScopes = new ArrayList<>();
         rootManifest(workspace, relative).ifPresent(root -> reportScopes.add(new OutdatedScope(
                 "workspace-root",
@@ -100,7 +101,7 @@ final class DependencyUpdateScopeResolver {
         if (!sameDirectory(workspace.root(), mutationRoot)) {
             throw changedScope();
         }
-        Optional<ZoltLockfile> lockfile = scopes.readLockfile(workspace.root().resolve(LOCKFILE));
+        Optional<ZoltLockfile> lockfile = scopes.readLockfile(ProjectLockfile.in(workspace.root()));
         List<ResolvedUpdateScope> resolved = new ArrayList<>();
         rootManifest(workspace, CanonicalUpdatePath::relative).ifPresent(root -> resolved.add(
                 new ResolvedUpdateScope(

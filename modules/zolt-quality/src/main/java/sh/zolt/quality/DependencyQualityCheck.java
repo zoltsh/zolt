@@ -1,5 +1,6 @@
 package sh.zolt.quality;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import static sh.zolt.quality.QualityCheckService.DEPENDENCY_METADATA;
 
 import java.nio.file.Files;
@@ -40,7 +41,7 @@ final class DependencyQualityCheck {
             Path root,
             ProjectConfig config,
             boolean workspaceLockfile) {
-        Path lockfilePath = root.resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(root);
         if (!Files.isRegularFile(lockfilePath)) {
             return List.of(QualityCheckResult.failed(
                     DEPENDENCY_METADATA,

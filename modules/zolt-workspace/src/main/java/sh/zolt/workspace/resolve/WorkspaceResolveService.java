@@ -1,5 +1,6 @@
 package sh.zolt.workspace.resolve;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
@@ -166,7 +167,7 @@ public final class WorkspaceResolveService {
             Path cacheRoot,
             boolean locked,
             ResolveOptions options) {
-        Path lockfilePath = workspace.root().resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(workspace.root());
         if (locked && !Files.isRegularFile(lockfilePath)) {
             throw new ResolveException(
                     "Locked workspace resolve requires zolt.lock at "

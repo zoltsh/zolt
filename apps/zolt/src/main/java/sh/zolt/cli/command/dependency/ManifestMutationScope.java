@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.dependency;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.error.ActionableError;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
@@ -40,7 +41,7 @@ record ManifestMutationScope(
                 normalizedLockRoot,
                 manifestPath,
                 normalizedLockRoot,
-                normalizedLockRoot.resolve("zolt.lock"),
+                ProjectLockfile.in(normalizedLockRoot),
                 workspaceTransaction(normalizedLockRoot, journalKey),
                 workspace);
     }
@@ -59,7 +60,7 @@ record ManifestMutationScope(
                         normalizedProject,
                         normalizedProject.resolve("zolt.toml"),
                         normalizedLockRoot,
-                        normalizedLockRoot.resolve("zolt.lock"),
+                        ProjectLockfile.in(normalizedLockRoot),
                         workspaceTransaction(normalizedLockRoot, member.path()),
                         workspace);
             }
@@ -73,7 +74,7 @@ record ManifestMutationScope(
                 normalizedProject,
                 normalizedProject.resolve("zolt.toml"),
                 normalizedProject,
-                normalizedProject.resolve("zolt.lock"),
+                ProjectLockfile.in(normalizedProject),
                 normalizedProject.resolve(".zolt")
                         .resolve(ManifestEditJournal.JOURNALS_DIRECTORY)
                         .resolve(ManifestEditJournal.STANDALONE_JOURNAL),

@@ -1,15 +1,13 @@
 package sh.zolt.quality;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.quality.execution.QualityExecutionContextRunner;
 import sh.zolt.quality.packaging.PackageQualityCheck;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
-import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.service.WorkspaceMember;
-import sh.zolt.workspace.service.WorkspaceMemberSelector;
-import sh.zolt.workspace.service.WorkspaceSelection;
+import sh.zolt.workspace.service.*;
 import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -146,6 +144,7 @@ public final class QualityCheckService {
             List<String> requestedChecks,
             ProjectConfig config) {
         List<QualityCheckResult> results = new ArrayList<>();
+        Path lockfile = ProjectLockfile.in(request.projectRoot());
         for (String requestedCheck : requestedChecks) {
             switch (requestedCheck) {
                 case COMMAND_SURFACE -> results.add(commandSurfaceProjectResult(config));
@@ -165,13 +164,13 @@ public final class QualityCheckService {
                         Optional.empty(),
                         request.projectRoot(),
                         config,
-                        request.projectRoot().resolve("zolt.lock"),
+                        lockfile,
                         false));
                 case LICENSE_POLICY -> results.addAll(licensePolicyQualityCheck.check(
                         Optional.empty(),
                         request.projectRoot(),
                         config,
-                        request.projectRoot().resolve("zolt.lock"),
+                        lockfile,
                         false,
                         request.cacheRoot()));
                 case PACKAGE_METADATA -> results.add(packageQualityCheck.checkMetadata(
@@ -182,7 +181,7 @@ public final class QualityCheckService {
                         Optional.empty(),
                         request.projectRoot(),
                         config,
-                        request.projectRoot().resolve("zolt.lock"),
+                        lockfile,
                         request.cacheRoot(),
                         request.requirePackage()));
                 case MANIFEST_METADATA -> results.add(packageQualityCheck.checkManifestMetadata(

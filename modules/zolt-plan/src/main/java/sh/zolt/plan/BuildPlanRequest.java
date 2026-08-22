@@ -1,5 +1,6 @@
 package sh.zolt.plan;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
@@ -23,7 +24,6 @@ public record BuildPlanRequest(
         Optional<Path> reportsDir,
         Optional<Path> nativeImageExecutable,
         Optional<TestRuntimePlan> testRuntime) {
-    private static final String LOCKFILE = "zolt.lock";
 
     public BuildPlanRequest {
         projectRoot = Objects.requireNonNull(projectRoot, "Plan project root is required.")
@@ -44,7 +44,7 @@ public record BuildPlanRequest(
             Path projectRoot, ProjectConfig config, PlanTarget target) {
         return new BuildPlanRequest(
                 projectRoot,
-                projectRoot.resolve(LOCKFILE),
+                ProjectLockfile.in(projectRoot),
                 config,
                 target,
                 Optional.empty(),
@@ -57,12 +57,12 @@ public record BuildPlanRequest(
      * otherwise.
      */
     public static Path lockfileFor(Path projectRoot, Optional<Path> workspaceRoot) {
-        return workspaceRoot.orElse(projectRoot).resolve(LOCKFILE);
+        return ProjectLockfile.in(workspaceRoot.orElse(projectRoot));
     }
 
     /** True when the authoritative lockfile lives above the planned project directory. */
     public boolean workspaceLockfile() {
-        return !lockfilePath.equals(projectRoot.resolve(LOCKFILE));
+        return !lockfilePath.equals(ProjectLockfile.in(projectRoot));
     }
 
     public BuildPlanRequest withReportsDir(Optional<Path> value) {

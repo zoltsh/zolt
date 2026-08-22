@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.insight;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
@@ -120,7 +121,7 @@ public final class TreeCommand implements Runnable {
                 .orElseThrow(() -> new ActionableException(ActionableError.of(
                         "No Zolt workspace was found for `zolt tree --workspace`.",
                         "Run from a workspace root, or drop --workspace to print a single-project tree.")));
-        Path lockfilePath = discovered.root().resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(discovered.root());
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",

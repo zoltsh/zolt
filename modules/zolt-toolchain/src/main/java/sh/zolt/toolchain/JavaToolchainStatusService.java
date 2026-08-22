@@ -1,5 +1,6 @@
 package sh.zolt.toolchain;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.project.toolchain.ToolchainPolicy;
@@ -21,7 +22,6 @@ import java.util.Optional;
 
 public final class JavaToolchainStatusService {
     private static final String MANIFEST = "zolt.toml";
-    private static final String LOCKFILE = "zolt.lock";
     private static final String PROJECT_SOURCE = "[toolchain.java]";
     private static final String WORKSPACE_SOURCE = "[workspace toolchain.java]";
 
@@ -72,7 +72,7 @@ public final class JavaToolchainStatusService {
                 authored.request()
                         .orElseGet(() -> JavaToolchainRequest.projectDefault(config.project().java())),
                 authored.source(),
-                lockRoot.resolve(LOCKFILE),
+                ProjectLockfile.in(lockRoot),
                 authored.request().isPresent(),
                 effectivePlatform,
                 effectiveStore);

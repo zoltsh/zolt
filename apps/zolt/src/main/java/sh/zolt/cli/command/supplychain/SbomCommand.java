@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.supplychain;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -201,7 +202,7 @@ public final class SbomCommand implements Runnable {
                 .orElseThrow(() -> new ActionableException(ActionableError.of(
                         "No Zolt workspace was found for `zolt sbom --workspace`.",
                         "Run from a workspace root, or drop --workspace to build a single-project SBOM.")));
-        Path lockfilePath = discovered.root().resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(discovered.root());
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",

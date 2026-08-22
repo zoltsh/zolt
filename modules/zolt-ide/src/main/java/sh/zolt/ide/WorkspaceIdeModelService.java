@@ -1,5 +1,6 @@
 package sh.zolt.ide;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.cache.ArtifactCacheException;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -108,7 +109,7 @@ public final class WorkspaceIdeModelService {
                 workspace.config().name(),
                 workspace.root(),
                 workspace.configPath(),
-                workspace.root().resolve("zolt.lock"),
+                ProjectLockfile.in(workspace.root()),
                 workspace.config().members(),
                 workspace.config().defaultMembers(),
                 workspace.buildOrder());
@@ -129,7 +130,7 @@ public final class WorkspaceIdeModelService {
                     member.path(),
                     ideModelService.exportWithClasspaths(
                             member.directory(),
-                            workspace.root().resolve("zolt.lock"),
+                            ProjectLockfile.in(workspace.root()),
                             member.config(),
                             classpathsByMember.get(member.path()),
                             List.of())));
@@ -179,7 +180,7 @@ public final class WorkspaceIdeModelService {
             Path cacheRoot,
             boolean checkLock,
             boolean offline) {
-        Path lockfilePath = workspace.root().resolve("zolt.lock").normalize();
+        Path lockfilePath = ProjectLockfile.in(workspace.root()).normalize();
         if (!Files.exists(lockfilePath)) {
             return new WorkspaceLockState(
                     null,

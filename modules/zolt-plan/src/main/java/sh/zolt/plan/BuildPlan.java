@@ -1,5 +1,6 @@
 package sh.zolt.plan;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -14,7 +15,7 @@ public record BuildPlan(
         schemaVersion = schemaVersion <= 0 ? 1 : schemaVersion;
         projectRoot = projectRoot.toAbsolutePath().normalize();
         lockfilePath = lockfilePath == null
-                ? projectRoot.resolve("zolt.lock")
+                ? ProjectLockfile.in(projectRoot)
                 : lockfilePath.toAbsolutePath().normalize();
         projectName = projectName == null ? "" : projectName;
         nodes = nodes == null ? List.of() : List.copyOf(nodes);
@@ -22,7 +23,7 @@ public record BuildPlan(
 
     /** True when the authoritative lockfile lives above the planned project directory. */
     public boolean workspaceLockfile() {
-        return !lockfilePath.equals(projectRoot.resolve("zolt.lock"));
+        return !lockfilePath.equals(ProjectLockfile.in(projectRoot));
     }
 
     public boolean blocked() {

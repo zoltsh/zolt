@@ -1,5 +1,6 @@
 package sh.zolt.build.packaging;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.PackageException;
@@ -109,7 +110,7 @@ final class PackageTestCompileGate {
                 fingerprintService.checkTestEvidenceCurrent(
                         projectRoot,
                         config,
-                        projectRoot.resolve("zolt.lock"),
+                        ProjectLockfile.in(projectRoot),
                         sources,
                         generatedProducerFingerprints,
                         new Classpath(testCompileEntries),
@@ -128,7 +129,7 @@ final class PackageTestCompileGate {
     private List<ResolvedClasspathPackage> packagesFromLock(
             Path projectRoot,
             Optional<Path> cacheRoot) {
-        Path lockfilePath = projectRoot.resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(projectRoot);
         if (!Files.isRegularFile(lockfilePath)) {
             return List.of();
         }

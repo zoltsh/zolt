@@ -1,5 +1,6 @@
 package sh.zolt.cli.command;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.cli.command.toolchain.CommandJavaToolchainJdkChecker;
 import sh.zolt.cli.command.toolchain.TestRuntimeJdkChecker;
 import sh.zolt.doctor.JdkChecker;
@@ -50,7 +51,7 @@ final class WorkspaceCommandToolchainState {
         this.store = store;
         this.commandName = commandName;
         String lockfileContent = workspace.inputs()
-                .content(workspace.root().resolve("zolt.lock"))
+                .content(ProjectLockfile.in(workspace.root()))
                 .orElse("");
         this.lockIndex = new WorkspaceToolchainLockIndex(lockfileContent);
     }

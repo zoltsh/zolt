@@ -1,5 +1,6 @@
 package sh.zolt.update;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.error.ActionableError;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -26,7 +27,7 @@ public final class OutdatedScopes {
     }
 
     public OutdatedScope fromDirectory(String label, Path directory) {
-        return scope(label, directory, readLockfile(directory.resolve("zolt.lock")));
+        return scope(label, directory, readLockfile(ProjectLockfile.in(directory)));
     }
 
     public OutdatedScope fromDirectoryWithoutLock(String label, Path directory) {

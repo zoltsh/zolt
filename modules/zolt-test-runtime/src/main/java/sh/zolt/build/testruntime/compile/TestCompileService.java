@@ -1,5 +1,6 @@
 package sh.zolt.build.testruntime.compile;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -211,7 +212,7 @@ public final class TestCompileService {
         groovyCompileEntries.addAll(testCompileEntries);
         Classpath groovyCompileClasspath = new Classpath(groovyCompileEntries);
         Path generatedSourcesDirectory = generatedSourcesDirectory(projectDirectory, config.compilerSettings().generatedTestSources());
-        Path lockfilePath = projectDirectory.resolve("zolt.lock");
+        Path lockfilePath = ProjectLockfile.in(projectDirectory);
         long fingerprintCheckStarted = System.nanoTime();
         BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkTestCompileCurrent(
                 projectDirectory,
