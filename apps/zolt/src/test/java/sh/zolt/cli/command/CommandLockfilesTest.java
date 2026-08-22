@@ -33,6 +33,14 @@ final class CommandLockfilesTest {
     private static final String JAR_PATH = cachePath("demo.jar", JAR_BYTES);
     private static final String POM_PATH = cachePath("demo.pom", POM_BYTES);
     private static final String SECONDARY_PATH = cachePath("demo.properties", SECONDARY_BYTES);
+    private static final String INTERNAL = """
+            [repositories.internal]
+            url = "https://repo.example/internal"
+            """;
+    private static final String MIRROR = """
+            [repositories.mirror]
+            url = "https://repo.example/mirror"
+            """;
 
     @TempDir
     Path tempDir;
@@ -77,6 +85,39 @@ final class CommandLockfilesTest {
 
         assertTrue(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, zip));
         assertFalse(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, tarball));
+    }
+
+    /**
+     * Repository lookup order is authored policy (design §8.5) and fetching is first-match-wins, so a
+     * pure reorder decides which repository serves a coordinate available from more than one. Nothing
+     * else about these two manifests differs. A lock that stayed fresh across the edit would be the
+     * worst class of freshness failure — a false negative certifying bytes fetched under a precedence
+     * the manifest no longer declares, with no command left to notice.
+     */
+    @Test
+    void repositoryReorderStalesStandaloneLock() throws Exception {
+        ProjectConfig internalFirst = repositoryConfig(
+                "internal-first", "order = [\"internal\", \"mirror\"]", INTERNAL, MIRROR);
+        ProjectConfig mirrorFirst = repositoryConfig(
+                "mirror-first", "order = [\"mirror\", \"internal\"]", INTERNAL, MIRROR);
+        Path lockfile = writeFingerprintLock(internalFirst);
+
+        assertTrue(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, internalFirst));
+        assertFalse(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, mirrorFirst));
+    }
+
+    /**
+     * Declaration order is not lookup order: with no {@code order} array, design §8.5 derives the
+     * effective order from sorted custom IDs. Moving the {@code [repositories.<id>]} tables around
+     * therefore changes nothing a resolve can observe, and must not restate a checked-in lock.
+     */
+    @Test
+    void reorderingRepositoryDeclarationsKeepsStandaloneLockFresh() throws Exception {
+        ProjectConfig declared = repositoryConfig("declared-mirror-first", "", MIRROR, INTERNAL);
+        ProjectConfig reordered = repositoryConfig("declared-internal-first", "", INTERNAL, MIRROR);
+        Path lockfile = writeFingerprintLock(declared);
+
+        assertTrue(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, reordered));
     }
 
     @Test
@@ -328,6 +369,29 @@ final class CommandLockfilesTest {
                 id = "com.example:demo"
                 """.formatted(ProjectResolutionFingerprint.fingerprint(config)));
         return lockfile;
+    }
+
+    /**
+     * A standalone project whose repository universe is {@code declarations} in the given source
+     * order, under an optional {@code [repositories]} control line such as an explicit {@code order}.
+     */
+    private ProjectConfig repositoryConfig(String name, String control, String... declarations)
+            throws Exception {
+        Path project = tempDir.resolve("repositories-" + name);
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [repositories]
+                central = false
+                %s
+                %s
+                """.formatted(control, String.join("\n", declarations)));
+        return new ManifestProjectLoader().load(project);
     }
 
     private ProjectConfig variantConfig(String name, String declaration) throws Exception {

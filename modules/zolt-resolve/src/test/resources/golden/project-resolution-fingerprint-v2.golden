@@ -1,8 +1,8 @@
 schema	v2
 java	project	21
 java	compilerRelease	
-repository	company	https://repo.acme.example/company	company-basic
-repository	internal	https://repo.acme.example/internal	internal-token
+repository	0	internal	https://repo.acme.example/internal	internal-token
+repository	1	company	https://repo.acme.example/company	company-basic
 repositoryCredential	company-basic	ACME_REPO_USER	ACME_REPO_PASSWORD
 repositoryCredential	internal-token		
 repositoryCredentialToken	internal-token	ACME_INTERNAL_TOKEN

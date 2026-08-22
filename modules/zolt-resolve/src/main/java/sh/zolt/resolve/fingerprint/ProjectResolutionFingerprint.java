@@ -26,10 +26,13 @@ public final class ProjectResolutionFingerprint {
     /**
      * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
      *
-     * <p>v2 (2026-08) added the dependency variant — classifier and type — which v1 omitted, letting a
-     * manifest switch a coordinate to another published artifact while its lock stayed fresh, and
-     * replaced {@code GeneratedSourceStep.toString()} with an explicit field encoder so a diagnostic
-     * rendering is no longer frozen into checked-in locks.
+     * <p>v2 (2026-08) closed two freshness false negatives and unfroze one diagnostic surface. It
+     * added the dependency variant — classifier and type — which v1 omitted, letting a manifest
+     * switch a coordinate to another published artifact while its lock stayed fresh; it put
+     * repositories in effective lookup order rather than id order, so a first-match-wins reorder
+     * stales the lock it changes the meaning of; and it replaced {@code GeneratedSourceStep.toString()}
+     * with an explicit field encoder so a diagnostic rendering is no longer frozen into checked-in
+     * locks. All three land in one restatement: every lock is rewritten once, not once per fix.
      */
     static final String SCHEMA = "v2";
 
@@ -102,15 +105,30 @@ public final class ProjectResolutionFingerprint {
                 : "thin";
     }
 
+    /**
+     * Repositories in effective lookup order, each carrying its ordinal.
+     *
+     * <p>Order is a resolution input, not presentation: fetching is first-match-wins (design §8.5), so
+     * a manifest that only reorders {@code [repositories].order} changes which repository serves a
+     * coordinate available from more than one. While these lines were sorted by id, such an edit left
+     * the fingerprint identical and a checked-in lock stayed "fresh" over artifacts selected under a
+     * precedence the manifest no longer declares — a freshness false negative, which no later command
+     * is positioned to catch. Credentials below stay sorted by id: they are reached by reference from
+     * a repository, never by position.
+     *
+     * <p>The ordinal mirrors {@code RepositoryConfigurationIdentity}, which keys cache scopes by the
+     * same order. They stay separate values — this one is lock identity, that one is a cache key.
+     */
     private static void repositoryInputs(List<String> inputs, Map<String, RepositorySettings> repositories) {
-        repositories.values().stream()
-                .sorted(Comparator.comparing(RepositorySettings::id))
-                .forEach(repository -> line(
-                        inputs,
-                        "repository",
-                        repository.id(),
-                        repository.url(),
-                        repository.credentials().orElse("")));
+        int ordinal = 0;
+        for (RepositorySettings repository : repositories.values()) {
+            line(inputs,
+                    "repository",
+                    Integer.toString(ordinal++),
+                    repository.id(),
+                    repository.url(),
+                    repository.credentials().orElse(""));
+        }
     }
 
     private static void credentialInputs(List<String> inputs, Map<String, RepositoryCredentialSettings> credentials) {
