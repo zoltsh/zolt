@@ -19,6 +19,7 @@ import sh.zolt.cli.ZoltCli;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.error.ActionableError;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.LockPackage;
@@ -37,6 +38,7 @@ import sh.zolt.sbom.SbomTimestamp;
 import sh.zolt.sbom.SbomWorkspaceMember;
 import sh.zolt.sbom.WorkspaceSbomAssembler;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.workspace.discovery.ManifestProject;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
@@ -158,9 +160,14 @@ public final class SbomCommand implements Runnable {
         }
     }
 
+    /**
+     * The SBOM of the one project this directory names. A member directory is governed by the
+     * workspace root's lock (design §4.5), so its components come from that lock, never a member-local
+     * one.
+     */
     private Assembled assembleProject(SbomScopeSelection selection, Optional<String> timestampValue) {
-        Path projectRoot = projectDirectory.path();
-        ProjectConfig configForMode = projectLoader.load(projectRoot);
+        ManifestProject project = projectLoader.project(projectDirectory.path());
+        ProjectConfig configForMode = project.config();
         if (configForMode.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
             // A BOM has no resolved dependency graph; emit metadata only, never an error.
             CommandHumanOutput.errors(spec).detail(
@@ -175,16 +182,17 @@ public final class SbomCommand implements Runnable {
                     LicenseIndex.empty());
             return new Assembled(model, LicenseIndex.empty());
         }
-        Path lockfilePath = projectRoot.resolve("zolt.lock");
+        Path lockfilePath = CommandProjectLockfile.path(project);
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",
-                    "Run `zolt resolve` to generate it, then re-run `zolt sbom`."));
+                    "Run `" + CommandProjectLockfile.resolveCommand(project)
+                            + "` to generate it, then re-run `zolt sbom`."));
         }
-        ProjectConfig config = projectLoader.load(projectRoot);
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         LicenseIndex licenses = resolveLicenses(lockfile, selection);
-        SbomModel model = assembler.assemble(config, lockfile, selection, timestampValue, toolVersion, licenses);
+        SbomModel model =
+                assembler.assemble(configForMode, lockfile, selection, timestampValue, toolVersion, licenses);
         return new Assembled(model, licenses);
     }
 

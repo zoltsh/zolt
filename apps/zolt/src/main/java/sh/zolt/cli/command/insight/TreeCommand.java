@@ -3,6 +3,7 @@ package sh.zolt.cli.command.insight;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.error.ActionableError;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.LockDependencyGraphException;
@@ -12,6 +13,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.workspace.discovery.ManifestProject;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.tree.DependencyJsonFormatter;
 import sh.zolt.tree.DependencyTreeFormatter;
@@ -94,13 +96,19 @@ public final class TreeCommand implements Runnable {
         }
     }
 
+    /**
+     * The tree of the one project this directory names. A member directory is still governed by the
+     * workspace root's lock (design §4.5), so the graph is selected out of that lock rather than out of
+     * a member-local one, which no command writes.
+     */
     private String formatProject() {
-        Path projectRoot = projectDirectory.path();
-        ProjectConfig config = projectLoader.load(projectRoot);
-        ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
+        ManifestProject project = projectLoader.project(projectDirectory.path());
+        ProjectConfig config = project.config();
+        ZoltLockfile lockfile = lockfileReader.read(CommandProjectLockfile.path(project));
+        String member = CommandProjectLockfile.memberPath(project);
         return format == Format.JSON
-                ? jsonFormatter.tree(config, lockfile)
-                : treeFormatter.format(config, lockfile);
+                ? jsonFormatter.tree(config, lockfile, member)
+                : treeFormatter.format(config, lockfile, member);
     }
 
     /**

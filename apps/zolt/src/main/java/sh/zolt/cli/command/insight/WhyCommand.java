@@ -3,6 +3,7 @@ package sh.zolt.cli.command.insight;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -12,6 +13,8 @@ import sh.zolt.maven.CoordinateParseException;
 import sh.zolt.maven.CoordinateParser;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.workspace.WorkspaceConfigException;
+import sh.zolt.workspace.discovery.ManifestProject;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.tree.DependencyJsonFormatter;
 import sh.zolt.tree.DependencyWhyException;
@@ -74,16 +77,21 @@ public final class WhyCommand implements Runnable {
     @Override
     public void run() {
         try {
-            Path projectRoot = projectDirectory.path();
             Coordinate coordinate = coordinateParser.parse(packageId);
-            ProjectConfig config = projectLoader.load(projectRoot);
-            ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
+            ManifestProject project = projectLoader.project(projectDirectory.path());
+            ProjectConfig config = project.config();
+            ZoltLockfile lockfile = lockfileReader.read(CommandProjectLockfile.path(project));
             PackageId target = new PackageId(coordinate.groupId(), coordinate.artifactId());
+            String member = CommandProjectLockfile.memberPath(project);
             String output = format == Format.JSON
-                    ? jsonFormatter.why(config, lockfile, target)
-                    : whyFormatter.format(config, lockfile, target);
+                    ? jsonFormatter.why(config, lockfile, target, member)
+                    : whyFormatter.format(config, lockfile, target, member);
             CommandOutput.printAndFlush(spec, output);
-        } catch (CoordinateParseException | DependencyWhyException | LockfileReadException | ZoltConfigException exception) {
+        } catch (CoordinateParseException
+                | DependencyWhyException
+                | LockfileReadException
+                | WorkspaceConfigException
+                | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
     }

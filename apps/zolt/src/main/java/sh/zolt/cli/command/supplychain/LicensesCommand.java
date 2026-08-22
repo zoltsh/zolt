@@ -150,15 +150,20 @@ public final class LicensesCommand implements Runnable {
         }
     }
 
+    /**
+     * The one project this directory names. A member directory is governed by the workspace root's
+     * lock (design §4.5), so its licenses are read out of that lock, never a member-local one.
+     */
     private Resolved resolveProject(SbomScopeSelection selection) {
-        Path projectRoot = projectDirectory.path();
-        Path lockfilePath = projectRoot.resolve("zolt.lock");
+        var project = projectLoader.project(projectDirectory.path());
+        Path lockfilePath = sh.zolt.cli.command.CommandProjectLockfile.path(project);
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",
-                    "Run `zolt resolve` to generate it, then re-run `zolt licenses`."));
+                    "Run `" + sh.zolt.cli.command.CommandProjectLockfile.resolveCommand(project)
+                            + "` to generate it, then re-run `zolt licenses`."));
         }
-        ProjectConfig config = projectLoader.load(projectRoot);
+        ProjectConfig config = project.config();
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         LicenseIndex index = resolveLicenses(lockfile, selection);
         SbomModel model = assembler.assemble(config, lockfile, selection, Optional.empty(), toolVersion, index);
