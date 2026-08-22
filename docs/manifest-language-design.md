@@ -3187,6 +3187,8 @@ The final implementation merged to main must:
 - have every checked-in manifest, example, fixture, smoke project, document, and test converted;
 - write only lockfile version 7 with member-qualified authored dependency roots separate from resolved scopes, while retaining the current content-addressed artifact contract and exact-update machine identity rules.
 
+There is exactly one validity boundary. Every user-facing constraint lives in the parser, in a final value object, or in effective composition, so **every valid `EffectiveManifest` is adaptable and the effective-to-legacy adapter is total**. A constraint that only a legacy engine constructor knows — a blank JVM argument, a reserved `user.dir` or `java.class.path` test property, a blank property or environment value, a whitespace- or comma-bearing test tag, a whitespace-bearing suite class pattern — is stated in the final model instead, so it is reported against the exact authored field. An `IllegalArgumentException` escaping the adapter after that is internal schema drift between the final model and the legacy engine model, never a user error, and the legacy constructors keep their checks only as defense in depth.
+
 ## 21.2 Self-host cutover
 
 Zolt's self-hosting creates a compiler-bootstrap sequence, not a reason to support two manifest languages.

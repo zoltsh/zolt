@@ -56,11 +56,25 @@ public record AuthoredTestSuite(
         return copy;
     }
 
+    /**
+     * A JUnit tag is a single token: no whitespace and no commas, because a comma is the tag
+     * expression separator. Validating it here rather than in the legacy settings record keeps the
+     * adapter total (design §21).
+     */
     private static List<String> immutableDistinctStrings(List<String> values, String label) {
         List<String> copy = immutableDistinct(values, label);
         for (String value : copy) {
             ManifestModelValues.requireNonBlank(value, label + " entry");
             ManifestModelValues.rejectControlCharacters(value, label + " entry");
+            if (ManifestModelValues.containsWhitespace(value)) {
+                throw new IllegalArgumentException(
+                        label + " entry `" + value + "` must not contain whitespace.");
+            }
+            if (value.indexOf(',') >= 0) {
+                throw new IllegalArgumentException(
+                        label + " entry `" + value
+                                + "` must not contain a comma; a comma separates tag expressions.");
+            }
         }
         return copy;
     }

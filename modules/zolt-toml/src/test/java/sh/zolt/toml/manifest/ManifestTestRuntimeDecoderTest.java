@@ -36,18 +36,18 @@ final class ManifestTestRuntimeDecoderTest {
     void decodesEveryFieldAsSortedImmutableAuthoredLiterals() {
         AuthoredTestRuntime runtime = decode("""
                 [test.runtime]
-                jvmArgs = ["${literal}", ""]
-                properties = { zeta = "", alpha = "${literal}" }
-                env = { Z_ENV = "", A_ENV = "${literal}" }
+                jvmArgs = ["${literal}", "-ea"]
+                properties = { zeta = "z", alpha = "${literal}" }
+                env = { Z_ENV = "z", A_ENV = "${literal}" }
                 events = ["failed", "passed", "skipped"]
                 """).orElseThrow();
 
-        assertEquals(List.of("${literal}", ""), runtime.jvmArgs());
+        assertEquals(List.of("${literal}", "-ea"), runtime.jvmArgs());
         assertEquals(List.of("alpha", "zeta"), List.copyOf(runtime.properties().keySet()));
-        assertEquals(Map.of("alpha", "${literal}", "zeta", ""), runtime.properties());
+        assertEquals(Map.of("alpha", "${literal}", "zeta", "z"), runtime.properties());
         assertEquals(List.of("A_ENV", "Z_ENV"), names(runtime.env()));
         assertEquals(
-                Map.of(name("A_ENV"), "${literal}", name("Z_ENV"), ""),
+                Map.of(name("A_ENV"), "${literal}", name("Z_ENV"), "z"),
                 runtime.env());
         assertEquals(
                 List.of(

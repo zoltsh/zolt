@@ -13,6 +13,11 @@ public record TestClassPattern(String value) {
                     "Invalid test class pattern `" + value
                             + "`: match Java binary class names, not filesystem paths.");
         }
+        if (ManifestModelValues.containsWhitespace(value)) {
+            throw new IllegalArgumentException(
+                    "Invalid test class pattern `" + value
+                            + "`: a Java binary class name contains no whitespace.");
+        }
     }
 
     @Override

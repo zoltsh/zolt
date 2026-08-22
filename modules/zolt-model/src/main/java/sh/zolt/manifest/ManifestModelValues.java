@@ -115,6 +115,11 @@ public final class ManifestModelValues {
         }
     }
 
+    /** Whether {@code value} contains any Unicode whitespace code point. */
+    public static boolean containsWhitespace(String value) {
+        return value.codePoints().anyMatch(Character::isWhitespace);
+    }
+
     public static void rejectControlCharacters(String value, String label) {
         for (int codePoint : value.codePoints().toArray()) {
             if (codePoint == 0 || Character.isISOControl(codePoint)) {
