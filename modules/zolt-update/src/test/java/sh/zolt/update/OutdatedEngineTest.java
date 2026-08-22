@@ -267,6 +267,70 @@ final class OutdatedEngineTest {
         assertTrue(json.contains("\"current\": \"1.0.0-" + decomposed + "\""));
     }
 
+    /**
+     * Design §13.1: the installed release owns the reserved tool coordinates, so a user declares
+     * {@code [generated.tools.openapi]} only to pin a version. That version is a literal in the
+     * manifest and §20.1 grants no authored-only carve-out, so it must be reported — advisory only,
+     * since a literal generated-tool version is not updateable through the source-safe editor.
+     */
+    @Test
+    void reservedToolWithOnlyAVersionReportsAgainstItsBuiltInCoordinate() {
+        FakeVersionDiscovery discovery = new FakeVersionDiscovery()
+                .listing("org.openapitools:openapi-generator-cli", "central", "7.11.0", "7.12.0");
+        OutdatedReport report = engine(discovery).report(
+                scopes("""
+                        [generated.tools.openapi]
+                        version = "7.11.0"
+                        """),
+                OutdatedOptions.defaults());
+
+        OutdatedEntry entry = single(report);
+        assertEquals(OutdatedSurface.OPENAPI_TOOL, entry.surface());
+        assertEquals("org.openapitools:openapi-generator-cli", entry.identifier());
+        assertEquals("[generated.tools.openapi]", entry.section());
+        assertEquals(OutdatedStatus.UPDATE_AVAILABLE, entry.status());
+        assertEquals("7.12.0", entry.candidates().minor().orElseThrow());
+        assertFalse(UpdateApplicability.isApplicable(entry.surface()));
+    }
+
+    @Test
+    void reservedProtobufToolReportsBothBuiltInCoordinates() {
+        FakeVersionDiscovery discovery = new FakeVersionDiscovery()
+                .listing("com.google.protobuf:protoc", "central", "4.29.3", "4.30.0")
+                .listing("io.grpc:protoc-gen-grpc-java", "central", "1.69.0", "1.70.0");
+        OutdatedReport report = engine(discovery).report(
+                scopes("""
+                        [generated.tools.protobuf]
+                        protocVersion = "4.29.3"
+                        grpcVersion = "1.69.0"
+                        """),
+                OutdatedOptions.defaults());
+
+        assertEquals(
+                List.of("com.google.protobuf:protoc", "io.grpc:protoc-gen-grpc-java"),
+                report.scopes().get(0).entries().stream()
+                        .map(OutdatedEntry::identifier)
+                        .sorted()
+                        .toList());
+    }
+
+    /** A custom tool id owns no built-in coordinate, so an omitted one still means nothing to report. */
+    @Test
+    void customToolWithoutACoordinateStaysAbsentFromTheReport() {
+        FakeVersionDiscovery discovery = new FakeVersionDiscovery()
+                .listing("org.openapitools:openapi-generator-cli", "central", "7.11.0", "7.12.0");
+        OutdatedReport report = engine(discovery).report(
+                scopes("""
+                        [generated.tools.client-api]
+                        kind = "openapi"
+                        version = "7.11.0"
+                        """),
+                OutdatedOptions.defaults());
+
+        assertTrue(report.scopes().get(0).entries().isEmpty(),
+                () -> "a custom tool has no default coordinate: " + report.scopes().get(0).entries());
+    }
+
     private OutdatedEngine engine(FakeVersionDiscovery discovery) {
         return new OutdatedEngine(discovery);
     }

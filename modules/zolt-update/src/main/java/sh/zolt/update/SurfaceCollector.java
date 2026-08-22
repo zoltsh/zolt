@@ -31,11 +31,24 @@ import java.util.Optional;
  * imports, and named generated-tool coordinates.
  *
  * <p>Only authored declarations are collected. A versionRef-backed entry reports under its alias, a
- * platform-managed or workspace dependency has no literal to advance, SNAPSHOT literals are ignored,
- * and a built-in tool default has no source span to update, so none of them are targets (design
- * §20.1: one logical value, one source location).
+ * platform-managed or workspace dependency has no literal to advance, and SNAPSHOT literals are
+ * ignored, so none of them are targets (design §20.1: one logical value, one source location).
+ *
+ * <p>The reserved {@code openapi} and {@code protobuf} tools are the exception to "authored only":
+ * the installed release owns their coordinates, so a user declares the table solely to pin a version
+ * (design §13.1). Their authored version is a real literal in the manifest and reports against the
+ * built-in coordinate; §20.1 grants no carve-out that would hide it. The row is advisory either way —
+ * a literal generated-tool version is not updateable through the source-safe editor.
  */
 final class SurfaceCollector {
+    private static final LocalId OPENAPI = new LocalId("openapi");
+    private static final LocalId PROTOBUF = new LocalId("protobuf");
+    private static final DependencyCoordinate DEFAULT_OPENAPI_COORDINATE =
+            new DependencyCoordinate("org.openapitools:openapi-generator-cli");
+    private static final DependencyCoordinate DEFAULT_PROTOC_COORDINATE =
+            new DependencyCoordinate("com.google.protobuf:protoc");
+    private static final DependencyCoordinate DEFAULT_GRPC_COORDINATE =
+            new DependencyCoordinate("io.grpc:protoc-gen-grpc-java");
 
     List<SurfaceRequest> collect(AuthoredManifest manifest) {
         Map<String, SurfaceRequest> requests = new LinkedHashMap<>();
@@ -157,20 +170,26 @@ final class SurfaceCollector {
                     requests,
                     OutdatedSurface.OPENAPI_TOOL,
                     section,
-                    openApi.coordinate(),
+                    builtIn(openApi.coordinate(), OPENAPI.equals(id), DEFAULT_OPENAPI_COORDINATE),
                     openApi.version());
             case AuthoredGeneratedTool.Protobuf protobuf -> {
                 addTool(
                         requests,
                         OutdatedSurface.PROTOBUF_TOOL,
                         section,
-                        protobuf.protocCoordinate(),
+                        builtIn(
+                                protobuf.protocCoordinate(),
+                                PROTOBUF.equals(id),
+                                DEFAULT_PROTOC_COORDINATE),
                         protobuf.protocVersion());
                 addTool(
                         requests,
                         OutdatedSurface.PROTOBUF_TOOL,
                         section,
-                        protobuf.grpcCoordinate(),
+                        builtIn(
+                                protobuf.grpcCoordinate(),
+                                PROTOBUF.equals(id),
+                                DEFAULT_GRPC_COORDINATE),
                         protobuf.grpcVersion());
             }
             case AuthoredGeneratedTool.Jvm jvm -> {
@@ -187,6 +206,17 @@ final class SurfaceCollector {
                 // A process tool runs a PATH binary and declares no artifact coordinate to advance.
             }
         }
+    }
+
+    /**
+     * The coordinate a reserved built-in tool reports against. A custom tool id owns no default, so
+     * an omitted coordinate there still means "nothing to report".
+     */
+    private static Optional<DependencyCoordinate> builtIn(
+            Optional<DependencyCoordinate> authored,
+            boolean reserved,
+            DependencyCoordinate defaultCoordinate) {
+        return authored.or(() -> reserved ? Optional.of(defaultCoordinate) : Optional.empty());
     }
 
     private void addTool(
