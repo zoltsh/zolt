@@ -4,6 +4,3 @@ name = "platform-family"
 [workspace.members]
 default = ["acme-core", "acme-http", "acme-bom"]
 include = ["acme-core", "acme-http", "acme-bom"]
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
