@@ -70,7 +70,7 @@ final class ManifestDependencyPolicyDecoder {
                 partial -> presence.accept(new AuthoredDependencyPolicy(
                         conflicts, deny, Optional.of(partial), Map.of())));
         Map<DependencyCoordinate, AuthoredLicenseException> licenseExceptions =
-                exceptions.decode(index);
+                exceptions.decode(index, licensePolicy);
 
         boolean authored = conflictsField.isPresent()
                 || denyField.isPresent()

@@ -2,6 +2,7 @@ package sh.zolt.manifest.authored;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -81,11 +82,11 @@ final class AuthoredDependencyPolicyTest {
     }
 
     @Test
-    void defersSnapshotAvailabilityAndGlobalDenyPrecedenceToEffectivePolicy() {
+    void defersSnapshotAvailabilityToEffectivePolicy() {
         AuthoredLicenseException exception = exception("BSD-3-Clause", Optional.of("0.8.4-SNAPSHOT"));
         AuthoredLicensePolicy licenses = licenses(
                 List.of(LicensePolicyTerm.fromAuthored("MIT")),
-                List.of(LicensePolicyTerm.fromAuthored("BSD-3-Clause")));
+                List.of(LicensePolicyTerm.fromAuthored("GPL-3.0-only")));
 
         AuthoredDependencyPolicy policy = new AuthoredDependencyPolicy(
                 Optional.empty(),
@@ -95,7 +96,90 @@ final class AuthoredDependencyPolicyTest {
 
         assertEquals("0.8.4-SNAPSHOT", policy.licenseExceptions().values().iterator().next()
                 .version().orElseThrow());
-        assertEquals("BSD-3-Clause", policy.licenses().orElseThrow().deny().getFirst().value());
+        assertEquals("GPL-3.0-only", policy.licenses().orElseThrow().deny().getFirst().value());
+    }
+
+    /**
+     * Design §9.11 "Scoped license exceptions": global deny cannot be overridden. A manifest that
+     * scopes an allowance of a globally denied license is a contradiction and is rejected while the
+     * final model is built, not silently accepted and then denied at evaluation time.
+     */
+    @Test
+    void rejectsAScopedAllowanceOfAGloballyDeniedLicense() {
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredDependencyPolicy(
+                        Optional.empty(),
+                        List.of(),
+                        Optional.of(licenses(
+                                List.of(LicensePolicyTerm.fromAuthored("MIT")),
+                                List.of(LicensePolicyTerm.fromAuthored("BSD-3-Clause")))),
+                        Map.of(
+                                new DependencyCoordinate("org.example:matchit"),
+                                exception("BSD-3-Clause", Optional.empty()))));
+
+        assertTrue(
+                failure.getMessage().contains("org.example:matchit"),
+                failure.getMessage());
+        assertTrue(failure.getMessage().contains("BSD-3-Clause"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("deny"), failure.getMessage());
+    }
+
+    /** Denying a base license denies every {@code LICENSE WITH EXCEPTION} form of it. */
+    @Test
+    void rejectsAScopedAllowanceOfAWithCombinationWhoseBaseLicenseIsDenied() {
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuthoredDependencyPolicy(
+                        Optional.empty(),
+                        List.of(),
+                        Optional.of(licenses(
+                                List.of(LicensePolicyTerm.fromAuthored("MIT")),
+                                List.of(LicensePolicyTerm.fromAuthored("GPL-2.0-only")))),
+                        Map.of(
+                                new DependencyCoordinate("org.example:matchit"),
+                                exception("GPL-2.0-only WITH Classpath-exception-2.0", Optional.empty()))));
+
+        assertTrue(
+                failure.getMessage().contains("GPL-2.0-only WITH Classpath-exception-2.0"),
+                failure.getMessage());
+        assertTrue(failure.getMessage().contains("GPL-2.0-only"), failure.getMessage());
+    }
+
+    @Test
+    void acceptsAScopedAllowanceOfALicenseTheGlobalPolicyDoesNotDeny() {
+        DependencyCoordinate coordinate = new DependencyCoordinate("org.example:matchit");
+
+        AuthoredDependencyPolicy policy = new AuthoredDependencyPolicy(
+                Optional.empty(),
+                List.of(),
+                Optional.of(licenses(
+                        List.of(LicensePolicyTerm.fromAuthored("MIT")),
+                        List.of(LicensePolicyTerm.fromAuthored("GPL-3.0-only")))),
+                Map.of(coordinate, exception("BSD-3-Clause", Optional.empty())));
+
+        assertEquals(
+                "BSD-3-Clause",
+                policy.licenseExceptions().get(coordinate).allow().getFirst().value());
+    }
+
+    /** A denied WITH combination does not deny the bare base license a scoped exception allows. */
+    @Test
+    void acceptsAScopedAllowanceOfABaseLicenseWhenOnlyAWithCombinationIsDenied() {
+        DependencyCoordinate coordinate = new DependencyCoordinate("org.example:matchit");
+
+        AuthoredDependencyPolicy policy = new AuthoredDependencyPolicy(
+                Optional.empty(),
+                List.of(),
+                Optional.of(licenses(
+                        List.of(LicensePolicyTerm.fromAuthored("MIT")),
+                        List.of(LicensePolicyTerm.fromAuthored(
+                                "GPL-2.0-only WITH Classpath-exception-2.0")))),
+                Map.of(coordinate, exception("GPL-2.0-only", Optional.empty())));
+
+        assertEquals(
+                "GPL-2.0-only",
+                policy.licenseExceptions().get(coordinate).allow().getFirst().value());
     }
 
     @Test

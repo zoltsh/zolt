@@ -1676,7 +1676,7 @@ Fields:
 
 Rules:
 
-- global deny cannot be overridden;
+- global deny cannot be overridden, and a manifest that states the contradiction — a scoped `allow` naming a license the global policy denies, including a `WITH` combination whose base license is denied — is rejected while the final model is built, with the diagnostic attached to the scoped allow entry; deny-wins evaluation remains in place as defense in depth;
 - no wildcard coordinate, classifier, type, version range, raw unknown label, or whole `AND`/`OR` expression is accepted;
 - an exception is project/member-local and applies only to that policy owner's enforced closure;
 - API, implementation, and runtime dependencies are enforced; provided, test, dev, and tool-only dependencies remain report-only in v1;

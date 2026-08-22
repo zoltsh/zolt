@@ -20,7 +20,7 @@ final class ManifestLicenseExceptionsDecoderTest {
                 [dependencies.license-exceptions]
                 """);
         Map<DependencyCoordinate, AuthoredLicenseException> exceptions =
-                new ManifestLicenseExceptionsDecoder().decode(index);
+                new ManifestLicenseExceptionsDecoder().decode(index, Optional.empty());
 
         assertTrue(exceptions.isEmpty());
         assertThrows(
@@ -100,7 +100,7 @@ final class ManifestLicenseExceptionsDecoderTest {
     }
 
     @Test
-    void anchorsMissingGlobalAllowToTheExceptionNamespaceAndDefersDenyWins() {
+    void anchorsMissingGlobalAllowToTheExceptionNamespace() {
         assertFailure(exception("[\"MIT\"]", null, "Reviewed"),
                 "[dependencies.license-exceptions]",
                 "require a non-empty global license allow list");
@@ -112,17 +112,48 @@ final class ManifestLicenseExceptionsDecoderTest {
                 allow = ["MIT"]
                 reason = "Reviewed"
                 """, "`dependencies.policy.licenses.allow`", "meaningful field");
+    }
 
-        AuthoredDependencyPolicy policy = decodePolicy("""
+    /**
+     * Design §9.11: a scoped exception cannot override a global deny, and denying a base license
+     * denies every {@code WITH} form of it. The contradiction is rejected while the manifest is
+     * decoded, anchored to the exact scoped allow item that states it.
+     */
+    @Test
+    void anchorsAScopedAllowanceOfAGloballyDeniedLicenseToItsAllowItem() {
+        assertFailure("""
                 [dependencies.policy.licenses]
                 allow = ["MIT"]
                 deny = ["BSD-3-Clause"]
 
                 [dependencies.license-exceptions."org.example:demo"]
+                allow = ["Apache-2.0", "BSD-3-Clause"]
+                reason = "Reviewed"
+                """,
+                "`dependencies.license-exceptions.org.example:demo.allow[1]`",
+                "cannot override a global deny");
+        assertFailure("""
+                [dependencies.policy.licenses]
+                allow = ["MIT"]
+                deny = ["GPL-2.0-only"]
+
+                [dependencies.license-exceptions."org.example:demo"]
+                allow = ["GPL-2.0-only WITH Classpath-exception-2.0"]
+                reason = "Reviewed"
+                """,
+                "`dependencies.license-exceptions.org.example:demo.allow[0]`",
+                "cannot override a global deny");
+
+        AuthoredDependencyPolicy policy = decodePolicy("""
+                [dependencies.policy.licenses]
+                allow = ["MIT"]
+                deny = ["GPL-3.0-only"]
+
+                [dependencies.license-exceptions."org.example:demo"]
                 allow = ["BSD-3-Clause"]
                 reason = "Reviewed"
                 """).orElseThrow();
-        assertEquals("BSD-3-Clause", policy.licenses().orElseThrow().deny().getFirst().value());
+        assertEquals("GPL-3.0-only", policy.licenses().orElseThrow().deny().getFirst().value());
     }
 
     private static String exception(String allow, String version, String reason) {
