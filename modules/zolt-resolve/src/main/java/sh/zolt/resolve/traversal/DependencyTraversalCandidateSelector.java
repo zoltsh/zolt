@@ -308,9 +308,9 @@ final class DependencyTraversalCandidateSelector {
                             violation.guidance()
                                     + " Add [dependencies.constraints] entry `\""
                                     + packageId
-                                    + "\" = { version = \""
+                                    + "\" = \""
                                     + fixedVersionExample(requestedVersion)
-                                    + "\", kind = \"strict\" }`, then run `"
+                                    + "\"`, then run `"
                                     + retryCommand
                                     + "` again.");
                 });

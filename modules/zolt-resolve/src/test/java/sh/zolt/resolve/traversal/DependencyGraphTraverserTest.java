@@ -404,7 +404,7 @@ final class DependencyGraphTraverserTest extends DependencyGraphTraverserTestSup
         assertTrue(exception.getMessage().contains("Unsupported transitive dependency version `[1.0,2.0)`"));
         assertTrue(exception.getMessage().contains("[dependencies.constraints]"));
         assertTrue(exception.getMessage()
-                .contains("\"com.example:lib\" = { version = \"1.0\", kind = \"strict\" }"));
+                .contains("\"com.example:lib\" = \"1.0\""));
         assertTrue(exception.getMessage().contains("run `zolt resolve --workspace` again"));
         assertTrue(!exception.getMessage().contains("[dependencies.policy] constraint"), () -> exception.getMessage());
         assertTrue(!exception.getMessage().contains("[platforms] entry"), () -> exception.getMessage());
