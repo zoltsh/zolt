@@ -38,13 +38,19 @@ public record EffectiveProject(
         int projectRelease = identity.javaRelease().orElseThrow().value().value();
         EffectiveJavaRuntime main = toolchains.mainJava().orElseThrow();
         requireCompatible(
-                mainRelease(main), projectRelease, "Effective main Java runtime");
+                mainRelease(main),
+                projectRelease,
+                "Effective main Java runtime",
+                "Set [toolchain.java].version to a Java feature release that can compile classes for"
+                        + " [project].java, then run `zolt toolchain sync`.");
         EffectiveTestJavaRuntime test = toolchains.testJava().orElseThrow();
         if (test instanceof EffectiveTestJavaRuntime.Requested requested) {
             requireCompatible(
                     requested.version().value(),
                     projectRelease,
-                    "Effective test Java runtime");
+                    "Effective test Java runtime",
+                    "Set [toolchain.java.test].version to a Java feature release that can run classes"
+                            + " compiled for [project].java, then run `zolt toolchain sync`.");
         }
     }
 
@@ -55,14 +61,21 @@ public record EffectiveProject(
         };
     }
 
+    /**
+     * Design §11.4/§11.5: a runtime that cannot execute the compiled project release is a hard
+     * configuration error, and the diagnostic always names the exact field to change and the command
+     * to run afterwards.
+     */
     private static void requireCompatible(
             JavaFeatureRelease runtimeRelease,
             int projectRelease,
-            String label) {
+            String label,
+            String remediation) {
         if (runtimeRelease.value() < projectRelease) {
             throw new IllegalArgumentException(
                     label + " release " + runtimeRelease
-                            + " cannot execute project Java release " + projectRelease + ".");
+                            + " cannot execute project Java release " + projectRelease + ". "
+                            + remediation);
         }
     }
 }

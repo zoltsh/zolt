@@ -297,6 +297,27 @@ final class EffectiveManifestComposerTest {
                         new StandaloneManifestFixture().toolchains(tooOld).create()));
         assertTrue(incompatible.getMessage().contains("cannot execute project Java release 21"));
 
+        AuthoredToolchains testTooOld = new AuthoredToolchains(
+                Optional.empty(),
+                Optional.of(new AuthoredJavaToolchain(
+                        Optional.of(new JavaFeatureRelease(21)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(ToolchainPolicy.REQUIRE_MANAGED))),
+                Optional.of(new AuthoredJavaTestToolchain(
+                        Optional.of(new JavaFeatureRelease(17)),
+                        Optional.empty(),
+                        Optional.empty())));
+        IllegalArgumentException testIncompatible = assertThrows(
+                IllegalArgumentException.class,
+                () -> COMPOSER.composeStandalone(
+                        new StandaloneManifestFixture().toolchains(testTooOld).create()));
+        assertEquals(
+                "Effective test Java runtime release 17 cannot execute project Java release 21."
+                        + " Set [toolchain.java.test].version to a Java feature release that can run"
+                        + " classes compiled for [project].java, then run `zolt toolchain sync`.",
+                testIncompatible.getMessage());
+
         AuthoredToolchains defaultOnly = new AuthoredToolchains(
                 Optional.empty(),
                 Optional.of(new AuthoredJavaToolchain(

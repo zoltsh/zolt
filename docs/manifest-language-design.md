@@ -1989,7 +1989,7 @@ Rules:
 - When the main build uses the implicit system JDK, omitted test values default to the effective project Java release, `temurin`, and `prefer-managed`.
 - `features` do not inherit and are unsupported in the v1 test-runtime table.
 - The test runtime does not alter `project.java` or compilation target.
-- The selected test JDK must be able to execute classes compiled for the effective project Java release.
+- The selected test JDK must be able to execute classes compiled for the effective project Java release. Composition rejects a lower test release with the exact remediation `Set [toolchain.java.test].version to a Java feature release that can run classes compiled for [project].java, then run `zolt toolchain sync`.`
 
 ## 11.5 Project and toolchain relationship
 
