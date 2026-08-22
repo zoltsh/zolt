@@ -86,15 +86,15 @@ CHAIN="$WORK_DIR/chain/fixtures/zolt"
 WIDE="$WORK_DIR/wide/fixtures/zolt"
 LAYERED="$WORK_DIR/layered/fixtures/zolt"
 
-grep -F 'workspace = "modules/lib001"' "$CHAIN/modules/lib002/zolt.toml" >/dev/null \
+grep -F '"bench.generated:lib001" = { workspace = true }' "$CHAIN/modules/lib002/zolt.toml" >/dev/null \
   || fail "chain topology did not link lib002 to lib001"
-grep -R -F 'workspace =' "$WIDE/modules" >/dev/null 2>&1 \
+grep -R -F 'workspace = true' "$WIDE/modules" >/dev/null 2>&1 \
   && fail "wide topology unexpectedly linked library modules"
-wide_app_edges="$(grep -c -F 'workspace =' "$WIDE/app/zolt.toml")"
+wide_app_edges="$(grep -c -F 'workspace = true' "$WIDE/app/zolt.toml")"
 [[ "$wide_app_edges" == "6" ]] || fail "wide app expected 6 library edges, found $wide_app_edges"
-grep -F 'workspace = "modules/lib001"' "$LAYERED/modules/lib003/zolt.toml" >/dev/null \
+grep -F '"bench.generated:lib001" = { workspace = true }' "$LAYERED/modules/lib003/zolt.toml" >/dev/null \
   || fail "layered topology did not link lib003 to lib001"
-grep -F 'workspace = "modules/lib004"' "$LAYERED/modules/lib006/zolt.toml" >/dev/null \
+grep -F '"bench.generated:lib004" = { workspace = true }' "$LAYERED/modules/lib006/zolt.toml" >/dev/null \
   || fail "layered topology did not link lib006 to lib004"
 
 scripts/benchmark-suite \

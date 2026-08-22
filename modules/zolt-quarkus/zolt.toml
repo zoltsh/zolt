@@ -1,66 +1,26 @@
 [project]
 name = "zolt-quarkus"
-version = "0.1.0-SNAPSHOT"
-group = "sh.zolt"
-java = "21"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
 
 [dependencies]
-"sh.zolt:zolt-build" = { workspace = "modules/zolt-build" }
-"sh.zolt:zolt-framework-api" = { workspace = "modules/zolt-framework-api" }
-"sh.zolt:zolt-ide" = { workspace = "modules/zolt-ide" }
-"sh.zolt:zolt-model" = { workspace = "modules/zolt-model" }
-"sh.zolt:zolt-repository" = { workspace = "modules/zolt-repository" }
-"sh.zolt:zolt-resolve" = { workspace = "modules/zolt-resolve" }
-"sh.zolt:zolt-test-model" = { workspace = "modules/zolt-test-model" }
-"sh.zolt:zolt-toml" = { workspace = "modules/zolt-toml" }
+"sh.zolt:zolt-build" = { workspace = true }
+"sh.zolt:zolt-framework-api" = { workspace = true }
+"sh.zolt:zolt-ide" = { workspace = true }
+"sh.zolt:zolt-model" = { workspace = true }
+"sh.zolt:zolt-repository" = { workspace = true }
+"sh.zolt:zolt-resolve" = { workspace = true }
+"sh.zolt:zolt-test-model" = { workspace = true }
+"sh.zolt:zolt-toml" = { workspace = true }
 
-[provided.dependencies]
+[dependencies.provided]
 "io.quarkus:quarkus-builder" = "3.33.2"
-"io.quarkus:quarkus-junit" = "3.33.2"
 "io.quarkus:quarkus-core-deployment" = "3.33.2"
+"io.quarkus:quarkus-junit" = "3.33.2"
 "io.smallrye:jandex" = "3.5.3"
 
-[test.dependencies]
-"io.quarkus:quarkus-arc-deployment" = { version = "3.33.2", exclusions = [
-  { group = "io.quarkus", artifact = "quarkus-arc" },
-  { group = "io.quarkus", artifact = "quarkus-arc-dev" },
-  { group = "io.quarkus", artifact = "quarkus-arc-test-supplement" },
-  { group = "io.quarkus", artifact = "quarkus-arc-test-supplement-decorator" },
-  { group = "io.quarkus", artifact = "quarkus-core-deployment" },
-  { group = "io.quarkus", artifact = "quarkus-devui-deployment-spi" },
-  { group = "io.quarkus", artifact = "quarkus-smallrye-context-propagation-spi" },
-  { group = "io.quarkus.arc", artifact = "arc-processor" },
-] }
-"io.quarkus:quarkus-bootstrap-app-model" = { version = "3.33.2", exclusions = [
-  { group = "io.quarkus", artifact = "quarkus-fs-util" },
-  { group = "org.jboss.logging", artifact = "commons-logging-jboss-logging" },
-  { group = "org.jboss.logging", artifact = "jboss-logging" },
-] }
+[dependencies.test]
+"io.quarkus:quarkus-arc-deployment" = { version = "3.33.2", exclude = ["io.quarkus:quarkus-arc", "io.quarkus:quarkus-arc-dev", "io.quarkus:quarkus-arc-test-supplement", "io.quarkus:quarkus-arc-test-supplement-decorator", "io.quarkus:quarkus-core-deployment", "io.quarkus:quarkus-devui-deployment-spi", "io.quarkus:quarkus-smallrye-context-propagation-spi", "io.quarkus.arc:arc-processor"] }
+"io.quarkus:quarkus-bootstrap-app-model" = { version = "3.33.2", exclude = ["io.quarkus:quarkus-fs-util", "org.jboss.logging:commons-logging-jboss-logging", "org.jboss.logging:jboss-logging"] }
 "io.quarkus:quarkus-fs-util" = "1.3.0"
-"io.quarkus:quarkus-test-common" = { version = "3.33.2", exclusions = [
-  { group = "commons-io", artifact = "commons-io" },
-  { group = "io.quarkus", artifact = "quarkus-bootstrap-gradle-resolver" },
-  { group = "io.quarkus", artifact = "quarkus-bootstrap-maven-resolver" },
-  { group = "io.quarkus", artifact = "quarkus-core-deployment" },
-  { group = "io.rest-assured", artifact = "rest-assured" },
-  { group = "io.smallrye", artifact = "jandex" },
-  { group = "org.jboss.logging", artifact = "commons-logging-jboss-logging" },
-] }
+"io.quarkus:quarkus-test-common" = { version = "3.33.2", exclude = ["commons-io:commons-io", "io.quarkus:quarkus-bootstrap-gradle-resolver", "io.quarkus:quarkus-bootstrap-maven-resolver", "io.quarkus:quarkus-core-deployment", "io.rest-assured:rest-assured", "io.smallrye:jandex", "org.jboss.logging:commons-logging-jboss-logging"] }
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-"org.wildfly.common:wildfly-common" = { version = "2.0.1", exclusions = [
-  { group = "io.smallrye.common", artifact = "smallrye-common-cpu" },
-  { group = "io.smallrye.common", artifact = "smallrye-common-expression" },
-  { group = "io.smallrye.common", artifact = "smallrye-common-net" },
-  { group = "io.smallrye.common", artifact = "smallrye-common-os" },
-  { group = "io.smallrye.common", artifact = "smallrye-common-ref" },
-  { group = "org.jboss.logging", artifact = "jboss-logging" },
-] }
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+"org.wildfly.common:wildfly-common" = { version = "2.0.1", exclude = ["io.smallrye.common:smallrye-common-cpu", "io.smallrye.common:smallrye-common-expression", "io.smallrye.common:smallrye-common-net", "io.smallrye.common:smallrye-common-os", "io.smallrye.common:smallrye-common-ref", "org.jboss.logging:jboss-logging"] }

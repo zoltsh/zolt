@@ -2,20 +2,25 @@ package sh.zolt.cli.nativeimage;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import sh.zolt.manifest.authored.AuthoredNativeImage;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 
 final class ZoltNativeImageConfigurationTest {
     @Test
-    void nativeZoltEnablesHttpsForReleaseUpdateDownloads() throws IOException {
-        ProjectConfig config = new ZoltTomlParser().parse(Files.readString(zoltAppConfigPath()));
+    void nativeZoltEnablesHttpsForReleaseUpdateDownloads() {
+        AuthoredNativeImage nativeImage = new ManifestProjectConfigLoader()
+                .document(zoltAppConfigPath())
+                .authored()
+                .packaging()
+                .nativeImage()
+                .orElseThrow(() -> new AssertionError("apps/zolt must declare [native] settings"));
 
         assertTrue(
-                config.nativeSettings().args().contains("--enable-url-protocols=https"),
+                nativeImage.args().orElse(List.of()).contains("--enable-url-protocols=https"),
                 "native zolt must keep HTTPS URL protocol support for release channel and archive downloads");
     }
 

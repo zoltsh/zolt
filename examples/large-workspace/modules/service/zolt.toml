@@ -1,17 +1,8 @@
 [project]
 name = "service"
-version = "0.1.0"
-group = "com.example.large"
-java = "21"
 
 [dependencies]
-"com.example.large:core" = { workspace = "modules/core" }
+"com.example.large:core" = { workspace = true }
 "com.fasterxml.jackson.core:jackson-databind" = "2.19.2"
 "com.github.ben-manes.caffeine:caffeine" = "3.2.3"
 "org.slf4j:slf4j-api" = "2.0.17"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"

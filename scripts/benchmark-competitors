@@ -381,16 +381,14 @@ generate_zolt_fixture() {
 
   {
     printf '[workspace]\n'
-    printf 'name = "bench-generated-%s-%s"\n' "$TOPOLOGY" "$MODULE_COUNT"
-    printf 'members = [\n'
-    for index in $(seq 1 "$MODULE_COUNT"); do
-      printf '  "modules/%s",\n' "$(module_name "$index")"
-    done
-    printf '  "app"\n'
-    printf ']\n'
-    printf 'defaultMembers = ["app"]\n\n'
-    printf '[repositories]\n'
-    printf 'central = "https://repo.maven.apache.org/maven2"\n'
+    printf 'name = "bench-generated-%s-%s"\n\n' "$TOPOLOGY" "$MODULE_COUNT"
+    printf '[workspace.members]\n'
+    printf 'default = ["app"]\n'
+    printf 'include = ["app", "modules/*"]\n\n'
+    printf '[workspace.project]\n'
+    printf 'group = "bench.generated"\n'
+    printf 'version = "0.1.0"\n'
+    printf 'java = 21\n'
   } >"$root/zolt.toml"
 
   for index in $(seq 1 "$MODULE_COUNT"); do
@@ -401,21 +399,12 @@ generate_zolt_fixture() {
     {
       printf '[project]\n'
       printf 'name = "%s"\n' "$name"
-      printf 'version = "0.1.0"\n'
-      printf 'group = "bench.generated"\n'
-      printf 'java = "21"\n\n'
       if [[ -n "$(module_dependency_indices "$index")" ]]; then
-        printf '[dependencies]\n'
+        printf '\n[dependencies]\n'
         for dependency_index in $(module_dependency_indices "$index"); do
-          printf '"bench.generated:%s" = { workspace = "modules/%s" }\n' "$(module_name "$dependency_index")" "$(module_name "$dependency_index")"
+          printf '"bench.generated:%s" = { workspace = true }\n' "$(module_name "$dependency_index")"
         done
-        printf '\n'
       fi
-      printf '[build]\n'
-      printf 'source = "src/main/java"\n'
-      printf 'test = "src/test/java"\n'
-      printf 'output = "target/classes"\n'
-      printf 'testOutput = "target/test-classes"\n'
     } >"$module_dir/zolt.toml"
     write_java_module "$root" "$index"
   done
@@ -424,20 +413,11 @@ generate_zolt_fixture() {
   {
     printf '[project]\n'
     printf 'name = "app"\n'
-    printf 'version = "0.1.0"\n'
-    printf 'group = "bench.generated"\n'
-    printf 'java = "21"\n'
     printf 'main = "bench.generated.app.App"\n\n'
     printf '[dependencies]\n'
     for dependency_index in $(app_dependency_indices); do
-      printf '"bench.generated:%s" = { workspace = "modules/%s" }\n' "$(module_name "$dependency_index")" "$(module_name "$dependency_index")"
+      printf '"bench.generated:%s" = { workspace = true }\n' "$(module_name "$dependency_index")"
     done
-    printf '\n'
-    printf '[build]\n'
-    printf 'source = "src/main/java"\n'
-    printf 'test = "src/test/java"\n'
-    printf 'output = "target/classes"\n'
-    printf 'testOutput = "target/test-classes"\n'
   } >"$root/app/zolt.toml"
   write_app_source "$root"
 }

@@ -1,7 +1,12 @@
 [workspace]
 name = "slf4j-canary"
-members = ["slf4j-api", "slf4j-simple"]
-defaultMembers = ["slf4j-simple"]
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[workspace.members]
+default = ["slf4j-simple"]
+include = ["slf4j-api", "slf4j-simple"]
+
+[workspace.project]
+group = "org.slf4j"
+version = "0.1.0"
+java = 8
+license = "MIT"

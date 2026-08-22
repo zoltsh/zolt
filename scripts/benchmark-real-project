@@ -423,40 +423,30 @@ def toml_string(value):
 
 
 def write_zolt_config():
+    # `project.java` is the sole Java release target; `[compiler].release` no longer exists
+    # (manifest language design §7.2, §11.5).
     lines = [
         "[project]",
         f"name = {toml_string(adapter['name'])}",
         f"version = {toml_string(adapter['version'])}",
         f"group = {toml_string(adapter['group'])}",
-        f"java = {toml_string(adapter.get('java') or '21')}",
-        "",
-        "[repositories]",
-        'central = "https://repo.maven.apache.org/maven2"',
+        f"java = {int(adapter['compilerRelease'])}",
     ]
+    build_jdk = int(adapter.get("java") or adapter["compilerRelease"])
+    if build_jdk != int(adapter["compilerRelease"]):
+        lines.extend(["", "[toolchain.java]", f"version = {build_jdk}"])
     platforms = adapter.get("platforms") or {}
     if platforms:
         lines.extend(["", "[platforms]"])
         lines.extend(f"{toml_string(key)} = {toml_string(value)}" for key, value in sorted(platforms.items()))
     lines.extend(["", "[dependencies]"])
     for key, value in sorted((adapter.get("dependencies") or {}).items()):
-        rendered = "{}" if value is None else toml_string(value)
+        rendered = "{ managed = true }" if value is None else toml_string(value)
         lines.append(f"{toml_string(key)} = {rendered}")
     provided = adapter.get("providedDependencies") or {}
     if provided:
-        lines.extend(["", "[provided.dependencies]"])
+        lines.extend(["", "[dependencies.provided]"])
         lines.extend(f"{toml_string(key)} = {toml_string(value)}" for key, value in sorted(provided.items()))
-    lines.extend([
-        "",
-        "[build]",
-        'source = "src/main/java"',
-        'test = "src/test/java"',
-        'output = "target/classes"',
-        'testOutput = "target/test-classes"',
-        "",
-        "[compiler]",
-        f"release = {toml_string(adapter['compilerRelease'])}",
-        'encoding = "UTF-8"',
-    ])
     resource_paths = sorted({row["to"] for row in adapter.get("resourceRoots") or [] if (zolt_project / row["to"]).exists()})
     if resource_paths:
         lines.extend(["", "[resources]", "main = [" + ", ".join(toml_string(path) for path in resource_paths) + "]"])

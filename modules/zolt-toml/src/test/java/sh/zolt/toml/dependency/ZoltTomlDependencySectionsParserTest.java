@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlTestPaths;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -14,16 +13,49 @@ import org.junit.jupiter.api.Test;
 final class ZoltTomlDependencySectionsParserTest {
     private final ZoltTomlParser parser = new ZoltTomlParser();
 
+    // These fixtures are held inline rather than read from examples/: the checked-in examples are
+    // written in the final manifest language, which this legacy parser deliberately does not accept.
     @Test
     void parsesTestDependencies() {
-        ProjectConfig config = parser.parse(ZoltTomlTestPaths.fixture("examples/junit-basic/zolt.toml"));
+        ProjectConfig config = parser.parse("""
+                [project]
+                name = "junit-basic"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+                main = "com.example.Main"
+
+                [dependencies]
+
+                [test.dependencies]
+                "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
+                """);
 
         assertEquals("1.11.4", config.testDependencies().get("org.junit.platform:junit-platform-console-standalone"));
     }
 
     @Test
     void petclinicFixtureDeclaresH2AsRuntimeOnly() {
-        ProjectConfig config = parser.parse(ZoltTomlTestPaths.fixture("examples/spring-boot-petclinic-lite/zolt.toml"));
+        ProjectConfig config = parser.parse("""
+                [project]
+                name = "spring-boot-petclinic-lite"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+                main = "com.example.petclinic.PetClinicLiteApplication"
+
+                [platforms]
+                "org.springframework.boot:spring-boot-dependencies" = "4.0.6"
+
+                [dependencies]
+                "org.springframework.boot:spring-boot-starter-data-jpa" = {}
+
+                [runtime.dependencies]
+                "com.h2database:h2" = {}
+
+                [test.dependencies]
+                "org.springframework.boot:spring-boot-starter-test" = {}
+                """);
 
         assertTrue(config.managedRuntimeDependencies().contains("com.h2database:h2"));
         assertFalse(config.dependencies().containsKey("com.h2database:h2"));

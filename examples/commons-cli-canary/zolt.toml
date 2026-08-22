@@ -2,44 +2,33 @@
 name = "commons-cli-canary"
 version = "0.1.0"
 group = "org.apache.commons"
-java = "21"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
-[dependencies]
-
-[test.dependencies]
-"junit:junit" = "4.13.2"
-"org.junit.vintage:junit-vintage-engine" = "5.11.4"
-"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
-
-[compiler]
-release = "8"
-encoding = "UTF-8"
-args = ["-Xlint:deprecation"]
-testArgs = ["-Xlint:unchecked"]
-
-[package]
-mode = "thin"
-sources = true
-javadoc = true
-tests = true
-
-[package.metadata]
-name = "Commons CLI Canary"
+java = 8
 description = "Small command-line parsing library fixture for Zolt canary testing."
 url = "https://commons.apache.org/proper/commons-cli/"
-license = "Apache-2.0"
-developers = ["Zolt Team"]
-scm = "https://github.com/apache/commons-cli.git"
 issues = "https://issues.apache.org/jira/projects/CLI"
+license = "Apache-2.0"
+
+[project.scm]
+url = "https://github.com/apache/commons-cli.git"
+
+[project.developers.zolt-team]
+name = "Zolt Team"
+
+[dependencies.test]
+"junit:junit" = "4.13.2"
+"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
+"org.junit.vintage:junit-vintage-engine" = "5.11.4"
+
+[compiler]
+args = ["-Xlint:deprecation"]
+
+[compiler.test]
+args = ["-Xlint:unchecked"]
+
+[package]
+sources = true
+javadoc = true
+testJar = true
 
 [package.manifest]
 "Automatic-Module-Name" = "org.apache.commons.cli"

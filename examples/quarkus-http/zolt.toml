@@ -2,26 +2,16 @@
 name = "quarkus-http"
 version = "0.1.0"
 group = "com.example"
-java = "21"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+java = 21
 
 [platforms]
 "io.quarkus.platform:quarkus-bom" = "3.33.2"
 
 [dependencies]
-"io.quarkus:quarkus-rest" = {}
+"io.quarkus:quarkus-rest" = { managed = true }
 
-[test.dependencies]
-"org.junit.jupiter:junit-jupiter" = {}
+[dependencies.test]
+"org.junit.jupiter:junit-jupiter" = { managed = true }
 
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
-
-[framework.quarkus]
-enabled = true
-package = "fast-jar"
+[package]
+mode = "quarkus"

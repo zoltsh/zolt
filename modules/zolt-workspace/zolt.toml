@@ -1,29 +1,17 @@
 [project]
 name = "zolt-workspace"
-version = "0.1.0-SNAPSHOT"
-group = "sh.zolt"
-java = "21"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
 
 [dependencies]
-"sh.zolt:zolt-build" = { workspace = "modules/zolt-build" }
-"sh.zolt:zolt-native-image" = { workspace = "modules/zolt-native-image" }
-"sh.zolt:zolt-framework-api" = { workspace = "modules/zolt-framework-api" }
-"sh.zolt:zolt-model" = { workspace = "modules/zolt-model" }
-"sh.zolt:zolt-publish" = { workspace = "modules/zolt-publish" }
-"sh.zolt:zolt-repository" = { workspace = "modules/zolt-repository" }
-"sh.zolt:zolt-resolve" = { workspace = "modules/zolt-resolve" }
-"sh.zolt:zolt-test-model" = { workspace = "modules/zolt-test-model" }
-"sh.zolt:zolt-test-runtime" = { workspace = "modules/zolt-test-runtime" }
-"sh.zolt:zolt-toml" = { workspace = "modules/zolt-toml" }
+"sh.zolt:zolt-build" = { workspace = true }
+"sh.zolt:zolt-framework-api" = { workspace = true }
+"sh.zolt:zolt-model" = { workspace = true }
+"sh.zolt:zolt-native-image" = { workspace = true }
+"sh.zolt:zolt-publish" = { workspace = true }
+"sh.zolt:zolt-repository" = { workspace = true }
+"sh.zolt:zolt-resolve" = { workspace = true }
+"sh.zolt:zolt-test-model" = { workspace = true }
+"sh.zolt:zolt-test-runtime" = { workspace = true }
+"sh.zolt:zolt-toml" = { workspace = true }
 
-[test.dependencies]
+[dependencies.test]
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"

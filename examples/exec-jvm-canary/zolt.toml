@@ -2,11 +2,11 @@
 name = "exec-jvm-canary"
 version = "0.1.0"
 group = "sh.zolt.canary"
-java = "21"
+java = 21
 main = "sh.zolt.canary.execjvm.Main"
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[dependencies.test]
+"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
 # The `project` pseudo-tool runs the member's own compiled classes (Maven exec:java
 # parity). It is scheduled after compile, so it produces a resource (never a source).
@@ -18,12 +18,3 @@ mainClass = "sh.zolt.canary.execjvm.BuildInfoGenerator"
 inputs = ["target/classes", "src/main/exec/version.txt"]
 output = "target/generated/resources/build-info"
 produces = "resources"
-
-[test.dependencies]
-"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"

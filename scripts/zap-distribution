@@ -107,10 +107,13 @@ if [[ "$CHANNEL" != "zap" ]]; then
 fi
 
 BASE_VERSION="$(
-  awk -F '"' '/^version = / { print $2; exit }' apps/zolt/zolt.toml | sed 's/-SNAPSHOT$//'
+  awk -F '"' '
+    /^\[/ { section = $0 }
+    section == "[workspace.project]" && /^version = / { print $2; exit }
+  ' zolt.toml | sed 's/-SNAPSHOT$//'
 )"
 if [[ -z "$BASE_VERSION" ]]; then
-  printf 'error: could not read apps/zolt/zolt.toml project version\n' >&2
+  printf 'error: could not read the zolt.toml workspace.project version\n' >&2
   exit 1
 fi
 

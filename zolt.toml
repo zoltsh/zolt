@@ -1,47 +1,21 @@
 [workspace]
 name = "zolt"
-members = [
-    "modules/zolt-model",
-    "modules/zolt-framework-api",
-    "modules/zolt-toml",
-    "modules/zolt-repository",
-    "modules/zolt-resolve",
-    "modules/zolt-update",
-    "modules/zolt-test-model",
-    "modules/zolt-junit-client",
-    "modules/zolt-build",
-    "modules/zolt-test-runtime",
-    "modules/zolt-native-image",
-    "modules/zolt-toolchain",
-    "modules/zolt-workspace",
-    "modules/zolt-ide",
-    "modules/zolt-quarkus",
-    "modules/zolt-release",
-    "modules/zolt-publish",
-    "modules/zolt-policy",
-    "modules/zolt-quality",
-    "modules/zolt-tree",
-    "modules/zolt-sbom",
-    "modules/zolt-plan",
-    "modules/zolt-explain",
-    "modules/zolt-config",
-    "modules/zolt-selfhost",
-    "modules/zolt-init",
-    "apps/zolt-javac-worker",
-    "apps/zolt-junit-worker",
-    "apps/zolt",
-]
-defaultMembers = ["apps/zolt"]
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[workspace.members]
+default = ["apps/zolt"]
+include = ["apps/*", "modules/*"]
+
+[workspace.project]
+group = "sh.zolt"
+version = "0.1.0-SNAPSHOT"
+java = 21
+license = "Apache-2.0"
 
 [toolchain.java]
-version = "21"
 distribution = "graalvm-community"
 features = ["native-image"]
 policy = "require-managed"
 
 [coverage]
-minLine = 88.0
-minBranch = 74.0
+line = 88
+branch = 74

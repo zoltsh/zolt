@@ -21,15 +21,20 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Enforces that the workspace module dependency graph -- the {@code workspace = "modules/<name>"} edges
- * declared across every module's zolt.toml -- is a directed acyclic graph that references only modules
- * that exist. {@code WorkspaceBuildOrderPlanner} already rejects cyclic workspace deps when it computes a
- * build order at runtime; this lifts that DAG into an explicit, enforced architectural invariant so a
- * cyclic or dangling workspace dependency fails fast in the arch suite (the way the originally-blocked
- *  cycle would have).
+ * Enforces that the workspace module dependency graph -- the {@code "sh.zolt:<module>" = { workspace =
+ * true }} edges declared across every module's zolt.toml -- is a directed acyclic graph that references
+ * only modules that exist. {@code WorkspaceBuildOrderPlanner} already rejects cyclic workspace deps when
+ * it computes a build order at runtime; this lifts that DAG into an explicit, enforced architectural
+ * invariant so a cyclic or dangling workspace dependency fails fast in the arch suite (the way the
+ * originally-blocked  cycle would have).
+ *
+ * <p>A final-language workspace edge carries no member path (design §9.8), so the provider is derived
+ * from the artifact half of its {@code sh.zolt:<module>} coordinate: every provider in this repository
+ * is a {@code modules/<artifact>} member.
  */
 final class WorkspaceModuleGraphTest {
-    private static final Pattern WORKSPACE_EDGE = Pattern.compile("workspace\\s*=\\s*\"(modules/[^\"]+)\"");
+    private static final Pattern WORKSPACE_EDGE =
+            Pattern.compile("\"sh\\.zolt:([\\w-]+)\"\\s*=\\s*\\{[^}]*workspace\\s*=\\s*true");
 
     @Test
     void workspaceModuleDependencyGraphIsAcyclic() throws IOException {
@@ -95,7 +100,7 @@ final class WorkspaceModuleGraphTest {
             Set<String> seen = new LinkedHashSet<>();
             Matcher matcher = WORKSPACE_EDGE.matcher(Files.readString(manifest));
             while (matcher.find()) {
-                String dependency = matcher.group(1);
+                String dependency = "modules/" + matcher.group(1);
                 if (!dependency.equals(module) && seen.add(dependency)) {
                     dependencies.add(dependency);
                 }

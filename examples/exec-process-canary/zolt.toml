@@ -2,16 +2,16 @@
 name = "exec-process-canary"
 version = "0.1.0"
 group = "sh.zolt.canary"
-java = "21"
+java = 21
 main = "sh.zolt.canary.execprocess.Main"
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[dependencies.test]
+"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
 # A PATH `process` tool. `sh` is universally present; `sh --version` is not portable,
 # so the probe is a portable command and PATH bytes are acknowledged as unprovable.
-[generated.execTools.sh]
-runner = "process"
+[generated.tools.sh]
+kind = "process"
 binary = "sh"
 versionCommand = ["sh", "-c", "echo 1"]
 allowUnpinnedTool = true
@@ -43,12 +43,3 @@ args = ["scripts/emit-resource.sh", "target/generated/exec/stage"]
 inputs = ["scripts/emit-resource.sh", "target/generated/exec/stage"]
 output = "target/generated/exec/resource"
 produces = "resources"
-
-[test.dependencies]
-"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"

@@ -31,8 +31,23 @@ WORKFLOW_SPECS = (
 
 
 def workspace_members(root: pathlib.Path) -> list[str]:
+    """Expands [workspace.members] include/exclude into member paths (design §6.2, §6.4)."""
     config = tomllib.loads((root / "zolt.toml").read_text(encoding="utf-8"))
-    return list((config.get("workspace") or {}).get("members") or [])
+    members = (config.get("workspace") or {}).get("members") or {}
+    excluded = set(members.get("exclude") or [])
+    found: set[str] = set()
+    for pattern in members.get("include") or []:
+        candidates = (
+            [root / pattern]
+            if not any(character in pattern for character in "*?[")
+            else sorted(root.glob(pattern))
+        )
+        for candidate in candidates:
+            relative = candidate.relative_to(root).as_posix()
+            if relative in excluded or not (candidate / "zolt.toml").is_file():
+                continue
+            found.add(relative)
+    return sorted(found)
 
 
 def parse_args() -> argparse.Namespace:

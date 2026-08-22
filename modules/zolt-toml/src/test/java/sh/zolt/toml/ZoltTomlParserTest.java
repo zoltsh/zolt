@@ -14,7 +14,28 @@ final class ZoltTomlParserTest {
 
     @Test
     void parsesValidExampleConfig() {
-        ProjectConfig config = parser.parse(ZoltTomlTestPaths.fixture("examples/hello-zolt/zolt.toml"));
+        // Held inline rather than read from examples/hello-zolt: the checked-in examples are written
+        // in the final manifest language, which this legacy parser deliberately does not accept.
+        ProjectConfig config = parser.parse("""
+                [project]
+                name = "hello-zolt"
+                version = "0.1.0"
+                group = "com.example"
+                java = "21"
+                main = "com.example.Main"
+
+                [repositories]
+                central = "https://repo.maven.apache.org/maven2"
+
+                [dependencies]
+                "com.google.guava:guava" = "33.4.0-jre"
+
+                [build]
+                source = "src/main/java"
+                test = "src/test/java"
+                output = "target/classes"
+                testOutput = "target/test-classes"
+                """);
 
         assertEquals("hello-zolt", config.project().name());
         assertEquals("0.1.0", config.project().version());

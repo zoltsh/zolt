@@ -2,31 +2,22 @@
 name = "micronaut-http"
 version = "0.1.0"
 group = "com.example"
-java = "21"
+java = 21
 main = "com.example.micronaut.DemoApplication"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
 
 [platforms]
 "io.micronaut.platform:micronaut-platform" = "4.10.12"
 
 [dependencies]
-"io.micronaut:micronaut-http-server-netty" = {}
-"io.micronaut:micronaut-runtime" = {}
-"io.micronaut.serde:micronaut-serde-jackson" = {}
-"ch.qos.logback:logback-classic" = {}
+"ch.qos.logback:logback-classic" = { managed = true }
+"io.micronaut.serde:micronaut-serde-jackson" = { managed = true }
+"io.micronaut:micronaut-http-server-netty" = { managed = true }
+"io.micronaut:micronaut-runtime" = { managed = true }
 
-[annotationProcessors]
-"io.micronaut:micronaut-inject-java" = {}
-"io.micronaut:micronaut-http-validation" = {}
-"io.micronaut.serde:micronaut-serde-processor" = {}
-
-[test.dependencies]
+[dependencies.test]
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+[dependencies.processor]
+"io.micronaut.serde:micronaut-serde-processor" = { managed = true }
+"io.micronaut:micronaut-http-validation" = { managed = true }
+"io.micronaut:micronaut-inject-java" = { managed = true }
