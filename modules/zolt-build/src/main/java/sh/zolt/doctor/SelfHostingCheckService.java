@@ -23,7 +23,7 @@ public final class SelfHostingCheckService {
 
     public SelfHostingCheckResult check(Path projectDirectory) {
         Path root = projectDirectory.toAbsolutePath().normalize();
-        ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.loadProject(root);
         return check(root, config);
     }
 
