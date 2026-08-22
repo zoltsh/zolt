@@ -7,6 +7,7 @@ import sh.zolt.toml.manifest.ZoltManifestDocument;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.toml.manifest.edit.ManifestSourceEditor;
 import java.nio.file.Path;
+import java.util.Optional;
 
 /**
  * The final-language read/edit/write trio every source-safe mutation command shares.
@@ -42,6 +43,19 @@ public final class ManifestMutationServices {
     /** Applies one authored delta to {@code original} without touching unrelated source. */
     public ZoltManifestDocument edit(ZoltManifestDocument original, AuthoredManifest requested) {
         return editor.edit(original, requested);
+    }
+
+    /**
+     * The authored manifest of the workspace root above {@code projectDirectory}, when a workspace
+     * expanded that directory into a member (design §4.5). Mutation commands read it to see the
+     * configuration a member may reference but must not redeclare; it never changes where an edit is
+     * written. A workspace root asked about itself gets no second copy of its own manifest.
+     */
+    Optional<AuthoredManifest> workspaceRootManifest(Path projectDirectory) {
+        Path directory = projectDirectory.toAbsolutePath().normalize();
+        return loader.enclosingWorkspaceRoot(directory)
+                .filter(root -> !root.equals(directory))
+                .map(root -> loader.document(root.resolve("zolt.toml")).authored());
     }
 
     /** The standalone project view of edited manifest bytes, used to stage a resolve. */

@@ -1,7 +1,6 @@
 package sh.zolt.cli.command.dependency;
 
 import sh.zolt.manifest.PlatformSelector;
-import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.project.VersionPolicy;
 import java.util.function.Function;
 
@@ -16,7 +15,7 @@ final class PlatformSelectors {
     }
 
     static PlatformSelector parse(
-            AuthoredManifest manifest,
+            DependencyEditCommands.VersionAliasView aliases,
             String subject,
             String version,
             String versionRef,
@@ -30,7 +29,7 @@ final class PlatformSelectors {
                     + "not both. Remove the positional version or the option.");
         }
         if (versionRef != null) {
-            DependencyEditCommands.requireAlias(manifest, versionRef, failure);
+            DependencyEditCommands.requireAlias(aliases, versionRef, failure);
             return new PlatformSelector.VersionReference(
                     DependencyEditCommands.localId(versionRef, failure));
         }

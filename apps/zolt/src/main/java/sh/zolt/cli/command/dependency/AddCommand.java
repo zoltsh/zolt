@@ -152,7 +152,10 @@ public final class AddCommand implements Runnable {
             return new AddRequest(lane, coordinate, new DependencySelector.Managed());
         }
         if (versionRef != null) {
-            DependencyEditCommands.requireAlias(manifest, versionRef, AddCommandException::new);
+            DependencyEditCommands.requireAlias(
+                    DependencyEditCommands.aliasView(manifests, projectDirectory.path(), manifest),
+                    versionRef,
+                    AddCommandException::new);
             return new AddRequest(
                     lane,
                     coordinate,

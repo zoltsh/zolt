@@ -116,7 +116,11 @@ public final class PlatformsCommand implements Runnable {
 
         private PlatformSelector selector(AuthoredManifest manifest) {
             return PlatformSelectors.parse(
-                    manifest, "platform", version, versionRef, PlatformCommandException::new);
+                    DependencyEditCommands.aliasView(manifests, projectDirectory.path(), manifest),
+                    "platform",
+                    version,
+                    versionRef,
+                    PlatformCommandException::new);
         }
 
         private void printSummary(

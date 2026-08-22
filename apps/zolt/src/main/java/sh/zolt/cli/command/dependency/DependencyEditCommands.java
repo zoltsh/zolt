@@ -11,7 +11,9 @@ import sh.zolt.manifest.authored.AuthoredDependency;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredVersionAliases;
 import sh.zolt.project.VersionPolicy;
+import java.nio.file.Path;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,12 +99,49 @@ final class DependencyEditCommands {
         return manifest.versions().map(AuthoredVersionAliases::entries).orElseGet(Map::of);
     }
 
-    /** The literal a version alias resolves to, rejecting an alias the manifest does not declare. */
-    static String requireAlias(AuthoredManifest manifest, String alias, Function<String, RuntimeException> failure) {
-        VersionAliasValue value = versionAliases(manifest).get(localId(alias, failure));
+    /**
+     * The aliases one manifest may reference by {@code versionRef}.
+     *
+     * <p>Design §4.5 "Named maps": workspace versions are available to every member, and a
+     * root-owned alias may not be redeclared in a member. A member therefore references aliases it
+     * does not author, so validation reads the effective root-merged view rather than the member's
+     * own {@code [versions]} table. A virtual workspace root has nothing above it to merge.
+     */
+    static VersionAliasView aliasView(
+            ManifestMutationServices manifests,
+            Path projectDirectory,
+            AuthoredManifest manifest) {
+        Optional<AuthoredManifest> root = manifests.workspaceRootManifest(projectDirectory);
+        if (root.isEmpty()) {
+            return new VersionAliasView(versionAliases(manifest), false);
+        }
+        Map<LocalId, VersionAliasValue> entries =
+                new LinkedHashMap<>(versionAliases(root.orElseThrow()));
+        entries.putAll(versionAliases(manifest));
+        return new VersionAliasView(entries, true);
+    }
+
+    /** The alias names a manifest may reference, and whether a workspace root can also own them. */
+    record VersionAliasView(Map<LocalId, VersionAliasValue> entries, boolean workspaceMember) {
+        VersionAliasView {
+            entries = Map.copyOf(entries);
+        }
+
+        String remedy(String alias) {
+            return workspaceMember
+                    ? "Declare [versions]." + alias
+                            + " in this member or in the workspace root, or use an explicit version."
+                    : "Add [versions]." + alias + " or use an explicit version.";
+        }
+    }
+
+    /** The literal a version alias resolves to, rejecting an alias no visible manifest declares. */
+    static String requireAlias(
+            VersionAliasView aliases, String alias, Function<String, RuntimeException> failure) {
+        VersionAliasValue value = aliases.entries().get(localId(alias, failure));
         if (value == null) {
-            throw failure.apply("Unknown versionRef `" + alias + "`. Add [versions]." + alias
-                    + " or use an explicit version.");
+            throw failure.apply(
+                    "Unknown versionRef `" + alias + "`. " + aliases.remedy(alias));
         }
         return value.value();
     }

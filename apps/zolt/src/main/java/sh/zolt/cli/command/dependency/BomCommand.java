@@ -112,7 +112,7 @@ public final class BomCommand implements Runnable {
 
             private PlatformSelector selector(AuthoredManifest manifest) {
                 return PlatformSelectors.parse(
-                        manifest, "BOM version", version, versionRef, BomCommandException::new);
+                        aliasView(manifest), "BOM version", version, versionRef, BomCommandException::new);
             }
 
             private static Map<DependencyCoordinate, AuthoredBom.Version> versions(AuthoredManifest manifest) {
@@ -187,7 +187,7 @@ public final class BomCommand implements Runnable {
 
             private PlatformSelector selector(AuthoredManifest manifest) {
                 return PlatformSelectors.parse(
-                        manifest, "BOM import", version, versionRef, BomCommandException::new);
+                        aliasView(manifest), "BOM import", version, versionRef, BomCommandException::new);
             }
 
             private static Map<DependencyCoordinate, PlatformSelector> imports(AuthoredManifest manifest) {
@@ -266,6 +266,11 @@ public final class BomCommand implements Runnable {
 
         final DependencyCoordinate coordinate() {
             return DependencyEditCommands.coordinate(coordinate, BomCommandException::new);
+        }
+
+        /** The aliases this manifest may reference, root-merged when it is a workspace member. */
+        final DependencyEditCommands.VersionAliasView aliasView(AuthoredManifest manifest) {
+            return DependencyEditCommands.aliasView(manifests, projectDirectory.path(), manifest);
         }
 
         final ManifestEditResult edit(UnaryOperator<AuthoredManifest> mutation) {
