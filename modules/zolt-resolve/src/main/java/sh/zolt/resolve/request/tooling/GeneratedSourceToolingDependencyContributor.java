@@ -96,12 +96,12 @@ public final class GeneratedSourceToolingDependencyContributor {
         String coordinate = settings.toolCoordinate()
                 .filter(value -> !value.isBlank())
                 .orElseThrow(() -> new ResolveException(
-                        "OpenAPI generation requires [generated.openapiTool].coordinate. "
+                        "OpenAPI generation requires [generated.tools.openapi].coordinate. "
                                 + "Add org.openapitools:openapi-generator-cli with version or versionRef, run `zolt resolve`, then retry."));
         String version = settings.toolVersion()
                 .filter(value -> !value.isBlank())
                 .orElseThrow(() -> new ResolveException(
-                        "OpenAPI generation requires [generated.openapiTool].version for "
+                        "OpenAPI generation requires [generated.tools.openapi].version for "
                                 + coordinate
                                 + ". Add version or versionRef, run `zolt resolve`, then retry."));
         addToolRequest(requests, coordinate, version, DependencyScope.TOOL_OPENAPI);

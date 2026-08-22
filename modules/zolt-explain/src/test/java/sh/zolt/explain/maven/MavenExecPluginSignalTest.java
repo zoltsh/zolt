@@ -47,7 +47,7 @@ final class MavenExecPluginSignalTest {
 
         String text = scorecardText(result);
         assertTrue(text.contains("generated-sources: planned"), () -> text);
-        assertTrue(text.contains("[generated.execTools] exec step"), () -> text);
+        assertTrue(text.contains("[generated.tools] exec step"), () -> text);
     }
 
     @Test

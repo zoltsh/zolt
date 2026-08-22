@@ -24,7 +24,7 @@ public final class GradleMigrationReadinessFindings {
                     MigrationReadinessCategory.PLANNED,
                     signal,
                     "Gradle Exec/JavaExec single-command task",
-                    "[generated.execTools] exec step",
+                    "[generated.tools] exec step",
                     "",
                     signal.nextStep());
             case "gradle.exec-unmappable" -> MigrationReadinessFindings.finding(

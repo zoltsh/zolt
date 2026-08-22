@@ -62,6 +62,8 @@ final class ExecStepQualityValidation {
                     "Exec step references tool `" + toolName + "` (runner `" + runner + "`) that is not resolvable.",
                     "Declare the tool with a supported runner (jvm/process) or use tool = \"project\" with a mainClass."));
         }
+        // Kept as defense in depth: running unpinned PATH bytes must fail closed even if the
+        // parse-time acknowledgement in AuthoredGeneratedTool regresses.
         if ("process".equals(runner) && !step.exec().tool().allowUnpinnedTool()) {
             return Optional.of(QualityCheckResult.failed(
                     QualityCheckService.GENERATED_SOURCES,
@@ -69,7 +71,7 @@ final class ExecStepQualityValidation {
                     subject,
                     "Exec step runs unpinned PATH binary `" + step.exec().tool().binary()
                             + "` without acknowledging that its bytes are unprovable.",
-                    "Set allowUnpinnedTool = true on [generated.execTools." + toolName + "]."));
+                    "Set allowUnpinnedTool = true on [generated.tools." + toolName + "]."));
         }
         return Optional.empty();
     }

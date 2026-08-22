@@ -145,7 +145,7 @@ final class ProjectConfigDependencyLanes {
         EffectiveValue<VersionAliasValue> value = versions.get(alias);
         if (value == null) {
             throw new IllegalArgumentException(
-                    "Dependency `" + coordinate + "` in [" + section
+                    "Dependency `" + coordinate + "` in [" + DependencyMetadata.manifestSection(section)
                             + "] references undefined version alias `" + alias + "`.");
         }
         return value.value().value();
@@ -175,7 +175,8 @@ final class ProjectConfigDependencyLanes {
         String path = workspacePaths.get(coordinate);
         if (path == null) {
             throw new IllegalArgumentException(
-                    "Workspace dependency `" + coordinate + "` in [" + section
+                    "Workspace dependency `" + coordinate + "` in ["
+                            + DependencyMetadata.manifestSection(section)
                             + "] has no resolved workspace member. A standalone project cannot declare "
                             + "`workspace = true`.");
         }

@@ -275,7 +275,7 @@ final class DirectDependencyRequestPlanner {
                     "Dependency "
                             + packageId
                             + " in ["
-                            + section
+                            + DependencyMetadata.manifestSection(section)
                             + "] uses a platform-managed version, but no declared [platforms] entry manages it.",
                     "Add a version or add a platform that manages this dependency.");
         }

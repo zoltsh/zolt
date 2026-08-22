@@ -29,7 +29,7 @@ final class WorkspaceExternalExportOwnershipCheck {
         if (!requiredApi && exportedByMember) {
             String declaration = "api.dependencies".equals(metadata.section())
                     ? "Optional API dependency"
-                    : "Dependency in [" + metadata.section() + "]";
+                    : "Dependency in [" + metadata.manifestSection() + "]";
             return Optional.of(QualityCheckResult.failed(
                     DEPENDENCY_METADATA,
                     Optional.of(member),

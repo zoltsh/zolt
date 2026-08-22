@@ -125,7 +125,7 @@ final class OpenApiGeneratedSourceValidatorTest {
                                 Map.of(),
                                 Map.of()))));
 
-        assertTrue(toolException.getMessage().contains("[generated.openapiTool].coordinate and version"));
+        assertTrue(toolException.getMessage().contains("[generated.tools.openapi].coordinate and version"));
         assertTrue(generatorException.getMessage().contains("requires generator or preset.generator"));
     }
 

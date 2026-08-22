@@ -295,7 +295,7 @@ public final class ExplainSignals {
             "gradle.exec-mappable",
             ExplainSignal.Severity.WARN,
             ExplainSignal.Category.BUILDABILITY,
-            "Model this single-command Exec/JavaExec task as a Zolt exec step under [generated.execTools];"
+            "Model this single-command Exec/JavaExec task as a Zolt exec step under [generated.tools];"
                     + " declare its tool, inputs, and output by hand (Zolt reads the task shape, not its full command).");
     public static final ExplainSignalDefinition GRADLE_EXEC_UNMAPPABLE = new ExplainSignalDefinition(
             "gradle.exec-unmappable",

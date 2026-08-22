@@ -38,13 +38,15 @@ public final class AuthoredDependencyRootPlanner {
             if (selected.isEmpty()) {
                 throw ResolveException.actionable(
                         "Could not find the selected package for authored dependency `"
-                                + declaration.packageId() + "` in [" + declaration.section() + "].",
+                                + declaration.packageId() + "` in ["
+                                + DependencyMetadata.manifestSection(declaration.section()) + "].",
                         "Run `zolt resolve` again; if the problem persists, replace the declaration with an exact released coordinate.");
             }
             String version = selected.getFirst().version();
             if (selected.stream().anyMatch(lockPackage -> !version.equals(lockPackage.version()))) {
                 throw ResolveException.actionable(
-                        "Authored dependency `" + declaration.packageId() + "` in [" + declaration.section()
+                        "Authored dependency `" + declaration.packageId() + "` in ["
+                                + DependencyMetadata.manifestSection(declaration.section())
                                 + "] selected more than one version in the same artifact variant and scope.",
                         "Add an exact dependency constraint, then run `zolt resolve` again.");
             }
@@ -69,7 +71,8 @@ public final class AuthoredDependencyRootPlanner {
                     String replacement = relocated.packageId() + ":" + relocated.requestedVersion();
                     throw ResolveException.actionable(
                             "Direct dependency `" + original.packageId() + ":" + original.requestedVersion()
-                                    + "` in [" + declaration.section() + "] relocates to `" + replacement
+                                    + "` in [" + DependencyMetadata.manifestSection(declaration.section())
+                                    + "] relocates to `" + replacement
                                     + "`, which cannot preserve the exact authored dependency-root identity required by lockfile version 7.",
                             "Replace the declaration with `" + replacement + "`, then run `" + retryCommand + "` again.");
                 });
@@ -117,7 +120,7 @@ public final class AuthoredDependencyRootPlanner {
     private Declaration publishOnly(ProjectConfig config, DependencyMetadata metadata) {
         if (metadata.managed() || metadata.version() == null) {
             throw ResolveException.actionable(
-                    "Publish-only dependency `" + metadata.coordinate() + "` in [" + metadata.section()
+                    "Publish-only dependency `" + metadata.coordinate() + "` in [" + metadata.manifestSection()
                             + "] has no fixed or version-reference value.",
                     "Give it `version` or `versionRef`; platform-managed dependencies must participate in resolution.");
         }

@@ -36,7 +36,7 @@ final class GradleExecTaskSignalTest {
 
         MigrationReadinessFinding finding = GradleMigrationReadinessFindings.map(signal);
         assertEquals(MigrationReadinessCategory.PLANNED, finding.category());
-        assertEquals("[generated.execTools] exec step", finding.zoltPrimitive());
+        assertEquals("[generated.tools] exec step", finding.zoltPrimitive());
     }
 
     @Test

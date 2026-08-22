@@ -8,6 +8,7 @@ import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.policy.DependencyPolicyReport;
 import sh.zolt.policy.DependencyPolicyReportException;
 import sh.zolt.policy.DependencyPolicyReportService;
+import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -179,7 +180,7 @@ final class DependencyPolicyQualityCheck {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
                         member,
-                        "[" + direct.section() + "]." + direct.coordinate(),
+                        "[" + DependencyMetadata.manifestSection(direct.section()) + "]." + direct.coordinate(),
                         "Direct dependency `"
                                 + direct.coordinate()
                                 + ":"

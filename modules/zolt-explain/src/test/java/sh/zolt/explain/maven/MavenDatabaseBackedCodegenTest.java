@@ -95,7 +95,7 @@ final class MavenDatabaseBackedCodegenTest {
         assertFalse(result.signals().stream().anyMatch(s -> s.id().equals("maven.plugin.exec-nondeterministic")),
                 () -> "committed-DDL jOOQ must not be flagged nondeterministic: " + result.signals());
         String blockers = blockersText(result);
-        assertTrue(blockers.contains("[generated.execTools]"), () -> blockers);
+        assertTrue(blockers.contains("[generated.tools]"), () -> blockers);
     }
 
     private MavenInspectionResult inspect(String pluginXml) throws IOException {

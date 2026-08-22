@@ -54,6 +54,29 @@ public record DependencyMetadata(
         return section + "|" + coordinate;
     }
 
+    /** The final manifest section that declares this dependency (design §8.1). */
+    public String manifestSection() {
+        return manifestSection(section);
+    }
+
+    /**
+     * The final manifest section for one engine metadata key. The engine keys dependency metadata by
+     * the pre-cut section spelling so lock identity stays stable; every diagnostic that names a
+     * section to an author must translate through here.
+     */
+    public static String manifestSection(String section) {
+        return switch (section) {
+            case "api.dependencies" -> "dependencies.api";
+            case "runtime.dependencies" -> "dependencies.runtime";
+            case "provided.dependencies" -> "dependencies.provided";
+            case "dev.dependencies" -> "dependencies.dev";
+            case "test.dependencies" -> "dependencies.test";
+            case "annotationProcessors" -> "dependencies.processor";
+            case "test.annotationProcessors" -> "dependencies.test-processor";
+            default -> section;
+        };
+    }
+
     public boolean emptyMetadata() {
         return versionRef == null
                 && !optional

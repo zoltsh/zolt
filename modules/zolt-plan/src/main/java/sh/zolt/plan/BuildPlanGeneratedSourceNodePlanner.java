@@ -35,7 +35,7 @@ final class BuildPlanGeneratedSourceNodePlanner {
             blockers.add(new PlanBlocker(
                     "openapi-generation-incomplete",
                     "OpenAPI generated-source step `" + step.id() + "` is missing tool or generator settings.",
-                    "Add [generated.openapiTool] coordinate/version and generator or preset.generator."));
+                    "Add [generated.tools.openapi] coordinate/version and generator or preset.generator."));
         }
         if (!"java".equals(step.language())) {
             blockers.add(new PlanBlocker(

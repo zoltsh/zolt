@@ -165,7 +165,7 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
     }
 
     @Test
-    void workspaceShadowConflictHonorsFailOnVersionConflict() throws IOException {
+    void workspaceShadowConflictHonorsTheConflictPolicy() throws IOException {
         addShadowFixture(true, "");
 
         ResolveException exception = assertThrows(
@@ -173,7 +173,7 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
                 () -> service.resolve(
                         tempDir, tempDir.resolve("cache"), false, false));
 
-        assertTrue(exception.getMessage().contains("failOnVersionConflict"));
+        assertTrue(exception.getMessage().contains("[dependencies.policy].conflicts"));
         assertTrue(exception.getMessage().contains("com.acme:core"));
     }
 

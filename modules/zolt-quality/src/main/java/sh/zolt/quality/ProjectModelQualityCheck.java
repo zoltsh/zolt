@@ -25,11 +25,6 @@ final class ProjectModelQualityCheck {
             return List.of(invalidPath.orElseThrow());
         }
 
-        Optional<QualityCheckResult> invalidCompilerRelease = invalidCompilerRelease(member, config);
-        if (invalidCompilerRelease.isPresent()) {
-            return List.of(invalidCompilerRelease.orElseThrow());
-        }
-
         List<QualityCheckResult> results = new ArrayList<>();
         results.add(QualityCheckResult.passed(
                 PROJECT_MODEL,
@@ -150,45 +145,6 @@ final class ProjectModelQualityCheck {
             }
         }
         return Optional.empty();
-    }
-
-    private static Optional<QualityCheckResult> invalidCompilerRelease(
-            Optional<String> member,
-            ProjectConfig config) {
-        String release = config.compilerSettings().release();
-        if (release.isBlank()) {
-            return Optional.empty();
-        }
-        Optional<Integer> releaseVersion = javaFeatureVersion(release);
-        Optional<Integer> projectVersion = javaFeatureVersion(config.project().java());
-        if (releaseVersion.isEmpty()) {
-            return Optional.of(QualityCheckResult.failed(
-                    PROJECT_MODEL,
-                    member,
-                    "[compiler].release",
-                    "Compiler release `" + release + "` must be a Java feature version.",
-                    "Use a numeric release such as `8`, `11`, `17`, or `21`."));
-        }
-        if (projectVersion.isPresent() && releaseVersion.orElseThrow() > projectVersion.orElseThrow()) {
-            return Optional.of(QualityCheckResult.failed(
-                    PROJECT_MODEL,
-                    member,
-                    "[compiler].release",
-                    "Compiler release `" + release + "` is newer than [project].java `" + config.project().java() + "`.",
-                    "Lower [compiler].release or raise [project].java in zolt.toml."));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<Integer> javaFeatureVersion(String value) {
-        if (value == null || value.isBlank()) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(Integer.parseInt(value));
-        } catch (NumberFormatException exception) {
-            return Optional.empty();
-        }
     }
 
     private static void addPathFields(List<PathField> fields, String name, List<String> values) {

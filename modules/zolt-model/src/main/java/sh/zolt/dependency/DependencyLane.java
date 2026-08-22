@@ -18,6 +18,20 @@ public enum DependencyLane {
     PROCESSOR,
     TEST_PROCESSOR;
 
+    /** The final manifest section that declares this lane (design §8.1). */
+    public String manifestSection() {
+        return switch (this) {
+            case IMPLEMENTATION -> "dependencies";
+            case API -> "dependencies.api";
+            case RUNTIME -> "dependencies.runtime";
+            case PROVIDED -> "dependencies.provided";
+            case DEV -> "dependencies.dev";
+            case TEST -> "dependencies.test";
+            case PROCESSOR -> "dependencies.processor";
+            case TEST_PROCESSOR -> "dependencies.test-processor";
+        };
+    }
+
     /** Stable manifest/lock ordering from the frozen dependency section layout. */
     public int canonicalOrder() {
         return switch (this) {

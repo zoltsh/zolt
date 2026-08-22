@@ -65,7 +65,7 @@ public final class MavenMigrationReadinessFindings {
                     MigrationReadinessCategory.PLANNED,
                     signal,
                     "Maven exec-shaped plugin (exec/frontend/antrun)",
-                    "[generated.execTools] exec step",
+                    "[generated.tools] exec step",
                     "",
                     signal.nextStep());
             case "maven.plugin.exec-nondeterministic" -> MigrationReadinessFindings.finding(
@@ -272,7 +272,7 @@ public final class MavenMigrationReadinessFindings {
                     "[generatedSources]",
                     "",
                     "Model generated sources as typed Zolt generated-source steps: the openapi/protobuf built-ins,"
-                            + " or a jvm exec tool under [generated.execTools] (using the plugin's own dependency"
+                            + " or a jvm exec tool under [generated.tools] (using the plugin's own dependency"
                             + " coordinates) with explicit inputs and output.");
         }
         return MigrationReadinessFindings.finding(

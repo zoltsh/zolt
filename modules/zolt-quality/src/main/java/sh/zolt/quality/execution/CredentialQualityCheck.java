@@ -273,6 +273,7 @@ final class CredentialQualityCheck {
                         + "."));
     }
 
+    /** Kept as defense in depth: a credential leak must fail closed even if parse-time URL policy regresses. */
     private Optional<QualityCheckResult> embeddedRepositoryCredentials(
             Optional<String> member,
             RepositorySettings repository) {
@@ -297,6 +298,7 @@ final class CredentialQualityCheck {
         }
     }
 
+    /** Kept as defense in depth: a credential leak must fail closed even if parse-time URL policy regresses. */
     private Optional<QualityCheckResult> embeddedPublishRepositoryCredentials(
             Optional<String> member,
             PublishRepositorySettings repository) {
