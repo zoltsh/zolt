@@ -1783,7 +1783,9 @@ Canonical fields:
 
 Generated compiler paths are relative to `[build.output].root`.
 
-`project.java` owns the release target. Zolt rejects `--release`, source/target flags, encoding flags, output flags, classpath flags, processor-path flags, and generated-source flags inside raw `args` when a first-class field owns the setting.
+`project.java` owns the release target. Zolt rejects `--release`, source/target flags, encoding flags, output flags, classpath flags, annotation-processing flags, and generated-source flags inside raw `args` when a first-class field owns the setting.
+
+Annotation processing is owned by `[dependencies.processor]` and `[dependencies.test-processor]`, which Zolt turns into `-processorpath` or `-proc:none` before appending raw `args`. Raw `args` therefore reject processor selection (`-processor`), processor paths (`-processorpath`, `--processor-path`, `--processor-module-path`), and every processing-mode form (`-proc`, `-proc:none`, `-proc:only`, `-proc:full`); the diagnostic names the processor lanes to author instead.
 
 `jdkApi = "release"` uses the effective project Java release and `ct.sym`. `jdkApi = "host"` intentionally compiles against the selected build JDK's platform API and is an explicit reproducibility escape hatch.
 
@@ -3556,6 +3558,7 @@ projectJavaIsSoleReleaseTarget
 standaloneBomDoesNotRequireJava
 bomRejectsAuthoredJavaAndCompilableDomains
 compilerReleaseFieldIsRejected
+compilerProcessorFlagsAreRejectedInBothLanes
 compilerGeneratedPathsAreOutputRootRelative
 systemJdkIsUsedWhenToolchainTableAbsent
 managedToolchainVersionDefaultsToProjectJava

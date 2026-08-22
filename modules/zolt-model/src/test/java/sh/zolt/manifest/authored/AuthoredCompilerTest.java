@@ -2,6 +2,7 @@ package sh.zolt.manifest.authored;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +43,40 @@ final class AuthoredCompilerTest {
             assertThrows(IllegalArgumentException.class, () -> compilerWith(argument), argument);
         }
         assertThrows(IllegalArgumentException.class, () -> compilerWith("@javac.options"));
+    }
+
+    /**
+     * Design §10.4: annotation processing is Zolt-owned, so raw args may not select processors, set a
+     * processor path, or change the processing mode. Zolt emits {@code -proc:none} or
+     * {@code -processorpath} itself and appends authored args afterwards, where they would win.
+     */
+    @Test
+    void rejectsEveryProcessorSelectionPathAndModeFlagInBothCompilerLanes() {
+        for (String argument : List.of(
+                "-processor",
+                "-processor=com.example.Processor",
+                "-processorpath",
+                "--processor-path",
+                "--processor-path=lib",
+                "--processor-module-path",
+                "--processor-module-path=mods",
+                "-proc",
+                "-proc:none",
+                "-proc:only",
+                "-proc:full")) {
+            IllegalArgumentException main = assertThrows(
+                    IllegalArgumentException.class, () -> compilerWith(argument), argument);
+            assertTrue(main.getMessage().contains("Zolt-owned javac option"), main.getMessage());
+            assertTrue(main.getMessage().contains("[dependencies.processor]"), main.getMessage());
+            assertTrue(main.getMessage().contains("[dependencies.test-processor]"), main.getMessage());
+
+            IllegalArgumentException test = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new AuthoredCompiler.Test(Optional.empty(), List.of(argument)),
+                    argument);
+            assertTrue(test.getMessage().contains("Test compiler arguments"), test.getMessage());
+            assertTrue(test.getMessage().contains("[dependencies.test-processor]"), test.getMessage());
+        }
     }
 
     @Test

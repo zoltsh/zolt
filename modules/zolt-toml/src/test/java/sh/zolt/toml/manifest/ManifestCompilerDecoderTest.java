@@ -123,6 +123,31 @@ final class ManifestCompilerDecoderTest {
                 """, "Invalid value for `compiler.args[0]`", "must not be blank");
     }
 
+    /** Design §10.4: processor selection, path, and mode flags are Zolt-owned in both lanes. */
+    @Test
+    void anchorsProcessorOwnedJavacFlagsAndNamesTheProcessorLanes() {
+        for (String argument : List.of(
+                "-processor",
+                "-processorpath",
+                "--processor-path=lib",
+                "--processor-module-path=mods",
+                "-proc:none",
+                "-proc:only",
+                "-proc:full")) {
+            assertFailure(
+                    "[compiler]\nargs = [\"-Xlint:all\", \"" + argument + "\"]\n",
+                    "Invalid value for `compiler.args[1]`",
+                    "Zolt-owned javac option",
+                    "[dependencies.processor]",
+                    "[dependencies.test-processor]");
+            assertFailure(
+                    "[compiler.test]\nargs = [\"" + argument + "\"]\n",
+                    "Invalid value for `compiler.test.args[0]`",
+                    "Zolt-owned javac option",
+                    "[dependencies.test-processor]");
+        }
+    }
+
     @Test
     void rejectsMeaninglessExplicitEmptyArgumentAggregates() {
         assertFailure("""

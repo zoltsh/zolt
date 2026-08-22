@@ -98,11 +98,20 @@ public record AuthoredCompiler(
                 "--upgrade-module-path",
                 "--system",
                 "--patch-module",
+                "-s",
+                "-h");
+
+        /**
+         * Annotation processing is Zolt-owned: it emits {@code -proc:none} or {@code -processorpath}
+         * from the processor lanes and appends authored args afterwards, where a raw processor flag
+         * would silently win. Design §10.4.
+         */
+        private static final Set<String> PROCESSOR_OPTIONS = Set.of(
+                "-processor",
                 "-processorpath",
                 "--processor-path",
                 "--processor-module-path",
-                "-s",
-                "-h");
+                "-proc");
 
         private CompilerArguments() {}
 
@@ -116,6 +125,12 @@ public record AuthoredCompiler(
                                     + argument + "`.");
                 }
                 String option = optionName(argument);
+                if (PROCESSOR_OPTIONS.contains(option) || option.startsWith("-proc:")) {
+                    throw new IllegalArgumentException(
+                            label + " cannot set Zolt-owned javac option `" + option
+                                    + "`. Declare annotation processors in [dependencies.processor]"
+                                    + " or [dependencies.test-processor] instead.");
+                }
                 if (FIRST_CLASS_OPTIONS.contains(option) || option.startsWith("-Xbootclasspath")) {
                     throw new IllegalArgumentException(
                             label + " cannot set Zolt-owned javac option `" + option + "`.");
