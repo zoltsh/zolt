@@ -15,7 +15,7 @@ import org.w3c.dom.Element;
  * <p>Provenance is load-bearing for : a {@code <release>} (or {@code maven.compiler.release})
  * POM targeted the reproducible {@code --release} surface, so Zolt keeps the strict default; a POM that
  * used only {@code source}/{@code target} compiled against the host JDK's platform API, so the emit path
- * offers a commented {@code platformApi = "host"} escape hatch and the audit fires a host-candidate
+ * offers a commented {@code jdkApi = "host"} escape hatch and the audit fires a host-candidate
  * signal. The two must be distinguishable, which is why the old collapsing of release/target/source into
  * one anonymous string is no longer sufficient.
  */
