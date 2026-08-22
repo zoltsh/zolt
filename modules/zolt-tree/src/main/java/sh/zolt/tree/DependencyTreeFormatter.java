@@ -6,15 +6,25 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 
 public final class DependencyTreeFormatter {
     public String format(ProjectConfig config, ZoltLockfile lockfile) {
+        return format(config, lockfile, ".");
+    }
+
+    /**
+     * The tree of the project identified by {@code member} in {@code lockfile}: {@code .} for a
+     * standalone project, or a member path, whose graph design §4.5 projects out of the one
+     * authoritative workspace lock.
+     */
+    public String format(ProjectConfig config, ZoltLockfile lockfile, String member) {
+        DependencyRootProjection roots = DependencyRootProjection.of(lockfile, member);
         DependencyTreeLines lines = new DependencyTreeLines(
                 new LockDependencyIndex(lockfile.packages()),
                 DependencyTreeLines.conflictsByPackage(lockfile),
                 DependencyTreeLines.lockView(),
-                "zolt resolve");
-        DependencyRootProjection roots = DependencyRootProjection.standalone(lockfile);
+                roots.regenerateCommand());
 
         StringBuilder output = new StringBuilder();
         output.append(config.project().group())
@@ -23,14 +33,22 @@ public final class DependencyTreeFormatter {
                 .append(':')
                 .append(config.project().version())
                 .append('\n');
-        lines.writeRoots(output, roots.rootsFor("."));
-        writePolicyEffects(output, lockfile);
+        lines.writeRoots(output, roots.rootsFor(member));
+        writePolicyEffects(output, lockfile, PolicyEffectScope.of(lockfile, member));
         return output.toString();
     }
 
     static void writePolicyEffects(StringBuilder output, ZoltLockfile lockfile) {
+        writePolicyEffects(output, lockfile, effect -> true);
+    }
+
+    private static void writePolicyEffects(
+            StringBuilder output,
+            ZoltLockfile lockfile,
+            Predicate<LockPolicyEffect> scope) {
         List<LockPolicyEffect> exclusionEffects = lockfile.policyEffects().stream()
                 .filter(DependencyTreeFormatter::exclusion)
+                .filter(scope)
                 .sorted(Comparator.comparing(DependencyTreeFormatter::policyEffectSortKey))
                 .toList();
         if (exclusionEffects.isEmpty()) {

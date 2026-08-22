@@ -22,25 +22,42 @@ import java.util.Optional;
 
 public final class DependencyJsonFormatter {
     public String tree(ProjectConfig config, ZoltLockfile lockfile) {
-        DependencyRootProjection roots = DependencyRootProjection.standalone(lockfile);
+        return tree(config, lockfile, ".");
+    }
+
+    /**
+     * The tree of the project identified by {@code member}: {@code .} for a standalone project, or a
+     * member path, whose packages and roots design §4.5 projects out of the one authoritative
+     * workspace lock. Conflicts and policy effects stay lock-wide facts and carry their own member
+     * attribution.
+     */
+    public String tree(ProjectConfig config, ZoltLockfile lockfile, String member) {
+        DependencyRootProjection roots = DependencyRootProjection.of(lockfile, member);
         StringBuilder json = new StringBuilder();
         json.append("{\n");
         intField(json, 1, "schemaVersion", 1, true);
         stringField(json, 1, "command", "tree", true);
         project(json, config);
         comma(json);
-        packages(json, lockfile.packages(), roots);
+        packages(json, memberPackages(lockfile, member), roots);
         comma(json);
         stringArrayField(json, 1, "roots", roots.graphRootCoordinates(), true);
         conflicts(json, lockfile.conflicts());
         comma(json);
-        policyEffects(json, lockfile.policyEffects());
+        policyEffects(json, lockfile.policyEffects().stream()
+                .filter(PolicyEffectScope.of(lockfile, member))
+                .toList());
         json.append("\n}\n");
         return json.toString();
     }
 
     public String why(ProjectConfig config, ZoltLockfile lockfile, PackageId target) {
-        DependencyRootProjection roots = DependencyRootProjection.standalone(lockfile);
+        return why(config, lockfile, target, ".");
+    }
+
+    /** Why {@code target} is present for the project identified by {@code member} (design §4.5). */
+    public String why(ProjectConfig config, ZoltLockfile lockfile, PackageId target, String member) {
+        DependencyRootProjection roots = DependencyRootProjection.of(lockfile, member);
         Optional<DependencyRootProjection.ResolvedPath> resolvedPath = roots.pathTo(target);
         if (resolvedPath.isEmpty() && roots.publishOnlyRoot(target).isPresent()) {
             throw new DependencyWhyException(
@@ -55,7 +72,8 @@ public final class DependencyJsonFormatter {
         List<LockConflict> conflicts = conflicts(lockfile, target);
         if (path.isEmpty() && effects.isEmpty() && conflicts.isEmpty()) {
             throw new DependencyWhyException(
-                    "Package " + target + " is not present in zolt.lock. Run `zolt resolve` after adding it or check the package id.");
+                    "Package " + target + " is not present in zolt.lock. Run `"
+                            + roots.regenerateCommand() + "` after adding it or check the package id.");
         }
 
         StringBuilder json = new StringBuilder();
@@ -82,6 +100,16 @@ public final class DependencyJsonFormatter {
         stringField(json, 2, "version", config.project().version(), true);
         stringField(json, 2, "coordinate", projectCoordinate(config), false);
         indent(json, 1).append("}");
+    }
+
+    /** The packages of one member's graph; a standalone lock holds exactly that project's graph. */
+    private static List<LockPackage> memberPackages(ZoltLockfile lockfile, String member) {
+        if (".".equals(member)) {
+            return lockfile.packages();
+        }
+        return lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.members().contains(member))
+                .toList();
     }
 
     private static void packages(

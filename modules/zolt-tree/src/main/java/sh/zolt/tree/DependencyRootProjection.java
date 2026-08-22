@@ -32,6 +32,7 @@ final class DependencyRootProjection {
     private DependencyRootProjection(
             ZoltLockfile lockfile,
             Set<String> members,
+            boolean selecting,
             String regenerateCommand) {
         this.regenerateCommand = regenerateCommand;
         requireVersionSeven(lockfile, regenerateCommand);
@@ -39,6 +40,9 @@ final class DependencyRootProjection {
         ArrayList<Root> projected = new ArrayList<>();
         for (LockDependencyRoot root : lockfile.dependencyRoots()) {
             if (!members.contains(root.member())) {
+                if (selecting) {
+                    continue;
+                }
                 throw invalidMember(root.member(), members, regenerateCommand);
             }
             Optional<LockPackage> selected = root.publishOnly()
@@ -51,7 +55,21 @@ final class DependencyRootProjection {
     }
 
     static DependencyRootProjection standalone(ZoltLockfile lockfile) {
-        return new DependencyRootProjection(lockfile, Set.of("."), "zolt resolve");
+        return new DependencyRootProjection(lockfile, Set.of("."), false, "zolt resolve");
+    }
+
+    /**
+     * One workspace member's roots, selected out of the authoritative root lock (design §4.5). The
+     * other members' roots are further facts of that one lock, not evidence of a broken one, so they
+     * are skipped rather than rejected.
+     */
+    static DependencyRootProjection member(ZoltLockfile lockfile, String member) {
+        return new DependencyRootProjection(lockfile, Set.of(member), true, "zolt resolve --workspace");
+    }
+
+    /** The projection governing one project directory, named by its lock member identity. */
+    static DependencyRootProjection of(ZoltLockfile lockfile, String member) {
+        return ".".equals(member) ? standalone(lockfile) : member(lockfile, member);
     }
 
     static DependencyRootProjection workspace(
@@ -60,7 +78,13 @@ final class DependencyRootProjection {
         return new DependencyRootProjection(
                 lockfile,
                 Set.copyOf(members),
+                false,
                 "zolt resolve --workspace");
+    }
+
+    /** The command that regenerates the lock this projection reads. */
+    String regenerateCommand() {
+        return regenerateCommand;
     }
 
     List<Root> roots() {
@@ -84,9 +108,10 @@ final class DependencyRootProjection {
         return roots.stream().anyMatch(root -> root.selected().filter(lockPackage::equals).isPresent());
     }
 
+    /** Walks every root this projection holds, which is exactly one project's roots. */
     Optional<ResolvedPath> pathTo(PackageId target) {
         ArrayDeque<PathItem> queue = new ArrayDeque<>();
-        rootsFor(".").stream()
+        roots.stream()
                 .filter(root -> root.selected().isPresent())
                 .forEach(root -> {
                     LockPackage selected = root.selected().orElseThrow();

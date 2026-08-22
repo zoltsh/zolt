@@ -14,7 +14,16 @@ import java.util.Optional;
 
 public final class DependencyWhyFormatter {
     public String format(ProjectConfig config, ZoltLockfile lockfile, PackageId target) {
-        DependencyRootProjection roots = DependencyRootProjection.standalone(lockfile);
+        return format(config, lockfile, target, ".");
+    }
+
+    /**
+     * Why {@code target} is present for the project identified by {@code member}: {@code .} for a
+     * standalone project, or a member path, whose graph design §4.5 projects out of the one
+     * authoritative workspace lock.
+     */
+    public String format(ProjectConfig config, ZoltLockfile lockfile, PackageId target, String member) {
+        DependencyRootProjection roots = DependencyRootProjection.of(lockfile, member);
         Optional<DependencyRootProjection.ResolvedPath> resolvedPath = roots.pathTo(target);
         if (resolvedPath.isEmpty()) {
             Optional<DependencyRootProjection.Root> publishOnly = roots.publishOnlyRoot(target);
@@ -26,7 +35,8 @@ public final class DependencyWhyFormatter {
                 return formatExcluded(config, target, exclusionEffects);
             }
             throw new DependencyWhyException(
-                    "Package " + target + " is not present in zolt.lock. Run `zolt resolve` after adding it or check the package id.");
+                    "Package " + target + " is not present in zolt.lock. Run `"
+                            + roots.regenerateCommand() + "` after adding it or check the package id.");
         }
         DependencyRootProjection.ResolvedPath resolved = resolvedPath.orElseThrow();
         List<LockPackage> path = resolved.packages();
