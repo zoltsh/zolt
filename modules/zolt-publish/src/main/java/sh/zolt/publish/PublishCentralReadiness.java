@@ -10,6 +10,10 @@ import java.util.List;
  * version, the required POM metadata (name, description, url, license name+url, an identifiable
  * developer, scm url+connection), sources and Javadoc jars, GPG signatures, and checksums.
  *
+ * <p>The name has no authored spelling in the final language — design §14.4 derives it from project
+ * identity — so its row confirms that derivation reached the metadata the POM is written from, rather
+ * than asking the author for a field they cannot write.
+ *
  * <p>This is a pure function over already-resolved inputs so it can be reused by the dry-run
  * readiness report and by the Central bundle publish path.
  */
@@ -49,6 +53,10 @@ final class PublishCentralReadiness {
                 "release version",
                 !"snapshot".equals(versionKind),
                 "Set a non-SNAPSHOT [project].version; Maven Central rejects -SNAPSHOT releases."));
+        requirements.add(requirement(
+                "project name",
+                !metadata.name().isBlank(),
+                "Set [project].name; Maven Central rejects a POM without <name>."));
         requirements.add(requirement(
                 "project description",
                 !metadata.description().isBlank(),

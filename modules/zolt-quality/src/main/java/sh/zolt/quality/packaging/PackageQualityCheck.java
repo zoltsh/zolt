@@ -179,9 +179,10 @@ public final class PackageQualityCheck {
      * True when this project publishes a library, judged from the metadata Maven Central consumes.
      *
      * <p>Publication metadata now comes from {@code [project]}, {@code [project.scm]}, and
-     * {@code [project.developers.<id>]} (design §14.4), so the abolished POM display {@code name} and
-     * the flat developer-name array are not evidence of a library profile: the final language cannot
-     * express either, and treating their absence as a signal would make every project look like one.
+     * {@code [project.developers.<id>]} (design §14.4), so the POM display {@code name} and the flat
+     * developer-name array are not evidence of a library profile. The name is derived from project
+     * identity rather than authored, so every project carries one and reading it as a signal would
+     * make every project look like a library; the flat array the final language cannot express at all.
      */
     private static boolean hasPublicationMetadata(PublicationMetadata metadata) {
         return !metadata.description().isBlank()
@@ -197,9 +198,10 @@ public final class PackageQualityCheck {
      * The first Maven Central requirement this project cannot satisfy (design §14.3).
      *
      * <p>Each rule names the field in the final language. The pre-cut {@code name} rule is gone
-     * because §14.4 removed the POM display name — Central derives it from the project identity —
-     * and the {@code developers} rule now reads the structured {@code [project.developers.<id>]}
-     * entries §7.4 introduced, which is what Central's name-and-email requirement needs.
+     * because §14.4 gave the POM display name no authored spelling — it is derived from project
+     * identity, so no manifest can fail it — and the {@code developers} rule now reads the structured
+     * {@code [project.developers.<id>]} entries §7.4 introduced, which is what Central's
+     * name-and-email requirement needs.
      */
     private static Optional<QualityCheckResult> firstMissingPublicationMetadata(
             Optional<String> member,

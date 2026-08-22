@@ -103,6 +103,48 @@ final class PublishCentralReadinessServiceTest {
                 requirements.toString());
     }
 
+    /**
+     * Design §14.4 leaves the POM display name with no authored spelling, so a complete
+     * {@code [project]} has to satisfy Central's name requirement on its own — Sonatype rejects a POM
+     * without {@code <name>}, and no manifest edit could add one.
+     */
+    @Test
+    void completeProjectIdentitySatisfiesEveryCentralRequirement() throws IOException {
+        Path root = tempDir.resolve("complete");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
+        Files.writeString(root.resolve("zolt.toml"), """
+                [project]
+                name = "readiness-lib"
+                version = "1.0.0"
+                group = "com.example"
+                java = %d
+                description = "A complete library."
+                url = "https://example.test/readiness-lib"
+                license = "Apache-2.0"
+                issues = "https://example.test/readiness-lib/issues"
+
+                [project.scm]
+                url = "https://github.com/example/readiness-lib"
+                connection = "scm:git:https://github.com/example/readiness-lib.git"
+
+                [project.developers.ada]
+                name = "Ada Lovelace"
+                email = "ada@example.test"
+
+                [publish.signing]
+                method = "gpg"
+                """.formatted(Runtime.version().feature()));
+
+        List<PublishCentralRequirement> requirements =
+                service(env(null)).evaluate(root, completePlan());
+
+        assertTrue(
+                requirements.stream().anyMatch(r -> r.name().equals("project name") && r.satisfied()),
+                requirements.toString());
+        assertTrue(PublishCentralReadiness.allSatisfied(requirements), requirements.toString());
+    }
+
     private static void assertActionable(PublishException exception) {
         String message = exception.getMessage();
         assertTrue(message.contains(SourceDateEpoch.ENV_NAME), message);
@@ -130,6 +172,35 @@ final class PublishCentralReadinessServiceTest {
                 """.formatted(Runtime.version().feature()) + "\n" + publishBody;
         Files.writeString(root.resolve("zolt.toml"), toml);
         return root;
+    }
+
+    /** The dry-run plan of a release that already carries both supplemental jars Central requires. */
+    private static PublishDryRunPlan completePlan() {
+        PublishArtifactPlan javadoc = new PublishArtifactPlan(
+                "javadoc",
+                Optional.of("javadoc"),
+                Path.of("target/app-1.0.0-javadoc.jar"),
+                "sha256:javadoc",
+                "com/example/app/1.0.0/app-1.0.0-javadoc.jar");
+        PublishDryRunPlan base = plan();
+        return new PublishDryRunPlan(
+                base.coordinate(),
+                base.versionKind(),
+                base.repositoryId(),
+                base.repositoryUrl(),
+                base.artifactId(),
+                base.artifactPath(),
+                base.artifactSha256(),
+                base.artifactUploadPath(),
+                List.of(base.supplementalArtifacts().getFirst(), javadoc),
+                base.evidencePath(),
+                base.pomPath(),
+                base.pomSha256(),
+                base.pomUploadPath(),
+                base.checksumSidecars(),
+                base.context(),
+                base.blockers(),
+                base.pomOnly());
     }
 
     private static PublishDryRunPlan plan() {
