@@ -20,9 +20,11 @@ import sh.zolt.project.toolchain.JavaFeatureRelease;
  *
  * <p>The final language moved publication metadata out of {@code [package.metadata]} and into
  * {@code [project]}, {@code [project.scm]}, and {@code [project.developers.<id>]} (design §14.4), so
- * the adapter reads it from the project domain. Two legacy fields have no final source: the POM
- * display {@code name} and the flat {@code developers} name array, which the structured
- * {@code [project.developers.<id>]} tables replace.
+ * the adapter reads it from the project domain. The POM display {@code name} has no authored spelling
+ * of its own any more — §14.4 derives it from project identity, so it is the artifact ID, which is
+ * also the Maven convention for a project that does not title itself. Sonatype rejects a POM without
+ * {@code <name>}, so this is the only source it can come from. The flat {@code developers} name array
+ * has no final source at all; the structured {@code [project.developers.<id>]} tables replace it.
  */
 final class ProjectConfigIdentity {
     private ProjectConfigIdentity() {
@@ -44,7 +46,7 @@ final class ProjectConfigIdentity {
             AuthoredProjectMetadata metadata) {
         Optional<AuthoredProjectScm> scm = metadata.scm();
         return new PublicationMetadata(
-                "",
+                identity.name().value().value(),
                 metadata.description().orElse(""),
                 metadata.url().orElse(""),
                 licenseName(identity),

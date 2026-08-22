@@ -4,6 +4,7 @@
   <groupId>com.example</groupId>
   <artifactId>app</artifactId>
   <version>1.0.0</version>
+  <name>app</name>
   <dependencies>
     <dependency>
       <groupId>io.netty</groupId>

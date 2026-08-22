@@ -98,7 +98,8 @@ final class IdeProjectModelBuilderTest {
                         root.resolve(".zolt/build/library-package-0.1.0-javadoc.jar"),
                         root.resolve(".zolt/build/library-package-0.1.0-tests.jar"),
                         new IdeModel.PublicationInfo(
-                                null,
+                                // §14.4: the publication name is derived from project identity.
+                                "library-package",
                                 "Library packaging fixture",
                                 "https://example.com/library",
                                 "Apache-2.0",

@@ -39,6 +39,8 @@ final class ManifestProjectConfigAdapterTest {
         assertEquals("com.example", adapted.project().group());
         assertEquals("21", adapted.project().java());
         assertEquals(Optional.of("com.example.Main"), adapted.project().main());
+        // §14.4: the POM display name has no authored spelling and is derived from project identity.
+        assertEquals("hello", adapted.packageSettings().metadata().name());
         assertEquals(
                 Map.of("org.junit.jupiter:junit-jupiter", "5.13.4"), adapted.testDependencies());
         assertEquals(Map.of(), adapted.dependencies());

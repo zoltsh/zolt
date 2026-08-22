@@ -118,6 +118,33 @@ final class PublishPomGoldenTest {
         assertEquals(golden("bom-family.pom.xml"), generator.generate(config, lockfile));
     }
 
+    /**
+     * Design §14.4 gives the POM display name no authored spelling and derives it from project
+     * identity. Sonatype rejects a POM without {@code <name>}, so a manifest carrying nothing but its
+     * identity still has to emit one — the artifact ID, as Maven conventionally titles such a project.
+     */
+    @Test
+    void derivesThePomNameFromProjectIdentity() {
+        ProjectConfig config = PublishManifestFixtures.standalone("""
+                [project]
+                name = "app"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+                """);
+
+        assertEquals("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId>
+                  <artifactId>app</artifactId>
+                  <version>1.0.0</version>
+                  <name>app</name>
+                </project>
+                """, generator.generate(config, new ZoltLockfile(7, List.of(), List.of())));
+    }
+
     private static ProjectConfig base(String name, String version, String group, PublicationMetadata metadata) {
         return ProjectConfigs.withDirectDependencies(
                         new ProjectMetadata(name, version, group, "21", Optional.empty()),

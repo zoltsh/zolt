@@ -5,6 +5,7 @@
   <artifactId>acme-bom</artifactId>
   <version>1.0.0</version>
   <packaging>pom</packaging>
+  <name>acme-bom</name>
   <description>Curated versions for the Acme platform family.</description>
   <url>https://example.test/acme</url>
   <licenses>

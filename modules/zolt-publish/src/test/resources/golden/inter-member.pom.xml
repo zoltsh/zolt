@@ -4,6 +4,7 @@
   <groupId>com.acme</groupId>
   <artifactId>acme-http</artifactId>
   <version>1.0.0</version>
+  <name>acme-http</name>
   <dependencies>
     <dependency>
       <groupId>com.acme</groupId>
