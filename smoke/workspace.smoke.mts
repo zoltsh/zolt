@@ -58,6 +58,11 @@ name = "workspace-app"
 [workspace.members]
 default = ["apps/api"]
 include = ["apps/api", "modules/core", "apps/worker"]
+
+[workspace.project]
+group = "com.example.workspace"
+version = "0.1.0"
+java = 21
 `,
       "utf8",
     );

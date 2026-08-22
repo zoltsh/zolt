@@ -30,7 +30,6 @@ smoke.suite("SLF4J workspace canary smoke", { tags: ["libraries", "workspace"] }
         'members = ["slf4j-simple"]',
         "org.apache.logging.log4j:log4j-to-slf4j",
       ],
-      excludes: ['workspace = "slf4j-api"'],
     });
     await expectLockfilePackages(join(workspace, "zolt.lock"), {
       contains: ["org.apache.logging.log4j:log4j-to-slf4j"],
