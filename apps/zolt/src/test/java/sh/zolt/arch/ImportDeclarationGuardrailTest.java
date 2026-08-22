@@ -29,13 +29,13 @@ import org.junit.jupiter.api.io.TempDir;
  * sibling. That hides undeclared module edges and lets a lib build that would break
  * the moment its declared deps are trimmed. This guard asserts that every sh.zolt.*
  * type a module uses from another module is backed by an explicit
- * { workspace = "modules/<name>" } entry in that module's zolt.toml.
+ * { workspace = true } entry in that module's zolt.toml.
  *
  * The guarantee is type-level, not text-level. Cross-module edges are read from the
  * compiled bytecode (ModuleTypeReferences) as the ground-truth source: javac has already
  * resolved every reference, so a type used by fully-qualified name with no `import`, via a
  * wildcard `import sh.zolt.x.*;`, or via a `import static sh.zolt.x.Foo.BAR;` is caught
- * the same as a plain `import sh.zolt.x.Foo;`. The legacy `import`-line scan
+ * the same as a plain `import sh.zolt.x.Foo;`. The `import`-line scan
  * (WorkspaceDependencyDeclarations.zoltImports) is unioned in so the guard still holds on a
  * source-only checkout whose bytecode has not been built yet; whenever the workspace is
  * compiled (as it always is in the bootstrap arch run), the bytecode closes the holes the
@@ -170,7 +170,7 @@ final class ImportDeclarationGuardrailTest {
     @Test
     void bytecodeGuardFlagsAFullyQualifiedReferenceWithNoImport(@TempDir Path tempDir) throws IOException {
         // The headline hole: a cross-lib type named only by its fully-qualified name, with no
-        // `import` line, is invisible to the legacy import scan but present in the bytecode.
+        // `import` line, is invisible to the import scan but present in the bytecode.
         Path quality = tempDir.resolve("modules/zolt-quality/src/main/java");
         Path repository = tempDir.resolve("modules/zolt-repository/src/main/java");
         write(
@@ -190,7 +190,7 @@ final class ImportDeclarationGuardrailTest {
         assertTrue(
                 undeclaredCrossModuleEdges(importReferences(List.of(quality, repository)), List.of(quality, repository))
                         .isEmpty(),
-                "Sanity: the legacy import-line scan misses the FQN-without-import edge.");
+                "Sanity: the import-line scan misses the FQN-without-import edge.");
 
         List<String> violations = undeclaredCrossModuleEdges(
                 bytecodeReferences(List.of(quality, repository)), List.of(quality, repository));
@@ -220,11 +220,11 @@ final class ImportDeclarationGuardrailTest {
         writeModuleConfig(tempDir.resolve("modules/zolt-repository"), Set.of());
         compileWorkspace(List.of(quality, repository));
 
-        // A wildcard import has no resolvable type on the import line, so the legacy scan misses it.
+        // A wildcard import has no resolvable type on the import line, so the line scan misses it.
         assertTrue(
                 undeclaredCrossModuleEdges(importReferences(List.of(quality, repository)), List.of(quality, repository))
                         .isEmpty(),
-                "Sanity: the legacy import-line scan cannot resolve a wildcard-import edge.");
+                "Sanity: the import-line scan cannot resolve a wildcard-import edge.");
 
         List<String> violations = undeclaredCrossModuleEdges(
                 bytecodeReferences(List.of(quality, repository)), List.of(quality, repository));

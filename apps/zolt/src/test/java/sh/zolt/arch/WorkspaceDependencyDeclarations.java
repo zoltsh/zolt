@@ -34,10 +34,10 @@ final class WorkspaceDependencyDeclarations {
     private static final Pattern IMPORT_PATTERN =
             Pattern.compile("^\\s*import\\s+(?:static\\s+)?([\\w.]+?)(?:\\.\\*)?\\s*;");
     private static final Pattern WORKSPACE_DEP_PATTERN =
-            Pattern.compile("\"sh\\.zolt:([\\w-]+)\"\\s*=\\s*\\{[^}]*workspace\\s*=\\s*(?:true|\")");
+            Pattern.compile("\"sh\\.zolt:([\\w-]+)\"\\s*=\\s*\\{[^}]*workspace\\s*=\\s*true");
     private static final Pattern SECTION_HEADER_PATTERN = Pattern.compile("^\\s*\\[([^\\]]+)\\]\\s*$");
     private static final Set<String> COMPILE_DEPENDENCY_SECTIONS =
-            Set.of("dependencies", "dependencies.api", "api.dependencies");
+            Set.of("dependencies", "dependencies.api");
 
     private WorkspaceDependencyDeclarations() {
     }
@@ -111,15 +111,8 @@ final class WorkspaceDependencyDeclarations {
      * Reads the workspace dependency module names declared in a module's main
      * compile sections. Both [dependencies] and [dependencies.api] are explicit
      * compile-time module edges; provided, test, and processor sections are not.
-     * A final-language workspace edge carries no path, so the module name comes
-     * from the artifact half of its sh.zolt:&lt;module&gt; coordinate.
-     *
-     * <p>The guard's subject is whether an edge is declared at all, not which
-     * language spells it, so the pre-conversion repository spellings
-     * ([dependencies.api] and {@code workspace = "<path>"}) read as the same edge
-     * as the final ones. The repository converts to the final language atomically
-     * in one commit (design §21.2); until then its own manifests are the legacy
-     * shape the pinned bootstrap engine parses.
+     * A workspace edge carries no path, so the module name comes from the artifact
+     * half of its sh.zolt:&lt;module&gt; coordinate.
      */
     static Set<String> declaredWorkspaceDependencies(Path moduleRoot) throws IOException {
         Path config = moduleRoot.resolve("zolt.toml");
