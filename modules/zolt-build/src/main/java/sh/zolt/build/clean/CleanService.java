@@ -60,15 +60,15 @@ public final class CleanService {
     }
 
     private static Set<Path> cleanTargets(Path projectRoot, BuildSettings settings, CompilerSettings compilerSettings) {
-        Path output = safeProjectPath(projectRoot, "[build].output", settings.output());
-        Path testOutput = safeProjectPath(projectRoot, "[build].testOutput", settings.testOutput());
+        Path output = safeProjectPath(projectRoot, "[build.output].main", settings.output());
+        Path testOutput = safeProjectPath(projectRoot, "[build.output].test", settings.testOutput());
         Path generatedSources = safeProjectPath(
                 projectRoot,
-                "[compiler].generatedSources",
+                "[compiler.generated].main",
                 compilerSettings.generatedSources());
         Path generatedTestSources = safeProjectPath(
                 projectRoot,
-                "[compiler].generatedTestSources",
+                "[compiler.generated].test",
                 compilerSettings.generatedTestSources());
         Path sharedParent = sharedOutputParent(output, testOutput).orElse(null);
         Set<Path> targets = new LinkedHashSet<>();

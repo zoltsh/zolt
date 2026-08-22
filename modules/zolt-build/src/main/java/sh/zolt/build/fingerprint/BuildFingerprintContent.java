@@ -263,8 +263,8 @@ final class BuildFingerprintContent {
             BuildFingerprintState cachedState,
             Map<Path, BuildFingerprintCachedFileHash> collectedState) {
         List<Path> resources = new ArrayList<>();
-        Path mainOutput = outputPath(projectRoot, "[build].output", settings.output());
-        Path testOutput = outputPath(projectRoot, "[build].testOutput", settings.testOutput());
+        Path mainOutput = outputPath(projectRoot, "[build.output].main", settings.output());
+        Path testOutput = outputPath(projectRoot, "[build.output].test", settings.testOutput());
         for (String configuredRoot : configuredRoots) {
             Path root = existingRoot(projectRoot, resourceRootKey, configuredRoot);
             if (!Files.isDirectory(root)) {

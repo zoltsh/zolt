@@ -205,7 +205,7 @@ final class PackageArchiveModePackager {
             throw new PackageException(
                     "Build output directory does not exist at "
                             + outputDirectory
-                            + ". Run zolt build and check [build].output in zolt.toml.");
+                            + ". Run zolt build and check [build.output].main in zolt.toml.");
         }
         return outputDirectory;
     }

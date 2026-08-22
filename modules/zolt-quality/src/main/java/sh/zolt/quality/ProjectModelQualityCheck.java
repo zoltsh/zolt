@@ -120,17 +120,17 @@ final class ProjectModelQualityCheck {
             ProjectConfig config) {
         List<PathField> fields = new ArrayList<>();
         BuildSettings build = config.build();
-        fields.add(new PathField("[build].source", build.source()));
+        fields.add(new PathField("[build].sources", build.source()));
         addPathFields(fields, "[build].sources", build.sourceRoots());
-        fields.add(new PathField("[build].test", build.test()));
-        fields.add(new PathField("[build].output", build.output()));
-        fields.add(new PathField("[build].testOutput", build.testOutput()));
+        fields.add(new PathField("[test.sources].java", build.test()));
+        fields.add(new PathField("[build.output].main", build.output()));
+        fields.add(new PathField("[build.output].test", build.testOutput()));
         addPathFields(fields, "[test.sources].java", build.testSources());
         addPathFields(fields, "[test.sources].groovy", build.groovyTestSources());
         addPathFields(fields, "[resources].main", build.resourceRoots());
         addPathFields(fields, "[resources].test", build.testResourceRoots());
-        fields.add(new PathField("[compiler].generatedSources", config.compilerSettings().generatedSources()));
-        fields.add(new PathField("[compiler].generatedTestSources", config.compilerSettings().generatedTestSources()));
+        fields.add(new PathField("[compiler.generated].main", config.compilerSettings().generatedSources()));
+        fields.add(new PathField("[compiler.generated].test", config.compilerSettings().generatedTestSources()));
         addGeneratedPathFields(fields, "[generated.main]", build.generatedMainSources());
         addGeneratedPathFields(fields, "[generated.test]", build.generatedTestSources());
 

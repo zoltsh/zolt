@@ -155,7 +155,7 @@ final class WorkspacePackageAssembler {
                     "[workspace].members",
                     member.path());
             ProjectPaths.output(
-                    memberRoot, "[build].output", configuredOutput);
+                    memberRoot, "[build.output].main", configuredOutput);
             return configuredOutput;
         } catch (ProjectPathException exception) {
             throw new ResolveException(

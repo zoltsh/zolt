@@ -92,7 +92,7 @@ final class SourceDiscovererDiagnosticsTest {
                         projectDir,
                         new BuildSettings("../outside", "src/test/java", "target/classes", "target/test-classes")));
 
-        assertTrue(exception.getMessage().contains("[build].source"));
+        assertTrue(exception.getMessage().contains("[build].sources"));
         assertTrue(exception.getMessage().contains("../outside"));
     }
 
@@ -109,7 +109,7 @@ final class SourceDiscovererDiagnosticsTest {
                                 "target/test-classes",
                                 List.of("C:\\outside\\tests"))));
 
-        assertTrue(exception.getMessage().contains("[build].testSources"));
+        assertTrue(exception.getMessage().contains("[test.sources].java"));
         assertTrue(exception.getMessage().contains("C:\\outside\\tests"));
     }
 
@@ -123,7 +123,7 @@ final class SourceDiscovererDiagnosticsTest {
                 SourceDiscoveryException.class,
                 () -> discoverer.discover(projectDir, BuildSettings.defaults()));
 
-        assertTrue(exception.getMessage().contains("[build].source"));
+        assertTrue(exception.getMessage().contains("[build].sources"));
         assertTrue(exception.getMessage().contains("resolved through symlinks"));
     }
 

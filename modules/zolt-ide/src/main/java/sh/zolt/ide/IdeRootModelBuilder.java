@@ -41,7 +41,7 @@ final class IdeRootModelBuilder {
                 "main-generated-java",
                 "main",
                 "java",
-                outputPath(root, "[compiler].generatedSources", config.compilerSettings().generatedSources(), diagnostics),
+                outputPath(root, "[compiler.generated].main", config.compilerSettings().generatedSources(), diagnostics),
                 true);
         for (GeneratedSourceRoot generatedRoot : generatedRoots(root, settings.generatedMainSources(), "main", diagnostics)) {
             roots.add(new IdeModel.SourceRoot(
@@ -57,7 +57,7 @@ final class IdeRootModelBuilder {
                     "test-java-" + (index + 1),
                     "test",
                     "java",
-                    inputRoot(root, "[build].testSources", settings.testSources().get(index), diagnostics),
+                    inputRoot(root, "[test.sources].java", settings.testSources().get(index), diagnostics),
                     false);
         }
         for (int index = 0; index < settings.groovyTestSources().size(); index++) {
@@ -66,7 +66,7 @@ final class IdeRootModelBuilder {
                     "test-groovy-" + (index + 1),
                     "test",
                     "groovy",
-                    inputRoot(root, "[build].groovyTestSources", settings.groovyTestSources().get(index), diagnostics),
+                    inputRoot(root, "[test.sources].groovy", settings.groovyTestSources().get(index), diagnostics),
                     false);
         }
         addSourceRoot(
@@ -74,7 +74,7 @@ final class IdeRootModelBuilder {
                 "test-generated-java",
                 "test",
                 "java",
-                outputPath(root, "[compiler].generatedTestSources", config.compilerSettings().generatedTestSources(), diagnostics),
+                outputPath(root, "[compiler.generated].test", config.compilerSettings().generatedTestSources(), diagnostics),
                 true);
         for (GeneratedSourceRoot generatedRoot : generatedRoots(root, settings.generatedTestSources(), "test", diagnostics)) {
             roots.add(new IdeModel.SourceRoot(

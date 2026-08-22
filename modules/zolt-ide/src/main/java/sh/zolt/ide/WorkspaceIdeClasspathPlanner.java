@@ -43,8 +43,8 @@ final class WorkspaceIdeClasspathPlanner {
                         .toList());
         for (WorkspaceMember member : workspace.members()) {
             ClasspathSet classpaths = zoltClasspathsByMember.get(member.path());
-            Optional<Path> mainOutput = outputPath(member, "[build].output", member.config().build().output());
-            Optional<Path> testOutput = outputPath(member, "[build].testOutput", member.config().build().testOutput());
+            Optional<Path> mainOutput = outputPath(member, "[build.output].main", member.config().build().output());
+            Optional<Path> testOutput = outputPath(member, "[build.output].test", member.config().build().testOutput());
             classpathsByMember.put(
                     member.path(),
                     new IdeModel.ClasspathInfo(

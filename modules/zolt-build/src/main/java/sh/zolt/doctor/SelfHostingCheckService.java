@@ -54,7 +54,7 @@ public final class SelfHostingCheckService {
         add(checks, "native image name",
                 nativeSettings.imageName() != null && !nativeSettings.imageName().isBlank(),
                 "native image name is " + nativeSettings.imageName(),
-                "add [native].imageName or rely on a non-empty project name");
+                "add [native].name or rely on a non-empty project name");
         add(checks, "native output",
                 nativeSettings.output() != null && !nativeSettings.output().isBlank(),
                 "native output is " + nativeSettings.output(),

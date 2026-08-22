@@ -256,7 +256,7 @@ public final class PackagePlanService {
         }
         return ProjectPaths.output(
                 projectRoot,
-                "[build].output",
+                "[build.output].main",
                 config.build().output());
     }
 

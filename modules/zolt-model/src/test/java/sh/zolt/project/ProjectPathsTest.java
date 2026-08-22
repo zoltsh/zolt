@@ -18,7 +18,7 @@ final class ProjectPathsTest {
 
     @Test
     void resolvesProjectRelativeInputPath() {
-        Path path = ProjectPaths.input(ProjectPaths.root(projectDir), "[build].source", "src/main/java");
+        Path path = ProjectPaths.input(ProjectPaths.root(projectDir), "[build].sources", "src/main/java");
 
         assertEquals(projectDir.resolve("src/main/java"), path);
     }
@@ -27,9 +27,9 @@ final class ProjectPathsTest {
     void rejectsParentEscapesWithConfigKeyAndResolvedPath() {
         ProjectPathException exception = assertThrows(
                 ProjectPathException.class,
-                () -> ProjectPaths.input(ProjectPaths.root(projectDir), "[build].source", "../outside"));
+                () -> ProjectPaths.input(ProjectPaths.root(projectDir), "[build].sources", "../outside"));
 
-        assertTrue(exception.getMessage().contains("[build].source"));
+        assertTrue(exception.getMessage().contains("[build].sources"));
         assertTrue(exception.getMessage().contains("../outside"));
         assertTrue(exception.getMessage().contains(projectDir.getParent().resolve("outside").toString()));
     }
@@ -48,9 +48,9 @@ final class ProjectPathsTest {
     void rejectsWindowsAbsolutePathsOnEveryHost() {
         ProjectPathException exception = assertThrows(
                 ProjectPathException.class,
-                () -> ProjectPaths.input(ProjectPaths.root(projectDir), "[build].source", "C:\\outside\\src"));
+                () -> ProjectPaths.input(ProjectPaths.root(projectDir), "[build].sources", "C:\\outside\\src"));
 
-        assertTrue(exception.getMessage().contains("[build].source"));
+        assertTrue(exception.getMessage().contains("[build].sources"));
         assertTrue(exception.getMessage().contains("C:\\outside\\src"));
     }
 
@@ -76,8 +76,8 @@ final class ProjectPathsTest {
     void inputMayPointAtProjectRootButOutputMayNot() {
         Path root = ProjectPaths.root(projectDir);
 
-        assertEquals(root, ProjectPaths.input(root, "[build].source", "."));
-        assertThrows(ProjectPathException.class, () -> ProjectPaths.output(root, "[build].output", "."));
+        assertEquals(root, ProjectPaths.input(root, "[build].sources", "."));
+        assertThrows(ProjectPathException.class, () -> ProjectPaths.output(root, "[build.output].main", "."));
     }
 
     @Test
@@ -88,9 +88,9 @@ final class ProjectPathsTest {
 
         ProjectPathException exception = assertThrows(
                 ProjectPathException.class,
-                () -> ProjectPaths.existingRoot(ProjectPaths.root(projectDir), "[build].source", "src/main/java"));
+                () -> ProjectPaths.existingRoot(ProjectPaths.root(projectDir), "[build].sources", "src/main/java"));
 
-        assertTrue(exception.getMessage().contains("[build].source"));
+        assertTrue(exception.getMessage().contains("[build].sources"));
         assertTrue(exception.getMessage().contains("resolved through symlinks"));
     }
 
@@ -101,9 +101,9 @@ final class ProjectPathsTest {
 
         ProjectPathException exception = assertThrows(
                 ProjectPathException.class,
-                () -> ProjectPaths.output(ProjectPaths.root(projectDir), "[build].output", "target/classes"));
+                () -> ProjectPaths.output(ProjectPaths.root(projectDir), "[build.output].main", "target/classes"));
 
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("[build.output].main"));
         assertTrue(exception.getMessage().contains("target/classes"));
         assertTrue(exception.getMessage().contains("resolved through symlinks"));
     }
