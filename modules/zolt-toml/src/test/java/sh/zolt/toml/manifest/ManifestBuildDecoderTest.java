@@ -100,17 +100,15 @@ final class ManifestBuildDecoderTest {
     }
 
     @Test
-    void retainsAnExplicitEmptySourceListWhenAnotherBuildFieldHasAJob() {
-        AuthoredBuild build = decode("""
+    void rejectsAnExplicitEmptySourceListEvenWhenAnotherBuildFieldHasAJob() {
+        // §5.5: omission activates the conventional root; `[]` is not a way to disable it.
+        assertFailure("""
                 [build]
                 sources = []
 
                 [build.metadata]
                 git = false
-                """).orElseThrow();
-
-        assertTrue(build.sources().isEmpty());
-        assertEquals(Optional.of(false), build.metadata().orElseThrow().git());
+                """, "Invalid value for `build.sources`", "must not be empty");
     }
 
     @ParameterizedTest

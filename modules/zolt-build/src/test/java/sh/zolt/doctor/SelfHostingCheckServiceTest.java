@@ -30,7 +30,6 @@ final class SelfHostingCheckServiceTest {
                 main = "sh.zolt.Main"
 
                 [test.sources]
-                java = []
                 groovy = ["src/test/groovy"]
 
                 [dependencies.test]

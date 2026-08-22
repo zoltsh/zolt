@@ -544,6 +544,10 @@ Canonical writers omit:
 - managed toolchain values derived from the effective project Java release;
 - `required = true` and other true-by-default generated-step fields.
 
+Omission is not an empty array. Where omitting a field activates a conventional default — `[build].sources`, `[resources].main`, `[resources].test`, `[test.sources].java`, `[test.sources].groovy`, `[test.integration].sources`, `[test.integration].resources`, `[workspace.members].include` — an explicitly authored `[]` is rejected against that exact field. v1 has no "disable the default" spelling, so silently reading `[]` back as "use the default" would invert what the author wrote. Every array whose entries are required — generated-step `inputs`, resource-filter `include`, license-exception `allow`, task `run`, BOM `members`, test-suite lock `resources` — is likewise rejected when authored empty.
+
+Array entries are never blank. A blank, whitespace-only, or control-bearing entry is rejected at the parser/model boundary for every value grammar: manifest relative paths, resource globs, workspace member paths, and workspace member patterns.
+
 Effective behavior and provenance remain inspectable:
 
 ```console

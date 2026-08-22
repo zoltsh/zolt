@@ -22,6 +22,9 @@ public record ResourceGlob(String value) implements Comparable<ResourceGlob> {
             if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
                 throw invalid(value, "omit empty, `.` and `..` segments");
             }
+            if (segment.isBlank()) {
+                throw invalid(value, "omit blank segments");
+            }
             if (segment.contains("**") && !segment.equals("**")) {
                 throw invalid(value, "use `**` only as a complete path segment");
             }

@@ -90,6 +90,8 @@ final class ManifestTestRootsDecoder {
                 .map(field -> sourcePaths(
                         field, prefix -> new AuthoredTests.Sources(List.of(), prefix)))
                 .orElse(List.of());
+        javaField.ifPresent(field -> ManifestSemanticDiagnostics.requireNonEmptyArray(field, java));
+        groovyField.ifPresent(field -> ManifestSemanticDiagnostics.requireNonEmptyArray(field, groovy));
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 index.firstDirectField(FinalManifestPaths.TEST_SOURCES).orElseThrow(),
                 () -> new AuthoredTests.Sources(java, groovy)));
@@ -113,6 +115,10 @@ final class ManifestTestRootsDecoder {
                 .map(field -> paths(
                         field, prefix -> new AuthoredTests.Integration(List.of(), prefix)))
                 .orElse(List.of());
+        sourcesField.ifPresent(field ->
+                ManifestSemanticDiagnostics.requireNonEmptyArray(field, sources));
+        resourcesField.ifPresent(field ->
+                ManifestSemanticDiagnostics.requireNonEmptyArray(field, resources));
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 index.firstDirectField(FinalManifestPaths.TEST_INTEGRATION)
                         .orElseThrow(),

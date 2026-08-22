@@ -54,6 +54,25 @@ final class ManifestSemanticDiagnostics {
         });
     }
 
+    /**
+     * Rejects an explicitly authored empty array where omission activates the conventional default.
+     *
+     * <p>Design §5.5: omission is not an empty array. Filtering an authored {@code []} back onto the
+     * default would invert the author's stated intent, and v1 has no "disable the default" spelling,
+     * so the contradiction is reported against the exact field.
+     */
+    static void requireNonEmptyArray(ValidatedManifestField field, List<?> values) {
+        Objects.requireNonNull(values, "Decoded manifest array is required.");
+        construct(field, () -> {
+            if (values.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "an authored array must not be empty; omit the field to use the conventional "
+                                + "default");
+            }
+            return values;
+        });
+    }
+
     static <T> T construct(
             ValidatedManifestField field,
             Supplier<T> factory) {

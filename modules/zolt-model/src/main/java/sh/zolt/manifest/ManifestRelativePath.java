@@ -18,6 +18,9 @@ public record ManifestRelativePath(String value) implements Comparable<ManifestR
             if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
                 throw invalid(value, "omit empty, `.` and `..` segments");
             }
+            if (segment.isBlank()) {
+                throw invalid(value, "omit blank segments");
+            }
         }
         for (int codePoint : value.codePoints().toArray()) {
             if (codePoint == 0 || Character.isISOControl(codePoint)) {

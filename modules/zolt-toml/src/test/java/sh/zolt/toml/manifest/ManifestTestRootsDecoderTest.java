@@ -75,7 +75,9 @@ final class ManifestTestRootsDecoderTest {
     }
 
     @Test
-    void delaysEmptyAggregateFailureUntilBothSiblingFieldsAreKnown() {
+    void anchorsEveryExplicitEmptyRootArrayToItsOwnField() {
+        // §5.5: omission activates the conventional roots; `[]` is not a way to disable them, and a
+        // meaningful sibling never rescues an empty array.
         assertSourcesFailure("java = []\n", "`test.sources.java`");
         assertSourcesFailure("groovy = []\n", "`test.sources.groovy`");
         assertSourcesFailure(
@@ -84,15 +86,10 @@ final class ManifestTestRootsDecoderTest {
         assertIntegrationFailure("resources = []\n", "`test.integration.resources`");
         assertIntegrationFailure(
                 "sources = []\nresources = []\n", "`test.integration.sources`");
-
-        AuthoredTests.Sources sources = sources(
-                "java = []\ngroovy = [\"custom/groovy\"]\n").orElseThrow();
-        assertTrue(sources.java().isEmpty());
-        assertEquals(List.of(path("custom/groovy")), sources.groovy());
-        AuthoredTests.Integration integration = integration(
-                "sources = []\nresources = [\"custom/resources\"]\n").orElseThrow();
-        assertTrue(integration.sources().isEmpty());
-        assertEquals(List.of(path("custom/resources")), integration.resources());
+        assertSourcesFailure(
+                "java = []\ngroovy = [\"custom/groovy\"]\n", "`test.sources.java`");
+        assertIntegrationFailure(
+                "sources = []\nresources = [\"custom/resources\"]\n", "`test.integration.sources`");
     }
 
     @Test

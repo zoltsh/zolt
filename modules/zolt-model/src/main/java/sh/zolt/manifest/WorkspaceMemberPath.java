@@ -20,6 +20,9 @@ public record WorkspaceMemberPath(String value) implements Comparable<WorkspaceM
                 if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
                     throw invalid(value, "omit empty, `.` and `..` segments");
                 }
+                if (segment.isBlank()) {
+                    throw invalid(value, "omit blank segments");
+                }
                 if (containsPatternSyntax(segment)) {
                     throw invalid(value, "use an exact member path without pattern syntax");
                 }

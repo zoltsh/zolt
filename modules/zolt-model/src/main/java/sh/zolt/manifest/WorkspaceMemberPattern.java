@@ -92,6 +92,9 @@ public record WorkspaceMemberPattern(String value) implements Comparable<Workspa
         if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
             throw invalid(value, "omit empty, `.` and `..` segments");
         }
+        if (segment.isBlank()) {
+            throw invalid(value, "omit blank segments");
+        }
         if (segment.equals("*")) {
             return;
         }

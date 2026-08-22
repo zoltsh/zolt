@@ -53,6 +53,7 @@ final class ManifestResourcesDecoder {
             ManifestSemanticDiagnostics.construct(
                     field, () -> observe(prior, presence));
             List<ManifestRelativePath> main = roots(field, true);
+            ManifestSemanticDiagnostics.requireNonEmptyArray(field, main);
             resources = ManifestSemanticDiagnostics.construct(
                     field,
                     () -> new AuthoredResources(
@@ -64,6 +65,7 @@ final class ManifestResourcesDecoder {
             ManifestSemanticDiagnostics.construct(
                     field, () -> observe(prior, presence));
             List<ManifestRelativePath> test = roots(field, false);
+            ManifestSemanticDiagnostics.requireNonEmptyArray(field, test);
             resources = ManifestSemanticDiagnostics.construct(
                     field,
                     () -> new AuthoredResources(

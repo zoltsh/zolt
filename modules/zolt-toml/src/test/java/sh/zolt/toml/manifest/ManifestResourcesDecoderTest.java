@@ -114,13 +114,16 @@ final class ManifestResourcesDecoderTest {
     }
 
     @Test
-    void distinguishesExplicitEmptyRootsAndTokenCollectionFromOmission() {
-        AuthoredResources roots = decode("""
+    void distinguishesExplicitEmptyTokenCollectionFromOmissionAndRejectsEmptyRoots() {
+        // §5.5: omission activates the conventional resource roots; `[]` is not a way to disable them.
+        assertFailure("""
                 [resources]
                 main = []
+                """, "Invalid value for `resources.main`", "must not be empty");
+        assertFailure("""
+                [resources]
                 test = []
-                """).orElseThrow();
-        assertEquals(AuthoredResources.empty(), roots);
+                """, "Invalid value for `resources.test`", "must not be empty");
 
         AuthoredResources tokens = decode("""
                 [resources.tokens]

@@ -100,6 +100,8 @@ final class ManifestBuildDecoder {
         if (sourcesField.isEmpty() && output.isEmpty() && metadata.isEmpty()) {
             return Optional.empty();
         }
+        sourcesField.ifPresent(field ->
+                ManifestSemanticDiagnostics.requireNonEmptyArray(field, sources));
         return Optional.of(ManifestSemanticDiagnostics.construct(
                 index.firstDirectField(
                                 FinalManifestPaths.BUILD,

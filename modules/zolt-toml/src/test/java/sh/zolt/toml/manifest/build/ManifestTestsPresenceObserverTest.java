@@ -88,17 +88,9 @@ final class ManifestTestsPresenceObserverTest {
     @Test
     void permitsEmptyEarlierFieldsWhenLaterSiblingsMakeChildrenMeaningful() {
         assertDeferredEmptySuccess("""
-                test.sources.java = []
-                test.sources.groovy = ["src/test/groovy"]
-                """, tests -> tests.sources().isPresent());
-        assertDeferredEmptySuccess("""
                 test.runtime.jvmArgs = []
                 test.runtime.properties = { mode = "test" }
                 """, tests -> tests.runtime().isPresent());
-        assertDeferredEmptySuccess("""
-                test.integration.sources = []
-                test.integration.resources = ["src/integration/resources"]
-                """, tests -> tests.integration().isPresent());
     }
 
     @Test
