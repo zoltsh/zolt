@@ -27,7 +27,9 @@ public final class ProjectResolutionFingerprint {
      * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
      *
      * <p>v2 (2026-08) added the dependency variant — classifier and type — which v1 omitted, letting a
-     * manifest switch a coordinate to another published artifact while its lock stayed fresh.
+     * manifest switch a coordinate to another published artifact while its lock stayed fresh, and
+     * replaced {@code GeneratedSourceStep.toString()} with an explicit field encoder so a diagnostic
+     * rendering is no longer frozen into checked-in locks.
      */
     static final String SCHEMA = "v2";
 
@@ -81,6 +83,7 @@ public final class ProjectResolutionFingerprint {
                 config.dependencyPolicy().exclusions(),
                 config.dependencyPolicy().constraints(),
                 config.dependencyPolicy().failOnVersionConflict());
+        generatedSourceEncodingInput(inputs, config);
         generatedSourceInputs(inputs, "generatedMain", config.build().generatedMainSources());
         generatedSourceInputs(inputs, "generatedTest", config.build().generatedTestSources());
         line(inputs, "package", "mode", resolutionPackageMode(config.packageSettings().mode()));
@@ -207,13 +210,25 @@ public final class ProjectResolutionFingerprint {
                         constraint.reason().orElse("")));
     }
 
+    /**
+     * Emits the generated-source encoder version once, when the project declares any step at all, so
+     * every lock that depends on the encoding records which encoding produced it while projects with
+     * no generated sources gain no category.
+     */
+    private static void generatedSourceEncodingInput(List<String> inputs, ProjectConfig config) {
+        if (!config.build().generatedMainSources().isEmpty()
+                || !config.build().generatedTestSources().isEmpty()) {
+            line(inputs, "generatedSourceEncoding", GeneratedSourceFingerprint.ENCODING);
+        }
+    }
+
     private static void generatedSourceInputs(
             List<String> inputs,
             String section,
             List<GeneratedSourceStep> steps) {
         steps.stream()
                 .sorted(Comparator.comparing(GeneratedSourceStep::id))
-                .forEach(step -> line(inputs, section, step.id(), step.toString()));
+                .forEach(step -> GeneratedSourceFingerprint.encode(inputs, section, step));
     }
 
     private static void mapInputs(List<String> inputs, String category, Map<String, String> values) {
@@ -239,7 +254,7 @@ public final class ProjectResolutionFingerprint {
                     "dependencyMetadata";
             case "dependencyPolicy.failOnVersionConflict", "dependencyPolicy.exclusion", "dependencyPolicy.constraint" ->
                     "dependencyPolicy";
-            case "generatedMain", "generatedTest" -> "generatedSources";
+            case "generatedSourceEncoding", "generatedMain", "generatedTest" -> "generatedSources";
             default -> category;
         };
     }
