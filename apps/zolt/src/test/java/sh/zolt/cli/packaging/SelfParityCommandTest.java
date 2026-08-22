@@ -72,6 +72,12 @@ final class SelfParityCommandTest extends PackageCommandTestSupport {
         assertTrue(result.stderr().contains("only-bootstrap.txt"));
         assertFalse(result.stderr().contains("\u001B[31mMissing"));
         assertFalse(result.stderr().contains("\u001B[31m  - only-bootstrap.txt"));
+        assertTrue(
+                result.stderr().contains("Extra in Zolt-built jar:"),
+                () -> "the trailing entry block must be flushed before the command fails: " + result.stderr());
+        assertTrue(
+                result.stderr().contains("com/example/Main.class"),
+                () -> "the trailing entry block must be flushed before the command fails: " + result.stderr());
         assertEquals(1, occurrences(result.stderr(), "Self-hosting parity failed"));
     }
 
