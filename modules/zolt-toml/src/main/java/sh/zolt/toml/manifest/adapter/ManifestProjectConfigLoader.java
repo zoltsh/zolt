@@ -64,7 +64,7 @@ public final class ManifestProjectConfigLoader {
     public ProjectConfig loadProject(Path projectDirectory) {
         Optional<EnclosingWorkspaceLocator.Membership> located = workspaces.locate(projectDirectory);
         if (located.isEmpty()) {
-            return adapter.adapt(effective(manifestPath(projectDirectory)));
+            return adapter.adapt(standaloneProject(projectDirectory));
         }
         EnclosingWorkspaceLocator.Membership membership = located.orElseThrow();
         WorkspaceMemberPath path = membership.memberPath();
@@ -82,10 +82,40 @@ public final class ManifestProjectConfigLoader {
     public EffectiveManifest effectiveProject(Path projectDirectory) {
         Optional<EnclosingWorkspaceLocator.Membership> located = workspaces.locate(projectDirectory);
         if (located.isEmpty()) {
-            return effective(manifestPath(projectDirectory));
+            return standaloneProject(projectDirectory);
         }
         EnclosingWorkspaceLocator.Membership membership = located.orElseThrow();
         return member(composeWorkspace(membership), membership.memberPath());
+    }
+
+    /**
+     * The standalone view of a directory no workspace expanded into a member.
+     *
+     * <p>A workspace root reached here is a real dead end for a project command, not a broken
+     * manifest: a virtual root carries no project of its own (design §4.2), and a root project that
+     * {@code include} does not select as the {@code .} member is not part of the graph (design §4.4).
+     * Both say so with the next step, rather than reporting composition internals.
+     */
+    private EffectiveManifest standaloneProject(Path projectDirectory) {
+        Path manifest = manifestPath(projectDirectory);
+        ZoltManifestDocument document = parser.parse(read(manifest));
+        AuthoredManifest authored = document.authored();
+        if (authored.workspace().isPresent()) {
+            throw new ZoltConfigException(authored.project().isPresent()
+                    ? ActionableError.of(
+                            "Workspace root " + manifest + " declares a [project] that"
+                                    + " [workspace.members].include does not select as the `.` member.",
+                            "Add `.` to [workspace.members].include, run the command with --workspace,"
+                                    + " or run it from a member directory.")
+                    : ActionableError.of(
+                            "Workspace root " + manifest + " declares no [project].",
+                            "Run the command with --workspace, or run it from a member directory."));
+        }
+        try {
+            return composer.composeStandalone(authored);
+        } catch (IllegalArgumentException exception) {
+            throw new ZoltConfigException(exception.getMessage());
+        }
     }
 
     /**

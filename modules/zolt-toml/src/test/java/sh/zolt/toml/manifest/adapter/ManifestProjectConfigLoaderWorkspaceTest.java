@@ -167,6 +167,58 @@ final class ManifestProjectConfigLoaderWorkspaceTest {
                 loader.enclosingWorkspaceRoot(member));
     }
 
+    @Test
+    void virtualWorkspaceRootReportsTheNextStepInsteadOfCompositionInternals() throws IOException {
+        Path root = tempDir.resolve("virtual");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                include = ["apps/*"]
+                """);
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class, () -> loader.loadProject(root));
+
+        assertTrue(failure.getMessage().contains("declares no [project]"), failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("run it from a member directory"),
+                failure.getMessage());
+    }
+
+    @Test
+    void rootProjectOutsideIncludeSaysHowToBringItIntoTheGraph() throws IOException {
+        Path root = tempDir.resolve("unincluded-root");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                include = ["modules/*"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "1.4.0"
+                java = 21
+
+                [project]
+                name = "platform-root"
+                """);
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class, () -> loader.loadProject(root));
+
+        assertTrue(
+                failure.getMessage().contains("does not select as the `.` member"),
+                failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("Add `.` to [workspace.members].include"),
+                failure.getMessage());
+    }
+
     private Path workspace(String rootSource, String memberPath, String memberSource)
             throws IOException {
         Path root = Files.createTempDirectory(tempDir, "workspace-");
