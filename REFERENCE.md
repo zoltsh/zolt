@@ -2119,8 +2119,8 @@ The `examples/` directory is deliberately broad. It includes:
   Thymeleaf, H2, resources, and tests.
 - `spring-boot-enterprise-canary`: dependency policy, strict constraints,
   provided/dev scopes, annotation processors, OpenAPI generation, filtered
-  resources, test runtime settings, WAR packaging, package metadata, and publish
-  repositories.
+  resources, test runtime settings, WAR packaging, `[project]` publication
+  metadata, and publish repositories.
 - `quarkus-http`: Quarkus REST with fast-jar packaging.
 - `micronaut-http`: Micronaut HTTP with annotation processors.
 - `vertx-http` and `vertx-postgres-crud`: Vert.x application shapes.

@@ -3,6 +3,33 @@
 Breaking changes to Zolt's CLI and configuration, newest first. Each entry names
 the old behavior, the new behavior, and how to migrate.
 
+## The final manifest language replaces the pre-release syntax outright
+
+- **Old behavior:** `zolt.toml` used the pre-release syntax: a flat
+  `[workspace] members` array with an explicit default-member list, one table
+  per dependency scope, compound policy, constraint, and credential sections,
+  camel-case tables such as the Spring Boot native table, a string
+  `[project].java`, a separate compiler release field, and package modes spelled
+  `thin` and `uber`.
+- **New behavior:** Zolt parses and emits one language only. Membership moves to
+  `[workspace.members]` with `include`/`exclude`/`default` patterns and shared
+  identity to `[workspace.project]`; every dependency lane is a
+  `[dependencies.<lane>]` sub-table with `{ workspace = true }` and
+  `{ managed = true }` selectors; policy, constraints, and license exceptions
+  move under `[dependencies.policy]`, `[dependencies.constraints]`, and
+  `[dependencies.license-exceptions."<group>:<artifact>"]`; credentials move to
+  `[credentials.<id>]`; every table segment is lower-kebab-case; `[project].java`
+  is an integer feature release and is the only compiler target; generator tools
+  and presets move to `[generated.tools.<id>]` and `[generated.presets.<id>]`;
+  and the package modes are `jar` and `uber-jar` in both `[package].mode` and
+  `zolt package --mode`. There is no compatibility dialect, no key or value
+  alias, and no migration command: a pre-release spelling is rejected as an
+  ordinary unknown field or unknown value.
+- **Migration:** rewrite each `zolt.toml` in the final language — `REFERENCE.md`
+  documents every section — then run `zolt resolve` for a standalone project or
+  `zolt resolve --workspace` at the workspace root to regenerate the version-7
+  `zolt.lock`, and commit both together.
+
 ## Lockfile version 7 preserves authored dependency lanes
 
 - **Old behavior:** version-6 locks marked packages as direct and recorded their
