@@ -27,9 +27,10 @@ import java.util.Map;
  * as one repository <em>set</em> would let the first project's choice answer for the second out of a
  * shared persistent cache scope — a supply-chain correctness failure, not a cache-efficiency one.
  *
- * <p>This value keys caches only. It is deliberately absent from lock bytes: the lock's own
- * {@code repositories} fingerprint category is a separate, id-sorted projection, so re-keying a cache
- * directory here never restates a checked-in lock.
+ * <p>This value keys caches only. The lock's own {@code repositories} fingerprint category encodes
+ * the same effective lookup order (fingerprint schema v2), but the two are computed independently
+ * and never share bytes, so evolving this cache key — or re-keying cache directories — never
+ * restates a checked-in lock.
  */
 public final class RepositoryConfigurationIdentity {
     private RepositoryConfigurationIdentity() {
