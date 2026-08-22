@@ -5,19 +5,16 @@ import sh.zolt.test.runtime.TestRunException;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandToolchainOptions;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.plan.BuildPlan;
 import sh.zolt.plan.BuildPlanFormatter;
 import sh.zolt.plan.BuildPlanRequest;
 import sh.zolt.plan.BuildPlanService;
 import sh.zolt.plan.PlanTarget;
 import sh.zolt.plan.TestRuntimePlan;
-import sh.zolt.project.ProjectConfig;
 import sh.zolt.toolchain.TestRuntimeToolchain;
-import sh.zolt.toolchain.TestRuntimeToolchainResolver;
-import sh.zolt.toolchain.platform.HostPlatform;
-import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.workspace.discovery.ManifestProject;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -54,6 +51,9 @@ public final class PlanCommand implements Callable<Integer> {
     @Mixin
     private CommandProjectDirectory projectDirectory = new CommandProjectDirectory();
 
+    @Mixin
+    private CommandToolchainOptions toolchainOptions = new CommandToolchainOptions();
+
     @Spec
     private CommandSpec spec;
 
@@ -73,18 +73,18 @@ public final class PlanCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            Path projectRoot = projectDirectory.path();
-            ManifestProject project = projectLoader.project(projectRoot);
-            ProjectConfig config = project.config();
+            ProjectCommandContext context =
+                    ProjectCommandContext.load(projectLoader, projectDirectory.path());
+            Path projectRoot = context.projectRoot();
             TestReportSettings reportSettings = TestReportSettings.reportsDirectory(reportsDir);
             BuildPlan plan = buildPlanService.plan(new BuildPlanRequest(
                     projectRoot,
-                    BuildPlanRequest.lockfileFor(projectRoot, project.workspaceRoot()),
-                    config,
+                    context.lockfilePath(),
+                    context.config(),
                     target,
                     reportSettings.projectRelativeReportsDirectory(projectRoot),
                     Optional.ofNullable(nativeImageExecutable),
-                    testRuntimePlan(projectRoot, config)));
+                    testRuntimePlan(context)));
             if (format == Format.JSON) {
                 CommandOutput.printAndFlush(spec, buildPlanFormatter.json(plan));
             } else {
@@ -96,13 +96,15 @@ public final class PlanCommand implements Callable<Integer> {
         }
     }
 
-    private Optional<TestRuntimePlan> testRuntimePlan(Path projectRoot, ProjectConfig config) {
+    /**
+     * Design §4.5: the request comes from the project's own {@code [toolchain.java.test]}, the locked
+     * toolchain from the directory that owns the lock. In a member those are different directories.
+     */
+    private Optional<TestRuntimePlan> testRuntimePlan(ProjectCommandContext context) {
         if (!target.includesTests()) {
             return Optional.empty();
         }
-        return new TestRuntimeToolchainResolver()
-                .resolve(projectRoot, projectRoot, config, HostPlatform.current(), ToolchainStore.defaults())
-                .map(PlanCommand::toTestRuntimePlan);
+        return toolchainOptions.testRuntimeToolchain(context).map(PlanCommand::toTestRuntimePlan);
     }
 
     private static TestRuntimePlan toTestRuntimePlan(TestRuntimeToolchain toolchain) {

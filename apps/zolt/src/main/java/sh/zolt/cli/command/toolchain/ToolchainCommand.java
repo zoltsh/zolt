@@ -5,6 +5,7 @@ import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.command.CommandProjectLockfile;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.cli.net.CommandNetwork;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
@@ -144,24 +145,31 @@ public final class ToolchainCommand implements Runnable {
                         HostPlatform.parse(target),
                         new ToolchainStore(installRoot));
             }
-            ProjectConfig config = projectLoader.load(projectRoot);
+            ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
             return statusService.status(
-                    projectRoot,
-                    config,
+                    context.projectRoot(),
+                    context.lockRoot(),
+                    context.config(),
                     HostPlatform.parse(target),
                     new ToolchainStore(installRoot));
         }
 
+        /**
+         * Design §4.5: the request is authored in the project's own manifest; the locked toolchain
+         * that satisfies it lives in the workspace root's lock when the project is a member.
+         */
         private void printTestRuntimeStatus(Path projectRoot) {
+            // A directory with no [toolchain.java.test] has nothing to report, and a virtual
+            // workspace root has no project to compose, so neither loads a command context.
             if (toolchainConfigReader.readJavaTest(projectRoot.resolve("zolt.toml")).isEmpty()) {
                 return;
             }
-            ProjectConfig config = projectLoader.load(projectRoot);
+            ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
             new TestRuntimeToolchainResolver()
                     .resolve(
-                            projectRoot,
-                            projectRoot,
-                            config,
+                            context.projectRoot(),
+                            context.lockRoot(),
+                            context.config(),
                             HostPlatform.parse(target),
                             new ToolchainStore(installRoot))
                     .ifPresent(testRuntime -> ToolchainStatusOutput.printTestRuntime(spec, testRuntime));

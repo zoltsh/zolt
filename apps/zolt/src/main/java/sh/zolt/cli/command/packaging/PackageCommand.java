@@ -248,7 +248,7 @@ public final class PackageCommand implements Runnable {
                 ? new VerifiedArtifactIndex()
                 : lockfiles.requireFreshLockfile(context, cacheRoot, false);
         if (config.packageSettings().mode() == PackageMode.BOM) {
-            runSingleProjectBomPackage(projectRoot, config, artifactIndex);
+            runSingleProjectBomPackage(context, config, artifactIndex);
             return;
         }
         if (planOnly) {
@@ -274,10 +274,8 @@ public final class PackageCommand implements Runnable {
                 () -> {
                     BuildResultWithClasspaths buildResult = timings.measure(
                             "build package inputs",
-                            () -> buildService.withJdkChecker(toolchainOptions.jdkChecker(
-                                            projectRoot,
-                                            config,
-                                            "package"))
+                            () -> buildService.withJdkChecker(
+                                            toolchainOptions.jdkChecker(context, config, "package"))
                                     .withBuildCache(CommandBuildCache.service(noBuildCache, false))
                                     .buildWithClasspaths(
                                     projectRoot,
@@ -302,7 +300,8 @@ public final class PackageCommand implements Runnable {
     }
 
     private void runSingleProjectBomPackage(
-            Path projectRoot, ProjectConfig config, VerifiedArtifactIndex artifactIndex) {
+            ProjectCommandContext context, ProjectConfig config, VerifiedArtifactIndex artifactIndex) {
+        Path projectRoot = context.projectRoot();
         if (planOnly) {
             CommandOutput.printAndFlush(spec, "Package mode: bom\nArtifact: "
                     + config.project().name() + "-" + config.project().version()
@@ -312,7 +311,7 @@ public final class PackageCommand implements Runnable {
         ProgressWriter progress = CommandProgress.human(spec);
         progress.start("Packaging BOM");
         BuildResultWithClasspaths buildResult = buildService
-                .withJdkChecker(toolchainOptions.jdkChecker(projectRoot, config, "package"))
+                .withJdkChecker(toolchainOptions.jdkChecker(context, config, "package"))
                 .withBuildCache(CommandBuildCache.service(noBuildCache, false))
                 .buildWithClasspaths(projectRoot, config, cacheRoot, false, artifactIndex);
         // A standalone BOM resolves no workspace family; use zolt package --workspace for a family BOM.

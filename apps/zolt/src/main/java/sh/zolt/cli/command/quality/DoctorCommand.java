@@ -4,6 +4,7 @@ import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.ZoltCli;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.doctor.SelfHostingCheckResult;
 import sh.zolt.doctor.SelfHostingCheckService;
 import sh.zolt.error.ActionableError;
@@ -83,10 +84,18 @@ public final class DoctorCommand implements Runnable {
                 checkEnvironment(projectRoot);
                 return;
             }
-            ProjectConfig config = projectLoader.load(projectRoot);
-            boolean ok = printProjectJdkStatus(projectRoot, config);
+            ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
+            ProjectConfig config = context.config();
+            boolean ok = printProjectJdkStatus(context);
+            // Design §4.5: the member's manifest authors the request; the workspace root's lock holds
+            // the toolchain that satisfies it.
             Optional<TestRuntimeToolchain> testRuntime = new TestRuntimeToolchainResolver()
-                    .resolve(projectRoot, projectRoot, config, HostPlatform.current(), ToolchainStore.defaults());
+                    .resolve(
+                            context.projectRoot(),
+                            context.lockRoot(),
+                            config,
+                            HostPlatform.current(),
+                            ToolchainStore.defaults());
             if (testRuntime.isPresent()) {
                 ok = printTestRuntimeStatus(testRuntime.orElseThrow()) && ok;
             }
@@ -176,10 +185,11 @@ public final class DoctorCommand implements Runnable {
      * rather than through a {@code JdkChecker} is deliberate: doctor reports an unusable toolchain, so
      * it must not take the checker's throw-on-unresolvable path.
      */
-    private boolean printProjectJdkStatus(Path projectRoot, ProjectConfig config) {
+    private boolean printProjectJdkStatus(ProjectCommandContext context) {
         return printJdkStatus(toolchainStatusService.status(
-                projectRoot,
-                config,
+                context.projectRoot(),
+                context.lockRoot(),
+                context.config(),
                 HostPlatform.current(),
                 ToolchainStore.defaults()));
     }

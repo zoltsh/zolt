@@ -28,6 +28,7 @@ import sh.zolt.test.TestSelectionException;
 import sh.zolt.test.shard.TestShardException;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.coverage.WorkspaceCoverageResult;
@@ -157,16 +158,31 @@ public final class CoverageCommand implements Runnable {
             TestShardSpec shard = TestShardSpec.parse(shardValue);
             List<String> requestedTestEvents = CommandTestEvents.validated(testEvents);
             if (workspace) {
-                runWorkspaceCoverage(projectRoot, timings, testSelection, coverageReportSettings(Path.of("target")), requestedTestEvents, suiteName, shard);
+                runWorkspaceCoverage(
+                        projectRoot,
+                        CommandWorkspaceSelections.from(all, members, memberGroups),
+                        timings, testSelection, coverageReportSettings(Path.of("target")),
+                        requestedTestEvents, suiteName, shard);
                 return;
             }
-            ProjectConfig config = timings.measure(
+            ProjectCommandContext context = timings.measure(
                     "config read",
-                    () -> projectLoader.load(projectRoot));
-            var compileChecker = toolchainOptions.jdkChecker(projectRoot, config, "coverage");
+                    () -> ProjectCommandContext.load(projectLoader, projectRoot));
+            if (context.workspaceMember()) {
+                // Design §4.5: coverage runs the member's tests, so it needs the same workspace
+                // closure, lock, and toolchain roots `zolt test` from a member does.
+                runWorkspaceCoverage(
+                        context.lockRoot(),
+                        context.memberSelection(),
+                        timings, testSelection, coverageReportSettings(Path.of("target")),
+                        requestedTestEvents, suiteName, shard);
+                return;
+            }
+            ProjectConfig config = context.config();
+            var compileChecker = toolchainOptions.jdkChecker(context, "coverage");
             CoverageService projectCoverageService = coverageServiceFactory.create(
                     compileChecker,
-                    toolchainOptions.testRuntimeRunChecker(projectRoot, config, compileChecker));
+                    toolchainOptions.testRuntimeRunChecker(context, compileChecker));
             CoverageReportSettings reportSettings = coverageReportSettings(Path.of(config.build().outputRoot()));
             CoverageResult result = timings.measure(
                     "run coverage",
@@ -232,7 +248,8 @@ public final class CoverageCommand implements Runnable {
     }
 
     private void runWorkspaceCoverage(
-            Path projectRoot,
+            Path workspaceRoot,
+            WorkspaceSelectionRequest selection,
             TimingRecorder timings,
             TestSelection testSelection,
             CoverageReportSettings reportSettings,
@@ -249,9 +266,9 @@ public final class CoverageCommand implements Runnable {
         WorkspaceCoverageResult result = timings.measure(
                 "workspace coverage",
                 () -> projectWorkspaceCoverageService.runCoverage(
-                        projectRoot,
+                        workspaceRoot,
                         cacheRoot,
-                        CommandWorkspaceSelections.from(all, members, memberGroups),
+                        selection,
                         testSelection,
                         reportSettings,
                         requestedTestEvents,

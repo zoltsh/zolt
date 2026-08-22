@@ -107,10 +107,10 @@ final class TestCompileCommandRunner {
             ProgressWriter progress) {
         Path projectRoot = context.projectRoot();
         ProjectConfig config = context.config();
-        var compileChecker = toolchainOptions.jdkChecker(projectRoot, config, "test");
+        var compileChecker = toolchainOptions.jdkChecker(context, "test");
         TestRunService projectTestRunService = testRunServiceFactory.create(
                         compileChecker,
-                        toolchainOptions.testRuntimeRunChecker(projectRoot, config, compileChecker))
+                        toolchainOptions.testRuntimeRunChecker(context, compileChecker))
                 .withBuildCache(CommandBuildCache.service(noBuildCache, false));
         var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
         progress.start("Compiling tests");

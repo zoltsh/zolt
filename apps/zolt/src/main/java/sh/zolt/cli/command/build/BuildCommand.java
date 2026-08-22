@@ -152,7 +152,7 @@ public final class BuildCommand implements Runnable {
                     "compile main",
                     () -> buildCache
                             .applyTo(buildService.withJdkChecker(
-                                    toolchainOptions.jdkChecker(projectRoot, config, "build")))
+                                    toolchainOptions.jdkChecker(context, "build")))
                             .build(
                                     projectRoot,
                                     config,

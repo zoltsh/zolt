@@ -130,7 +130,7 @@ public final class RunCommand implements Runnable {
             var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
             RunResult result = timings.measure(
                     "run application",
-                    () -> runService.withJdkChecker(toolchainOptions.jdkChecker(projectRoot, config, "run")).run(
+                    () -> runService.withJdkChecker(toolchainOptions.jdkChecker(context, "run")).run(
                             projectRoot,
                             config,
                             cacheRoot,

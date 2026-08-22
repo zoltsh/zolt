@@ -265,11 +265,11 @@ public final class IntegrationTestCommand implements Runnable {
         ProjectConfig config = context.config();
         var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
         ProjectConfig integrationConfig = config.withBuildSettings(config.build().asIntegrationTestBuild());
-        var compileChecker = toolchainOptions.jdkChecker(projectRoot, integrationConfig, "integration-test");
+        var compileChecker = toolchainOptions.jdkChecker(context, integrationConfig, "integration-test");
         TestRunService projectTestRunService =
                 testRunServiceFactory.create(
                         compileChecker,
-                        toolchainOptions.testRuntimeRunChecker(projectRoot, integrationConfig, compileChecker));
+                        toolchainOptions.testRuntimeRunChecker(context, integrationConfig, compileChecker));
         TestReportSettings reportSettings = TestReportSettings.reportsDirectory(integrationReportsDir(config));
         TestRunResult result = timings.measure(
                 "run integration tests",
