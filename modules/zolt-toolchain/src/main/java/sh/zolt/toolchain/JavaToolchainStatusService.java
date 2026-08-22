@@ -12,6 +12,7 @@ import sh.zolt.toolchain.lock.LockedJavaToolchain;
 import sh.zolt.toolchain.lock.ToolchainLockfileService;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -19,6 +20,11 @@ import java.util.List;
 import java.util.Optional;
 
 public final class JavaToolchainStatusService {
+    private static final String MANIFEST = "zolt.toml";
+    private static final String LOCKFILE = "zolt.lock";
+    private static final String PROJECT_SOURCE = "[toolchain.java]";
+    private static final String WORKSPACE_SOURCE = "[workspace toolchain.java]";
+
     private final ToolchainConfigReader configReader;
     private final ToolchainLockfileService lockfiles;
     private final JavaToolchainProbe ambientProbe;
@@ -61,46 +67,64 @@ public final class JavaToolchainStatusService {
             ToolchainStore store) {
         HostPlatform effectivePlatform = platform == null ? HostPlatform.current() : platform;
         ToolchainStore effectiveStore = store == null ? ToolchainStore.defaults() : store;
-        Optional<JavaToolchainRequest> configured = readConfigured(projectRoot);
-        Optional<JavaToolchainRequest> workspaceConfigured = configured.isPresent()
-                ? Optional.empty()
-                : readWorkspaceConfigured(projectRoot, lockRoot);
-        JavaToolchainRequest request = configured
-                .or(() -> workspaceConfigured)
-                .orElseGet(() -> JavaToolchainRequest.projectDefault(config.project().java()));
-        String source = requestSource(configured, workspaceConfigured);
+        AuthoredRequest authored = readRequest(projectRoot, lockRoot);
         return status(
-                request,
-                source,
-                lockRoot.resolve("zolt.lock"),
-                configured.isPresent() || workspaceConfigured.isPresent(),
+                authored.request()
+                        .orElseGet(() -> JavaToolchainRequest.projectDefault(config.project().java())),
+                authored.source(),
+                lockRoot.resolve(LOCKFILE),
+                authored.request().isPresent(),
                 effectivePlatform,
                 effectiveStore);
     }
 
-    private Optional<JavaToolchainRequest> readConfigured(Path projectRoot) {
-        return configReader.readJava(projectRoot.resolve("zolt.toml"));
+    /**
+     * The effective {@code [toolchain.java]} request for one project directory.
+     *
+     * <p>Design §4.5 "Command discovery": a directory a workspace expanded into a member is evaluated
+     * with the workspace root's shared configuration, so a member manifest is composed against its
+     * root and never standalone. Only a project outside every workspace reads its manifest alone.
+     */
+    private AuthoredRequest readRequest(Path projectRoot, Path lockRoot) {
+        Path projectManifest = projectRoot.resolve(MANIFEST).toAbsolutePath().normalize();
+        Path workspaceManifest = lockRoot.resolve(MANIFEST).toAbsolutePath().normalize();
+        Optional<String> memberPath = memberPath(projectManifest, workspaceManifest);
+        if (memberPath.isPresent()
+                && Files.isRegularFile(workspaceManifest)
+                && configReader.declaresWorkspace(workspaceManifest)) {
+            ToolchainConfigReader.MemberToolchains member = configReader.readWorkspaceMember(
+                    workspaceManifest, projectManifest, memberPath.orElseThrow());
+            return new AuthoredRequest(
+                    member.main(),
+                    member.mainInherited() ? WORKSPACE_SOURCE : PROJECT_SOURCE);
+        }
+        Optional<JavaToolchainRequest> configured = configReader.readJava(projectManifest);
+        if (configured.isPresent() || projectManifest.equals(workspaceManifest)
+                || !Files.isRegularFile(workspaceManifest)) {
+            return new AuthoredRequest(configured, PROJECT_SOURCE);
+        }
+        return new AuthoredRequest(configReader.readJava(workspaceManifest), WORKSPACE_SOURCE);
     }
 
-    private Optional<JavaToolchainRequest> readWorkspaceConfigured(Path projectRoot, Path lockRoot) {
-        Path projectConfig = projectRoot.resolve("zolt.toml").toAbsolutePath().normalize();
-        Path workspaceConfig = lockRoot.resolve("zolt.toml").toAbsolutePath().normalize();
-        if (projectConfig.equals(workspaceConfig) || !Files.isRegularFile(workspaceConfig)) {
+    /** The workspace-relative member path of {@code projectManifest}, or empty when it is outside. */
+    private static Optional<String> memberPath(Path projectManifest, Path workspaceManifest) {
+        if (projectManifest.equals(workspaceManifest)) {
+            return Optional.of(".");
+        }
+        String relative = workspaceManifest.getParent()
+                .relativize(projectManifest.getParent())
+                .toString()
+                .replace(File.separatorChar, '/');
+        if (relative.isEmpty() || relative.startsWith("..")) {
             return Optional.empty();
         }
-        return configReader.readJava(workspaceConfig);
+        return Optional.of(relative);
     }
 
-    private static String requestSource(
-            Optional<JavaToolchainRequest> configured,
-            Optional<JavaToolchainRequest> workspaceConfigured) {
-        if (configured.isPresent()) {
-            return "[toolchain.java]";
+    private record AuthoredRequest(Optional<JavaToolchainRequest> request, String authoredSource) {
+        private String source() {
+            return request.isEmpty() ? "[project].java" : authoredSource;
         }
-        if (workspaceConfigured.isPresent()) {
-            return "[workspace toolchain.java]";
-        }
-        return "[project].java";
     }
 
     public JavaToolchainStatus status(

@@ -76,6 +76,18 @@ public final class ToolchainConfigReader {
      * root-owned credential, or omit an inherited identity field.
      */
     public MemberToolchains readWorkspaceMember(
+            Path rootManifest,
+            Path memberManifest,
+            String memberPath) {
+        return readWorkspaceMember(read(rootManifest), read(memberManifest), memberPath);
+    }
+
+    /** Whether the manifest at {@code configPath} declares a {@code [workspace]} root domain. */
+    public boolean declaresWorkspace(Path configPath) {
+        return loader.document(read(configPath)).authored().workspace().isPresent();
+    }
+
+    public MemberToolchains readWorkspaceMember(
             String rootContent,
             String memberContent,
             String memberPath) {
