@@ -26,9 +26,9 @@ final class CommandToolchainOptionsTest {
     private Path tempDir;
 
     @Test
-    void legacyWorkspaceUsesToolchainFromSelectedConfig()
+    void workspaceMemberInheritsTheRootToolchainRequest()
             throws IOException {
-        LockedJavaToolchain locked = writeLegacyWorkspace(false);
+        LockedJavaToolchain locked = writeSharedToolchainWorkspace(false);
         ToolchainStore store = install(locked);
         Workspace workspace = capturedWorkspace();
         WorkspaceJdkCheckerResolver resolver = options().workspaceJdkCheckers(
@@ -46,10 +46,16 @@ final class CommandToolchainOptionsTest {
         assertEquals(1, resolver.lockfileParseCount());
     }
 
+    /**
+     * Design §4.3: a member inherits identity only from {@code [workspace.project]}, never from an
+     * unrelated root {@code [project]}. The root here declares a different release and a
+     * {@code [toolchain.java]} without a version, so the member's own release — not the root
+     * project's — is the one that fills the request (design §11.3).
+     */
     @Test
-    void legacyWorkspaceDoesNotInheritUnrelatedRootProjectToolchain()
+    void workspaceMemberDoesNotInheritAnUnrelatedRootProjectRelease()
             throws IOException {
-        LockedJavaToolchain locked = writeLegacyWorkspace(true);
+        LockedJavaToolchain locked = writeSharedToolchainWorkspace(true);
         ToolchainStore store = install(locked);
         Workspace workspace = capturedWorkspace();
         WorkspaceJdkCheckerResolver resolver = options().workspaceJdkCheckers(
@@ -155,14 +161,33 @@ final class CommandToolchainOptionsTest {
                         Files.readAllBytes(lockfile)));
     }
 
-    private LockedJavaToolchain writeLegacyWorkspace(
+    private LockedJavaToolchain writeSharedToolchainWorkspace(
             boolean unrelatedRootProject) throws IOException {
         LockedJavaToolchain locked = ManagedJavaToolchainTestFixture.locked();
         Path memberDir = tempDir.resolve("apps/api");
         Files.createDirectories(memberDir);
-        Files.writeString(tempDir.resolve("zolt.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), unrelatedRootProject
+                ? """
                 [workspace]
-                name = "legacy-toolchain-workspace"
+                name = "shared-toolchain-workspace"
+
+                [workspace.members]
+                include = ["apps/api"]
+
+                [project]
+                name = "unrelated-root-project"
+                version = "0.1.0"
+                group = "com.example"
+                java = 17
+
+                [toolchain.java]
+                distribution = "temurin"
+                features = []
+                policy = "require-managed"
+                """
+                : """
+                [workspace]
+                name = "shared-toolchain-workspace"
 
                 [workspace.members]
                 include = ["apps/api"]
@@ -180,21 +205,6 @@ final class CommandToolchainOptionsTest {
                 group = "com.example"
                 java = %s
                 """.formatted(locked.request().version()));
-        if (unrelatedRootProject) {
-            Files.writeString(tempDir.resolve("zolt.toml"), """
-                    [project]
-                    name = "unrelated-root-project"
-                    version = "0.1.0"
-                    group = "com.example"
-                    java = 999
-
-                    [toolchain.java]
-                    version = 999
-                    distribution = "temurin"
-                    features = []
-                    policy = "require-managed"
-                    """);
-        }
         new ToolchainLockfileService().writeJava(
                 tempDir.resolve("zolt.lock"),
                 locked);
