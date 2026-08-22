@@ -87,6 +87,22 @@ public final class ManifestWorkspaceLoader {
         return adapt(discovery.load(workspaceRoot));
     }
 
+    /**
+     * Composes the complete effective workspace with {@code editedSource} standing in for the manifest
+     * at {@code manifestPath}.
+     *
+     * <p>Runs the whole validation chain a resolving load runs — membership expansion, effective
+     * composition, workspace-graph checks, and the effective-to-legacy adapter — and stops before
+     * resolution. A caller validating an unwritten edit uses this and discards the result; the
+     * captured inputs describe the edit rather than the filesystem and are never lock-freshness
+     * evidence.
+     */
+    public Workspace compose(Path workspaceRoot, Path manifestPath, String editedSource) {
+        return adapt(discovery.load(
+                workspaceRoot,
+                Map.of(manifestPath.toAbsolutePath().normalize(), editedSource)));
+    }
+
     /** Projects an already-discovered final workspace onto the legacy graph. */
     public Workspace adapt(DiscoveredWorkspace discovered) {
         EffectiveWorkspace effective = discovered.effective();

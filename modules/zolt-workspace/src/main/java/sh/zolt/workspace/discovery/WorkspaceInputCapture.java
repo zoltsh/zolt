@@ -28,6 +28,19 @@ final class WorkspaceInputCapture {
     private final Map<EvidenceKey, WorkspaceDirectoryEvidence> directoryEvidence =
             new LinkedHashMap<>();
 
+    WorkspaceInputCapture() {
+    }
+
+    /**
+     * Seeds in-memory replacements for config paths, so composition sees an edit that is not on disk
+     * yet. The resulting snapshot therefore describes the edited inputs, not the current filesystem,
+     * and must never be used as lock-freshness evidence.
+     */
+    WorkspaceInputCapture(Map<Path, String> overrides) {
+        overrides.forEach((path, content) -> captured.put(
+                path.toAbsolutePath().normalize(), content.getBytes(StandardCharsets.UTF_8)));
+    }
+
     Optional<String> read(Path path) {
         Path normalized = path.toAbsolutePath().normalize();
         byte[] existing = captured.get(normalized);

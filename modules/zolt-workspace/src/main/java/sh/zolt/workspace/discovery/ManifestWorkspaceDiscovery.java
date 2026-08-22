@@ -75,8 +75,21 @@ public final class ManifestWorkspaceDiscovery {
     }
 
     public DiscoveredWorkspace load(Path workspaceRoot) {
+        return load(workspaceRoot, Map.of());
+    }
+
+    /**
+     * Loads the workspace rooted at {@code workspaceRoot} with {@code sourceOverrides} standing in for
+     * the named config paths.
+     *
+     * <p>Expansion, exclusion, composition, and graph validation run exactly as they do for on-disk
+     * inputs, so a caller holding an edit that is not yet written can validate it against the complete
+     * effective workspace. The captured inputs of the returned workspace describe the overridden
+     * sources and are therefore validation evidence only, never lock-freshness evidence.
+     */
+    public DiscoveredWorkspace load(Path workspaceRoot, Map<Path, String> sourceOverrides) {
         Path root = workspaceRoot.toAbsolutePath().normalize();
-        WorkspaceInputCapture capture = new WorkspaceInputCapture();
+        WorkspaceInputCapture capture = new WorkspaceInputCapture(sourceOverrides);
         Path manifest = root.resolve(MANIFEST);
         String source = capture.read(manifest).orElseThrow(() -> new WorkspaceConfigException(
                 "Could not find final workspace manifest at " + manifest
