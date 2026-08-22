@@ -59,6 +59,32 @@ final class RemovedManifestSpellingGuardrailTest {
     }
 
     @Test
+    void everyTrackedRootIsScanned() throws IOException {
+        Map<String, List<Path>> byRoot = RemovedManifestSpellings.scannedFilesByRoot(RepositoryPaths.root());
+
+        for (String root : RemovedManifestSpellings.SCANNED_ROOTS) {
+            assertTrue(
+                    !byRoot.getOrDefault(root, List.of()).isEmpty(),
+                    () -> "Root `" + root + "` contributed no scanned files; the gate is blind to it.");
+        }
+        assertEquals(
+                Set.copyOf(RemovedManifestSpellings.SCANNED_ROOTS),
+                byRoot.keySet(),
+                "A new tracked top-level root must be named here so its file count is gated too.");
+    }
+
+    @Test
+    void javaPackagesNamedLikeBuildDirectoriesAreScanned() throws IOException {
+        List<Path> scanned = RemovedManifestSpellings.scannedFiles(RepositoryPaths.root());
+
+        assertTrue(
+                scanned.stream()
+                        .map(RepositoryPaths::displayPath)
+                        .anyMatch(path -> path.startsWith("modules/zolt-build/src/main/java/sh/zolt/build/")),
+                "the Java package sh.zolt.build is source, not a build output directory");
+    }
+
+    @Test
     void everyRequiredSpellingIsGated() {
         assertEquals(
                 Set.of(
@@ -80,7 +106,9 @@ final class RemovedManifestSpellingGuardrailTest {
                         "generated-tool-tables",
                         "build-output-root",
                         "compiler-release",
-                        "package-mode-symbols"),
+                        "package-mode-symbols",
+                        "platform-command",
+                        "publish-signing-enabled"),
                 RemovedManifestSpellings.SPELLINGS.keySet());
     }
 
@@ -96,8 +124,28 @@ final class RemovedManifestSpellingGuardrailTest {
         assertTrue(
                 RemovedManifestSpellings.authorFacingText("        // [dependencyConstraints] is gone")
                         .contains("[dependencyConstraints]"));
+    }
+
+    @Test
+    void javaScanReadsTextBlockAndBlockCommentBodies() {
+        assertEquals(
+                List.of("", "[workspace]", "defaultMembers = [\"apps/api\"]", "", ""),
+                RemovedManifestSpellings.authorFacingText(List.of(
+                                "        Files.writeString(manifest, \"\"\"",
+                                "                [workspace]",
+                                "                defaultMembers = [\"apps/api\"]",
+                                "                \"\"\");",
+                                "        int defaultMembers = 1;"))
+                        .stream()
+                        .map(String::strip)
+                        .toList(),
+                "text block bodies are authored TOML; the surrounding code is not");
         assertTrue(
-                RemovedManifestSpellings.authorFacingText(" * {@code [api.dependencies]} is gone")
+                RemovedManifestSpellings.authorFacingText(List.of(
+                                "/**",
+                                " * {@code [api.dependencies]} is gone",
+                                " */"))
+                        .get(1)
                         .contains("[api.dependencies]"));
     }
 
@@ -110,13 +158,56 @@ final class RemovedManifestSpellingGuardrailTest {
 
                 [api.dependencies]
                 "org.slf4j:slf4j-api" = "2.0.17"
+
+                [compiler]
+                encoding = "UTF-8"
+                release = "21"
                 """);
 
         assertEquals(
-                List.of("zolt.toml:2 workspace-default-members", "zolt.toml:4 api-dependencies"),
+                List.of(
+                        "zolt.toml:2 workspace-default-members",
+                        "zolt.toml:4 api-dependencies",
+                        "zolt.toml:9 compiler-release"),
                 RemovedManifestSpellings.findings(manifest, "zolt.toml").stream()
                         .map(finding -> finding.path() + ":" + finding.line() + " " + finding.spelling())
+                        .sorted()
                         .toList());
+    }
+
+    @Test
+    void scannerReadsRemovedSpellingsFromJavaTextBlocks(@TempDir Path tempDir) throws IOException {
+        Path source = tempDir.resolve("Fixture.java");
+        Files.writeString(source, """
+                final class Fixture {
+                    String manifest() {
+                        return \"""
+                                [build]
+                                outputRoot = "target"
+                                \""";
+                    }
+
+                    int outputRoot = 1;
+                }
+                """);
+
+        assertEquals(
+                List.of("Fixture.java:5 build-output-root"),
+                RemovedManifestSpellings.findings(source, "Fixture.java").stream()
+                        .map(finding -> finding.path() + ":" + finding.line() + " " + finding.spelling())
+                        .toList());
+    }
+
+    @Test
+    void keyShapedSpellingsIgnoreTheSameKeyInAnotherTable(@TempDir Path tempDir) throws IOException {
+        Path manifest = tempDir.resolve("zolt.toml");
+        Files.writeString(manifest, """
+                [publishing.repositories.company]
+                url = "https://repo.example.test/releases"
+                release = "company-releases"
+                """);
+
+        assertEquals(List.of(), RemovedManifestSpellings.findings(manifest, "zolt.toml"));
     }
 
     @Test
