@@ -175,6 +175,30 @@ final class WorkspaceResolutionInputFingerprintTest {
                 "the platform must reach the member's effective config, not only the workspace bytes");
     }
 
+    /**
+     * The workspace fingerprint digests raw manifest bytes, so it would notice a classifier edit even
+     * if nothing structured did. That coarse leg is not enough on its own: the per-member
+     * {@code memberResolution} leg is what carries a member's effective configuration into the
+     * workspace lock, so the variant has to reach it too. Both spellings below are non-default
+     * variants, so only the variant itself distinguishes them.
+     */
+    @Test
+    void classifierChangeStalesWorkspaceLock() {
+        String linux = LIB.replace(
+                "\"org.slf4j:slf4j-api\" = \"2.0.17\"",
+                "\"io.netty:netty-transport-native-epoll\" = "
+                        + "{ version = \"4.1.119.Final\", classifier = \"linux-x86_64\" }");
+        String macos = linux.replace("linux-x86_64", "osx-aarch64");
+        Workspace before = workspace(defaultWorkspaceConfig(), Map.of("lib", linux, "app", APP));
+        Workspace after = workspace(defaultWorkspaceConfig(), Map.of("lib", macos, "app", APP));
+
+        assertNotEquals(fingerprint(before), fingerprint(after));
+        assertNotEquals(
+                ProjectResolutionFingerprints.of(before, "lib"),
+                ProjectResolutionFingerprints.of(after, "lib"),
+                "the classifier must reach the member's effective config, not only the workspace bytes");
+    }
+
     @Test
     void changesWhenAWorkspaceRepositoryChanges() {
         Workspace before = workspace(

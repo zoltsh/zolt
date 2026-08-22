@@ -23,6 +23,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class ProjectResolutionFingerprint {
+    /**
+     * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
+     *
+     * <p>v2 (2026-08) added the dependency variant — classifier and type — which v1 omitted, letting a
+     * manifest switch a coordinate to another published artifact while its lock stayed fresh.
+     */
+    static final String SCHEMA = "v2";
+
     private ProjectResolutionFingerprint() {
     }
 
@@ -47,7 +55,7 @@ public final class ProjectResolutionFingerprint {
 
     static List<String> inputs(ProjectConfig config) {
         List<String> inputs = new ArrayList<>();
-        line(inputs, "schema", "v1");
+        line(inputs, "schema", SCHEMA);
         line(inputs, "java", "project", config.project().java());
         line(inputs, "java", "compilerRelease", config.compilerSettings().release());
         repositoryInputs(inputs, config.repositorySettings());
@@ -146,6 +154,14 @@ public final class ProjectResolutionFingerprint {
                             nullToEmpty(value.workspace()),
                             Boolean.toString(value.optional()),
                             Boolean.toString(value.publishOnly()));
+                    if (!value.defaultVariant()) {
+                        line(inputs,
+                                "dependencyVariant",
+                                value.section(),
+                                value.coordinate(),
+                                nullToEmpty(value.classifier()),
+                                nullToEmpty(value.type()));
+                    }
                     value.exclusions().stream()
                             .sorted(Comparator
                                     .comparing(DependencyExclusionSpec::group)
@@ -219,7 +235,8 @@ public final class ProjectResolutionFingerprint {
             case "workspaceCompile" -> "dependencies.compile.workspace";
             case "workspaceTest" -> "dependencies.test.workspace";
             case "managedDependency" -> parts.length > 1 ? "dependencies." + parts[1] : "dependencies";
-            case "dependencyMetadata", "dependencyMetadata.exclusion" -> "dependencyMetadata";
+            case "dependencyMetadata", "dependencyMetadata.exclusion", "dependencyVariant" ->
+                    "dependencyMetadata";
             case "dependencyPolicy.failOnVersionConflict", "dependencyPolicy.exclusion", "dependencyPolicy.constraint" ->
                     "dependencyPolicy";
             case "generatedMain", "generatedTest" -> "generatedSources";

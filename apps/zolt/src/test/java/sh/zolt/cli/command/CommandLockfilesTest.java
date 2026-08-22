@@ -53,6 +53,32 @@ final class CommandLockfilesTest {
         assertFalse(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, config("2.0.0")));
     }
 
+    /**
+     * A classifier selects a different published artifact for the same coordinate, so editing one is a
+     * resolution input change. Both spellings here are non-default variants, so nothing but the
+     * variant itself distinguishes them: a lock that stayed fresh would build the wrong bytes.
+     */
+    @Test
+    void classifierChangeStalesStandaloneLock() throws Exception {
+        ProjectConfig linux = variantConfig("linux", "{ version = \"1.0.0\", classifier = \"linux-x86_64\" }");
+        ProjectConfig macos = variantConfig("macos", "{ version = \"1.0.0\", classifier = \"osx-aarch64\" }");
+        Path lockfile = writeFingerprintLock(linux);
+
+        assertTrue(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, linux));
+        assertFalse(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, macos));
+    }
+
+    /** The same argument as the classifier case, for the other half of the variant identity. */
+    @Test
+    void typeChangeStalesStandaloneLock() throws Exception {
+        ProjectConfig zip = variantConfig("zip", "{ version = \"1.0.0\", type = \"zip\" }");
+        ProjectConfig tarball = variantConfig("tarball", "{ version = \"1.0.0\", type = \"tar.gz\" }");
+        Path lockfile = writeFingerprintLock(zip);
+
+        assertTrue(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, zip));
+        assertFalse(CommandLockfiles.matchesProjectResolutionFingerprint(lockfile, tarball));
+    }
+
     @Test
     void requiresFullVerificationWhenFingerprintIsMissing() throws Exception {
         Path lockfile = tempDir.resolve("zolt.lock");
@@ -290,6 +316,34 @@ final class CommandLockfilesTest {
 
     private static String cachePath(String filename, byte[] bytes) {
         return "blobs/v2/sha256/" + sha256(bytes) + "/" + filename;
+    }
+
+    private Path writeFingerprintLock(ProjectConfig config) throws Exception {
+        Path lockfile = tempDir.resolve("variant-zolt.lock");
+        Files.writeString(lockfile, """
+                version = 7
+                projectResolutionFingerprint = "%s"
+
+                [[package]]
+                id = "com.example:demo"
+                """.formatted(ProjectResolutionFingerprint.fingerprint(config)));
+        return lockfile;
+    }
+
+    private ProjectConfig variantConfig(String name, String declaration) throws Exception {
+        Path project = tempDir.resolve("variant-" + name);
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.toml"), """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [dependencies]
+                "com.example:demo" = %s
+                """.formatted(declaration));
+        return new ManifestProjectLoader().load(project);
     }
 
     private ProjectConfig config(String dependencyVersion) throws Exception {

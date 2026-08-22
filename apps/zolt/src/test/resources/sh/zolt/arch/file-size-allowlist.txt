@@ -2,4 +2,4 @@
 # Allowances are intentionally strict: remove the entry when the file drops back under budget.
 apps/zolt-junit-worker/src/test/java/sh/zolt/junit/JunitLauncherWorkerTest.java|477|worker-process coverage still shares setup fixtures
 apps/zolt/src/test/java/sh/zolt/cli/publish/PublishWorkspaceResumeTest.java|460|immutable workspace resume scenarios share one repository fixture
-modules/zolt-workspace/src/test/java/sh/zolt/workspace/resolve/WorkspaceResolutionInputFingerprintTest.java|484|every fingerprint scenario mutates one shared two-member workspace fixture
+modules/zolt-workspace/src/test/java/sh/zolt/workspace/resolve/WorkspaceResolutionInputFingerprintTest.java|508|every fingerprint scenario mutates one shared two-member workspace fixture
