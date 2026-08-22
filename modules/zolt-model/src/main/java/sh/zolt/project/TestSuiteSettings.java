@@ -15,12 +15,12 @@ public record TestSuiteSettings(
         int maxWorkers,
         Map<String, List<String>> resourceLocks) {
     public TestSuiteSettings {
-        includeClassname = copyAndValidatePatterns("test.suites.includeClassname", includeClassname);
-        excludeClassname = copyAndValidatePatterns("test.suites.excludeClassname", excludeClassname);
-        includeTag = copyAndValidateTags("test.suites.includeTag", includeTag);
-        excludeTag = copyAndValidateTags("test.suites.excludeTag", excludeTag);
+        includeClassname = copyAndValidatePatterns("test.suites.classes", includeClassname);
+        excludeClassname = copyAndValidatePatterns("test.suites.excludeClasses", excludeClassname);
+        includeTag = copyAndValidateTags("test.suites.tags", includeTag);
+        excludeTag = copyAndValidateTags("test.suites.excludeTags", excludeTag);
         if (maxWorkers < 1) {
-            throw new IllegalArgumentException("test.suites.maxWorkers must be greater than zero.");
+            throw new IllegalArgumentException("test.suites.workers must be greater than zero.");
         }
         resourceLocks = copyAndValidateResourceLocks(resourceLocks);
     }
@@ -74,21 +74,21 @@ public record TestSuiteSettings(
         Map<String, List<String>> copied = new LinkedHashMap<>();
         for (Map.Entry<String, List<String>> entry : new TreeMap<>(values).entrySet()) {
             String className = entry.getKey();
-            validateNonBlank("test.suites.resourceLocks class name", className);
+            validateNonBlank("test.suites.locks class name", className);
             if (containsControlOrWhitespace(className)) {
                 throw new IllegalArgumentException(
-                        "Invalid [test.suites.resourceLocks] class name `" + className + "`. Class names must not contain whitespace or control characters.");
+                        "Invalid [test.suites.locks] class name `" + className + "`. Class names must not contain whitespace or control characters.");
             }
             List<String> locks = List.copyOf(entry.getValue() == null ? List.of() : entry.getValue());
             if (locks.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "test.suites.resourceLocks." + className + " requires at least one resource lock.");
+                        "test.suites.locks." + className + " requires at least one resource lock.");
             }
             for (String lock : locks) {
-                validateNonBlank("test.suites.resourceLocks." + className, lock);
+                validateNonBlank("test.suites.locks." + className, lock);
                 if (containsControlOrWhitespace(lock)) {
                     throw new IllegalArgumentException(
-                            "Invalid [test.suites.resourceLocks] resource lock `" + lock + "`. Resource lock names must not contain whitespace or control characters.");
+                            "Invalid [test.suites.locks] resource lock `" + lock + "`. Resource lock names must not contain whitespace or control characters.");
                 }
             }
             copied.put(className, locks);

@@ -208,7 +208,7 @@ final class ProjectValueObjectsTest {
                 () -> new TestRuntimeSettings(
                         List.of(), Map.of("user.dir", "/tmp/project"), Map.of(), List.of()));
         assertEquals(
-                "Invalid [test.runtime].systemProperties.user.dir in zolt.toml. Zolt owns the test runner user.dir and classpath.",
+                "Invalid [test.runtime].properties.user.dir in zolt.toml. Zolt owns the test runner user.dir and classpath.",
                 runnerOwnedProperty.getMessage());
     }
 

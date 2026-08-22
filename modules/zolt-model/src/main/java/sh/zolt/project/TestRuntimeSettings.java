@@ -25,10 +25,10 @@ public record TestRuntimeSettings(
             validateNonBlank("test.runtime.jvmArgs", argument);
         }
         for (String key : systemProperties.keySet()) {
-            validateName("test.runtime.systemProperties", key);
+            validateName("test.runtime.properties", key);
             if ("user.dir".equals(key) || "java.class.path".equals(key)) {
                 throw new IllegalArgumentException(
-                        "Invalid [test.runtime].systemProperties."
+                        "Invalid [test.runtime].properties."
                                 + key
                                 + " in zolt.toml. Zolt owns the test runner user.dir and classpath.");
             }
