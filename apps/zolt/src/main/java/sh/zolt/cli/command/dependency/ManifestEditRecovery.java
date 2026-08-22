@@ -49,6 +49,15 @@ final class ManifestEditRecovery {
                 deleteRecursively(transaction);
                 return;
             }
+            if (STAGING.equals(state) || PREPARED.equals(state)) {
+                // Nothing was written. The manifest and zolt.lock are only touched inside the
+                // compare-and-set callback, which flips the journal to MANIFEST_COMMITTED before it
+                // returns, so a journal that never reached that state records no on-disk change.
+                // Comparing content here would instead reject any benign concurrent edit made while
+                // the resolve ran, and the surviving journal would then block every later mutation.
+                deleteRecursively(transaction);
+                return;
+            }
             Path manifest = normalizedManifestRoot.resolve(recordedManifestPath(transaction)).normalize();
             if (!manifest.startsWith(normalizedManifestRoot)) {
                 throw new IOException("manifest path escapes its recorded root");
