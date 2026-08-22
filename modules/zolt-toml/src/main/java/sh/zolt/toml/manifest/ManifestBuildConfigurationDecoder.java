@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 import sh.zolt.manifest.CoveragePercentage;
 import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.manifest.SourceRootLanguage;
 import sh.zolt.manifest.authored.AuthoredBuild;
 import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
 import sh.zolt.manifest.authored.AuthoredCompiler;
@@ -191,7 +192,8 @@ final class ManifestBuildDecoder {
             int index = item;
             paths.add(ManifestSemanticDiagnostics.construct(
                     field,
-                    () -> new ManifestRelativePath(authored.get(index))));
+                    () -> SourceRootLanguage.requireSupported(
+                            new ManifestRelativePath(authored.get(index)))));
             presence.sources(field, paths);
         }
         return List.copyOf(paths);

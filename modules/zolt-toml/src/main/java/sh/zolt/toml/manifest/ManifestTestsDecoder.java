@@ -8,9 +8,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import sh.zolt.manifest.EnvironmentVariableName;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.manifest.SourceRootLanguage;
 import sh.zolt.manifest.authored.AuthoredTestRuntime;
 import sh.zolt.manifest.authored.AuthoredTestSuite;
 import sh.zolt.manifest.authored.AuthoredTests;
@@ -81,11 +83,11 @@ final class ManifestTestRootsDecoder {
         }
 
         List<ManifestRelativePath> java = javaField
-                .map(field -> paths(
+                .map(field -> sourcePaths(
                         field, prefix -> new AuthoredTests.Sources(prefix, List.of())))
                 .orElse(List.of());
         List<ManifestRelativePath> groovy = groovyField
-                .map(field -> paths(
+                .map(field -> sourcePaths(
                         field, prefix -> new AuthoredTests.Sources(List.of(), prefix)))
                 .orElse(List.of());
         return Optional.of(ManifestSemanticDiagnostics.construct(
@@ -104,7 +106,7 @@ final class ManifestTestRootsDecoder {
         }
 
         List<ManifestRelativePath> sources = sourcesField
-                .map(field -> paths(
+                .map(field -> sourcePaths(
                         field, prefix -> new AuthoredTests.Integration(prefix, List.of())))
                 .orElse(List.of());
         List<ManifestRelativePath> resources = resourcesField
@@ -117,9 +119,23 @@ final class ManifestTestRootsDecoder {
                 () -> new AuthoredTests.Integration(sources, resources)));
     }
 
+    /** Test source roots carry the §10.1 language guard; resource roots do not name a language. */
+    private static List<ManifestRelativePath> sourcePaths(
+            ValidatedManifestField field,
+            Function<List<ManifestRelativePath>, Object> probe) {
+        return paths(field, probe, SourceRootLanguage::requireSupported);
+    }
+
     private static List<ManifestRelativePath> paths(
             ValidatedManifestField field,
             Function<List<ManifestRelativePath>, Object> probe) {
+        return paths(field, probe, UnaryOperator.identity());
+    }
+
+    private static List<ManifestRelativePath> paths(
+            ValidatedManifestField field,
+            Function<List<ManifestRelativePath>, Object> probe,
+            UnaryOperator<ManifestRelativePath> guard) {
         List<String> authored = ManifestTomlValues.strings(field);
         ArrayList<ManifestRelativePath> paths = new ArrayList<>(authored.size());
         for (int item = 0; item < authored.size(); item++) {
@@ -127,7 +143,7 @@ final class ManifestTestRootsDecoder {
             paths.add(ManifestSemanticDiagnostics.construct(
                     field,
                     index,
-                    () -> new ManifestRelativePath(authored.get(index))));
+                    () -> guard.apply(new ManifestRelativePath(authored.get(index)))));
             ManifestSemanticDiagnostics.construct(
                     field, index, () -> probe.apply(paths));
         }

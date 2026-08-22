@@ -119,6 +119,40 @@ final class ManifestBuildDecoderTest {
         assertFailure(source, "Invalid value for `" + path + "`");
     }
 
+    @ParameterizedTest
+    @MethodSource("unsupportedSourceRoots")
+    void rejectsSourceRootsForLanguagesZoltDoesNotBuild(String root, String language, String remedy) {
+        // §10.1: an unsupported root must fail actionably rather than be silently ignored by javac.
+        assertFailure(
+                "[build]\nsources = [\"" + root + "\"]\n",
+                "Invalid value for `build.sources`",
+                "Unsupported " + language + " source root `" + root + "`",
+                remedy);
+    }
+
+    private static List<Arguments> unsupportedSourceRoots() {
+        String java = "Use Java source roots such as src/main/java";
+        return List.of(
+                Arguments.of("src/main/kotlin", "Kotlin", java),
+                Arguments.of("kotlin", "Kotlin", java),
+                Arguments.of("modules/core/src/main/KOTLIN", "Kotlin", java),
+                Arguments.of("src/main/scala", "Scala", java),
+                Arguments.of("src/android/java", "Android", "Use normal Java application source roots"),
+                Arguments.of("android/src/main/java", "Android", "keep Android modules outside"));
+    }
+
+    @Test
+    void keepsConventionalJavaSourceRootsThatMerelyMentionSupportedWords() {
+        AuthoredBuild build = decode("""
+                [build]
+                sources = ["src/main/java", "src/kotlinx-compat/java"]
+                """).orElseThrow();
+
+        assertEquals(
+                List.of(path("src/kotlinx-compat/java"), path("src/main/java")),
+                build.sources());
+    }
+
     private static List<Arguments> invalidPaths() {
         return List.of(
                 Arguments.of("[build]\nsources = [\"/absolute\"]\n", "build.sources"),

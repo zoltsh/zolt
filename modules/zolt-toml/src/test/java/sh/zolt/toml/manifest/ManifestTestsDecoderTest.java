@@ -113,6 +113,40 @@ final class ManifestTestsDecoderTest {
     }
 
     @Test
+    void rejectsTestSourceRootsForLanguagesZoltDoesNotBuild() {
+        // §10.1: unsupported roots fail actionably. Groovy test sources stay legal per §10.6.
+        assertFailure(
+                "[test.sources]\njava = [\"src/test/kotlin\"]\n",
+                "`test.sources.java[0]`",
+                "Unsupported Kotlin source root `src/test/kotlin`",
+                "keep Kotlin modules outside the Zolt beta scope");
+        assertFailure(
+                "[test.sources]\ngroovy = [\"src/test/scala\"]\n",
+                "`test.sources.groovy[0]`",
+                "Unsupported Scala source root `src/test/scala`");
+        assertFailure(
+                "[test.integration]\nsources = [\"src/android/integration-test\"]\n",
+                "`test.integration.sources[0]`",
+                "Unsupported Android source root");
+    }
+
+    @Test
+    void keepsGroovyTestRootsAndIntegrationResourceRoots() {
+        AuthoredTests tests = decode("""
+                [test.sources]
+                groovy = ["src/test/groovy"]
+
+                [test.integration]
+                resources = ["src/integration-test/resources"]
+                """).orElseThrow();
+
+        assertEquals(List.of(path("src/test/groovy")), tests.sources().orElseThrow().groovy());
+        assertEquals(
+                List.of(path("src/integration-test/resources")),
+                tests.integration().orElseThrow().resources());
+    }
+
+    @Test
     void requiresANonNullDecodeIndex() {
         assertThrows(NullPointerException.class, () -> decoder.decode(null, ignored -> {}));
     }
@@ -121,10 +155,12 @@ final class ManifestTestsDecoderTest {
         return decoder.decode(ManifestSemanticTestSupport.index(source), ignored -> {});
     }
 
-    private void assertFailure(String source, String expected) {
+    private void assertFailure(String source, String... expected) {
         ZoltConfigException failure = assertThrows(
                 ZoltConfigException.class, () -> decode(source));
-        assertTrue(failure.getMessage().contains(expected), failure.getMessage());
+        for (String detail : expected) {
+            assertTrue(failure.getMessage().contains(detail), failure.getMessage());
+        }
         assertInstanceOf(IllegalArgumentException.class, failure.getCause());
     }
 
