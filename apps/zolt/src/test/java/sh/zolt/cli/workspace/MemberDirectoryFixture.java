@@ -9,23 +9,31 @@ import java.util.jar.JarOutputStream;
 import sh.zolt.cli.ContentAddressedLockTestSupport;
 
 /**
- * A two-member workspace whose ONLY lockfile is the root one, built so a member-directory command has
- * something to get wrong.
+ * A three-member workspace whose ONLY lockfile is the root one, built so a member-directory command
+ * has something to get wrong.
  *
  * <p>{@code apps/api} depends on {@code libs/core} as a workspace member and on an external of its
- * own; {@code libs/core} depends on a second external that {@code apps/api} must never see. The root
- * lock attributes each external to exactly one member, so a projection that ignores
- * {@code LockPackage.members} is visible as a sibling library on the wrong classpath rather than as a
+ * own. {@code libs/core} declares a second external as an implementation dependency: off
+ * {@code apps/api}'s COMPILE lane, on its runtime and test lanes, because Java hides nothing at
+ * runtime. {@code libs/unrelated} is outside {@code apps/api}'s closure entirely and its external
+ * belongs on none of {@code apps/api}'s lanes at all.
+ *
+ * <p>The root lock attributes each external to exactly one member, so a projection that ignores
+ * {@code LockPackage.members} shows up as a sibling library on the wrong classpath rather than as a
  * subtle ordering difference.
  */
 final class MemberDirectoryFixture {
     static final String API_MEMBER = "apps/api";
     static final String CORE_MEMBER = "libs/core";
+    static final String UNRELATED_MEMBER = "libs/unrelated";
     static final String API_ONLY = "com.example:api-only";
     static final String SIBLING_ONLY = "com.example:sibling-only";
+    static final String UNRELATED_ONLY = "com.example:unrelated-only";
 
     private static final String API_ONLY_JAR = "com/example/api-only/1.0.0/api-only-1.0.0.jar";
     private static final String SIBLING_ONLY_JAR = "com/example/sibling-only/1.0.0/sibling-only-1.0.0.jar";
+    private static final String UNRELATED_ONLY_JAR =
+            "com/example/unrelated-only/1.0.0/unrelated-only-1.0.0.jar";
     private static final String CONSOLE_JAR =
             "org/junit/platform/junit-platform-console-standalone/1.11.4/"
                     + "junit-platform-console-standalone-1.11.4.jar";
@@ -33,7 +41,7 @@ final class MemberDirectoryFixture {
     private MemberDirectoryFixture() {
     }
 
-    record Fixture(Path workspaceDir, Path apiDir, Path coreDir, Path cacheRoot) {
+    record Fixture(Path workspaceDir, Path apiDir, Path coreDir, Path unrelatedDir, Path cacheRoot) {
         Path rootLock() {
             return workspaceDir.resolve("zolt.lock");
         }
@@ -49,17 +57,24 @@ final class MemberDirectoryFixture {
         Path coreClass() {
             return coreDir.resolve("target/classes/com/example/core/Core.class");
         }
+
+        Path unrelatedClass() {
+            return unrelatedDir.resolve("target/classes/com/example/unrelated/Unrelated.class");
+        }
     }
 
     static Fixture create(Path tempDir) throws IOException {
         Path workspaceDir = tempDir.resolve("workspace");
         Path apiDir = workspaceDir.resolve(API_MEMBER);
         Path coreDir = workspaceDir.resolve(CORE_MEMBER);
+        Path unrelatedDir = workspaceDir.resolve(UNRELATED_MEMBER);
         Path cacheRoot = tempDir.resolve("cache");
         Files.createDirectories(apiDir);
         Files.createDirectories(coreDir);
+        Files.createDirectories(unrelatedDir);
         writeEmptyJar(cacheRoot.resolve(API_ONLY_JAR));
         writeEmptyJar(cacheRoot.resolve(SIBLING_ONLY_JAR));
+        writeEmptyJar(cacheRoot.resolve(UNRELATED_ONLY_JAR));
         writeFakeConsoleJar(cacheRoot.resolve(CONSOLE_JAR));
 
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
@@ -141,8 +156,24 @@ final class MemberDirectoryFixture {
                 }
                 """);
 
+        Files.writeString(unrelatedDir.resolve("zolt.toml"), """
+                [project]
+                name = "unrelated"
+
+                [dependencies]
+                "%s" = "1.0.0"
+                """.formatted(UNRELATED_ONLY));
+        write(unrelatedDir.resolve("src/main/java/com/example/unrelated/Unrelated.java"), """
+                package com.example.unrelated;
+
+                public final class Unrelated {
+                    private Unrelated() {
+                    }
+                }
+                """);
+
         writeRootLock(workspaceDir, cacheRoot);
-        return new Fixture(workspaceDir, apiDir, coreDir, cacheRoot);
+        return new Fixture(workspaceDir, apiDir, coreDir, unrelatedDir, cacheRoot);
     }
 
     /**
@@ -174,6 +205,13 @@ final class MemberDirectoryFixture {
                 lane = "implementation"
                 resolvedScope = "compile"
 
+                [[dependencyRoot]]
+                member = "libs/unrelated"
+                id = "com.example:unrelated-only"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
                 [[package]]
                 id = "com.example:api-only"
                 version = "1.0.0"
@@ -195,6 +233,16 @@ final class MemberDirectoryFixture {
                 members = ["libs/core"]
 
                 [[package]]
+                id = "com.example:unrelated-only"
+                version = "1.0.0"
+                source = "maven-central"
+                scope = "compile"
+                direct = true
+                jar = "%s"
+                dependencies = []
+                members = ["libs/unrelated"]
+
+                [[package]]
                 id = "com.example:core"
                 version = "0.1.0"
                 source = "workspace"
@@ -213,8 +261,8 @@ final class MemberDirectoryFixture {
                 direct = false
                 jar = "%s"
                 dependencies = []
-                members = ["apps/api", "libs/core"]
-                """.formatted(API_ONLY_JAR, SIBLING_ONLY_JAR, CONSOLE_JAR));
+                members = ["apps/api", "libs/core", "libs/unrelated"]
+                """.formatted(API_ONLY_JAR, SIBLING_ONLY_JAR, UNRELATED_ONLY_JAR, CONSOLE_JAR));
     }
 
     /** A real (empty) archive, so a locked external on a javac classpath opens as a jar. */

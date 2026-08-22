@@ -18,9 +18,13 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
+import sh.zolt.workspace.service.MemberLockProjection;
+import sh.zolt.workspace.service.WorkspaceMemberLockProjector;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
@@ -36,6 +40,7 @@ public final class ClasspathCommand implements Runnable {
     private final ClasspathBuilder classpathBuilder;
     private final ClasspathFormatter classpathFormatter;
     private final CommandLockfiles lockfiles;
+    private final WorkspaceMemberLockProjector memberProjector;
 
     enum Kind {
         COMPILE("compile"),
@@ -113,67 +118,91 @@ public final class ClasspathCommand implements Runnable {
         this.classpathBuilder = classpathBuilder;
         this.classpathFormatter = classpathFormatter;
         this.lockfiles = lockfiles;
+        this.memberProjector = new WorkspaceMemberLockProjector();
     }
 
     @Override
     public void run() {
         try {
             Path projectRoot = projectDirectory.path();
-            Path configPath = projectRoot.resolve("zolt.toml");
-            if (Files.isRegularFile(configPath)) {
-                ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
-                // A workspace member's lock is the workspace root's, and only the workspace path
-                // refreshes it, so a read-only classpath query does not gate on its freshness
-                // (design §6.8).
-                var artifactIndex = context.workspaceMember()
-                        ? new VerifiedArtifactIndex()
-                        : lockfiles.requireFreshLockfile(context, cacheRoot, false);
-                printClasspath(context.lockfilePath(), cacheRoot, artifactIndex);
+            if (!Files.isRegularFile(projectRoot.resolve("zolt.toml"))) {
+                printProjectClasspath(
+                        CommandProjectLockfile.path(projectRoot), new VerifiedArtifactIndex());
                 return;
             }
-            printClasspath(
-                    CommandProjectLockfile.path(projectRoot),
-                    cacheRoot,
-                    new VerifiedArtifactIndex());
+            ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
+            if (context.workspaceMember()) {
+                // Design §4.5/§6.8: the answer is this member's SELECTION out of the one root lock.
+                // A read-only query does not gate on freshness — only `zolt resolve` refreshes it.
+                printMemberClasspath(context);
+                return;
+            }
+            printProjectClasspath(
+                    context.lockfilePath(),
+                    lockfiles.requireFreshLockfile(context, cacheRoot, false));
         } catch (ArtifactCacheException
                 | ClasspathCommandException
                 | LockfileReadException
                 | ResolveException
+                | WorkspaceConfigException
                 | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
     }
 
-    private void printClasspath(
-            Path lockfilePath,
-            Path cacheRoot,
-            VerifiedArtifactIndex artifactIndex) {
-            ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
-            Kind parsedKind = Kind.parse(kind);
-            if (parsedKind == Kind.AUDIT) {
-                String output = format == Format.JSON
-                        ? auditFormatter.formatJson(lockfile)
-                        : auditFormatter.formatText(lockfile);
-                CommandOutput.printAndFlush(spec, output);
-                return;
-            }
-            if (format == Format.JSON) {
-                throw new ClasspathCommandException(
-                        "`zolt classpath --format json` is supported for `audit` only. "
-                                + "Use `zolt classpath audit --format json`.");
-            }
-            ClasspathSet classpaths = classpathBuilder.build(
-                    LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot, artifactIndex));
-            String output = classpathFormatter.format(switch (parsedKind) {
-                case COMPILE -> classpaths.compile();
-                case RUNTIME -> classpaths.runtime();
-                case TEST -> classpaths.test();
-                case PROCESSOR -> classpaths.processor();
-                case TEST_PROCESSOR -> classpaths.testProcessor();
-                case QUARKUS_DEPLOYMENT -> classpaths.quarkusDeployment();
-                case AUDIT -> throw new ClasspathCommandException("Classpath audit should be handled before formatting.");
-            });
-            CommandOutput.printAndFlush(spec, output);
+    /** A member's lanes, projected from the root lock through its own dependency closure. */
+    private void printMemberClasspath(ProjectCommandContext context) {
+        Kind parsedKind = Kind.parse(kind);
+        ZoltLockfile workspaceLock = lockfileReader.read(context.lockfilePath());
+        if (parsedKind == Kind.AUDIT) {
+            // The audit describes packages rather than resolving them, so it reads no artifact.
+            printAudit(
+                    memberProjector.projectLock(
+                            workspaceLock, context.memberPath(), context.lockRoot()),
+                    Optional.of(context.memberPath()));
+            return;
+        }
+        MemberLockProjection projection = memberProjector.project(
+                workspaceLock, context.memberPath(), context.lockRoot(), cacheRoot);
+        printLane(parsedKind, projection.classpaths());
+    }
+
+    /** A project outside every workspace: its own lock is the whole answer. */
+    private void printProjectClasspath(Path lockfilePath, VerifiedArtifactIndex artifactIndex) {
+        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+        Kind parsedKind = Kind.parse(kind);
+        if (parsedKind == Kind.AUDIT) {
+            printAudit(lockfile, Optional.empty());
+            return;
+        }
+        printLane(
+                parsedKind,
+                classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(
+                        lockfile, cacheRoot, artifactIndex)));
+    }
+
+    private void printAudit(ZoltLockfile lockfile, Optional<String> member) {
+        CommandOutput.printAndFlush(spec, format == Format.JSON
+                ? auditFormatter.formatJson(lockfile, member)
+                : auditFormatter.formatText(lockfile, member));
+    }
+
+    private void printLane(Kind parsedKind, ClasspathSet classpaths) {
+        if (format == Format.JSON) {
+            throw new ClasspathCommandException(
+                    "`zolt classpath --format json` is supported for `audit` only. "
+                            + "Use `zolt classpath audit --format json`.");
+        }
+        CommandOutput.printAndFlush(spec, classpathFormatter.format(switch (parsedKind) {
+            case COMPILE -> classpaths.compile();
+            case RUNTIME -> classpaths.runtime();
+            case TEST -> classpaths.test();
+            case PROCESSOR -> classpaths.processor();
+            case TEST_PROCESSOR -> classpaths.testProcessor();
+            case QUARKUS_DEPLOYMENT -> classpaths.quarkusDeployment();
+            case AUDIT -> throw new ClasspathCommandException(
+                    "Classpath audit should be handled before formatting.");
+        }));
     }
 
     private static final class ClasspathCommandException extends RuntimeException {

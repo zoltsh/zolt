@@ -7,11 +7,21 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.dependency.DependencyScope;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 public final class ClasspathLaneAuditFormatter {
     public String formatText(ZoltLockfile lockfile) {
+        return formatText(lockfile, Optional.empty());
+    }
+
+    /**
+     * Design §4.5: a member audit describes that member's slice of the workspace resolution, so it
+     * names the member it selected. A standalone project has no member to name and reports as before.
+     */
+    public String formatText(ZoltLockfile lockfile, Optional<String> member) {
         StringBuilder output = new StringBuilder();
         output.append("Classpath lane audit\n\n");
+        member.ifPresent(path -> output.append("Member: ").append(path).append("\n\n"));
         output.append("Lane policy:\n");
         output.append("scope               compile runtime test processor test-processor tool-spring-aot tool-openapi tool-protobuf tool-coverage package-default disposition\n");
         for (DependencyScope scope : scopes()) {
@@ -51,10 +61,15 @@ public final class ClasspathLaneAuditFormatter {
     }
 
     public String formatJson(ZoltLockfile lockfile) {
+        return formatJson(lockfile, Optional.empty());
+    }
+
+    public String formatJson(ZoltLockfile lockfile, Optional<String> member) {
         StringBuilder json = new StringBuilder();
         json.append("{\n");
         field(json, 1, "schemaVersion", 1, true);
         stringField(json, 1, "command", "classpath audit", true);
+        member.ifPresent(path -> stringField(json, 1, "member", path, true));
         lanePolicy(json);
         comma(json);
         packages(json, lockfile);

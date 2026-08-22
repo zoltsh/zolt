@@ -5,6 +5,7 @@ import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.workspace.resolve.WorkspaceMemberLaneClosure;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -78,6 +79,31 @@ final class WorkspaceClasspathLockFactory {
                 List.of(),
                 List.of(),
                 graphs);
+    }
+
+    /**
+     * Every package this member can see, across its compile, runtime, and test lanes, in the root
+     * lock's own order. This is the view the read-only reports describe: one member's slice of the
+     * workspace resolution, with each package's scope intact so the report can still say which lanes
+     * it enters.
+     */
+    ZoltLockfile memberLock(
+            WorkspaceExecutionContext context,
+            String memberPath) {
+        ZoltLockfile lockfile = context.lockfile();
+        WorkspaceMemberLaneClosure closure = context.laneClosure();
+        BitSet selected = new BitSet();
+        selected.or(closure.mainCompile(memberPath).packages());
+        selected.or(closure.mainRuntime(memberPath).packages());
+        selected.or(closure.test(memberPath).packages());
+        List<LockPackage> packages = lockfile.packages();
+        List<LockPackage> memberPackages = new ArrayList<>();
+        for (int index = 0; index < packages.size(); index++) {
+            if (selected.get(index)) {
+                memberPackages.add(packages.get(index));
+            }
+        }
+        return new ZoltLockfile(lockfile.version(), memberPackages, List.of());
     }
 
     private static List<LockPackage> lanePackages(

@@ -44,6 +44,9 @@ final class MemberDirectoryCommandRoutingTest {
         assertTrue(
                 Files.exists(fixture.coreClass()),
                 "the workspace provider it compiles against is built first");
+        assertFalse(
+                Files.exists(fixture.unrelatedClass()),
+                "a member outside this member's closure is not built");
         assertFalse(Files.exists(fixture.memberLock()));
     }
 
