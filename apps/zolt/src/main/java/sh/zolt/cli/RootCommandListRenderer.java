@@ -35,7 +35,9 @@ final class RootCommandListRenderer implements IHelpSectionRenderer {
             new CommandGroup("Dependencies", List.of(
                     "add",
                     "remove",
-                    "platform",
+                    "versions",
+                    "platforms",
+                    "bom",
                     "resolve",
                     "tree",
                     "why",
