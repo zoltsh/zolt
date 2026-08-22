@@ -32,6 +32,35 @@ public record WorkspaceMemberPattern(String value) implements Comparable<Workspa
         return value.indexOf('*') >= 0;
     }
 
+    /**
+     * Whether this pattern selects {@code path} under the final one-segment wildcard grammar. A
+     * {@code *} segment matches exactly one directory name that does not start with {@code .}, and
+     * the root member {@code .} is selected only by the literal {@code .} pattern (design §4.4).
+     */
+    public boolean matches(WorkspaceMemberPath path) {
+        Objects.requireNonNull(path, "Matched workspace member path must not be null.");
+        if (value.equals(".") || path.value().equals(".")) {
+            return value.equals(path.value());
+        }
+        List<String> patternSegments = segments();
+        List<String> pathSegments = List.of(path.value().split("/", -1));
+        if (patternSegments.size() != pathSegments.size()) {
+            return false;
+        }
+        for (int index = 0; index < patternSegments.size(); index++) {
+            String expected = patternSegments.get(index);
+            String actual = pathSegments.get(index);
+            if (expected.equals("*")) {
+                if (actual.startsWith(".")) {
+                    return false;
+                }
+            } else if (!expected.equals(actual)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     String portabilityKey() {
         return Unicode17Portability.key(value);
     }

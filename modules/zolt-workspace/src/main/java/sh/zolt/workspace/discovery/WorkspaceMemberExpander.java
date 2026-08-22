@@ -186,26 +186,7 @@ final class WorkspaceMemberExpander {
     static boolean matches(
             WorkspaceMemberPattern pattern,
             WorkspaceMemberPath path) {
-        if (pattern.value().equals(".") || path.value().equals(".")) {
-            return pattern.value().equals(path.value());
-        }
-        List<String> patternSegments = pattern.segments();
-        List<String> pathSegments = List.of(path.value().split("/", -1));
-        if (patternSegments.size() != pathSegments.size()) {
-            return false;
-        }
-        for (int index = 0; index < patternSegments.size(); index++) {
-            String expected = patternSegments.get(index);
-            String actual = pathSegments.get(index);
-            if (expected.equals("*")) {
-                if (actual.startsWith(".")) {
-                    return false;
-                }
-            } else if (!expected.equals(actual)) {
-                return false;
-            }
-        }
-        return true;
+        return pattern.matches(path);
     }
 
     private static int compareNames(String left, String right) {
