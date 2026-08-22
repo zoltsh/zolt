@@ -22,6 +22,8 @@ apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellingGuardrailTest.java|b
 modules/zolt-model/src/main/java/sh/zolt/project/FrameworkSettings.java|framework-spring-boot|lock fingerprint input token
 modules/zolt-resolve/src/main/java/sh/zolt/resolve/fingerprint/ProjectResolutionFingerprint.java|dependency-policy|lock fingerprint input token
 modules/zolt-build/src/main/java/sh/zolt/build/packageplan/PackageInputFingerprint.java|dependency-policy|lock fingerprint input token
+modules/zolt-resolve/src/test/resources/golden/project-resolution-fingerprint-v2.golden|dependency-policy|lock fingerprint input token
+modules/zolt-resolve/src/test/resources/golden/project-resolution-fingerprint-v2.golden|framework-spring-boot|lock fingerprint input token
 zolt.lock|framework-spring-boot|lock fingerprint input token
 
 # Rejection fixtures: a test that proves a removed spelling is refused has to spell it out.
