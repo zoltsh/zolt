@@ -36,15 +36,25 @@ import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 public final class ToolchainConfigReader {
     private final ManifestProjectConfigLoader loader = new ManifestProjectConfigLoader();
 
+    /**
+     * Reads the request for the project whose manifest is {@code configPath}, composed against the
+     * workspace that encloses it when there is one (design §4.5 "Command discovery"). A member and a
+     * root-project workspace are both composed as members; only a project outside every workspace is
+     * composed standalone.
+     */
     public Optional<JavaToolchainRequest> readJava(Path configPath) {
-        return readJava(read(configPath));
+        AuthoredManifest authored = loader.document(read(configPath)).authored();
+        if (authored.project().isEmpty()) {
+            return sharedJava(authored);
+        }
+        return projectToolchains(configPath).mainJava().flatMap(ToolchainConfigReader::mainRequest);
     }
 
+    /** Reads the request from already-captured bytes, with no workspace context to compose against. */
     public Optional<JavaToolchainRequest> readJava(String content) {
         AuthoredManifest authored = loader.document(content).authored();
         if (authored.project().isEmpty()) {
-            return authored.toolchains().mainJava()
-                    .flatMap(toolchain -> authoredJava(toolchain, sharedRelease(authored)));
+            return sharedJava(authored);
         }
         return toolchains(content).mainJava().flatMap(ToolchainConfigReader::mainRequest);
     }
@@ -56,14 +66,18 @@ public final class ToolchainConfigReader {
      * separate test runtime toolchain is declared.
      */
     public Optional<JavaToolchainRequest> readJavaTest(Path configPath) {
-        return readJavaTest(read(configPath));
+        AuthoredManifest authored = loader.document(read(configPath)).authored();
+        if (authored.project().isEmpty()) {
+            return sharedJavaTest(authored);
+        }
+        return projectToolchains(configPath).testJava().flatMap(ToolchainConfigReader::testRequest);
     }
 
+    /** Reads the request from already-captured bytes, with no workspace context to compose against. */
     public Optional<JavaToolchainRequest> readJavaTest(String content) {
         AuthoredManifest authored = loader.document(content).authored();
         if (authored.project().isEmpty()) {
-            return authored.toolchains().testJava()
-                    .flatMap(toolchain -> authoredJavaTest(toolchain, sharedRelease(authored)));
+            return sharedJavaTest(authored);
         }
         return toolchains(content).testJava().flatMap(ToolchainConfigReader::testRequest);
     }
@@ -119,8 +133,29 @@ public final class ToolchainConfigReader {
             Optional<JavaToolchainRequest> test) {
     }
 
+    /** The root of the workspace enclosing {@code projectDirectory}, when the directory is a member. */
+    public Optional<Path> enclosingWorkspaceRoot(Path projectDirectory) {
+        return loader.enclosingWorkspaceRoot(projectDirectory);
+    }
+
+    private EffectiveToolchains projectToolchains(Path configPath) {
+        Path manifest = configPath.toAbsolutePath().normalize();
+        return loader.effectiveProject(manifest.getParent()).project().shared().toolchains();
+    }
+
     private EffectiveToolchains toolchains(String content) {
         return loader.effective(content).project().shared().toolchains();
+    }
+
+    /** A virtual workspace root has no [project] to compose, so its shared request is read as authored. */
+    private static Optional<JavaToolchainRequest> sharedJava(AuthoredManifest authored) {
+        return authored.toolchains().mainJava()
+                .flatMap(toolchain -> authoredJava(toolchain, sharedRelease(authored)));
+    }
+
+    private static Optional<JavaToolchainRequest> sharedJavaTest(AuthoredManifest authored) {
+        return authored.toolchains().testJava()
+                .flatMap(toolchain -> authoredJavaTest(toolchain, sharedRelease(authored)));
     }
 
     private static Optional<JavaToolchainRequest> mainRequest(EffectiveJavaRuntime runtime) {

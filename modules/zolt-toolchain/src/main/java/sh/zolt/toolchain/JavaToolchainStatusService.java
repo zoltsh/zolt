@@ -87,7 +87,7 @@ public final class JavaToolchainStatusService {
      */
     private AuthoredRequest readRequest(Path projectRoot, Path lockRoot) {
         Path projectManifest = projectRoot.resolve(MANIFEST).toAbsolutePath().normalize();
-        Path workspaceManifest = lockRoot.resolve(MANIFEST).toAbsolutePath().normalize();
+        Path workspaceManifest = workspaceManifest(projectRoot, lockRoot);
         Optional<String> memberPath = memberPath(projectManifest, workspaceManifest);
         if (memberPath.isPresent()) {
             ToolchainConfigReader.MemberToolchains member = configReader.readWorkspaceMember(
@@ -102,6 +102,24 @@ public final class JavaToolchainStatusService {
             return new AuthoredRequest(configured, PROJECT_SOURCE);
         }
         return new AuthoredRequest(configReader.readJava(workspaceManifest), WORKSPACE_SOURCE);
+    }
+
+    /**
+     * The workspace root manifest to compose the project against.
+     *
+     * <p>Callers that already know the workspace pass it as {@code lockRoot}. CLI entries that know
+     * only the directory the command was started in pass that directory as both roots, so the
+     * enclosing workspace is discovered here instead — otherwise a member would be composed against
+     * its own manifest and rejected for the identity it legally inherits (design §4.5).
+     */
+    private Path workspaceManifest(Path projectRoot, Path lockRoot) {
+        Path candidate = lockRoot.resolve(MANIFEST).toAbsolutePath().normalize();
+        if (!candidate.equals(projectRoot.resolve(MANIFEST).toAbsolutePath().normalize())) {
+            return candidate;
+        }
+        return configReader.enclosingWorkspaceRoot(projectRoot)
+                .map(root -> root.resolve(MANIFEST).toAbsolutePath().normalize())
+                .orElse(candidate);
     }
 
     /**

@@ -205,6 +205,55 @@ final class JavaToolchainStatusServiceTest {
         assertEquals(JavaToolchainSource.MANAGED, status.resolved().source());
     }
 
+    /**
+     * The CLI entry point: {@code zolt doctor} and {@code zolt toolchain status} know only the
+     * directory the command was started in, so they call the four-argument overload with the member
+     * directory as both roots. The enclosing workspace must still be discovered, or the member is
+     * composed against its own manifest and rejected for the identity it inherits (design §4.5).
+     */
+    @Test
+    void memberDirectoryAloneStillComposesAgainstTheDiscoveredWorkspaceRoot() throws IOException {
+        Path workspace = tempDir.resolve("discovered");
+        Path member = workspace.resolve("apps/platform");
+        Files.createDirectories(member);
+        Files.writeString(workspace.resolve("zolt.toml"), """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                default = ["apps/platform"]
+                include = ["apps/platform"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+
+                [toolchain.java]
+                version = 21
+                distribution = "graalvm-community"
+                features = ["native-image"]
+                policy = "require-managed"
+                """);
+        Files.writeString(member.resolve("zolt.toml"), """
+                [project]
+                name = "platform"
+                """);
+        ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
+        LockedJavaToolchain locked = locked(ToolchainPolicy.REQUIRE_MANAGED);
+        lockfiles.writeJava(member.resolve("zolt.lock"), locked);
+        install(store, locked);
+
+        JavaToolchainStatus status = serviceWithAmbientFailure().status(
+                member,
+                parseMember(workspace, member, "apps/platform"),
+                HostPlatform.parse("linux-x64"),
+                store);
+
+        assertTrue(status.ok());
+        assertEquals("[workspace toolchain.java]", status.requestSource());
+    }
+
     private static ProjectConfig parseMember(Path workspace, Path member, String memberPath)
             throws IOException {
         return new EffectiveProjectConfigAdapter().adapt(new ManifestProjectConfigLoader()
