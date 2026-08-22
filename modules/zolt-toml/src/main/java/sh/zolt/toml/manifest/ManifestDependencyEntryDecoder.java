@@ -156,13 +156,29 @@ final class ManifestDependencyEntryDecoder {
                         dependency,
                         table,
                         FinalManifestObjectShapes.DEPENDENCY_TYPE,
-                        metadata -> new AuthoredDependencyMetadata(
-                                metadata.optional(),
-                                metadata.publishOnly(),
-                                metadata.classifier(),
-                                Optional.of(value),
-                                metadata.exclusions())))
+                        metadata -> {
+                            requireExternalArtifactSelector(dependency);
+                            return new AuthoredDependencyMetadata(
+                                    metadata.optional(),
+                                    metadata.publishOnly(),
+                                    metadata.classifier(),
+                                    Optional.of(value),
+                                    metadata.exclusions());
+                        }))
                 .orElse(dependency);
+    }
+
+    /**
+     * Design §9.5 rejects {@code type} on a {@code workspace = true} declaration outright, whatever
+     * value it names. The authored model normalizes an explicit {@code jar} away as the default
+     * variant, so that one spelling would otherwise arrive metadata-free and slip past the check every
+     * other artifact field still trips inside {@link AuthoredDependency}.
+     */
+    private static void requireExternalArtifactSelector(AuthoredDependency dependency) {
+        if (dependency.selector() instanceof DependencySelector.Workspace) {
+            throw new IllegalArgumentException(
+                    "Workspace dependencies cannot declare classifier, type, or exclusion metadata.");
+        }
     }
 
     private static AuthoredDependency exclusions(
