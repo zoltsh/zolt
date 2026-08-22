@@ -55,7 +55,7 @@ final class ResourceFilteringProcessor {
             throw new ResourceCopyException(
                     "Resource `"
                             + relativePath.toString().replace('\\', '/')
-                            + "` was selected for filtering but appears to be binary. Remove it from [resources.filtering].includes or use a text resource.");
+                            + "` was selected for filtering but appears to be binary. Remove it from [resources.filter].include or use a text resource.");
         }
         return Optional.of(filteredBytes(resource, relativePath, bytes));
     }
@@ -76,7 +76,7 @@ final class ResourceFilteringProcessor {
                                     + token
                                     + "@ but [resources.tokens]."
                                     + token
-                                    + " is not defined. Add the token or set [resources.filtering].missing = \"keep\".");
+                                    + " is not defined. Add the token or set [resources.filter].missing = \"keep\".");
                 }
                 matcher.appendReplacement(output, Matcher.quoteReplacement(matcher.group()));
             } else {
@@ -126,7 +126,7 @@ final class ResourceFilteringProcessor {
             throw new ResourceCopyException(
                     "Resource `"
                             + relativePath.toString().replace('\\', '/')
-                            + "` was selected for filtering but is not valid UTF-8 text. Remove it from [resources.filtering].includes or convert it to UTF-8.",
+                            + "` was selected for filtering but is not valid UTF-8 text. Remove it from [resources.filter].include or convert it to UTF-8.",
                     exception);
         }
     }

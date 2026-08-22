@@ -38,7 +38,7 @@ public final class ResourceCopier {
             Optional<ProjectMetadata> project) {
         return copyResources(
                 settings.resourceRoots(),
-                outputDirectory(projectDirectory, "[build].output", settings.output()),
+                outputDirectory(projectDirectory, "[build.output].main", settings.output()),
                 projectDirectory,
                 settings,
                 project,
@@ -60,7 +60,7 @@ public final class ResourceCopier {
             Optional<ProjectMetadata> project) {
         return copyResources(
                 settings.testResourceRoots(),
-                outputDirectory(projectDirectory, "[build].testOutput", settings.testOutput()),
+                outputDirectory(projectDirectory, "[build.output].test", settings.testOutput()),
                 projectDirectory,
                 settings,
                 project,
@@ -77,8 +77,8 @@ public final class ResourceCopier {
             String resourceRootKey,
             boolean testResources) {
         Path projectRoot = ProjectPaths.root(projectDirectory);
-        Path mainOutput = outputPath(projectRoot, "[build].output", settings.output());
-        Path testOutput = outputPath(projectRoot, "[build].testOutput", settings.testOutput());
+        Path mainOutput = outputPath(projectRoot, "[build.output].main", settings.output());
+        Path testOutput = outputPath(projectRoot, "[build.output].test", settings.testOutput());
         ResourceFilteringSettings filtering = settings.resourceFiltering();
         boolean filteringEnabled = filtering.enabled() && (!testResources || filtering.testEnabled());
         ResourceFilteringProcessor filteringProcessor =
