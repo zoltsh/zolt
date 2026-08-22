@@ -141,8 +141,9 @@ final class WorkspaceResolveServiceTest extends WorkspaceResolveServiceTestSuppo
                 WorkspaceConfigException.class,
                 () -> service.resolve(tempDir, tempDir.resolve("cache"), false, false));
 
-        assertTrue(exception.getMessage().contains("modules/core"));
-        assertTrue(exception.getMessage().contains("../classes"));
+        assertTrue(exception.getMessage().contains("modules/core"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("build.output.main"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("../classes"), exception.getMessage());
         assertFalse(Files.exists(tempDir.resolve("zolt.lock")));
     }
 

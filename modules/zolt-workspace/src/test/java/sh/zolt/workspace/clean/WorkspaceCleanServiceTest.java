@@ -315,8 +315,9 @@ final class WorkspaceCleanServiceTest {
                 WorkspaceConfigException.class,
                 () -> service.clean(tempDir, WorkspaceSelectionRequest.defaults()));
 
-        assertTrue(exception.getMessage().contains("apps/api"));
-        assertTrue(exception.getMessage().contains("../outside/classes"));
+        assertTrue(exception.getMessage().contains("apps/api"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("build.output.main"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("../outside/classes"), exception.getMessage());
         assertTrue(Files.exists(tempDir.resolve("zolt.toml")));
     }
 
