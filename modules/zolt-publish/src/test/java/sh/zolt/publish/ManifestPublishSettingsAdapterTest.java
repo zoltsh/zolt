@@ -7,54 +7,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
-import sh.zolt.project.RepositoryCredentialSettings;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 
 /**
- * A publishing manifest written twice — once in the legacy dialect, once in the final language —
- * asserted to produce the same legacy {@link PublishSettings}.
- *
- * <p>{@link #legacy} is the one helper the cleanup phase deletes with {@link PublishSettingsReader}.
+ * A publishing manifest asserted to reach the expected {@link PublishSettings} through the final
+ * boundary.
  */
 final class ManifestPublishSettingsAdapterTest {
-    private static final Map<String, RepositoryCredentialSettings> CREDENTIALS = Map.of(
-            "company", RepositoryCredentialSettings.basic("company", "MAVEN_USERNAME", "MAVEN_PASSWORD"));
-
     private final ManifestProjectConfigLoader loader = new ManifestProjectConfigLoader();
 
     @Test
-    void publishingPairIsEquivalent() {
-        PublishSettings legacy = legacy(
-                """
-                [project]
-                name = "example-library"
-                version = "1.0.0"
-                group = "com.example"
-                java = "21"
-
-                [publish]
-                releaseRepository = "company-releases"
-                snapshotRepository = "company-snapshots"
-
-                [publish.repositories.company-releases]
-                url = "https://repo.example.com/releases"
-                credentials = "company"
-
-                [publish.repositories.company-snapshots]
-                url = "https://repo.example.com/snapshots"
-                credentials = "company"
-
-                [publish.signing]
-                enabled = true
-                keyId = "3AB1C2D3E4F5A6B7"
-                passphraseEnv = "ZOLT_SIGNING_PASSPHRASE"
-
-                [publish.central]
-                tokenEnv = "ZOLT_CENTRAL_TOKEN"
-                publishingType = "automatic"
-                name = "example-library-1.0.0"
-                baseUrl = "https://central.sonatype.com"
-                """);
+    void publishingReachesThePublishSettings() {
         PublishSettings adapted = ManifestPublishSettingsAdapter.adapt(loader
                 .document("""
                         [project]
@@ -93,9 +56,26 @@ final class ManifestPublishSettingsAdapterTest {
                 .authored()
                 .publishing());
 
-        assertEquals(legacy, adapted);
         assertTrue(adapted.configured());
         assertEquals(List.of("main"), adapted.artifacts());
+        assertEquals("company-releases", adapted.releaseRepository());
+        assertEquals("company-snapshots", adapted.snapshotRepository());
+        assertEquals(
+                "https://repo.example.com/releases",
+                adapted.repositories().get("company-releases").url());
+        assertEquals(
+                Optional.of("company"), adapted.repositories().get("company-releases").credentials());
+        assertEquals(
+                "https://repo.example.com/snapshots",
+                adapted.repositories().get("company-snapshots").url());
+        assertTrue(adapted.signing().enabled());
+        assertEquals(Optional.of("3AB1C2D3E4F5A6B7"), adapted.signing().keyId());
+        assertEquals(Optional.of("ZOLT_SIGNING_PASSPHRASE"), adapted.signing().passphraseEnv());
+        assertTrue(adapted.central().configured());
+        assertEquals(Optional.of("ZOLT_CENTRAL_TOKEN"), adapted.central().tokenEnv());
+        assertEquals(CentralPublishingType.AUTOMATIC, adapted.central().publishingType());
+        assertEquals(Optional.of("example-library-1.0.0"), adapted.central().deploymentName());
+        assertEquals("https://central.sonatype.com", adapted.central().baseUrl());
     }
 
     @Test
@@ -137,9 +117,5 @@ final class ManifestPublishSettingsAdapterTest {
                 .publishing());
 
         assertEquals(new PublishSettings("", "", List.of(), Map.of()), adapted);
-    }
-
-    private static PublishSettings legacy(String legacySource) {
-        return new PublishSettingsReader().read(legacySource, CREDENTIALS);
     }
 }
