@@ -31,7 +31,7 @@ final class NativePackageOutputIsolationCommandTest {
             addSpringArtifacts(repository);
             Path nativeImage = NativeCommandTestSupport.writeFakeNativeImage(
                     tempDir.resolve("fake-native-image"));
-            for (String mode : List.of("thin", "uber", "spring-boot", "spring-boot-war")) {
+            for (String mode : List.of("jar", "uber-jar", "spring-boot", "spring-boot-war")) {
                 Path project = writeProject(mode, repository.baseUri().toString());
                 Path cache = tempDir.resolve("cache-" + mode);
                 assertSuccess(execute(
@@ -62,13 +62,14 @@ final class NativePackageOutputIsolationCommandTest {
     void nativeRejectsReservedAndConfiguredOutputCollisionsBeforeReplacingAnything() throws IOException {
         Path nativeImage = NativeCommandTestSupport.writeFakeNativeImage(
                 tempDir.resolve("collision-native-image"));
+        // Native output paths are relative to [build.output].root (design 10.2), so a collision with a
+        // package artifact is authored by pointing a build output at the native directory instead.
         for (Collision collision : List.of(
-                new Collision("uber", "target/native", "native-image.log"),
-                new Collision("uber", "target/native", "spring-aot-evidence.json"),
-                new Collision("uber", "target/native", "input"),
-                new Collision("uber", "target", "demo-0.1.0.jar"),
-                new Collision("war", "target", "demo-0.1.0.war"),
-                new Collision("uber", "target", "demo-0.1.0.jar.zolt-package.json"))) {
+                new Collision("uber-jar", "native", "native-image.log", ""),
+                new Collision("uber-jar", "native", "spring-aot-evidence.json", ""),
+                new Collision("uber-jar", "native", "input", ""),
+                new Collision("uber-jar", "native", "demo", "native"),
+                new Collision("war", "native", "demo", "native"))) {
             Path project = writeCollisionProject(collision);
             Path cache = tempDir.resolve("collision-cache-" + collision.id());
             assertSuccess(execute(
@@ -98,8 +99,8 @@ final class NativePackageOutputIsolationCommandTest {
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 """
                 : "";
         Files.writeString(project.resolve("zolt.toml"), """
@@ -107,18 +108,22 @@ final class NativePackageOutputIsolationCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [package]
                 mode = "%s"
                 sources = true
                 %s
+
                 [publish]
-                releaseRepository = "test-releases"
+                release = "test-releases"
 
                 [publish.repositories.test-releases]
                 url = "https://repo.example.test/releases"
@@ -144,19 +149,22 @@ final class NativePackageOutputIsolationCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [package]
                 mode = "%s"
                 sources = true
-
+                %s
                 [native]
                 output = "%s"
-                imageName = "%s"
+                name = "%s"
                 """.formatted(
                 Runtime.version().feature(),
                 collision.mode(),
+                collision.buildOutputMain().isEmpty()
+                        ? ""
+                        : "\n[build.output]\nmain = \"" + collision.buildOutputMain() + "\"\n",
                 collision.output(),
                 collision.imageName()));
         Path source = project.resolve("src/main/java/com/example/Main.java");
@@ -208,7 +216,7 @@ final class NativePackageOutputIsolationCommandTest {
     private static void assertPrivateInputEvidence(Path nativeInput, String configuredMode) throws IOException {
         Path evidence = nativeInput.resolveSibling("demo-0.1.0.jar.zolt-package.json");
         assertTrue(Files.isRegularFile(evidence), configuredMode);
-        if ("uber".equals(configuredMode)) {
+        if ("uber-jar".equals(configuredMode)) {
             return;
         }
         Path runtimeClasspath = nativeInput.resolveSibling("demo-0.1.0.runtime-classpath");
@@ -216,7 +224,7 @@ final class NativePackageOutputIsolationCommandTest {
         if (configuredMode.startsWith("spring-boot")) {
             assertTrue(Files.readString(runtimeClasspath).contains("spring-boot-loader"), configuredMode);
             String manifest = Files.readString(evidence);
-            assertTrue(manifest.contains("\"mode\": \"thin\""), manifest);
+            assertTrue(manifest.contains("\"mode\": \"jar\""), manifest);
             assertTrue(manifest.contains("\"kind\": \"runtime-classpath\""), manifest);
         }
     }
@@ -282,9 +290,10 @@ final class NativePackageOutputIsolationCommandTest {
                 """;
     }
 
-    private record Collision(String mode, String output, String imageName) {
+    private record Collision(String mode, String output, String imageName, String buildOutputMain) {
         String id() {
-            return mode + "-" + output.replace('/', '-') + "-" + imageName.replace('.', '-');
+            return mode + "-" + output.replace('/', '-') + "-" + imageName.replace('.', '-')
+                    + (buildOutputMain.isEmpty() ? "" : "-" + buildOutputMain);
         }
     }
 }

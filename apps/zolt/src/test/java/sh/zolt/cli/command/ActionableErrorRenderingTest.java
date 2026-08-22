@@ -39,7 +39,7 @@ final class ActionableErrorRenderingTest {
         CommandResult result = execute("resolve", "--cwd", tempDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("error: Unknown top-level section [bogusSection]"), result.stderr());
+        assertTrue(result.stderr().contains("Unknown manifest section `[bogusSection]`"), result.stderr());
         assertTrue(result.stderr().contains("Section: [bogusSection]"), result.stderr());
         assertNextLineIsNonEmpty(result.stderr());
         assertTrue(result.stderr().contains("Next: Remove it or check the spelling."), result.stderr());
@@ -52,9 +52,9 @@ final class ActionableErrorRenderingTest {
         CommandResult result = execute("resolve", "--cwd", tempDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("error: Unsupported Kotlin configuration [kotlin]"), result.stderr());
+        assertTrue(result.stderr().contains("Unknown manifest section `[kotlin]`"), result.stderr());
         assertNextLineIsNonEmpty(result.stderr());
-        assertTrue(result.stderr().contains("Next: Use Java source roots"), result.stderr());
+        assertTrue(result.stderr().contains("Next: Remove it or check the spelling."), result.stderr());
     }
 
     private void writeConfig(String name, String extraSection) throws IOException {

@@ -9,7 +9,7 @@ import sh.zolt.selfhost.NativeSmokeException;
 import sh.zolt.selfhost.NativeSmokeResult;
 import sh.zolt.selfhost.NativeSmokeService;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -22,7 +22,7 @@ import picocli.CommandLine.Spec;
         description = "Smoke a native Zolt binary against real workflows.",
         hidden = true)
 public final class NativeSmokeCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final NativeSmokeService nativeSmokeService;
 
     @Option(names = "--binary", required = true, description = "Native Zolt binary to smoke.")
@@ -38,11 +38,11 @@ public final class NativeSmokeCommand implements Runnable {
     private CommandSpec spec;
 
     public NativeSmokeCommand() {
-        this(new ZoltTomlParser(), new NativeSmokeService());
+        this(new ManifestProjectLoader(), new NativeSmokeService());
     }
 
-    NativeSmokeCommand(ZoltTomlParser tomlParser, NativeSmokeService nativeSmokeService) {
-        this.tomlParser = tomlParser;
+    NativeSmokeCommand(ManifestProjectLoader projectLoader, NativeSmokeService nativeSmokeService) {
+        this.projectLoader = projectLoader;
         this.nativeSmokeService = nativeSmokeService;
     }
 
@@ -51,7 +51,7 @@ public final class NativeSmokeCommand implements Runnable {
         Path projectRoot = projectDirectory.path();
         try {
             ProjectConfig config = ProjectVersionOverride.apply(
-                    tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                    projectLoader.load(projectRoot));
             NativeSmokeResult result = nativeSmokeService.smoke(
                     projectRoot,
                     config,

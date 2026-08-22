@@ -49,8 +49,8 @@ final class IdeClasspathModelBuilder {
         try {
             ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
             ClasspathSet dependencyClasspaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cacheRoot));
-            Path mainOutput = outputPath(root, "[build].output", config.build().output(), diagnostics);
-            Path testOutput = outputPath(root, "[build].testOutput", config.build().testOutput(), diagnostics);
+            Path mainOutput = outputPath(root, "[build.output].main", config.build().output(), diagnostics);
+            Path testOutput = outputPath(root, "[build.output].test", config.build().testOutput(), diagnostics);
             return new IdeModel.ClasspathInfo(
                     absoluteEntries(dependencyClasspaths.compile()),
                     withOutputs(nonNullPaths(mainOutput), dependencyClasspaths.runtime()),

@@ -32,7 +32,7 @@ final class TestCompileServiceGroovyTest extends TestCompileServiceGroovyTestSup
 
     @Test
     void compilesGroovyTestSourcesAfterJavaTestSources() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 

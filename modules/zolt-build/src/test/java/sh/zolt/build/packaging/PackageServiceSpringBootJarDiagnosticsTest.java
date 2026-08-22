@@ -38,7 +38,7 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
                 "org/springframework/boot/SpringApplication.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"
@@ -84,7 +84,7 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
                 "fixtures/LoaderTests.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"
@@ -100,7 +100,7 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
                 version = "4.0.6"
                 source = "maven-central"
                 scope = "runtime"
-                direct = true
+                direct = false
                 jar = "org/springframework/boot/spring-boot-loader/4.0.6/spring-boot-loader-4.0.6-tests.jar"
                 dependencies = []
                 """);
@@ -143,7 +143,7 @@ final class PackageServiceSpringBootJarDiagnosticsTest {
         createJarWithEntry(dependencyJar, "com/example/runtime/RuntimeLib.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"

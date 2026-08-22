@@ -8,7 +8,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import sh.zolt.lockfile.LockDependencyEdge;
+import sh.zolt.lockfile.LockDependencyGraphException;
 import sh.zolt.lockfile.LockDependencyIndex;
+import sh.zolt.lockfile.LockDependencyRoot;
+import sh.zolt.lockfile.LockGraphRootSelector;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
@@ -40,6 +44,12 @@ public final class LockSbomAssembler {
             Optional<String> timestamp,
             String toolVersion,
             LicenseIndex licenses) {
+        if (lockfile.version() != ZoltLockfile.CURRENT_VERSION) {
+            throw new LockDependencyGraphException(
+                    "SBOM generation requires zolt.lock version " + ZoltLockfile.CURRENT_VERSION
+                            + ", but found version " + lockfile.version()
+                            + ". Run `zolt resolve` to regenerate the lockfile.");
+        }
         SbomComponent root = rootComponent(config);
 
         // Dedup components by bom-ref (purl). Multi-scope duplicates merge; required wins.
@@ -61,7 +71,7 @@ public final class LockSbomAssembler {
                 .toList();
 
         List<SbomDependency> dependencies =
-                dependencyGraph(root, included, lockfile.packages());
+                dependencyGraph(root, included, lockfile.packages(), lockfile.dependencyRoots());
         String serialNumber = serialNumber(config, lockfile, components);
         return new SbomModel(
                 serialNumber,
@@ -101,7 +111,8 @@ public final class LockSbomAssembler {
     private List<SbomDependency> dependencyGraph(
             SbomComponent root,
             List<LockPackage> included,
-            List<LockPackage> completeLock) {
+            List<LockPackage> completeLock,
+            List<LockDependencyRoot> roots) {
         // Resolve each variant-qualified edge to the exact included package (bare edges to the default/sole
         // one), then to its purl bom-ref. Two variants of one GAV are distinct components with distinct
         // purls, so an edge lands on the specific variant a dependent used instead of collapsing to one.
@@ -113,9 +124,14 @@ public final class LockSbomAssembler {
             edges.computeIfAbsent(LockArtifacts.purl(lockPackage), ref -> new TreeSet<>());
         }
 
+        TreeSet<String> rootRefs = LockGraphRootSelector.select(completeLock, roots, "zolt resolve").stream()
+                .map(LockDependencyEdge::of)
+                .map(LockDependencyEdge::encode)
+                .collect(java.util.stream.Collectors.toCollection(TreeSet::new));
+
         for (LockPackage lockPackage : included) {
             String ref = LockArtifacts.purl(lockPackage);
-            if (lockPackage.direct()) {
+            if (rootRefs.contains(LockDependencyEdge.of(lockPackage).encode())) {
                 edges.get(root.bomRef()).add(ref);
             }
             TreeSet<String> dependsOn = edges.get(ref);
@@ -170,7 +186,7 @@ public final class LockSbomAssembler {
                 emittableLicenses(rootLicenses(config)));
     }
 
-    /** The root license is authoritative from config ([package.metadata]), not POM-extracted. */
+    /** The root license is authoritative from config ([project].license), not POM-extracted. */
     private List<SbomLicense> rootLicenses(ProjectConfig config) {
         String license = config.packageSettings().metadata().license();
         String licenseUrl = config.packageSettings().metadata().licenseUrl();

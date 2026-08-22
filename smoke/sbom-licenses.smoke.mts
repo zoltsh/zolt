@@ -92,7 +92,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
   await t.step("fails the license policy check on a denied license and passes a permissive one", async () => {
     const denied = await copyFixture(root, work, "hello-zolt", "license-denied");
     await appendFile(join(denied, "zolt.toml"), [
-      "", "[dependencyPolicy.licenses]", 'deny = ["Apache-2.0"]', 'unknown = "fail"', "",
+      "", "[dependencies.policy.licenses]", 'deny = ["Apache-2.0"]', 'unknown = "fail"', "",
     ].join("\n"), "utf8");
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", denied, "--cache-root", zolt.cacheRoot]);
 
@@ -103,7 +103,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     ]);
     expect.value(annotated.exitCode).toBe(0);
     expect.value(annotated.stdout).toContain(
-      "com.google.guava:guava:33.4.0-jre  [denied] denied by [dependencyPolicy.licenses].deny",
+      "com.google.guava:guava:33.4.0-jre  [denied] denied by [dependencies.policy.licenses].deny",
     );
     expect.value(annotated.stdout).toMatch(
       /^License policy: \d+ denied, \d+ unknown of \d+ dependenc(?:y|ies)\. \d+ permitted by exception; \d+ stale exceptions?\.$/mu,
@@ -126,7 +126,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     const componentPolicy = expectJsonObject(t, guava["policy"], "guava.policy");
     expect.value(jsonString(t, componentPolicy, "status", "component policy")).toBe("denied");
     expect.value(jsonString(t, componentPolicy, "reason", "component policy"))
-      .toContain("[dependencyPolicy.licenses].deny");
+      .toContain("[dependencies.policy.licenses].deny");
     const policy = expectJsonObject(t, annotatedReport["licensePolicy"], "licenses.licensePolicy");
     expect.value(jsonString(t, policy, "enforcedBy", "licensePolicy")).toBe("zolt check --check license-policy");
 
@@ -136,10 +136,10 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     ], { check: false });
     expect.value(failure.exitCode).toBe(1);
     expect.value(failure.stdout).toContain(
-      "error license-policy com.google.guava:guava:33.4.0-jre Apache-2.0 — denied by [dependencyPolicy.licenses].deny",
+      "error license-policy com.google.guava:guava:33.4.0-jre Apache-2.0 — denied by [dependencies.policy.licenses].deny",
     );
     expect.value(failure.stdout).toContain(
-      "next: Remove com.google.guava:guava:33.4.0-jre or amend [dependencyPolicy.licenses].deny after review; an exception cannot override deny.",
+      "next: Remove com.google.guava:guava:33.4.0-jre or amend [dependencies.policy.licenses].deny after review; an exception cannot override deny.",
     );
 
     // The annotation claims what `zolt check --check license-policy` enforces, and that command
@@ -147,8 +147,8 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     // listed by `--include-test` with no marker at all, and never joins the summary's denominator.
     const scoped = await copyFixture(root, work, "hello-zolt", "license-scope");
     await appendFile(join(scoped, "zolt.toml"), [
-      "", "[test.dependencies]", '"org.apiguardian:apiguardian-api" = "1.1.2"',
-      "", "[dependencyPolicy.licenses]", 'deny = ["Apache-2.0"]', "",
+      "", "[dependencies.test]", '"org.apiguardian:apiguardian-api" = "1.1.2"',
+      "", "[dependencies.policy.licenses]", 'deny = ["Apache-2.0"]', "",
     ].join("\n"), "utf8");
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", scoped, "--cache-root", zolt.cacheRoot]);
 
@@ -157,7 +157,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
     const withTests = await runZolt(t, zolt, [...scopedArgs, "--include-test"]);
     // The compile-scope dependency is still marked in both.
     expect.value(withTests.stdout).toContain(
-      "com.google.guava:guava:33.4.0-jre  [denied] denied by [dependencyPolicy.licenses].deny",
+      "com.google.guava:guava:33.4.0-jre  [denied] denied by [dependencies.policy.licenses].deny",
     );
     // The test-scope one is listed as a bare coordinate: no marker, no reason.
     expect.value(required.stdout.includes("org.apiguardian:apiguardian-api")).toBe(false);
@@ -174,7 +174,7 @@ smoke.suite("SBOM and license reporting smoke", { tags: ["supply-chain", "enterp
 
     const allowed = await copyFixture(root, work, "hello-zolt", "license-allowed");
     await appendFile(join(allowed, "zolt.toml"), [
-      "", "[dependencyPolicy.licenses]", 'allow = ["Apache-2.0", "MIT"]', 'unknown = "fail"', "",
+      "", "[dependencies.policy.licenses]", 'allow = ["Apache-2.0", "MIT"]', 'unknown = "fail"', "",
     ].join("\n"), "utf8");
     await runZolt(t, zolt, ["--no-progress", "resolve", "--cwd", allowed, "--cache-root", zolt.cacheRoot]);
     const passing = await runZolt(t, zolt, [

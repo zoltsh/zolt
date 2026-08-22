@@ -14,6 +14,15 @@ public record DependencyMetadata(
         List<DependencyExclusionSpec> exclusions,
         String classifier,
         String type) {
+    /**
+     * The Maven artifact type a coordinate selects when the manifest names none (design §9.7). The
+     * canonical writer omits an authored {@code type = "jar"} on rewrite, so this record erases it
+     * too: one variant identity has to mean one thing everywhere, or the same dependency would
+     * publish a different POM and fingerprint to a different lock depending on which of two
+     * equivalent spellings the manifest happened to use.
+     */
+    public static final String DEFAULT_TYPE = "jar";
+
     public DependencyMetadata {
         section = normalize(section);
         coordinate = normalize(coordinate);
@@ -22,7 +31,12 @@ public record DependencyMetadata(
         workspace = workspace == null || workspace.isBlank() ? null : workspace;
         exclusions = exclusions == null ? List.of() : List.copyOf(exclusions);
         classifier = classifier == null || classifier.isBlank() ? null : classifier;
-        type = type == null || type.isBlank() ? null : type;
+        type = type == null || type.isBlank() || DEFAULT_TYPE.equals(type) ? null : type;
+    }
+
+    /** True when this declaration selects the default unclassified {@code jar} (design §9.7). */
+    public boolean defaultVariant() {
+        return classifier == null && type == null;
     }
 
     public DependencyMetadata(
@@ -52,6 +66,29 @@ public record DependencyMetadata(
 
     public static String key(String section, String coordinate) {
         return section + "|" + coordinate;
+    }
+
+    /** The final manifest section that declares this dependency (design §8.1). */
+    public String manifestSection() {
+        return manifestSection(section);
+    }
+
+    /**
+     * The final manifest section for one engine metadata key. The engine keys dependency metadata by
+     * the pre-cut section spelling so lock identity stays stable; every diagnostic that names a
+     * section to an author must translate through here.
+     */
+    public static String manifestSection(String section) {
+        return switch (section) {
+            case "api.dependencies" -> "dependencies.api";
+            case "runtime.dependencies" -> "dependencies.runtime";
+            case "provided.dependencies" -> "dependencies.provided";
+            case "dev.dependencies" -> "dependencies.dev";
+            case "test.dependencies" -> "dependencies.test";
+            case "annotationProcessors" -> "dependencies.processor";
+            case "test.annotationProcessors" -> "dependencies.test-processor";
+            default -> section;
+        };
     }
 
     public boolean emptyMetadata() {

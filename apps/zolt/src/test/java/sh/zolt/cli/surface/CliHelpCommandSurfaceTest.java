@@ -89,22 +89,22 @@ final class CliHelpCommandSurfaceTest {
 
     @Test
     void helpCommandResolvesNestedCommandPaths() {
-        CommandResult colored = execute("--color=always", "help", "version", "set");
+        CommandResult colored = execute("--color=always", "help", "versions", "set");
 
         assertEquals(0, colored.exitCode());
         assertEquals("", colored.stderr());
-        assertTrue(colored.stdout().contains(BOLD_USAGE_HEADING + " \u001B[1;36mzolt version set\u001B[0m"));
+        assertTrue(colored.stdout().contains(BOLD_USAGE_HEADING + " \u001B[1;36mzolt versions set\u001B[0m"));
         assertTrue(colored.stdout().contains("\u001B[36mALIAS\u001B[0m"));
         assertTrue(colored.stdout().contains("\u001B[36mVERSION\u001B[0m"));
         assertTrue(colored.stdout().contains(BOLD_CYAN_HELP_OPTION));
         assertFalse(colored.stdout().contains(BOLD_COMMANDS_HEADING));
         assertFalse(colored.stdout().contains(WARNING_COLOR));
 
-        CommandResult plain = execute("--color=never", "help", "version", "set");
+        CommandResult plain = execute("--color=never", "help", "versions", "set");
 
         assertEquals(0, plain.exitCode());
         assertEquals("", plain.stderr());
-        assertTrue(plain.stdout().contains("Usage: zolt version set"));
+        assertTrue(plain.stdout().contains("Usage: zolt versions set"));
         assertTrue(plain.stdout().contains("ALIAS"));
         assertTrue(plain.stdout().contains("VERSION"));
         assertFalse(plain.stdout().contains("Commands:"));
@@ -113,12 +113,12 @@ final class CliHelpCommandSurfaceTest {
 
     @Test
     void helpCommandShowsNearestCommandUsageForUnknownNestedCommand() {
-        CommandResult result = execute("--color=never", "help", "version", "nope");
+        CommandResult result = execute("--color=never", "help", "versions", "nope");
 
         assertEquals(2, result.exitCode());
         assertEquals("", result.stdout());
-        assertTrue(result.stderr().startsWith("error: Unknown subcommand 'nope' under 'zolt version'."));
-        assertTrue(result.stderr().contains("Usage: zolt version"));
+        assertTrue(result.stderr().startsWith("error: Unknown subcommand 'nope' under 'zolt versions'."));
+        assertTrue(result.stderr().contains("Usage: zolt versions"));
         assertTrue(result.stderr().contains("Commands:"));
         assertTrue(result.stderr().contains("    set"));
         assertFalse(result.stderr().contains("  Dependencies"));
@@ -153,13 +153,13 @@ final class CliHelpCommandSurfaceTest {
         assertFalse(topLevel.stderr().contains(BOLD_GREEN_OPTION));
         assertFalse(topLevel.stderr().contains(WARNING_COLOR));
 
-        CommandResult nested = execute("--color=always", "help", "version", "nope");
+        CommandResult nested = execute("--color=always", "help", "versions", "nope");
 
         assertEquals(2, nested.exitCode());
         assertEquals("", nested.stdout());
         assertTrue(nested.stderr().startsWith(
-                "\u001B[31merror:\u001B[0m Unknown subcommand 'nope' under 'zolt version'."));
-        assertTrue(nested.stderr().contains(BOLD_USAGE_HEADING + " \u001B[1;36mzolt version\u001B[0m"));
+                "\u001B[31merror:\u001B[0m Unknown subcommand 'nope' under 'zolt versions'."));
+        assertTrue(nested.stderr().contains(BOLD_USAGE_HEADING + " \u001B[1;36mzolt versions\u001B[0m"));
         assertTrue(nested.stderr().contains(BOLD_COMMANDS_HEADING));
         assertTrue(nested.stderr().contains(BOLD_CYAN_HELP_OPTION));
         assertFalse(nested.stderr().contains("\u001B[31merror: Unknown"));

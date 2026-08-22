@@ -112,7 +112,28 @@ final class WorkspaceClasspathArtifactIndexTest {
 
     private ZoltLockfile lockfile(Path cacheRoot) throws IOException {
         return WorkspaceContentAddressedLockTestSupport.migrate(cacheRoot, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.example:shared"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "modules/core"
+                id = "org.example:shared"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"
@@ -141,13 +162,13 @@ final class WorkspaceClasspathArtifactIndexTest {
     }
 
     private Workspace workspace() throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), "");
+        Files.writeString(tempDir.resolve("zolt.toml"), "");
         for (String member : MEMBERS) {
             Files.createDirectories(tempDir.resolve(member));
         }
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("acme-platform", MEMBERS, List.of(), Map.of(), Map.of()),
                 MEMBERS.stream()
                         .map(member -> new WorkspaceMember(member, tempDir.resolve(member), null))

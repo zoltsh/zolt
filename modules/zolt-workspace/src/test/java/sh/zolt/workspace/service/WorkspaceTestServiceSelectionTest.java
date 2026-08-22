@@ -32,7 +32,9 @@ final class WorkspaceTestServiceSelectionTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member(tempDir, "modules/core", "core", "");
         source(tempDir, "modules/core/src/main/java/com/acme/core/Core.java", """
@@ -47,7 +49,7 @@ final class WorkspaceTestServiceSelectionTest {
         member(tempDir, "apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source(tempDir, "apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -70,7 +72,14 @@ final class WorkspaceTestServiceSelectionTest {
                 }
                 """);
         lock(tempDir, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"
@@ -80,6 +89,7 @@ final class WorkspaceTestServiceSelectionTest {
                 direct = true
                 workspace = "modules/core"
                 workspaceOutput = "target/classes"
+                members = ["apps/api"]
                 dependencies = []
 
                 [[package]]
@@ -87,7 +97,7 @@ final class WorkspaceTestServiceSelectionTest {
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 members = ["apps/api", "modules/core"]
                 dependencies = []

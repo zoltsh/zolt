@@ -122,7 +122,7 @@ final class ResourceCopierFilteringTest {
 
         assertTrue(exception.getMessage().contains("contains token @missing@"));
         assertTrue(exception.getMessage().contains("[resources.tokens].missing is not defined"));
-        assertTrue(exception.getMessage().contains("[resources.filtering].missing = \"keep\""));
+        assertTrue(exception.getMessage().contains("[resources.filter].missing = \"keep\""));
     }
 
     @Test

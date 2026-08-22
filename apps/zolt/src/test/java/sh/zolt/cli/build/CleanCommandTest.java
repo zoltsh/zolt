@@ -79,9 +79,11 @@ final class CleanCommandTest {
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
-                Files.readString(projectDir.resolve("zolt.toml"))
-                        .replace("output = \"target/classes\"", "outputRoot = \".zolt/build\"\noutput = \".zolt/build/classes\"")
-                        .replace("testOutput = \"target/test-classes\"", "testOutput = \".zolt/build/test-classes\""));
+                Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build.output]
+                root = ".zolt/build"
+                """);
         Files.createDirectories(projectDir.resolve(".zolt/build/classes"));
         Files.writeString(projectDir.resolve(".zolt/build/classes/Main.class"), "compiled");
         Files.createDirectories(projectDir.resolve("target/classes"));
@@ -104,12 +106,15 @@ final class CleanCommandTest {
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
-                Files.readString(projectDir.resolve("zolt.toml"))
-                        .replace("output = \"target/classes\"", "output = \"out/main\"")
-                        .replace("testOutput = \"target/test-classes\"", "testOutput = \"out/test\""));
+                Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build.output]
+                main = "out/main"
+                test = "out/test"
+                """);
         enableQuarkus(projectDir);
-        Files.createDirectories(projectDir.resolve("out/main"));
-        Files.writeString(projectDir.resolve("out/main/Main.class"), "compiled");
+        Files.createDirectories(projectDir.resolve("target/out/main"));
+        Files.writeString(projectDir.resolve("target/out/main/Main.class"), "compiled");
         Files.createDirectories(projectDir.resolve("target/quarkus"));
         Files.writeString(projectDir.resolve("target/quarkus/zolt-augmentation.properties"), "metadata");
         Files.createDirectories(projectDir.resolve("target/quarkus-app"));
@@ -119,7 +124,7 @@ final class CleanCommandTest {
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Deleted 3 build output paths"));
-        assertFalse(Files.exists(projectDir.resolve("out/main")));
+        assertFalse(Files.exists(projectDir.resolve("target/out/main")));
         assertFalse(Files.exists(projectDir.resolve("target/quarkus")));
         assertFalse(Files.exists(projectDir.resolve("target/quarkus-app")));
     }
@@ -130,9 +135,12 @@ final class CleanCommandTest {
         writeProjectConfig(projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
-                Files.readString(projectDir.resolve("zolt.toml"))
-                        .replace("output = \"target/classes\"", "output = \"out/main\"")
-                        .replace("testOutput = \"target/test-classes\"", "testOutput = \"out/test\""));
+                Files.readString(projectDir.resolve("zolt.toml")) + """
+
+                [build.output]
+                main = "out/main"
+                test = "out/test"
+                """);
         enableSpringBootNative(projectDir);
         Files.createDirectories(projectDir.resolve("target/spring-aot/main/sources/com/example"));
         Files.writeString(projectDir.resolve("target/spring-aot/main/sources/com/example/Application__BeanDefinitions.java"), "aot");
@@ -158,13 +166,11 @@ final class CleanCommandTest {
                 name = "protobuf-clean"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "out/classes"
-                testOutput = "out/test-classes"
+                [build.output]
+                main = "out/classes"
+                test = "out/test-classes"
 
                 [generated.main.greeter]
                 kind = "protobuf"
@@ -197,13 +203,15 @@ final class CleanCommandTest {
         writeWorkspaceConfig(workspaceDir, """
                 [workspace]
                 name = "workspace-clean"
-                members = ["apps/api", "modules/core", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core", "apps/worker"]
                 """);
         writeWorkspaceMember(workspaceDir, "modules/core", "core", "");
         writeWorkspaceMember(workspaceDir, "apps/api", "api", """
 
                 [dependencies]
-                "com.example:core" = { workspace = "modules/core" }
+                "com.example:core" = { workspace = true }
                 """);
         writeWorkspaceMember(workspaceDir, "apps/worker", "worker", "");
         writeOutput(workspaceDir, "modules/core/target/classes/Core.class");
@@ -238,7 +246,9 @@ final class CleanCommandTest {
         writeWorkspaceConfig(workspaceDir, """
                 [workspace]
                 name = "workspace-noop-clean"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         writeWorkspaceMember(workspaceDir, "apps/api", "api", "");
 
@@ -254,7 +264,9 @@ final class CleanCommandTest {
         writeWorkspaceConfig(colorWorkspace, """
                 [workspace]
                 name = "workspace-color-clean"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         writeWorkspaceMember(colorWorkspace, "apps/api", "api", "");
         writeOutput(colorWorkspace, "apps/api/target/classes/Api.class");
@@ -262,7 +274,9 @@ final class CleanCommandTest {
         writeWorkspaceConfig(quietWorkspace, """
                 [workspace]
                 name = "workspace-quiet-clean"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         writeWorkspaceMember(quietWorkspace, "apps/api", "api", "");
         writeOutput(quietWorkspace, "apps/api/target/classes/Api.class");
@@ -297,21 +311,18 @@ final class CleanCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
     }
 
@@ -332,16 +343,7 @@ final class CleanCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
-
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                java = %s
                 %s
                 """.formatted(name, currentJavaMajorVersion(), extraToml));
     }
@@ -355,17 +357,16 @@ final class CleanCommandTest {
     private static void enableQuarkus(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
-                [framework.quarkus]
-                enabled = true
-                package = "fast-jar"
+                [package]
+                mode = "quarkus"
                 """);
     }
 
     private static void enableSpringBootNative(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 """);
     }
 

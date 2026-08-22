@@ -25,8 +25,10 @@ import {
   UPDATE_REPOSITORY_PASSWORD_ENV,
   UPDATE_REPOSITORY_USERNAME_ENV,
   writeBearerUpdateConsumer,
+  workspaceRepositoryUniverse,
   writeUpdateConsumer,
   writeUpdateLibrary,
+  writeWorkspaceUpdateConsumer,
 } from "./support/update-fixtures.mts";
 import { isolatedUserGlobalHome } from "./support/user-global-config.mts";
 import { expectOutputExcludes, expectTextFile, packagedZolt, runZolt, singleJar } from "./support/zolt-smoke.mts";
@@ -113,12 +115,14 @@ smoke.suite("dependency update reporting smoke", { tags: ["dependencies", "enter
     const core = join(workspace, "modules/core");
     await mkdir(core, { recursive: true });
     await writeFile(join(workspace, "zolt.toml"), [
-      "[workspace]", 'name = "exact-workspace"', 'members = ["apps/api", "modules/core"]', "",
+      "[workspace]", 'name = "exact-workspace"', "",
+      "[workspace.members]", 'include = ["apps/api", "modules/core"]', "",
+      ...workspaceRepositoryUniverse(server.url("maven2/")),
     ].join("\n"), "utf8");
-    await writeUpdateConsumer(api, server.url("maven2/"));
+    await writeWorkspaceUpdateConsumer(api);
     await writeFile(join(core, "zolt.toml"), [
       "[project]", 'name = "core"', 'version = "0.1.0"',
-      'group = "com.example.workspace"', 'java = "21"', "", "[dependencies]", "",
+      'group = "com.example.workspace"', "java = 21", "",
     ].join("\n"), "utf8");
     const workspaceCache = work.path("workspace-cache");
     await runZolt(t, zolt, [

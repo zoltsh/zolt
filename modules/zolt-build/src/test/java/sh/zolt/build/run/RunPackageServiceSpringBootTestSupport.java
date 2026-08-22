@@ -45,7 +45,7 @@ abstract class RunPackageServiceSpringBootTestSupport {
                 "com/example/runtime/RuntimeLib.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"
@@ -88,7 +88,7 @@ abstract class RunPackageServiceSpringBootTestSupport {
                 "com/example/runtime/RuntimeLib.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"

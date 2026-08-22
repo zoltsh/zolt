@@ -169,7 +169,7 @@ final class TestCommandTest extends TestCommandTestSupport {
         Files.writeString(projectDir.resolve("zolt.toml"), """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
                 """, StandardOpenOption.APPEND);
         writeJUnitConsoleLockfile(projectDir, cacheRoot);
         writeMainSource(projectDir, "package com.example; public final class Main {}\n");

@@ -35,18 +35,17 @@ final class NativeProtectedPaths {
 
     private static void addFixedProjectFiles(List<ProtectedPath> paths, Path root) {
         paths.add(new ProtectedPath("project manifest", root.resolve("zolt.toml")));
-        paths.add(new ProtectedPath("workspace manifest", root.resolve("zolt-workspace.toml")));
         paths.add(new ProtectedPath("project lockfile", root.resolve("zolt.lock")));
     }
 
     private static void addBuildInputs(List<ProtectedPath> paths, Path root, BuildSettings build) {
         addInputs(paths, root, "main source root", "[build].sources", build.sourceRoots());
-        addInputs(paths, root, "test source root", "[build].testSources", build.testSources());
-        addInputs(paths, root, "Groovy test source root", "[build].groovyTestSources", build.groovyTestSources());
-        addInputs(paths, root, "integration-test source root", "[build].integrationTestSources", build.integrationTestSources());
+        addInputs(paths, root, "test source root", "[test.sources].java", build.testSources());
+        addInputs(paths, root, "Groovy test source root", "[test.sources].groovy", build.groovyTestSources());
+        addInputs(paths, root, "integration-test source root", "[test.integration].sources", build.integrationTestSources());
         addInputs(paths, root, "main resource root", "[resources].main", build.resourceRoots());
         addInputs(paths, root, "test resource root", "[resources].test", build.testResourceRoots());
-        addInputs(paths, root, "integration-test resource root", "[integrationTest].resources", build.integrationTestResourceRoots());
+        addInputs(paths, root, "integration-test resource root", "[test.integration].resources", build.integrationTestResourceRoots());
         addGeneratedInputs(paths, root, "main", build.generatedMainSources());
         addGeneratedInputs(paths, root, "test", build.generatedTestSources());
     }
@@ -65,11 +64,11 @@ final class NativeProtectedPaths {
 
     private static void addBuildOutputs(List<ProtectedPath> paths, Path root, ProjectConfig config) {
         BuildSettings build = config.build();
-        addOutput(paths, root, "compiled main classes", "[build].output", build.output());
-        addOutput(paths, root, "compiled test classes", "[build].testOutput", build.testOutput());
-        addOutput(paths, root, "compiled integration-test classes", "[integrationTest].output", build.integrationTestOutput());
-        addOutput(paths, root, "generated main sources", "[compiler].generatedSources", config.compilerSettings().generatedSources());
-        addOutput(paths, root, "generated test sources", "[compiler].generatedTestSources", config.compilerSettings().generatedTestSources());
+        addOutput(paths, root, "compiled main classes", "[build.output].main", build.output());
+        addOutput(paths, root, "compiled test classes", "[build.output].test", build.testOutput());
+        addOutput(paths, root, "compiled integration-test classes", "[build.output].integration", build.integrationTestOutput());
+        addOutput(paths, root, "generated main sources", "[compiler.generated].main", config.compilerSettings().generatedSources());
+        addOutput(paths, root, "generated test sources", "[compiler.generated].test", config.compilerSettings().generatedTestSources());
         addGeneratedOutputs(paths, root, "main", build.generatedMainSources());
         addGeneratedOutputs(paths, root, "test", build.generatedTestSources());
     }

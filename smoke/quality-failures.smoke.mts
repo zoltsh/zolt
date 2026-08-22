@@ -23,7 +23,7 @@ smoke.suite("quality failure guidance smoke", { tags: ["quality", "diagnostics"]
       'name = "generated-source-failure"',
       'version = "0.1.0"',
       'group = "com.example"',
-      'java = "21"',
+      "java = 21",
       "",
       "[generated.main.openapi]",
       'kind = "declared-root"',

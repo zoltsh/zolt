@@ -4,13 +4,13 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.quality.execution.QualityExecutionContextRunner;
 import sh.zolt.quality.packaging.PackageQualityCheck;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceMemberSelector;
 import sh.zolt.workspace.service.WorkspaceSelection;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,8 +35,8 @@ public final class QualityCheckService {
     public static final String GENERATED_SOURCES = QualityCheckCatalog.GENERATED_SOURCES;
     public static final String EXECUTION_CONTEXT = QualityCheckCatalog.EXECUTION_CONTEXT;
 
-    private final ZoltTomlParser projectParser;
-    private final WorkspaceDiscoveryService workspaceDiscoveryService;
+    private final ManifestProjectConfigLoader manifestLoader;
+    private final ManifestWorkspaceLoader workspaceLoader;
     private final WorkspaceMemberSelector workspaceMemberSelector;
     private final GeneratedSourceQualityCheck generatedSourceQualityCheck;
     private final LockfileQualityCheck lockfileQualityCheck;
@@ -57,19 +57,19 @@ public final class QualityCheckService {
 
     QualityCheckService(QualityCheckDependencies dependencies) {
         this(
-                new ZoltTomlParser(),
-                new WorkspaceDiscoveryService(),
+                new ManifestProjectConfigLoader(),
+                new ManifestWorkspaceLoader(),
                 new WorkspaceMemberSelector(),
                 dependencies);
     }
 
     QualityCheckService(
-            ZoltTomlParser projectParser,
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestProjectConfigLoader manifestLoader,
+            ManifestWorkspaceLoader workspaceLoader,
             WorkspaceMemberSelector workspaceMemberSelector,
             QualityCheckDependencies dependencies) {
-        this.projectParser = projectParser;
-        this.workspaceDiscoveryService = workspaceDiscoveryService;
+        this.manifestLoader = manifestLoader;
+        this.workspaceLoader = workspaceLoader;
         this.workspaceMemberSelector = workspaceMemberSelector;
         this.generatedSourceQualityCheck = dependencies.generatedSourceQualityCheck();
         this.lockfileQualityCheck = dependencies.lockfileQualityCheck();
@@ -87,7 +87,7 @@ public final class QualityCheckService {
 
         if (request.workspace()) {
             try {
-                Optional<Workspace> maybeWorkspace = workspaceDiscoveryService.discover(root);
+                Optional<Workspace> maybeWorkspace = workspaceLoader.discover(root);
                 if (maybeWorkspace.isEmpty()) {
                     return new QualityCheckReport(root, true, QualityCheckCatalog.unavailableResults(
                             requestedChecks,
@@ -108,7 +108,7 @@ public final class QualityCheckService {
         }
 
         try {
-            ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
+            ProjectConfig config = manifestLoader.loadProject(root);
             return new QualityCheckReport(root, false, runProjectChecks(request, requestedChecks, config));
         } catch (ZoltConfigException exception) {
             return new QualityCheckReport(root, false, QualityCheckCatalog.unavailableResults(
@@ -231,6 +231,7 @@ public final class QualityCheckService {
                         members));
                 case LOCKFILE -> results.add(lockfileQualityCheck.checkWorkspaceLockfile(request, workspace));
                 case PROJECT_MODEL -> {
+                    WorkspaceStaleExclusionCheck.check(workspace).ifPresent(results::add);
                     for (String memberPath : selection.includedMembers()) {
                         WorkspaceMember member = members.get(memberPath);
                         results.addAll(projectModelQualityCheck.check(

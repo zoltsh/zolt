@@ -1,11 +1,11 @@
 package sh.zolt.update;
 
 /**
- * Which surfaces {@code zolt update} can write with the existing mutation machinery. Aliases,
- * dependencies, annotation processors, platforms, and constraints are applicable. Literal
- * generated-tool coordinates (exec/protobuf/openapi) are not — exec-tool literal mutation is a later
- * stage, and the others have no literal writer — so they are reported as skipped and can only move
- * through a {@code [versions]} alias.
+ * Which surfaces {@code zolt update} can write through the source-safe manifest editor. Every
+ * schema-declared mutable table is applicable: aliases, dependencies, annotation processors,
+ * platforms, constraints, and the two BOM maps (design §18.5). Literal generated-tool coordinates
+ * (exec/protobuf/openapi) live in tables the editor does not declare mutable, so they are reported
+ * as skipped and can only move through a {@code [versions]} alias.
  */
 final class UpdateApplicability {
     private UpdateApplicability() {
@@ -13,7 +13,8 @@ final class UpdateApplicability {
 
     static boolean isApplicable(OutdatedSurface surface) {
         return switch (surface) {
-            case VERSION_ALIAS, DEPENDENCY, ANNOTATION_PROCESSOR, PLATFORM, DEPENDENCY_CONSTRAINT -> true;
+            case VERSION_ALIAS, DEPENDENCY, ANNOTATION_PROCESSOR, PLATFORM, DEPENDENCY_CONSTRAINT,
+                    BOM_VERSION, BOM_IMPORT -> true;
             case EXEC_TOOL_COORDINATE, PROTOBUF_TOOL, OPENAPI_TOOL -> false;
         };
     }

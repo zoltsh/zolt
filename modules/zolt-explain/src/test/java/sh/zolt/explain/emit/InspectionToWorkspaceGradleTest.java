@@ -5,14 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.gradle.GradleInspectionResult;
 import sh.zolt.explain.gradle.GradleStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.WorkspaceMemberPath;
+import sh.zolt.manifest.WorkspaceMemberPattern;
+import sh.zolt.manifest.authored.AuthoredWorkspace;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -21,7 +25,7 @@ final class InspectionToWorkspaceGradleTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     private DraftWorkspace emitMultiProject() throws IOException {
         Files.writeString(tempDir.resolve("settings.gradle"), """
@@ -75,9 +79,17 @@ final class InspectionToWorkspaceGradleTest {
     void multiProjectEmitsWorkspaceRootWithMembers() throws IOException {
         DraftWorkspace workspace = emitMultiProject();
 
-        assertEquals("sales", workspace.workspace().name());
-        assertEquals(List.of("app", "core"), workspace.workspace().members());
-        assertEquals(List.of("app", "core"), workspace.workspace().defaultMembers());
+        AuthoredWorkspace root = workspace.root().workspace().orElseThrow();
+        assertEquals("sales", root.name().value());
+        assertEquals(
+                List.of("app", "core"),
+                root.members().include().stream().map(WorkspaceMemberPattern::value).toList());
+        assertEquals(
+                List.of("app", "core"),
+                root.members().defaultMembers().orElseThrow().stream()
+                        .map(WorkspaceMemberPath::value)
+                        .toList(),
+                "a draft names its members exactly rather than opting into dynamic-all membership");
         assertEquals(2, workspace.members().size());
     }
 
@@ -85,15 +97,15 @@ final class InspectionToWorkspaceGradleTest {
     void membersResolveCatalogRefsToConcreteVersions() throws IOException {
         DraftWorkspace workspace = emitMultiProject();
 
-        ProjectConfig app = member(workspace, "app");
-        assertEquals("33.4.8-jre", app.dependencies().get("com.google.guava:guava"),
-                () -> "app catalog ref must resolve: " + app.dependencies());
-        assertEquals("5.11.4", app.testDependencies().get("org.junit.jupiter:junit-jupiter"),
-                () -> "app test catalog ref must resolve: " + app.testDependencies());
+        DraftManifestSubject app = member(workspace, "app");
+        assertEquals("33.4.8-jre", app.fixed(DependencyLane.IMPLEMENTATION).get("com.google.guava:guava"),
+                () -> "app catalog ref must resolve: " + app.fixed(DependencyLane.IMPLEMENTATION));
+        assertEquals("5.11.4", app.fixed(DependencyLane.TEST).get("org.junit.jupiter:junit-jupiter"),
+                () -> "app test catalog ref must resolve: " + app.fixed(DependencyLane.TEST));
 
-        ProjectConfig core = member(workspace, "core");
-        assertEquals("3.17.0", core.apiDependencies().get("org.apache.commons:commons-lang3"),
-                () -> "core api catalog ref must resolve: " + core.apiDependencies());
+        DraftManifestSubject core = member(workspace, "core");
+        assertEquals("3.17.0", core.fixed(DependencyLane.API).get("org.apache.commons:commons-lang3"),
+                () -> "core api catalog ref must resolve: " + core.fixed(DependencyLane.API));
     }
 
     @Test
@@ -101,21 +113,29 @@ final class InspectionToWorkspaceGradleTest {
         DraftWorkspace workspace = emitMultiProject();
 
         DraftZoltToml appDraft = memberDraft(workspace, "app");
-        ProjectConfig app = appDraft.config();
-        Map<String, String> workspaceDeps = app.workspaceDependencies();
-        assertEquals("core", app.workspaceApiDependencies().get("com.example:core"),
-                () -> "api project(':core') must key by the target member coordinate: "
-                        + app.workspaceApiDependencies());
-        assertEquals("core", workspaceDeps.get("com.example:core"),
-                () -> "project(':core') must key by the target member coordinate: " + workspaceDeps);
-        assertEquals("core", app.workspaceTestDependencies().get("com.example:core"),
-                () -> "test project(':core') must key by the target member coordinate: "
-                        + app.workspaceTestDependencies());
-        assertFalse(
-                app.dependencies().containsKey(":core")
-                        || app.dependencies().containsKey("core")
-                        || app.dependencies().containsKey("com.example:core"),
-                () -> "project edge must not be emitted as an external coordinate: " + app.dependencies());
+        DraftManifestSubject app = DraftManifestSubject.of(appDraft);
+        Set<String> apiEdges = app.workspaceMembers(DependencyLane.API);
+        assertTrue(apiEdges.contains("com.example:core"),
+                () -> "project(':core') must key by the target member coordinate: " + apiEdges);
+        assertFalse(app.fixed(DependencyLane.API).containsKey("com.example:core"),
+                () -> "project edge must not be emitted as an external coordinate: "
+                        + app.fixed(DependencyLane.API));
+        // One coordinate resolves to one ordinary lane, so the implementation and test repeats of the
+        // same edge collapse into the api declaration and are reported instead of emitted twice.
+        assertEquals(Set.of("com.google.guava:guava"), app.coordinates(DependencyLane.IMPLEMENTATION),
+                () -> "the implementation repeat of project(':core') must not be emitted: "
+                        + app.coordinates(DependencyLane.IMPLEMENTATION));
+        assertEquals(Set.of("org.junit.jupiter:junit-jupiter"), app.coordinates(DependencyLane.TEST),
+                () -> "the test repeat of project(':core') must not be emitted: "
+                        + app.coordinates(DependencyLane.TEST));
+        assertTrue(
+                appDraft.notes().stream().anyMatch(note -> note.contains("com.example:core")
+                        && note.contains("both the api and implementation lanes")),
+                () -> "the collapsed implementation edge must leave a review note: " + appDraft.notes());
+        assertTrue(
+                appDraft.notes().stream().anyMatch(note -> note.contains("com.example:core")
+                        && note.contains("both the api and test lanes")),
+                () -> "the collapsed test edge must leave a review note: " + appDraft.notes());
         assertTrue(
                 appDraft.notes().stream().noneMatch(note -> note.contains("could not be resolved")),
                 () -> "project edge must not leave an unresolved-notation note: " + appDraft.notes());
@@ -141,14 +161,13 @@ final class InspectionToWorkspaceGradleTest {
 
         GradleInspectionResult result = new GradleStaticProjectInspector().inspect(tempDir);
         DraftWorkspace workspace = assertInstanceOf(DraftWorkspace.class, mapper.emitFromGradle(result));
-        ProjectConfig app = member(workspace, "app");
+        DraftManifestSubject app = member(workspace, "app");
 
-        assertEquals("core", app.workspaceDependencies().get("com.acme.sales:core"),
-                () -> "edge key must use the target member's emitted group:name: "
-                        + app.workspaceDependencies());
-        assertFalse(app.workspaceDependencies().containsKey("com.example:core"),
-                () -> "real target group must not be replaced by the placeholder: "
-                        + app.workspaceDependencies());
+        Set<String> edges = app.workspaceMembers(DependencyLane.IMPLEMENTATION);
+        assertTrue(edges.contains("com.acme.sales:core"),
+                () -> "edge key must use the target member's emitted group:name: " + edges);
+        assertFalse(edges.contains("com.example:core"),
+                () -> "real target group must not be replaced by the placeholder: " + edges);
     }
 
     @Test
@@ -171,7 +190,11 @@ final class InspectionToWorkspaceGradleTest {
         DraftEmit emit = mapper.emitFromGradle(result);
         DraftWorkspace workspace = assertInstanceOf(DraftWorkspace.class, emit);
 
-        assertEquals(List.of("core"), workspace.workspace().members());
+        assertEquals(
+                List.of("core"),
+                workspace.root().workspace().orElseThrow().members().include().stream()
+                        .map(WorkspaceMemberPattern::value)
+                        .toList());
         assertEquals(List.of("core"), workspace.members().stream().map(DraftWorkspace.Member::path).toList());
         assertTrue(workspace.notes().stream()
                 .anyMatch(note -> note.contains("app")
@@ -179,8 +202,8 @@ final class InspectionToWorkspaceGradleTest {
                         && note.contains("explain signals")));
     }
 
-    private static ProjectConfig member(DraftWorkspace workspace, String path) {
-        return memberDraft(workspace, path).config();
+    private static DraftManifestSubject member(DraftWorkspace workspace, String path) {
+        return DraftManifestSubject.of(memberDraft(workspace, path));
     }
 
     private static DraftZoltToml memberDraft(DraftWorkspace workspace, String path) {

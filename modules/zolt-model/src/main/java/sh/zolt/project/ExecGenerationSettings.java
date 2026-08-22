@@ -8,7 +8,7 @@ import java.util.TreeMap;
 
 /**
  * The per-step configuration of a {@code kind = "exec"} generated source. {@code tool} is folded in
- * from the referenced {@code [generated.execTools.<name>]} table (mirroring how the shared OpenAPI
+ * from the referenced {@code [generated.tools.<id>]} table (mirroring how the shared OpenAPI
  * tool is folded into each OpenAPI step), while {@code toolName} retains the reference for identity,
  * plan output, and round-trip writing.
  *

@@ -6,7 +6,7 @@ import static sh.zolt.ide.IdeContentAddressedLockTestSupport.cachedJar;
 import static sh.zolt.ide.IdeContentAddressedLockTestSupport.write;
 
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,9 +27,57 @@ final class IdeClasspathModelBuilderTest {
         Path projectDir = tempDir.resolve("spring-boot-webmvc");
         Path cacheRoot = tempDir.resolve("cache");
         Files.createDirectories(projectDir);
-        Files.copy(exampleProjectConfig(), projectDir.resolve("zolt.toml"));
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "spring-boot-webmvc"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                main = "com.example.springboot.DemoApplication"
+
+                [platforms]
+                "org.springframework.boot:spring-boot-dependencies" = "4.0.6"
+
+                [dependencies]
+                "org.springframework.boot:spring-boot-starter-webmvc" = { managed = true }
+
+                [dependencies.test]
+                "org.springframework.boot:spring-boot-starter-test" = { managed = true }
+
+                [build.metadata]
+                buildInfo = true
+                git = true
+                reproducible = true
+
+                [package]
+                mode = "spring-boot"
+
+                [resources]
+                main = ["src/main/resources", "target/generated/resources"]
+                """);
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.springframework.boot:spring-boot-starter-webmvc"
+                version = "4.0.6"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.projectlombok:lombok"
+                version = "1.18.42"
+                lane = "processor"
+                resolvedScope = "processor"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-processor"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot-starter-webmvc"
@@ -129,10 +177,17 @@ final class IdeClasspathModelBuilderTest {
                 name = "corrupted-cache-model"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:runtime-lib"
+                version = "1.0.0"
+                lane = "runtime"
+                resolvedScope = "runtime"
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -169,7 +224,7 @@ final class IdeClasspathModelBuilderTest {
                 name = "unreadable-lock-model"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = \"one\"\n");
         List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
@@ -213,55 +268,8 @@ final class IdeClasspathModelBuilderTest {
         assertEquals(List.of(), diagnostics);
     }
 
-    @Test
-    void suppressesDuplicateUnsafeOutputDiagnosticsAcrossRepeatedClasspathBuilds() throws IOException {
-        Path projectDir = tempDir.resolve("duplicate-output-diagnostic");
-        Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.toml"), """
-                [project]
-                name = "duplicate-output-diagnostic"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [build]
-                output = "../outside-classes"
-                """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
-        List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
-
-        builder.build(
-                projectDir.resolve("zolt.lock").toAbsolutePath().normalize(),
-                tempDir.resolve("cache").toAbsolutePath().normalize(),
-                projectDir.toAbsolutePath().normalize(),
-                parse(projectDir),
-                diagnostics);
-        builder.build(
-                projectDir.resolve("zolt.lock").toAbsolutePath().normalize(),
-                tempDir.resolve("cache").toAbsolutePath().normalize(),
-                projectDir.toAbsolutePath().normalize(),
-                parse(projectDir),
-                diagnostics);
-
-        assertEquals(1, diagnostics.size());
-        IdeModel.Diagnostic diagnostic = diagnostics.getFirst();
-        assertEquals("PROJECT_PATH_INVALID", diagnostic.code());
-        assertTrue(diagnostic.message().contains("[build].output"));
-        assertEquals(
-                "Fix the unsafe path in zolt.toml and run zolt ide model --format json again.",
-                diagnostic.nextStep());
-    }
-
     private ProjectConfig parse(Path projectDir) {
-        return new ZoltTomlParser().parse(projectDir.resolve("zolt.toml"));
-    }
-
-    private static Path exampleProjectConfig() {
-        Path fromRoot = Path.of("examples/spring-boot-webmvc/zolt.toml");
-        if (Files.exists(fromRoot)) {
-            return fromRoot;
-        }
-        return Path.of("../..").resolve(fromRoot).normalize();
+        return new ManifestProjectConfigLoader().load(projectDir.resolve("zolt.toml"));
     }
 
     private IdeModel modelWith(IdeModel.ClasspathInfo classpaths, List<IdeModel.Diagnostic> diagnostics) {

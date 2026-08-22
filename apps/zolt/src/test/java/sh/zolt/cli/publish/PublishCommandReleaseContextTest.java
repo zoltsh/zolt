@@ -32,7 +32,7 @@ final class PublishCommandReleaseContextTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-dry-run-release-context-blocked-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"
@@ -40,11 +40,11 @@ final class PublishCommandReleaseContextTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-blocked") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -60,8 +60,7 @@ final class PublishCommandReleaseContextTest {
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("Context: release"));
         assertTrue(result.stdout().contains("Policy source: built-in release context"));
-        assertTrue(result.stdout().contains("release context requires [package.metadata].name."));
-        assertTrue(result.stdout().contains("release context requires [package.metadata].license."));
+        assertTrue(result.stdout().contains("release context requires [project].license."));
         assertTrue(result.stdout().contains("release context requires a sources jar"));
         assertTrue(result.stdout().contains("release context requires a javadoc jar"));
         assertTrue(result.stdout().contains("Status: blocked"));
@@ -86,7 +85,7 @@ final class PublishCommandReleaseContextTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-dry-run-release-context-ok-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"
@@ -108,24 +107,25 @@ final class PublishCommandReleaseContextTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-ok") + """
+                description = "Release context metadata fixture."
+                url = "https://example.com/release-context"
+                issues = "https://example.com/release-context/issues"
+                license = "Apache-2.0"
+
+                [project.developers.team]
+                name = "Example Team"
+
+                [project.scm]
+                url = "https://example.com/release-context.git"
 
                 [package]
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Release Context Fixture"
-                description = "Release context metadata fixture."
-                url = "https://example.com/release-context"
-                license = "Apache-2.0"
-                developers = ["Example Team"]
-                scm = "https://example.com/release-context.git"
-                issues = "https://example.com/release-context/issues"
-
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

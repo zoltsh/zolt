@@ -19,9 +19,8 @@ export async function writePublisherFixture(directory: string): Promise<void> {
   const source = join(directory, "src/main/java/com/example/publish");
   await mkdir(source, { recursive: true });
   await writeFile(join(directory, "zolt.toml"), [
-    "[project]", 'name = "publisher-lib"', 'version = "1.2.3"', 'group = "com.example.publish"', 'java = "21"', "",
-    "[repositories]", 'central = "https://repo.maven.apache.org/maven2"', "", "[dependencies]", "", "[test.dependencies]", "",
-    "[publish]", 'releaseRepository = "local-compat"', 'snapshotRepository = "local-compat"', 'artifacts = ["main"]', "",
+    "[project]", 'name = "publisher-lib"', 'version = "1.2.3"', 'group = "com.example.publish"', "java = 21", "",
+    "[publish]", 'release = "local-compat"', 'snapshot = "local-compat"', "",
     "[publish.repositories.local-compat]", 'url = "https://repo.example.test/releases"', "",
   ].join("\n"), "utf8");
   await writeFile(join(source, "Library.java"), [
@@ -36,21 +35,21 @@ export async function writeCentralCandidateFixture(directory: string, repository
   await mkdir(source, { recursive: true });
   await writeFile(join(directory, "zolt.toml"), [
     "[project]", 'name = "central-candidate"', 'version = "1.0.0"',
-    'group = "com.example.central"', 'java = "21"', "",
-    "[repositories]", 'central = "https://repo.maven.apache.org/maven2"', "",
-    "[dependencies]", "",
-    "[package]", "sources = true", "javadoc = true", "",
-    "[package.metadata]",
-    'name = "Central Candidate"',
+    'group = "com.example.central"', "java = 21",
     'description = "A library staged for a Maven Central readiness review."',
     'url = "https://example.test/central-candidate"',
-    'license = "Apache-2.0"',
-    'licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"',
-    'scm = "https://github.com/example/central-candidate"',
-    'scmConnection = "scm:git:https://github.com/example/central-candidate.git"',
-    'developers = ["Example Maintainer <maintainer@example.test>"]',
+    'license = { id = "Apache-2.0", url = "https://www.apache.org/licenses/LICENSE-2.0.txt" }',
     "",
-    "[publish]", 'releaseRepository = "local"', "",
+    "[project.scm]",
+    'url = "https://github.com/example/central-candidate"',
+    'connection = "scm:git:https://github.com/example/central-candidate.git"',
+    "",
+    "[project.developers.maintainer]",
+    'name = "Example Maintainer"',
+    'email = "maintainer@example.test"',
+    "",
+    "[package]", "sources = true", "javadoc = true", "",
+    "[publish]", 'release = "local"', "",
     "[publish.repositories.local]", `url = "${repositoryUrl}"`, "",
   ].join("\n"), "utf8");
   await writeFile(join(source, "Library.java"), [

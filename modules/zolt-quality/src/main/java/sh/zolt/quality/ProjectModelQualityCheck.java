@@ -25,11 +25,6 @@ final class ProjectModelQualityCheck {
             return List.of(invalidPath.orElseThrow());
         }
 
-        Optional<QualityCheckResult> invalidCompilerRelease = invalidCompilerRelease(member, config);
-        if (invalidCompilerRelease.isPresent()) {
-            return List.of(invalidCompilerRelease.orElseThrow());
-        }
-
         List<QualityCheckResult> results = new ArrayList<>();
         results.add(QualityCheckResult.passed(
                 PROJECT_MODEL,
@@ -55,11 +50,11 @@ final class ProjectModelQualityCheck {
         return Optional.of(QualityCheckResult.warning(
                 PROJECT_MODEL,
                 member,
-                "[build].outputRoot",
+                "[build.output].root",
                 "Maven or Gradle project files are present ("
                         + String.join(", ", legacyFiles)
-                        + ") while Zolt outputRoot is `target`, so tools may write into the same output tree.",
-                "For side-by-side migration, set [build].outputRoot = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate."));
+                        + ") while the Zolt build output root is `target`, so tools may write into the same output tree.",
+                "For side-by-side migration, set [build.output].root = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate."));
     }
 
     private static List<String> legacyBuildFiles(Path projectRoot) {
@@ -125,17 +120,17 @@ final class ProjectModelQualityCheck {
             ProjectConfig config) {
         List<PathField> fields = new ArrayList<>();
         BuildSettings build = config.build();
-        fields.add(new PathField("[build].source", build.source()));
+        fields.add(new PathField("[build].sources", build.source()));
         addPathFields(fields, "[build].sources", build.sourceRoots());
-        fields.add(new PathField("[build].test", build.test()));
-        fields.add(new PathField("[build].output", build.output()));
-        fields.add(new PathField("[build].testOutput", build.testOutput()));
+        fields.add(new PathField("[test.sources].java", build.test()));
+        fields.add(new PathField("[build.output].main", build.output()));
+        fields.add(new PathField("[build.output].test", build.testOutput()));
         addPathFields(fields, "[test.sources].java", build.testSources());
         addPathFields(fields, "[test.sources].groovy", build.groovyTestSources());
         addPathFields(fields, "[resources].main", build.resourceRoots());
         addPathFields(fields, "[resources].test", build.testResourceRoots());
-        fields.add(new PathField("[compiler].generatedSources", config.compilerSettings().generatedSources()));
-        fields.add(new PathField("[compiler].generatedTestSources", config.compilerSettings().generatedTestSources()));
+        fields.add(new PathField("[compiler.generated].main", config.compilerSettings().generatedSources()));
+        fields.add(new PathField("[compiler.generated].test", config.compilerSettings().generatedTestSources()));
         addGeneratedPathFields(fields, "[generated.main]", build.generatedMainSources());
         addGeneratedPathFields(fields, "[generated.test]", build.generatedTestSources());
 
@@ -150,45 +145,6 @@ final class ProjectModelQualityCheck {
             }
         }
         return Optional.empty();
-    }
-
-    private static Optional<QualityCheckResult> invalidCompilerRelease(
-            Optional<String> member,
-            ProjectConfig config) {
-        String release = config.compilerSettings().release();
-        if (release.isBlank()) {
-            return Optional.empty();
-        }
-        Optional<Integer> releaseVersion = javaFeatureVersion(release);
-        Optional<Integer> projectVersion = javaFeatureVersion(config.project().java());
-        if (releaseVersion.isEmpty()) {
-            return Optional.of(QualityCheckResult.failed(
-                    PROJECT_MODEL,
-                    member,
-                    "[compiler].release",
-                    "Compiler release `" + release + "` must be a Java feature version.",
-                    "Use a numeric release such as `8`, `11`, `17`, or `21`."));
-        }
-        if (projectVersion.isPresent() && releaseVersion.orElseThrow() > projectVersion.orElseThrow()) {
-            return Optional.of(QualityCheckResult.failed(
-                    PROJECT_MODEL,
-                    member,
-                    "[compiler].release",
-                    "Compiler release `" + release + "` is newer than [project].java `" + config.project().java() + "`.",
-                    "Lower [compiler].release or raise [project].java in zolt.toml."));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<Integer> javaFeatureVersion(String value) {
-        if (value == null || value.isBlank()) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(Integer.parseInt(value));
-        } catch (NumberFormatException exception) {
-            return Optional.empty();
-        }
     }
 
     private static void addPathFields(List<PathField> fields, String name, List<String> values) {

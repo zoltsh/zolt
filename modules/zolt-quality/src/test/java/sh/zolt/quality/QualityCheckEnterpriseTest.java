@@ -25,12 +25,16 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
                 name = "enterprise-blockers"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                company = { url = "https://repo.example.test/maven", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.example.test/maven"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "ARTIFACTORY_USERNAME"
                 passwordEnv = "ARTIFACTORY_ACCESS_TOKEN"
 
@@ -44,7 +48,14 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
         Files.createDirectories(projectDir.resolve("src/main/openapi"));
         Files.writeString(projectDir.resolve("src/main/openapi/api.yaml"), "openapi: 3.1.0\n");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:local-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:local-lib"
@@ -70,7 +81,7 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
                 .toList();
         assertEquals(List.of(
                         "execution-context|com.example:local-lib:1.0.0|CI context rejects local repository overlay origin `local-overlay:maven-local`.",
-                        "execution-context|[repositoryCredentials.company-artifactory]|CI context requires environment variable ARTIFACTORY_ACCESS_TOKEN for repository `company` credentials `company-artifactory` before resolve/build work starts.",
+                        "execution-context|[credentials.company-artifactory]|CI context requires environment variable ARTIFACTORY_ACCESS_TOKEN for repository `company` credentials `company-artifactory` before resolve/build work starts.",
                         "lockfile|zolt.lock|Repository `company` requires credentials `company-artifactory`, but environment variables ARTIFACTORY_USERNAME, ARTIFACTORY_ACCESS_TOKEN are not set. Set the variables and retry. Secret values are never written to zolt.lock or command output.",
                         "generated-sources|[generated.main.openapi]|Generated source root `target/generated/sources/openapi` is missing."),
                 failures.stream()
@@ -94,7 +105,7 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
                 name = "unsupported-generated-language"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.main.openapi]
                 kind = "declared-root"
@@ -113,14 +124,14 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
 
         assertEquals("error", report.status());
         assertEquals(List.of(
-                        "execution-context|zolt.toml|Unsupported generated source language `kotlin` in zolt.toml. Supported generated source languages are: java.",
-                        "lockfile|zolt.toml|Unsupported generated source language `kotlin` in zolt.toml. Supported generated source languages are: java.",
-                        "project-model|zolt.toml|Unsupported generated source language `kotlin` in zolt.toml. Supported generated source languages are: java.",
-                        "dependency-metadata|zolt.toml|Unsupported generated source language `kotlin` in zolt.toml. Supported generated source languages are: java.",
-                        "dependency-policy|zolt.toml|Unsupported generated source language `kotlin` in zolt.toml. Supported generated source languages are: java.",
-                        "license-policy|zolt.toml|Unsupported generated source language `kotlin` in zolt.toml. Supported generated source languages are: java.",
-                        "generated-sources|zolt.toml|Unsupported generated source language `kotlin` in zolt.toml. Supported generated source languages are: java.",
-                        "package-contents|zolt.toml|Unsupported generated source language `kotlin` in zolt.toml. Supported generated source languages are: java."),
+                        "execution-context|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
+                        "lockfile|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
+                        "project-model|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
+                        "dependency-metadata|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
+                        "dependency-policy|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
+                        "license-policy|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
+                        "generated-sources|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java].",
+                        "package-contents|zolt.toml|Invalid symbol `kotlin` for `generated.main.openapi.language`; expected one of [java]."),
                 report.checks().stream()
                         .map(check -> check.id() + "|" + check.subject() + "|" + check.message())
                         .toList());

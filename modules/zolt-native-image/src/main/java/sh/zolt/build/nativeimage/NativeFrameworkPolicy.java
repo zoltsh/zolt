@@ -16,7 +16,7 @@ final class NativeFrameworkPolicy {
     static void rejectUnsupported(ProjectConfig config) {
         if (!config.frameworkSettings().springBoot().nativeEnabled() && springBootProject(config)) {
             throw new NativeImageException(
-                    "Spring Boot native images require `[framework.springBoot.native] enabled = true`. "
+                    "Spring Boot native images require `[framework.spring-boot] native = true`. "
                             + "Zolt supports Spring Boot JVM build, test, run, and executable packaging, "
                             + "and supports an explicit Zolt-owned Spring Boot AOT/native canary path when that flag is enabled. "
                             + "For the JVM path, set `[package].mode = \"spring-boot\"`, run `zolt resolve`, then use `zolt package` or `zolt run`; otherwise enable the typed Spring Boot native path.");
@@ -29,7 +29,7 @@ final class NativeFrameworkPolicy {
                     "Micronaut native images are not supported by Zolt yet. "
                             + "Zolt supports basic Micronaut JVM build/test flows through Java annotation processors, "
                             + "but does not run Micronaut AOT or framework-native processing in the public beta. "
-                            + "Use `zolt build`, `zolt test`, or `zolt package --mode thin` for the current beta path.");
+                            + "Use `zolt build`, `zolt test`, or `zolt package --mode jar` for the current beta path.");
         }
         if (quarkusProject(config)) {
             throw new NativeImageException(

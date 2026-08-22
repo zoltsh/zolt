@@ -2,33 +2,24 @@
 name = "spring-boot-petclinic-lite"
 version = "0.1.0"
 group = "com.example"
-java = "21"
+java = 21
 main = "com.example.petclinic.PetClinicLiteApplication"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
 
 [platforms]
 "org.springframework.boot:spring-boot-dependencies" = "4.0.6"
 
 [dependencies]
-"org.springframework.boot:spring-boot-starter-actuator" = {}
-"org.springframework.boot:spring-boot-starter-data-jpa" = {}
-"org.springframework.boot:spring-boot-starter-thymeleaf" = {}
-"org.springframework.boot:spring-boot-starter-validation" = {}
-"org.springframework.boot:spring-boot-starter-webmvc" = {}
+"org.springframework.boot:spring-boot-starter-actuator" = { managed = true }
+"org.springframework.boot:spring-boot-starter-data-jpa" = { managed = true }
+"org.springframework.boot:spring-boot-starter-thymeleaf" = { managed = true }
+"org.springframework.boot:spring-boot-starter-validation" = { managed = true }
+"org.springframework.boot:spring-boot-starter-webmvc" = { managed = true }
 
-[runtime.dependencies]
-"com.h2database:h2" = {}
+[dependencies.runtime]
+"com.h2database:h2" = { managed = true }
 
-[test.dependencies]
-"org.springframework.boot:spring-boot-starter-test" = {}
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+[dependencies.test]
+"org.springframework.boot:spring-boot-starter-test" = { managed = true }
 
 [build.metadata]
 buildInfo = true
@@ -37,7 +28,6 @@ reproducible = true
 
 [resources]
 main = ["src/main/resources", "target/generated/resources"]
-test = ["src/test/resources"]
 
 [package]
 mode = "spring-boot"

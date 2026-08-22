@@ -6,7 +6,7 @@ import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -61,14 +61,14 @@ final class OpenApiGeneratedSourceServiceTestSupport {
                     }
                     properties.append(entry.getKey()).append(" = \"").append(entry.getValue()).append('"');
                 });
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
 
@@ -83,18 +83,19 @@ final class OpenApiGeneratedSourceServiceTestSupport {
     }
 
     static ProjectConfig multiSpecConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
 
-                [generated.openapiPresets.spring-api]
+                [generated.presets.spring-api]
+                kind = "openapi"
                 generator = "spring"
                 library = "spring-boot"
                 apiPackage = "com.example.api"

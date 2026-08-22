@@ -28,13 +28,12 @@ final class PublishCommandArtifactSelectionTest {
                 mode = "spring-boot-war"
 
                 [publish]
-                releaseRepository = "company-releases"
-                artifacts = ["spring-boot-war"]
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Path artifact = projectDir.resolve("target/demo-0.1.0.war");
         Files.createDirectories(artifact.getParent());
         Files.writeString(artifact, "fake spring boot war\n");
@@ -53,7 +52,8 @@ final class PublishCommandArtifactSelectionTest {
                 "--cwd", projectDir.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("Artifact: spring-boot-war"));
+        // Design 14.1: package mode alone decides the main artifact, so it is labelled `main`.
+        assertTrue(result.stdout().contains("Artifact: main"), result.stdout());
         assertTrue(result.stdout().contains("Artifact path: target/demo-0.1.0.war"));
         assertTrue(result.stdout().contains("Artifact upload path: com/example/demo/0.1.0/demo-0.1.0.war"));
         assertTrue(result.stdout().contains("Evidence: target/demo-0.1.0.war.zolt-package.json"));
@@ -63,47 +63,20 @@ final class PublishCommandArtifactSelectionTest {
         assertEquals("", result.stderr());
     }
 
-    @Test
-    void publishDryRunRejectsArtifactSelectorThatDoesNotMatchPackageMode() throws IOException {
-        Path projectDir = tempDir.resolve("publish-dry-run-selector-mismatch");
-        writeProjectConfig(projectDir);
-        Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
-
-                [publish]
-                releaseRepository = "company-releases"
-                artifacts = ["spring-boot-war"]
-
-                [publish.repositories.company-releases]
-                url = "https://repo.example.test/releases"
-                """);
-
-        CommandResult result = execute(
-                "publish",
-                "--dry-run",
-                "--cwd", projectDir.toString());
-
-        assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("Publish artifact selector `spring-boot-war` requires [package].mode = \"spring-boot-war\""));
-        assertTrue(result.stderr().contains("current package mode is `thin`"));
-    }
-
     private static void writeProjectConfig(Path projectDir) throws IOException {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
                 [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                central = false
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
     }
 }

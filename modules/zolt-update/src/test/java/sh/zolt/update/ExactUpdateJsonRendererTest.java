@@ -97,7 +97,7 @@ final class ExactUpdateJsonRendererTest {
                 "shared",
                 "[versions]",
                 "1.0.0",
-                List.of("[dependencies].com.example:one", "[test.dependencies].com.example:two"));
+                List.of("[dependencies].com.example:one", "[dependencies.test].com.example:two"));
         String warning = "Alias `shared` affects two coordinates.";
         ExactUpdateResult result = new ExactUpdateResult(
                 new ExactUpdatePlan(

@@ -87,7 +87,7 @@ public final class DependencyRequestPlanner {
                                     + request.packageId()
                                     + "`."
                                     + reason
-                                    + " Remove the direct dependency or remove the matching [dependencyPolicy].exclude entry, then run `"
+                                    + " Remove the direct dependency or remove the matching [dependencies.policy].deny entry, then run `"
                                     + retryCommand
                                     + "` again.");
                 }

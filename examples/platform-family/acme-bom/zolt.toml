@@ -2,22 +2,19 @@
 name = "acme-bom"
 version = "1.0.0"
 group = "com.acme.platform"
-java = "21"
+description = "Curated versions for the Acme platform family."
+url = "https://example.test/acme"
+license = "Apache-2.0"
+
+[project.scm]
+url = "https://github.com/example/acme"
+connection = "scm:git:https://github.com/example/acme.git"
 
 [bom]
 members = true
 
-[package.metadata]
-name = "Acme Platform BOM"
-description = "Curated versions for the Acme platform family."
-url = "https://example.test/acme"
-license = "Apache-2.0"
-licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-scm = "https://github.com/example/acme"
-scmConnection = "scm:git:https://github.com/example/acme.git"
-
 [publish]
-releaseRepository = "local"
+release = "local"
 
 [publish.repositories.local]
 url = "https://repo.example.test/releases"

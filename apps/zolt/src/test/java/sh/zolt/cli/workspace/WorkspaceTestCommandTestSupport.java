@@ -11,8 +11,22 @@ final class WorkspaceTestCommandTestSupport {
 
     static void writeWorkspaceTestLockfile(Path workspaceDir, Path cacheRoot, String... members) throws IOException {
         String memberList = String.join("\", \"", members);
+        String dependencyRoots = java.util.Arrays.stream(members)
+                .sorted()
+                .map(member -> """
+                [[dependencyRoot]]
+                member = "%s"
+                id = "com.example:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                """.formatted(member))
+                .collect(java.util.stream.Collectors.joining());
         write(workspaceDir.resolve("zolt.lock"), cacheRoot, """
-                version = 5
+                version = 7
+
+                %s
 
                 [[package]]
                 id = "com.example:core"
@@ -22,6 +36,7 @@ final class WorkspaceTestCommandTestSupport {
                 direct = true
                 workspace = "modules/core"
                 workspaceOutput = "target/classes"
+                members = ["%s"]
                 dependencies = []
 
                 [[package]]
@@ -29,10 +44,10 @@ final class WorkspaceTestCommandTestSupport {
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 dependencies = []
                 members = ["%s"]
-                """.formatted(memberList));
+                """.formatted(dependencyRoots, memberList, memberList));
     }
 }

@@ -12,7 +12,7 @@ import sh.zolt.sbom.LockSbomAssembler;
 import sh.zolt.sbom.SbomComponentScope;
 import sh.zolt.sbom.SbomModel;
 import sh.zolt.sbom.SbomScopeSelection;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
@@ -35,7 +35,7 @@ final class WorkspaceMemberSbomScopeProjectionTest {
 
     @Test
     void sameVariantRetainsEachMembersDirectScopeInItsSbom() {
-        ProjectConfig core = config("core", "provided.dependencies");
+        ProjectConfig core = config("core", "dependencies.provided");
         ProjectConfig worker = config("worker", "dependencies");
         Workspace workspace = workspace(core, worker);
         ZoltLockfile aggregate = new ZoltLockfile(
@@ -76,12 +76,12 @@ final class WorkspaceMemberSbomScopeProjectionTest {
     }
 
     private static ProjectConfig config(String name, String section) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "%s"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [%s]
                 "%s" = "%s"
@@ -92,7 +92,7 @@ final class WorkspaceMemberSbomScopeProjectionTest {
         List<String> paths = List.of("modules/core", "apps/worker");
         return new Workspace(
                 Path.of("/ws"),
-                Path.of("/ws/zolt-workspace.toml"),
+                Path.of("/ws/zolt.toml"),
                 new WorkspaceConfig("acme", paths, List.of(), Map.of(), Map.of()),
                 List.of(
                         new WorkspaceMember("modules/core", Path.of("/ws/modules/core"), core),

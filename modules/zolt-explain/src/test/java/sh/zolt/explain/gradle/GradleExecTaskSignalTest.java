@@ -36,7 +36,7 @@ final class GradleExecTaskSignalTest {
 
         MigrationReadinessFinding finding = GradleMigrationReadinessFindings.map(signal);
         assertEquals(MigrationReadinessCategory.PLANNED, finding.category());
-        assertEquals("[generated.execTools] exec step", finding.zoltPrimitive());
+        assertEquals("[generated.tools] exec step", finding.zoltPrimitive());
     }
 
     @Test
@@ -54,7 +54,7 @@ final class GradleExecTaskSignalTest {
 
         MigrationReadinessFinding finding = GradleMigrationReadinessFindings.map(signal);
         assertEquals(MigrationReadinessCategory.BLOCKED, finding.category());
-        assertEquals("[commands.tasks] or CI", finding.zoltPrimitive());
+        assertEquals("[tasks.<id>] or CI", finding.zoltPrimitive());
     }
 
     @Test

@@ -27,7 +27,7 @@ final class TreeWhyCommandTest {
         assertEquals(0, result.exitCode());
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    \\- com.example:lib:1.0.0
                 """, result.stdout());
     }
@@ -88,7 +88,7 @@ final class TreeWhyCommandTest {
         assertEquals(0, result.exitCode());
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    \\- com.example:lib:1.0.0
                 """, result.stdout());
     }
@@ -125,7 +125,7 @@ final class TreeWhyCommandTest {
         assertTrue(result.stdout().contains("\"status\": \"excluded\""));
         assertTrue(result.stdout().contains("\"path\": []"));
         assertTrue(result.stdout().contains(
-                "\"policy\": \"[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)\""));
+                "\"policy\": \"[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)\""));
         assertEquals("", result.stderr());
     }
 
@@ -152,7 +152,7 @@ final class TreeWhyCommandTest {
     void whyReportsMissingPackageClearly() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute("why", "--cwd", projectDir.toString(), "com.example:missing");
 
@@ -165,19 +165,23 @@ final class TreeWhyCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
 
                 [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                central = false
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
                 """);
     }
 
     private static void writeAppLibLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -199,7 +203,14 @@ final class TreeWhyCommandTest {
 
     private static void writeConflictedLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -227,7 +238,14 @@ final class TreeWhyCommandTest {
 
     private static void writeExcludedPackageLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -242,7 +260,7 @@ final class TreeWhyCommandTest {
                 id = "commons-logging:commons-logging"
                 requested = "1.2"
                 source = "com.example:app:1.0.0"
-                policy = "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                policy = "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                 """);
     }
 }

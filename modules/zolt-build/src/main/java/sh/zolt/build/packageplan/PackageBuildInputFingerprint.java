@@ -53,7 +53,7 @@ final class PackageBuildInputFingerprint {
         hash.value("lock", lockfile.toString());
         Path applicationOutput = ProjectPaths.output(
                 projectRoot,
-                "[build].output",
+                "[build.output].main",
                 config.build().output());
         hash.value(
                 "canonicalMainBuildInput",
@@ -111,8 +111,8 @@ final class PackageBuildInputFingerprint {
 
     private static List<Path> resources(Path projectRoot, BuildSettings build) {
         List<Path> resources = new ArrayList<>();
-        Path mainOutput = ProjectPaths.output(projectRoot, "[build].output", build.output());
-        Path testOutput = ProjectPaths.output(projectRoot, "[build].testOutput", build.testOutput());
+        Path mainOutput = ProjectPaths.output(projectRoot, "[build.output].main", build.output());
+        Path testOutput = ProjectPaths.output(projectRoot, "[build.output].test", build.testOutput());
         for (String configuredRoot : build.resourceRoots()) {
             Path root = ProjectPaths.existingRoot(projectRoot, "[resources].main", configuredRoot);
             resources.addAll(files(root).stream()

@@ -17,6 +17,7 @@ export async function mavenArtifactPath(
   const coordinate = `${artifact.group}:${artifact.artifact}`;
   const entry = content
     .split(/\n(?=\[\[package\]\]\n)/u)
+    .slice(1)
     .find((block) => field(block, "id") === coordinate && field(block, "version") === artifact.version);
   if (entry === undefined) {
     throw new Error(`Lockfile has no package entry for ${coordinate}:${artifact.version}`);

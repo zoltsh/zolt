@@ -19,7 +19,7 @@ final class CleanServicePathSafetyTest extends CleanServiceTestSupport {
                         projectDir,
                         new BuildSettings("src/main/java", "src/test/java", "../outside", "target/test-classes")));
 
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("[build.output].main"));
         assertTrue(exception.getMessage().contains("../outside"));
     }
 
@@ -31,7 +31,7 @@ final class CleanServicePathSafetyTest extends CleanServiceTestSupport {
                         projectDir,
                         new BuildSettings("src/main/java", "src/test/java", "C:\\outside\\classes", "target/test-classes")));
 
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("[build.output].main"));
         assertTrue(exception.getMessage().contains("C:\\outside\\classes"));
     }
 
@@ -44,7 +44,7 @@ final class CleanServicePathSafetyTest extends CleanServiceTestSupport {
                 CleanException.class,
                 () -> cleanService.clean(projectDir, BuildSettings.defaults()));
 
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("[build.output].main"));
         assertTrue(exception.getMessage().contains("resolved through symlinks"));
         assertTrue(Files.exists(outside));
     }
@@ -58,7 +58,7 @@ final class CleanServicePathSafetyTest extends CleanServiceTestSupport {
                 CleanException.class,
                 () -> cleanService.clean(projectDir, BuildSettings.defaults()));
 
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("[build.output].main"));
         assertTrue(exception.getMessage().contains("target/classes"));
         assertTrue(exception.getMessage().contains("resolved through symlinks"));
         assertTrue(Files.exists(outside));

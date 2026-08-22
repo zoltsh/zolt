@@ -23,20 +23,17 @@ final class NativeCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
     }
 
@@ -47,21 +44,18 @@ final class NativeCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
     }
 
@@ -72,25 +66,22 @@ final class NativeCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = "4.0.6"
 
                 [dependencies]
-                "org.springframework.boot:spring-boot-starter-webmvc" = {}
+                "org.springframework.boot:spring-boot-starter-webmvc" = { managed = true }
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
     }
 
@@ -101,24 +92,21 @@ final class NativeCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
 
-                [framework.springBoot.native]
-                enabled = true
+                [repositories.test]
+                url = "%s"
+
+                [framework.spring-boot]
+                native = true
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
     }
 
@@ -129,11 +117,14 @@ final class NativeCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
@@ -141,14 +132,8 @@ final class NativeCommandTestSupport {
                 [package]
                 mode = "spring-boot"
 
-                [framework.springBoot.native]
-                enabled = true
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [framework.spring-boot]
+                native = true
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
         Path source = projectDir.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());
@@ -252,15 +237,17 @@ final class NativeCommandTestSupport {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-native"
-                members = ["apps/api", "modules/core"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api", "modules/core"]
                 """);
         Files.writeString(coreDir.resolve("zolt.toml"), """
                 [project]
                 name = "core"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(currentJavaMajorVersion()));
         Files.createDirectories(coreDir.resolve("src/main/java/com/example/core"));
         Files.writeString(coreDir.resolve("src/main/java/com/example/core/Core.java"), """
@@ -277,11 +264,11 @@ final class NativeCommandTestSupport {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.api.Api"
 
                 [dependencies]
-                "com.example:core" = { workspace = "modules/core" }
+                "com.example:core" = { workspace = true }
                 """.formatted(currentJavaMajorVersion()));
         Files.createDirectories(apiDir.resolve("src/main/java/com/example/api"));
         Files.writeString(apiDir.resolve("src/main/java/com/example/api/Api.java"), """

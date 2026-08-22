@@ -75,7 +75,35 @@ final class ClasspathCommandTest {
         Path cacheRoot = tempDir.resolve("cache");
         Files.createDirectories(projectDir);
         ClasspathCommandTestSupport.writeLockfile(projectDir, cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:compile-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-lib"
+                version = "1.0.0"
+                lane = "test"
+                resolvedScope = "test"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor-lib"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-processor-lib"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "com.example:compile-lib"

@@ -48,7 +48,14 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
         Path projectDir = tempDir.resolve("stale-project-lock");
         ProjectConfig config = parseProject(projectDir, "");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:stale"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:stale"
@@ -74,7 +81,7 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
     void projectLockfileOfflineFailureUsesOfflineRetryAction() throws IOException {
         Path projectDir = tempDir.resolve("offline-cache-missing");
         ProjectConfig config = parseProject(projectDir, dependencyBody());
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         QualityCheckResult result = check.checkProjectLockfile(request(projectDir, true, false), config);
 
@@ -91,7 +98,7 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
     void projectLockfileRequireOfflineReadyFailureUsesCiRetryAction() throws IOException {
         Path projectDir = tempDir.resolve("require-offline-ready-missing-cache");
         ProjectConfig config = parseProject(projectDir, dependencyBody());
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         QualityCheckResult result = check.checkProjectLockfile(request(projectDir, false, true), config);
 
@@ -190,7 +197,7 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
     void cacheIntegrityPassesForEmptyReadableLockfile() throws IOException {
         Path projectDir = tempDir.resolve("empty-lock");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         QualityCheckResult result = check.checkProjectCacheIntegrity(request(projectDir));
 
@@ -213,7 +220,14 @@ final class LockfileQualityCheckTest extends QualityCheckServiceTestSupport {
         Files.writeString(jar, "actual cached bytes\n");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:mismatch"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:mismatch"

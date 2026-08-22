@@ -241,7 +241,9 @@ final class WorkspaceBuildCommandTest {
         Files.writeString(fixture.workspaceDir().resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api", "modules/core", "apps/worker", "apps/admin"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core", "apps/worker", "apps/admin"]
                 """);
 
         CommandResult result = execute(
@@ -271,7 +273,9 @@ final class WorkspaceBuildCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
 
@@ -302,7 +306,9 @@ final class WorkspaceBuildCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api", "modules/core", "%s"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core", "%s"]
                 """.formatted(memberPath));
         return memberDir;
     }

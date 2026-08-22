@@ -45,7 +45,7 @@ smoke.suite("zolt adoption app smoke", { tags: ["jvm", "adoption"] }, async (t: 
     const original = await readFile(toml, "utf8");
     await writeFile(
       toml,
-      original.replace("https://repo.maven.apache.org/maven2", "https://repo.maven.apache.org/maven2/./"),
+      original + '\n[repositories.staleness-probe]\nurl = "https://repo.maven.apache.org/maven2/./"\n',
       "utf8",
     );
 

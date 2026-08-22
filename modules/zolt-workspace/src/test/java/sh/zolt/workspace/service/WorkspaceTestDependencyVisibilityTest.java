@@ -26,7 +26,9 @@ final class WorkspaceTestDependencyVisibilityTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/test-support", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/test-support", "apps/api"]
                 """);
         member(tempDir, "modules/test-support", "test-support", "");
         source(tempDir, "modules/test-support/src/main/java/com/acme/testing/Fixture.java", """
@@ -43,8 +45,8 @@ final class WorkspaceTestDependencyVisibilityTest {
                 """);
         member(tempDir, "apps/api", "api", """
 
-                [test.dependencies]
-                "com.acme:test-support" = { workspace = "modules/test-support" }
+                [dependencies.test]
+                "com.acme:test-support" = { workspace = true }
                 """);
         source(tempDir, "apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;

@@ -50,7 +50,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
         Path projectDir = tempDir.resolve("contents-malformed-lock");
         ProjectConfig config = parseProject(projectDir, "");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = 42
@@ -100,7 +100,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
                                         "10.1.40")
                                 .nestedJarName()));
         assertEquals(
-                "Move it to [provided.dependencies] when the servlet container supplies it, then run `zolt resolve`.",
+                "Move it to [dependencies.provided] when the servlet container supplies it, then run `zolt resolve`.",
                 result.nextStep());
     }
 
@@ -120,7 +120,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
                 version = "3.33.0"
                 source = "maven-central"
                 scope = "runtime"
-                direct = true
+                direct = false
                 jar = "io/quarkus/quarkus-rest/3.33.0/quarkus-rest-3.33.0.jar"
                 dependencies = []
                 """);
@@ -278,7 +278,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
                 QualityCheckService.PACKAGE_CONTENTS,
                 QualityCheckStatus.PASSED,
                 "current-evidence",
-                "Package mode `thin` has 0 dependency dispositions.",
+                "Package mode `jar` has 0 dependency dispositions.",
                 "");
     }
 

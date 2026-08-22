@@ -11,7 +11,7 @@ import java.util.Optional;
  * ct.sym-pinned {@code --release} surface.
  *
  * <p>Such a project keeps Zolt's strict {@code --release} default, but the emit path offers a
- * commented {@code platformApi = "host"} escape hatch and the audit fires
+ * commented {@code jdkApi = "host"} escape hatch and the audit fires
  * {@code maven.compiler.platform-api-host-candidate}. A {@code <release>} POM is never a candidate:
  * it already declared reproducible-API intent.
  */
@@ -29,7 +29,7 @@ public final class MavenPlatformApiHostCandidate {
                 "Maven set source/target `" + inspection.javaVersion()
                         + "` below the build JDK, so it compiled against the host JDK's platform API."
                         + " Zolt defaults to reproducible --release " + inspection.javaVersion()
-                        + "; consider [compiler] platformApi = \"host\" only if a post-target platform"
+                        + "; consider [compiler] jdkApi = \"host\" only if a post-target platform"
                         + " API fails the strict build."));
     }
 

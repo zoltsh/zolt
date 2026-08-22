@@ -2,7 +2,7 @@ package sh.zolt.quality.execution;
 
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckResult;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -14,7 +14,7 @@ final class ExecutionEvidenceQualityCheck {
     ExecutionEvidenceQualityCheck() {
         ExecutionSplitEvidence splitEvidence = new ExecutionSplitEvidence();
         this.testReports = new ExecutionTestReportEvidenceCheck(splitEvidence);
-        this.coverageReports = new ExecutionCoverageEvidenceCheck(splitEvidence, new ZoltTomlParser());
+        this.coverageReports = new ExecutionCoverageEvidenceCheck(splitEvidence, new ManifestProjectLoader());
     }
 
     List<QualityCheckResult> checkTestReports(

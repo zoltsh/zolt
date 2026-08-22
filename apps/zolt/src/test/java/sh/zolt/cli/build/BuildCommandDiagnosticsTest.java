@@ -83,16 +83,16 @@ final class BuildCommandDiagnosticsTest {
                 name = "invalid-config-field"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 packaging = "jar"
                 """.formatted(currentJavaMajorVersion()));
 
         CommandResult result = execute("build", "--cwd", projectDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("error: Unknown field [project].packaging in zolt.toml."));
+        assertTrue(result.stderr().contains("Unknown manifest field `project.packaging`"), result.stderr());
         assertTrue(result.stderr().contains("File: zolt.toml"));
-        assertTrue(result.stderr().contains("Field: [project].packaging"));
+        assertTrue(result.stderr().contains("Field: project.packaging"));
         assertTrue(result.stderr().contains("Next: Remove it or check the spelling."));
     }
 

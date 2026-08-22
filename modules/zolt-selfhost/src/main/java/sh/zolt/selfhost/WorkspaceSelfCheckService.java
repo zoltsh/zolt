@@ -21,7 +21,7 @@ import sh.zolt.workspace.service.WorkspaceSelection;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.test.WorkspaceTestResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -118,14 +118,14 @@ final class WorkspaceSelfCheckService {
     }
 
     static boolean usesRealWorkspace(Path root) {
-        Optional<Workspace> workspace = new WorkspaceDiscoveryService().discover(root);
+        Optional<Workspace> workspace = new ManifestWorkspaceLoader().discover(root);
         return workspace.stream()
                 .flatMap(value -> value.members().stream())
                 .anyMatch(member -> !member.path().equals("."));
     }
 
     static ProjectConfig selectedAppConfig(Path root) {
-        Workspace workspace = new WorkspaceDiscoveryService()
+        Workspace workspace = new ManifestWorkspaceLoader()
                 .discover(root)
                 .orElseThrow(() -> new IllegalStateException("No workspace config found for self-check."));
         WorkspaceSelection selection = new WorkspaceMemberSelector().select(workspace, WorkspaceSelectionRequest.defaults());

@@ -40,7 +40,21 @@ final class PackageServiceWarModeTest {
         createJarWithEntry(devJar, "com/example/dev/DevTools.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
 
                 [[package]]
                 id = "com.example:runtime-lib"

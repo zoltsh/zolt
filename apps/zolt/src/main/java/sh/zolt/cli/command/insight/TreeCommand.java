@@ -3,6 +3,7 @@ package sh.zolt.cli.command.insight;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.error.ActionableError;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.LockDependencyGraphException;
@@ -12,14 +13,15 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProject;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.tree.DependencyJsonFormatter;
 import sh.zolt.tree.DependencyTreeFormatter;
 import sh.zolt.tree.WorkspaceDependencyJsonFormatter;
 import sh.zolt.tree.WorkspaceDependencyTreeFormatter;
 import sh.zolt.tree.WorkspaceTreeMember;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceMemberGraphRoots;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -34,11 +36,11 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "tree", description = "Display the resolved dependency graph.")
 public final class TreeCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ZoltLockfileReader lockfileReader;
     private final DependencyJsonFormatter jsonFormatter;
     private final DependencyTreeFormatter treeFormatter;
-    private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
+    private final ManifestWorkspaceLoader workspaceDiscovery = new ManifestWorkspaceLoader();
     private final WorkspaceDependencyJsonFormatter workspaceJsonFormatter =
             new WorkspaceDependencyJsonFormatter();
     private final WorkspaceDependencyTreeFormatter workspaceTreeFormatter =
@@ -64,18 +66,18 @@ public final class TreeCommand implements Runnable {
 
     public TreeCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new ZoltLockfileReader(),
                 new DependencyJsonFormatter(),
                 new DependencyTreeFormatter());
     }
 
     TreeCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ZoltLockfileReader lockfileReader,
             DependencyJsonFormatter jsonFormatter,
             DependencyTreeFormatter treeFormatter) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.lockfileReader = lockfileReader;
         this.jsonFormatter = jsonFormatter;
         this.treeFormatter = treeFormatter;
@@ -94,13 +96,19 @@ public final class TreeCommand implements Runnable {
         }
     }
 
+    /**
+     * The tree of the one project this directory names. A member directory is still governed by the
+     * workspace root's lock (design §4.5), so the graph is selected out of that lock rather than out of
+     * a member-local one, which no command writes.
+     */
     private String formatProject() {
-        Path projectRoot = projectDirectory.path();
-        ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
-        ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
+        ManifestProject project = projectLoader.project(projectDirectory.path());
+        ProjectConfig config = project.config();
+        ZoltLockfile lockfile = lockfileReader.read(CommandProjectLockfile.path(project));
+        String member = CommandProjectLockfile.memberPath(project);
         return format == Format.JSON
-                ? jsonFormatter.tree(config, lockfile)
-                : treeFormatter.format(config, lockfile);
+                ? jsonFormatter.tree(config, lockfile, member)
+                : treeFormatter.format(config, lockfile, member);
     }
 
     /**

@@ -36,11 +36,11 @@ final class PublishArtifactSelector {
         PackageMode selectedMode = PackageMode.fromConfigValue(artifact)
                 .orElseThrow(() -> new PublishException("Unsupported publish artifact selector `"
                         + artifact
-                        + "`. Use `main` or one of the package mode selectors: thin, spring-boot, war, spring-boot-war."));
+                        + "`. Use `main` or one of the package mode selectors: jar, spring-boot, war, spring-boot-war."));
         if (!SINGLE_FILE_PACKAGE_ARTIFACTS.contains(selectedMode)) {
             throw new PublishException("Publish artifact selector `"
                     + artifact
-                    + "` does not describe a single package archive yet. Use `main`, `thin`, `spring-boot`, `war`, or `spring-boot-war`.");
+                    + "` does not describe a single package archive yet. Use `main`, `jar`, `spring-boot`, `war`, or `spring-boot-war`.");
         }
         if (selectedMode != packageMode) {
             throw new PublishException("Publish artifact selector `"

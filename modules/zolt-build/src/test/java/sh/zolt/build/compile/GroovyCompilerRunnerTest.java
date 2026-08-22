@@ -54,6 +54,6 @@ final class GroovyCompilerRunnerTest {
 
         assertTrue(exception.getMessage().contains("Groovy test compilation failed with exit code 1"));
         assertTrue(exception.getMessage().contains("org.apache.groovy:groovy"));
-        assertTrue(exception.getMessage().contains("[test.dependencies]"));
+        assertTrue(exception.getMessage().contains("[dependencies.test]"));
     }
 }

@@ -57,7 +57,7 @@ final class PackageSpringBootJarCommandTest {
         assertTrue(result.stdout().contains("Run with: java -jar " + jarPath));
         assertTrue(result.stdout().contains("Run with Zolt: zolt run-package --mode spring-boot -- [args]"));
         assertTrue(result.stdout().contains("Spring Boot jar: dependencies are nested under BOOT-INF/lib."));
-        assertFalse(result.stdout().contains("Thin jar: dependencies are not bundled."));
+        assertFalse(result.stdout().contains("Jar: dependencies are not bundled."));
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             assertNotNull(jar.getEntry("BOOT-INF/classes/com/example/Main.class"));
             assertNotNull(jar.getEntry(

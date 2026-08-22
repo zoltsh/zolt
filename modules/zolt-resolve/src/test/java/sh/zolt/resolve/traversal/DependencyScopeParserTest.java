@@ -31,7 +31,8 @@ final class DependencyScopeParserTest {
         assertEquals(DependencyScope.TEST, scope);
         assertFalse(scope.entersMainCompileClasspath());
         assertFalse(scope.entersMainRuntimeClasspath());
-        assertTrue(scope.entersTestClasspath());
+        assertTrue(scope.entersTestCompileClasspath());
+        assertTrue(scope.entersTestRuntimeClasspath());
         assertFalse(scope.packagedByDefault());
     }
 

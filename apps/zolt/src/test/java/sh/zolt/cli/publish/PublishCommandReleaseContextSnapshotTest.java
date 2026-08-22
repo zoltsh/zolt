@@ -35,7 +35,7 @@ final class PublishCommandReleaseContextSnapshotTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-dry-run-release-context-snapshot-0.1.0-SNAPSHOT.jar",
                       "entries": 1,
                       "sha256": "%s"
@@ -57,25 +57,26 @@ final class PublishCommandReleaseContextSnapshotTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-release-context-snapshot")
                 .replace("version = \"0.1.0\"", "version = \"0.1.0-SNAPSHOT\"") + """
+                description = "Release context snapshot fixture."
+                url = "https://example.com/release-context-snapshot"
+                issues = "https://example.com/release-context-snapshot/issues"
+                license = "Apache-2.0"
+
+                [project.developers.team]
+                name = "Example Team"
 
                 [package]
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Release Context Snapshot Fixture"
-                description = "Release context snapshot fixture."
-                url = "https://example.com/release-context-snapshot"
-                license = "Apache-2.0"
-                developers = ["Example Team"]
-                scm = "https://example.com/release-context-snapshot.git"
-                issues = "https://example.com/release-context-snapshot/issues"
+                [project.scm]
+                url = "https://example.com/release-context-snapshot.git"
 
                 [publish]
-                snapshotRepository = "company-snapshots"
+                snapshot = "company-snapshots"
 
                 [publish.repositories.company-snapshots]
                 url = "https://repo.example.test/snapshots"

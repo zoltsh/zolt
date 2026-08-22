@@ -4,11 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.maven.MavenExternalParentRecoveryTestSupport;
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class MavenExternalParentRecoveryEmitTest extends MavenExternalParentRecoveryTestSupport {
@@ -53,7 +54,7 @@ final class MavenExternalParentRecoveryEmitTest extends MavenExternalParentRecov
             </project>
             """;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void recoveredExternalParentInlinesFixedVersionAndIsDeterministic() throws IOException {
@@ -62,14 +63,14 @@ final class MavenExternalParentRecoveryEmitTest extends MavenExternalParentRecov
 
         DraftZoltToml first = mapper.fromMaven(recoveringInspector().inspect(project));
         DraftZoltToml second = mapper.fromMaven(recoveringInspector().inspect(project));
-        ProjectConfig config = first.config();
+        Map<String, String> implementation = implementationVersions(first);
 
-        assertEquals("33.4.8-jre", config.dependencies().get("com.google.guava:guava"),
-                () -> "recovered managed version becomes a fixed literal in the draft: " + config.dependencies());
+        assertEquals("33.4.8-jre", implementation.get("com.google.guava:guava"),
+                () -> "recovered managed version becomes a fixed literal in the draft: " + implementation);
         assertFalse(first.notes().stream().anyMatch(note ->
                         note.contains("com.google.guava:guava") && note.contains("no static version")),
                 () -> "no missing-version review note should remain: " + first.notes());
-        assertEquals(config.dependencies(), second.config().dependencies(),
+        assertEquals(implementation, implementationVersions(second),
                 "the emitted draft is deterministic across re-runs (cache-backed)");
     }
 
@@ -78,12 +79,16 @@ final class MavenExternalParentRecoveryEmitTest extends MavenExternalParentRecov
         Path project = writeProject(SERVICE);
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(project));
+        Map<String, String> implementation = implementationVersions(draft);
 
-        assertFalse(draft.config().dependencies().containsKey("com.google.guava:guava"),
-                () -> "offline audit cannot fetch the parent, so guava has no version: "
-                        + draft.config().dependencies());
+        assertFalse(implementation.containsKey("com.google.guava:guava"),
+                () -> "offline audit cannot fetch the parent, so guava has no version: " + implementation);
         assertTrue(draft.notes().stream().anyMatch(note ->
                         note.contains("com.google.guava:guava") && note.contains("no static version")),
                 () -> "offline draft keeps the honest missing-version review note: " + draft.notes());
+    }
+
+    private static Map<String, String> implementationVersions(DraftZoltToml draft) {
+        return DraftManifestSubject.of(draft).fixed(DependencyLane.IMPLEMENTATION);
     }
 }

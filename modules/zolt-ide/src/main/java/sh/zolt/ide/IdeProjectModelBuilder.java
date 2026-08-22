@@ -1,6 +1,7 @@
 package sh.zolt.ide;
 
 import sh.zolt.project.CompilerSettings;
+import sh.zolt.project.DeveloperEntry;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectMetadata;
@@ -44,8 +45,8 @@ final class IdeProjectModelBuilder {
                 encoding,
                 compiler.args(),
                 compiler.testArgs(),
-                outputPath(root, "[compiler].generatedSources", compiler.generatedSources(), diagnostics),
-                outputPath(root, "[compiler].generatedTestSources", compiler.generatedTestSources(), diagnostics));
+                outputPath(root, "[compiler.generated].main", compiler.generatedSources(), diagnostics),
+                outputPath(root, "[compiler.generated].test", compiler.generatedTestSources(), diagnostics));
     }
 
     IdeModel.TestRuntimeInfo testRuntimeInfo(ProjectConfig config) {
@@ -101,8 +102,8 @@ final class IdeProjectModelBuilder {
         }
         String artifactBaseName = artifactBaseName(root, config, diagnostics);
         return new IdeModel.OutputInfo(
-                outputPath(root, "[build].output", config.build().output(), diagnostics),
-                outputPath(root, "[build].testOutput", config.build().testOutput(), diagnostics),
+                outputPath(root, "[build.output].main", config.build().output(), diagnostics),
+                outputPath(root, "[build.output].test", config.build().testOutput(), diagnostics),
                 artifactPath(root, config, artifactBaseName, "", diagnostics));
     }
 
@@ -112,9 +113,22 @@ final class IdeProjectModelBuilder {
                 blankToNull(metadata.description()),
                 blankToNull(metadata.url()),
                 blankToNull(metadata.license()),
-                metadata.developers(),
+                developers(metadata),
                 blankToNull(metadata.scm()),
                 blankToNull(metadata.issues()));
+    }
+
+    /**
+     * Editors show developer names. The manifest language carries them as structured
+     * {@code [project.developers.<id>]} entries, so project the entry names when present.
+     */
+    private static List<String> developers(PublicationMetadata metadata) {
+        if (metadata.developerEntries().isEmpty()) {
+            return metadata.developers();
+        }
+        return metadata.developerEntries().stream()
+                .map(DeveloperEntry::name)
+                .toList();
     }
 
     private static String artifactBaseName(

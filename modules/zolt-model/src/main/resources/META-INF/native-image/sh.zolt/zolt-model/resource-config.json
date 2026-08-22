@@ -12,6 +12,9 @@
       },
       {
         "pattern": "\\Qsh/zolt/license/spdx-deprecated-license-replacements.txt\\E"
+      },
+      {
+        "pattern": "\\Qsh/zolt/unicode/unicode-17.0.0-portability.bin\\E"
       }
     ]
   }

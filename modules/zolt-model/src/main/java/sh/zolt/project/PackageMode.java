@@ -5,12 +5,12 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public enum PackageMode {
-    THIN("thin"),
+    THIN("jar"),
     SPRING_BOOT("spring-boot"),
     WAR("war"),
     SPRING_BOOT_WAR("spring-boot-war"),
     QUARKUS("quarkus"),
-    UBER("uber"),
+    UBER("uber-jar"),
     BOM("bom");
 
     private final String configValue;

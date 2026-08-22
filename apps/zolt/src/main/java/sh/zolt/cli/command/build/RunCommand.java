@@ -29,7 +29,7 @@ import sh.zolt.perf.TimingRecorder;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
@@ -48,7 +48,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "run", description = "Build and run the configured main class.")
 public final class RunCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final RunService runService;
     private final WorkspaceRunService workspaceRunService;
     private final CommandLockfiles lockfiles;
@@ -85,28 +85,28 @@ public final class RunCommand implements Runnable {
 
     public RunCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 CommandFrameworkServices.runCommandServices(),
                 new CommandLockfiles());
     }
 
     RunCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             CommandRunServices runServices,
             CommandLockfiles lockfiles) {
         this(
-                tomlParser,
+                projectLoader,
                 runServices.runService(),
                 runServices.workspaceRunService(),
                 lockfiles);
     }
 
     RunCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             RunService runService,
             WorkspaceRunService workspaceRunService,
             CommandLockfiles lockfiles) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.runService = runService;
         this.workspaceRunService = workspaceRunService;
         this.lockfiles = lockfiles;
@@ -188,7 +188,7 @@ public final class RunCommand implements Runnable {
             }
             ProjectConfig config = timings.measure(
                     "config read",
-                    () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                    () -> projectLoader.load(projectRoot));
             var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
             RunResult result = timings.measure(
                     "run application",

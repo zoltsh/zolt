@@ -3,13 +3,13 @@
 // from the listing and is therefore absent here, but stays invokable.
 export const EXPECTED_ZOLT_COMMANDS = [
   "help", "init", "version", "config", "doctor", "self",
-  "add", "remove", "platform", "resolve", "tree", "why", "policy", "conflicts",
+  "add", "remove", "versions", "platforms", "bom", "resolve", "tree", "why", "policy", "conflicts",
   "outdated", "update",
   "aliases", "tasks", "task", "build", "run", "exec", "test", "integration-test", "coverage",
   "package", "run-package", "clean",
   "check", "plan", "classpath", "ide", "toolchain", "shims", "explain", "quarkus",
   "native", "publish",
-  "sbom", "licenses", "cache",
+  "sbom", "licenses", "workspace", "cache",
 ] as const;
 
 export function parseListedCommands(output: string): string[] {

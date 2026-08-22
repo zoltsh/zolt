@@ -24,16 +24,15 @@ final class WorkspaceDependencyTreeFormatterTest extends WorkspaceTreeTestSuppor
         assertEquals("""
                 demo-workspace
                 apps/api
-                +- com.example:core:0.1.0
+                +- org.example:shared:1.0.0 (lane: implementation; resolved scope: compile)
+                |  \\- org.example:extra:2.0.0
+                +- com.example:core:0.1.0 (lane: api; resolved scope: compile)
                 |  \\- org.example:shared:1.0.0
                 |     \\- org.example:extra:2.0.0
-                +- org.example:bundle:3.0.0:zip
-                \\- org.example:shared:1.0.0
-                   \\- org.example:extra:2.0.0
+                \\- org.example:bundle:3.0.0:zip (lane: runtime; resolved scope: runtime)
 
                 modules/core
-                +- org.example:shared:1.0.0
-                \\- org.example:shared:1.0.0
+                \\- org.example:shared:1.0.0 (lane: api; resolved scope: compile)
                 """, output);
     }
 
@@ -51,7 +50,7 @@ final class WorkspaceDependencyTreeFormatterTest extends WorkspaceTreeTestSuppor
                         new PackageId("commons-logging", "commons-logging"),
                         Optional.of("1.2"),
                         Optional.of("com.example:api:0.1.0"),
-                        "[dependencyPolicy].exclude commons-logging:commons-logging")),
+                        "[dependencies.policy].deny commons-logging:commons-logging")),
                 List.of());
 
         String output = formatter.format(WORKSPACE_NAME, MEMBERS, lockfile);
@@ -59,7 +58,7 @@ final class WorkspaceDependencyTreeFormatterTest extends WorkspaceTreeTestSuppor
         assertTrue(output.endsWith("""
                 Policy effects
                 - global-exclusion commons-logging:commons-logging:1.2 from com.example:api:0.1.0: \
-                [dependencyPolicy].exclude commons-logging:commons-logging
+                [dependencies.policy].deny commons-logging:commons-logging
                 """), output);
     }
 

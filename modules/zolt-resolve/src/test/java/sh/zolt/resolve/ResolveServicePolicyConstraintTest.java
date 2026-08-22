@@ -14,7 +14,10 @@ import sh.zolt.project.DependencyConstraint;
 import sh.zolt.project.DependencyConstraintKind;
 import sh.zolt.project.DependencyPolicyExclusion;
 import sh.zolt.project.DependencyPolicySettings;
+import sh.zolt.project.LicensePolicySettings;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.project.VersionConflictPolicy;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +52,7 @@ final class ResolveServicePolicyConstraintTest extends ResolveServiceTestSupport
         assertEquals("global-exclusion", effect.kind());
         assertEquals("1.0.0", effect.requestedVersion().orElseThrow());
         assertEquals("com.example:app:1.0.0", effect.source().orElseThrow());
-        assertEquals("[dependencyPolicy].exclude com.example:lib (Use the internal logging bridge instead)", effect.policy());
+        assertEquals("[dependencies.policy].deny com.example:lib (Use the internal logging bridge instead)", effect.policy());
     }
 
     @Test
@@ -157,14 +160,50 @@ final class ResolveServicePolicyConstraintTest extends ResolveServiceTestSupport
                 () -> resolveService.resolve(projectDir, config, cacheRoot));
 
         assertTrue(exception.getMessage().contains(
-                "Dependency version conflicts are disallowed by [dependencyPolicy].failOnVersionConflict"));
+                "Dependency version conflicts are disallowed by [dependencies.policy].conflicts"));
         assertTrue(exception.getMessage().contains("com.example:lib selected 2.0.0"));
         assertTrue(exception.getMessage().contains("direct dependency wins"));
         assertTrue(exception.getMessage().contains("1.0.0 [transitive compile]"));
         assertTrue(exception.getMessage().contains("2.0.0 [direct compile]"));
         assertTrue(exception.getMessage().contains("Align the conflicting versions with a [platforms] BOM"));
-        assertTrue(exception.getMessage().contains("[dependencyConstraints] strict constraint"));
-        assertTrue(!exception.getMessage().contains("[dependencyPolicy] strict constraint"));
+        assertTrue(exception.getMessage().contains("[dependencies.constraints] strict constraint"));
+        assertTrue(!exception.getMessage().contains("[dependencies.policy] strict constraint"));
+    }
+
+    /**
+     * Design §9.11: {@code warn} keeps the mediated resolution and reports it, so the lock is written
+     * and the resolve result carries a structured warning naming the same conflict {@code fail} rejects.
+     */
+    @Test
+    void warnOnVersionConflictKeepsTheLockAndReportsTheMediatedConflict() {
+        addArtifact("com.example", "lib", "2.0.0", """
+                <project>
+                  <groupId>com.example</groupId>
+                  <artifactId>lib</artifactId>
+                  <version>2.0.0</version>
+                </project>
+                """);
+        Path projectDir = tempDir.resolve("project-warn-on-conflict");
+        Path cacheRoot = tempDir.resolve("cache-warn-on-conflict");
+        createDirectory(projectDir);
+        ProjectConfig config = configWithDependencies(Map.of(
+                        "com.example:app", "1.0.0",
+                        "com.example:lib", "2.0.0"))
+                .withDependencyPolicy(new DependencyPolicySettings(
+                        List.of(),
+                        Map.of(),
+                        VersionConflictPolicy.WARN,
+                        LicensePolicySettings.defaults()));
+
+        ResolveResult result = resolveService.resolve(projectDir, config, cacheRoot);
+
+        assertEquals(1, result.conflictCount());
+        assertEquals(1, result.warnings().size(), result.warnings().toString());
+        String warning = result.warnings().getFirst();
+        assertTrue(warning.contains("[dependencies.policy].conflicts = \"warn\""), warning);
+        assertTrue(warning.contains("com.example:lib selected 2.0.0"), warning);
+        assertTrue(warning.contains("1.0.0 [transitive compile]"), warning);
+        assertTrue(Files.isRegularFile(result.lockfilePath()));
     }
 
     @Test
@@ -206,7 +245,7 @@ final class ResolveServicePolicyConstraintTest extends ResolveServiceTestSupport
 
         assertTrue(exception.getMessage().contains("Dependency policy excludes direct dependency `com.example:app`"));
         assertTrue(exception.getMessage().contains("Application artifact is banned in this policy"));
-        assertTrue(exception.getMessage().contains("Remove the direct dependency or remove the matching [dependencyPolicy].exclude entry"));
+        assertTrue(exception.getMessage().contains("Remove the direct dependency or remove the matching [dependencies.policy].deny entry"));
         assertEquals(0, totalRequests.get());
     }
 
@@ -227,7 +266,7 @@ final class ResolveServicePolicyConstraintTest extends ResolveServiceTestSupport
                 () -> resolveService.resolve(projectDir, config, cacheRoot));
 
         assertTrue(exception.getMessage().contains(
-                "Wildcard dependency exclusions are not supported in [dependencyPolicy].exclude: com.example:*"));
+                "Wildcard dependency exclusions are not supported in [dependencies.policy].deny: com.example:*"));
         assertTrue(exception.getMessage().contains("Replace it with explicit group and artifact exclusions"));
     }
 }

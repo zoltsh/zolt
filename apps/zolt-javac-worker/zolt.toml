@@ -1,21 +1,9 @@
 [project]
 name = "zolt-javac-worker"
-version = "0.1.0-SNAPSHOT"
-group = "sh.zolt"
-java = "21"
 main = "sh.zolt.javac.JavacWorkerMain"
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
-[test.dependencies]
+[dependencies.test]
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
 [package]
-mode = "uber"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+mode = "uber-jar"

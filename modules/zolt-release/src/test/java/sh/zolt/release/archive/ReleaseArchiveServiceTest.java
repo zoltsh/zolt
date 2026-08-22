@@ -95,7 +95,7 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
         Files.createDirectories(workspaceRoot);
         Files.writeString(
                 workspaceRoot.resolve("zolt.toml"),
-                "[workspace]\nmembers = [\"apps/zolt\"]\n");
+                "[workspace]\nname = \"zolt\"\n");
         writeLegalDocuments(workspaceRoot);
         projectDir = workspaceRoot.resolve("apps/zolt");
         Files.createDirectories(projectDir);
@@ -126,7 +126,7 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
         Files.createDirectories(workspaceRoot);
         Files.writeString(
                 workspaceRoot.resolve("zolt.toml"),
-                "[workspace]\nmembers = [\"apps/zolt\"]\n");
+                "[workspace]\nname = \"zolt\"\n");
         writeLegalDocuments(workspaceRoot);
         projectDir = workspaceRoot.resolve("apps/zolt");
         Files.createDirectories(projectDir);
@@ -144,10 +144,12 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
     }
 
     @Test
-    void shipsLegalDocumentsFromAStandaloneWorkspaceManifestRoot() throws IOException {
+    void shipsLegalDocumentsFromAVirtualWorkspaceRoot() throws IOException {
         Path workspaceRoot = projectDir.resolve("repo");
         Files.createDirectories(workspaceRoot);
-        Files.writeString(workspaceRoot.resolve("zolt-workspace.toml"), "members = [\"apps/zolt\"]\n");
+        Files.writeString(
+                workspaceRoot.resolve("zolt.toml"),
+                "[workspace]\nname = \"zolt\"\n\n[workspace.members]\ninclude = [\"apps/zolt\"]\n");
         writeLegalDocuments(workspaceRoot);
         projectDir = workspaceRoot.resolve("apps/zolt");
         Files.createDirectories(projectDir);
@@ -173,7 +175,7 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
         Files.createDirectories(workspaceRoot);
         Files.writeString(
                 workspaceRoot.resolve("zolt.toml"),
-                "[workspace.package]\nversion = \"0.1.0\"\n");
+                "[workspace.project]\nversion = \"0.1.0\"\n");
         writeLegalDocuments(workspaceRoot);
         projectDir = workspaceRoot.resolve("apps/zolt");
         Files.createDirectories(projectDir);
@@ -197,7 +199,7 @@ final class ReleaseArchiveServiceTest extends ReleaseArchiveTestSupport {
         Files.createDirectories(workspaceRoot);
         Files.writeString(
                 workspaceRoot.resolve("zolt.toml"),
-                "[workspace]\nmembers = [\"apps/zolt\"]\n");
+                "[workspace]\nname = \"zolt\"\n");
         projectDir = workspaceRoot.resolve("apps/zolt");
         Files.createDirectories(projectDir);
         Path binary = writeBinary("target/native/zolt");

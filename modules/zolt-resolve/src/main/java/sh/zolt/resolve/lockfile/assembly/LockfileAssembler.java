@@ -90,7 +90,9 @@ public final class LockfileAssembler {
                     ProjectResolutionFingerprint.inputFingerprints(context.config()),
                     packages,
                     conflicts,
-                    LockfilePolicyPlanner.lockPolicyEffects(mergedPolicyEffects(graph, execResolutions)));
+                    LockfilePolicyPlanner.lockPolicyEffects(mergedPolicyEffects(graph, execResolutions)),
+                    List.of(),
+                    new AuthoredDependencyRootPlanner(coordinateParser).plan(context.config(), packages));
         } finally {
             context.addLockfileAssemblyNanos(elapsedSince(started));
         }

@@ -113,7 +113,9 @@ final class WorkspaceLockfileAggregator {
                 List.copyOf(conflicts.values()),
                 List.copyOf(policyEffects.values()),
                 WorkspaceMemberGraphFacts.complete(
-                        globalSelection, memberOutputs));
+                        globalSelection, memberOutputs),
+                new WorkspaceDependencyRootAssembler().assemble(
+                        workspace, memberOutputs, List.copyOf(packages.values())));
     }
 
     private static boolean isTransitionalRootWorkspace(

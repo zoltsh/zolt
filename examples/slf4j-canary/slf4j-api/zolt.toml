@@ -1,35 +1,21 @@
 [project]
 name = "slf4j-api"
-version = "0.1.0"
-group = "org.slf4j"
-java = "21"
+description = "Small logging API fixture for Zolt workspace canary testing."
+url = "https://www.slf4j.org/"
+issues = "https://jira.qos.ch/projects/SLF4J"
 
-[dependencies]
+[project.scm]
+url = "https://github.com/qos-ch/slf4j.git"
 
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+[project.developers.zolt-team]
+name = "Zolt Team"
 
 [compiler]
-release = "8"
-encoding = "UTF-8"
 args = ["-Xlint:deprecation"]
 
 [package]
-mode = "thin"
 sources = true
 javadoc = true
-
-[package.metadata]
-name = "SLF4J Canary API"
-description = "Small logging API fixture for Zolt workspace canary testing."
-url = "https://www.slf4j.org/"
-license = "MIT"
-developers = ["Zolt Team"]
-scm = "https://github.com/qos-ch/slf4j.git"
-issues = "https://jira.qos.ch/projects/SLF4J"
 
 [package.manifest]
 "Automatic-Module-Name" = "org.slf4j"

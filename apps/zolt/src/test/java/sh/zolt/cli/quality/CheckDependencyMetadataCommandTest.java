@@ -46,10 +46,13 @@ final class CheckDependencyMetadataCommandTest {
             Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-dependency-metadata") + """
 
                     [repositories]
-                    test = "%s"
+                    central = false
+
+                    [repositories.test]
+                    url = "%s"
 
                     [dependencies]
-                    "org.example:lib" = { version = "1.0.0", optional = true, exclusions = [{ group = "org.example", artifact = "excluded" }] }
+                    "org.example:lib" = { version = "1.0.0", optional = true, exclude = ["org.example:excluded"] }
                     "org.example:publish-only" = { version = "1.0.0", publishOnly = true }
                     """.formatted(repository.baseUri()));
             Path cacheRoot = tempDir.resolve("cache");
@@ -79,7 +82,14 @@ final class CheckDependencyMetadataCommandTest {
                 "org.example:publish-only" = { version = "1.0.0", publishOnly = true }
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:publish-only"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.example:publish-only"
@@ -105,10 +115,17 @@ final class CheckDependencyMetadataCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-exclusion-leak") + """
 
                 [dependencies]
-                "org.example:lib" = { version = "1.0.0", exclusions = [{ group = "org.example", artifact = "excluded" }] }
+                "org.example:lib" = { version = "1.0.0", exclude = ["org.example:excluded"] }
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.example:lib"
@@ -137,13 +154,15 @@ final class CheckDependencyMetadataCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-metadata"
-                members = ["api", "binding"]
+
+                [workspace.members]
+                include = ["api", "binding"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
         Files.writeString(bindingDir.resolve("zolt.toml"), memberConfig("binding") + """
 
-                [api.dependencies]
-                "com.example:api" = { workspace = "api" }
+                [dependencies.api]
+                "com.example:api" = { workspace = true }
                 """);
         Path cacheRoot = tempDir.resolve("cache");
         CommandResult resolve = execute(

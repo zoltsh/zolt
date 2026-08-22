@@ -68,7 +68,7 @@ final class UberJarEntryWriter {
                         + name
                         + "` while merging "
                         + source
-                        + ". Move one dependency out of the runtime classpath, set [package].uberDuplicates ="
-                        + " \"first-wins\", or use `thin` package mode.");
+                        + ". Move one dependency out of the runtime classpath, set [package].duplicates ="
+                        + " \"first-wins\", or use the default `jar` package mode.");
     }
 }

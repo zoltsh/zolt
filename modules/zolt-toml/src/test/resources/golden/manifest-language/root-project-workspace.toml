@@ -1,0 +1,14 @@
+[workspace]
+name = "platform"
+
+[workspace.members]
+default = ["."]
+include = [".", "modules/*"]
+
+[workspace.project]
+group = "com.example"
+version = "1.4.0"
+java = 21
+
+[project]
+name = "platform-root"

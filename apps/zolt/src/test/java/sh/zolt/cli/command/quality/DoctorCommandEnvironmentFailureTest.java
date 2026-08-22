@@ -11,7 +11,7 @@ import sh.zolt.toolchain.jvm.JavaRuntimeInfo;
 import sh.zolt.toolchain.jvm.JavaToolchainProbe;
 import sh.zolt.toolchain.jvm.JavaToolchainSource;
 import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -64,7 +64,7 @@ final class DoctorCommandEnvironmentFailureTest {
 
     private static DoctorCommand doctor(JavaToolchainProbe probe) {
         return new DoctorCommand(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new SelfHostingCheckService(),
                 new JavaToolchainStatusService(probe));
     }

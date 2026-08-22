@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""Generate and verify Zolt's pinned Unicode 17 portability data."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import struct
+from pathlib import Path
+
+
+IDENTITY = "unicode-17.0.0-nfc-full-default-case-fold"
+FORMAT_VERSION = 1
+# Inputs are the unmodified files retrieved from this official Unicode UCD directory.
+SOURCE_ROOT = "https://www.unicode.org/Public/17.0.0/ucd/"
+SOURCES = {
+    "UnicodeData.txt": "2e1efc1dcb59c575eedf5ccae60f95229f706ee6d031835247d843c11d96470c",
+    "CompositionExclusions.txt": "2f239196ef3b5b61db5cc476e9bd80f534d15aa1b74e1be1dea5d042a344c85f",
+    "CaseFolding.txt": "ff8d8fefbf123574205085d6714c36149eb946d717a0c585c27f0f4ef58c4183",
+    "NormalizationTest.txt": "5019ffd530751a741900c849c0e010332f142a3612234639bd200b82138a87db",
+}
+TABLE_SHA256 = "80ca0e4cae87a07641b8d48547d8201d70e35bd0e9649f2e7fcfa780e873183b"
+CONFORMANCE_SHA256 = "ab5a6f2e8bd5e446066ae2ce4f2265028195fb722365499bf7252b374a8147fb"
+REPOSITORY = Path(__file__).resolve().parent.parent
+TABLE_PATH = REPOSITORY / (
+    "modules/zolt-model/src/main/resources/sh/zolt/unicode/"
+    "unicode-17.0.0-portability.bin"
+)
+CONFORMANCE_PATH = REPOSITORY / (
+    "modules/zolt-model/src/test/resources/sh/zolt/unicode/"
+    "unicode-17.0.0-nfc-conformance.bin"
+)
+
+
+def digest(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def checked_sources(source_dir: Path) -> dict[str, bytes]:
+    sources: dict[str, bytes] = {}
+    for name, expected in SOURCES.items():
+        path = source_dir / name
+        content = path.read_bytes()
+        actual = digest(content)
+        if actual != expected:
+            raise SystemExit(f"{path}: expected SHA-256 {expected}, found {actual}")
+        sources[name] = content
+    return sources
+
+
+def unicode_data(content: bytes) -> tuple[dict[int, tuple[int, ...]], dict[int, int]]:
+    decompositions: dict[int, tuple[int, ...]] = {}
+    combining_classes: dict[int, int] = {}
+    for raw in content.decode("utf-8").splitlines():
+        fields = raw.split(";")
+        if len(fields) < 6:
+            continue
+        code_point = int(fields[0], 16)
+        combining_class = int(fields[3])
+        if combining_class:
+            combining_classes[code_point] = combining_class
+        mapping = fields[5].strip()
+        if mapping and not mapping.startswith("<"):
+            decompositions[code_point] = tuple(int(value, 16) for value in mapping.split())
+    return decompositions, combining_classes
+
+
+def composition_exclusions(content: bytes) -> set[int]:
+    exclusions: set[int] = set()
+    for raw in content.decode("utf-8").splitlines():
+        value = raw.partition("#")[0].strip()
+        if value:
+            exclusions.add(int(value, 16))
+    return exclusions
+
+
+def case_folds(content: bytes) -> dict[int, tuple[int, ...]]:
+    folds: dict[int, tuple[int, ...]] = {}
+    for raw in content.decode("utf-8").splitlines():
+        fields = [value.strip() for value in raw.partition("#")[0].split(";")]
+        if len(fields) < 3 or fields[1] not in {"C", "F"}:
+            continue
+        code_point = int(fields[0], 16)
+        if code_point in folds:
+            raise SystemExit(f"duplicate C/F case-fold mapping for U+{code_point:04X}")
+        folds[code_point] = tuple(int(value, 16) for value in fields[2].split())
+    return folds
+
+
+def utf8(value: str) -> bytes:
+    content = value.encode("utf-8")
+    return struct.pack(">H", len(content)) + content
+
+
+def sequence_entries(entries: dict[int, tuple[int, ...]]) -> bytes:
+    output = bytearray(struct.pack(">I", len(entries)))
+    for code_point, mapping in sorted(entries.items()):
+        output.extend(struct.pack(">IB", code_point, len(mapping)))
+        output.extend(struct.pack(f">{len(mapping)}I", *mapping))
+    return bytes(output)
+
+
+def build_table(sources: dict[str, bytes]) -> bytes:
+    decompositions, combining_classes = unicode_data(sources["UnicodeData.txt"])
+    exclusions = composition_exclusions(sources["CompositionExclusions.txt"])
+    compositions: dict[tuple[int, int], int] = {}
+    for composite, mapping in decompositions.items():
+        if len(mapping) != 2 or combining_classes.get(mapping[0], 0) != 0 or composite in exclusions:
+            continue
+        pair = (mapping[0], mapping[1])
+        if pair in compositions:
+            raise SystemExit(f"duplicate canonical composition pair {pair!r}")
+        compositions[pair] = composite
+
+    output = bytearray(b"ZOLTU17\0")
+    output.extend(struct.pack(">H", FORMAT_VERSION))
+    output.extend(utf8(IDENTITY))
+    for name in ("UnicodeData.txt", "CompositionExclusions.txt", "CaseFolding.txt"):
+        output.extend(bytes.fromhex(SOURCES[name]))
+    output.extend(sequence_entries(decompositions))
+    output.extend(struct.pack(">I", len(combining_classes)))
+    for code_point, combining_class in sorted(combining_classes.items()):
+        output.extend(struct.pack(">IB", code_point, combining_class))
+    output.extend(struct.pack(">I", len(compositions)))
+    for (first, second), composite in sorted(compositions.items()):
+        output.extend(struct.pack(">III", first, second, composite))
+    output.extend(sequence_entries(case_folds(sources["CaseFolding.txt"])))
+    return bytes(output)
+
+
+def code_points(field: str) -> tuple[int, ...]:
+    return tuple(int(value, 16) for value in field.strip().split())
+
+
+def build_conformance(content: bytes) -> bytes:
+    vectors: dict[tuple[int, ...], tuple[int, ...]] = {}
+    for raw in content.decode("utf-8").splitlines():
+        fields = raw.partition("#")[0].split(";")
+        if len(fields) < 5 or not fields[0].strip():
+            continue
+        c1, c2, c3, c4, c5 = (code_points(field) for field in fields[:5])
+        for source, expected in ((c1, c2), (c2, c2), (c3, c2), (c4, c4), (c5, c4)):
+            previous = vectors.setdefault(source, expected)
+            if previous != expected:
+                raise SystemExit(f"conflicting NFC expectations for {source!r}")
+
+    output = bytearray(b"ZOLTNFC\0")
+    output.extend(struct.pack(">H", FORMAT_VERSION))
+    output.extend(bytes.fromhex(SOURCES["NormalizationTest.txt"]))
+    output.extend(struct.pack(">I", len(vectors)))
+    for source, expected in sorted(vectors.items()):
+        output.extend(struct.pack(">H", len(source)))
+        output.extend(struct.pack(f">{len(source)}I", *source))
+        output.extend(struct.pack(">H", len(expected)))
+        output.extend(struct.pack(f">{len(expected)}I", *expected))
+    return bytes(output)
+
+
+def write(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    print(f"wrote {path.relative_to(REPOSITORY)} sha256={digest(content)} bytes={len(content)}")
+
+
+def verify(path: Path, content: bytes, expected_digest: str) -> None:
+    actual_digest = digest(content)
+    if actual_digest != expected_digest:
+        raise SystemExit(f"generated {path.name}: expected SHA-256 {expected_digest}, found {actual_digest}")
+    checked_in = path.read_bytes()
+    if checked_in != content:
+        raise SystemExit(f"{path}: checked-in bytes do not match deterministic generation")
+    print(f"verified {path.relative_to(REPOSITORY)} sha256={actual_digest} bytes={len(content)}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=f"Expected unmodified official inputs from {SOURCE_ROOT}",
+    )
+    parser.add_argument("--source-dir", required=True, type=Path)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--write", action="store_true")
+    mode.add_argument("--verify", action="store_true")
+    arguments = parser.parse_args()
+
+    sources = checked_sources(arguments.source_dir)
+    table = build_table(sources)
+    conformance = build_conformance(sources["NormalizationTest.txt"])
+    if arguments.write:
+        write(TABLE_PATH, table)
+        write(CONFORMANCE_PATH, conformance)
+    else:
+        verify(TABLE_PATH, table, TABLE_SHA256)
+        verify(CONFORMANCE_PATH, conformance, CONFORMANCE_SHA256)
+
+
+if __name__ == "__main__":
+    main()

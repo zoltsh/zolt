@@ -7,7 +7,7 @@ import sh.zolt.publish.CentralPortalClient;
 import sh.zolt.publish.PublishCentralReadinessService;
 import sh.zolt.publish.PublishDryRunService;
 import sh.zolt.publish.PublishException;
-import sh.zolt.publish.PublishSettingsReader;
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
@@ -44,7 +44,7 @@ import java.util.Set;
 public final class WorkspacePublishService {
     private final WorkspaceBuildService workspaceBuildService;
     private final WorkspaceMemberDirectory memberDirectory = new WorkspaceMemberDirectory();
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     // Per-member Phase-1 planning (config merge, lock projection, single-project planner reuse,
     // inter-member and Central-readiness gates) is delegated so this orchestrator holds only the flow.
     private final WorkspaceMemberPlanner memberPlanner;
@@ -77,7 +77,7 @@ public final class WorkspacePublishService {
                 new WorkspaceMemberPolicyResolver(),
                 new WorkspaceMemberPomLockProjection(),
                 new WorkspaceBomFamily(),
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 new PublishCentralReadinessService(),
                 new PublishDryRunService(packagePlanService),
                 new WorkspaceRepositoryUploader(repositoryClient),
@@ -90,14 +90,14 @@ public final class WorkspacePublishService {
             WorkspaceMemberPolicyResolver policyResolver,
             WorkspaceMemberPomLockProjection projection,
             WorkspaceBomFamily bomFamily,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             PublishCentralReadinessService centralReadinessService,
             PublishDryRunService dryRunService,
             WorkspaceRepositoryUploader uploader,
             WorkspaceCentralPublisher centralPublisher,
             PackagePlanService packagePlanService) {
         this.workspaceBuildService = workspaceBuildService;
-        this.publishSettingsReader = publishSettingsReader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.uploader = uploader;
         this.centralPublisher = centralPublisher;
         this.staging = new WorkspacePublishStaging();
@@ -105,7 +105,7 @@ public final class WorkspacePublishService {
                 policyResolver,
                 projection,
                 bomFamily,
-                publishSettingsReader,
+                publishSettingsLoader,
                 centralReadinessService,
                 dryRunService,
                 packagePlanService,
@@ -244,7 +244,7 @@ public final class WorkspacePublishService {
             Path statePath,
             Optional<ResumeState> resumeState) {
         List<WorkspaceMember> publishable =
-                WorkspacePublishSelection.publishable(workspace, selection, publishSettingsReader);
+                WorkspacePublishSelection.publishable(workspace, selection, publishSettingsLoader);
         Set<String> publishSet = new LinkedHashSet<>();
         for (WorkspaceMember member : publishable) {
             publishSet.add(member.config().project().group() + ":" + member.config().project().name());

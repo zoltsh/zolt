@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.AnnotationProcessorFixture;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,7 +22,7 @@ final class TestCompileServiceTest {
 
     @Test
     void compilesMainSourcesBeforeTestSources() throws IOException {
-        TestCompileServiceTestSupport.writeLockfile(projectDir, "version = 1\n");
+        TestCompileServiceTestSupport.writeLockfile(projectDir, "version = 7\n");
         TestCompileServiceTestSupport.source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -55,7 +55,7 @@ final class TestCompileServiceTest {
 
     @Test
     void copiesMainAndTestResourcesDuringTestCompilation() throws IOException {
-        TestCompileServiceTestSupport.writeLockfile(projectDir, "version = 1\n");
+        TestCompileServiceTestSupport.writeLockfile(projectDir, "version = 7\n");
         TestCompileServiceTestSupport.source(projectDir, "src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         TestCompileServiceTestSupport.source(projectDir, "src/test/java/com/example/MainTest.java", "package com.example; public final class MainTest {}\n");
         TestCompileServiceTestSupport.source(projectDir, "src/main/resources/META-INF/native-image/reflect-config.json", "[]\n");
@@ -79,7 +79,14 @@ final class TestCompileServiceTest {
                 processorJar,
                 java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         TestCompileServiceTestSupport.writeLockfile(projectDir, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-processor"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "com.example:test-processor"
@@ -115,7 +122,7 @@ final class TestCompileServiceTest {
             throws IOException {
         TestCompileServiceTestSupport.writeLockfile(
                 projectDir,
-                "version = 1\n");
+                "version = 7\n");
         TestCompileServiceTestSupport.source(
                 projectDir,
                 "src/test/java/com/example/MainTest.java",
@@ -129,7 +136,7 @@ final class TestCompileServiceTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [generated.test.fixtures]
                 kind = "declared-root"
@@ -144,7 +151,7 @@ final class TestCompileServiceTest {
                 projectDir.resolve("zolt.toml"),
                 toml);
         ProjectConfig config =
-                new ZoltTomlParser().parse(toml);
+                new ManifestProjectConfigLoader().load(toml);
 
         testCompileService.compileTests(
                 projectDir,

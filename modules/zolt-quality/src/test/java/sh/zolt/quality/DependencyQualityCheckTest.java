@@ -121,7 +121,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
         ProjectConfig config = parseProject(projectDir, """
 
                 [dependencies]
-                "com.example:root-lib" = { version = "1.0.0", optional = true, exclusions = [{ group = "com.example", artifact = "legacy" }] }
+                "com.example:root-lib" = { version = "1.0.0", optional = true, exclude = ["com.example:legacy"] }
                 """);
         writeLockfile(projectDir, packageEntry(
                 "com.example:root-lib",
@@ -147,7 +147,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
         ProjectConfig config = parseProject(projectDir, """
 
                 [dependencies]
-                "com.example:root-lib" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "legacy" }] }
+                "com.example:root-lib" = { version = "1.0.0", exclude = ["com.example:legacy"] }
                 """);
         writeLockfile(projectDir, packageEntry(
                 "com.example:root-lib",
@@ -204,7 +204,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
 
                 [dependencies]
                 "com.example:optional-lib" = { version = "1.0.0", optional = true }
-                "com.example:root-lib" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "legacy" }] }
+                "com.example:root-lib" = { version = "1.0.0", exclude = ["com.example:legacy"] }
                 """);
         writeLockfile(projectDir, packageEntry(
                 "com.example:root-lib",
@@ -226,12 +226,13 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
 
     @Test
     void dependencyMetadataRequiresWorkspaceModeForWorkspaceDependencyMetadata() throws IOException {
-        Path projectDir = tempDir.resolve("optional-workspace-dependency");
-        ProjectConfig config = parseProject(projectDir, """
+        Path root = tempDir.resolve("optional-workspace-dependency");
+        Path projectDir = root.resolve("apps/api");
+        ProjectConfig config = parseWorkspaceMember(root, """
 
                 [dependencies]
-                "com.example:core" = { workspace = "modules/core", optional = true }
-                """);
+                "com.example:core" = { workspace = true, optional = true }
+                """, List.of("apps/api", "modules/core"));
         writeLockfile(projectDir, "");
 
         QualityCheckResult result = check.checkProjectMetadata(Optional.empty(), projectDir, config, false).getFirst();
@@ -300,14 +301,12 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
                 "com.example:direct-lib" = "1.2.3"
                 "com.example:stale-direct" = "1.0.0"
 
-                [dependencyPolicy]
-                exclude = [
-                  { group = "com.example", artifact = "direct-lib", reason = "Direct dependency conflict fixture" }
-                ]
+                [dependencies.policy]
+                deny = [{ coordinate = "com.example:direct-lib", reason = "Direct dependency conflict fixture" }]
 
-                [dependencyConstraints]
-                "com.example:direct-lib" = { version = "1.0.0", kind = "strict" }
-                "com.example:transitive-lib" = { version = "1.0.0", kind = "strict" }
+                [dependencies.constraints]
+                "com.example:direct-lib" = { version = "1.0.0" }
+                "com.example:transitive-lib" = { version = "1.0.0" }
                 """);
         writeLockfile(projectDir,
                 packageEntry("com.example:direct-lib", "1.2.3", "compile", true, "")
@@ -323,9 +322,9 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
 
         assertEquals(List.of(
                         "passed|policy-conflicts|Dependency policy baseline is explainable: 0 platforms, 2 constraints, 1 exclusion, and 2 direct explicit versions.|",
-                        "failed|[dependencyConstraints].com.example:direct-lib|Strict constraint for `com.example:direct-lib` is overridden by a direct dependency version.|Align the direct dependency version with [dependencyConstraints], or remove the strict constraint if the direct override is intentional.",
-                        "failed|[dependencyConstraints].com.example:transitive-lib|Strict constraint expected `com.example:transitive-lib` version `1.0.0`, but zolt.lock selected `2.0.0`.|Run `zolt resolve` after updating [dependencyConstraints], or change the strict constraint to the selected baseline.",
-                        "failed|[dependencyPolicy].exclude com.example:direct-lib|Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency.|Remove the direct dependency, or remove the exclusion if the dependency is intentional.",
+                        "failed|[dependencies.constraints].com.example:direct-lib|Strict constraint for `com.example:direct-lib` is overridden by a direct dependency version.|Align the direct dependency version with [dependencies.constraints], or remove the strict constraint if the direct override is intentional.",
+                        "failed|[dependencies.constraints].com.example:transitive-lib|Strict constraint expected `com.example:transitive-lib` version `1.0.0`, but zolt.lock selected `2.0.0`.|Run `zolt resolve` after updating [dependencies.constraints], or change the strict constraint to the selected baseline.",
+                        "failed|[dependencies.policy].deny com.example:direct-lib|Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency.|Remove the direct dependency, or remove the exclusion if the dependency is intentional.",
                         "failed|[dependencies].com.example:stale-direct|Direct dependency `com.example:stale-direct:1.0.0` is declared, but zolt.lock did not select that version.|Run `zolt resolve`, then review the selected version or update the direct dependency declaration."),
                 results.stream()
                         .map(result -> result.status().jsonValue()
@@ -346,7 +345,7 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
             String extra) {
         String jarName = coordinate.replace(':', '-') + "-" + version + ".jar";
         String dependencies = extra.contains("dependencies") ? "" : "dependencies = []";
-        return """
+        return dependencyRoot(coordinate, version, scope, direct) + """
 
                 [[package]]
                 id = "%s"
@@ -367,6 +366,35 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
                 jarName,
                 extra,
                 dependencies);
+    }
+
+    /** A v7 lock records one member-qualified authored root per direct package it selects. */
+    private static String dependencyRoot(
+            String coordinate,
+            String version,
+            String scope,
+            boolean direct) {
+        if (!direct) {
+            return "";
+        }
+        return """
+
+                [[dependencyRoot]]
+                member = "."
+                id = "%s"
+                version = "%s"
+                lane = "%s"
+                resolvedScope = "%s"
+                """.formatted(coordinate, version, lane(scope), scope);
+    }
+
+    private static String lane(String scope) {
+        return switch (scope) {
+            case "compile" -> "implementation";
+            case "test-processor" -> "test-processor";
+            case "runtime", "provided", "dev", "test", "processor" -> scope;
+            default -> throw new IllegalArgumentException("No authored lane for scope `" + scope + "`.");
+        };
     }
 
     private static void assertResult(

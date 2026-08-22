@@ -95,10 +95,15 @@ final class WorkspaceLockIntegrityRecoveryCommandTest {
         Files.writeString(root().resolve("zolt.toml"), """
                 [workspace]
                 name = "integrity"
-                members = ["apps/one", "apps/two"]
+
+                [workspace.members]
+                include = ["apps/one", "apps/two"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(repository.baseUri()));
         for (String member : List.of("apps/one", "apps/two")) {
             Path directory = root().resolve(member);
@@ -109,7 +114,7 @@ final class WorkspaceLockIntegrityRecoveryCommandTest {
                     "com.example:shared" = "1.0.0"
                     "com.example:classified" = { version = "1.0.0", classifier = "linux" }
 
-                    [runtime.dependencies]
+                    [dependencies.runtime]
                     "com.example:descriptor" = { version = "1.0.0", type = "properties" }
                     """);
             Path source = directory.resolve("src/main/java/com/example/App.java");

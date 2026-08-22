@@ -150,48 +150,61 @@ final class WorkspaceCommandToolchainState {
                         .toAbsolutePath().normalize();
         return testByMember.computeIfAbsent(
                 memberConfig,
-                ignored -> capturedMain(workspace, member)
-                        .configContent()
-                        .flatMap(content -> new ToolchainConfigReader()
-                                .readJavaTest(content)));
+                ignored -> capturedMain(workspace, member).test());
     }
 
+    /**
+     * A member is read through workspace composition, never standalone: design §4.5 evaluates every
+     * member with the workspace root's shared configuration, so the root {@code [toolchain.java]} is
+     * the member default and the member manifest may legally omit inherited identity fields.
+     */
     private CapturedMainToolchain readMain(
             Workspace workspace,
             WorkspaceMember member,
             Path memberConfig) {
-        ToolchainConfigReader reader = new ToolchainConfigReader();
+        Optional<String> rootContent = workspace.inputs()
+                .content(workspace.configPath());
         Optional<String> memberContent =
                 workspace.inputs().content(memberConfig);
-        Optional<JavaToolchainRequest> memberRequest =
-                memberContent.flatMap(reader::readJava);
-        if (memberRequest.isPresent()) {
+        if (rootContent.isEmpty() || memberContent.isEmpty()) {
             return captured(
                     workspace,
-                    memberRequest.orElseThrow(),
-                    true,
-                    "[toolchain.java]",
-                    memberContent);
+                    JavaToolchainRequest.projectDefault(compilationRelease(member)),
+                    false,
+                    "[project].java",
+                    Optional.empty());
         }
-        Optional<String> workspaceContent = workspace.inputs()
-                .content(workspace.configPath());
-        Optional<JavaToolchainRequest> workspaceRequest =
-                workspaceContent.flatMap(reader::readJava);
-        if (workspaceRequest.isPresent()) {
+        ToolchainConfigReader.MemberToolchains toolchains =
+                new ToolchainConfigReader().readWorkspaceMember(
+                        rootContent.orElseThrow(),
+                        memberContent.orElseThrow(),
+                        member.path());
+        if (toolchains.main().isEmpty()) {
             return captured(
                     workspace,
-                    workspaceRequest.orElseThrow(),
-                    true,
-                    "[workspace toolchain.java]",
-                    workspaceContent);
+                    JavaToolchainRequest.projectDefault(compilationRelease(member)),
+                    false,
+                    "[project].java",
+                    toolchains.test());
         }
         return captured(
                 workspace,
-                JavaToolchainRequest.projectDefault(
-                        member.config().project().java()),
-                false,
-                "[project].java",
-                Optional.empty());
+                toolchains.main().orElseThrow(),
+                true,
+                toolchains.mainInherited()
+                        ? "[workspace toolchain.java]"
+                        : "[toolchain.java]",
+                toolchains.test());
+    }
+
+    /**
+     * A BOM has no compilation target, so design 12.6 forbids it a {@code [project].java}. It still
+     * needs a request to key the shared toolchain lane on; the host release is used because nothing
+     * of the BOM is ever compiled.
+     */
+    private static String compilationRelease(WorkspaceMember member) {
+        String release = member.config().project().java();
+        return release.isBlank() ? String.valueOf(Runtime.version().feature()) : release;
     }
 
     private CapturedMainToolchain captured(
@@ -199,12 +212,12 @@ final class WorkspaceCommandToolchainState {
             JavaToolchainRequest request,
             boolean pinned,
             String source,
-            Optional<String> configContent) {
+            Optional<JavaToolchainRequest> test) {
         return new CapturedMainToolchain(
                 request,
                 pinned,
                 source,
-                configContent,
+                test,
                 key(workspace, request, pinned));
     }
 
@@ -297,12 +310,10 @@ final class WorkspaceCommandToolchainState {
             JavaToolchainRequest request,
             boolean pinned,
             String source,
-            Optional<String> configContent,
+            Optional<JavaToolchainRequest> test,
             WorkspaceToolchainKey key) {
         private CapturedMainToolchain {
-            configContent = configContent == null
-                    ? Optional.empty()
-                    : configContent;
+            test = test == null ? Optional.empty() : test;
         }
     }
 

@@ -2,7 +2,7 @@ package sh.zolt.publish;
 
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.PublicationMetadata;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -12,37 +12,37 @@ import java.util.List;
  * and produces the Maven Central requirement report.
  */
 public final class PublishCentralReadinessService {
-    private final ZoltTomlParser projectParser;
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestProjectConfigLoader manifestLoader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final java.util.function.UnaryOperator<String> environment;
 
     public PublishCentralReadinessService() {
-        this(new ZoltTomlParser(), new PublishSettingsReader());
+        this(new ManifestProjectConfigLoader(), new ManifestPublishSettingsLoader());
     }
 
-    PublishCentralReadinessService(ZoltTomlParser projectParser, PublishSettingsReader publishSettingsReader) {
-        this(projectParser, publishSettingsReader, System::getenv);
+    PublishCentralReadinessService(ManifestProjectConfigLoader manifestLoader, ManifestPublishSettingsLoader publishSettingsLoader) {
+        this(manifestLoader, publishSettingsLoader, System::getenv);
     }
 
     PublishCentralReadinessService(
-            ZoltTomlParser projectParser,
-            PublishSettingsReader publishSettingsReader,
+            ManifestProjectConfigLoader manifestLoader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             java.util.function.UnaryOperator<String> environment) {
-        this.projectParser = projectParser;
-        this.publishSettingsReader = publishSettingsReader;
+        this.manifestLoader = manifestLoader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.environment = environment;
     }
 
     public List<PublishCentralRequirement> evaluate(Path projectRoot, PublishDryRunPlan plan) {
         Path root = projectRoot.toAbsolutePath().normalize();
-        ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
-        PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        ProjectConfig config = manifestLoader.loadProject(root);
+        PublishSettings publish = publishSettingsLoader.read(root.resolve("zolt.toml"));
         return evaluate(config, publish, plan);
     }
 
     /**
      * Evaluates Central readiness from already-resolved config and publish settings. The workspace
-     * publish path supplies the policy-merged member config so inherited {@code [package.metadata]}
+     * publish path supplies the policy-merged member config so inherited {@code [project]} metadata
      * and {@code [publish.signing]} are honoured without re-reading the member {@code zolt.toml}.
      */
     public List<PublishCentralRequirement> evaluate(

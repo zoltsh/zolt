@@ -1,8 +1,10 @@
 package sh.zolt.explain.emit;
 
 import sh.zolt.explain.maven.MavenDependencyInspection;
-import sh.zolt.project.DependencyConstraint;
-import sh.zolt.project.DependencyConstraintKind;
+import sh.zolt.manifest.DependencyConstraintSelector;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraint;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraints;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -10,16 +12,19 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+/** Maps Maven {@code dependencyManagement} pins to {@code [dependencies.constraints]} entries. */
 final class MavenDependencyConstraintMapper {
+    private static final String REASON = "Imported from Maven dependencyManagement.";
+
     private MavenDependencyConstraintMapper() {
     }
 
-    static Map<String, DependencyConstraint> map(
+    static Optional<AuthoredDependencyConstraints> map(
             List<MavenDependencyInspection> dependencyManagement,
             List<MavenDependencyInspection> directDependencies,
             List<String> notes) {
         Set<String> directCoordinates = directCoordinates(directDependencies);
-        Map<String, DependencyConstraint> constraints = new TreeMap<>();
+        Map<DependencyCoordinate, AuthoredDependencyConstraint> constraints = new TreeMap<>();
         for (MavenDependencyInspection dependency : dependencyManagement) {
             String coordinate = coordinateOf(dependency.coordinate());
             if (directCoordinates.contains(coordinate)) {
@@ -29,14 +34,14 @@ final class MavenDependencyConstraintMapper {
                 notes.add(
                         "Managed dependency `" + coordinate + "` declares Maven classifier `"
                                 + dependency.classifier()
-                                + "`. [dependencyConstraints] cannot express classifier-specific artifacts;"
-                                + " review it manually.");
+                                + "`. [dependencies.constraints] cannot express classifier-specific"
+                                + " artifacts; review it manually.");
                 continue;
             }
             if (!"jar".equals(dependency.type())) {
                 notes.add(
                         "Managed dependency `" + coordinate + "` uses Maven type `" + dependency.type()
-                                + "`, which [dependencyConstraints] cannot express; review it manually.");
+                                + "`, which [dependencies.constraints] cannot express; review it manually.");
                 continue;
             }
             if (dependency.version().isBlank()) {
@@ -46,16 +51,32 @@ final class MavenDependencyConstraintMapper {
                 notes.add(
                         "Managed dependency `" + coordinate + "` uses version `" + dependency.version()
                                 + "`, which references a property the static audit could not resolve."
-                                + " Add the matching [dependencyConstraints] entry manually.");
+                                + " Add the matching [dependencies.constraints] entry manually.");
                 continue;
             }
-            constraints.put(coordinate, new DependencyConstraint(
-                    coordinate,
-                    dependency.version(),
-                    DependencyConstraintKind.STRICT,
-                    Optional.of("Imported from Maven dependencyManagement.")));
+            add(constraints, coordinate, dependency.version(), notes);
         }
-        return constraints;
+        return constraints.isEmpty()
+                ? Optional.empty()
+                : Optional.of(new AuthoredDependencyConstraints(constraints));
+    }
+
+    private static void add(
+            Map<DependencyCoordinate, AuthoredDependencyConstraint> constraints,
+            String coordinate,
+            String version,
+            List<String> notes) {
+        try {
+            constraints.put(
+                    new DependencyCoordinate(coordinate),
+                    new AuthoredDependencyConstraint(
+                            new DependencyConstraintSelector.FixedVersion(version),
+                            Optional.of(REASON)));
+        } catch (IllegalArgumentException exception) {
+            notes.add("Managed dependency `" + coordinate + "` version `" + version
+                    + "` is not a valid constraint value: " + exception.getMessage()
+                    + " Add the [dependencies.constraints] entry manually.");
+        }
     }
 
     private static Set<String> directCoordinates(List<MavenDependencyInspection> dependencies) {

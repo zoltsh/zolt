@@ -37,10 +37,15 @@ final class WorkspaceBuildCommandStaleLockTest {
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "workspace"
-                    members = ["apps/api"]
+
+                    [workspace.members]
+                    include = ["apps/api"]
 
                     [repositories]
-                    test = "%s"
+                    central = false
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(repository.baseUri()));
             Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api") + """
 
@@ -56,10 +61,15 @@ final class WorkspaceBuildCommandStaleLockTest {
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "workspace"
-                    members = ["apps/api"]
+
+                    [workspace.members]
+                    include = ["apps/api"]
 
                     [repositories]
-                    test = "%s"
+                    central = false
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(repository.baseUri().toString().replace("127.0.0.1", "localhost")));
             Path apiSource = apiDir.resolve("src/main/java/com/example/api/Api.java");
             Files.createDirectories(apiSource.getParent());

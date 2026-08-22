@@ -37,10 +37,7 @@ public final class DraftWorkspaceRenderer {
         this.memberRenderer = memberRenderer;
     }
 
-    public String render(
-            DraftWorkspace draft,
-            WorkspaceConfigRenderer workspaceRenderer,
-            ProjectConfigRenderer configRenderer) {
+    public String render(DraftWorkspace draft, AuthoredManifestRenderer renderer) {
         StringBuilder out = new StringBuilder();
         out.append(NOTICE).append('\n');
         if (!draft.notes().isEmpty()) {
@@ -51,20 +48,18 @@ public final class DraftWorkspaceRenderer {
         }
         out.append('\n');
         out.append("# --- zolt.toml (workspace root) ---\n");
-        out.append(workspaceRenderer.render(draft.workspace()));
+        out.append(renderer.render(draft.root()));
         for (DraftWorkspace.Member member : draft.members()) {
             out.append('\n');
             out.append("# --- ").append(member.path()).append("/zolt.toml ---\n");
-            out.append(memberRenderer.renderBody(member.draft(), configRenderer).stripLeading());
+            out.append(memberRenderer.renderBody(member.draft(), renderer).stripLeading());
             out.append('\n');
         }
         return out.toString();
     }
 
     public List<DraftZoltTomlDocument> renderDocuments(
-            DraftWorkspace draft,
-            WorkspaceConfigRenderer workspaceRenderer,
-            ProjectConfigRenderer configRenderer) {
+            DraftWorkspace draft, AuthoredManifestRenderer renderer) {
         List<DraftZoltTomlDocument> documents = new ArrayList<>();
         StringBuilder root = new StringBuilder();
         root.append(FILE_NOTICE).append('\n');
@@ -75,12 +70,12 @@ public final class DraftWorkspaceRenderer {
             }
         }
         root.append('\n');
-        root.append(workspaceRenderer.render(draft.workspace()));
+        root.append(renderer.render(draft.root()));
         documents.add(new DraftZoltTomlDocument("zolt.toml", withTrailingNewline(root.toString())));
         for (DraftWorkspace.Member member : draft.members()) {
             documents.add(new DraftZoltTomlDocument(
                     member.path() + "/zolt.toml",
-                    withTrailingNewline(memberRenderer.renderBody(member.draft(), configRenderer).stripLeading())));
+                    withTrailingNewline(memberRenderer.renderBody(member.draft(), renderer).stripLeading())));
         }
         return List.copyOf(documents);
     }

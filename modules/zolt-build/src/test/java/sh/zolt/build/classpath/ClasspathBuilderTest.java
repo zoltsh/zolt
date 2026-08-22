@@ -40,7 +40,6 @@ final class ClasspathBuilderTest {
         Path jar = jar("dev-lib", "1.0.0");
         assertEquals(List.of(), classpaths.compile().entries());
         assertEquals(List.of(jar), classpaths.runtime().entries());
-        assertEquals(List.of(jar), classpaths.test().entries());
         assertFalse(DependencyScope.DEV.packagedByDefault());
     }
 
@@ -57,14 +56,40 @@ final class ClasspathBuilderTest {
     }
 
     @Test
-    void providedDependenciesAreIncludedOnMainCompileAndTestCompileButNotTestRuntime() {
+    void providedDependencyIsOnTestCompileClasspath() {
+        ClasspathSet classpaths = builder.build(List.of(packageWithScope("com.example", "provided-lib", "1.0.0", DependencyScope.PROVIDED)));
+
+        assertEquals(List.of(jar("provided-lib", "1.0.0")), classpaths.testCompile().entries());
+    }
+
+    @Test
+    void providedDependencyIsOnTestRuntimeClasspath() {
+        ClasspathSet classpaths = builder.build(List.of(packageWithScope("com.example", "provided-lib", "1.0.0", DependencyScope.PROVIDED)));
+
+        assertEquals(List.of(jar("provided-lib", "1.0.0")), classpaths.test().entries());
+    }
+
+    @Test
+    void devDependencyIsAbsentFromTestCompileClasspath() {
+        ClasspathSet classpaths = builder.build(List.of(packageWithScope("com.example", "dev-lib", "1.0.0", DependencyScope.DEV)));
+
+        assertEquals(List.of(), classpaths.testCompile().entries());
+    }
+
+    @Test
+    void devDependencyIsAbsentFromTestRuntimeClasspath() {
+        ClasspathSet classpaths = builder.build(List.of(packageWithScope("com.example", "dev-lib", "1.0.0", DependencyScope.DEV)));
+
+        assertEquals(List.of(), classpaths.test().entries());
+    }
+
+    @Test
+    void providedDependenciesStayOffMainRuntimeAndProcessorClasspaths() {
         ClasspathSet classpaths = builder.build(List.of(packageWithScope("com.example", "provided-lib", "1.0.0", DependencyScope.PROVIDED)));
 
         Path jar = jar("provided-lib", "1.0.0");
         assertEquals(List.of(jar), classpaths.compile().entries());
         assertEquals(List.of(), classpaths.runtime().entries());
-        assertEquals(List.of(jar), classpaths.testCompile().entries());
-        assertEquals(List.of(), classpaths.test().entries());
         assertEquals(List.of(), classpaths.processor().entries());
         assertEquals(List.of(), classpaths.testProcessor().entries());
     }

@@ -168,7 +168,7 @@ final class CliCommandHelpSectionSurfaceTest {
         assertFalse(result.stdout().contains("\u001B["));
         assertContainsInOrder(
                 result.stdout(),
-                "Run a packaged thin jar with runtime dependencies.",
+                "Run a packaged jar with runtime dependencies.",
                 "Usage:",
                 "Arguments:",
                 "[ARGS...]",

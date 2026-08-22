@@ -5,12 +5,13 @@ import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.resolve.lockfile.assembly.ExecToolResolution;
 import sh.zolt.resolve.version.VersionConflict;
 import sh.zolt.resolve.version.VersionSelectionResult;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Enforces {@code [dependencyPolicy].failOnVersionConflict} against a resolved selection. Each isolated
+ * Enforces {@code [dependencies.policy].conflicts} against a resolved selection. Each isolated
  * exec-tool closure (Hole 1) resolves in its own right, so a conflict inside a tool never mediates against
  * the main graph or another tool; it must therefore be enforced per tool closure too, or a conflict inside
  * a tool would silently evade the policy. The main graph is enforced first (its error and behaviour stay
@@ -20,26 +21,28 @@ final class VersionConflictPolicyEnforcer {
     private VersionConflictPolicyEnforcer() {
     }
 
-    static void enforce(
+    static List<String> enforce(
             DependencyPolicySettings dependencyPolicy,
             VersionSelectionResult mainSelection,
             List<ExecToolResolution> execResolutions,
             String retryCommand) {
-        enforce(dependencyPolicy, mainSelection, retryCommand, null);
+        List<String> warnings = new ArrayList<>(enforce(dependencyPolicy, mainSelection, retryCommand, null));
         execResolutions.stream()
                 .sorted(Comparator.comparing(ExecToolResolution::toolName))
-                .forEach(tool -> enforce(dependencyPolicy, tool.selection(), retryCommand, tool.toolName()));
+                .forEach(tool -> warnings.addAll(
+                        enforce(dependencyPolicy, tool.selection(), retryCommand, tool.toolName())));
+        return List.copyOf(warnings);
     }
 
-    private static void enforce(
+    private static List<String> enforce(
             DependencyPolicySettings dependencyPolicy,
             VersionSelectionResult selection,
             String retryCommand,
             String toolName) {
         if (dependencyPolicy == null
-                || !dependencyPolicy.failOnVersionConflict()
+                || !(dependencyPolicy.failOnVersionConflict() || dependencyPolicy.warnOnVersionConflict())
                 || selection.conflicts().isEmpty()) {
-            return;
+            return List.of();
         }
         List<String> conflicts = selection.conflicts().stream()
                 .filter(VersionConflict::active)
@@ -49,18 +52,35 @@ final class VersionConflictPolicyEnforcer {
                 .map(VersionConflictPolicyEnforcer::conflictDescription)
                 .toList();
         if (conflicts.isEmpty()) {
-            return;
+            return List.of();
+        }
+        if (dependencyPolicy.warnOnVersionConflict()) {
+            return List.of(warning(toolName, conflicts));
         }
         throw ResolveException.actionable(message(toolName), remediation(toolName, retryCommand, conflicts));
     }
 
+    /**
+     * Design §9.11: {@code warn} mediates and reports. The warning names exactly the conflicts the
+     * {@code fail} remediation would have named, so the two policies differ only in whether the
+     * mediated resolution stands.
+     */
+    private static String warning(String toolName, List<String> conflicts) {
+        String where = toolName == null
+                ? "Dependency version conflicts were mediated"
+                : "Dependency version conflicts in the `" + toolName + "` exec-tool closure were mediated";
+        return where
+                + " and reported by [dependencies.policy].conflicts = \"warn\". Conflicts: "
+                + String.join("; ", conflicts);
+    }
+
     private static String message(String toolName) {
         if (toolName == null) {
-            return "Dependency version conflicts are disallowed by [dependencyPolicy].failOnVersionConflict.";
+            return "Dependency version conflicts are disallowed by [dependencies.policy].conflicts.";
         }
         return "Dependency version conflicts in the `"
                 + toolName
-                + "` exec-tool closure are disallowed by [dependencyPolicy].failOnVersionConflict.";
+                + "` exec-tool closure are disallowed by [dependencies.policy].conflicts.";
     }
 
     private static String remediation(String toolName, String retryCommand, List<String> conflicts) {
@@ -70,7 +90,7 @@ final class VersionConflictPolicyEnforcer {
         return "Align "
                 + where
                 + " with a [platforms] BOM, a direct dependency, or a "
-                + "[dependencyConstraints] strict constraint, then run `"
+                + "[dependencies.constraints] strict constraint, then run `"
                 + retryCommand
                 + "` again. Conflicts: "
                 + String.join("; ", conflicts);

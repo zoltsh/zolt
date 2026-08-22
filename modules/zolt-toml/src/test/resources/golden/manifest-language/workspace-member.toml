@@ -1,0 +1,8 @@
+[project]
+name = "zolt-toml"
+
+[dependencies]
+"sh.zolt:zolt-model" = { workspace = true }
+
+[dependencies.test]
+"org.junit.platform:junit-platform-console-standalone" = "1.11.4"

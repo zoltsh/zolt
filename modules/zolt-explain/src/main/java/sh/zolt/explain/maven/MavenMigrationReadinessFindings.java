@@ -65,7 +65,7 @@ public final class MavenMigrationReadinessFindings {
                     MigrationReadinessCategory.PLANNED,
                     signal,
                     "Maven exec-shaped plugin (exec/frontend/antrun)",
-                    "[generated.execTools] exec step",
+                    "[generated.tools] exec step",
                     "",
                     signal.nextStep());
             case "maven.plugin.exec-nondeterministic" -> MigrationReadinessFindings.finding(
@@ -81,7 +81,7 @@ public final class MavenMigrationReadinessFindings {
                     MigrationReadinessCategory.BLOCKED,
                     signal,
                     "Maven exec plugin with shell or control flow",
-                    "[commands.tasks] or CI",
+                    "[tasks.<id>] or CI",
                     "",
                     signal.nextStep());
             case "maven.reactor.detected" -> MigrationReadinessFindings.finding(
@@ -97,7 +97,7 @@ public final class MavenMigrationReadinessFindings {
                     MigrationReadinessCategory.PLANNED,
                     signal,
                     "maven-compiler-plugin annotationProcessorPaths",
-                    "[annotationProcessors]",
+                    "[dependencies.processor]",
                     "",
                     signal.nextStep());
             case "maven.parent.snapshot" -> MigrationReadinessFindings.finding(
@@ -269,10 +269,10 @@ public final class MavenMigrationReadinessFindings {
                     category,
                     signal,
                     "Maven generated-source plugin",
-                    "[generatedSources]",
+                    "[generated.main] and [generated.test]",
                     "",
                     "Model generated sources as typed Zolt generated-source steps: the openapi/protobuf built-ins,"
-                            + " or a jvm exec tool under [generated.execTools] (using the plugin's own dependency"
+                            + " or a jvm exec tool under [generated.tools] (using the plugin's own dependency"
                             + " coordinates) with explicit inputs and output.");
         }
         return MigrationReadinessFindings.finding(

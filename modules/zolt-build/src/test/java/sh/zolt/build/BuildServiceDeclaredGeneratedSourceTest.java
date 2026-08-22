@@ -27,7 +27,7 @@ final class BuildServiceDeclaredGeneratedSourceTest {
 
     @Test
     void declaredGeneratedSourceRootCompilesWithMainSources() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -67,7 +67,7 @@ final class BuildServiceDeclaredGeneratedSourceTest {
 
     @Test
     void declaredGeneratedSourceInputChangeInvalidatesMainBuildFingerprint() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 

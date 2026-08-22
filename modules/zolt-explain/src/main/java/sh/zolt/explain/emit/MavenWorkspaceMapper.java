@@ -3,17 +3,19 @@ package sh.zolt.explain.emit;
 import sh.zolt.explain.maven.MavenInspectionResult;
 import sh.zolt.explain.maven.MavenProfileInspection;
 import sh.zolt.explain.maven.MavenProjectInspection;
-import sh.zolt.workspace.WorkspaceConfig;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 /**
  * Maps a multi-module Maven reactor to a {@link DraftWorkspace}: the root aggregator becomes the
- * {@code [workspace]} document; every non-root module becomes a member draft. A dependency whose
- * {@code groupId:artifactId} matches another module is rewritten to {@code { workspace = "<path>" }}.
+ * virtual workspace manifest; every non-root module becomes a member draft. A dependency whose
+ * {@code groupId:artifactId} matches another module is rewritten to {@code { workspace = true }}, and
+ * the aggregator's shared identity is hoisted into {@code [workspace.project]} so members that
+ * inherit it author nothing (design §4.3).
  */
 final class MavenWorkspaceMapper {
     private static final String ROOT_PATH = ".";
@@ -40,34 +42,46 @@ final class MavenWorkspaceMapper {
             }
         }
 
-        List<String> memberPaths = new ArrayList<>();
+        List<String> notes = new ArrayList<>();
+        List<String> memberPaths = projects.stream()
+                .map(project -> project.path().toString())
+                .filter(path -> !ROOT_PATH.equals(path))
+                .toList();
+        // The reactor root's coordinates are the shared identity: in Maven every module either
+        // inherits them from the parent or overrides them explicitly.
+        DraftIdentityDefaults defaults = DraftWorkspaceRoot.sharedIdentity(
+                List.of(nonBlank(root.groupId())),
+                List.of(nonBlank(root.version())),
+                List.of(JavaVersionNotation.featureRelease(root.javaVersion())));
+        defaults.version()
+                .filter(sh.zolt.project.VersionPolicy::isSnapshot)
+                .ifPresent(version -> notes.add(MavenInspectionMapper.snapshotNote(version)));
+        DraftWorkspaceRoot.Built built =
+                DraftWorkspaceRoot.build(root.artifactId(), memberPaths, defaults, notes);
+
         List<DraftWorkspace.Member> members = new ArrayList<>();
         for (MavenProjectInspection project : projects) {
             String path = project.path().toString();
-            if (ROOT_PATH.equals(path)) {
+            if (!built.memberPaths().contains(path)) {
                 continue;
             }
-            memberPaths.add(path);
             members.add(new DraftWorkspace.Member(
                     path,
-                    MavenInspectionMapper.mapMember(project, registry, projectsByCoordinate)));
+                    MavenInspectionMapper.mapMember(project, registry, projectsByCoordinate, defaults)));
         }
 
-        List<String> notes = new ArrayList<>();
         if (!root.dependencies().isEmpty()) {
             notes.add(
                     "The root aggregator declares " + root.dependencies().size()
-                            + " dependency(ies); a [workspace] cannot carry dependencies. Move them into"
-                            + " the member(s) that need them, or into a shared module.");
+                            + " dependency(ies); a virtual workspace cannot carry dependencies. Move them"
+                            + " into the member(s) that need them, or into a shared module.");
         }
-        notes.addAll(profileModuleNotes(projects, memberPaths));
-        WorkspaceConfig workspace = new WorkspaceConfig(
-                root.artifactId(),
-                memberPaths,
-                List.copyOf(memberPaths),
-                Map.of(),
-                Map.of());
-        return new DraftWorkspace(workspace, members, notes);
+        notes.addAll(profileModuleNotes(projects, built.memberPaths()));
+        return new DraftWorkspace(built.manifest(), members, notes);
+    }
+
+    private static Optional<String> nonBlank(String value) {
+        return value == null || value.isBlank() ? Optional.empty() : Optional.of(value);
     }
 
     private static MavenProjectInspection root(List<MavenProjectInspection> projects) {

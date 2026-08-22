@@ -343,7 +343,7 @@ final class UserGlobalConfigParserTest {
                         version = 1
 
                         [package]
-                        mode = "uber"
+                        mode = "uber-jar"
                         """, tempDir.resolve("config.toml")));
 
         assertTrue(exception.getMessage().contains("Global config section [package] is not supported"));

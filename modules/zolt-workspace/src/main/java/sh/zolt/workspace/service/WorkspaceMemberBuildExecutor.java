@@ -193,7 +193,7 @@ final class WorkspaceMemberBuildExecutor {
                     exception.getMessage()
                             + "\nWorkspace member `"
                             + member.path()
-                            + "` failed to compile. If the missing type comes from a dependency of another workspace member, declare it directly in this member or move it to [api.dependencies] in the member that exposes it.",
+                            + "` failed to compile. If the missing type comes from a dependency of another workspace member, declare it directly in this member or move it to [dependencies.api] in the member that exposes it.",
                     exception);
         }
     }

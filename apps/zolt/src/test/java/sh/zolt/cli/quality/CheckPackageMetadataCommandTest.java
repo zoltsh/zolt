@@ -63,8 +63,8 @@ final class CheckPackageMetadataCommandTest {
         CommandResult result = execute("check", "--cwd", projectDir.toString(), "--check", "package-metadata");
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error package-metadata [package].tests Test sources are present"));
-        assertTrue(result.stdout().contains("next: Set [package].tests = true"));
+        assertTrue(result.stdout().contains("error package-metadata [package].testJar Test sources are present"));
+        assertTrue(result.stdout().contains("next: Set [package].testJar = true"));
         assertEquals("", result.stderr());
     }
 
@@ -75,18 +75,12 @@ final class CheckPackageMetadataCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-library-missing-module") + """
 
                 [package]
-                mode = "thin"
+                mode = "jar"
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Check Library Missing Module"
-                description = "Fixture"
-                url = "https://example.com/check-library-missing-module"
-                license = "Apache-2.0"
-                developers = ["Zolt Team"]
-                scm = "https://example.com/check-library-missing-module.git"
-                issues = "https://example.com/check-library-missing-module/issues"
+                [project.scm]
+                url = "https://example.com/check-library-missing-module.git"
                 """);
 
         CommandResult result = execute("check", "--cwd", projectDir.toString(), "--check", "manifest-metadata");
@@ -125,7 +119,9 @@ final class CheckPackageMetadataCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-library-metadata"
-                members = ["modules/api", "modules/impl"]
+
+                [workspace.members]
+                include = ["modules/api", "modules/impl"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api")
                 + libraryPackageConfig("API Library", "com.example.api", false));
@@ -147,31 +143,32 @@ final class CheckPackageMetadataCommandTest {
     }
 
     private static String libraryPackageConfig(String displayName, String moduleName, boolean tests) {
-        String testsSetting = tests ? "tests = true\n" : "";
+        String testsSetting = tests ? "testJar = true\n" : "";
         return """
+                description = "Fixture library metadata for zolt check."
+                url = "https://example.com/%s"
+                issues = "https://example.com/%s/issues"
+                license = "Apache-2.0"
+
+                [project.scm]
+                url = "https://example.com/%s.git"
+
+                [project.developers.zolt]
+                name = "%s"
+                email = "team@example.com"
 
                 [package]
-                mode = "thin"
                 sources = true
                 javadoc = true
                 %s
-                [package.metadata]
-                name = "%s"
-                description = "Fixture library metadata for zolt check."
-                url = "https://example.com/%s"
-                license = "Apache-2.0"
-                developers = ["Zolt Team"]
-                scm = "https://example.com/%s.git"
-                issues = "https://example.com/%s/issues"
-
                 [package.manifest]
                 "Automatic-Module-Name" = "%s"
                 """.formatted(
-                testsSetting,
+                moduleName,
+                moduleName,
+                moduleName,
                 displayName,
-                moduleName,
-                moduleName,
-                moduleName,
+                testsSetting,
                 moduleName);
     }
 }

@@ -11,13 +11,14 @@ import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandLockfiles;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import picocli.CommandLine.Command;
@@ -30,7 +31,7 @@ import picocli.CommandLine.Spec;
 @Command(name = "classpath", description = "Print a classpath from zolt.lock.")
 public final class ClasspathCommand implements Runnable {
     private final ZoltLockfileReader lockfileReader;
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ClasspathLaneAuditFormatter auditFormatter;
     private final ClasspathBuilder classpathBuilder;
     private final ClasspathFormatter classpathFormatter;
@@ -92,7 +93,7 @@ public final class ClasspathCommand implements Runnable {
     public ClasspathCommand() {
         this(
                 new ZoltLockfileReader(),
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new ClasspathLaneAuditFormatter(),
                 new ClasspathBuilder(),
                 new ClasspathFormatter(),
@@ -101,13 +102,13 @@ public final class ClasspathCommand implements Runnable {
 
     ClasspathCommand(
             ZoltLockfileReader lockfileReader,
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ClasspathLaneAuditFormatter auditFormatter,
             ClasspathBuilder classpathBuilder,
             ClasspathFormatter classpathFormatter,
             CommandLockfiles lockfiles) {
         this.lockfileReader = lockfileReader;
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.auditFormatter = auditFormatter;
         this.classpathBuilder = classpathBuilder;
         this.classpathFormatter = classpathFormatter;
@@ -120,8 +121,13 @@ public final class ClasspathCommand implements Runnable {
             Path projectRoot = projectDirectory.path();
             Path configPath = projectRoot.resolve("zolt.toml");
             if (Files.isRegularFile(configPath)) {
-                ProjectConfig config = tomlParser.parse(configPath);
-                var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+                // A workspace member's lock is the workspace root's, and only the workspace path
+                // refreshes it, so a read-only classpath query neither gates on its freshness nor
+                // consults a member-local zolt.lock (design §6.9).
+                var artifactIndex = CommandProjectLockfile.governedByWorkspace(projectRoot)
+                        ? new VerifiedArtifactIndex()
+                        : lockfiles.requireFreshLockfile(
+                                projectRoot, projectLoader.load(projectRoot), cacheRoot, false);
                 printClasspath(projectRoot, cacheRoot, artifactIndex);
                 return;
             }
@@ -139,7 +145,8 @@ public final class ClasspathCommand implements Runnable {
             Path projectRoot,
             Path cacheRoot,
             VerifiedArtifactIndex artifactIndex) {
-            ZoltLockfile lockfile = lockfileReader.read(projectRoot.resolve("zolt.lock"));
+            ZoltLockfile lockfile = lockfileReader.read(
+                    CommandProjectLockfile.path(projectRoot));
             Kind parsedKind = Kind.parse(kind);
             if (parsedKind == Kind.AUDIT) {
                 String output = format == Format.JSON

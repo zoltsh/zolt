@@ -420,9 +420,6 @@ def zolt_member_config(
     lines = [
         "[project]",
         f'name = "{name}"',
-        f'version = "{VERSION}"',
-        f'group = "{GROUP}"',
-        'java = "21"',
     ]
     if kind == "app":
         lines.append(f'main = "{app_package(index or 1)}.App{index or 1:03d}"')
@@ -439,53 +436,48 @@ def zolt_member_config(
         lines.extend(["", "[dependencies]"])
         for dependency in dependencies:
             artifact = pathlib.Path(dependency).name
-            lines.append(f'"{GROUP}:{artifact}" = {{ workspace = "{dependency}" }}')
+            lines.append(f'"{GROUP}:{artifact}" = {{ workspace = true }}')
         if kind == "app":
             lines.append(f'"org.slf4j:slf4j-api" = "{SLF4J}"')
             if workload.spring_boot_app and index == workload.apps:
-                lines.append('"org.springframework.boot:spring-boot-starter" = {}')
-    if kind == "platform" and workload.annotation_processors:
-        lines.extend(
-            [
-                "",
-                "[provided.dependencies]",
-                f'"org.projectlombok:lombok" = "{LOMBOK}"',
-                "",
-                "[annotationProcessors]",
-                f'"org.projectlombok:lombok" = "{LOMBOK}"',
-            ]
-        )
+                lines.append(
+                    '"org.springframework.boot:spring-boot-starter" = { managed = true }'
+                )
     if kind == "app":
         lines.extend(
             [
                 "",
-                "[runtime.dependencies]",
+                "[dependencies.runtime]",
                 f'"org.slf4j:slf4j-simple" = "{SLF4J}"',
                 "",
-                "[provided.dependencies]",
+                "[dependencies.provided]",
                 f'"jakarta.annotation:jakarta.annotation-api" = "{JAKARTA_ANNOTATION}"',
+            ]
+        )
+    if kind == "platform" and workload.annotation_processors:
+        lines.extend(
+            [
+                "",
+                "[dependencies.provided]",
+                f'"org.projectlombok:lombok" = "{LOMBOK}"',
             ]
         )
     if workload.tests_per_module:
         lines.extend(
             [
                 "",
-                "[test.dependencies]",
-                '"org.junit.jupiter:junit-jupiter" = {}',
+                "[dependencies.test]",
+                '"org.junit.jupiter:junit-jupiter" = { managed = true }',
             ]
         )
-    lines.extend(
-        [
-            "",
-            "[build]",
-            'source = "src/main/java"',
-            'test = "src/test/java"',
-            'output = "target/classes"',
-            'testOutput = "target/test-classes"',
-        ]
-    )
-    if workload.resources:
-        lines.extend(["", "[resources]", 'main = ["src/main/resources"]'])
+    if kind == "platform" and workload.annotation_processors:
+        lines.extend(
+            [
+                "",
+                "[dependencies.processor]",
+                f'"org.projectlombok:lombok" = "{LOMBOK}"',
+            ]
+        )
     return "\n".join(lines)
 
 
@@ -494,16 +486,20 @@ def generate_zolt(root: pathlib.Path, workload: Workload, topology: str) -> None
     lines = [
         "[workspace]",
         f'name = "{workload.identifier}-{topology}"',
-        "members = [",
+        "",
+        "[workspace.members]",
+        f'default = ["apps/{app_name(1)}"]',
+        "include = [",
     ]
-    lines.extend(f'  "{path}",' for path in paths)
+    lines.extend(f'    "{path}",' for path in paths)
     lines.extend(
         [
             "]",
-            f'defaultMembers = ["apps/{app_name(1)}"]',
             "",
-            "[repositories]",
-            'central = "https://repo.maven.apache.org/maven2"',
+            "[workspace.project]",
+            f'group = "{GROUP}"',
+            f'version = "{VERSION}"',
+            "java = 21",
             "",
             "[platforms]",
             f'"org.junit:junit-bom" = "{JUNIT_BOM}"',
@@ -516,13 +512,8 @@ def generate_zolt(root: pathlib.Path, workload: Workload, topology: str) -> None
     lines.extend(
         [
             "",
-            "[toolchain.java]",
-            'version = "21"',
-            "features = []",
-            'policy = "prefer-managed"',
-            "",
             "[toolchain.java.test]",
-            'version = "21"',
+            "version = 21",
         ]
     )
     write(root / "zolt.toml", "\n".join(lines))

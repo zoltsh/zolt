@@ -12,7 +12,7 @@ import sh.zolt.build.BuildResult;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.quality.QualityCheckStatus;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,31 +23,104 @@ abstract class PackageQualityCheckTestSupport {
     protected final PackageQualityCheck check = new PackageQualityCheck(
             new PackagePlanService(),
             new PackageEvidenceManifestReader());
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader loader = new ManifestProjectConfigLoader();
 
     protected ProjectConfig parseProject(Path projectDir, String body) throws IOException {
-        Files.createDirectories(projectDir);
-        Path config = projectDir.resolve("zolt.toml");
-        Files.writeString(config, memberConfig(projectDir.getFileName().toString()) + body);
-        return parser.parse(config);
+        return parseProject(projectDir, PUBLICATION_LEVELS, body);
     }
 
-    protected static String packageMetadata() {
-        return """
+    /** A manifest with no publication metadata at all, so no library profile is requested. */
+    protected ProjectConfig parsePlainProject(Path projectDir, String body) throws IOException {
+        return parseProject(projectDir, 0, body);
+    }
 
-                [package.metadata]
-                name = "Example Library"
-                description = "Small Java helpers."
-                url = "https://example.com/library"
-                license = "Apache-2.0"
-                developers = ["Example Team"]
-                scm = "https://example.com/library.git"
-                issues = "https://example.com/library/issues"
-                """;
+    /**
+     * Writes a manifest carrying the first {@code publicationLevels} publication values Maven Central
+     * requires and parses it through the final loader.
+     *
+     * <p>Publication metadata lives in {@code [project]}, {@code [project.scm]}, and
+     * {@code [project.developers.<id>]} (design §7.1, §7.4, §14.4), so it is interleaved into the
+     * identity block rather than appended as a {@code [package.metadata]} table.
+     */
+    protected ProjectConfig parseProject(Path projectDir, int publicationLevels, String body)
+            throws IOException {
+        Files.createDirectories(projectDir);
+        Path config = projectDir.resolve("zolt.toml");
+        Files.writeString(
+                config,
+                memberConfig(projectDir.getFileName().toString())
+                        + projectPublicationFields(publicationLevels)
+                        + projectPublicationSections(publicationLevels)
+                        + body);
+        return loader.load(config);
+    }
+
+    /** The number of graded publication values the check reports, in the order it reports them. */
+    protected static final int PUBLICATION_LEVELS = 6;
+
+    /** The subject the check names for the value at {@code level}. */
+    protected static String publicationSubject(int level) {
+        return switch (level) {
+            case 0 -> "[project].description";
+            case 1 -> "[project].url";
+            case 2 -> "[project].license";
+            case 3 -> "[project.developers.<id>]";
+            case 4 -> "[project.scm].url";
+            default -> "[project].issues";
+        };
+    }
+
+    /** The human name the check uses for the value at {@code level}. */
+    protected static String publicationValue(int level) {
+        return switch (level) {
+            case 0 -> "description";
+            case 1 -> "url";
+            case 2 -> "license";
+            case 3 -> "at least one developer";
+            case 4 -> "SCM location";
+            default -> "issues URL";
+        };
+    }
+
+    private static String projectPublicationFields(int levels) {
+        StringBuilder fields = new StringBuilder();
+        if (levels > 0) {
+            fields.append("description = \"Small Java helpers.\"\n");
+        }
+        if (levels > 1) {
+            fields.append("url = \"https://example.com/library\"\n");
+        }
+        if (levels > 5) {
+            fields.append("issues = \"https://example.com/library/issues\"\n");
+        }
+        if (levels > 2) {
+            fields.append("license = \"Apache-2.0\"\n");
+        }
+        return fields.toString();
+    }
+
+    private static String projectPublicationSections(int levels) {
+        StringBuilder sections = new StringBuilder();
+        if (levels > 4) {
+            sections.append("""
+
+                    [project.scm]
+                    url = "https://example.com/library"
+                    """);
+        }
+        if (levels > 3) {
+            sections.append("""
+
+                    [project.developers.team]
+                    name = "Example Team"
+                    email = "team@example.com"
+                    """);
+        }
+        return sections.toString();
     }
 
     protected static void writeLockfile(Path projectDir, String packages) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n" + packages);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n" + packages);
     }
 
     protected static void writeCurrentPackageEvidence(
@@ -110,7 +183,35 @@ abstract class PackageQualityCheckTestSupport {
                 """
                 : "";
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-lib"
+                version = "1.0.0"
+                lane = "test"
+                resolvedScope = "test"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"
@@ -199,7 +300,7 @@ abstract class PackageQualityCheckTestSupport {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """.formatted(name);
     }
 }

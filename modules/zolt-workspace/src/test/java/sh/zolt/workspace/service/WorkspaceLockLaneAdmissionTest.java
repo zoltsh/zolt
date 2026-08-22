@@ -44,7 +44,9 @@ final class WorkspaceLockLaneAdmissionTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
                 """);
         member(tempDir, "modules/core", "core", "");
         source(tempDir, "modules/core/src/main/java/com/acme/core/Core.java", """
@@ -62,7 +64,7 @@ final class WorkspaceLockLaneAdmissionTest {
         member(tempDir, "apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source(tempDir, "apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -155,7 +157,7 @@ final class WorkspaceLockLaneAdmissionTest {
                 version = "%s"
                 source = "maven-central"
                 scope = "runtime"
-                direct = true
+                direct = false
                 jar = "%s"
                 jarSha256 = "%s"
                 members = ["%s"]

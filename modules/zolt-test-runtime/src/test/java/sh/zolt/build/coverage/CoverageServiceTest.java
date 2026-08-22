@@ -277,7 +277,7 @@ final class CoverageServiceTest {
 
     private void writeCoverageLockfile() throws IOException {
         write(projectDir, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.jacoco:org.jacoco.agent"

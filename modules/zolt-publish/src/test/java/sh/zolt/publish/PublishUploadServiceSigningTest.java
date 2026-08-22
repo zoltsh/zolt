@@ -1,5 +1,6 @@
 package sh.zolt.publish;
 
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -10,7 +11,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import sh.zolt.maven.repository.MavenRepositoryClient;
-import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -52,7 +52,7 @@ final class PublishUploadServiceSigningTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (Recorder recorder = Recorder.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -60,16 +60,16 @@ final class PublishUploadServiceSigningTest {
                     name = "signed-lib"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "%d"
+                    java = %d
 
                     [publish]
-                    releaseRepository = "local"
+                    release = "local"
 
                     [publish.repositories.local]
                     url = "%s"
 
                     [publish.signing]
-                    enabled = true
+                    method = "gpg"
                     passphraseEnv = "ZOLT_SIGNING_PASS"
                     """.formatted(Runtime.version().feature(), recorder.baseUri()));
             PublishTestPackageEvidence.write(projectDir);
@@ -79,8 +79,8 @@ final class PublishUploadServiceSigningTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishUploadService service = new PublishUploadService(
                     new PublishDryRunService(environment),
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new MavenRepositoryClient(),
                     environment);
 
@@ -115,7 +115,7 @@ final class PublishUploadServiceSigningTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 2\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (Recorder recorder = Recorder.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -123,16 +123,16 @@ final class PublishUploadServiceSigningTest {
                     name = "missing-key-lib"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "%d"
+                    java = %d
 
                     [publish]
-                    releaseRepository = "local"
+                    release = "local"
 
                     [publish.repositories.local]
                     url = "%s"
 
                     [publish.signing]
-                    enabled = true
+                    method = "gpg"
                     keyId = "0000000000000000"
                     """.formatted(Runtime.version().feature(), recorder.baseUri()));
             PublishTestPackageEvidence.write(projectDir);
@@ -140,8 +140,8 @@ final class PublishUploadServiceSigningTest {
                     Map.of("GNUPGHOME", emptyGnupgHome.toString())::get;
             PublishUploadService service = new PublishUploadService(
                     new PublishDryRunService(environment),
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new MavenRepositoryClient(),
                     environment);
 
@@ -170,7 +170,7 @@ final class PublishUploadServiceSigningTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 2\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (Recorder recorder = Recorder.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -178,16 +178,16 @@ final class PublishUploadServiceSigningTest {
                     name = "resumable-signed-lib"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "%d"
+                    java = %d
 
                     [publish]
-                    releaseRepository = "local"
+                    release = "local"
 
                     [publish.repositories.local]
                     url = "%s"
 
                     [publish.signing]
-                    enabled = true
+                    method = "gpg"
                     passphraseEnv = "ZOLT_SIGNING_PASS"
                     """.formatted(Runtime.version().feature(), recorder.baseUri()));
             PublishTestPackageEvidence.write(projectDir);
@@ -196,8 +196,8 @@ final class PublishUploadServiceSigningTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishUploadService service = new PublishUploadService(
                     new PublishDryRunService(environment),
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new MavenRepositoryClient(),
                     environment);
             String base = "/com/example/resumable-signed-lib/0.1.0/resumable-signed-lib-0.1.0";

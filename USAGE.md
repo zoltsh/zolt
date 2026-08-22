@@ -31,15 +31,19 @@ task with `zolt task NAME -- ARGS`.
 
 ```sh
 zolt add GROUP:ARTIFACT:VERSION
-zolt add test GROUP:ARTIFACT:VERSION
-zolt add runtime GROUP:ARTIFACT:VERSION
-zolt add provided GROUP:ARTIFACT:VERSION
-zolt add processor GROUP:ARTIFACT:VERSION
-zolt remove GROUP:ARTIFACT
-zolt platform add GROUP:ARTIFACT:VERSION
+zolt add GROUP:ARTIFACT:VERSION --scope test
+zolt remove GROUP:ARTIFACT --scope test
+zolt versions set ALIAS VERSION
+zolt platforms set GROUP:ARTIFACT VERSION
 zolt resolve --locked
 zolt resolve --offline
 ```
+
+Dependency scope is an explicit option, not a positional prefix. Scope values
+are `implementation` (default), `api`, `runtime`, `provided`, `dev`, `test`,
+`processor`, and `test-processor`. Every mutation refreshes `zolt.lock` unless
+`--no-resolve` is given, which commits only the source-safe manifest edit and
+names the resolve command that refreshes the stale lock.
 
 Inspect and update the graph:
 
@@ -143,18 +147,18 @@ See [Frameworks](./REFERENCE.md#frameworks-and-generated-sources) and the
 
 ```sh
 zolt package --plan
-zolt package --mode thin
-zolt package --mode uber
+zolt package --mode jar
+zolt package --mode uber-jar
 zolt package --mode war
 zolt package --mode quarkus
 zolt native
 ```
 
 Packages support sources, Javadoc, manifests, Maven metadata, and evidence.
-`--mode` is a one-command override only when the configured and requested modes
-use the same resolution tooling. Thin, uber, WAR, and Quarkus layouts are in one
-resolution family; Spring Boot jar and Spring Boot WAR are another. Crossing
-between those families fails closed: persist `[package].mode`, run
+`--mode` is a one-command standalone override only when the configured and
+requested modes use the same resolution tooling. Jar, uber-jar, WAR, and Quarkus
+layouts are in one resolution family; Spring Boot jar and Spring Boot WAR are
+another. Crossing between those families fails closed: persist `[package].mode`, run
 `zolt resolve`, and retry without `--mode`. Native builds validate that same
 declared lock and use the resolved GraalVM toolchain. Their intermediate JVM
 input and package evidence live under `[native].output/input` (by default

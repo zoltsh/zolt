@@ -2,7 +2,7 @@
 
 Status: decided and implemented 2026-08-11. Amendment to
 [`docs/supply-chain-design.md`](supply-chain-design.md) for
-`[dependencyPolicy.licenses]`, `zolt licenses`, CycloneDX output, and
+`[dependencies.policy.licenses]`, `zolt licenses`, CycloneDX output, and
 `zolt check --check license-policy`.
 
 ## Decision
@@ -15,12 +15,12 @@ exceptions would force a project to allow `BSD-3-Clause` globally.
 The configuration surface is:
 
 ```toml
-[dependencyPolicy.licenses]
+[dependencies.policy.licenses]
 allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
 deny = ["GPL-3.0-only"]
 unknown = "fail"
 
-[dependencyPolicy.licenses.exceptions."org.example:matchit"]
+[dependencies.license-exceptions."org.example:matchit"]
 allow = ["BSD-3-Clause"]
 version = "0.8.4"
 reason = "Reviewed transitive dependency; declared as MIT AND BSD-3-Clause"
@@ -58,12 +58,16 @@ With that policy, `org.example:matchit:0.8.4` declaring
 ## Why a keyed table
 
 The dependency coordinate is identity, not data, just as it is for
-`[dependencyConstraints]`. A quoted table key makes duplicate exceptions
+`[dependencies.constraints]`. A quoted table key makes duplicate exceptions
 structurally impossible and gives diagnostics a stable configuration path:
 
 ```text
-[dependencyPolicy.licenses.exceptions."org.example:matchit"]
+[dependencies.license-exceptions."org.example:matchit"]
 ```
+
+Exceptions own a namespace beside the policy table rather than nesting inside it.
+That keeps canonical table depth at three segments and avoids both a
+five-segment policy table and a duplicate-prone array of anonymous exceptions.
 
 An array of inline tables was rejected because it permits duplicate coordinates
 and makes source-preserving edits and diagnostics position-dependent. A version
@@ -96,8 +100,8 @@ boundary as TOML: exceptions require a non-empty global allow-list, every map
 value is non-null, every key equals its embedded dependency, and embedded
 dependency identities are unique.
 
-`DependencyPolicySectionCodec` accepts `exceptions` under the licenses table,
-validates every nested table against exactly `allow`, `version`, and `reason`,
+The manifest decoder reads `[dependencies.license-exceptions.<coordinate>]`
+tables, validates each one against exactly `allow`, `version`, and `reason`,
 and writes coordinates in lexical order. Parse-time failures include:
 
 - malformed coordinates or wildcard characters;
@@ -109,7 +113,7 @@ and writes coordinates in lexical order. Parse-time failures include:
 - an exception term also covered by global `deny`;
 - unknown fields at any level.
 
-Global `allow` and `deny` retain their current raw-string compatibility for
+Global `allow` and `deny` also accept an exact raw string term for genuinely
 unmapped Maven metadata. SPDX identifiers and `WITH` combinations are
 canonicalized as policy terms. A valid compound `AND`/`OR` expression is not a
 policy term, and malformed SPDX-shaped input is also rejected. One shared
@@ -122,10 +126,10 @@ invalid declaration cannot hide an SPDX term from classification by changing
 its separator.
 Unsupported atomic SPDX-like labels such as `Net-SNMP`, `LicenseRef-*`, and
 legacy `+` identifiers remain exact raw global terms so projects can target the
-same `UNMAPPED` evidence without broadening `unknown`. In particular, a current
-workaround such as `allow = ["MIT AND BSD-3-Clause"]` must become term-level policy
-plus a scoped exception. This deliberate config break prevents the old raw-string
-escape from bypassing the new AST semantics. The stricter SPDX-only rule for
+same `UNMAPPED` evidence without broadening `unknown`. A compound expression such
+as `allow = ["MIT AND BSD-3-Clause"]` is not a policy term; that intent is
+expressed as term-level policy plus a scoped exception, so a raw string cannot
+bypass the AST semantics. The stricter SPDX-only rule for
 exception entries ensures the feature cannot turn unidentified legal text into
 a narrow approval.
 
@@ -302,7 +306,7 @@ shows an exception on the dependency, never as ignored:
 ```text
 MIT AND BSD-3-Clause (1)
   org.example:matchit:0.8.4  [exception] BSD-3-Clause permitted by
-    [dependencyPolicy.licenses.exceptions."org.example:matchit"]
+    [dependencies.license-exceptions."org.example:matchit"]
     reason: Reviewed transitive dependency; declared as MIT AND BSD-3-Clause
 ```
 
@@ -380,7 +384,7 @@ from that enum is emitted as a named license instead. A catalog-wide schema test
 renders all active parser identifiers in one BOM, keeping this version boundary
 executable whenever either catalog changes.
 
-`[package.metadata].license` uses the same expression parser for root/member SBOM
+`[project].license` uses the same expression parser for root/member SBOM
 metadata, but dependency-policy evaluation remains third-party only.
 
 ## Module boundaries

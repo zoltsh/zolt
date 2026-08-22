@@ -23,11 +23,14 @@ final class BuildCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
@@ -40,13 +43,7 @@ final class BuildCommandTestSupport {
                         .append("\"\n"));
         config.append("""
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
         Files.writeString(projectDir.resolve("zolt.toml"), config.toString());
     }
@@ -54,9 +51,8 @@ final class BuildCommandTestSupport {
     static void enableQuarkus(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
-                [framework.quarkus]
-                enabled = true
-                package = "fast-jar"
+                [package]
+                mode = "quarkus"
                 """);
     }
 

@@ -35,10 +35,10 @@ How to summarize Zolt:
   JUnit Vintage, and Spock/Groovy test sources. Commands support selectors,
   glob patterns, tags, JVM args, XML reports, named suites, shards, coverage,
   and optional profiling evidence for shard balancing.
-- Packaging supports thin jars, Spring Boot jars, WAR and Spring Boot WAR
-  shapes, Quarkus fast-jar packaging, uber packaging, package plans, package
-  evidence, native-image builds, native release archives, release indexes, and
-  release verification.
+- Packaging supports jars, uber-jars, Spring Boot jars, WAR and Spring Boot WAR
+  shapes, Quarkus fast-jar packaging, package plans, package evidence,
+  native-image builds, native release archives, release indexes, and release
+  verification.
 - Framework and generated-source examples include Spring Boot, Quarkus,
   Micronaut annotation processors, Vert.x, OpenAPI generated Java sources,
   Protobuf/gRPC generated Java sources, provided/container APIs, and
@@ -56,8 +56,8 @@ Representative commands:
 ```sh
 zolt init hello --group com.example --java 21
 zolt add com.google.guava:guava:33.4.0-jre
-zolt platform add org.springframework.boot:spring-boot-dependencies:4.0.6
-zolt version set spring 4.0.6
+zolt platforms add org.springframework.boot:spring-boot-dependencies:4.0.6
+zolt versions set spring 4.0.6
 zolt resolve --locked
 zolt tree
 zolt why org.springframework.boot:spring-boot-starter-webmvc

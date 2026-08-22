@@ -43,7 +43,7 @@ final class WorkspaceClasspathServiceTest {
         writeArtifact(workerHelperJar, "");
         writeArtifact(legacyJar, "");
         ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), """
-                version = 5
+                version = 7
 
                 [[package]]
                 id = "com.acme:core"
@@ -106,7 +106,7 @@ final class WorkspaceClasspathServiceTest {
                 direct = true
                 jar = "org/example/legacy/1.0.0/legacy-1.0.0.jar"
                 dependencies = []
-                """);
+                """ + WorkspaceClasspathRootFixtures.memberClosure());
         coreHelperJar = cached(coreHelperJar);
         coreApiJar = cached(coreApiJar);
         workerHelperJar = cached(workerHelperJar);
@@ -182,7 +182,7 @@ final class WorkspaceClasspathServiceTest {
         writeArtifact(externalProcessorHelperJar, "");
         writeArtifact(externalIgnoredJar, "");
         ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), """
-                version = 5
+                version = 7
 
                 [[package]]
                 id = "com.acme:processor"
@@ -246,7 +246,7 @@ final class WorkspaceClasspathServiceTest {
                 jar = "org/example/ignored/1.0.0/ignored-1.0.0.jar"
                 members = ["modules/unrelated"]
                 dependencies = []
-                """);
+                """ + WorkspaceClasspathRootFixtures.processorClosure());
         externalApiProcessorJar = cached(externalApiProcessorJar);
         externalProcessorHelperJar = cached(externalProcessorHelperJar);
         externalIgnoredJar = cached(externalIgnoredJar);
@@ -284,7 +284,7 @@ final class WorkspaceClasspathServiceTest {
         writeArtifact(linuxJar, "linux-native-bytes");
         writeArtifact(osxJar, "osx-native-bytes");
         ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), ("""
-                version = 5
+                version = 7
 
                 [[package]]
                 id = "io.netty:netty-transport-native-epoll"
@@ -309,7 +309,8 @@ final class WorkspaceClasspathServiceTest {
                 dependencies = []
                 """)
                 .replace("LINUX_SHA", sha256("linux-native-bytes"))
-                .replace("OSX_SHA", sha256("osx-native-bytes")));
+                .replace("OSX_SHA", sha256("osx-native-bytes"))
+                + WorkspaceClasspathRootFixtures.classifiedRuntime());
         linuxJar = cached(linuxJar);
         osxJar = cached(osxJar);
 
@@ -334,7 +335,7 @@ final class WorkspaceClasspathServiceTest {
                 "cache/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-x86_64.jar");
         writeArtifact(linuxJar, "linux-api-bytes");
         ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), ("""
-                version = 5
+                version = 7
 
                 [[package]]
                 id = "io.netty:netty-transport-native-epoll"
@@ -347,7 +348,8 @@ final class WorkspaceClasspathServiceTest {
                 members = ["modules/core"]
                 exportedBy = ["modules/core"]
                 dependencies = []
-                """).replace("LINUX_SHA", sha256("linux-api-bytes")));
+                """).replace("LINUX_SHA", sha256("linux-api-bytes"))
+                + WorkspaceClasspathRootFixtures.classifiedApi());
         linuxJar = cached(linuxJar);
 
         ClasspathSet classpaths =
@@ -370,7 +372,7 @@ final class WorkspaceClasspathServiceTest {
         writeArtifact(linuxJar, "linux-transitive-bytes");
         writeArtifact(plainJar, "plain-transitive-bytes");
         ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), ("""
-                version = 2
+                version = 7
 
                 [[package]]
                 id = "com.example:api-lib"
@@ -408,7 +410,8 @@ final class WorkspaceClasspathServiceTest {
                 """)
                 .replace("API_SHA", sha256("api-lib-bytes"))
                 .replace("PLAIN_SHA", sha256("plain-transitive-bytes"))
-                .replace("LINUX_SHA", sha256("linux-transitive-bytes")));
+                .replace("LINUX_SHA", sha256("linux-transitive-bytes"))
+                + WorkspaceClasspathRootFixtures.apiClosure());
         apiJar = cached(apiJar);
         linuxJar = cached(linuxJar);
         plainJar = cached(plainJar);
@@ -424,13 +427,13 @@ final class WorkspaceClasspathServiceTest {
     private Workspace workspace(
             List<String> members,
             List<WorkspaceProjectEdge> edges) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), "");
+        Files.writeString(tempDir.resolve("zolt.toml"), "");
         for (String member : members) {
             Files.createDirectories(tempDir.resolve(member));
         }
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("acme-platform", members, List.of(), Map.of(), Map.of()),
                 members.stream()
                         .map(member -> new WorkspaceMember(member, tempDir.resolve(member), null))

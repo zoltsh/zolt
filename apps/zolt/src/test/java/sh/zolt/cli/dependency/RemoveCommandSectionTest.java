@@ -30,25 +30,27 @@ final class RemoveCommandSectionTest {
                     </project>
                     """);
             Path projectDir = tempDir.resolve("demo");
+            // One ordinary variant lives in one lane (design §9.7), so the test lane holds its own.
             RemoveCommandSectionTestSupport.writeSectionedDependencyProject(
                     projectDir,
                     repository.baseUri().toString(),
                     Map.of("com.example:tool", "1.0.0"),
-                    Map.of("com.example:tool", "1.0.0"));
+                    Map.of("com.example:test-tool", "1.0.0"));
 
             CommandResult result = execute(
                     "remove",
                     "--cwd", projectDir.toString(),
                     "--cache-root", tempDir.resolve("cache").toString(),
-                    "test",
-                    "com.example:tool");
+                    "com.example:test-tool",
+                    "--scope", "test");
 
-            assertEquals(0, result.exitCode());
-            assertTrue(result.stdout().contains("Removed dependency com.example:tool from [test.dependencies]"));
+            assertEquals(0, result.exitCode(), result.stderr());
+            assertTrue(
+                    result.stdout().contains("Removed dependency com.example:test-tool from [dependencies.test]"));
             String config = Files.readString(projectDir.resolve("zolt.toml"));
+            assertEquals(0, occurrences(config, "com.example:test-tool"));
             assertEquals(1, occurrences(config, "\"com.example:tool\" = \"1.0.0\""));
             assertTrue(config.indexOf("[dependencies]") < config.indexOf("\"com.example:tool\" = \"1.0.0\""));
-            assertTrue(config.indexOf("\"com.example:tool\" = \"1.0.0\"") < config.indexOf("[test.dependencies]"));
         }
     }
 
@@ -69,41 +71,31 @@ final class RemoveCommandSectionTest {
                     name = "demo"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "21"
+                    java = 21
 
-                    [repositories]
-                    "local" = "%s"
-
-                    [platforms]
+                    [repositories.local]
+                    url = "%s"
 
                     [dependencies]
                     "com.example:processor" = "1.0.0"
 
-                    [test.dependencies]
-
-                    [annotationProcessors]
+                    [dependencies.processor]
                     "com.example:processor" = "1.0.0"
-
-                    [build]
-                    source = "src/main/java"
-                    test = "src/test/java"
-                    output = "target/classes"
-                    testOutput = "target/test-classes"
                     """.formatted(repository.baseUri()));
 
             CommandResult result = execute(
                     "remove",
                     "--cwd", projectDir.toString(),
                     "--cache-root", tempDir.resolve("cache").toString(),
-                    "processor",
-                    "com.example:processor");
+                    "com.example:processor",
+                    "--scope", "processor");
 
-            assertEquals(0, result.exitCode());
-            assertTrue(result.stdout().contains("Removed dependency com.example:processor from [annotationProcessors]"));
+            assertEquals(0, result.exitCode(), result.stderr());
+            assertTrue(result.stdout().contains("Removed dependency com.example:processor from [dependencies.processor]"));
             assertTrue(result.stdout().contains("Resolved 1 packages"));
             String config = Files.readString(projectDir.resolve("zolt.toml"));
             assertTrue(config.contains("[dependencies]\n\"com.example:processor\" = \"1.0.0\""));
-            assertFalse(config.contains("[annotationProcessors]\n\"com.example:processor\" = \"1.0.0\""));
+            assertFalse(config.contains("[dependencies.processor]\n\"com.example:processor\" = \"1.0.0\""));
         }
     }
 
@@ -115,11 +107,11 @@ final class RemoveCommandSectionTest {
         CommandResult result = execute(
                 "remove",
                 "--cwd", projectDir.toString(),
-                "api",
-                "com.example:contract");
+                "com.example:contract",
+                "--scope", "api");
 
-        assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("Removed dependency com.example:contract from [api.dependencies]"));
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("Removed dependency com.example:contract from [dependencies.api]"));
         assertTrue(result.stdout().contains("Resolved 0 packages"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
         assertFalse(config.contains("\"com.example:contract\" = \"1.0.0\""));
@@ -135,11 +127,11 @@ final class RemoveCommandSectionTest {
                 "--cwd", projectDir.toString(),
                 "com.example:contract");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains(
                 "Dependency com.example:contract is not present in [dependencies]; nothing to remove."));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(config.contains("[api.dependencies]\n\"com.example:contract\" = \"1.0.0\""));
+        assertTrue(config.contains("[dependencies.api]\n\"com.example:contract\" = \"1.0.0\""));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
     }
 

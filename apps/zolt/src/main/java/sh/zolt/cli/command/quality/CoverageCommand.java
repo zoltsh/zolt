@@ -28,7 +28,7 @@ import sh.zolt.test.TestSelectionException;
 import sh.zolt.test.shard.TestShardException;
 import sh.zolt.test.shard.TestShardSpec;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.coverage.WorkspaceCoverageResult;
 import sh.zolt.workspace.coverage.WorkspaceCoverageService;
@@ -46,7 +46,7 @@ import picocli.CommandLine.Spec;
         name = "coverage",
         description = "Run tests with Jacoco instrumentation and write coverage reports.")
 public final class CoverageCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final CoverageService coverageService;
     private final WorkspaceCoverageService workspaceCoverageService;
     private final CommandServiceBundles.CoverageServiceFactory coverageServiceFactory;
@@ -124,7 +124,7 @@ public final class CoverageCommand implements Runnable {
 
     private CoverageCommand(CommandCoverageServices services) {
         this(
-                services.tomlParser(),
+                services.projectLoader(),
                 services.coverageService(),
                 services.workspaceCoverageService(),
                 services.coverageServiceFactory(),
@@ -132,12 +132,12 @@ public final class CoverageCommand implements Runnable {
     }
 
     CoverageCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             CoverageService coverageService,
             WorkspaceCoverageService workspaceCoverageService,
             CommandServiceBundles.CoverageServiceFactory coverageServiceFactory,
             CommandServiceBundles.TestRunServiceFactory testRunServiceFactory) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.coverageService = coverageService;
         this.workspaceCoverageService = workspaceCoverageService;
         this.coverageServiceFactory = coverageServiceFactory;
@@ -162,7 +162,7 @@ public final class CoverageCommand implements Runnable {
             }
             ProjectConfig config = timings.measure(
                     "config read",
-                    () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                    () -> projectLoader.load(projectRoot));
             var compileChecker = toolchainOptions.jdkChecker(projectRoot, config, "coverage");
             CoverageService projectCoverageService = coverageServiceFactory.create(
                     compileChecker,
@@ -198,7 +198,7 @@ public final class CoverageCommand implements Runnable {
             result.testRunResult().reportsDirectory().ifPresent(path -> output.pointer("wrote", path.toString()));
             CoverageFloorEnforcement.enforce(
                     spec,
-                    tomlParser.parseCoverageFloors(projectRoot.resolve("zolt.toml")),
+                    projectLoader.coverageFloors(projectRoot),
                     result.xmlReport());
         } catch (BuildException
                 | CoverageException

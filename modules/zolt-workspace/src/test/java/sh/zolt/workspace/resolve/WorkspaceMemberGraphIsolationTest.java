@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
@@ -35,36 +35,41 @@ final class WorkspaceMemberGraphIsolationTest extends WorkspaceResolveServiceTes
         workspace("""
                 [workspace]
                 name = "member-graphs"
-                members = ["apps/api", "apps/worker", "apps/api-consumer", "apps/worker-consumer"]
+
+                [workspace.members]
+                include = ["apps/api", "apps/worker", "apps/api-consumer", "apps/worker-consumer"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
-                [api.dependencies]
-                "com.example:root" = { version = "1.0.0", exclusions = [{ group = "com.example", artifact = "leaf" }] }
+                [dependencies.api]
+                "com.example:root" = { version = "1.0.0", exclude = ["com.example:leaf"] }
                 """);
         member("apps/worker", "worker", """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:root" = "1.0.0"
                 """);
         member("apps/api-consumer", "api-consumer", """
 
                 [dependencies]
-                "com.acme:api" = { workspace = "apps/api" }
+                "com.acme:api" = { workspace = true }
                 """);
         member("apps/worker-consumer", "worker-consumer", """
 
                 [dependencies]
-                "com.acme:worker" = { workspace = "apps/worker" }
+                "com.acme:worker" = { workspace = true }
                 """);
 
         Path cache = tempDir.resolve("cache");
         service.resolve(tempDir, cache, false, false);
         ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
-        Workspace workspace = new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        Workspace workspace = new ManifestWorkspaceLoader().discover(tempDir).orElseThrow();
         WorkspaceClasspathService classpaths = new WorkspaceClasspathService();
 
         assertLeafAbsent(classpaths.classpathsFor(

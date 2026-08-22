@@ -15,18 +15,8 @@ final class CommandServiceClustersTest {
         CommandConfigEditServices services = CommandFrameworkServices.configEditServices();
 
         assertRejectsNullCollaborators(
-                () -> new CommandConfigEditServices(
-                        null,
-                        services.tomlWriter(),
-                        services.resolveService()),
-                () -> new CommandConfigEditServices(
-                        services.tomlParser(),
-                        null,
-                        services.resolveService()),
-                () -> new CommandConfigEditServices(
-                        services.tomlParser(),
-                        services.tomlWriter(),
-                        null));
+                () -> new CommandConfigEditServices(null, services.resolveService()),
+                () -> new CommandConfigEditServices(services.manifests(), null));
     }
 
     @Test

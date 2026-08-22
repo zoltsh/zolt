@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * End-to-end proof for : a consumer member declares another workspace member as an
- * annotation processor via {@code [annotationProcessors] "x" = { workspace = "modules/proc" }}. The
+ * annotation processor via {@code [dependencies.processor] "x" = { workspace = true }}. The
  * processor member is compiled first, runs during the consumer's compile (generating a source that
  * the consumer references), and neither the processor member's output nor its transitive
  * dependencies leak onto the consumer's compile/runtime/test classpaths.
@@ -26,7 +26,9 @@ final class WorkspaceAnnotationProcessorBuildTest extends WorkspaceBuildServiceT
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/greeting-processor"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/greeting-processor"]
                 """);
 
         // Processor member: a real javax.annotation.processing.Processor that generates a source.
@@ -80,8 +82,8 @@ final class WorkspaceAnnotationProcessorBuildTest extends WorkspaceBuildServiceT
         // Consumer member: uses the workspace processor and references the generated type.
         member("apps/api", "api", """
 
-                [annotationProcessors]
-                "com.acme:greeting-processor" = { workspace = "modules/greeting-processor" }
+                [dependencies.processor]
+                "com.acme:greeting-processor" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;

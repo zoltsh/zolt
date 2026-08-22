@@ -20,21 +20,21 @@ public final class SourceDiscoverer {
 
     public SourceDiscoveryResult discover(Path projectDirectory, BuildSettings settings) {
         Path projectRoot = ProjectPaths.root(projectDirectory);
-        Path output = outputPath(projectRoot, "[build].output", settings.output());
-        Path testOutput = outputPath(projectRoot, "[build].testOutput", settings.testOutput());
+        Path output = outputPath(projectRoot, "[build.output].main", settings.output());
+        Path testOutput = outputPath(projectRoot, "[build.output].test", settings.testOutput());
         List<SourceRoot> mainRoots = new ArrayList<>(settings.sourceRoots().stream()
                 .map(root -> inputRoot(projectRoot, "[build].sources", root))
                 .toList());
         mainRoots.addAll(generatedRoots(projectRoot, settings.generatedMainSources(), "main"));
         List<SourceRoot> testRoots = new ArrayList<>(settings.testSources().stream()
-                .map(root -> inputRoot(projectRoot, "[build].testSources", root))
+                .map(root -> inputRoot(projectRoot, "[test.sources].java", root))
                 .toList());
         testRoots.addAll(generatedRoots(projectRoot, settings.generatedTestSources(), "test"));
         return new SourceDiscoveryResult(
                 discoverSources(projectRoot, mainRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, testRoots, output, testOutput, ".java"),
                 discoverSources(projectRoot, settings.groovyTestSources().stream()
-                        .map(root -> inputRoot(projectRoot, "[build].groovyTestSources", root))
+                        .map(root -> inputRoot(projectRoot, "[test.sources].groovy", root))
                         .toList(), output, testOutput, ".groovy"));
     }
 

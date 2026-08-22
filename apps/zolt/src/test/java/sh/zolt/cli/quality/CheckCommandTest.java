@@ -103,8 +103,8 @@ final class CheckCommandTest extends CheckCommandTestSupport {
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("ok project-model check-output-root-migration Project model is valid"));
-        assertTrue(result.stdout().contains("warning project-model [build].outputRoot Maven or Gradle project files are present (pom.xml) while Zolt outputRoot is `target`"));
-        assertTrue(result.stdout().contains("next: For side-by-side migration, set [build].outputRoot = \".zolt/build\""));
+        assertTrue(result.stdout().contains("warning project-model [build.output].root Maven or Gradle project files are present (pom.xml) while the Zolt build output root is `target`"));
+        assertTrue(result.stdout().contains("next: For side-by-side migration, set [build.output].root = \".zolt/build\""));
         assertEquals("", result.stderr());
     }
 
@@ -117,9 +117,9 @@ final class CheckCommandTest extends CheckCommandTestSupport {
                 "--color=always", "check", "--check", "project-model", "--cwd", projectDir.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("\u001B[33mwarning\u001B[0m project-model [build].outputRoot"));
+        assertTrue(result.stdout().contains("\u001B[33mwarning\u001B[0m project-model [build.output].root"));
         assertEquals(
-                "  next: For side-by-side migration, set [build].outputRoot = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate.",
+                "  next: For side-by-side migration, set [build.output].root = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate.",
                 lineContaining(result.stdout(), "next: For side-by-side migration"));
         assertFalse(result.stdout().contains("\u001B[33mwarning project-model"));
         assertEquals("", result.stderr());
@@ -132,15 +132,15 @@ final class CheckCommandTest extends CheckCommandTestSupport {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-output-root-isolated")
                 + """
 
-                [build]
-                outputRoot = ".zolt/build"
+                [build.output]
+                root = ".zolt/build"
                 """);
 
         CommandResult result = execute("check", "--check", "project-model", "--cwd", projectDir.toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("ok project-model check-output-root-isolated Project model is valid"));
-        assertTrue(!result.stdout().contains("warning project-model [build].outputRoot"));
+        assertTrue(!result.stdout().contains("warning project-model [build.output].root"));
         assertEquals("", result.stderr());
     }
 
@@ -156,7 +156,7 @@ final class CheckCommandTest extends CheckCommandTestSupport {
         CommandResult result = execute("check", "--cwd", projectDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error command-surface zolt.toml Unknown top-level section [check] in zolt.toml."));
+        assertTrue(result.stdout().contains("error command-surface zolt.toml Unknown manifest section `[check]`"), result.stdout());
         assertTrue(result.stdout().contains("next: Fix zolt.toml, then run `zolt check` again."));
         assertEquals("", result.stderr());
     }
@@ -175,6 +175,42 @@ final class CheckCommandTest extends CheckCommandTestSupport {
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("ok command-surface check-workspace zolt check selected 2 workspace members"));
         assertTrue(result.stdout().contains("no Maven, Gradle, or shell hooks are run."));
+        assertEquals("", result.stderr());
+    }
+
+    /**
+     * Design §6.2: an exclusion matching no expanded candidate is allowed but reported by
+     * {@code zolt check --workspace} as stale configuration, so it warns without failing the report.
+     */
+    @Test
+    void staleExcludeIsReportedByCheck() throws IOException {
+        WorkspaceCommandFixture.WorkspaceApplicationFixture fixture =
+                WorkspaceCommandFixture.create(tempDir, "check-stale-exclude");
+        Files.writeString(fixture.workspaceDir().resolve("zolt.toml"), """
+                [workspace]
+                name = "workspace"
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
+                exclude = ["modules/retired"]
+                """);
+
+        CommandResult result = execute(
+                "check",
+                "--workspace",
+                "--check", "project-model",
+                "--cwd", fixture.workspaceDir().toString());
+
+        assertEquals(0, result.exitCode(), result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "warning project-model [workspace.members].exclude Workspace exclusion "
+                                + "`modules/retired` matched no workspace member."),
+                result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "next: Remove the stale entry from [workspace.members].exclude,"),
+                result.stdout());
         assertEquals("", result.stderr());
     }
 

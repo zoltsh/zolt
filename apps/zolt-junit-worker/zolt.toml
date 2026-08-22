@@ -1,26 +1,14 @@
 [project]
 name = "zolt-junit-worker"
-version = "0.1.0-SNAPSHOT"
-group = "sh.zolt"
-java = "21"
 main = "sh.zolt.junit.JunitLauncherWorker"
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
 [dependencies]
-"sh.zolt:zolt-junit-client" = { workspace = "modules/zolt-junit-client" }
-"sh.zolt:zolt-model" = { workspace = "modules/zolt-model" }
-"sh.zolt:zolt-test-model" = { workspace = "modules/zolt-test-model" }
+"sh.zolt:zolt-junit-client" = { workspace = true }
+"sh.zolt:zolt-model" = { workspace = true }
+"sh.zolt:zolt-test-model" = { workspace = true }
 
-[test.dependencies]
+[dependencies.test]
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
 [package]
-mode = "uber"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+mode = "uber-jar"

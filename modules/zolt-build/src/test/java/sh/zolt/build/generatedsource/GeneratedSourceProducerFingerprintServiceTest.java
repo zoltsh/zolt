@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.build.BuildException;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,7 +69,6 @@ final class GeneratedSourceProducerFingerprintServiceTest {
         Path bin = projectDir.resolve("bin");
         Files.createDirectories(bin);
         executable(bin.resolve("zoltgen"));
-        executable(bin.resolve("zoltprobe"));
         Files.writeString(projectDir.resolve("seed.txt"), "seed\n");
         AtomicReference<String> version = new AtomicReference<>("1.0.0");
         GeneratedSourceProducerFingerprintService service =
@@ -102,27 +101,6 @@ final class GeneratedSourceProducerFingerprintServiceTest {
         String first = fingerprint(service, config, "model");
         Files.writeString(toolJar(), "changed tool bytes\n");
         String second = fingerprint(service, config, "model");
-
-        assertNotEquals(first, second);
-    }
-
-    @Test
-    void execFingerprintTracksCacheSalt() throws IOException {
-        seedJvmTool();
-        Files.createDirectories(projectDir.resolve("schemas"));
-
-        String first = fingerprint(
-                service(Map.of()),
-                jvmConfig(
-                        "inputs = [\"schemas/**/*.json\"]\ncacheSalt = \"one\"",
-                        "model"),
-                "model");
-        String second = fingerprint(
-                service(Map.of()),
-                jvmConfig(
-                        "inputs = [\"schemas/**/*.json\"]\ncacheSalt = \"two\"",
-                        "model"),
-                "model");
 
         assertNotEquals(first, second);
     }
@@ -232,15 +210,15 @@ final class GeneratedSourceProducerFingerprintServiceTest {
     }
 
     private static ProjectConfig jvmConfig(String stepFields, String stepId) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.execTools.jooq]
-                runner = "jvm"
+                [generated.tools.jooq]
+                kind = "jvm"
                 coordinates = [{ coordinate = "org.jooq:jooq-codegen", version = "3.19.15" }]
                 mainClass = "com.example.GenerationTool"
 
@@ -254,15 +232,15 @@ final class GeneratedSourceProducerFingerprintServiceTest {
     }
 
     private static ProjectConfig twoStepConfig(String first, String second) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.execTools.jooq]
-                runner = "jvm"
+                [generated.tools.jooq]
+                kind = "jvm"
                 coordinates = [{ coordinate = "org.jooq:jooq-codegen", version = "3.19.15" }]
                 mainClass = "com.example.GenerationTool"
 
@@ -283,17 +261,17 @@ final class GeneratedSourceProducerFingerprintServiceTest {
     }
 
     private static ProjectConfig processConfig(String stepFields) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.execTools.gen]
-                runner = "process"
+                [generated.tools.gen]
+                kind = "process"
                 binary = "zoltgen"
-                versionCommand = ["zoltprobe"]
+                versionCommand = ["zoltgen", "--version"]
                 allowUnpinnedTool = true
 
                 [generated.main.assets]
@@ -307,15 +285,15 @@ final class GeneratedSourceProducerFingerprintServiceTest {
     }
 
     private static ProjectConfig unavailableTestProcessConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.execTools.test-generator]
-                runner = "process"
+                [generated.tools.test-generator]
+                kind = "process"
                 binary = "zolt-missing-test-generator"
                 versionCommand = ["zolt-missing-test-generator", "--version"]
                 allowUnpinnedTool = true

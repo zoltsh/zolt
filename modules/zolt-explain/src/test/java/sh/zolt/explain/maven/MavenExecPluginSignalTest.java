@@ -47,7 +47,7 @@ final class MavenExecPluginSignalTest {
 
         String text = scorecardText(result);
         assertTrue(text.contains("generated-sources: planned"), () -> text);
-        assertTrue(text.contains("[generated.execTools] exec step"), () -> text);
+        assertTrue(text.contains("[generated.tools] exec step"), () -> text);
     }
 
     @Test
@@ -74,7 +74,7 @@ final class MavenExecPluginSignalTest {
         ExplainSignal signal = signal(result, "maven.plugin.exec-unmappable");
         assertEquals(ExplainSignal.Severity.BLOCK, signal.severity());
         String blockers = blockersText(result);
-        assertTrue(blockers.contains("[commands.tasks] or CI"), () -> blockers);
+        assertTrue(blockers.contains("[tasks.<id>] or CI"), () -> blockers);
     }
 
     @Test

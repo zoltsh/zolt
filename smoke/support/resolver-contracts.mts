@@ -28,8 +28,8 @@ export const RESOLVER_FIXTURE_CONTRACTS: readonly ResolverFixtureContract[] = [
   {
     name: "hikaricp-canary",
     lockfile: {
-      contains: ['id = "org.slf4j:slf4j-api"', 'kind = "edge-exclusion"', 'id = "org.hamcrest:hamcrest-core"'],
-      excludes: ['id = "org.checkerframework:checker-qual"'],
+      contains: ['id = "org.slf4j:slf4j-api"', 'kind = "edge-exclusion"', 'id = "org.hamcrest:hamcrest-core"', 'publishOnly = true'],
+      excludes: ["checker-qual-3.49.4.jar"],
     },
   },
 ];

@@ -3,6 +3,7 @@ package sh.zolt.cli.command.toolchain;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.config.UserGlobalConfig;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
@@ -11,7 +12,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.toolchain.JavaToolchainStatus;
 import sh.zolt.toolchain.JavaToolchainStatusService;
 import sh.zolt.toolchain.ToolchainConfigReader;
@@ -36,7 +37,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "list", description = "List active, locked, and installed Java toolchains.")
 public final class ToolchainListCommand implements Callable<Integer> {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ToolchainConfigReader toolchainConfigReader;
     private final UserGlobalConfigParser globalConfigParser;
     private final JavaToolchainStatusService statusService;
@@ -60,7 +61,7 @@ public final class ToolchainListCommand implements Callable<Integer> {
 
     public ToolchainListCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new ToolchainConfigReader(),
                 new UserGlobalConfigParser(),
                 new JavaToolchainStatusService(),
@@ -69,13 +70,13 @@ public final class ToolchainListCommand implements Callable<Integer> {
     }
 
     ToolchainListCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ToolchainConfigReader toolchainConfigReader,
             UserGlobalConfigParser globalConfigParser,
             JavaToolchainStatusService statusService,
             ToolchainLockfileService lockfiles,
             JavaToolchainCatalog catalog) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.toolchainConfigReader = toolchainConfigReader;
         this.globalConfigParser = globalConfigParser;
         this.statusService = statusService;
@@ -92,7 +93,8 @@ public final class ToolchainListCommand implements Callable<Integer> {
             UserGlobalConfig globalConfig = globalConfigParser.read(globalConfigPath);
             Optional<JavaToolchainStatus> project = projectStatus(projectRoot, platform, store);
             Optional<JavaToolchainStatus> global = globalStatus(globalConfig, platform, store);
-            List<LockedJavaToolchain> projectLocks = lockfiles.readJava(projectRoot.resolve("zolt.lock"));
+            List<LockedJavaToolchain> projectLocks = lockfiles.readJava(
+                    CommandProjectLockfile.path(projectRoot));
             List<LockedJavaToolchain> globalLocks = lockfiles.readJava(GlobalToolchainPaths.lockfile(globalConfigPath));
             print(projectRoot, project, global, projectLocks, globalLocks, store);
             return 0;
@@ -114,11 +116,11 @@ public final class ToolchainListCommand implements Callable<Integer> {
             return Optional.of(statusService.status(
                     configured.orElseThrow(),
                     "[toolchain.java]",
-                    projectRoot.resolve("zolt.lock"),
+                    CommandProjectLockfile.path(projectRoot),
                     platform,
                     store));
         }
-        ProjectConfig config = tomlParser.parse(configPath);
+        ProjectConfig config = projectLoader.load(projectRoot);
         return Optional.of(statusService.status(projectRoot, config, platform, store));
     }
 

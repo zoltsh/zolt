@@ -43,7 +43,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
         Path projectDir = tempDir.resolve("unknown-fail");
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 unknown = "fail"
                 """);
         writeLockfile(projectDir, pkg("org.example:lib", "1.0.0", true));
@@ -72,7 +72,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["Apache-2.0"]
                 """);
         writeLockfile(projectDir, pkg("org.example:lib", "1.0.0", true));
@@ -101,7 +101,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 """);
         writeLockfile(projectDir, pkg("org.example:lib", "1.0.0", true));
@@ -139,7 +139,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 unknown = "fail"
                 """);
@@ -165,7 +165,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT", "Net-SNMP"]
                 unknown = "fail"
                 """);
@@ -194,7 +194,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 """);
         ProjectConfig config = parseProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 deny = ["GPL-3.0-only"]
                 unknown = "fail"
@@ -236,7 +236,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
 
         assertEquals(1, failures(results).size(), results.toString());
         QualityCheckResult failure = failures(results).getFirst();
-        assertEquals("[dependencyPolicy.licenses.exceptions.\"org.example:lib\"]", failure.subject());
+        assertEquals("[dependencies.license-exceptions.\"org.example:lib\"]", failure.subject());
         assertTrue(failure.message().contains("reviewed version 0.9.0"), failure.message());
         assertTrue(failure.message().contains("resolved version is 1.0.0"), failure.message());
     }
@@ -280,7 +280,8 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
         String artifact = coordinate.substring(coordinate.indexOf(':') + 1);
         String base = group.replace('.', '/') + "/" + artifact + "/" + version + "/" + artifact + "-" + version;
         String pomLine = withPom ? "pom = \"" + base + ".pom\"\n" : "";
-        return "\n[[package]]\n"
+        return dependencyRoot(coordinate, version)
+                + "\n[[package]]\n"
                 + "id = \"" + coordinate + "\"\n"
                 + "version = \"" + version + "\"\n"
                 + "source = \"maven-central\"\n"
@@ -291,9 +292,25 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
                 + "dependencies = []\n";
     }
 
+    /** A v7 lock records one member-qualified authored root per direct package it selects. */
+    private static String dependencyRoot(String coordinate, String version) {
+        return """
+
+                [[dependencyRoot]]
+                member = "."
+                id = "%s"
+                version = "%s"
+                lane = "implementation"
+                resolvedScope = "compile"
+                """.formatted(coordinate, version);
+    }
+
     private static String scopedPkg(CachedArtifact pom) {
         Coordinate coordinate = pom.coordinate();
-        return """
+        return dependencyRoot(
+                        coordinate.groupId() + ":" + coordinate.artifactId(),
+                        coordinate.version().orElseThrow())
+                + """
 
                 [[package]]
                 id = "%s:%s"
@@ -334,11 +351,11 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
     private static String exceptionPolicy(String version, String license) {
         return """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 unknown = "fail"
 
-                [dependencyPolicy.licenses.exceptions."org.example:lib"]
+                [dependencies.license-exceptions."org.example:lib"]
                 allow = ["%s"]
                 version = "%s"
                 reason = "Reviewed dependency"

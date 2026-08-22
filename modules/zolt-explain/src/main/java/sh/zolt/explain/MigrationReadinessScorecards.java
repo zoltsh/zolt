@@ -24,9 +24,9 @@ public final class MigrationReadinessScorecards {
     private static final List<DefaultConcern> MAVEN_DEFAULTS = List.of(
             new DefaultConcern("repositories", "pom repositories", "[repositories]", ""),
             new DefaultConcern("dependencies", "dependencies and dependencyManagement", "[dependencies] and [platforms]", ""),
-            new DefaultConcern("generated-sources", "standard Maven source roots", "[generatedSources]", ""),
+            new DefaultConcern("generated-sources", "standard Maven source roots", "[generated.main] and [generated.test]", ""),
             new DefaultConcern("resources", "standard Maven resource roots", "[resources]", ""),
-            new DefaultConcern("tests", "standard Maven test source roots", "[test]", ""),
+            new DefaultConcern("tests", "standard Maven test source roots", "[test.sources]", ""),
             new DefaultConcern("coverage", "no static coverage plugin required", "none required", ""),
             new DefaultConcern("package", "Maven jar/war packaging metadata", "[package]", ""),
             new DefaultConcern("publish", "publication metadata in pom.xml", "[publish]", ""),
@@ -34,9 +34,9 @@ public final class MigrationReadinessScorecards {
     private static final List<DefaultConcern> GRADLE_DEFAULTS = List.of(
             new DefaultConcern("repositories", "repositories { mavenCentral() / maven { url ... } }", "[repositories]", ""),
             new DefaultConcern("dependencies", "simple dependency declarations and BOMs", "[dependencies], [platforms], and dependency policy", ""),
-            new DefaultConcern("generated-sources", "declared sourceSets generated roots", "[generatedSources]", ""),
+            new DefaultConcern("generated-sources", "declared sourceSets generated roots", "[generated.main] and [generated.test]", ""),
             new DefaultConcern("resources", "declared resource roots", "[resources]", ""),
-            new DefaultConcern("tests", "JUnit Platform test execution", "[test]", ""),
+            new DefaultConcern("tests", "JUnit Platform test execution", "[test.sources]", ""),
             new DefaultConcern("coverage", "coverage is explicit, not finalizedBy task behavior", "zolt coverage", ""),
             new DefaultConcern("package", "jar, war, Spring Boot jar, and Spring Boot WAR package modes", "[package]", ""),
             new DefaultConcern("publish", "publication metadata and dry-run routing", "[publish] and zolt publish --dry-run", ""),

@@ -6,9 +6,10 @@ import sh.zolt.error.ActionableException;
 /**
  * Capability gate for commands that consume the workspace's member-qualified dependency graph.
  *
- * <p>Lockfile versions before 5 remain readable for compatible package metadata, but they do not
- * record optional-boundary evidence. Treating a missing {@code optional} fact as {@code false}
- * changes dependency visibility, so graph consumers must refuse those locks rather than guess.
+ * <p>Historical in-memory models before version 5 do not record optional-boundary evidence.
+ * Treating a missing {@code optional} fact as {@code false} changes dependency visibility, so
+ * graph consumers must refuse those models rather than guess. Current lock readers reject every
+ * pre-v7 wire lock before this capability is consulted.
  */
 public final class WorkspaceGraphLockCapability {
     public static final int MINIMUM_VERSION = 5;

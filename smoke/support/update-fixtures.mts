@@ -17,7 +17,7 @@ export async function writeUpdateLibrary(directory: string): Promise<void> {
   await mkdir(source, { recursive: true });
   await writeFile(join(directory, "zolt.toml"), [
     "[project]", `name = "${UPDATE_ARTIFACT}"`, `version = "${UPDATE_NEW_VERSION}"`,
-    `group = "${UPDATE_GROUP}"`, 'java = "21"', "", "[dependencies]", "",
+    `group = "${UPDATE_GROUP}"`, "java = 21", "",
   ].join("\n"), "utf8");
   await writeFile(join(source, "Widget.java"), [
     "package com.example.smoke;", "", "public final class Widget {", "    private Widget() {}",
@@ -73,6 +73,36 @@ export async function writeBearerUpdateConsumer(directory: string, repositoryUrl
   ]);
 }
 
+/**
+ * A workspace member consumer. Design §8.7 makes the workspace root's repository universe
+ * authoritative, so a member never declares its own {@code [repositories]} or {@code [credentials]}.
+ */
+export async function writeWorkspaceUpdateConsumer(directory: string): Promise<void> {
+  const source = join(directory, "src/main/java/com/example/consumer");
+  await mkdir(source, { recursive: true });
+  await writeFile(join(directory, "zolt.toml"), [
+    "[project]", 'name = "update-consumer"', 'version = "0.1.0"',
+    'group = "com.example"', "java = 21", "",
+    "[dependencies]", `"${UPDATE_COORDINATE}" = "${UPDATE_OLD_VERSION}"`, "",
+  ].join("\n"), "utf8");
+  await writeFile(join(source, "Main.java"), [
+    "package com.example.consumer;", "", "import com.example.smoke.Widget;", "",
+    "public final class Main {", "    private Main() {}",
+    "    public static void main(String[] args) { System.out.println(Widget.name()); }", "}", "",
+  ].join("\n"), "utf8");
+}
+
+/** The root-owned repository universe a workspace update fixture resolves through. */
+export function workspaceRepositoryUniverse(repositoryUrl: string): readonly string[] {
+  return [
+    "[repositories]", `smoke = { url = "${repositoryUrl}", credentials = "smoke-repo" }`, "",
+    "[credentials.smoke-repo]",
+    `usernameEnv = "${UPDATE_REPOSITORY_USERNAME_ENV}"`,
+    `passwordEnv = "${UPDATE_REPOSITORY_PASSWORD_ENV}"`,
+    "",
+  ];
+}
+
 async function writeConsumer(
   directory: string,
   repositoryUrl: string,
@@ -82,9 +112,9 @@ async function writeConsumer(
   await mkdir(source, { recursive: true });
   await writeFile(join(directory, "zolt.toml"), [
     "[project]", 'name = "update-consumer"', 'version = "0.1.0"',
-    'group = "com.example"', 'java = "21"', "",
+    'group = "com.example"', "java = 21", "",
     "[repositories]", `smoke = { url = "${repositoryUrl}", credentials = "smoke-repo" }`, "",
-    "[repositoryCredentials.smoke-repo]",
+    "[credentials.smoke-repo]",
     ...credentials,
     "",
     "[dependencies]", `"${UPDATE_COORDINATE}" = "${UPDATE_OLD_VERSION}"`, "",

@@ -57,11 +57,37 @@ final class DependencyMetadataTest {
                 false,
                 List.of(),
                 "linux-x86_64",
-                "jar");
+                "tar.gz");
 
         assertFalse(metadata.emptyMetadata());
+        assertFalse(metadata.defaultVariant());
         assertEquals("linux-x86_64", metadata.classifier());
-        assertEquals("jar", metadata.type());
+        assertEquals("tar.gz", metadata.type());
+    }
+
+    /**
+     * Design §9.7 makes {@code jar} the default artifact type, so an explicit one is the same variant
+     * as none: keeping both spellings would publish two different POMs and two different lock
+     * fingerprints for one dependency.
+     */
+    @Test
+    void normalizesTheExplicitDefaultTypeToTheDefaultVariant() {
+        DependencyMetadata metadata = new DependencyMetadata(
+                "dependencies",
+                "com.example:app",
+                "1.0.0",
+                null,
+                false,
+                null,
+                false,
+                false,
+                List.of(),
+                null,
+                DependencyMetadata.DEFAULT_TYPE);
+
+        assertTrue(metadata.emptyMetadata());
+        assertTrue(metadata.defaultVariant());
+        assertEquals(null, metadata.type());
     }
 
     @Test

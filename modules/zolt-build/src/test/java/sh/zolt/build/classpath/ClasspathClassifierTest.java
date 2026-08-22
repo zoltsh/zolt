@@ -13,7 +13,7 @@ final class ClasspathClassifierTest {
         ZoltLockfile lockfile;
         try {
             lockfile = sh.zolt.build.lockfile.ContentAddressedLockTestSupport.migrate(Path.of(""), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "com.example:native-lib"

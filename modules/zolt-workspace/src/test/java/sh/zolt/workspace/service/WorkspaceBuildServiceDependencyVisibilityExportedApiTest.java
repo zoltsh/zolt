@@ -15,7 +15,9 @@ final class WorkspaceBuildServiceDependencyVisibilityExportedApiTest
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/internal", "modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/internal", "modules/core", "apps/api"]
                 """);
         member("modules/internal", "internal", "");
         source("modules/internal/src/main/java/com/acme/internal/Internal.java", """
@@ -32,8 +34,8 @@ final class WorkspaceBuildServiceDependencyVisibilityExportedApiTest
                 """);
         member("modules/core", "core", """
 
-                [api.dependencies]
-                "com.acme:internal" = { workspace = "modules/internal" }
+                [dependencies.api]
+                "com.acme:internal" = { workspace = true }
                 """);
         source("modules/core/src/main/java/com/acme/core/Core.java", """
                 package com.acme.core;
@@ -52,7 +54,7 @@ final class WorkspaceBuildServiceDependencyVisibilityExportedApiTest
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -119,14 +121,19 @@ final class WorkspaceBuildServiceDependencyVisibilityExportedApiTest
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:contract" = "1.0.0"
 
                 [dependencies]
@@ -150,7 +157,7 @@ final class WorkspaceBuildServiceDependencyVisibilityExportedApiTest
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -213,14 +220,19 @@ final class WorkspaceBuildServiceDependencyVisibilityExportedApiTest
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:api-lib" = "1.0.0"
                 """);
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -241,7 +253,7 @@ final class WorkspaceBuildServiceDependencyVisibilityExportedApiTest
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;

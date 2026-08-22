@@ -59,8 +59,8 @@ name = "platform-bom"
 group = "com.acme.platform"
 version = "1.4.0"
 
-[bom]                      # presence implies [package] mode = "bom"
-members = true             # or explicit path list; exclude = [...] supported
+[bom]                      # any authored BOM domain is the BOM signal
+members = true             # or explicit member path list; exclude = [...] supported
 
 [bom.versions]             # mirrors [versions]: fixed literals or versionRef
 "org.postgresql:postgresql" = "42.7.4"
@@ -69,13 +69,15 @@ members = true             # or explicit path list; exclude = [...] supported
 [bom.imports]              # mirrors [platforms]: emitted type=pom scope=import
 "com.fasterxml.jackson:jackson-bom" = { versionRef = "jackson" }
 
-[package.metadata]         # PublicationMetadata unchanged (Central needs it)
+# Central metadata lives in [project], [project.scm], and
+# [project.developers.<id>] like any other publishable project.
 ```
 
-Mode rules: `[bom]` implies `PackageMode.BOM("bom")`; explicit `mode = "bom"`
-is a synonym; any other mode alongside `[bom]` is a config error, as is
-`mode = "bom"` without the section, any dependency section on a bom member,
-and sources/javadoc/tests/manifest/uberDuplicates under BOM.
+Mode rules: any authored `[bom]`, `[bom.versions]`, or `[bom.imports]` implies
+`PackageMode.BOM("bom")`; authored `mode = "bom"` is rejected because the BOM
+domain is the sole canonical signal; any other mode alongside `[bom]` is a config
+error, as are any dependency lane on a BOM member, an authored `project.java`,
+and sources/javadoc/tests/manifest/duplicates under BOM.
 Build/package semantics: no compile, no jar; the artifact IS the generated
 POM (`target/publish/<name>-<version>.pom`, recorded in package evidence with
 sha256). run/run-package error actionably. Members=true resolves from the
@@ -137,10 +139,10 @@ members. Parent-POM depMgmt seeds the drafted pins.
 
 examples/platform-family (acme-core, acme-http depending on it, acme-bom
 members=true, uniform 1.0.0) + examples/platform-family-consumer
-([platforms] imports acme-bom; acme-http declared version-less).
+([platforms] imports acme-bom; acme-http declared `{ managed = true }`).
 PublishWorkspaceBomCanaryTest: publish --workspace into a @TempDir file repo
-(plain PUT, unsigned) → consumer resolves → asserts: resolution succeeds
-version-less; versions 1.0.0 arrive via the BOM (platform-managed
+(plain PUT, unsigned) → consumer resolves → asserts: resolution succeeds from a
+platform-managed declaration; versions 1.0.0 arrive via the BOM (platform-managed
 provenance, not direct pins); consumer lock records the fixture repo source;
 published acme-bom POM byte-equals the golden; acme-http POM carries the
 inter-member dependency on acme-core@1.0.0.

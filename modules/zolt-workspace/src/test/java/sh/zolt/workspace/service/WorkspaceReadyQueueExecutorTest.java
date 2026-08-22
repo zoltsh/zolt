@@ -306,7 +306,7 @@ final class WorkspaceReadyQueueExecutorTest {
                 .toList();
         return new Workspace(
                 Path.of("."),
-                Path.of("zolt-workspace.toml"),
+                Path.of("zolt.toml"),
                 new WorkspaceConfig("workspace", members, List.of(), Map.of(), Map.of()),
                 workspaceMembers,
                 edges,

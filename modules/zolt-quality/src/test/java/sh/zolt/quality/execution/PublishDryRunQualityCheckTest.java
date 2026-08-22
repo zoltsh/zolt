@@ -11,7 +11,7 @@ import sh.zolt.build.packaging.PackageArtifact;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.quality.QualityCheckService;
@@ -55,7 +55,7 @@ final class PublishDryRunQualityCheckTest {
                 name = "publish-dry-run"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
 
         QualityCheckResult result = check.check(Optional.empty(), tempDir, QualityCheckContext.CI, true).getFirst();
@@ -70,8 +70,26 @@ final class PublishDryRunQualityCheckTest {
     @Test
     void mapsEachDryRunBlockerToSeparateFailedResult() throws IOException {
         Path projectDir = tempDir.resolve("publish-blockers");
-        writePublishProject(projectDir, "publish-blockers", "https://user:secret@repo.example.test/releases");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), """
+                [project]
+                name = "publish-blockers"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [credentials.release-creds]
+                usernameEnv = "ZOLT_TEST_ABSENT_PUBLISH_USER"
+                passwordEnv = "ZOLT_TEST_ABSENT_PUBLISH_PASSWORD"
+
+                [publish]
+                release = "company-releases"
+
+                [publish.repositories.company-releases]
+                url = "https://repo.example.test/releases"
+                credentials = "release-creds"
+                """);
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         List<QualityCheckResult> results = check.check(
                 Optional.empty(),
@@ -83,7 +101,9 @@ final class PublishDryRunQualityCheckTest {
         assertResult(
                 results.get(0),
                 "publish-dry-run",
-                "CI publish dry-run blocker: publish repository `company-releases` URL contains embedded credentials. Move credentials to [repositoryCredentials] environment references.",
+                "CI publish dry-run blocker: missing credential environment variables "
+                        + "ZOLT_TEST_ABSENT_PUBLISH_USER, ZOLT_TEST_ABSENT_PUBLISH_PASSWORD "
+                        + "for publish repository `company-releases`",
                 "Run `zolt publish --dry-run` and resolve the reported blocker before release CI.");
         assertResult(
                 results.get(1),
@@ -96,7 +116,7 @@ final class PublishDryRunQualityCheckTest {
     void passesWithArtifactEvidenceAndReportsSupplementalArtifactCount() throws IOException {
         Path projectDir = tempDir.resolve("publish-ready");
         writePublishProject(projectDir, "publish-ready", "https://repo.example.test/releases");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
                 Files.readString(projectDir.resolve("zolt.toml"))
@@ -126,10 +146,10 @@ final class PublishDryRunQualityCheckTest {
                 name = "%s"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "%s"
@@ -143,7 +163,7 @@ final class PublishDryRunQualityCheckTest {
         Path sources = target.resolve(name + "-1.0.0-sources.jar");
         Files.writeString(archive, "archive\n", StandardCharsets.UTF_8);
         Files.writeString(sources, "sources\n", StandardCharsets.UTF_8);
-        ProjectConfig config = new ZoltTomlParser().parse(
+        ProjectConfig config = new ManifestProjectConfigLoader().load(
                 projectDir.resolve("zolt.toml"));
         PackagePlan plan = new PackagePlanService().plan(
                 projectDir,

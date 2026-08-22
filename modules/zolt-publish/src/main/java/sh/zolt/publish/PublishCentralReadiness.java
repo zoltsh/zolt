@@ -10,6 +10,10 @@ import java.util.List;
  * version, the required POM metadata (name, description, url, license name+url, an identifiable
  * developer, scm url+connection), sources and Javadoc jars, GPG signatures, and checksums.
  *
+ * <p>The name has no authored spelling in the final language — design §14.4 derives it from project
+ * identity — so its row confirms that derivation reached the metadata the POM is written from, rather
+ * than asking the author for a field they cannot write.
+ *
  * <p>This is a pure function over already-resolved inputs so it can be reused by the dry-run
  * readiness report and by the Central bundle publish path.
  */
@@ -52,28 +56,29 @@ final class PublishCentralReadiness {
         requirements.add(requirement(
                 "project name",
                 !metadata.name().isBlank(),
-                "Add [package.metadata].name."));
+                "Set [project].name; Maven Central rejects a POM without <name>."));
         requirements.add(requirement(
                 "project description",
                 !metadata.description().isBlank(),
-                "Add [package.metadata].description."));
+                "Add [project].description."));
         requirements.add(requirement(
                 "project url",
                 !metadata.url().isBlank(),
-                "Add [package.metadata].url."));
+                "Add [project].url."));
         requirements.add(requirement(
                 "license name and url",
                 !metadata.license().isBlank() && !metadata.licenseUrl().isBlank(),
-                "Add [package.metadata].license and [package.metadata].licenseUrl."));
+                "Set [project].license. A current SPDX identifier derives both name and url; an SPDX "
+                        + "expression, an unknown identifier, or a custom license has no derivable url, "
+                        + "so give the inline form explicit name and url."));
         requirements.add(requirement(
                 "developer information",
                 hasIdentifiableDeveloper(metadata),
-                "Add [package.metadata].developers or a [package.metadata.developer.<id>] table "
-                        + "with a name and email."));
+                "Add a [project.developers.<id>] table with a name and email."));
         requirements.add(requirement(
                 "scm url and connection",
                 !metadata.scm().isBlank() && !metadata.scmConnection().isBlank(),
-                "Add [package.metadata].scm and [package.metadata].scmConnection."));
+                "Add [project.scm].url and [project.scm].connection."));
         if (!pomPackaging) {
             // A BOM (pom packaging) has no compiled sources or Javadoc; Central accepts the POM alone.
             requirements.add(requirement(

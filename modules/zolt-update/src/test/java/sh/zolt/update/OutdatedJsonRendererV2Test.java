@@ -97,7 +97,7 @@ final class OutdatedJsonRendererV2Test {
         UpdateTarget target = target(
                 OutdatedSurface.OPENAPI_TOOL,
                 "org.openapitools:openapi-generator-cli",
-                "[generated.openapiTool]",
+                "[generated.tools.openapi]",
                 false,
                 Optional.of(
                         "Literal generated-tool coordinate mutation is not supported; route the version through a [versions] alias."));

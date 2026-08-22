@@ -100,7 +100,7 @@ final class ResourceCopierFailureTest extends ResourceCopierTestSupport {
                 ResourceCopyException.class,
                 () -> copier.copyMainResources(projectDir, BuildSettings.defaults()));
 
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("[build.output].main"));
         assertTrue(exception.getMessage().contains("target/classes"));
         assertTrue(exception.getMessage().contains("resolved through symlinks"));
         assertFalse(Files.exists(outside.resolve("classes")));

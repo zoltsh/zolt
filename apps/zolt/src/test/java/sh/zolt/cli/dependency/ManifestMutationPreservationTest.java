@@ -41,7 +41,7 @@ final class ManifestMutationPreservationTest {
                 "platform-add",
                 "[platforms]\n",
                 "\"com.example:platform\" = \"1.0.0\"",
-                "platform", "add", "--no-resolve", "com.example:platform:1.0.0");
+                "platforms", "set", "--no-resolve", "com.example:platform", "1.0.0");
     }
 
     @Test
@@ -50,7 +50,7 @@ final class ManifestMutationPreservationTest {
                 "platform-remove",
                 "[platforms]\n\"com.example:platform\" = \"1.0.0\"\n",
                 null,
-                "platform", "remove", "com.example:platform");
+                "platforms", "remove", "com.example:platform");
     }
 
     @Test
@@ -58,8 +58,8 @@ final class ManifestMutationPreservationTest {
         assertPreserved(
                 "version-set",
                 "[versions]\nexisting = \"1.0.0\"\n",
-                "\"added\" = \"2.0.0\"",
-                "version", "set", "--no-resolve", "added", "2.0.0");
+                "added = \"2.0.0\"",
+                "versions", "set", "--no-resolve", "added", "2.0.0");
     }
 
     @Test
@@ -68,7 +68,7 @@ final class ManifestMutationPreservationTest {
                 "version-remove",
                 "[versions]\nold = \"1.0.0\"\nkeep = \"2.0.0\"\n",
                 "keep = \"2.0.0\"",
-                "version", "remove", "--no-resolve", "old");
+                "versions", "remove", "--no-resolve", "old");
     }
 
     private void assertPreserved(
@@ -95,9 +95,7 @@ final class ManifestMutationPreservationTest {
         assertEquals(sentinel(original, "[coverage]"), sentinel(edited, "[coverage]"));
         assertEquals(sentinel(original, "[toolchain.java]"), sentinel(edited, "[toolchain.java]"));
         assertEquals(sentinel(original, "[publish.central]"), sentinel(edited, "[publish.central]"));
-        assertEquals(sentinel(original, "[commands.tasks.\"verify.all\"]"),
-                sentinel(edited, "[commands.tasks.\"verify.all\"]"));
-        assertEquals(sentinel(original, "[workspace]"), sentinel(edited, "[workspace]"));
+        assertEquals(sentinel(original, "[tasks.verify-all]"), sentinel(edited, "[tasks.verify-all]"));
         assertTrue(edited.startsWith("# user-owned manifest\n[project]"));
         assertFalse(result.stdout().contains("may remove comments or formatting"));
         if (expectedMutation != null) {
@@ -112,29 +110,26 @@ final class ManifestMutationPreservationTest {
                 name = "preservation"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
                 [coverage]
-                minLine = 88.0 # do not lower
-                minBranch = 74.0
+                line = 88 # do not lower
+                branch = 74
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 policy = "require-managed"
 
                 [publish.central]
-                automatic = false
+                tokenEnv = "ZOLT_CENTRAL_TOKEN" # do not leak
+                mode = "manual"
 
-                [commands.tasks."verify.all"]
-                command = ["zolt", "check"]
-                environment = { "KEY.WITH.DOTS" = "a=b#c" }
-
-                [workspace]
-                name = "preservation"
-                members = []
+                [tasks.verify-all]
+                run = ["zolt", "check"]
+                env = { KEY_WITH_UNDERSCORES = "a=b#c" }
                 """.formatted(mutableSection);
     }
 

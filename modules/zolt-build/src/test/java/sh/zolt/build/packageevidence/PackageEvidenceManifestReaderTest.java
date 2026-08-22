@@ -36,7 +36,7 @@ final class PackageEvidenceManifestReaderTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/demo-0.1.0.jar",
                       "entries": 1,
                       "sha256": "sha256:abc123"

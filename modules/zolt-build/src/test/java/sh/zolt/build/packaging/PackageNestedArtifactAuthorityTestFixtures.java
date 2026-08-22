@@ -2,10 +2,11 @@ package sh.zolt.build.packaging;
 
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -101,15 +102,15 @@ final class PackageNestedArtifactAuthorityTestFixtures {
     }
 
     static ProjectConfig config(PackageMode mode) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "com.example:native" = "1.0.0"
                 "com.bridge:native" = { version = "1.0.0", classifier = "linux" }
                 "com.direct:shared" = "1.0.0"
@@ -160,7 +161,7 @@ final class PackageNestedArtifactAuthorityTestFixtures {
     }
 
     static String lockfile(List<LockPackage> packages) {
-        StringBuilder lockfile = new StringBuilder("version = 1\n");
+        StringBuilder lockfile = new StringBuilder("version = 7\n");
         for (LockPackage lockPackage : packages) {
             lockfile.append("\n[[package]]\n")
                     .append("id = \"")
@@ -174,6 +175,21 @@ final class PackageNestedArtifactAuthorityTestFixtures {
                     .append("\njar = \"")
                     .append(lockPackage.jar().orElseThrow())
                     .append("\"\ndependencies = []\n");
+        }
+        for (LockPackage lockPackage : packages) {
+            if (!lockPackage.direct()) {
+                continue;
+            }
+            LockArtifactVariant variant = LockArtifactVariant.of(lockPackage);
+            lockfile.append("\n[[dependencyRoot]]\nmember = \".\"\nid = \"")
+                    .append(lockPackage.packageId())
+                    .append("\"\nversion = \"")
+                    .append(lockPackage.version())
+                    .append("\"\nlane = \"provided\"\n");
+            if (!variant.isDefault()) {
+                lockfile.append("variant = \"").append(variant.key()).append("\"\n");
+            }
+            lockfile.append("resolvedScope = \"provided\"\n");
         }
         return lockfile.toString();
     }

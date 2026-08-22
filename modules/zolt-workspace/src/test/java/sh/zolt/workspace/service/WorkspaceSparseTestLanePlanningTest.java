@@ -34,7 +34,9 @@ final class WorkspaceSparseTestLanePlanningTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/a", "apps/b"]
+
+                [workspace.members]
+                include = ["apps/a", "apps/b"]
                 """);
         member(tempDir, "apps/a", "a", "");
         member(tempDir, "apps/b", "b", "");

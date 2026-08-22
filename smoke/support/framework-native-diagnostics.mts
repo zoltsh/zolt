@@ -16,13 +16,13 @@ export interface FrameworkNativeDiagnosticContract {
 export const FRAMEWORK_NATIVE_DIAGNOSTIC_CONTRACTS: readonly FrameworkNativeDiagnosticContract[] = [
   {
     framework: "spring-boot",
-    mode: "Spring Boot native images require `[framework.springBoot.native] enabled = true`",
+    mode: "Spring Boot native images require `[framework.spring-boot] native = true`",
     nextStep: "`[package].mode = \"spring-boot\"`, run `zolt resolve`",
   },
   {
     framework: "micronaut",
     mode: "Micronaut native images are not supported",
-    nextStep: "zolt package --mode thin",
+    nextStep: "zolt package --mode jar",
   },
   {
     framework: "quarkus",

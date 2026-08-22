@@ -3,27 +3,37 @@ package sh.zolt.cli.insight;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.cli.CliTestSupport.CommandResult;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.WorkspaceConfig;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
-import sh.zolt.workspace.service.Workspace;
-import sh.zolt.workspace.service.WorkspaceProjectEdge;
-import sh.zolt.workspace.toml.WorkspaceConfigParser;
+import sh.zolt.dependency.DependencyLane;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.DependencySelector;
+import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.ProjectGroup;
+import sh.zolt.manifest.WorkspaceMemberPattern;
+import sh.zolt.manifest.authored.AuthoredDependencies;
+import sh.zolt.manifest.authored.AuthoredDependency;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredProjectIdentity;
+import sh.zolt.manifest.authored.AuthoredWorkspace;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /** : `zolt explain --emit-toml` migrates a multi-module build to a Zolt workspace. */
 final class ExplainCommandEmitWorkspaceTest {
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
@@ -123,49 +133,68 @@ final class ExplainCommandEmitWorkspaceTest {
         assertTrue(toml.contains("[workspace]"), () -> toml);
         assertTrue(toml.contains("name = \"shop-parent\""), () -> toml);
         assertTrue(toml.contains("""
-                members = [
-                    "orders-api",
-                    "orders-core",
-                ]
+                [workspace.members]
+                default = ["orders-api", "orders-core"]
+                include = ["orders-api", "orders-core"]
+                """), () -> toml);
+        // Shared identity is hoisted once so members carry only `[project] name`.
+        assertTrue(toml.contains("""
+                [workspace.project]
+                group = "com.acme.shop"
+                version = "1.4.0"
                 """), () -> toml);
         assertTrue(toml.contains("# --- orders-api/zolt.toml ---"), () -> toml);
         assertTrue(toml.contains("# --- orders-core/zolt.toml ---"), () -> toml);
         // The inter-module edge is a workspace dep, not an external coordinate.
-        assertTrue(toml.contains("\"com.acme.shop:orders-core\" = { workspace = \"orders-core\" }"), () -> toml);
+        assertTrue(toml.contains("\"com.acme.shop:orders-core\" = { workspace = true }"), () -> toml);
         // The external dep carries the inherited concrete version.
         assertTrue(toml.contains("\"com.fasterxml.jackson.core:jackson-databind\" = \"2.17.1\""), () -> toml);
         // The child module also carries the parent's imported BOM and platform-managed test dependency.
         assertTrue(toml.contains("\"org.junit:junit-bom\" = \"5.10.2\""), () -> toml);
-        assertTrue(toml.contains("\"org.junit.jupiter:junit-jupiter\" = {}"), () -> toml);
+        assertTrue(toml.contains("\"org.junit.jupiter:junit-jupiter\" = { managed = true }"), () -> toml);
         assertFalse(toml.contains("${"), () -> "no interpolation token should survive:\n" + toml);
     }
 
     @Test
-    void mavenWorkspaceBundleRoundTripsThroughParsers() throws IOException {
+    void mavenWorkspaceBundleRoundTripsThroughTheFinalLoader() throws IOException {
         writeMavenReactor();
 
         CommandResult result = execute("explain", "--emit-toml", "--cwd", tempDir.toString(), "--source", "maven");
         assertEquals(0, result.exitCode(), () -> result.stderr());
 
         Map<String, String> documents = splitDocuments(result.stdout());
-        WorkspaceConfig workspace = new WorkspaceConfigParser().parse(documents.get("workspace"));
-        assertEquals("shop-parent", workspace.name());
-        assertEquals(List.of("orders-api", "orders-core"), workspace.members());
+        AuthoredManifest root = parse(documents.get("workspace"));
+        AuthoredWorkspace workspace = root.workspace().orElseThrow();
+        assertEquals("shop-parent", workspace.name().value());
+        assertEquals(List.of("orders-api", "orders-core"), include(workspace));
+        assertEquals(
+                "com.acme.shop",
+                workspace.projectDefaults().orElseThrow().group().orElseThrow().value());
 
-        for (String member : workspace.members()) {
-            ProjectConfig parsed = new ZoltTomlParser().parse(documents.get(member));
-            assertEquals("com.acme.shop", parsed.project().group(), () -> "member " + member);
+        Map<String, AuthoredManifest> members = new LinkedHashMap<>();
+        for (String member : include(workspace)) {
+            AuthoredManifest parsed = parse(documents.get(member));
+            members.put(member, parsed);
+            assertTrue(
+                    parsed.project().orElseThrow().identity().group().isEmpty(),
+                    () -> "member " + member + " must inherit the workspace group, not repeat it");
         }
 
-        ProjectConfig api = new ZoltTomlParser().parse(documents.get("orders-api"));
-        String edge = api.workspaceDependencies().get("com.acme.shop:orders-core");
-        assertEquals("orders-core", edge, () -> "workspace edge must point at a real member: " + api.workspaceDependencies());
-        assertTrue(workspace.members().contains(edge), () -> "edge target must be a member: " + edge);
+        AuthoredManifest api = members.get("orders-api");
+        Set<String> edges = workspaceEdges(api, DependencyLane.IMPLEMENTATION);
+        assertEquals(Set.of("com.acme.shop:orders-core"), edges);
+        // The path is gone from the edge, so the target is proven by the coordinate a member publishes.
+        assertEquals(
+                "com.acme.shop:orders-core",
+                coordinateOf(root, members.get("orders-core")),
+                () -> "edge target must be a member: " + edges);
 
-        ProjectConfig core = new ZoltTomlParser().parse(documents.get("orders-core"));
-        assertEquals("5.10.2", core.platforms().get("org.junit:junit-bom"));
-        assertTrue(core.managedTestDependencies().contains("org.junit.jupiter:junit-jupiter"),
-                () -> "parent BOM-managed test dep should be emitted as {}: " + core.managedTestDependencies());
+        AuthoredManifest core = members.get("orders-core");
+        assertEquals("5.10.2", platformVersion(core, "org.junit:junit-bom"));
+        assertInstanceOf(
+                DependencySelector.Managed.class,
+                dependency(core, DependencyLane.TEST, "org.junit.jupiter:junit-jupiter").selector(),
+                () -> "parent BOM-managed test dep must be emitted as { managed = true }");
     }
 
     // --- Gradle multi-project ----------------------------------------------------------------
@@ -226,44 +255,47 @@ final class ExplainCommandEmitWorkspaceTest {
         assertTrue(toml.contains("[workspace]"), () -> toml);
         assertTrue(toml.contains("name = \"sales\""), () -> toml);
         assertTrue(toml.contains("""
-                members = [
-                    "app",
-                    "core",
-                ]
+                [workspace.members]
+                default = ["app", "core"]
+                include = ["app", "core"]
                 """), () -> toml);
         assertTrue(toml.contains("# --- app/zolt.toml ---"), () -> toml);
         assertTrue(toml.contains("# --- core/zolt.toml ---"), () -> toml);
-        assertTrue(toml.contains("\"com.example:core\" = { workspace = \"core\" }"), () -> toml);
+        assertTrue(toml.contains("\"com.example:core\" = { workspace = true }"), () -> toml);
         assertTrue(toml.contains("\"com.google.guava:guava\" = \"33.4.8-jre\""), () -> toml);
         assertTrue(toml.contains("\"org.apache.commons:commons-lang3\" = \"3.17.0\""), () -> toml);
     }
 
     @Test
-    void gradleWorkspaceBundleRoundTripsThroughParsers() throws IOException {
+    void gradleWorkspaceBundleRoundTripsThroughTheFinalLoader() throws IOException {
         writeGradleMultiProject();
 
         CommandResult result = execute("explain", "--emit-toml", "--cwd", tempDir.toString(), "--source", "gradle");
         assertEquals(0, result.exitCode(), () -> result.stderr());
 
         Map<String, String> documents = splitDocuments(result.stdout());
-        WorkspaceConfig workspace = new WorkspaceConfigParser().parse(documents.get("workspace"));
-        assertEquals("sales", workspace.name());
-        assertEquals(List.of("app", "core"), workspace.members());
+        AuthoredManifest root = parse(documents.get("workspace"));
+        AuthoredWorkspace workspace = root.workspace().orElseThrow();
+        assertEquals("sales", workspace.name().value());
+        assertEquals(List.of("app", "core"), include(workspace));
 
-        ProjectConfig app = new ZoltTomlParser().parse(documents.get("app"));
-        assertEquals("33.4.8-jre", app.dependencies().get("com.google.guava:guava"));
-        String edge = app.workspaceDependencies().get("com.example:core");
-        assertEquals("core", edge);
-        assertTrue(workspace.members().contains(edge), () -> "edge target must be a member: " + edge);
+        AuthoredManifest app = parse(documents.get("app"));
+        assertEquals(
+                "33.4.8-jre",
+                fixedVersion(app, DependencyLane.IMPLEMENTATION, "com.google.guava:guava"));
+        Set<String> edges = workspaceEdges(app, DependencyLane.IMPLEMENTATION);
+        assertEquals(Set.of("com.example:core"), edges);
 
-        ProjectConfig core = new ZoltTomlParser().parse(documents.get("core"));
-        assertEquals("3.17.0", core.apiDependencies().get("org.apache.commons:commons-lang3"));
-
-        writeDocuments(tempDir, documents);
-        Workspace discovered = new WorkspaceDiscoveryService().load(tempDir);
-        assertTrue(discovered.edges().stream().anyMatch(ExplainCommandEmitWorkspaceTest::isGradleCoreEdge),
-                () -> "emitted Gradle workspace must discover without coordinate mismatch: "
-                        + discovered.edges());
+        AuthoredManifest core = parse(documents.get("core"));
+        assertEquals(
+                "3.17.0",
+                fixedVersion(core, DependencyLane.API, "org.apache.commons:commons-lang3"));
+        // The emitted edge must key by the coordinate the target member actually publishes; a
+        // placeholder-group mismatch is exactly what workspace discovery would reject.
+        assertEquals(
+                "com.example:core",
+                coordinateOf(root, core),
+                () -> "emitted Gradle workspace edge must match the member coordinate: " + edges);
     }
 
     @Test
@@ -353,9 +385,66 @@ final class ExplainCommandEmitWorkspaceTest {
         return inner.endsWith("/zolt.toml") ? inner.substring(0, inner.length() - "/zolt.toml".length()) : inner;
     }
 
-    private static boolean isGradleCoreEdge(WorkspaceProjectEdge edge) {
-        return edge.from().equals("app")
-                && edge.to().equals("core")
-                && edge.coordinate().equals("com.example:core");
+    private static AuthoredManifest parse(String document) {
+        return LOADER.document(document).authored();
+    }
+
+    private static List<String> include(AuthoredWorkspace workspace) {
+        return workspace.members().include().stream().map(WorkspaceMemberPattern::value).toList();
+    }
+
+    /** The {@code group:name} a member publishes once the root's `[workspace.project]` group applies. */
+    private static String coordinateOf(AuthoredManifest root, AuthoredManifest member) {
+        AuthoredProjectIdentity identity = member.project().orElseThrow().identity();
+        String group = identity.group()
+                .map(ProjectGroup::value)
+                .orElseGet(() -> root.workspace()
+                        .orElseThrow()
+                        .projectDefaults()
+                        .orElseThrow()
+                        .group()
+                        .orElseThrow()
+                        .value());
+        return group + ":" + identity.name().value();
+    }
+
+    private static Set<String> workspaceEdges(AuthoredManifest manifest, DependencyLane lane) {
+        Set<String> edges = new LinkedHashSet<>();
+        for (AuthoredDependency declaration : declarations(manifest)) {
+            if (declaration.lane() == lane
+                    && declaration.selector() instanceof DependencySelector.Workspace) {
+                edges.add(declaration.coordinate().value());
+            }
+        }
+        return edges;
+    }
+
+    private static List<AuthoredDependency> declarations(AuthoredManifest manifest) {
+        return manifest.dependencies().map(AuthoredDependencies::declarations).orElse(List.of());
+    }
+
+    private static AuthoredDependency dependency(
+            AuthoredManifest manifest, DependencyLane lane, String coordinate) {
+        return declarations(manifest).stream()
+                .filter(entry -> entry.lane() == lane && entry.coordinate().value().equals(coordinate))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        "No " + lane + " dependency on `" + coordinate + "` in " + declarations(manifest)));
+    }
+
+    private static String fixedVersion(
+            AuthoredManifest manifest, DependencyLane lane, String coordinate) {
+        return assertInstanceOf(
+                        DependencySelector.FixedVersion.class,
+                        dependency(manifest, lane, coordinate).selector())
+                .value();
+    }
+
+    private static String platformVersion(AuthoredManifest manifest, String coordinate) {
+        PlatformSelector selector = manifest.platforms()
+                .orElseThrow()
+                .entries()
+                .get(new DependencyCoordinate(coordinate));
+        return assertInstanceOf(PlatformSelector.FixedVersion.class, selector).value();
     }
 }

@@ -17,7 +17,9 @@ final class WorkspaceBuildServiceDependencyVisibilityPrivateDependencyTest
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/internal", "modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/internal", "modules/core", "apps/api"]
                 """);
         member("modules/internal", "internal", "");
         source("modules/internal/src/main/java/com/acme/internal/Internal.java", """
@@ -35,7 +37,7 @@ final class WorkspaceBuildServiceDependencyVisibilityPrivateDependencyTest
         member("modules/core", "core", """
 
                 [dependencies]
-                "com.acme:internal" = { workspace = "modules/internal" }
+                "com.acme:internal" = { workspace = true }
                 """);
         source("modules/core/src/main/java/com/acme/core/Core.java", """
                 package com.acme.core;
@@ -54,7 +56,7 @@ final class WorkspaceBuildServiceDependencyVisibilityPrivateDependencyTest
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -117,14 +119,19 @@ final class WorkspaceBuildServiceDependencyVisibilityPrivateDependencyTest
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:contract" = "1.0.0"
 
                 [dependencies]
@@ -149,7 +156,7 @@ final class WorkspaceBuildServiceDependencyVisibilityPrivateDependencyTest
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -175,7 +182,7 @@ final class WorkspaceBuildServiceDependencyVisibilityPrivateDependencyTest
         assertTrue(exception.getMessage().contains("javac failed with exit code"));
         assertTrue(exception.getMessage().contains("Api.java"));
         assertTrue(exception.getMessage().contains("com.example.internal"));
-        assertTrue(exception.getMessage().contains("move it to [api.dependencies]"));
+        assertTrue(exception.getMessage().contains("move it to [dependencies.api]"));
         assertTrue(Files.exists(tempDir.resolve("modules/core/target/classes/com/acme/core/Core.class")));
         assertFalse(Files.exists(tempDir.resolve("apps/api/target/classes/com/acme/api/Api.class")));
     }

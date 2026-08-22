@@ -12,7 +12,7 @@ import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.build.springboot.SpringBootAotNativeInputs;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -101,7 +101,7 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
                         projectDir.resolve("cache"),
                         Path.of("native-image")));
 
-        assertTrue(exception.getMessage().contains("Spring Boot native images require `[framework.springBoot.native] enabled = true`"));
+        assertTrue(exception.getMessage().contains("Spring Boot native images require `[framework.spring-boot] native = true`"));
         assertTrue(exception.getMessage().contains("Spring Boot JVM build, test, run, and executable packaging"));
         assertTrue(exception.getMessage().contains("explicit Zolt-owned Spring Boot AOT/native canary path"));
         assertTrue(exception.getMessage().contains("[package].mode = \"spring-boot\""));
@@ -226,12 +226,12 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
                 NativeImageException.class,
                 () -> service.buildNative(
                         projectDir,
-                        new ZoltTomlParser().parse("""
+                        new ManifestProjectConfigLoader().load("""
                                 [project]
                                 name = "demo"
                                 version = "0.1.0"
                                 group = "com.example"
-                                java = "21"
+                                java = 21
                                 main = "com.example.Main"
 
                                 [dependencies]
@@ -242,7 +242,7 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
 
         assertTrue(exception.getMessage().contains("Micronaut native images are not supported"));
         assertTrue(exception.getMessage().contains("Micronaut JVM build/test flows"));
-        assertTrue(exception.getMessage().contains("zolt package --mode thin"));
+        assertTrue(exception.getMessage().contains("zolt package --mode jar"));
         assertTrue(commands.isEmpty());
     }
 
@@ -266,15 +266,15 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
 
         NativeBuildResult result = service.buildNative(
                 projectDir,
-                new ZoltTomlParser().parse("""
+                new ManifestProjectConfigLoader().load("""
                         [project]
                         name = "demo"
                         version = "0.1.0"
                         group = "com.example"
-                        java = "21"
+                        java = 21
                         main = "com.example.Main"
 
-                        [provided.dependencies]
+                        [dependencies.provided]
                         "io.quarkus:quarkus-builder" = "3.33.2"
                         "io.quarkus:quarkus-junit" = "3.33.2"
                         """),
@@ -306,16 +306,16 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
 
         NativeBuildResult result = service.buildNative(
                 projectDir,
-                new ZoltTomlParser().parse("""
+                new ManifestProjectConfigLoader().load("""
                         [project]
                         name = "demo"
                         version = "0.1.0"
                         group = "com.example"
-                        java = "21"
+                        java = 21
                         main = "com.example.Main"
 
-                        [build]
-                        outputRoot = ".zolt/build"
+                        [build.output]
+                        root = ".zolt/build"
                         """),
                 projectDir.resolve("cache"),
                 Path.of("native-image"));
@@ -339,16 +339,16 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
                 NativeImageException.class,
                 () -> service.buildNative(
                         projectDir,
-                        new ZoltTomlParser().parse("""
+                        new ManifestProjectConfigLoader().load("""
                                 [project]
                                 name = "demo"
                                 version = "0.1.0"
                                 group = "com.example"
-                                java = "21"
+                                java = 21
                                 main = "com.example.Main"
 
-                                [framework.quarkus]
-                                enabled = true
+                                [package]
+                                mode = "quarkus"
                                 """),
                         projectDir.resolve("cache"),
                         Path.of("native-image")));
@@ -397,22 +397,22 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
     }
 
     private static ProjectConfig springBootNativeConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
-                [build]
-                outputRoot = ".zolt/build"
+                [build.output]
+                root = ".zolt/build"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
 
                 [native]
-                imageName = "demo-native"
+                name = "demo-native"
                 args = ["--no-fallback"]
                 """);
     }

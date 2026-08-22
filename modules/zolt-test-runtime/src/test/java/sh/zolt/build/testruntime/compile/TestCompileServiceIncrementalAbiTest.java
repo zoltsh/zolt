@@ -22,7 +22,7 @@ final class TestCompileServiceIncrementalAbiTest {
 
     @Test
     void publicAbiChangeRecompilesTestSourcesThatReferenceChangedClass() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         Path apiSource = source("src/test/java/com/example/testapi/TestApi.java", """
                 package com.example.testapi;
@@ -68,7 +68,7 @@ final class TestCompileServiceIncrementalAbiTest {
 
     @Test
     void privateOnlyTestSourceChangeDoesNotRecompileDependents() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         Path apiSource = source("src/test/java/com/example/testapi/TestApi.java", """
                 package com.example.testapi;
@@ -118,7 +118,7 @@ final class TestCompileServiceIncrementalAbiTest {
 
     @Test
     void packagePrivateAbiChangeRecompilesSamePackageTestSources() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         Path apiSource = source("src/test/java/com/example/TestApi.java", """
                 package com.example;

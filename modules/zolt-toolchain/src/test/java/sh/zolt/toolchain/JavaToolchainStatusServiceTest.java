@@ -4,12 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.project.toolchain.ToolchainPolicy;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.toolchain.jvm.JavaRuntimeInfo;
 import sh.zolt.toolchain.jvm.JavaToolchainSource;
 import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
@@ -119,10 +120,12 @@ final class JavaToolchainStatusServiceTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 policy = "require-managed"
@@ -132,7 +135,7 @@ final class JavaToolchainStatusServiceTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         LockedJavaToolchain locked = locked(ToolchainPolicy.REQUIRE_MANAGED);
@@ -153,6 +156,113 @@ final class JavaToolchainStatusServiceTest {
         assertEquals(Optional.of(store.javaHome(locked)), status.resolved().javaHome());
     }
 
+    /**
+     * Design §4.5: a member is evaluated with the workspace root's shared configuration, so it is
+     * composed against that root. This member inherits group, version, and its Java release from
+     * {@code [workspace.project]} (design §4.3), so standalone composition would reject it outright.
+     */
+    @Test
+    void workspaceMemberToolchainComposesAgainstTheWorkspaceRoot() throws IOException {
+        Path workspace = tempDir.resolve("member-composition");
+        Path member = workspace.resolve("apps/api");
+        Files.createDirectories(member);
+        Files.writeString(workspace.resolve("zolt.toml"), """
+                [workspace]
+                name = "demo"
+
+                [workspace.members]
+                include = ["apps/api"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+
+                [toolchain.java]
+                version = 21
+                distribution = "graalvm-community"
+                features = ["native-image"]
+                policy = "require-managed"
+                """);
+        Files.writeString(member.resolve("zolt.toml"), """
+                [project]
+                name = "api"
+                """);
+        ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
+        LockedJavaToolchain locked = locked(ToolchainPolicy.REQUIRE_MANAGED);
+        lockfiles.writeJava(workspace.resolve("zolt.lock"), locked);
+        install(store, locked);
+
+        JavaToolchainStatus status = serviceWithAmbientFailure().status(
+                member,
+                workspace,
+                parseMember(workspace, member, "apps/api"),
+                HostPlatform.parse("linux-x64"),
+                store);
+
+        assertTrue(status.ok());
+        assertEquals("[workspace toolchain.java]", status.requestSource());
+        assertEquals(JavaToolchainSource.MANAGED, status.resolved().source());
+    }
+
+    /**
+     * The CLI entry point: {@code zolt doctor} and {@code zolt toolchain status} know only the
+     * directory the command was started in, so they call the four-argument overload with the member
+     * directory as both roots. The enclosing workspace must still be discovered, or the member is
+     * composed against its own manifest and rejected for the identity it inherits (design §4.5).
+     */
+    @Test
+    void memberDirectoryAloneStillComposesAgainstTheDiscoveredWorkspaceRoot() throws IOException {
+        Path workspace = tempDir.resolve("discovered");
+        Path member = workspace.resolve("apps/platform");
+        Files.createDirectories(member);
+        Files.writeString(workspace.resolve("zolt.toml"), """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                default = ["apps/platform"]
+                include = ["apps/platform"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+
+                [toolchain.java]
+                version = 21
+                distribution = "graalvm-community"
+                features = ["native-image"]
+                policy = "require-managed"
+                """);
+        Files.writeString(member.resolve("zolt.toml"), """
+                [project]
+                name = "platform"
+                """);
+        ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
+        LockedJavaToolchain locked = locked(ToolchainPolicy.REQUIRE_MANAGED);
+        lockfiles.writeJava(member.resolve("zolt.lock"), locked);
+        install(store, locked);
+
+        JavaToolchainStatus status = serviceWithAmbientFailure().status(
+                member,
+                parseMember(workspace, member, "apps/platform"),
+                HostPlatform.parse("linux-x64"),
+                store);
+
+        assertTrue(status.ok());
+        assertEquals("[workspace toolchain.java]", status.requestSource());
+    }
+
+    private static ProjectConfig parseMember(Path workspace, Path member, String memberPath)
+            throws IOException {
+        return new EffectiveProjectConfigAdapter().adapt(new ManifestProjectConfigLoader()
+                .effectiveWorkspaceMember(
+                        Files.readString(workspace.resolve("zolt.toml")),
+                        Files.readString(member.resolve("zolt.toml")),
+                        memberPath));
+    }
+
     private Path writeProject(ToolchainPolicy policy) throws IOException {
         Path project = tempDir.resolve("project-" + policy.id());
         Files.createDirectories(project);
@@ -161,20 +271,20 @@ final class JavaToolchainStatusServiceTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 policy = "%s"
                 """.formatted(policy.id()));
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 
     private static ProjectConfig parse(Path project) {
-        return new ZoltTomlParser().parse(project.resolve("zolt.toml"));
+        return new ManifestProjectConfigLoader().load(project.resolve("zolt.toml"));
     }
 
     private static JavaToolchainStatusService serviceWithAmbientSuccess() {

@@ -138,7 +138,7 @@ final class MavenPluginLifecycleClassificationTest {
         assertTrue(new MigrationReadinessScorecardFormatter()
                 .text(scorecard)
                 .contains("generated-sources: blocked"));
-        assertTrue(blockers.contains("Maven generated-source plugin -> [generatedSources]"), () -> blockers);
+        assertTrue(blockers.contains("Maven generated-source plugin -> [generated.main] and [generated.test]"), () -> blockers);
     }
 
     @Test

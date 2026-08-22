@@ -73,7 +73,7 @@ public final class QuarkusPlanService {
         requireEnabled(config);
         Path root = projectDirectory.toAbsolutePath().normalize();
         Path cache = cacheRoot.toAbsolutePath().normalize();
-        Path applicationClasses = outputPath(root, "[build].output", config.build().output());
+        Path applicationClasses = outputPath(root, "[build.output].main", config.build().output());
         ClasspathSet classpaths = classpathBuilder.build(LockfileClasspathPackageConverter.classpathPackages(lockfile, cache));
         String fingerprint = inputFingerprint.fingerprint(applicationClasses, lockfile);
         return new QuarkusPlan(
@@ -110,7 +110,7 @@ public final class QuarkusPlanService {
         if (!config.frameworkSettings().quarkus().enabled()) {
             throw new QuarkusPlanException(
                     "Quarkus is not enabled for this project. "
-                            + "Add `[framework.quarkus] enabled = true` to zolt.toml, "
+                            + "Add `[package] mode = \"quarkus\"` to zolt.toml, "
                             + "run `zolt resolve`, then run `zolt quarkus plan` again.");
         }
     }

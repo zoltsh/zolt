@@ -2,7 +2,7 @@ package sh.zolt.doctor;
 
 import sh.zolt.project.NativeSettings;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,19 +11,19 @@ import java.util.List;
 public final class SelfHostingCheckService {
     private static final String JUNIT_PLATFORM_CONSOLE = "org.junit.platform:junit-platform-console-standalone";
 
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectConfigLoader manifestLoader;
 
     public SelfHostingCheckService() {
-        this(new ZoltTomlParser());
+        this(new ManifestProjectConfigLoader());
     }
 
-    SelfHostingCheckService(ZoltTomlParser tomlParser) {
-        this.tomlParser = tomlParser;
+    SelfHostingCheckService(ManifestProjectConfigLoader manifestLoader) {
+        this.manifestLoader = manifestLoader;
     }
 
     public SelfHostingCheckResult check(Path projectDirectory) {
         Path root = projectDirectory.toAbsolutePath().normalize();
-        ProjectConfig config = tomlParser.parse(root.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.loadProject(root);
         return check(root, config);
     }
 
@@ -49,12 +49,12 @@ public final class SelfHostingCheckService {
         add(checks, "JUnit Platform Console",
                 declaresJUnitPlatformConsole(config),
                 JUNIT_PLATFORM_CONSOLE + " is declared",
-                "add " + JUNIT_PLATFORM_CONSOLE + " to [test.dependencies]");
+                "add " + JUNIT_PLATFORM_CONSOLE + " to [dependencies.test]");
         NativeSettings nativeSettings = config.nativeSettings().withDefaultImageName(config.project().name());
         add(checks, "native image name",
                 nativeSettings.imageName() != null && !nativeSettings.imageName().isBlank(),
                 "native image name is " + nativeSettings.imageName(),
-                "add [native].imageName or rely on a non-empty project name");
+                "add [native].name or rely on a non-empty project name");
         add(checks, "native output",
                 nativeSettings.output() != null && !nativeSettings.output().isBlank(),
                 "native output is " + nativeSettings.output(),

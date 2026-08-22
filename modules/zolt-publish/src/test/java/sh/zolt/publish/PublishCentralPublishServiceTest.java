@@ -1,5 +1,6 @@
 package sh.zolt.publish;
 
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,7 +9,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import sh.zolt.net.NetworkTransport;
-import sh.zolt.toml.ZoltTomlParser;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -72,8 +72,8 @@ final class PublishCentralPublishServiceTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishDryRunPlan plan = new PublishDryRunService(environment).plan(root, false);
             PublishCentralPublishService service = new PublishCentralPublishService(
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new CentralPortalClient(NetworkTransport.direct()),
                     environment);
 
@@ -122,8 +122,8 @@ final class PublishCentralPublishServiceTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishDryRunPlan plan = new PublishDryRunService(environment).plan(root, false);
             PublishCentralPublishService service = new PublishCentralPublishService(
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new CentralPortalClient(NetworkTransport.direct()),
                     environment);
 
@@ -163,8 +163,8 @@ final class PublishCentralPublishServiceTest {
                     "GNUPGHOME", gnupgHome.toString())::get;
             PublishDryRunPlan plan = new PublishDryRunService(environment).plan(root, false);
             PublishCentralPublishService service = new PublishCentralPublishService(
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new CentralPortalClient(NetworkTransport.direct()),
                     environment);
 
@@ -189,21 +189,21 @@ final class PublishCentralPublishServiceTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(root.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(root.resolve("zolt.toml"), """
                 [project]
                 name = "central-lib"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%d"
+                java = %d
 
                 [publish.central]
                 tokenEnv = "ZOLT_CENTRAL_TOKEN"
-                publishingType = "automatic"
-                baseUrl = "%s"
+                mode = "automatic"
+                url = "%s"
 
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 passphraseEnv = "ZOLT_SIGNING_PASS"
                 """.formatted(Runtime.version().feature(), baseUrl));
         return root;

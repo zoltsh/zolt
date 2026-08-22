@@ -96,7 +96,7 @@ final class PackageSupplementalInputFingerprint {
         for (String configuredRoot : build.testSources()) {
             Path root = ProjectPaths.existingRoot(
                     projectRoot,
-                    "[build].testSources",
+                    "[test.sources].java",
                     configuredRoot);
             for (Path file : sourceFiles(root, ".java")) {
                 file(hash, projectRoot, "testSource", file);
@@ -105,7 +105,7 @@ final class PackageSupplementalInputFingerprint {
         for (String configuredRoot : build.groovyTestSources()) {
             Path root = ProjectPaths.existingRoot(
                     projectRoot,
-                    "[build].groovyTestSources",
+                    "[test.sources].groovy",
                     configuredRoot);
             for (Path file : sourceFiles(root, ".groovy")) {
                 file(hash, projectRoot, "groovyTestSource", file);
@@ -135,7 +135,7 @@ final class PackageSupplementalInputFingerprint {
         }
         Path testOutput = ProjectPaths.output(
                 projectRoot,
-                "[build].testOutput",
+                "[build.output].test",
                 build.testOutput());
         hash.value(
                 "testCompileInputs",

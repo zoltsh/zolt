@@ -27,8 +27,8 @@ final class PublishCommandCredentialTest {
                 .replace("version = \"0.1.0\"", "version = \"0.1.0-SNAPSHOT\"") + """
 
                 [publish]
-                releaseRepository = "company-releases"
-                snapshotRepository = "company-snapshots"
+                release = "company-releases"
+                snapshot = "company-snapshots"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -37,11 +37,11 @@ final class PublishCommandCredentialTest {
                 url = "https://repo.example.test/snapshots"
                 credentials = "publish-creds"
 
-                [repositoryCredentials.publish-creds]
+                [credentials.publish-creds]
                 usernameEnv = "ZOLT_TEST_MISSING_PUBLISH_USERNAME"
                 passwordEnv = "ZOLT_TEST_MISSING_PUBLISH_PASSWORD"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "publish",
@@ -65,23 +65,21 @@ final class PublishCommandCredentialTest {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://publish-user:super-secret@repo.example.test/releases"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "publish",
                 "--dry-run",
                 "--cwd", projectDir.toString());
 
+        // The final manifest language rejects an embedded-credential URL outright (design 8.6).
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("Target URL: https://***@repo.example.test/releases"));
-        assertTrue(result.stdout().contains("Status: blocked"));
-        assertTrue(result.stdout().contains("publish repository `company-releases` URL contains embedded credentials"));
-        assertTrue(result.stdout().contains("Move credentials to [repositoryCredentials] environment references."));
+        assertTrue(result.stderr().contains("Repository URL declares embedded user information."), result.stderr());
         assertFalse(result.stdout().contains("publish-user"));
         assertFalse(result.stdout().contains("super-secret"));
         assertFalse(result.stderr().contains("publish-user"));
@@ -96,7 +94,7 @@ final class PublishCommandCredentialTest {
                 .replace("version = \"0.1.0\"", "version = \"0.1.0-SNAPSHOT\"") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -129,50 +127,49 @@ final class PublishCommandCredentialTest {
                   "archive": "target/nexus-central-0.1.0.jar",
                   "archiveSha256": "%s",
                   "artifacts": [
-                    { "classifier": "main", "type": "thin", "path": "target/nexus-central-0.1.0.jar", "entries": 1, "sha256": "%s" },
+                    { "classifier": "main", "type": "jar", "path": "target/nexus-central-0.1.0.jar", "entries": 1, "sha256": "%s" },
                     { "classifier": "sources", "type": "jar", "path": "target/nexus-central-0.1.0-sources.jar", "entries": 1, "sha256": "%s" },
                     { "classifier": "javadoc", "type": "jar", "path": "target/nexus-central-0.1.0-javadoc.jar", "entries": 1, "sha256": "%s" }
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         // A configured internal Nexus whose credential env vars are UNSET, plus a Central deployment.
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("nexus-central") + """
+                description = "A library published to both an internal Nexus and Central."
+                url = "https://example.com/nexus-central"
+                license = "Apache-2.0"
 
                 [package]
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Nexus Central"
-                description = "A library published to both an internal Nexus and Central."
-                url = "https://example.com/nexus-central"
-                license = "Apache-2.0"
-                licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-                scm = "https://github.com/example/nexus-central"
-                scmConnection = "scm:git:https://github.com/example/nexus-central.git"
+                [project.scm]
+                url = "https://github.com/example/nexus-central"
+                connection = "scm:git:https://github.com/example/nexus-central.git"
 
-                [package.metadata.developer.ada]
+                [project.developers.ada]
                 name = "Ada Lovelace"
                 email = "ada@example.com"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 credentials = "publish-creds"
 
-                [repositoryCredentials.publish-creds]
+                [credentials.publish-creds]
                 usernameEnv = "ZOLT_TEST_UNSET_NEXUS_USERNAME"
                 passwordEnv = "ZOLT_TEST_UNSET_NEXUS_PASSWORD"
 
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 keyId = "ABCDEF0123456789"
 
                 [publish.central]
                 tokenEnv = "ZOLT_TEST_UNSET_CENTRAL_TOKEN"
+                mode = "manual"
                 """);
         CliTestPackageEvidence.write(projectDir);
 
@@ -202,17 +199,14 @@ final class PublishCommandCredentialTest {
                 main = "com.example.Main"
 
                 [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                central = false
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
     }
 }

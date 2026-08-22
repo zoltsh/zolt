@@ -115,14 +115,14 @@ final class BuildPlanExecStepNodePlanner {
             case "jvm" -> {
                 if (exec.tool().mainClass().isBlank() || exec.tool().coordinates().isEmpty()) {
                     blockers.add(unresolvedTool(subject, exec,
-                            "Declare [generated.execTools." + exec.toolName()
+                            "Declare [generated.tools." + exec.toolName()
                                     + "] with runner = \"jvm\", coordinates, and mainClass."));
                 }
             }
             case "process" -> {
                 if (exec.tool().binary().isBlank() || exec.tool().versionCommand().isEmpty()) {
                     blockers.add(unresolvedTool(subject, exec,
-                            "Declare [generated.execTools." + exec.toolName()
+                            "Declare [generated.tools." + exec.toolName()
                                     + "] with runner = \"process\", binary, and versionCommand."));
                 }
                 if (!exec.tool().allowUnpinnedTool()) {
@@ -130,7 +130,7 @@ final class BuildPlanExecStepNodePlanner {
                             "exec-tool-unpinned",
                             "Exec step " + subject + " runs unpinned PATH binary `" + exec.tool().binary()
                                     + "` whose bytes Zolt cannot lock.",
-                            "Set allowUnpinnedTool = true on [generated.execTools." + exec.toolName()
+                            "Set allowUnpinnedTool = true on [generated.tools." + exec.toolName()
                                     + "] to acknowledge PATH tool identity rests on the probed version."));
                 }
             }

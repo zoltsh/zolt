@@ -108,7 +108,7 @@ public final class LockDependencyIndex {
                             + edge
                             + "` is ambiguous across locked artifact scopes or variants. Run `"
                             + regenerateCommand
-                            + "` to regenerate zolt.lock with version "
+                            + "` to regenerate zolt.lock with lockfile version "
                             + ZoltLockfile.CURRENT_VERSION
                             + " member- and scope-qualified graph evidence.");
         }

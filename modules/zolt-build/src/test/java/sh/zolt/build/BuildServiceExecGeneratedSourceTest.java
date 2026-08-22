@@ -119,7 +119,7 @@ final class BuildServiceExecGeneratedSourceTest {
 
     @Test
     void projectPseudoToolRunsAfterCompileAndItsResourceIsCopied() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         source("src/main/java/com/example/Gen.java", """
                 package com.example;
@@ -146,7 +146,7 @@ final class BuildServiceExecGeneratedSourceTest {
 
     @Test
     void projectStepProducingSourcesIsBlockedBeforeCompile() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         ProjectConfig config = configWith(projectResourceStep(ProducesLane.JAVA_SOURCES));
 
@@ -184,7 +184,7 @@ final class BuildServiceExecGeneratedSourceTest {
         Files.createDirectories(cachedJar.getParent());
         Files.copy(jar, cachedJar);
         writeLockfile("""
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "com.example:gen-tool"

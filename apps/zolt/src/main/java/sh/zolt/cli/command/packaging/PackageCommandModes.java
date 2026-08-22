@@ -80,12 +80,12 @@ final class PackageCommandModes {
         String extension = (result.mode() == PackageMode.WAR || result.mode() == PackageMode.SPRING_BOOT_WAR)
                 ? "war"
                 : "jar";
+        String symbol = result.mode().configValue();
         return "Packaged "
                 + result.entryCount()
                 + " compiled files as "
-                + result.mode().configValue()
-                + " "
-                + extension;
+                + symbol
+                + (symbol.endsWith(extension) ? "" : " " + extension);
     }
 
     static Optional<String> runInstruction(PackageResult result) {
@@ -129,7 +129,7 @@ final class PackageCommandModes {
                     "BOM POM: publishes curated dependencyManagement versions and produces no application archive.",
                     Optional.empty());
             case THIN -> new PackageModeDetail(
-                    "Thin jar: dependencies are not bundled.",
+                    "Jar: dependencies are not bundled.",
                     result.runtimeClasspathPath().map(path -> "Wrote runtime classpath to " + path));
         };
     }

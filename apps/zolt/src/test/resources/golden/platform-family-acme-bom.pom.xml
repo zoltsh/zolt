@@ -5,13 +5,13 @@
   <artifactId>acme-bom</artifactId>
   <version>1.0.0</version>
   <packaging>pom</packaging>
-  <name>Acme Platform BOM</name>
+  <name>acme-bom</name>
   <description>Curated versions for the Acme platform family.</description>
   <url>https://example.test/acme</url>
   <licenses>
     <license>
       <name>Apache-2.0</name>
-      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <url>https://spdx.org/licenses/Apache-2.0.html</url>
     </license>
   </licenses>
   <scm>

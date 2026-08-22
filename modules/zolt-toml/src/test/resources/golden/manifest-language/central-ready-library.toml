@@ -1,0 +1,32 @@
+[project]
+name = "example-library"
+version = "1.0.0"
+group = "com.example"
+java = 21
+description = "A reusable Java library."
+url = "https://example.com/library"
+issues = "https://github.com/example/library/issues"
+license = "Apache-2.0"
+
+[project.scm]
+url = "https://github.com/example/library"
+connection = "scm:git:https://github.com/example/library.git"
+developerConnection = "scm:git:ssh://git@github.com/example/library.git"
+tag = "v1.0.0"
+
+[project.developers.maintainer]
+name = "Example Maintainer"
+email = "maintainer@example.com"
+
+[package]
+sources = true
+javadoc = true
+
+[publish.signing]
+method = "gpg"
+keyId = "3AB1C2D3E4F5A6B7"
+passphraseEnv = "ZOLT_SIGNING_PASSPHRASE"
+
+[publish.central]
+tokenEnv = "ZOLT_CENTRAL_TOKEN"
+mode = "automatic"

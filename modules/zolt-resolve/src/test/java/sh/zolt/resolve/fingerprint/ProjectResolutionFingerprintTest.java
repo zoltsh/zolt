@@ -4,13 +4,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.manifest.WorkspaceMemberPath;
+import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.effective.EffectiveManifestComposer;
+import sh.zolt.manifest.effective.EffectiveWorkspace;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class ProjectResolutionFingerprintTest {
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader manifestLoader = new ManifestProjectConfigLoader();
 
     @Test
     void sameResolutionInputsProduceSameFingerprintWhenTomlOrderChanges() {
@@ -34,20 +41,17 @@ final class ProjectResolutionFingerprintTest {
                 new Case("repository", baseToml().replace("https://repo.acme.example/maven", "https://mirror.acme.example/maven")),
                 new Case("repository credentials", baseToml().replace("ACME_REPO_PASSWORD", "ACME_REPO_SECRET")),
                 new Case("dependency", baseToml().replace("33.4.0-jre", "33.4.1-jre")),
-                new Case("workspace member path", baseToml().replace("modules/shared", "modules/shared-v2")),
                 new Case("platform", baseToml().replace("3.3.6", "3.3.7")),
                 new Case("dependency conflict policy", baseToml().replace(
                         "[dependencies]",
-                        "[dependencyPolicy]\nfailOnVersionConflict = true\n\n[dependencies]")),
+                        "[dependencies.policy]\nconflicts = \"fail\"\n\n[dependencies]")),
                 new Case("processor", baseToml().replace("1.6.3", "1.6.4")),
                 new Case("generated source tool", baseToml().replace("7.11.0", "7.12.0")),
                 new Case("generated source required flag", baseToml().replace("required = true", "required = false")),
-                new Case("package tooling mode", baseToml().replace("mode = \"spring-boot\"", "mode = \"thin\"")),
-                new Case("spring boot native setting", baseToml().replace(
-                        "enabled = false\n\n[framework.quarkus]",
-                        "enabled = true\n\n[framework.quarkus]")),
-                new Case("quarkus setting", baseToml().replace("enabled = true", "enabled = false")),
-                new Case("java input", baseToml().replace("java = \"21\"", "java = \"22\"")));
+                new Case("package tooling mode", baseToml().replace("mode = \"spring-boot\"", "mode = \"jar\"")),
+                new Case("spring boot native setting", baseToml().replace("native = false", "native = true")),
+                new Case("quarkus setting", baseToml().replace("mode = \"spring-boot\"", "mode = \"quarkus\"")),
+                new Case("java input", baseToml().replace("java = 21", "java = 22")));
 
         for (Case testCase : cases) {
             assertNotEquals(
@@ -59,8 +63,8 @@ final class ProjectResolutionFingerprintTest {
 
     @Test
     void archiveModesWithoutResolutionToolingShareTheThinFingerprint() {
-        String thin = baseToml().replace("mode = \"spring-boot\"", "mode = \"thin\"");
-        String uber = baseToml().replace("mode = \"spring-boot\"", "mode = \"uber\"");
+        String thin = baseToml().replace("mode = \"spring-boot\"", "mode = \"jar\"");
+        String uber = baseToml().replace("mode = \"spring-boot\"", "mode = \"uber-jar\"");
         assertEquals(
                 ProjectResolutionFingerprint.fingerprint(parse(thin)),
                 ProjectResolutionFingerprint.fingerprint(parse(uber)));
@@ -91,8 +95,88 @@ final class ProjectResolutionFingerprintTest {
                 valueFor(changedDependencyInputs, "dependencies.compile"));
     }
 
+    /**
+     * The fingerprint hashes five workspace lane families, so a member's {@code workspace = true}
+     * edges have to reach it: adding or moving one changes what the member resolves even though no
+     * external coordinate moved (design §9.8).
+     */
+    @Test
+    void workspaceDependencyLanesReachTheFingerprint() {
+        ProjectConfig member = workspaceMember("""
+                [project]
+                name = "api"
+
+                [dependencies]
+                "com.example:core" = { workspace = true }
+                """);
+
+        List<String> inputs = ProjectResolutionFingerprint.inputs(member);
+
+        assertTrue(
+                inputs.stream().anyMatch(input ->
+                        input.startsWith("workspaceCompile\t")
+                                && input.contains("com.example:core")
+                                && input.endsWith("modules/core")),
+                () -> "expected the workspace compile edge and its provider path: " + inputs);
+    }
+
+    @Test
+    void movingAWorkspaceEdgeToAnotherLaneChangesTheFingerprint() {
+        String compile = ProjectResolutionFingerprint.fingerprint(workspaceMember("""
+                [project]
+                name = "api"
+
+                [dependencies]
+                "com.example:core" = { workspace = true }
+                """));
+        String test = ProjectResolutionFingerprint.fingerprint(workspaceMember("""
+                [project]
+                name = "api"
+
+                [dependencies.test]
+                "com.example:core" = { workspace = true }
+                """));
+        String none = ProjectResolutionFingerprint.fingerprint(workspaceMember("""
+                [project]
+                name = "api"
+                """));
+
+        assertNotEquals(compile, test);
+        assertNotEquals(compile, none);
+        assertNotEquals(test, none);
+    }
+
+    /** Composes {@code memberToml} as the {@code apps/api} member of a two-member workspace. */
+    private ProjectConfig workspaceMember(String memberToml) {
+        Map<WorkspaceMemberPath, AuthoredManifest> members = new LinkedHashMap<>();
+        WorkspaceMemberPath api = new WorkspaceMemberPath("apps/api");
+        members.put(api, manifestLoader.document(memberToml).authored());
+        members.put(
+                new WorkspaceMemberPath("modules/core"),
+                manifestLoader.document("""
+                        [project]
+                        name = "core"
+                        """).authored());
+        AuthoredManifest root = manifestLoader.document("""
+                [workspace]
+                name = "fingerprint"
+
+                [workspace.members]
+                include = ["apps/*", "modules/*"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+                """).authored();
+        EffectiveWorkspace workspace = new EffectiveManifestComposer().composeWorkspace(root, members);
+        return new EffectiveProjectConfigAdapter().adapt(
+                workspace.members().get(api),
+                EffectiveProjectConfigAdapter.workspacePaths(workspace, api));
+    }
+
     private ProjectConfig parse(String toml) {
-        return parser.parse(toml);
+        return manifestLoader.load(toml);
     }
 
     private static String valueFor(List<String> inputs, String category) {
@@ -108,12 +192,16 @@ final class ProjectResolutionFingerprintTest {
                 name = "fingerprint-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                company = { url = "https://repo.acme.example/maven", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.acme.example/maven"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "ACME_REPO_USER"
                 passwordEnv = "ACME_REPO_PASSWORD"
 
@@ -128,13 +216,11 @@ final class ProjectResolutionFingerprintTest {
 
                 [dependencies]
                 "com.google.guava:guava" = { versionRef = "guava" }
-                "com.example:shared" = { workspace = "modules/shared" }
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.mapstruct:mapstruct-processor" = { versionRef = "mapstruct" }
 
-                [generated.openapiTool]
-                coordinate = "org.openapitools:openapi-generator-cli"
+                [generated.tools.openapi]
                 versionRef = "openapi"
 
                 [generated.main.public-api]
@@ -148,12 +234,8 @@ final class ProjectResolutionFingerprintTest {
                 [package]
                 mode = "spring-boot"
 
-                [framework.springBoot.native]
-                enabled = false
-
-                [framework.quarkus]
-                enabled = true
-                package = "fast-jar"
+                [framework.spring-boot]
+                native = false
                 """;
     }
 
@@ -163,17 +245,13 @@ final class ProjectResolutionFingerprintTest {
                 name = "fingerprint-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [framework.quarkus]
-                package = "fast-jar"
-                enabled = true
+                [framework.spring-boot]
+                native = false
 
                 [package]
                 mode = "spring-boot"
-
-                [framework.springBoot.native]
-                enabled = false
 
                 [versions]
                 spring = "3.3.6"
@@ -181,9 +259,8 @@ final class ProjectResolutionFingerprintTest {
                 mapstruct = "1.6.3"
                 guava = "33.4.0-jre"
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 versionRef = "openapi"
-                coordinate = "org.openapitools:openapi-generator-cli"
 
                 [generated.main.public-api]
                 output = "target/generated/sources/openapi/public-api"
@@ -193,22 +270,25 @@ final class ProjectResolutionFingerprintTest {
                 generator = "spring"
                 kind = "openapi"
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.mapstruct:mapstruct-processor" = { versionRef = "mapstruct" }
 
                 [dependencies]
-                "com.example:shared" = { workspace = "modules/shared" }
                 "com.google.guava:guava" = { versionRef = "guava" }
 
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = { versionRef = "spring" }
 
-                [repositoryCredentials.company-artifactory]
+                [credentials.company-artifactory]
                 passwordEnv = "ACME_REPO_PASSWORD"
                 usernameEnv = "ACME_REPO_USER"
 
                 [repositories]
-                company = { credentials = "company-artifactory", url = "https://repo.acme.example/maven" }
+                central = false
+
+                [repositories.company]
+                credentials = "company-artifactory"
+                url = "https://repo.acme.example/maven"
                 """;
     }
 

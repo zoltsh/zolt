@@ -28,7 +28,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """);
         writePom(cache, "GPL-3.0-only");
@@ -39,7 +39,7 @@ final class LicensesCommandPolicyTest {
         assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(
                 result.stdout().contains(
-                        "org.example:lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny"),
+                        "org.example:lib:1.0.0  [denied] denied by [dependencies.policy.licenses].deny"),
                 result.stdout());
         assertTrue(result.stdout().contains("License policy: 1 denied, 0 unknown of 1 dependency."), result.stdout());
         assertTrue(
@@ -53,7 +53,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-unknown");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["Apache-2.0"]
                 unknown = "warn"
                 """);
@@ -73,7 +73,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-json");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """);
         writePom(cache, "GPL-3.0-only");
@@ -98,11 +98,11 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-exception");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 unknown = "fail"
 
-                [dependencyPolicy.licenses.exceptions."org.example:lib"]
+                [dependencies.license-exceptions."org.example:lib"]
                 allow = ["BSD-3-Clause"]
                 version = "1.0.0"
                 reason = "Reviewed transitive expression"
@@ -127,10 +127,10 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-stale-exception");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
 
-                [dependencyPolicy.licenses.exceptions."org.example:missing"]
+                [dependencies.license-exceptions."org.example:missing"]
                 allow = ["BSD-3-Clause"]
                 version = "1.0.0"
                 reason = "Old review"
@@ -147,7 +147,7 @@ final class LicensesCommandPolicyTest {
         assertTrue(licenses.stdout().contains("1 stale exception"), licenses.stdout());
         assertEquals(1, check.exitCode(), check.stdout() + check.stderr());
         assertTrue(check.stdout().contains(
-                "[dependencyPolicy.licenses.exceptions.\"org.example:missing\"]"), check.stdout());
+                "[dependencies.license-exceptions.\"org.example:missing\"]"), check.stdout());
     }
 
     @Test
@@ -183,7 +183,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-test-scope");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """, lockPackage("lib", "compile") + lockPackage("test-lib", "test"));
         writePom(cache, "lib", "Apache-2.0");
@@ -215,7 +215,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-both-scopes");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """, lockPackage("lib", "compile") + lockPackage("lib", "test"));
         writePom(cache, "lib", "GPL-3.0-only");
@@ -228,7 +228,7 @@ final class LicensesCommandPolicyTest {
         assertEquals(0, text.exitCode(), text.stderr());
         assertTrue(
                 text.stdout().contains(
-                        "org.example:lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny"),
+                        "org.example:lib:1.0.0  [denied] denied by [dependencies.policy.licenses].deny"),
                 text.stdout());
         assertTrue(text.stdout().contains("License policy: 1 denied, 0 unknown of 1 dependency."), text.stdout());
         // And again the enforcing command agrees — this time by failing.
@@ -242,7 +242,7 @@ final class LicensesCommandPolicyTest {
         Path cache = tempDir.resolve("cache-denominator");
         writeProject(projectDir, """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["GPL-3.0-only"]
                 """,
                 lockPackage("lib", "compile")
@@ -271,13 +271,24 @@ final class LicensesCommandPolicyTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + policy);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
                 projectResolutionFingerprint = "sha256:cli-licenses-policy"
                 """ + packages);
     }
 
     private static String lockPackage(String artifact, String scope) {
+        String lane = scope.equals("compile") ? "implementation" : scope;
+        String variant = scope.equals("test") ? "variant = \"jar|tests\"\n" : "";
+        String classifier = scope.equals("test") ? "-tests" : "";
         return """
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:%1$s"
+                version = "1.0.0"
+                %4$s
+                lane = "%3$s"
+                resolvedScope = "%2$s"
 
                 [[package]]
                 id = "org.example:%1$s"
@@ -285,11 +296,11 @@ final class LicensesCommandPolicyTest {
                 source = "maven-central"
                 scope = "%2$s"
                 direct = true
-                jar = "org/example/%1$s/1.0.0/%1$s-1.0.0.jar"
+                jar = "org/example/%1$s/1.0.0/%1$s-1.0.0%5$s.jar"
                 pom = "org/example/%1$s/1.0.0/%1$s-1.0.0.pom"
                 jarSha256 = "1111111111111111111111111111111111111111111111111111111111111111"
                 dependencies = []
-                """.formatted(artifact, scope);
+                """.formatted(artifact, scope, lane, variant, classifier);
     }
 
     private static void writePom(Path cache, String licenseName) throws IOException {

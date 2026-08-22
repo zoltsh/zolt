@@ -10,21 +10,23 @@ import sh.zolt.cli.command.CommandResolveOutput;
 import sh.zolt.cli.command.CommandServiceBundles.CommandDependencyEditServices;
 import sh.zolt.cli.command.dependency.DependencyEditCommands.AddCommandException;
 import sh.zolt.cli.command.dependency.DependencyEditCommands.AddRequest;
-import sh.zolt.cli.command.dependency.DependencyEditCommands.DependencySectionException;
+import sh.zolt.cli.command.dependency.DependencyEditCommands.DependencyScopeException;
+import sh.zolt.dependency.DependencyLane;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.DependencySelector;
+import sh.zolt.manifest.authored.AuthoredDependency;
+import sh.zolt.manifest.authored.AuthoredDependencyMetadata;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.mutation.AuthoredManifestMutator;
 import sh.zolt.maven.Coordinate;
 import sh.zolt.maven.CoordinateParseException;
 import sh.zolt.maven.CoordinateParser;
-import sh.zolt.project.DependencySection;
-import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.VersionPolicy;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
@@ -35,15 +37,20 @@ import picocli.CommandLine.Spec;
 @Command(name = "add", description = "Add a dependency to zolt.toml and refresh zolt.lock.")
 public final class AddCommand implements Runnable {
     private final CoordinateParser coordinateParser;
-    private final ZoltTomlParser tomlParser;
-    private final ZoltTomlWriter tomlWriter;
+    private final ManifestMutationServices manifests;
     private final ResolveService resolveService;
 
     @Parameters(
-            arity = "1..2",
-            paramLabel = "DEPENDENCY",
-            description = "Dependency coordinate. May be prefixed with api, runtime, provided, dev, test, processor, or test-processor.")
-    private List<String> arguments;
+            index = "0",
+            paramLabel = "GROUP:ARTIFACT[:VERSION]",
+            description = "Dependency coordinate.")
+    private String argument;
+
+    @Option(
+            names = "--scope",
+            paramLabel = "<SCOPE>",
+            description = "Dependency scope: implementation (default), api, runtime, provided, dev, test, processor, or test-processor.")
+    private String scope;
 
     @Option(names = "--managed", description = "Use a version managed by a declared platform.")
     private boolean managed;
@@ -68,39 +75,35 @@ public final class AddCommand implements Runnable {
     }
 
     private AddCommand(CommandDependencyEditServices services) {
-        this(
-                services.coordinateParser(),
-                services.tomlParser(),
-                services.tomlWriter(),
-                services.resolveService());
+        this(services.coordinateParser(), services.manifests(), services.resolveService());
     }
 
     AddCommand(
             CoordinateParser coordinateParser,
-            ZoltTomlParser tomlParser,
-            ZoltTomlWriter tomlWriter,
+            ManifestMutationServices manifests,
             ResolveService resolveService) {
         this.coordinateParser = coordinateParser;
-        this.tomlParser = tomlParser;
-        this.tomlWriter = tomlWriter;
+        this.manifests = manifests;
         this.resolveService = resolveService;
     }
 
     @Override
     public void run() {
         try {
-            AddRequest request = parseRequest(arguments);
+            DependencyLane lane = DependencyEditCommands.parseScope(scope, "zolt add");
+            Coordinate parsed = parseCoordinate();
+            DependencyCoordinate coordinate = new DependencyCoordinate(
+                    parsed.groupId() + ":" + parsed.artifactId());
             Path projectRoot = projectDirectory.path();
             ManifestEditResult edit = ManifestEditTransaction.execute(
                     projectRoot,
                     cacheRoot,
                     noResolve,
-                    tomlParser,
-                    tomlWriter,
+                    manifests,
                     resolveService,
-                    config -> updateConfig(config, request));
+                    current -> apply(current, request(current, lane, coordinate, parsed)));
             CommandHumanOutput output = CommandHumanOutput.of(spec);
-            printAddSummary(output, edit.original(), request);
+            printSummary(output, edit.original(), request(edit.original(), lane, coordinate, parsed));
             if (noResolve) {
                 output.detail("Skipped resolve; run zolt resolve to refresh zolt.lock.");
                 return;
@@ -109,7 +112,7 @@ public final class AddCommand implements Runnable {
                 CommandResolveOutput.print(spec, edit.resolveResult());
             }
         } catch (AddCommandException
-                | DependencySectionException
+                | DependencyScopeException
                 | ArtifactCacheException
                 | CoordinateParseException
                 | ResolveException
@@ -118,11 +121,13 @@ public final class AddCommand implements Runnable {
         }
     }
 
-    private AddRequest parseRequest(List<String> values) {
-        DependencySection section = DependencyEditCommands.parseSection(values, "zolt add");
-        String rawCoordinate = values.size() == 2 ? values.get(1) : values.get(0);
-        Coordinate coordinate = coordinateParser.parse(rawCoordinate);
-        if (managed && coordinate.version().isPresent()) {
+    private Coordinate parseCoordinate() {
+        Coordinate parsed = coordinateParser.parse(argument);
+        if (managed && versionRef != null) {
+            throw new AddCommandException(
+                    "`--managed` and `--version-ref` cannot be used together. Choose a platform-managed dependency or a named [versions] alias.");
+        }
+        if (managed && parsed.version().isPresent()) {
             throw new AddCommandException(
                     "Managed dependency coordinate must not include a version. Use `group:artifact`.");
         }
@@ -130,23 +135,34 @@ public final class AddCommand implements Runnable {
             throw new AddCommandException(
                     "Version alias for --version-ref must be non-empty. Use `--version-ref <alias>`.");
         }
-        if (managed && versionRef != null) {
-            throw new AddCommandException(
-                    "`--managed` and `--version-ref` cannot be used together. Choose a platform-managed dependency or a named [versions] alias.");
-        }
-        if (versionRef != null && coordinate.version().isPresent()) {
+        if (versionRef != null && parsed.version().isPresent()) {
             throw new AddCommandException(
                     "Version-ref dependency coordinate must not include a version. Use `--version-ref "
-                            + versionRef
-                            + " group:artifact`.");
+                            + versionRef + " group:artifact`.");
         }
+        return parsed;
+    }
+
+    private AddRequest request(
+            AuthoredManifest manifest,
+            DependencyLane lane,
+            DependencyCoordinate coordinate,
+            Coordinate parsed) {
         if (managed) {
-            return new AddRequest(section, coordinate.groupId() + ":" + coordinate.artifactId(), "", true, null);
+            return new AddRequest(lane, coordinate, new DependencySelector.Managed());
         }
         if (versionRef != null) {
-            return new AddRequest(section, coordinate.groupId() + ":" + coordinate.artifactId(), "", false, versionRef);
+            DependencyEditCommands.requireAlias(
+                    DependencyEditCommands.aliasView(manifests, projectDirectory.path(), manifest),
+                    versionRef,
+                    AddCommandException::new);
+            return new AddRequest(
+                    lane,
+                    coordinate,
+                    new DependencySelector.VersionReference(
+                            DependencyEditCommands.localId(versionRef, AddCommandException::new)));
         }
-        String version = coordinate.version().orElseThrow(() -> new AddCommandException(
+        String version = parsed.version().orElseThrow(() -> new AddCommandException(
                 "Dependency coordinate must include a version. Use `group:artifact:version` or add `--managed` when a declared platform should provide the version."));
         // A SNAPSHOT dependency is written to zolt.toml and left for the resolve-time SnapshotAllowance
         // to accept (workspace member or maven-local overlay) or reject; ranges, dynamic selectors,
@@ -157,117 +173,85 @@ public final class AddCommand implements Runnable {
                 version,
                 true,
                 AddCommandException::new);
-        return new AddRequest(section, coordinate.groupId() + ":" + coordinate.artifactId(), version, false, null);
+        return new AddRequest(lane, coordinate, new DependencySelector.FixedVersion(version));
     }
 
-    private ProjectConfig updateConfig(ProjectConfig config, AddRequest request) {
-        if (request.managed()) {
-            return tomlWriter.addManagedDependency(config, request.section(), request.coordinate());
+    /**
+     * Writes the requested lane declaration, first removing the same variant from any other ordinary
+     * lane so an add moves a dependency instead of leaving two conflicting declarations (design §9.7).
+     */
+    private static AuthoredManifest apply(AuthoredManifest manifest, AddRequest request) {
+        AuthoredDependencyMetadata metadata = DependencyEditCommands
+                .find(manifest, request.lane(), request.coordinate())
+                .map(AuthoredDependency::metadata)
+                .orElseGet(() -> DependencyEditCommands
+                        .findMovable(manifest, request.lane(), request.coordinate())
+                        .map(AuthoredDependency::metadata)
+                        .orElseGet(AuthoredDependencyMetadata::none));
+        AuthoredManifest updated = manifest;
+        Optional<AuthoredDependency> movable = DependencyEditCommands.findMovable(
+                manifest, request.lane(), request.coordinate());
+        if (movable.isPresent()) {
+            updated = AuthoredManifestMutator.removeDependency(
+                    updated, movable.orElseThrow().lane(), request.coordinate());
         }
-        if (request.versionRef() != null) {
-            String version = config.versionAliases().get(request.versionRef());
-            if (version == null) {
-                throw new AddCommandException(
-                        "Unknown versionRef `"
-                                + request.versionRef()
-                                + "`. Add [versions]."
-                                + request.versionRef()
-                                + " or use an explicit version.");
-            }
-            return tomlWriter.addVersionRefDependency(
-                    config,
-                    request.section(),
-                    request.coordinate(),
-                    request.versionRef(),
-                    version);
-        }
-        return tomlWriter.addDependency(config, request.section(), request.coordinate(), request.version());
+        return AuthoredManifestMutator.setDependency(
+                updated,
+                new AuthoredDependency(
+                        request.lane(),
+                        request.coordinate(),
+                        request.selector(),
+                        selectorCompatible(request.selector(), metadata)));
     }
 
-    private void printAddSummary(CommandHumanOutput output, ProjectConfig original, AddRequest request) {
-        Map<String, String> dependencies = DependencyEditCommands.dependencies(original, request.section());
-        String section = DependencyEditCommands.sectionName(request.section());
-        String existing = dependencies.get(request.coordinate());
-        String existingWorkspace = DependencyEditCommands.workspaceDependencies(original, request.section()).get(request.coordinate());
-        String conflicting = DependencyEditCommands.conflictingDependencies(original, request.section()).get(request.coordinate());
-        String conflictingWorkspace =
-                DependencyEditCommands.conflictingWorkspaceDependencies(original, request.section()).get(request.coordinate());
-        String existingVersionRef = DependencyEditCommands.versionRef(original, request.section(), request.coordinate());
-        boolean existingManaged =
-                DependencyEditCommands.managedDependencies(original, request.section()).contains(request.coordinate());
-        boolean conflictingManaged =
-                DependencyEditCommands.conflictingManagedDependencies(original, request.section()).contains(request.coordinate());
-        if (request.managed()) {
-            if (existingManaged) {
-                output.detail("Dependency " + request.coordinate()
-                        + " already uses a platform-managed version in [" + section + "]");
-            } else if (existing != null) {
-                output.summary("Updated dependency " + request.coordinate()
-                        + " from " + existing + " to platform-managed version in [" + section + "]");
-            } else if (existingWorkspace != null) {
-                output.summary("Updated dependency " + request.coordinate()
-                        + " from workspace member " + existingWorkspace
-                        + " to platform-managed version in [" + section + "]");
-            } else if (conflicting != null || conflictingManaged || conflictingWorkspace != null) {
-                output.summary("Updated dependency " + request.coordinate()
-                        + " from " + DependencyEditCommands.existingDescription(conflicting, conflictingManaged, conflictingWorkspace)
-                        + " to platform-managed version in [" + section + "]");
+    /** Workspace and managed selectors reject artifact metadata, so an incompatible move drops it. */
+    private static AuthoredDependencyMetadata selectorCompatible(
+            DependencySelector selector, AuthoredDependencyMetadata metadata) {
+        if (selector instanceof DependencySelector.Workspace && metadata.hasExternalArtifactMetadata()) {
+            return AuthoredDependencyMetadata.none();
+        }
+        return metadata;
+    }
+
+    private void printSummary(CommandHumanOutput output, AuthoredManifest original, AddRequest request) {
+        String section = DependencyEditCommands.section(request.lane());
+        String requested = DependencyEditCommands.describe(original, request.selector());
+        Optional<AuthoredDependency> existing = DependencyEditCommands.find(
+                original, request.lane(), request.coordinate());
+        if (existing.isPresent()) {
+            String current = DependencyEditCommands.describe(original, existing.orElseThrow().selector());
+            if (current.equals(requested)) {
+                output.detail(alreadyPresent(request, requested, section));
             } else {
-                output.summary("Added dependency " + request.coordinate()
-                        + " with a platform-managed version to [" + section + "]");
+                output.summary("Updated dependency " + request.coordinate() + " from " + current
+                        + " to " + requested + " in [" + section + "]");
             }
             return;
         }
-        if (request.versionRef() != null) {
-            String version = original.versionAliases().get(request.versionRef());
-            String versionRefDescription = "versionRef `" + request.versionRef() + "` = " + version;
-            if (request.versionRef().equals(existingVersionRef)) {
-                output.detail("Dependency " + request.coordinate()
-                        + " already uses " + versionRefDescription + " in [" + section + "]");
-            } else if (existingVersionRef != null) {
-                output.summary("Updated dependency " + request.coordinate()
-                        + " from versionRef `" + existingVersionRef + "` to " + versionRefDescription
-                        + " in [" + section + "]");
-            } else if (existingManaged) {
-                output.summary("Updated dependency " + request.coordinate()
-                        + " from managed version to " + versionRefDescription + " in [" + section + "]");
-            } else if (existing != null) {
-                output.summary("Updated dependency " + request.coordinate()
-                        + " from " + existing + " to " + versionRefDescription + " in [" + section + "]");
-            } else if (existingWorkspace != null) {
-                output.summary("Updated dependency " + request.coordinate()
-                        + " from workspace member " + existingWorkspace
-                        + " to " + versionRefDescription + " in [" + section + "]");
-            } else if (conflicting != null || conflictingManaged || conflictingWorkspace != null) {
-                output.summary("Updated dependency " + request.coordinate()
-                        + " from " + DependencyEditCommands.existingDescription(conflicting, conflictingManaged, conflictingWorkspace)
-                        + " to " + versionRefDescription + " in [" + section + "]");
-            } else {
-                output.summary("Added dependency " + request.coordinate()
-                        + " with " + versionRefDescription + " to [" + section + "]");
-            }
+        Optional<AuthoredDependency> moved = DependencyEditCommands.findMovable(
+                original, request.lane(), request.coordinate());
+        if (moved.isPresent()) {
+            output.summary("Updated dependency " + request.coordinate() + " from "
+                    + DependencyEditCommands.describe(original, moved.orElseThrow().selector())
+                    + " in [" + DependencyEditCommands.section(moved.orElseThrow().lane())
+                    + "] to " + requested + " in [" + section + "]");
             return;
         }
-        if (request.version().equals(existing)) {
-            output.detail("Dependency " + request.coordinate() + ":" + request.version()
-                    + " already exists in [" + section + "]");
-        } else if (existingManaged) {
-            output.summary("Updated dependency " + request.coordinate()
-                    + " from managed version to " + request.version() + " in [" + section + "]");
-        } else if (existing != null) {
-            output.summary("Updated dependency " + request.coordinate()
-                    + " from " + existing + " to " + request.version() + " in [" + section + "]");
-        } else if (existingWorkspace != null) {
-            output.summary("Updated dependency " + request.coordinate()
-                    + " from workspace member " + existingWorkspace
-                    + " to " + request.version() + " in [" + section + "]");
-        } else if (conflicting != null || conflictingManaged || conflictingWorkspace != null) {
-            output.summary("Updated dependency " + request.coordinate()
-                    + " from " + DependencyEditCommands.existingDescription(conflicting, conflictingManaged, conflictingWorkspace)
-                    + " to " + request.version() + " in [" + section + "]");
-        } else {
-            output.summary("Added dependency " + request.coordinate() + ":" + request.version()
+        if (request.selector() instanceof DependencySelector.FixedVersion fixed) {
+            output.summary("Added dependency " + request.coordinate() + ":" + fixed.value()
                     + " to [" + section + "]");
+            return;
         }
+        output.summary("Added dependency " + request.coordinate() + " with " + requested
+                + " to [" + section + "]");
+    }
+
+    private static String alreadyPresent(AddRequest request, String requested, String section) {
+        if (request.selector() instanceof DependencySelector.FixedVersion fixed) {
+            return "Dependency " + request.coordinate() + ":" + fixed.value()
+                    + " already exists in [" + section + "]";
+        }
+        return "Dependency " + request.coordinate() + " already uses " + requested
+                + " in [" + section + "]";
     }
 }

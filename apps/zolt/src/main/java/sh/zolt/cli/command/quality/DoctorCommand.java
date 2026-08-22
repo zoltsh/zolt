@@ -19,8 +19,8 @@ import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.toml.WorkspaceConfigParser;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -40,7 +40,7 @@ public final class DoctorCommand implements Runnable {
      */
     private static final String ENVIRONMENT_JAVA_BASELINE = "21";
 
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final SelfHostingCheckService selfHostingCheckService;
     private final JavaToolchainStatusService toolchainStatusService;
 
@@ -55,16 +55,16 @@ public final class DoctorCommand implements Runnable {
 
     public DoctorCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new SelfHostingCheckService(),
                 new JavaToolchainStatusService());
     }
 
     DoctorCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             SelfHostingCheckService selfHostingCheckService,
             JavaToolchainStatusService toolchainStatusService) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.selfHostingCheckService = selfHostingCheckService;
         this.toolchainStatusService = toolchainStatusService;
     }
@@ -83,7 +83,7 @@ public final class DoctorCommand implements Runnable {
                 checkEnvironment(projectRoot);
                 return;
             }
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ProjectConfig config = projectLoader.load(projectRoot);
             boolean ok = printProjectJdkStatus(projectRoot, config);
             Optional<TestRuntimeToolchain> testRuntime = new TestRuntimeToolchainResolver()
                     .resolve(projectRoot, projectRoot, config, HostPlatform.current(), ToolchainStore.defaults());
@@ -248,9 +248,7 @@ public final class DoctorCommand implements Runnable {
             return;
         }
         Path root = enclosing.orElseThrow();
-        output.context(
-                Files.isRegularFile(root.resolve("zolt.toml")) ? "project root" : "workspace root",
-                root.toString());
+        output.context(isWorkspaceRoot(root) ? "workspace root" : "project root", root.toString());
         output.action("zolt doctor --directory " + root);
     }
 
@@ -262,13 +260,28 @@ public final class DoctorCommand implements Runnable {
     private static Optional<Path> enclosingRoot(Path directory) {
         Path current = directory.getParent();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("zolt.toml"))
-                    || Files.isRegularFile(current.resolve(WorkspaceConfigParser.WORKSPACE_FILE))) {
+            if (Files.isRegularFile(current.resolve("zolt.toml"))) {
                 return Optional.of(current);
             }
             current = current.getParent();
         }
         return Optional.empty();
+    }
+
+    /**
+     * The final language keeps a workspace root in {@code zolt.toml}, so the label follows what the
+     * manifest declares rather than which file name it uses.
+     */
+    private static boolean isWorkspaceRoot(Path root) {
+        try {
+            return new ManifestWorkspaceLoader().discoverRoot(root)
+                    .map(discovered -> discovered.equals(root))
+                    .orElse(false);
+        } catch (RuntimeException exception) {
+            // This notice only labels a nearby root; a manifest it cannot read is reported by the
+            // command the user is being pointed at, not by the hint itself.
+            return false;
+        }
     }
 
     private static boolean writable(Path path) {

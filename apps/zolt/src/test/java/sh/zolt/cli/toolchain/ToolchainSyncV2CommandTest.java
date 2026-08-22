@@ -32,19 +32,18 @@ final class ToolchainSyncV2CommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "graalvm-community"
                 features = ["native-image"]
 
                 [toolchain.java.test]
-                version = "21"
+                version = 21
                 distribution = "temurin"
-                features = []
                 """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         install(store, graalLocked());
         install(store, temurinLocked());

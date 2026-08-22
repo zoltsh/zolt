@@ -21,7 +21,9 @@ final class WorkspaceBuildServiceIncrementalTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "modules/util", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "modules/util", "apps/api"]
                 """);
         member("modules/core", "core", "");
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -52,8 +54,8 @@ final class WorkspaceBuildServiceIncrementalTest {
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
-                "com.acme:util" = { workspace = "modules/util" }
+                "com.acme:core" = { workspace = true }
+                "com.acme:util" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -89,7 +91,9 @@ final class WorkspaceBuildServiceIncrementalTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", "");
         source("apps/api/src/main/java/com/acme/api/Api.java", """
@@ -120,7 +124,9 @@ final class WorkspaceBuildServiceIncrementalTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", "");
         source("apps/api/src/main/java/com/acme/api/Api.java", """
@@ -142,7 +148,7 @@ final class WorkspaceBuildServiceIncrementalTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     private void member(String path, String name, String extraToml) throws IOException {
@@ -153,7 +159,7 @@ final class WorkspaceBuildServiceIncrementalTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
+                java = %s
                 %s""".formatted(name, currentJavaMajorVersion(), extraToml));
     }
 

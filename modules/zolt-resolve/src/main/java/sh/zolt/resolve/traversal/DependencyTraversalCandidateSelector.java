@@ -228,14 +228,14 @@ final class DependencyTraversalCandidateSelector {
                         candidate.dependency().rawDependency().version(),
                         Optional.of(sourceCoordinate(candidate.source())),
                         exclusion.reason()
-                                .map(reason -> "[dependencyPolicy].exclude "
+                                .map(reason -> "[dependencies.policy].deny "
                                         + coordinate.groupId()
                                         + ":"
                                         + coordinate.artifactId()
                                         + " ("
                                         + reason
                                         + ")")
-                                .orElse("[dependencyPolicy].exclude "
+                                .orElse("[dependencies.policy].deny "
                                         + coordinate.groupId()
                                         + ":"
                                         + coordinate.artifactId())))
@@ -306,11 +306,11 @@ final class DependencyTraversalCandidateSelector {
                                     + sourceCoordinate(source)
                                     + "`.",
                             violation.guidance()
-                                    + " Add [dependencyConstraints] entry `\""
+                                    + " Add [dependencies.constraints] entry `\""
                                     + packageId
-                                    + "\" = { version = \""
+                                    + "\" = \""
                                     + fixedVersionExample(requestedVersion)
-                                    + "\", kind = \"strict\" }`, then run `"
+                                    + "\"`, then run `"
                                     + retryCommand
                                     + "` again.");
                 });

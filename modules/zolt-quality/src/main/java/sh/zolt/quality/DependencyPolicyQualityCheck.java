@@ -8,10 +8,13 @@ import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.policy.DependencyPolicyReport;
 import sh.zolt.policy.DependencyPolicyReportException;
 import sh.zolt.policy.DependencyPolicyReportService;
+import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.dependency.ConflictSelectionReason;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,6 +79,7 @@ final class DependencyPolicyQualityCheck {
             DependencyPolicyReport report = dependencyPolicyReportService.report(root, config, lockfile);
             List<QualityCheckResult> results = new ArrayList<>();
             results.add(summary(member, config, report));
+            addConflictPolicyDiagnostics(results, member, config, lockfile, workspace);
             addConstraintDiagnostics(results, member, report, workspace);
             addExclusionDiagnostics(results, member, report);
             addDirectVersionDiagnostics(results, member, report, workspace);
@@ -117,6 +121,47 @@ final class DependencyPolicyQualityCheck {
                         + ".");
     }
 
+    /**
+     * Design §9.11: {@code conflicts = "warn"} resolves and reports. The lock is the durable record of
+     * what was mediated, so the machine-readable report of a warn policy is a severity-tagged check
+     * result rather than a resolve-time-only message.
+     */
+    private static void addConflictPolicyDiagnostics(
+            List<QualityCheckResult> results,
+            Optional<String> member,
+            ProjectConfig config,
+            ZoltLockfile lockfile,
+            boolean workspace) {
+        if (!config.dependencyPolicy().warnOnVersionConflict()) {
+            return;
+        }
+        List<String> mediated = lockfile.conflicts().stream()
+                .filter(conflict -> conflict.reason() != ConflictSelectionReason.SELECTED_GRAPH)
+                .filter(conflict -> member.isEmpty() || conflict.members().isEmpty()
+                        || conflict.members().contains(member.orElseThrow()))
+                .sorted(Comparator.comparing(conflict -> conflict.packageId().toString()))
+                .map(conflict -> conflict.packageId()
+                        + " selected "
+                        + conflict.selectedVersion()
+                        + ", requested "
+                        + String.join(", ", conflict.requestedVersions()))
+                .toList();
+        if (mediated.isEmpty()) {
+            return;
+        }
+        results.add(QualityCheckResult.warning(
+                DEPENDENCY_POLICY,
+                member,
+                "[dependencies.policy].conflicts",
+                "Dependency version conflicts were mediated under `conflicts = \"warn\"`: "
+                        + String.join("; ", mediated)
+                        + ".",
+                "Align the conflicting versions with a [platforms] BOM, a direct dependency, or a "
+                        + "[dependencies.constraints] strict constraint, then run `"
+                        + resolveCommand(workspace)
+                        + "` again; set `conflicts = \"fail\"` to make this an error."));
+    }
+
     private static void addConstraintDiagnostics(
             List<QualityCheckResult> results,
             Optional<String> member,
@@ -127,7 +172,7 @@ final class DependencyPolicyQualityCheck {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
                         member,
-                        "[dependencyConstraints]." + constraint.coordinate(),
+                        "[dependencies.constraints]." + constraint.coordinate(),
                         "Strict constraint expected `"
                                 + constraint.coordinate()
                                 + "` version `"
@@ -137,16 +182,16 @@ final class DependencyPolicyQualityCheck {
                                 + "`.",
                         "Run `"
                                 + resolveCommand(workspace)
-                                + "` after updating [dependencyConstraints], or change the strict constraint to the selected baseline."));
+                                + "` after updating [dependencies.constraints], or change the strict constraint to the selected baseline."));
             } else if ("direct-override".equals(constraint.status())) {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
                         member,
-                        "[dependencyConstraints]." + constraint.coordinate(),
+                        "[dependencies.constraints]." + constraint.coordinate(),
                         "Strict constraint for `"
                                 + constraint.coordinate()
                                 + "` is overridden by a direct dependency version.",
-                        "Align the direct dependency version with [dependencyConstraints], or remove the strict constraint if the direct override is intentional."));
+                        "Align the direct dependency version with [dependencies.constraints], or remove the strict constraint if the direct override is intentional."));
             }
         }
     }
@@ -160,7 +205,7 @@ final class DependencyPolicyQualityCheck {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
                         member,
-                        "[dependencyPolicy].exclude " + exclusion.coordinate(),
+                        "[dependencies.policy].deny " + exclusion.coordinate(),
                         "Dependency policy excludes `"
                                 + exclusion.coordinate()
                                 + "`, but that package is still a direct dependency.",
@@ -179,7 +224,7 @@ final class DependencyPolicyQualityCheck {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
                         member,
-                        "[" + direct.section() + "]." + direct.coordinate(),
+                        "[" + DependencyMetadata.manifestSection(direct.section()) + "]." + direct.coordinate(),
                         "Direct dependency `"
                                 + direct.coordinate()
                                 + ":"

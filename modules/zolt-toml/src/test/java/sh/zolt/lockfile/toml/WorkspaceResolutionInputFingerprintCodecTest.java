@@ -10,16 +10,23 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code workspaceResolutionInputFingerprint} is an optional annotation on lock schema 5, not a new
- * schema. It must survive a round trip, must be absent rather than fatal on locks written before it,
- * must not raise the version, and must stay outside the canonical bytes {@code --locked} compares.
+ * {@code workspaceResolutionInputFingerprint} remains an optional annotation on the current lock
+ * schema. It must survive a round trip, may be absent, must not raise the version, and stays outside
+ * the canonical bytes {@code --locked} compares.
  */
 final class WorkspaceResolutionInputFingerprintCodecTest {
     private static final String FINGERPRINT =
             "sha256:164c737c8e49586cfe07a1a43cb26de94a794e3bb100c4c80c359e428e4693db";
     private static final String LOCK_WITH_PACKAGE = """
-            version = 5
+            version = 7
             projectResolutionFingerprint = "sha256:abc"
+
+            [[dependencyRoot]]
+            member = "."
+            id = "org.slf4j:slf4j-api"
+            version = "2.0.17"
+            lane = "implementation"
+            resolvedScope = "compile"
 
             [[package]]
             id = "org.slf4j:slf4j-api"
@@ -45,8 +52,8 @@ final class WorkspaceResolutionInputFingerprintCodecTest {
 
     @Test
     void doesNotChangeTheCurrentLockfileVersion() {
-        assertEquals(6, ZoltLockfile.CURRENT_VERSION);
-        assertEquals(6, reader.read(writer.write(lockfile(Optional.of(FINGERPRINT)))).version());
+        assertEquals(7, ZoltLockfile.CURRENT_VERSION);
+        assertEquals(7, reader.read(writer.write(lockfile(Optional.of(FINGERPRINT)))).version());
     }
 
     @Test
@@ -58,10 +65,17 @@ final class WorkspaceResolutionInputFingerprintCodecTest {
     }
 
     @Test
-    void readsALockWrittenBeforeTheAnnotationExisted() {
+    void acceptsACurrentLockWithoutTheAnnotation() {
         ZoltLockfile lockfile = reader.read("""
-                version = 5
+                version = 7
                 projectResolutionFingerprint = "sha256:abc"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.slf4j:slf4j-api"
+                version = "2.0.17"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.slf4j:slf4j-api"
@@ -79,12 +93,12 @@ final class WorkspaceResolutionInputFingerprintCodecTest {
     @Test
     void ignoresTopLevelKeysItDoesNotKnow() {
         ZoltLockfile lockfile = reader.read("""
-                version = 5
+                version = 7
                 projectResolutionFingerprint = "sha256:abc"
                 someFutureAnnotation = "whatever"
                 """);
 
-        assertEquals(5, lockfile.version());
+        assertEquals(7, lockfile.version());
     }
 
     @Test
@@ -137,13 +151,33 @@ final class WorkspaceResolutionInputFingerprintCodecTest {
     @Test
     void leavesJavaToolchainSidecarsWhereTheyAreWhenRecording() {
         String content = LOCK_WITH_PACKAGE + "\n[[toolchain.java]]\nversion = \"21\"\n";
+        String rootBlock = """
+                [[dependencyRoot]]
+                member = "."
+                id = "org.slf4j:slf4j-api"
+                version = "2.0.17"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                """;
 
         String recorded =
                 LockfileSidecars.withWorkspaceResolutionInputFingerprint(content, FINGERPRINT);
 
         assertTrue(recorded.contains("[[toolchain.java]]"));
+        assertEquals(
+                rootBlock,
+                LOCK_WITH_PACKAGE.substring(
+                        LOCK_WITH_PACKAGE.indexOf("[[dependencyRoot]]"),
+                        LOCK_WITH_PACKAGE.indexOf("[[package]]")));
+        assertEquals(
+                rootBlock,
+                recorded.substring(
+                        recorded.indexOf("[[dependencyRoot]]"),
+                        recorded.indexOf("[[package]]")));
         assertTrue(recorded.indexOf("workspaceResolutionInputFingerprint")
-                < recorded.indexOf("[[package]]"));
+                < recorded.indexOf("[[dependencyRoot]]"));
+        assertTrue(recorded.indexOf("[[dependencyRoot]]") < recorded.indexOf("[[package]]"));
     }
 
     private static ZoltLockfile lockfile(Optional<String> workspaceFingerprint) {

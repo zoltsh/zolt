@@ -21,7 +21,7 @@ final class BuildServiceIncrementalMainMultiClassTest {
 
     @Test
     void innerClassBodyChangeUsesIncrementalMainCompilation() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path outer = source(projectDir, "src/main/java/com/example/Outer.java", """
                 package com.example;
 
@@ -65,7 +65,7 @@ final class BuildServiceIncrementalMainMultiClassTest {
 
     @Test
     void removedInnerClassIsDeletedDuringIncrementalMainCompilation() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path outer = source(projectDir, "src/main/java/com/example/Outer.java", """
                 package com.example;
 
@@ -103,7 +103,7 @@ final class BuildServiceIncrementalMainMultiClassTest {
 
     @Test
     void innerClassPublicAbiChangeRecompilesDependentThatReferencesInner() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path api = source(projectDir, "src/main/java/com/example/api/Api.java", """
                 package com.example.api;
 

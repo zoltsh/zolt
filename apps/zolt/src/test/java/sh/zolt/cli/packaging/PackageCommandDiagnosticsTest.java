@@ -40,7 +40,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
                 "--cache-root", tempDir.resolve("cache").toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("Packaged 1 compiled files as thin jar"));
+        assertTrue(result.stdout().contains("Packaged 1 compiled files as jar"));
         String[] lines = result.stderr().lines().toArray(String[]::new);
         assertEquals(4, lines.length);
         assertTrue(lines[0].contains("\"phase\":\"config read\""));
@@ -55,11 +55,11 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
         assertTrue(lines[1].contains("\"mainAbiChangedClasses\":\"0\""));
         assertTrue(lines[2].contains("\"phase\":\"assemble package\""));
         assertTrue(lines[2].contains("\"depth\":1"));
-        assertTrue(lines[2].contains("\"mode\":\"thin\""));
+        assertTrue(lines[2].contains("\"mode\":\"jar\""));
         assertTrue(lines[2].contains("\"entries\":\"1\""));
         assertTrue(lines[3].contains("\"phase\":\"package\""));
         assertTrue(lines[3].contains("\"depth\":0"));
-        assertTrue(lines[3].contains("\"mode\":\"thin\""));
+        assertTrue(lines[3].contains("\"mode\":\"jar\""));
     }
 
     @Test
@@ -84,7 +84,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
                 "--cache-root", tempDir.resolve("cache").toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("Packaged 1 compiled files as thin jar"));
+        assertTrue(result.stdout().contains("Packaged 1 compiled files as jar"));
         assertTrue(result.stderr().contains("Packaging project..."));
         assertTrue(result.stderr().contains("Packaged " + projectDir.resolve("target/demo-0.1.0.jar")));
     }
@@ -132,12 +132,12 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
 
         Path jarPath = projectDir.resolve("target/demo-0.1.0.jar");
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("\u001B[32m✔\u001B[0m Packaged 1 compiled files as thin jar"));
+        assertTrue(result.stdout().contains("\u001B[32m✔\u001B[0m Packaged 1 compiled files as jar"));
         assertTrue(result.stdout().contains("\u001B[32mIncluded\u001B[0m Main-Class manifest entry"));
         assertTrue(result.stdout().contains("\u001B[36m→\u001B[0m wrote \u001B[36m" + jarPath + "\u001B[0m"));
         assertTrue(result.stdout().contains("Run with: "));
         assertTrue(result.stdout().contains("Run with dependencies: "));
-        assertFalse(result.stdout().contains("\u001B[32mPackaged 1 compiled files as thin jar\u001B[0m"));
+        assertFalse(result.stdout().contains("\u001B[32mPackaged 1 compiled files as jar\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[32mIncluded Main-Class manifest entry"));
         assertFalse(result.stdout().contains("\u001B[32mWrote archive to "));
         assertFalse(result.stdout().contains("\u001B[32mRun with"));
@@ -178,8 +178,8 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
         assertTrue(color.stdout().contains(
                 "\u001B[32mResolved\u001B[0m dependencies because zolt.lock was missing"));
         assertFalse(color.stdout().contains("\u001B[32mResolved dependencies because zolt.lock was missing"));
-        assertTrue(color.stdout().contains("\u001B[32m✔\u001B[0m Packaged 1 compiled files as thin jar"));
-        assertFalse(color.stdout().contains("\u001B[32mPackaged 1 compiled files as thin jar"));
+        assertTrue(color.stdout().contains("\u001B[32m✔\u001B[0m Packaged 1 compiled files as jar"));
+        assertFalse(color.stdout().contains("\u001B[32mPackaged 1 compiled files as jar"));
         assertEquals(0, quiet.exitCode(), quiet.stderr());
         assertEquals("", quiet.stdout());
         assertTrue(Files.exists(quietProject.resolve("zolt.lock")));
@@ -204,7 +204,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
                 "--cache-root", tempDir.resolve("cache").toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("Packaged 1 compiled files as thin jar"));
+        assertTrue(result.stdout().contains("Packaged 1 compiled files as jar"));
         assertTrue(Files.exists(projectDir.resolve("target/demo-0.1.0.jar")));
     }
 
@@ -218,7 +218,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains("Unsupported package mode `ear`"));
         assertTrue(result.stderr().contains("Unsupported: `ear`"));
-        assertTrue(result.stderr().contains("thin, spring-boot, war, spring-boot-war, quarkus, uber"));
+        assertTrue(result.stderr().contains("jar, spring-boot, war, spring-boot-war, quarkus, uber-jar"));
     }
 
     @Test
@@ -230,7 +230,7 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
@@ -238,16 +238,14 @@ final class PackageCommandDiagnosticsTest extends PackageCommandTestSupport {
 
                 [dependencies]
 
-                [test.dependencies]
+                [dependencies.test]
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "classes"
-                testOutput = "test-classes"
+                [build.output]
+                root = "out"
                 """.formatted(currentJavaMajorVersion()));
         writeMainSource(projectDir, "package com.example; public final class Main {}\n");
-        Files.writeString(projectDir.resolve("target"), "not a directory");
+        // A directory where the jar belongs is the portable way to make the write fail.
+        Files.createDirectories(projectDir.resolve("out/demo-0.1.0.jar"));
 
         CommandResult result = execute(
                 "package",

@@ -14,7 +14,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.request.RequestOrigin;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -189,25 +189,25 @@ final class SpringBootToolingDependencyContributorTest {
     }
 
     private static ProjectConfig baseConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
     }
 
     private static ProjectConfig springBootNativeConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "spring-native-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 """);
     }
 }

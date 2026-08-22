@@ -1,0 +1,269 @@
+package sh.zolt.manifest.adapter;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
+import sh.zolt.manifest.GeneratedStepSettings;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.ManifestRelativePath;
+import sh.zolt.manifest.ResourceGlob;
+import sh.zolt.manifest.VersionAliasValue;
+import sh.zolt.manifest.authored.AuthoredDeclaredRootStep;
+import sh.zolt.manifest.authored.AuthoredExecStep;
+import sh.zolt.manifest.authored.AuthoredGeneratedSources;
+import sh.zolt.manifest.authored.AuthoredGeneratedStep;
+import sh.zolt.manifest.authored.AuthoredGeneratedTool;
+import sh.zolt.manifest.authored.AuthoredOpenApiOptions;
+import sh.zolt.manifest.authored.AuthoredOpenApiStep;
+import sh.zolt.manifest.authored.AuthoredProtobufStep;
+import sh.zolt.manifest.effective.EffectiveValue;
+import sh.zolt.project.GeneratedSourceKind;
+import sh.zolt.project.GeneratedSourceStep;
+import sh.zolt.project.OpenApiGenerationSettings;
+import sh.zolt.project.ProtobufGenerationSettings;
+
+/**
+ * Projects the final {@code [generated.tools]}, {@code [generated.presets]}, {@code [generated.main]},
+ * and {@code [generated.test]} domains onto the legacy {@link GeneratedSourceStep} list.
+ *
+ * <p>Design §13.2 gives every generator one named {@code [generated.tools.<id>]} declaration, so the
+ * adapter resolves each step's tool reference and folds the declaration into the per-step settings
+ * the engine expects.
+ */
+final class ProjectConfigGenerated {
+    private static final LocalId OPENAPI = new LocalId("openapi");
+    private static final LocalId PROTOBUF = new LocalId("protobuf");
+    private static final String JAVA = "java";
+    /**
+     * Default coordinates for the reserved built-in generated tools.
+     *
+     * <p>The installed Zolt release owns them, and a user declares a built-in tool table only to
+     * override the request (design §13.1). A step that names only versions therefore resolves against
+     * these coordinates instead of failing for a coordinate the language never asked the user to
+     * repeat.
+     */
+    private static final String DEFAULT_OPENAPI_COORDINATE = "org.openapitools:openapi-generator-cli";
+    private static final String DEFAULT_PROTOC_COORDINATE = "com.google.protobuf:protoc";
+    private static final String DEFAULT_GRPC_COORDINATE = "io.grpc:protoc-gen-grpc-java";
+    private static final String MAIN_OUTPUT_PREFIX = "generated/sources/";
+    private static final String TEST_OUTPUT_PREFIX = "generated/test-sources/";
+
+    private ProjectConfigGenerated() {
+    }
+
+    static List<GeneratedSourceStep> main(
+            Optional<AuthoredGeneratedSources> generated,
+            String outputRoot,
+            Map<LocalId, EffectiveValue<VersionAliasValue>> versions) {
+        return steps(generated, outputRoot, versions, true);
+    }
+
+    static List<GeneratedSourceStep> test(
+            Optional<AuthoredGeneratedSources> generated,
+            String outputRoot,
+            Map<LocalId, EffectiveValue<VersionAliasValue>> versions) {
+        return steps(generated, outputRoot, versions, false);
+    }
+
+    private static List<GeneratedSourceStep> steps(
+            Optional<AuthoredGeneratedSources> generated,
+            String outputRoot,
+            Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
+            boolean mainScope) {
+        if (generated.isEmpty()) {
+            return List.of();
+        }
+        AuthoredGeneratedSources sources = generated.orElseThrow();
+        Map<LocalId, AuthoredGeneratedStep> scope = mainScope ? sources.main() : sources.test();
+        List<GeneratedSourceStep> steps = new ArrayList<>(scope.size());
+        scope.forEach((id, step) ->
+                steps.add(step(id, step, sources, outputRoot, versions, mainScope)));
+        return List.copyOf(steps);
+    }
+
+    private static GeneratedSourceStep step(
+            LocalId id,
+            AuthoredGeneratedStep step,
+            AuthoredGeneratedSources sources,
+            String outputRoot,
+            Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
+            boolean mainScope) {
+        return switch (step) {
+            case AuthoredOpenApiStep openApi ->
+                    openApi(id, openApi, sources, outputRoot, versions, mainScope);
+            case AuthoredProtobufStep protobuf ->
+                    protobuf(id, protobuf, sources, outputRoot, versions, mainScope);
+            case AuthoredExecStep exec ->
+                    ProjectConfigGeneratedExec.step(id, exec, sources, versions);
+            case AuthoredDeclaredRootStep declaredRoot -> declaredRoot(id, declaredRoot);
+        };
+    }
+
+    private static GeneratedSourceStep openApi(
+            LocalId id,
+            AuthoredOpenApiStep step,
+            AuthoredGeneratedSources sources,
+            String outputRoot,
+            Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
+            boolean mainScope) {
+        LocalId tool = step.tool().orElse(OPENAPI);
+        AuthoredOpenApiOptions preset = step.preset()
+                .map(sources.presets().openApi()::get)
+                .orElseGet(AuthoredOpenApiOptions::empty);
+        return new GeneratedSourceStep(
+                id.value(),
+                GeneratedSourceKind.OPENAPI,
+                JAVA,
+                derivedOutput(id, step.output(), outputRoot, mainScope),
+                List.of(step.input().value()),
+                step.settings().required().orElse(true),
+                step.settings().clean().orElse(true),
+                openApiSettings(
+                        openApiTool(sources, tool),
+                        OPENAPI.equals(tool),
+                        step.preset().map(LocalId::value),
+                        preset,
+                        step.overrides(),
+                        versions,
+                        id));
+    }
+
+    private static GeneratedSourceStep protobuf(
+            LocalId id,
+            AuthoredProtobufStep step,
+            AuthoredGeneratedSources sources,
+            String outputRoot,
+            Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
+            boolean mainScope) {
+        LocalId tool = step.tool().orElse(PROTOBUF);
+        Optional<AuthoredGeneratedTool.Protobuf> declaration =
+                declaration(sources, tool, AuthoredGeneratedTool.Protobuf.class);
+        String subject = "[generated] tool `" + tool + "`";
+        return new GeneratedSourceStep(
+                id.value(),
+                GeneratedSourceKind.PROTOBUF,
+                JAVA,
+                derivedOutput(id, step.output(), outputRoot, mainScope),
+                step.inputs().stream().map(ResourceGlob::value).toList(),
+                step.settings().required().orElse(true),
+                step.settings().clean().orElse(true),
+                OpenApiGenerationSettings.empty(),
+                new ProtobufGenerationSettings(
+                        builtInCoordinate(
+                                declaration.flatMap(AuthoredGeneratedTool.Protobuf::protocCoordinate),
+                                PROTOBUF.equals(tool),
+                                DEFAULT_PROTOC_COORDINATE),
+                        declaration.flatMap(AuthoredGeneratedTool.Protobuf::protocVersion)
+                                .map(selector -> ProjectConfigVersions.resolve(selector, versions, subject)),
+                        declaration.flatMap(AuthoredGeneratedTool.Protobuf::protocVersion)
+                                .map(ProjectConfigVersions::reference),
+                        builtInCoordinate(
+                                declaration.flatMap(AuthoredGeneratedTool.Protobuf::grpcCoordinate),
+                                PROTOBUF.equals(tool),
+                                DEFAULT_GRPC_COORDINATE),
+                        declaration.flatMap(AuthoredGeneratedTool.Protobuf::grpcVersion)
+                                .map(selector -> ProjectConfigVersions.resolve(selector, versions, subject)),
+                        declaration.flatMap(AuthoredGeneratedTool.Protobuf::grpcVersion)
+                                .map(ProjectConfigVersions::reference),
+                        step.javaPackage(),
+                        step.grpc().orElse(true)));
+    }
+
+    private static GeneratedSourceStep declaredRoot(LocalId id, AuthoredDeclaredRootStep step) {
+        GeneratedStepSettings settings = step.settings();
+        return new GeneratedSourceStep(
+                id.value(),
+                GeneratedSourceKind.DECLARED_ROOT,
+                JAVA,
+                step.output().value(),
+                step.inputs().stream().map(ResourceGlob::value).toList(),
+                settings.required().orElse(true),
+                settings.clean().orElse(false));
+    }
+
+    /**
+     * The coordinate a generated tool resolves against.
+     *
+     * <p>The reserved {@code openapi} and {@code protobuf} IDs carry coordinates owned by the
+     * installed Zolt release, so a step that overrides only versions still resolves (design §13.1). A
+     * custom typed tool names its own coordinate and gets no default (design §13.2).
+     */
+    private static Optional<String> builtInCoordinate(
+            Optional<DependencyCoordinate> authored,
+            boolean builtIn,
+            String defaultCoordinate) {
+        return authored
+                .map(DependencyCoordinate::value)
+                .or(() -> builtIn ? Optional.of(defaultCoordinate) : Optional.empty());
+    }
+
+    private static OpenApiGenerationSettings openApiSettings(
+            Optional<AuthoredGeneratedTool.OpenApi> tool,
+            boolean builtIn,
+            Optional<String> presetId,
+            AuthoredOpenApiOptions preset,
+            AuthoredOpenApiOptions overrides,
+            Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
+            LocalId step) {
+        String subject = "[generated] OpenAPI tool for step `" + step + "`";
+        return new OpenApiGenerationSettings(
+                builtInCoordinate(
+                        tool.flatMap(AuthoredGeneratedTool.OpenApi::coordinate),
+                        builtIn,
+                        DEFAULT_OPENAPI_COORDINATE),
+                tool.flatMap(AuthoredGeneratedTool.OpenApi::version)
+                        .map(selector -> ProjectConfigVersions.resolve(selector, versions, subject)),
+                tool.flatMap(AuthoredGeneratedTool.OpenApi::version)
+                        .map(ProjectConfigVersions::reference),
+                presetId,
+                overrides.generator().or(preset::generator),
+                overrides.library().or(preset::library),
+                overrides.apiPackage().or(preset::apiPackage),
+                overrides.modelPackage().or(preset::modelPackage),
+                overrides.invokerPackage().or(preset::invokerPackage),
+                overrides.config().or(preset::config).map(ManifestRelativePath::value),
+                overrides.templateDir().or(preset::templateDir).map(ManifestRelativePath::value),
+                overrides.validateSpec().or(preset::validateSpec),
+                merged(preset.options(), overrides.options()),
+                merged(preset.additionalProperties(), overrides.additionalProperties()),
+                merged(preset.configOptions(), overrides.configOptions()),
+                merged(preset.globalProperties(), overrides.globalProperties()),
+                merged(preset.typeMappings(), overrides.typeMappings()),
+                merged(preset.importMappings(), overrides.importMappings()));
+    }
+
+    private static Optional<AuthoredGeneratedTool.OpenApi> openApiTool(
+            AuthoredGeneratedSources sources,
+            LocalId tool) {
+        return declaration(sources, tool, AuthoredGeneratedTool.OpenApi.class);
+    }
+
+    private static <T extends AuthoredGeneratedTool> Optional<T> declaration(
+            AuthoredGeneratedSources sources,
+            LocalId tool,
+            Class<T> kind) {
+        AuthoredGeneratedTool declaration = sources.tools().declarations().get(tool);
+        return kind.isInstance(declaration) ? Optional.of(kind.cast(declaration)) : Optional.empty();
+    }
+
+    private static Map<String, String> merged(Map<String, String> preset, Map<String, String> step) {
+        Map<String, String> merged = new TreeMap<>(preset);
+        merged.putAll(step);
+        return ProjectConfigOrder.map(merged);
+    }
+
+    private static String derivedOutput(
+            LocalId id,
+            Optional<ManifestRelativePath> output,
+            String outputRoot,
+            boolean mainScope) {
+        return output.map(ManifestRelativePath::value)
+                .orElseGet(() -> outputRoot
+                        + "/"
+                        + (mainScope ? MAIN_OUTPUT_PREFIX : TEST_OUTPUT_PREFIX)
+                        + id.value());
+    }
+}

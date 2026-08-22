@@ -75,7 +75,7 @@ final class PackageTestCompileGate {
         Path projectRoot = ProjectPaths.root(projectDirectory);
         Path testOutput = ProjectPaths.output(
                 projectRoot,
-                "[build].testOutput",
+                "[build.output].test",
                 config.build().testOutput());
         if (!Files.isDirectory(testOutput)) {
             throw staleTestOutput(
@@ -117,7 +117,7 @@ final class PackageTestCompileGate {
                         testOutput,
                         ProjectPaths.output(
                                 projectRoot,
-                                "[compiler].generatedTestSources",
+                                "[compiler.generated].test",
                                 config.compilerSettings()
                                         .generatedTestSources()));
         if (!check.current()) {

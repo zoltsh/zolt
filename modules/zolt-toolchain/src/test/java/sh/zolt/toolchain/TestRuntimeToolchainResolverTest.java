@@ -17,7 +17,8 @@ import sh.zolt.toolchain.jvm.ResolvedJavaToolchain;
 import sh.zolt.toolchain.lock.ToolchainLockfileService;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,19 +59,14 @@ final class TestRuntimeToolchainResolverTest {
 
     @Test
     void rejectsTestRuntimeOlderThanProjectRelease() throws IOException {
+        // Composition owns this floor now: a manifest whose test runtime cannot execute the project
+        // release is rejected before any resolver sees it (design ss11.4).
         Path project = writeProject("floor", "21", "21", "allow-system", "17");
-        Path java = fakeJava("21");
-        TestRuntimeToolchainResolver resolver = resolver(request -> ambient(request, "21", java));
 
-        TestRuntimeToolchain resolved = resolver.resolve(project, project, parse(project),
-                HostPlatform.parse("linux-x64"), store()).orElseThrow();
+        ZoltConfigException exception = assertThrows(ZoltConfigException.class, () -> parse(project));
 
-        assertFalse(resolved.ready());
-        assertTrue(resolved.releaseProblem().isPresent());
-        ActionableException exception = assertThrows(ActionableException.class, resolved::requireJava);
-        assertTrue(exception.getMessage().contains("17"));
-        assertTrue(exception.getMessage().contains("21"));
-        assertTrue(exception.getMessage().contains("UnsupportedClassVersionError"));
+        assertTrue(exception.getMessage().contains(
+                "Effective test Java runtime release 17 cannot execute project Java release 21."));
     }
 
     @Test
@@ -189,7 +185,7 @@ final class TestRuntimeToolchainResolverTest {
     }
 
     private static ProjectConfig parse(Path project) {
-        return new ZoltTomlParser().parse(project.resolve("zolt.toml"));
+        return new ManifestProjectConfigLoader().load(project.resolve("zolt.toml"));
     }
 
     private Path writeProject(
@@ -201,19 +197,19 @@ final class TestRuntimeToolchainResolverTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "temurin"
                 features = []
                 policy = "%s"
                 """.formatted(name, projectJava, mainVersion, policy));
         if (testVersion != null) {
-            toml.append("\n[toolchain.java.test]\nversion = \"").append(testVersion).append("\"\n");
+            toml.append("\n[toolchain.java.test]\nversion = ").append(testVersion).append("\n");
         }
         Files.writeString(project.resolve("zolt.toml"), toml.toString());
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         return project;
     }
 }

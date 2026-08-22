@@ -47,7 +47,7 @@ final class PackageModeResolutionBoundaryCommandTest {
         CommandResult result = execute(
                 "package",
                 "--plan",
-                "--mode", "uber",
+                "--mode", "uber-jar",
                 "--cwd", project.toString(),
                 "--cache-root", cacheRoot.toString());
 
@@ -81,7 +81,7 @@ final class PackageModeResolutionBoundaryCommandTest {
 
         CommandResult result = execute(
                 "run-package",
-                "--mode", "uber",
+                "--mode", "uber-jar",
                 "--cwd", project.toString(),
                 "--cache-root", cacheRoot.toString());
 

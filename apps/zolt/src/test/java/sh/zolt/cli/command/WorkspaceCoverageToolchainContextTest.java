@@ -62,7 +62,7 @@ final class WorkspaceCoverageToolchainContextTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(javaVersion));
         writeSource(
                 member.resolve("src/main/java/com/example/App.java"),
@@ -84,14 +84,14 @@ final class WorkspaceCoverageToolchainContextTest {
         writeFakeConsoleJar(cacheRoot.resolve(
                 "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"));
         write(root.resolve("zolt.lock"), cacheRoot, """
-                version = 5
+                version = 7
 
                 [[package]]
                 id = "org.junit.platform:junit-platform-console-standalone"
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 members = ["apps/api"]
                 dependencies = []
@@ -174,7 +174,7 @@ final class WorkspaceCoverageToolchainContextTest {
 
         assertTrue(mutated.get());
         assertTrue(Files.readString(root.resolve("zolt.toml"))
-                .contains("version = \"999\""));
+                .contains("version = 999"));
         assertTrue(Files.readString(buildJavacMarker)
                 .contains("javac=" + store.javac(buildToolchain)));
         assertFalse(Files.exists(runtimeJavacMarker));
@@ -226,16 +226,18 @@ final class WorkspaceCoverageToolchainContextTest {
         return """
                 [workspace]
                 name = "coverage-toolchain-workspace"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 distribution = "%s"
                 features = []
                 policy = "require-managed"
 
                 [toolchain.java.test]
-                version = "%s"
+                version = %s
                 distribution = "%s"
                 """.formatted(
                         buildVersion,

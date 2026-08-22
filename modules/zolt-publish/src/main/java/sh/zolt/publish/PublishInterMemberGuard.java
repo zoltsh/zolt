@@ -1,6 +1,8 @@
 package sh.zolt.publish;
 
-import sh.zolt.dependency.DependencyScope;
+import sh.zolt.dependency.DependencyLane;
+import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import java.util.ArrayList;
@@ -27,12 +29,25 @@ public final class PublishInterMemberGuard {
      *     in declaration order, de-duplicated
      */
     public static List<String> missingSiblings(ZoltLockfile memberProjectedLock, Set<String> publishSetCoordinates) {
+        if (memberProjectedLock.version() != ZoltLockfile.CURRENT_VERSION) {
+            throw new PublishException(
+                    "Inter-member publication checks require zolt.lock version "
+                            + ZoltLockfile.CURRENT_VERSION + ", but found version "
+                            + memberProjectedLock.version() + ". Run `zolt resolve --workspace` to regenerate the lockfile.");
+        }
         List<String> missing = new ArrayList<>();
-        for (LockPackage lockPackage : memberProjectedLock.packages()) {
-            if (lockPackage.workspace().isEmpty() || !lockPackage.direct() || !publishedScope(lockPackage.scope())) {
+        for (LockDependencyRoot root : memberProjectedLock.dependencyRoots()) {
+            if (root.publishOnly() || !publishedLane(root.lane())) {
                 continue;
             }
-            String coordinate = lockPackage.packageId().groupId() + ":" + lockPackage.packageId().artifactId();
+            LockPackage selected = memberProjectedLock.packages().stream()
+                    .filter(candidate -> selects(root, candidate))
+                    .findFirst()
+                    .orElseThrow();
+            if (selected.workspace().isEmpty()) {
+                continue;
+            }
+            String coordinate = root.packageId().groupId() + ":" + root.packageId().artifactId();
             if (!publishSetCoordinates.contains(coordinate) && !missing.contains(coordinate)) {
                 missing.add(coordinate);
             }
@@ -40,9 +55,17 @@ public final class PublishInterMemberGuard {
         return List.copyOf(missing);
     }
 
-    private static boolean publishedScope(DependencyScope scope) {
-        return scope == DependencyScope.COMPILE
-                || scope == DependencyScope.RUNTIME
-                || scope == DependencyScope.PROVIDED;
+    private static boolean selects(LockDependencyRoot root, LockPackage candidate) {
+        return root.packageId().equals(candidate.packageId())
+                && root.version().equals(candidate.version())
+                && root.variant().equals(LockArtifactVariant.of(candidate))
+                && root.resolvedScope().orElseThrow() == candidate.scope();
+    }
+
+    private static boolean publishedLane(DependencyLane lane) {
+        return switch (lane) {
+            case API, IMPLEMENTATION, RUNTIME, PROVIDED -> true;
+            case DEV, TEST, PROCESSOR, TEST_PROCESSOR -> false;
+        };
     }
 }

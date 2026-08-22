@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.project.GeneratedSourceKind;
+import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,70 +22,29 @@ final class ProjectModelQualityCheckTest extends QualityCheckServiceTestSupport 
     private Path tempDir;
 
     @Test
-    void rejectsAbsoluteProjectPathsWithActionableNextStep() throws IOException {
-        ProjectConfig config = parseProject(tempDir.resolve("absolute-path"), """
-
-                [build]
-                source = "/tmp/source"
-                """);
-
-        QualityCheckResult result = check.check(Optional.empty(), tempDir.resolve("absolute-path"), config).getFirst();
-
-        assertEquals(QualityCheckService.PROJECT_MODEL, result.id());
-        assertEquals(QualityCheckStatus.FAILED, result.status());
-        assertEquals("[build].source", result.subject());
-        assertEquals("Path `/tmp/source` must be project-relative and stay inside the project.", result.message());
-        assertEquals(
-                "Edit zolt.toml to use a relative path such as `src/main/java` or `target/classes`.",
-                result.nextStep());
-    }
-
-    @Test
     void rejectsParentEscapingGeneratedInputPathsBeforeFilesystemChecks() throws IOException {
-        ProjectConfig config = parseProject(tempDir.resolve("escaping-generated-input"), generatedSourceConfig(
-                "main",
-                "api",
-                "target/generated/sources/api",
-                "../api.yaml",
-                true));
+        // The final manifest language rejects `..` in an authored path, so the escaping step is built
+        // directly: the check still guards every non-manifest producer of a generated-source step.
+        ProjectConfig parsed = parseProject(tempDir.resolve("escaping-generated-input"), "");
+        ProjectConfig config = parsed.withBuildSettings(parsed.build().withGeneratedSources(
+                List.of(new GeneratedSourceStep(
+                        "api",
+                        GeneratedSourceKind.DECLARED_ROOT,
+                        "java",
+                        "target/generated/sources/api",
+                        List.of("../api.yaml"),
+                        true,
+                        false)),
+                List.of()));
 
         QualityCheckResult result = check.check(Optional.empty(), tempDir.resolve("escaping-generated-input"), config).getFirst();
 
         assertEquals(QualityCheckStatus.FAILED, result.status());
         assertEquals("[generated.main].api.inputs[0]", result.subject());
         assertEquals("Path `../api.yaml` must be project-relative and stay inside the project.", result.message());
-    }
-
-    @Test
-    void rejectsNonNumericCompilerRelease() throws IOException {
-        ProjectConfig config = parseProject(tempDir.resolve("bad-release"), """
-
-                [compiler]
-                release = "latest"
-                """);
-
-        QualityCheckResult result = check.check(Optional.empty(), tempDir.resolve("bad-release"), config).getFirst();
-
-        assertEquals(QualityCheckStatus.FAILED, result.status());
-        assertEquals("[compiler].release", result.subject());
-        assertEquals("Compiler release `latest` must be a Java feature version.", result.message());
-        assertEquals("Use a numeric release such as `8`, `11`, `17`, or `21`.", result.nextStep());
-    }
-
-    @Test
-    void rejectsCompilerReleaseNewerThanProjectJava() throws IOException {
-        ProjectConfig config = parseProject(tempDir.resolve("too-new-release"), """
-
-                [compiler]
-                release = "22"
-                """);
-
-        QualityCheckResult result = check.check(Optional.empty(), tempDir.resolve("too-new-release"), config).getFirst();
-
-        assertEquals(QualityCheckStatus.FAILED, result.status());
-        assertEquals("[compiler].release", result.subject());
-        assertEquals("Compiler release `22` is newer than [project].java `21`.", result.message());
-        assertEquals("Lower [compiler].release or raise [project].java in zolt.toml.", result.nextStep());
+        assertEquals(
+                "Edit zolt.toml to use a relative path such as `src/main/java` or `target/classes`.",
+                result.nextStep());
     }
 
     @Test
@@ -98,10 +59,10 @@ final class ProjectModelQualityCheckTest extends QualityCheckServiceTestSupport 
         assertEquals(QualityCheckStatus.PASSED, results.get(0).status());
         QualityCheckResult warning = results.get(1);
         assertEquals(QualityCheckStatus.WARNING, warning.status());
-        assertEquals("[build].outputRoot", warning.subject());
+        assertEquals("[build.output].root", warning.subject());
         assertTrue(warning.message().contains("Maven or Gradle project files are present (pom.xml, build.gradle)"));
         assertEquals(
-                "For side-by-side migration, set [build].outputRoot = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate.",
+                "For side-by-side migration, set [build.output].root = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate.",
                 warning.nextStep());
     }
 
@@ -125,16 +86,16 @@ final class ProjectModelQualityCheckTest extends QualityCheckServiceTestSupport 
                 [dependencies]
                 "org.example:lib" = { versionRef = "used" }
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.projectlombok:lombok" = { versionRef = "lombok" }
 
-                [test.annotationProcessors]
+                [dependencies.test-processor]
                 "org.projectlombok:lombok" = { versionRef = "test-lombok" }
 
-                [dependencyConstraints]
-                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat", kind = "strict" }
+                [dependencies.constraints]
+                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat" }
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 

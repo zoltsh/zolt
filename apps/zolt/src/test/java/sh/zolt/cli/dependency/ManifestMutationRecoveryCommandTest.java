@@ -35,7 +35,7 @@ final class ManifestMutationRecoveryCommandTest {
                 """, "[platforms]\n");
 
         var result = execute(
-                "platform", "remove", "--cwd", pending.project().toString(), "com.example:bom");
+                "platforms", "remove", "--cwd", pending.project().toString(), "com.example:bom");
 
         assertRecovered(result.exitCode(), result.stderr(), pending);
     }
@@ -74,10 +74,12 @@ final class ManifestMutationRecoveryCommandTest {
         Path second = workspace.resolve("second");
         Files.createDirectories(first);
         Files.createDirectories(second);
-        Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+        Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "recovery"
-                members = ["first", "second"]
+
+                [workspace.members]
+                include = ["first", "second"]
                 """);
         String originalFirst = project("first") + "# original\n";
         String stagedFirst = project("first") + "# staged\n";
@@ -109,19 +111,21 @@ final class ManifestMutationRecoveryCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), project("root") + """
                 [workspace]
                 name = "unified"
-                members = ["."]
+
+                [workspace.members]
+                include = ["."]
                 """);
 
         var result = execute(
-                "version", "set", "added", "1.0.0",
+                "versions", "set", "added", "1.0.0",
                 "--cwd", workspace.toString(),
                 "--cache-root", tempDir.resolve("unified-cache").toString());
 
         assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(Files.readString(workspace.resolve("zolt.toml")).contains("\"added\" = \"1.0.0\""));
+        assertTrue(Files.readString(workspace.resolve("zolt.toml")).contains("added = \"1.0.0\""));
         assertTrue(Files.readString(workspace.resolve("zolt.lock"))
                 .contains("workspaceResolutionInputFingerprint = \"sha256:"));
-        assertFalse(Files.exists(workspace.resolve(".zolt/manifest-edit-transaction")));
+        assertFalse(Files.exists(workspace.resolve(".zolt/manifest-edits/project")));
         assertFalse(Files.exists(workspace.resolve(".zolt/manifest-edits/Lg")));
     }
 
@@ -133,7 +137,9 @@ final class ManifestMutationRecoveryCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), project("root") + """
                 [workspace]
                 name = "root-is-not-a-member"
-                members = ["child"]
+
+                [workspace.members]
+                include = ["child"]
                 """);
         Files.writeString(child.resolve("zolt.toml"), project("child"));
         Path lockfile = workspace.resolve("zolt.lock");
@@ -141,7 +147,7 @@ final class ManifestMutationRecoveryCommandTest {
         String originalManifest = Files.readString(workspace.resolve("zolt.toml"));
 
         var result = execute(
-                "version", "set", "added", "1.0.0",
+                "versions", "set", "added", "1.0.0",
                 "--cwd", workspace.toString(),
                 "--cache-root", tempDir.resolve("non-member-cache").toString());
 
@@ -154,14 +160,14 @@ final class ManifestMutationRecoveryCommandTest {
 
     private PendingTransaction pending(String name, String originalTail, String stagedTail) throws IOException {
         Path project = tempDir.resolve(name);
-        Path transaction = project.resolve(".zolt/manifest-edit-transaction");
+        Path transaction = project.resolve(".zolt/manifest-edits/project");
         Files.createDirectories(transaction);
         String prefix = """
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 """;
         String original = prefix + originalTail;
@@ -184,7 +190,7 @@ final class ManifestMutationRecoveryCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 """.formatted(name);
     }

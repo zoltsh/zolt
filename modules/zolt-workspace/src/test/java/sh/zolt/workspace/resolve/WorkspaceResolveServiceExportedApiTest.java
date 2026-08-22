@@ -75,12 +75,14 @@ final class WorkspaceResolveServiceExportedApiTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member("apps/api", "api", """
 
-                [api.dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                [dependencies.api]
+                "com.acme:core" = { workspace = true }
                 """);
         member("modules/core", "core", "");
 
@@ -96,14 +98,19 @@ final class WorkspaceResolveServiceExportedApiTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:app" = "1.0.0"
                 """);
 
@@ -138,18 +145,23 @@ final class WorkspaceResolveServiceExportedApiTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.example:platform" = "1.0.0"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
-                [api.dependencies]
-                "com.example:app" = {}
+                [dependencies.api]
+                "com.example:app" = { managed = true }
                 """);
 
         ResolveResult result = service.resolve(tempDir, tempDir.resolve("cache"), false, false);
@@ -168,7 +180,7 @@ final class WorkspaceResolveServiceExportedApiTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     private void member(String path, String name, String extraToml) throws IOException {
@@ -179,7 +191,7 @@ final class WorkspaceResolveServiceExportedApiTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
     }
 

@@ -40,7 +40,7 @@ final class PackagePlanWarnings {
                             + " by package rule `"
                             + dependency.ruleName()
                             + "`.",
-                    "Move it to [provided.dependencies] when the servlet container supplies it, then run `zolt resolve`."));
+                    "Move it to [dependencies.provided] when the servlet container supplies it, then run `zolt resolve`."));
         }
         return List.copyOf(warnings);
     }

@@ -1,9 +1,11 @@
 package sh.zolt.tree;
 
 import sh.zolt.dependency.DependencyScope;
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockDependencyEdge;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -16,7 +18,7 @@ import java.util.stream.Stream;
  * a first-party member package, one coordinate present in two scopes, a classified jar, a non-default
  * artifact type, and an external shared by both members whose child set differs per member.
  */
-abstract class WorkspaceTreeTestSupport {
+abstract class WorkspaceTreeTestSupport extends DependencyTreeTestSupport {
     protected static final String WORKSPACE_NAME = "demo-workspace";
     protected static final List<String> MEMBERS = List.of("modules/core", "apps/api");
     protected static final List<WorkspaceTreeMember> JSON_MEMBERS = List.of(
@@ -67,7 +69,8 @@ abstract class WorkspaceTreeTestSupport {
                 List.of(),
                 List.of(
                         sharedGraph("apps/api", List.of("org.example:extra:2.0.0:jar:compile")),
-                        sharedGraph("modules/core", List.of())));
+                        sharedGraph("modules/core", List.of())),
+                workspaceRoots());
     }
 
     /**
@@ -96,7 +99,10 @@ abstract class WorkspaceTreeTestSupport {
                 List.of(),
                 List.of(
                         sharedGraph("apps/api", List.of("org.example:extra:2.0.0")),
-                        sharedGraph("modules/core", List.of("org.example:extra:2.0.0"))));
+                        sharedGraph("modules/core", List.of("org.example:extra:2.0.0"))),
+                List.of(
+                        root("apps/api", sharedCompile(), DependencyLane.IMPLEMENTATION),
+                        root("modules/core", sharedCompile(), DependencyLane.API)));
     }
 
     /**
@@ -115,7 +121,10 @@ abstract class WorkspaceTreeTestSupport {
                 List.of(),
                 List.of(
                         sharedGraph("apps/api", List.of()),
-                        sharedGraph("modules/core", List.of())));
+                        sharedGraph("modules/core", List.of())),
+                List.of(
+                        root("apps/api", sharedCompile(), DependencyLane.IMPLEMENTATION),
+                        root("modules/core", sharedCompile(), DependencyLane.API)));
     }
 
     /** The first-party member `modules/core` produces, as the root lock records it. */
@@ -223,6 +232,14 @@ abstract class WorkspaceTreeTestSupport {
                 DependencyScope.COMPILE,
                 dependencies,
                 List.of());
+    }
+
+    protected static List<LockDependencyRoot> workspaceRoots() {
+        return List.of(
+                root("apps/api", memberPackage(), DependencyLane.API),
+                root("apps/api", sharedCompile(), DependencyLane.IMPLEMENTATION),
+                root("apps/api", typedBundle(), DependencyLane.RUNTIME),
+                root("modules/core", sharedCompile(), DependencyLane.API));
     }
 
     /** Every dependency-edge string the schema-3 document lists, in document order. */

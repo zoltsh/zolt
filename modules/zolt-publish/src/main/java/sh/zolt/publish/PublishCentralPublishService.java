@@ -1,7 +1,7 @@
 package sh.zolt.publish;
 
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
@@ -14,27 +14,27 @@ import java.util.function.Function;
  * {@link CentralPortalClient}.
  */
 public final class PublishCentralPublishService {
-    private final ZoltTomlParser projectParser;
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestProjectConfigLoader manifestLoader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final CentralPortalClient portalClient;
     private final CentralDeploymentWaiter waiter;
     private final Function<String, String> environment;
 
     public PublishCentralPublishService() {
-        this(new ZoltTomlParser(), new PublishSettingsReader(), new CentralPortalClient(), System::getenv);
+        this(new ManifestProjectConfigLoader(), new ManifestPublishSettingsLoader(), new CentralPortalClient(), System::getenv);
     }
 
     public PublishCentralPublishService(CentralPortalClient portalClient) {
-        this(new ZoltTomlParser(), new PublishSettingsReader(), portalClient, System::getenv);
+        this(new ManifestProjectConfigLoader(), new ManifestPublishSettingsLoader(), portalClient, System::getenv);
     }
 
     PublishCentralPublishService(
-            ZoltTomlParser projectParser,
-            PublishSettingsReader publishSettingsReader,
+            ManifestProjectConfigLoader manifestLoader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             CentralPortalClient portalClient,
             Function<String, String> environment) {
-        this.projectParser = projectParser;
-        this.publishSettingsReader = publishSettingsReader;
+        this.manifestLoader = manifestLoader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.portalClient = portalClient;
         this.waiter = new CentralDeploymentWaiter(portalClient);
         this.environment = environment;
@@ -100,7 +100,7 @@ public final class PublishCentralPublishService {
     }
 
     private PublishSettings read(Path root) {
-        ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
-        return publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        ProjectConfig config = manifestLoader.loadProject(root);
+        return publishSettingsLoader.read(root.resolve("zolt.toml"));
     }
 }

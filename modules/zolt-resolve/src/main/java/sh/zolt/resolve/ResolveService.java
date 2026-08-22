@@ -14,6 +14,7 @@ import sh.zolt.resolve.framework.FrameworkDependencyRequestPlanner;
 import sh.zolt.resolve.graph.ResolutionGraph;
 import sh.zolt.resolve.lockfile.assembly.ExecToolResolution;
 import sh.zolt.resolve.lockfile.assembly.LockfileAssembler;
+import sh.zolt.resolve.lockfile.assembly.AuthoredDependencyRootPlanner;
 import sh.zolt.resolve.lockfile.persistence.ResolveLockfilePersistence;
 import sh.zolt.resolve.materialization.session.RepositorySession;
 import sh.zolt.resolve.materialization.session.WorkspaceResolutionSession;
@@ -145,7 +146,8 @@ public final class ResolveService {
                 output.downloadCount(),
                 lockfile.conflicts().size(),
                 lockfilePath,
-                metrics);
+                metrics,
+                output.warnings());
     }
 
     public ResolveResult resolveWithCoverageTooling(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
@@ -188,7 +190,7 @@ public final class ResolveService {
                 options.includeCoverageTooling(),
                 options.retryCommand(),
                 snapshotAllowance);
-        directRequests = relocateDirectRequests(context, directRequests);
+        directRequests = relocateDirectRequests(context, directRequests, options.retryCommand());
         // Exec tools resolve in isolation (Hole 1): keep TOOL_EXEC out of the shared project graph so a
         // tool's version line never mediates against another tool's or against compile/runtime, then lock
         // each tool's closure separately with a per-tool group qualifier.
@@ -226,14 +228,15 @@ public final class ResolveService {
                         options.retryCommand(),
                         snapshotAllowance,
                         options.versionOverrides());
-        VersionConflictPolicyEnforcer.enforce(
+        List<String> warnings = VersionConflictPolicyEnforcer.enforce(
                 context.config().dependencyPolicy(), resolved.selection(), execResolutions, options.retryCommand());
         ZoltLockfile lockfile = lockfile(context, resolved.graph(), resolved.selection(), allRequests, execResolutions);
         return new ResolveOutput(
                 lockfile,
                 context.downloadCount(),
                 context.metrics(),
-                ResolvedDependencyReachability.from(resolved.graph()));
+                ResolvedDependencyReachability.from(resolved.graph()),
+                warnings);
     }
 
     private List<ExecToolResolution> resolveExecTools(
@@ -268,11 +271,18 @@ public final class ResolveService {
 
     private List<DependencyRequest> relocateDirectRequests(
             RepositorySession context,
-            List<DependencyRequest> directRequests) {
+            List<DependencyRequest> directRequests,
+            String retryCommand) {
         DependencyRelocator relocator = new DependencyRelocator(context);
-        return directRequests.stream()
-                .map(relocator::relocate)
-                .toList();
+        AuthoredDependencyRootPlanner roots = new AuthoredDependencyRootPlanner(coordinateParser);
+        List<DependencyRequest> relocated = new ArrayList<>();
+        for (DependencyRequest request : directRequests) {
+            DependencyRequest target = relocator.relocate(request);
+            roots.requireNoDirectRelocation(
+                    context.config(), request, target, retryCommand);
+            relocated.add(target);
+        }
+        return List.copyOf(relocated);
     }
 
     private ZoltLockfile lockfile(

@@ -3,6 +3,7 @@ package sh.zolt.toolchain.lock;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.AtomicLockfileWriter;
+import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.toolchain.JavaDistribution;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
@@ -47,13 +48,7 @@ public final class ToolchainLockfileService {
 
     public List<LockedJavaToolchain> readJava(String content) {
         try {
-            TomlParseResult result = Toml.parse(content);
-            if (result.hasErrors()) {
-                TomlParseError error = result.errors().getFirst();
-                throw new ActionableException(
-                        "Could not parse zolt.lock near " + error.position() + ": " + error.getMessage(),
-                        "Fix zolt.lock or run `zolt resolve --workspace` to regenerate dependency metadata.");
-            }
+            TomlParseResult result = parseCurrentLockfile(content);
             TomlArray array = result.getArray(List.of("toolchain", "java"));
             if (array == null) {
                 return List.of();
@@ -98,9 +93,11 @@ public final class ToolchainLockfileService {
                 Files.createDirectories(parent);
             }
             AtomicLockfileWriter.update(lockfile, existing -> {
-                String content = removeJavaLocks(existing.isBlank()
+                String source = existing.isBlank()
                         ? "version = " + ZoltLockfile.CURRENT_VERSION + "\n\n"
-                        : existing);
+                        : existing;
+                parseCurrentLockfile(source);
+                String content = removeJavaLocks(source);
                 for (LockedJavaToolchain java : ordered(locked)) {
                     content = appendJavaLock(content, java);
                 }
@@ -111,6 +108,26 @@ public final class ToolchainLockfileService {
                     "Could not write Java toolchain metadata to " + lockfile + ".",
                     "Check that the project directory is writable and try again.");
         }
+    }
+
+    private static TomlParseResult parseCurrentLockfile(String content) {
+        TomlParseResult result = Toml.parse(content);
+        if (result.hasErrors()) {
+            TomlParseError error = result.errors().getFirst();
+            throw new ActionableException(
+                    "Could not parse zolt.lock near " + error.position() + ": " + error.getMessage(),
+                    "Fix zolt.lock or run `zolt resolve --workspace` to regenerate dependency metadata.");
+        }
+        Object rawVersion = result.get("version");
+        if (!(rawVersion instanceof Long version) || version != ZoltLockfile.CURRENT_VERSION) {
+            String actual = rawVersion == null ? "missing" : rawVersion.toString();
+            throw new ActionableException(
+                    "zolt.lock uses unsupported version " + actual + "; current version is "
+                            + ZoltLockfile.CURRENT_VERSION + ".",
+                    "Run `zolt resolve` with this Zolt version before reading or writing Java toolchain metadata.");
+        }
+        new ZoltLockfileReader().read(content);
+        return result;
     }
 
     private static LockedJavaToolchain readJavaToolchain(TomlTable table) {

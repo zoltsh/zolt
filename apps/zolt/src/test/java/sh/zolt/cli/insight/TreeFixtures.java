@@ -14,7 +14,9 @@ final class TreeFixtures {
     static final String WORKSPACE_CONFIG = """
             [workspace]
             name = "demo-workspace"
-            members = ["modules/core", "apps/api"]
+
+            [workspace.members]
+            include = ["modules/core", "apps/api"]
             """;
 
     private TreeFixtures() {
@@ -34,10 +36,17 @@ final class TreeFixtures {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         Files.writeString(root.resolve("zolt.lock"), """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -87,7 +96,7 @@ final class TreeFixtures {
                 id = "commons-logging:commons-logging"
                 requested = "1.2"
                 source = "com.example:app:1.0.0"
-                policy = "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                policy = "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                 """);
         return root;
     }
@@ -103,17 +112,17 @@ final class TreeFixtures {
                 name = "core"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         Files.writeString(api.resolve("zolt.toml"), """
                 [project]
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
-                "com.example:core" = { workspace = "modules/core" }
+                "com.example:core" = { workspace = true }
                 """);
         Files.writeString(root.resolve("zolt.lock"), workspaceLock());
         return root;
@@ -125,7 +134,44 @@ final class TreeFixtures {
      */
     static String workspaceLock() {
         return """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.example:shared"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "modules/core"
+                id = "org.example:shared"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "modules/core"
+                id = "org.example:shared"
+                version = "1.0.0"
+                variant = "jar|tests"
+                lane = "test"
+                resolvedScope = "test"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.example:bundle"
+                version = "3.0.0"
+                variant = "zip"
+                lane = "runtime"
+                resolvedScope = "runtime"
 
                 [[package]]
                 id = "com.example:core"
@@ -157,7 +203,7 @@ final class TreeFixtures {
                 source = "test"
                 scope = "test"
                 direct = true
-                jar = "org/example/shared/1.0.0/shared-1.0.0.jar"
+                jar = "org/example/shared/1.0.0/shared-1.0.0-tests.jar"
                 pom = "org/example/shared/1.0.0/shared-1.0.0.pom"
                 jarSha256 = "1111"
                 pomSha256 = "2222"

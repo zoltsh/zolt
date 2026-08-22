@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +17,7 @@ final class ProtobufGeneratedSourceServiceTest {
     @TempDir
     private Path tempDir;
 
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader manifestLoader = new ManifestProjectConfigLoader();
     private final ProtobufGeneratedSourceService service = new ProtobufGeneratedSourceService();
 
     @Test
@@ -41,7 +41,7 @@ final class ProtobufGeneratedSourceServiceTest {
                   rpc SayHello (HelloRequest) returns (HelloReply);
                 }
                 """);
-        var config = parser.parse(config("""
+        var config = manifestLoader.load(config("""
                 [generated.main.greeter]
                 kind = "protobuf"
                 language = "java"
@@ -65,7 +65,7 @@ final class ProtobufGeneratedSourceServiceTest {
     void parserRejectsArbitraryProtocPlugins() {
         ZoltConfigException exception = assertThrows(
                 ZoltConfigException.class,
-                () -> parser.parse(config("""
+                () -> manifestLoader.load(config("""
                         [generated.main.greeter]
                         kind = "protobuf"
                         language = "java"
@@ -74,13 +74,12 @@ final class ProtobufGeneratedSourceServiceTest {
                         plugins = { custom = "protoc-gen-custom" }
                         """)));
 
-        assertTrue(exception.getMessage().contains("Unsupported protoc plugin configuration"));
-        assertTrue(exception.getMessage().contains("typed Java protobuf/gRPC generator"));
+        assertTrue(exception.getMessage().contains("Unknown manifest section `[generated.main.greeter.plugins]`"));
     }
 
     @Test
     void generationFailsClearlyForMissingInputs() {
-        var config = parser.parse(config("""
+        var config = manifestLoader.load(config("""
                 [generated.main.greeter]
                 kind = "protobuf"
                 language = "java"
@@ -98,14 +97,16 @@ final class ProtobufGeneratedSourceServiceTest {
 
     @Test
     void parserRecordsProtobufKindAndSettings() {
-        var config = parser.parse(config("""
+        var config = manifestLoader.load(config("""
                 [versions]
                 protoc = "4.28.3"
                 grpc = "1.68.1"
 
-                [generated.protobufTool]
+                [generated.tools.protobuf]
+                protocCoordinate = "com.google.protobuf:protoc"
                 protocVersionRef = "protoc"
-                grpcPluginVersionRef = "grpc"
+                grpcCoordinate = "io.grpc:protoc-gen-grpc-java"
+                grpcVersionRef = "grpc"
 
                 [generated.main.greeter]
                 kind = "protobuf"
@@ -149,7 +150,7 @@ final class ProtobufGeneratedSourceServiceTest {
             Path marker = project.resolve("target/generated/sources/protobuf/marker.txt");
             Files.createDirectories(marker.getParent());
             Files.writeString(marker, "keep");
-            var config = parser.parse(config("""
+            var config = manifestLoader.load(config("""
                     [generated.main.greeter]
                     kind = "protobuf"
                     language = "java"
@@ -176,7 +177,7 @@ final class ProtobufGeneratedSourceServiceTest {
                 package com..example;
                 message HelloReply {}
                 """);
-        var config = parser.parse(config("""
+        var config = manifestLoader.load(config("""
                 [generated.main.greeter]
                 kind = "protobuf"
                 language = "java"
@@ -213,7 +214,7 @@ final class ProtobufGeneratedSourceServiceTest {
             Path marker = project.resolve("target/generated/sources/protobuf/marker.txt");
             Files.createDirectories(marker.getParent());
             Files.writeString(marker, "keep");
-            var config = parser.parse(config("""
+            var config = manifestLoader.load(config("""
                     [generated.main.greeter]
                     kind = "protobuf"
                     language = "java"
@@ -243,7 +244,7 @@ final class ProtobufGeneratedSourceServiceTest {
         Path stale = tempDir.resolve("target/generated/test-sources/protobuf/stale.txt");
         Files.createDirectories(stale.getParent());
         Files.writeString(stale, "stale");
-        var config = parser.parse(config("""
+        var config = manifestLoader.load(config("""
                 [generated.test.echo]
                 kind = "protobuf"
                 language = "java"
@@ -276,7 +277,7 @@ final class ProtobufGeneratedSourceServiceTest {
                 option java_package = "com.example_$._internal";
                 message HelloReply {}
                 """);
-        var config = parser.parse(config("""
+        var config = manifestLoader.load(config("""
                 [generated.main.greeter]
                 kind = "protobuf"
                 language = "java"
@@ -297,7 +298,7 @@ final class ProtobufGeneratedSourceServiceTest {
                 name = "protobuf-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
                 """.formatted(generated);

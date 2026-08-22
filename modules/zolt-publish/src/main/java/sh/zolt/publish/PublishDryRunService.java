@@ -14,7 +14,7 @@ import sh.zolt.maven.repository.MavenRepositoryPathBuilder;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.VersionPolicy;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,8 +25,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public final class PublishDryRunService {
-    private final ZoltTomlParser projectParser;
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestProjectConfigLoader manifestLoader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final PackagePlanService packagePlanService;
     private final ZoltLockfileReader lockfileReader;
     private final PublishPomGenerator pomGenerator;
@@ -36,8 +36,8 @@ public final class PublishDryRunService {
 
     public PublishDryRunService() {
         this(
-                new ZoltTomlParser(),
-                new PublishSettingsReader(),
+                new ManifestProjectConfigLoader(),
+                new ManifestPublishSettingsLoader(),
                 new PackagePlanService(),
                 new PackageEvidenceManifestReader(),
                 new ZoltLockfileReader(),
@@ -48,8 +48,8 @@ public final class PublishDryRunService {
 
     public PublishDryRunService(PackagePlanService packagePlanService) {
         this(
-                new ZoltTomlParser(),
-                new PublishSettingsReader(),
+                new ManifestProjectConfigLoader(),
+                new ManifestPublishSettingsLoader(),
                 packagePlanService,
                 new PackageEvidenceManifestReader(),
                 new ZoltLockfileReader(),
@@ -60,8 +60,8 @@ public final class PublishDryRunService {
 
     PublishDryRunService(Function<String, String> environment) {
         this(
-                new ZoltTomlParser(),
-                new PublishSettingsReader(),
+                new ManifestProjectConfigLoader(),
+                new ManifestPublishSettingsLoader(),
                 new PackagePlanService(),
                 new PackageEvidenceManifestReader(),
                 new ZoltLockfileReader(),
@@ -71,8 +71,8 @@ public final class PublishDryRunService {
     }
 
     PublishDryRunService(
-            ZoltTomlParser projectParser,
-            PublishSettingsReader publishSettingsReader,
+            ManifestProjectConfigLoader manifestLoader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             PackagePlanService packagePlanService,
             PackageEvidenceManifestReader evidenceManifestReader,
             ZoltLockfileReader lockfileReader,
@@ -80,8 +80,8 @@ public final class PublishDryRunService {
             MavenRepositoryPathBuilder repositoryPathBuilder,
             Function<String, String> environment) {
         this(
-                projectParser,
-                publishSettingsReader,
+                manifestLoader,
+                publishSettingsLoader,
                 packagePlanService,
                 evidenceManifestReader,
                 lockfileReader,
@@ -92,8 +92,8 @@ public final class PublishDryRunService {
     }
 
     PublishDryRunService(
-            ZoltTomlParser projectParser,
-            PublishSettingsReader publishSettingsReader,
+            ManifestProjectConfigLoader manifestLoader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             PackagePlanService packagePlanService,
             PackageEvidenceManifestReader evidenceManifestReader,
             ZoltLockfileReader lockfileReader,
@@ -101,8 +101,8 @@ public final class PublishDryRunService {
             MavenRepositoryPathBuilder repositoryPathBuilder,
             PublishDryRunArtifactEvidencePlanner artifactEvidencePlanner,
             Function<String, String> environment) {
-        this.projectParser = projectParser;
-        this.publishSettingsReader = publishSettingsReader;
+        this.manifestLoader = manifestLoader;
+        this.publishSettingsLoader = publishSettingsLoader;
         this.packagePlanService = packagePlanService;
         this.lockfileReader = lockfileReader;
         this.pomGenerator = pomGenerator;
@@ -150,8 +150,8 @@ public final class PublishDryRunService {
             Optional<Path> sbomFile,
             Path cacheRoot) {
         Path root = projectRoot.toAbsolutePath().normalize();
-        ProjectConfig config = projectParser.parse(root.resolve("zolt.toml"));
-        PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        ProjectConfig config = manifestLoader.loadProject(root);
+        PublishSettings publish = publishSettingsLoader.read(root.resolve("zolt.toml"));
         if (!publish.configured()) {
             throw new PublishException("No [publish] configuration found. Add release/snapshot publish repositories before running `zolt publish --dry-run`.");
         }
@@ -208,7 +208,7 @@ public final class PublishDryRunService {
             if (PublishRepositoryBlockers.hasEmbeddedCredentials(repository.url())) {
                 blockers.add("publish repository `"
                         + repository.id()
-                        + "` URL contains embedded credentials. Move credentials to [repositoryCredentials] environment references.");
+                        + "` URL contains embedded credentials. Move credentials to [credentials] environment references.");
             }
             blockers.addAll(PublishRepositoryBlockers.credentialBlockers(
                     repository, config.repositoryCredentials(), environment));

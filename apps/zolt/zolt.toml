@@ -1,78 +1,63 @@
 [project]
 name = "zolt"
-version = "0.1.0-SNAPSHOT"
-group = "sh.zolt"
-java = "21"
 main = "sh.zolt.cli.ZoltCli"
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
 [dependencies]
-"sh.zolt:zolt-model" = { workspace = "modules/zolt-model" }
-"sh.zolt:zolt-build" = { workspace = "modules/zolt-build" }
-"sh.zolt:zolt-config" = { workspace = "modules/zolt-config" }
-"sh.zolt:zolt-explain" = { workspace = "modules/zolt-explain" }
-"sh.zolt:zolt-framework-api" = { workspace = "modules/zolt-framework-api" }
-"sh.zolt:zolt-ide" = { workspace = "modules/zolt-ide" }
-"sh.zolt:zolt-init" = { workspace = "modules/zolt-init" }
-"sh.zolt:zolt-native-image" = { workspace = "modules/zolt-native-image" }
-"sh.zolt:zolt-policy" = { workspace = "modules/zolt-policy" }
-"sh.zolt:zolt-plan" = { workspace = "modules/zolt-plan" }
-"sh.zolt:zolt-publish" = { workspace = "modules/zolt-publish" }
-"sh.zolt:zolt-quality" = { workspace = "modules/zolt-quality" }
-"sh.zolt:zolt-quarkus" = { workspace = "modules/zolt-quarkus" }
-"sh.zolt:zolt-release" = { workspace = "modules/zolt-release" }
-"sh.zolt:zolt-repository" = { workspace = "modules/zolt-repository" }
-"sh.zolt:zolt-resolve" = { workspace = "modules/zolt-resolve" }
-"sh.zolt:zolt-sbom" = { workspace = "modules/zolt-sbom" }
-"sh.zolt:zolt-test-model" = { workspace = "modules/zolt-test-model" }
-"sh.zolt:zolt-test-runtime" = { workspace = "modules/zolt-test-runtime" }
-"sh.zolt:zolt-selfhost" = { workspace = "modules/zolt-selfhost" }
-"sh.zolt:zolt-toml" = { workspace = "modules/zolt-toml" }
-"sh.zolt:zolt-toolchain" = { workspace = "modules/zolt-toolchain" }
-"sh.zolt:zolt-tree" = { workspace = "modules/zolt-tree" }
-"sh.zolt:zolt-update" = { workspace = "modules/zolt-update" }
-"sh.zolt:zolt-workspace" = { workspace = "modules/zolt-workspace" }
 "info.picocli:picocli" = "4.7.6"
+"sh.zolt:zolt-build" = { workspace = true }
+"sh.zolt:zolt-config" = { workspace = true }
+"sh.zolt:zolt-explain" = { workspace = true }
+"sh.zolt:zolt-framework-api" = { workspace = true }
+"sh.zolt:zolt-ide" = { workspace = true }
+"sh.zolt:zolt-init" = { workspace = true }
+"sh.zolt:zolt-model" = { workspace = true }
+"sh.zolt:zolt-native-image" = { workspace = true }
+"sh.zolt:zolt-plan" = { workspace = true }
+"sh.zolt:zolt-policy" = { workspace = true }
+"sh.zolt:zolt-publish" = { workspace = true }
+"sh.zolt:zolt-quality" = { workspace = true }
+"sh.zolt:zolt-quarkus" = { workspace = true }
+"sh.zolt:zolt-release" = { workspace = true }
+"sh.zolt:zolt-repository" = { workspace = true }
+"sh.zolt:zolt-resolve" = { workspace = true }
+"sh.zolt:zolt-sbom" = { workspace = true }
+"sh.zolt:zolt-selfhost" = { workspace = true }
+"sh.zolt:zolt-test-model" = { workspace = true }
+"sh.zolt:zolt-test-runtime" = { workspace = true }
+"sh.zolt:zolt-toml" = { workspace = true }
+"sh.zolt:zolt-toolchain" = { workspace = true }
+"sh.zolt:zolt-tree" = { workspace = true }
+"sh.zolt:zolt-update" = { workspace = true }
+"sh.zolt:zolt-workspace" = { workspace = true }
 
-[test.dependencies]
+[dependencies.test]
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
 [test.suites.worker-failure-diagnostic]
-includeClassname = ["sh.zolt.error.WorkerFailureDiagnosticTest"]
+classes = ["sh.zolt.error.WorkerFailureDiagnosticTest"]
 
 [test.suites.native-reflection-inventory]
-includeClassname = [
+classes = [
     "sh.zolt.cli.nativeimage.CliNativeReflectionConfigTest",
     "sh.zolt.cli.nativeimage.ReflectionInventoryTest",
 ]
 
 [test.suites.arch-guardrails]
-includeClassname = [
+classes = [
     "sh.zolt.arch.*",
     "sh.zolt.cli.nativeimage.CliNativeReflectionConfigTest",
     "sh.zolt.cli.nativeimage.ReflectionInventoryTest",
 ]
 
 [test.suites.cli-help-highlighting]
-includeClassname = [
+classes = [
     "sh.zolt.cli.HelpOptionHighlighterTest",
     "sh.zolt.cli.HelpParameterHighlighterTest",
     "sh.zolt.cli.HelpSynopsisHighlighterTest",
 ]
-parallelSafe = true
-maxWorkers = 2
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+workers = 2
 
 [native]
-imageName = "zolt"
-output = "target/native"
 args = [
     "--initialize-at-build-time=sh.zolt.cli.ZoltBuildVersion",
     "--enable-url-protocols=https",

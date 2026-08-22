@@ -71,16 +71,16 @@ final class PublishUploadServiceTransactionNamespaceTest {
                   "archiveSha256": "sha256:%s"
                 }
                 """.formatted(version, sha256(artifact)));
-        Files.writeString(project.resolve("zolt.lock"), "version = 3\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(project.resolve("zolt.toml"), """
                 [project]
                 name = "resumable-lib"
                 version = "%s"
                 group = "com.example"
-                java = "%d"
+                java = %d
 
                 [publish]
-                releaseRepository = "local"
+                release = "local"
 
                 [publish.repositories.local]
                 url = "%s"

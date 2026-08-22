@@ -4,7 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,38 +22,38 @@ final class IdeDependencyModelBuilderTest {
 
     @Test
     void exportsDependencyDeclarationsWithVisibility() throws IOException {
-        IdeModel.DependencyInfo dependencies = builder.build(parse("dependencies", """
+        IdeModel.DependencyInfo dependencies = builder.build(parseWorkspaceMember("dependencies", """
                 [project]
-                name = "dependencies"
+                name = "app"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [platforms]
                 "com.example:platform" = "1.0.0"
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:api-contract" = "1.0.0"
-                "com.example:managed-api" = {}
-                "com.example:workspace-api" = { workspace = "modules/api" }
+                "com.example:managed-api" = { managed = true }
+                "com.example:workspace-api" = { workspace = true }
 
                 [dependencies]
-                "com.example:impl" = { version = "1.0.0", optional = true, exclusions = [{ group = "com.example", artifact = "legacy-logging" }] }
+                "com.example:impl" = { version = "1.0.0", optional = true, exclude = ["com.example:legacy-logging"] }
                 "com.example:publish-helper" = { version = "2.0.0", publishOnly = true }
 
-                [runtime.dependencies]
-                "com.example:runtime-only" = {}
+                [dependencies.runtime]
+                "com.example:runtime-only" = { managed = true }
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "jakarta.servlet:jakarta.servlet-api" = "6.1.0"
 
-                [dev.dependencies]
-                "org.springframework.boot:spring-boot-devtools" = {}
+                [dependencies.dev]
+                "org.springframework.boot:spring-boot-devtools" = { managed = true }
 
-                [test.dependencies]
-                "org.junit.jupiter:junit-jupiter" = {}
+                [dependencies.test]
+                "org.junit.jupiter:junit-jupiter" = { managed = true }
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "com.example:processor" = "1.0.0"
                 """));
 
@@ -119,7 +120,7 @@ final class IdeDependencyModelBuilderTest {
                 name = "alias-dependencies"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 guava = "33.4.8-jre"
@@ -128,7 +129,7 @@ final class IdeDependencyModelBuilderTest {
                 [dependencies]
                 "com.google.guava:guava" = { versionRef = "guava", optional = true }
 
-                [test.dependencies]
+                [dependencies.test]
                 "org.junit.jupiter:junit-jupiter" = { versionRef = "junit" }
                 """));
 
@@ -170,9 +171,9 @@ final class IdeDependencyModelBuilderTest {
                 name = "ordered-dependencies"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:z-api" = "1.0.0"
                 "com.example:a-api" = "1.0.0"
 
@@ -180,27 +181,27 @@ final class IdeDependencyModelBuilderTest {
                 "com.example:z-impl" = "1.0.0"
                 "com.example:a-impl" = "1.0.0"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:z-runtime" = "1.0.0"
                 "com.example:a-runtime" = "1.0.0"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "com.example:z-provided" = "1.0.0"
                 "com.example:a-provided" = "1.0.0"
 
-                [dev.dependencies]
+                [dependencies.dev]
                 "com.example:z-dev" = "1.0.0"
                 "com.example:a-dev" = "1.0.0"
 
-                [test.dependencies]
+                [dependencies.test]
                 "com.example:z-test" = "1.0.0"
                 "com.example:a-test" = "1.0.0"
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "com.example:z-processor" = "1.0.0"
                 "com.example:a-processor" = "1.0.0"
 
-                [test.annotationProcessors]
+                [dependencies.test-processor]
                 "com.example:z-test-processor" = "1.0.0"
                 "com.example:a-test-processor" = "1.0.0"
                 """));
@@ -258,17 +259,20 @@ final class IdeDependencyModelBuilderTest {
     }
 
     @Test
-    void publishOnlyManagedMetadataIsExportedOnceInCoordinateOrder() throws IOException {
+    void dependencyMetadataIsExportedOnceInCoordinateOrder() throws IOException {
         IdeModel.DependencyInfo dependencies = builder.build(parse("publish-only-managed", """
                 [project]
                 name = "publish-only-managed"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
+
+                [platforms]
+                "com.example:platform" = "1.0.0"
 
                 [dependencies]
                 "com.example:z-helper" = { version = "1.0.0", publishOnly = true }
-                "com.example:a-managed-helper" = { publishOnly = true }
+                "com.example:a-managed-helper" = { managed = true, optional = true }
                 "com.example:m-helper" = "1.0.0"
                 """));
 
@@ -281,8 +285,8 @@ final class IdeDependencyModelBuilderTest {
                         null,
                         true,
                         null,
-                        false,
                         true,
+                        false,
                         List.of()),
                 dependencies.implementation().getFirst());
         assertEquals(new IdeModel.DependencyDeclaration(
@@ -308,7 +312,39 @@ final class IdeDependencyModelBuilderTest {
         Files.createDirectories(projectDir);
         Path config = projectDir.resolve("zolt.toml");
         Files.writeString(config, toml);
-        return new ZoltTomlParser().parse(config);
+        return new ManifestProjectConfigLoader().load(config);
+    }
+
+    /**
+     * Loads {@code toml} as the {@code app} member of a two-member workspace so a
+     * {@code workspace = true} dependency resolves to the {@code modules/api} provider.
+     */
+    private ProjectConfig parseWorkspaceMember(String directoryName, String toml) throws IOException {
+        Path root = tempDir.resolve(directoryName);
+        Path member = root.resolve("app");
+        Path provider = root.resolve("modules/api");
+        Files.createDirectories(member);
+        Files.createDirectories(provider);
+        Files.writeString(root.resolve("zolt.toml"), """
+                [workspace]
+                name = "ide-fixtures"
+
+                [workspace.members]
+                include = ["app", "modules/api"]
+                """);
+        Files.writeString(member.resolve("zolt.toml"), toml);
+        Files.writeString(provider.resolve("zolt.toml"), """
+                [project]
+                name = "workspace-api"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
+        return new ManifestWorkspaceLoader().load(root).members().stream()
+                .filter(candidate -> candidate.path().equals("app"))
+                .findFirst()
+                .orElseThrow()
+                .config();
     }
 
     private IdeModel modelWith(IdeModel.DependencyInfo dependencies) {

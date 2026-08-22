@@ -25,29 +25,32 @@ final class IdeModelCompilerSettingsTest {
                 name = "compiler-settings"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 17
 
                 [compiler]
-                generatedSources = "build/generated/main"
-                generatedTestSources = "build/generated/test"
-                release = "17"
                 encoding = "UTF-8"
                 args = ["-Xlint:deprecation", "-parameters"]
-                testArgs = ["-Xlint:unchecked"]
+
+                [compiler.test]
+                args = ["-Xlint:unchecked"]
+
+                [compiler.generated]
+                main = "generated/main"
+                test = "generated/test"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
         Path root = projectDir.toAbsolutePath().normalize();
         assertEquals(new IdeModel.CompilerInfo(
-                "17",
+                null,
                 "17",
                 "UTF-8",
                 List.of("-Xlint:deprecation", "-parameters"),
                 List.of("-Xlint:unchecked"),
-                root.resolve("build/generated/main"),
-                root.resolve("build/generated/test")),
+                root.resolve("target/generated/main"),
+                root.resolve("target/generated/test")),
                 model.compiler());
         String json = new IdeModelJsonWriter().write(model);
         assertTrue(json.contains("\"compiler\": {"));

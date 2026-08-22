@@ -164,11 +164,18 @@ final class ResolveCommandTest {
             Files.writeString(workspaceDir.resolve("zolt.toml"), """
                     [workspace]
                     name = "demo"
-                    members = ["app"]
-                    """);
-            writeProjectConfig(
+
+                    [workspace.members]
+                    include = ["app"]
+
+                    [repositories]
+                    central = false
+
+                    [repositories.test]
+                    url = "%s"
+                    """.formatted(repository.baseUri()));
+            writeMemberConfig(
                     workspaceDir.resolve("app"),
-                    repository.baseUri().toString(),
                     Map.of("com.example:root", "1.0.0"));
 
             CommandResult result = execute(
@@ -181,6 +188,26 @@ final class ResolveCommandTest {
             assertTrue(result.stderr().contains("Unsupported transitive dependency version `[1.0,2.0)`"));
             assertTrue(result.stderr().contains("run `zolt resolve --workspace` again"));
         }
+    }
+
+    /** A workspace member never owns repositories; the root universe is authoritative (design 8.7). */
+    private static void writeMemberConfig(
+            Path memberDir,
+            Map<String, String> dependencies) throws IOException {
+        Files.createDirectories(memberDir);
+        StringBuilder config = new StringBuilder(memberConfig("demo") + """
+                main = "com.example.Main"
+
+                [dependencies]
+                """);
+        dependencies.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> config.append('"')
+                        .append(entry.getKey())
+                        .append("\" = \"")
+                        .append(entry.getValue())
+                        .append("\"\n"));
+        Files.writeString(memberDir.resolve("zolt.toml"), config.toString());
     }
 
     @Test

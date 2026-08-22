@@ -13,8 +13,8 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
 import sh.zolt.workspace.publish.WorkspaceMemberPomLockProjection;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
@@ -33,26 +33,31 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
         workspace("""
                 [workspace]
                 name = "thin-provider-parity"
-                members = ["modules/core", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", """
 
                 [package]
-                mode = "thin"
+                mode = "jar"
                 """);
         member("apps/app", "app", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
 
         var cache = tempDir.resolve("cache");
         service.resolve(tempDir, cache, false, false);
         ZoltLockfile lockfile = lockfileReader.read(tempDir.resolve("zolt.lock"));
-        var workspace = new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        var workspace = new ManifestWorkspaceLoader().discover(tempDir).orElseThrow();
         assertTrue(new WorkspaceClasspathService()
                 .classpathsFor(workspace, lockfile, cache, "apps/app")
                 .compile()
@@ -73,15 +78,18 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
 
         addArtifact("com.acme", "core", "0.1.0", pom("com.acme", "core", "0.1.0"));
         addArtifact("com.acme", "app", "0.1.0", appPom);
-        ProjectConfig consumer = new ZoltTomlParser().parse("""
+        ProjectConfig consumer = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "published-consumer"
                 version = "1.0.0"
                 group = "com.consumer"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "com.acme:app" = "0.1.0"
@@ -135,7 +143,7 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
                 .forEach(edge -> assertTrue(index.resolveGraphEdge(
                         edge, "zolt resolve --workspace").isPresent()));
 
-        var workspace = new WorkspaceDiscoveryService()
+        var workspace = new ManifestWorkspaceLoader()
                 .discover(tempDir)
                 .orElseThrow();
         var app = workspace.members().stream()
@@ -157,7 +165,7 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
     }
 
     @Test
-    void workspaceShadowConflictHonorsFailOnVersionConflict() throws IOException {
+    void workspaceShadowConflictHonorsTheConflictPolicy() throws IOException {
         addShadowFixture(true, "");
 
         ResolveException exception = assertThrows(
@@ -165,7 +173,7 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
                 () -> service.resolve(
                         tempDir, tempDir.resolve("cache"), false, false));
 
-        assertTrue(exception.getMessage().contains("failOnVersionConflict"));
+        assertTrue(exception.getMessage().contains("[dependencies.policy].conflicts"));
         assertTrue(exception.getMessage().contains("com.acme:core"));
     }
 
@@ -173,8 +181,8 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
     void workspaceShadowCannotOverrideStrictConstraint() throws IOException {
         addShadowFixture(false, """
 
-                [dependencyConstraints]
-                "com.acme:core" = { version = "2.8.7", kind = "strict" }
+                [dependencies.constraints]
+                "com.acme:core" = { version = "2.8.7" }
                 """);
 
         ResolveException exception = assertThrows(
@@ -192,16 +200,21 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
         workspace("""
                 [workspace]
                 name = "explicit-substitution"
-                members = ["modules/core", "apps/app", "apps/worker"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app", "apps/worker"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", "");
         member("apps/app", "app", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("apps/worker", "worker", """
 
@@ -226,7 +239,7 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
                         && lockPackage.version().equals("2.8.7")
                         && lockPackage.members().equals(List.of("apps/worker"))));
 
-        var workspace = new WorkspaceDiscoveryService().discover(tempDir).orElseThrow();
+        var workspace = new ManifestWorkspaceLoader().discover(tempDir).orElseThrow();
         WorkspaceClasspathService classpaths = new WorkspaceClasspathService();
         assertTrue(classpaths.classpathsFor(workspace, lockfile, cache, "apps/app")
                 .compile()
@@ -285,10 +298,15 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
         workspace("""
                 [workspace]
                 name = "workspace-shadow"
-                members = ["modules/core", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", """
 
@@ -298,14 +316,14 @@ final class WorkspaceProvidedArtifactMediationTest extends WorkspaceResolveServi
         member("apps/app", "app", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 "com.example:library" = "1.0.0"
                 "com.example:runtime-library" = "1.0.0"
 
-                [dependencyPolicy]
-                failOnVersionConflict = %s
+                [dependencies.policy]
+                conflicts = "%s"
                 %s
-                """.formatted(failOnConflict, policy));
+                """.formatted(failOnConflict ? "fail" : "resolve", policy));
     }
 
     private static LockPackage packageById(

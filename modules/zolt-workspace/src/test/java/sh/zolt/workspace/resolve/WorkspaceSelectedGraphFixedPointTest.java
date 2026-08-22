@@ -26,10 +26,15 @@ final class WorkspaceSelectedGraphFixedPointTest extends WorkspaceResolveService
         workspace("""
                 [workspace]
                 name = "selected-graph-no-resurrection"
-                members = ["apps/a", "apps/b"]
+
+                [workspace.members]
+                include = ["apps/a", "apps/b"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/a", "a", """
 
@@ -70,26 +75,31 @@ final class WorkspaceSelectedGraphFixedPointTest extends WorkspaceResolveService
         workspace("""
                 [workspace]
                 name = "vanished-equal-selection-conflict"
-                members = ["apps/a", "apps/b"]
+
+                [workspace.members]
+                include = ["apps/a", "apps/b"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/a", "a", """
 
                 [dependencies]
                 "com.example:root-a" = "1.0.0"
 
-                [dependencyPolicy]
-                failOnVersionConflict = true
+                [dependencies.policy]
+                conflicts = "fail"
                 """);
         member("apps/b", "b", """
 
                 [dependencies]
                 "com.example:root-b" = "1.0.0"
 
-                [dependencyPolicy]
-                failOnVersionConflict = true
+                [dependencies.policy]
+                conflicts = "fail"
                 """);
 
         service.resolve(tempDir, tempDir.resolve("cache"), false, false);
@@ -118,10 +128,15 @@ final class WorkspaceSelectedGraphFixedPointTest extends WorkspaceResolveService
         workspace("""
                 [workspace]
                 name = "selected-graph-fixed-point"
-                members = ["apps/a", "apps/b"]
+
+                [workspace.members]
+                include = ["apps/a", "apps/b"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/a", "a", """
 
@@ -169,10 +184,15 @@ final class WorkspaceSelectedGraphFixedPointTest extends WorkspaceResolveService
         workspace("""
                 [workspace]
                 name = "conflict-provenance"
-                members = ["apps/a", "apps/b"]
+
+                [workspace.members]
+                include = ["apps/a", "apps/b"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/a", "a", """
 

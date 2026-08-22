@@ -25,7 +25,7 @@ smoke.suite("Vert.x HTTP smoke", { tags: ["framework", "vertx", "http"] }, async
     await running.stop();
   });
 
-  for (const mode of ["thin", "uber"] as const) {
+  for (const mode of ["jar", "uber-jar"] as const) {
     await t.step(`${mode} packaging is deterministic and runnable`, async () => {
       const packageArgs = [
         "--no-progress", "package", "--mode", mode, "--cwd", project, "--cache-root", zolt.cacheRoot,

@@ -116,7 +116,7 @@ final class TestRunServiceRuntimeOptionsTest {
         Files.createDirectories(jar.getParent());
         Files.writeString(jar, "corrupted console jar bytes");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
 
                 [[package]]
                 id = "org.junit.platform:junit-platform-console-standalone"

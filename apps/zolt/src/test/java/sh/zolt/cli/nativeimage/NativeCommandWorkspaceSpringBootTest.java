@@ -100,11 +100,19 @@ final class NativeCommandWorkspaceSpringBootTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-spring-native"
-                members = ["apps/implicit", "apps/second"]
-                defaultMembers = ["apps/implicit"]
-                """);
-        writeMember(workspace.resolve("apps/implicit"), "implicit", repositoryUrl, false);
-        writeMember(workspace.resolve("apps/second"), "second", repositoryUrl, false);
+
+                [workspace.members]
+                default = ["apps/implicit"]
+                include = ["apps/implicit", "apps/second"]
+
+                [repositories]
+                central = false
+
+                [repositories.test]
+                url = "%s"
+                """.formatted(repositoryUrl));
+        writeMember(workspace.resolve("apps/implicit"), "implicit", false);
+        writeMember(workspace.resolve("apps/second"), "second", false);
         return workspace;
     }
 
@@ -114,24 +122,31 @@ final class NativeCommandWorkspaceSpringBootTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-declared-native"
-                members = ["apps/declared"]
-                defaultMembers = ["apps/declared"]
-                """);
-        writeMember(workspace.resolve("apps/declared"), "declared", repositoryUrl, true);
+
+                [workspace.members]
+                default = ["apps/declared"]
+                include = ["apps/declared"]
+
+                [repositories]
+                central = false
+
+                [repositories.test]
+                url = "%s"
+                """.formatted(repositoryUrl));
+        writeMember(workspace.resolve("apps/declared"), "declared", true);
         return workspace;
     }
 
     private static void writeMember(
             Path member,
             String name,
-            String repositoryUrl,
             boolean declaredLoader) throws IOException {
         Files.createDirectories(member);
         String loader = declaredLoader
                 ? """
 
-                [runtime.dependencies]
-                "org.springframework.boot:spring-boot-loader" = {}
+                [dependencies.runtime]
+                "org.springframework.boot:spring-boot-loader" = { managed = true }
                 """
                 : "";
         Files.writeString(member.resolve("zolt.toml"), """
@@ -139,11 +154,8 @@ final class NativeCommandWorkspaceSpringBootTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
-
-                [repositories]
-                test = "%s"
 
                 [platforms]
                 "org.springframework.boot:spring-boot-dependencies" = "3.3.6"
@@ -151,10 +163,10 @@ final class NativeCommandWorkspaceSpringBootTest {
                 [package]
                 mode = "spring-boot"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 %s
-                """.formatted(name, repositoryUrl, loader));
+                """.formatted(name, loader));
         Path source = member.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, """

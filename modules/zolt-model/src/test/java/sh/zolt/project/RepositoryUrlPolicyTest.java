@@ -28,7 +28,7 @@ final class RepositoryUrlPolicyTest {
                         false));
 
         assertTrue(exception.getMessage().contains("Repository `company` URL contains embedded credentials"));
-        assertTrue(exception.getMessage().contains("[repositoryCredentials]"));
+        assertTrue(exception.getMessage().contains("[credentials]"));
         assertTrue(!exception.getMessage().contains("secret"));
     }
 

@@ -229,7 +229,9 @@ final class WorkspaceCoverageResolvePlanRaceTest {
         return """
                 [workspace]
                 name = "workspace"
-                members = []
+
+                [workspace.members]
+                include = ["apps/api"]
                 """;
     }
 

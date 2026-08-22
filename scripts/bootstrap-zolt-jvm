@@ -71,6 +71,31 @@ if [[ ! -f "$LOCKFILE" ]]; then
   exit 1
 fi
 
+lock_version=""
+if ! lock_version="$(awk '
+  /^[[:space:]]*\[/ { exit }
+  /^version = [0-9]+$/ {
+    count += 1
+    value = $3
+  }
+  END {
+    if (count != 1) {
+      exit 1
+    }
+    print value
+  }
+' "$LOCKFILE")"; then
+  printf 'error: bootstrap lockfile at %s has a missing or malformed top-level version\n' "$LOCKFILE" >&2
+  printf 'hint: run zolt resolve with this Zolt version to regenerate a version 7 lockfile\n' >&2
+  exit 1
+fi
+if [[ "$lock_version" != "7" ]]; then
+  printf 'error: bootstrap lockfile at %s uses unsupported version %s; current version is 7\n' \
+    "$LOCKFILE" "$lock_version" >&2
+  printf 'hint: run zolt resolve with this Zolt version to regenerate the lockfile\n' >&2
+  exit 1
+fi
+
 require_jdk_tools() {
   if ! command -v javac >/dev/null 2>&1; then
     printf 'error: javac is required for scripts/bootstrap-zolt-jvm\n' >&2

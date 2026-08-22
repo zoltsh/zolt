@@ -5,7 +5,7 @@ import sh.zolt.lockfile.ContentAddressedLockCapability;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.Workspace;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -29,7 +29,7 @@ import java.util.Optional;
  * a comment — would leave every later command paying the full resolve forever.
  */
 public final class WorkspaceLockFreshnessService {
-    private final WorkspaceDiscoveryService workspaceDiscoveryService;
+    private final ManifestWorkspaceLoader workspaceLoader;
     private final LockedResolve lockedResolve;
     private final ZoltLockfileReader lockfileReader;
 
@@ -40,20 +40,20 @@ public final class WorkspaceLockFreshnessService {
     }
 
     public WorkspaceLockFreshnessService(
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             WorkspaceResolveService workspaceResolveService) {
         this(
-                workspaceDiscoveryService,
+                workspaceLoader,
                 (workspace, cacheRoot, offline, retryCommand) -> workspaceResolveService.resolve(
                         workspace, cacheRoot, true, offline, retryCommand),
                 new ZoltLockfileReader());
     }
 
     WorkspaceLockFreshnessService(
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             LockedResolve lockedResolve,
             ZoltLockfileReader lockfileReader) {
-        this.workspaceDiscoveryService = workspaceDiscoveryService;
+        this.workspaceLoader = workspaceLoader;
         this.lockedResolve = lockedResolve;
         this.lockfileReader = lockfileReader;
     }
@@ -69,7 +69,7 @@ public final class WorkspaceLockFreshnessService {
             String retryCommand) {
         long discoveryStarted = System.nanoTime();
         Optional<Workspace> discovered =
-                workspaceDiscoveryService.discover(workingDirectory.toAbsolutePath().normalize());
+                workspaceLoader.discover(workingDirectory.toAbsolutePath().normalize());
         long discoveryNanos = Math.max(0L, System.nanoTime() - discoveryStarted);
         if (discovered.isEmpty()) {
             return Optional.empty();
@@ -160,13 +160,9 @@ public final class WorkspaceLockFreshnessService {
                 workspace, lockfilePath, lockfile, outcome, discoveryNanos, artifactIndex);
     }
 
-    /** Absent rather than fatal for an unreadable lock, so the full resolve reports the problem. */
+    /** Existing lock bytes must decode before any locked resolve, cache, or network work begins. */
     private Optional<ZoltLockfile> parse(String content) {
-        try {
-            return Optional.of(lockfileReader.read(content));
-        } catch (LockfileReadException exception) {
-            return Optional.empty();
-        }
+        return Optional.of(lockfileReader.read(content));
     }
 
     private static Optional<String> readLockfile(Path lockfilePath) {

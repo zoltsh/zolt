@@ -128,7 +128,7 @@ final class WorkspaceCoverageManagedJdkTest {
 
     private static ZoltLockfile coverageLockfile() {
         return new ZoltLockfileReader().read("""
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.jacoco:org.jacoco.agent"

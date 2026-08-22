@@ -88,12 +88,12 @@ public final class QuarkusTestApplicationModelService {
         return new QuarkusWorkspaceModuleInputs(
                 root,
                 outputPath(root, "Quarkus build directory", config.build().outputRoot()),
-                inputRoot(root, "[build].source", config.build().source()),
+                inputRoot(root, "[build].sources", config.build().source()),
                 inputRoot(root, "[resources].main", first(config.build().resourceRoots(), "src/main/resources")),
-                outputPath(root, "[build].output", config.build().output()),
-                inputRoot(root, "[build].testSources", first(config.build().testSources(), config.build().test())),
+                outputPath(root, "[build.output].main", config.build().output()),
+                inputRoot(root, "[test.sources].java", first(config.build().testSources(), config.build().test())),
                 inputRoot(root, "[resources].test", first(config.build().testResourceRoots(), "src/test/resources")),
-                outputPath(root, "[build].testOutput", config.build().testOutput()));
+                outputPath(root, "[build.output].test", config.build().testOutput()));
     }
 
     private static String first(List<String> values, String fallback) {

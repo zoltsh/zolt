@@ -30,7 +30,7 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains(
-                "error execution-context apps/api [repositoryCredentials.company] "
+                "error execution-context apps/api [credentials.company] "
                         + "CI context requires environment variable "
                         + MISSING_TOKEN
                         + " for repository `company` credentials `company`"));
@@ -82,7 +82,7 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains(
-                "error execution-context apps/api [repositoryCredentials.company] "
+                "error execution-context apps/api [credentials.company] "
                         + "CI context requires environment variable "
                         + MISSING_PUBLISH_TOKEN
                         + " for publish repository `releases` credentials `company`"));
@@ -96,13 +96,18 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "credential-workspace"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
+
+                [repositories]
+                central = false
 
                 [repositories.company]
                 url = "https://repo.example.test/maven"
                 credentials = "company"
 
-                [repositoryCredentials.company]
+                [credentials.company]
                 tokenEnv = "%s"
                 """.formatted(tokenEnvironment));
         return workspace;
@@ -115,9 +120,11 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "publish-credential-workspace"
-                members = ["apps/api"]
 
-                [repositoryCredentials.company]
+                [workspace.members]
+                include = ["apps/api"]
+
+                [credentials.company]
                 tokenEnv = "%s"
                 """.formatted(tokenEnvironment));
         return workspace;
@@ -134,7 +141,7 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
                                 ? """
 
                                 [publish]
-                                releaseRepository = "releases"
+                                release = "releases"
 
                                 [publish.repositories.releases]
                                 url = "https://repo.example.test/releases"
@@ -149,7 +156,7 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
     }
 
     private static void writeLock(Path workspace) throws IOException {
-        Files.writeString(workspace.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(workspace.resolve("zolt.lock"), "version = 7\n");
     }
 
     private static CommandResult check(Path workspace) {

@@ -60,12 +60,12 @@ final class PackagePlanFormatterTest {
                         "jakarta.servlet:jakarta.servlet-api:6.1.0",
                         "war-runtime-lib",
                         "Container dependency is packaged by a WAR rule.",
-                        "Move it to [provided.dependencies], then run `zolt resolve`.")));
+                        "Move it to [dependencies.provided], then run `zolt resolve`.")));
 
         assertEquals(
                 """
                 Package plan
-                Mode: thin
+                Mode: jar
                 Archive: %s
                 Application output: %s
                 Application layout: archive root
@@ -74,7 +74,7 @@ final class PackagePlanFormatterTest {
                 - com.example:api:1.2.3 [compile] included -> lib/api-1.2.3.jar rule=thin-runtime-lib lanes=main-compile,main-runtime packageDefault=true lane=application-runtime (compile dependency is copied beside the thin jar) policies=strict-version: com.example:api -> 1.2.3
                 - jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] omitted rule=provided-container-omitted lanes=provided packageDefault=false lane=provided-container (provided by container)
                 warning CONTAINER_DEPENDENCY_PACKAGED jakarta.servlet:jakarta.servlet-api:6.1.0 rule=war-runtime-lib Container dependency is packaged by a WAR rule.
-                  next: Move it to [provided.dependencies], then run `zolt resolve`.
+                  next: Move it to [dependencies.provided], then run `zolt resolve`.
                 """
                         .formatted(archive, output, runtimeClasspath),
                 formatter.text(plan));
@@ -98,7 +98,7 @@ final class PackagePlanFormatterTest {
         assertEquals(
                 """
                 {
-                  "mode": "uber",
+                  "mode": "uber-jar",
                   "archive": "%s",
                   "applicationOutput": "%s",
                   "applicationLayout": "archive root",

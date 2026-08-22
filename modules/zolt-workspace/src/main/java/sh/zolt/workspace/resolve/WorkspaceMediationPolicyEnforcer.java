@@ -15,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 final class WorkspaceMediationPolicyEnforcer {
     private WorkspaceMediationPolicyEnforcer() {
@@ -28,6 +29,29 @@ final class WorkspaceMediationPolicyEnforcer {
             String retryCommand) {
         enforceStrictConstraints(candidates, selectedVersions, configs, retryCommand);
         enforceConflictPolicies(candidates, conflicts, configs, retryCommand);
+    }
+
+    /**
+     * Design §9.11: {@code warn} mediates and reports. Warnings are derived from the committed lock so
+     * every member that {@code fail} would have rejected is named exactly once, in member order.
+     */
+    static List<String> warnings(
+            List<LockPackage> candidates,
+            List<LockConflict> conflicts,
+            Map<String, ProjectConfig> configs) {
+        Map<String, List<LockConflict>> conflictsByMember = conflictsByMember(
+                candidates,
+                conflicts,
+                configs,
+                config -> config.dependencyPolicy().warnOnVersionConflict());
+        List<String> warnings = new ArrayList<>();
+        for (String member : conflictsByMember.keySet().stream().sorted().toList()) {
+            warnings.add("Workspace dependency version conflicts affecting member `"
+                    + member
+                    + "` were mediated and reported by [dependencies.policy].conflicts = \"warn\". Conflicts: "
+                    + descriptions(conflictsByMember.get(member)));
+        }
+        return List.copyOf(warnings);
     }
 
     private static void enforceStrictConstraints(
@@ -63,7 +87,7 @@ final class WorkspaceMediationPolicyEnforcer {
                                     + selected
                                     + "`.",
                             "Align the workspace dependency versions with the member's "
-                                    + "[dependencyConstraints] strict constraint, then run `"
+                                    + "[dependencies.constraints] strict constraint, then run `"
                                     + retryCommand
                                     + "` again.");
                 }
@@ -71,11 +95,11 @@ final class WorkspaceMediationPolicyEnforcer {
         }
     }
 
-    private static void enforceConflictPolicies(
+    private static Map<String, List<LockConflict>> conflictsByMember(
             List<LockPackage> candidates,
             List<LockConflict> conflicts,
             Map<String, ProjectConfig> configs,
-            String retryCommand) {
+            Predicate<ProjectConfig> governed) {
         Map<String, List<LockConflict>> conflictsByMember = new LinkedHashMap<>();
         for (LockConflict conflict : conflicts) {
             if (conflict.reason() == ConflictSelectionReason.SELECTED_GRAPH) {
@@ -90,28 +114,44 @@ final class WorkspaceMediationPolicyEnforcer {
                     .forEach(candidate -> affectedMembers.addAll(candidate.members()));
             for (String member : affectedMembers) {
                 ProjectConfig config = configs.get(member);
-                if (config != null
-                        && config.dependencyPolicy().failOnVersionConflict()) {
+                if (config != null && governed.test(config)) {
                     conflictsByMember
                             .computeIfAbsent(member, ignored -> new ArrayList<>())
                             .add(conflict);
                 }
             }
         }
+        return conflictsByMember;
+    }
+
+    private static String descriptions(List<LockConflict> conflicts) {
+        return String.join("; ", conflicts.stream()
+                .sorted(Comparator.comparing(conflict -> conflict.packageId().toString()))
+                .map(WorkspaceMediationPolicyEnforcer::description)
+                .toList());
+    }
+
+    private static void enforceConflictPolicies(
+            List<LockPackage> candidates,
+            List<LockConflict> conflicts,
+            Map<String, ProjectConfig> configs,
+            String retryCommand) {
+        Map<String, List<LockConflict>> conflictsByMember = conflictsByMember(
+                candidates,
+                conflicts,
+                configs,
+                config -> config.dependencyPolicy().failOnVersionConflict());
         if (conflictsByMember.isEmpty()) {
             return;
         }
         String member = conflictsByMember.keySet().stream().sorted().findFirst().orElseThrow();
-        String descriptions = String.join("; ", conflictsByMember.get(member).stream()
-                .sorted(Comparator.comparing(conflict -> conflict.packageId().toString()))
-                .map(WorkspaceMediationPolicyEnforcer::description)
-                .toList());
+        String descriptions = descriptions(conflictsByMember.get(member));
         throw ResolveException.actionable(
                 "Workspace dependency version conflicts affecting member `"
                         + member
-                        + "` are disallowed by [dependencyPolicy].failOnVersionConflict.",
+                        + "` are disallowed by [dependencies.policy].conflicts.",
                 "Align the conflicting versions with a workspace-wide direct dependency, [platforms] "
-                        + "BOM, or [dependencyConstraints] strict constraint, then run `"
+                        + "BOM, or [dependencies.constraints] strict constraint, then run `"
                         + retryCommand
                         + "` again. Conflicts: "
                         + descriptions);

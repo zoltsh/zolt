@@ -4,9 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.BomSettings;
-import sh.zolt.project.PackageMode;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class MavenBomEmitTest {
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void draftsBomMemberFromStandaloneDependencyManagementPom(@TempDir Path tempDir) throws IOException {
@@ -45,19 +42,19 @@ final class MavenBomEmitTest {
                 """);
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals(PackageMode.BOM, config.packageSettings().mode());
-        BomSettings bom = config.packageSettings().bom();
+        assertTrue(subject.bom().isPresent(),
+                () -> "a dependencyManagement-only POM must draft a [bom] member: " + subject.manifest());
         // The plain pin becomes a [bom.versions] entry.
-        assertTrue(bom.versions().stream().anyMatch(
-                version -> version.coordinate().equals("org.postgresql:postgresql")
-                        && version.version().equals("42.7.4")));
+        assertEquals("42.7.4", subject.bomVersions().get("org.postgresql:postgresql"),
+                () -> "plain dependencyManagement pin must become a [bom.versions] entry: "
+                        + subject.bomVersions());
         // The import-scope BOM becomes a [bom.imports] entry.
-        assertTrue(bom.imports().stream().anyMatch(
-                imported -> imported.coordinate().equals("com.fasterxml.jackson:jackson-bom")
-                        && imported.version().equals("2.17.0")));
+        assertEquals("2.17.0", subject.bomImports().get("com.fasterxml.jackson:jackson-bom"),
+                () -> "import-scope BOM must become a [bom.imports] entry: " + subject.bomImports());
         // A BOM declares no dependencies.
-        assertTrue(config.dependencies().isEmpty());
+        assertTrue(subject.manifest().dependencies().isEmpty(),
+                () -> "a drafted BOM must carry no [dependencies]: " + subject.manifest().dependencies());
     }
 }

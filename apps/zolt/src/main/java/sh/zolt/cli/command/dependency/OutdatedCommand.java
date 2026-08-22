@@ -17,7 +17,7 @@ import sh.zolt.update.OutdatedJsonRenderer;
 import sh.zolt.update.OutdatedJsonRendererV2;
 import sh.zolt.update.OutdatedOptions;
 import sh.zolt.update.OutdatedReport;
-import sh.zolt.update.UpdateReportScope;
+import sh.zolt.update.OutdatedScope;
 import sh.zolt.update.UpdateTargetIdentityException;
 import sh.zolt.update.OutdatedTextRenderer;
 import sh.zolt.workspace.WorkspaceConfigException;
@@ -82,7 +82,7 @@ public final class OutdatedCommand implements Runnable {
     public void run() {
         try {
             int selectedSchema = selectedSchema();
-            List<? extends UpdateReportScope> reportScopes =
+            List<OutdatedScope> reportScopes =
                     scopeResolver.reportScopes(projectDirectory.path(), selectedSchema);
             OutdatedOptions options = new OutdatedOptions(includePrereleases, all, offline, selectors);
             OutdatedReport report = engine.report(reportScopes, options);

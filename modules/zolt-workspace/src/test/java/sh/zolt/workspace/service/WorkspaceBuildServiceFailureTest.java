@@ -16,7 +16,9 @@ final class WorkspaceBuildServiceFailureTest extends WorkspaceBuildServiceTestSu
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["modules/core", "modules/extra", "apps/api", "apps/worker"]
+
+                [workspace.members]
+                include = ["modules/core", "modules/extra", "apps/api", "apps/worker"]
                 """);
         member("modules/core", "core", "");
         source("modules/core/src/main/java/com/acme/core/Core.java", """
@@ -47,7 +49,7 @@ final class WorkspaceBuildServiceFailureTest extends WorkspaceBuildServiceTestSu
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;
@@ -67,7 +69,7 @@ final class WorkspaceBuildServiceFailureTest extends WorkspaceBuildServiceTestSu
         member("apps/worker", "worker", """
 
                 [dependencies]
-                "com.acme:extra" = { workspace = "modules/extra" }
+                "com.acme:extra" = { workspace = true }
                 """);
         source("apps/worker/src/main/java/com/acme/worker/Worker.java", """
                 package com.acme.worker;

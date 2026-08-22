@@ -2,65 +2,81 @@
 name = "spring-boot-enterprise-canary"
 version = "0.1.0"
 group = "com.example.enterprise"
-java = "21"
+java = 21
 main = "com.example.enterprise.EnterpriseCanaryApplication"
+description = "Public-safe enterprise Spring Boot canary for Zolt."
+url = "https://example.sh/zolt-enterprise-canary"
+issues = "https://example.sh/zolt-enterprise-canary/issues"
+license = "Apache-2.0"
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[project.scm]
+url = "https://example.sh/zolt-enterprise-canary.git"
+
+[project.developers.zolt-maintainers]
+name = "Zolt maintainers"
 
 [platforms]
 "org.springframework.boot:spring-boot-dependencies" = "4.0.6"
 
-[dependencyPolicy]
-exclude = [
-  { group = "org.springframework.boot", artifact = "spring-boot-starter-logging", reason = "Use the Log4j2 enterprise logging baseline" },
-  { group = "commons-logging", artifact = "commons-logging", reason = "Use Spring JCL and SLF4J bridges instead of legacy commons-logging" }
-]
-
-[dependencyConstraints]
-"org.apache.tomcat.embed:tomcat-embed-core" = { version = "11.0.21", kind = "strict", reason = "Servlet container security baseline" }
-"org.apache.tomcat.embed:tomcat-embed-el" = { version = "11.0.21", kind = "strict", reason = "Servlet container security baseline" }
-"org.apache.tomcat.embed:tomcat-embed-websocket" = { version = "11.0.21", kind = "strict", reason = "Servlet container security baseline" }
-
 [dependencies]
-"org.springframework.boot:spring-boot-starter-actuator" = {}
-"org.springframework.boot:spring-boot-starter-log4j2" = {}
-"org.springframework.boot:spring-boot-starter-validation" = {}
-"org.springframework.boot:spring-boot-starter-webmvc" = { exclusions = [
-  { group = "org.apache.tomcat.embed", artifact = "tomcat-embed-core" },
-  { group = "org.apache.tomcat.embed", artifact = "tomcat-embed-el" },
-  { group = "org.apache.tomcat.embed", artifact = "tomcat-embed-websocket" }
-] }
+"org.springframework.boot:spring-boot-starter-actuator" = { managed = true }
+"org.springframework.boot:spring-boot-starter-log4j2" = { managed = true }
+"org.springframework.boot:spring-boot-starter-validation" = { managed = true }
+"org.springframework.boot:spring-boot-starter-webmvc" = { managed = true, exclude = ["org.apache.tomcat.embed:tomcat-embed-core", "org.apache.tomcat.embed:tomcat-embed-el", "org.apache.tomcat.embed:tomcat-embed-websocket"] }
 
-[runtime.dependencies]
-"org.apache.logging.log4j:log4j-jul" = {}
-"org.slf4j:jcl-over-slf4j" = {}
+[dependencies.runtime]
+"org.apache.logging.log4j:log4j-jul" = { managed = true }
+"org.slf4j:jcl-over-slf4j" = { managed = true }
 
-[provided.dependencies]
+[dependencies.provided]
+"jakarta.servlet:jakarta.servlet-api" = { managed = true }
 "org.apache.tomcat.embed:tomcat-embed-core" = "11.0.21"
 "org.apache.tomcat.embed:tomcat-embed-el" = "11.0.21"
 "org.apache.tomcat.embed:tomcat-embed-websocket" = "11.0.21"
-"jakarta.servlet:jakarta.servlet-api" = {}
-"org.projectlombok:lombok" = {}
+"org.projectlombok:lombok" = { managed = true }
 
-[dev.dependencies]
-"org.springframework.boot:spring-boot-devtools" = {}
+[dependencies.dev]
+"org.springframework.boot:spring-boot-devtools" = { managed = true }
 
-[annotationProcessors]
-"org.springframework.boot:spring-boot-configuration-processor" = {}
-"org.projectlombok:lombok" = {}
+[dependencies.test]
+"org.springframework.boot:spring-boot-starter-test" = { managed = true }
 
-[test.dependencies]
-"org.springframework.boot:spring-boot-starter-test" = {}
+[dependencies.processor]
+"org.projectlombok:lombok" = { managed = true }
+"org.springframework.boot:spring-boot-configuration-processor" = { managed = true }
 
-[test.annotationProcessors]
-"org.projectlombok:lombok" = {}
+[dependencies.test-processor]
+"org.projectlombok:lombok" = { managed = true }
 
-[generated.openapiTool]
+[dependencies.constraints]
+"org.apache.tomcat.embed:tomcat-embed-core" = { version = "11.0.21", reason = "Servlet container security baseline" }
+"org.apache.tomcat.embed:tomcat-embed-el" = { version = "11.0.21", reason = "Servlet container security baseline" }
+"org.apache.tomcat.embed:tomcat-embed-websocket" = { version = "11.0.21", reason = "Servlet container security baseline" }
+
+[dependencies.policy]
+deny = [
+    { coordinate = "org.springframework.boot:spring-boot-starter-logging", reason = "Use the Log4j2 enterprise logging baseline" },
+    { coordinate = "commons-logging:commons-logging", reason = "Use Spring JCL and SLF4J bridges instead of legacy commons-logging" },
+]
+
+[build.metadata]
+buildInfo = true
+git = true
+reproducible = true
+
+[resources.filter]
+include = ["**/*.properties"]
+
+[resources.tokens]
+enterprise-platform-version = { value = "public-canary-2026.06" }
+project-version = { project = "version" }
+
+[generated.tools.openapi]
 coordinate = "org.openapitools:openapi-generator-cli"
 version = "7.11.0"
 
-[generated.openapiPresets.spring-api]
+[generated.presets.spring-api]
+kind = "openapi"
 generator = "spring"
 library = "spring-boot"
 apiPackage = "com.example.enterprise.generated.api"
@@ -69,58 +85,23 @@ invokerPackage = "com.example.enterprise.generated"
 additionalProperties = { sourceFolder = ".", interfaceOnly = "true", useTags = "true", useSpringBoot3 = "true", skipDefaultInterface = "true", generatedAnnotation = "false", openApiNullable = "false", additionalModelTypeAnnotations = "@lombok.Builder;@lombok.NoArgsConstructor;@lombok.AllArgsConstructor" }
 configOptions = { dateLibrary = "java8", documentationProvider = "none", useJakartaEe = "true" }
 
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
-
-[build.metadata]
-buildInfo = true
-git = true
-reproducible = true
-
-[resources]
-main = ["src/main/resources"]
-test = ["src/test/resources"]
-
-[resources.filtering]
-enabled = true
-includes = ["**/*.properties"]
-missing = "fail"
-
-[resources.tokens]
-projectVersion = { project = "version" }
-enterprisePlatformVersion = { value = "public-canary-2026.06" }
-
 [generated.main.public-api]
 kind = "openapi"
-language = "java"
 input = "src/main/openapi/public-api.yaml"
 output = "target/generated/sources/openapi/public-api"
 preset = "spring-api"
 
 [test.runtime]
-systemProperties = { "logs.dir" = "${project.root}/target/test-logs" }
-environment = { TZ = "America/Chicago" }
-events = ["failed", "skipped"]
+properties = { "logs.dir" = "target/test-logs" }
+env = { TZ = "America/Chicago" }
+events = ["skipped", "failed"]
 
 [package]
 mode = "spring-boot-war"
 
-[package.metadata]
-name = "Spring Boot Enterprise Canary"
-description = "Public-safe enterprise Spring Boot canary for Zolt."
-url = "https://example.sh/zolt-enterprise-canary"
-license = "Apache-2.0"
-developers = ["Zolt maintainers"]
-scm = "https://example.sh/zolt-enterprise-canary.git"
-issues = "https://example.sh/zolt-enterprise-canary/issues"
-
 [publish]
-releaseRepository = "company-releases"
-snapshotRepository = "company-snapshots"
-artifacts = ["main"]
+release = "company-releases"
+snapshot = "company-snapshots"
 
 [publish.repositories.company-releases]
 url = "https://repo.example.test/releases"

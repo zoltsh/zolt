@@ -113,7 +113,7 @@ public final class PackageSupplementalArtifactAssembler {
     }
 
     private static PackageArtifact packageTestJar(Path projectDirectory, ProjectConfig config) {
-        Path testOutput = ProjectPaths.output(projectDirectory, "[build].testOutput", config.build().testOutput());
+        Path testOutput = ProjectPaths.output(projectDirectory, "[build.output].test", config.build().testOutput());
         Path jarPath = PackagePlanOutputs.classifierJarPath(
                 projectDirectory,
                 config,

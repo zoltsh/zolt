@@ -161,7 +161,21 @@ final class PackageServiceUberTest {
                 cacheRoot.resolve("com/example/processor/1.0.0/processor-1.0.0.jar"));
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -195,7 +209,7 @@ final class PackageServiceUberTest {
     private static void writeUberMergeLockfile(Path projectDir, Path cacheRoot) throws IOException {
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "com.example:runtime-lib"

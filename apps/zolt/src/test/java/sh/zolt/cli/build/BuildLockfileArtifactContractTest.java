@@ -18,7 +18,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 
-/** End-to-end canaries for the version 6 artifact trust boundary in {@code zolt build}. */
+/** End-to-end canaries for the current artifact trust boundary in {@code zolt build}. */
 final class BuildLockfileArtifactContractTest {
     private static final String A = "a".repeat(64);
     private static final String B = "b".repeat(64);
@@ -28,7 +28,7 @@ final class BuildLockfileArtifactContractTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("malformedLocks")
-    void buildRejectsMalformedVersionSixArtifactMetadata(
+    void buildRejectsMalformedCurrentArtifactMetadata(
             String displayName,
             String packageFields,
             String expectedDiagnostic) throws IOException {
@@ -78,7 +78,7 @@ final class BuildLockfileArtifactContractTest {
         CommandResult result = build(project);
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("version 5 predates the version 6"));
+        assertTrue(result.stderr().contains("version 5 is older than this Zolt supports (current 7)"));
         assertTrue(result.stderr().contains("zolt resolve"));
         assertFalse(Files.exists(project.resolve("target/classes/com/example/Main.class")));
     }
@@ -123,9 +123,36 @@ final class BuildLockfileArtifactContractTest {
     }
 
     private static String lockfile(String scope, String packageFields) {
-        return """
-                version = 6
+        String variant = packageFields.contains("artifactType = \"properties\"")
+                ? "variant = \"properties\"\n"
+                : "";
+        String dependencyRoot = switch (scope) {
+            case "compile" -> """
+                    [[dependencyRoot]]
+                    member = "."
+                    id = "com.example:demo"
+                    version = "1.0.0"
+                    %s
+                    lane = "implementation"
+                    resolvedScope = "compile"
 
+                    """.formatted(variant);
+            case "processor" -> """
+                    [[dependencyRoot]]
+                    member = "."
+                    id = "com.example:demo"
+                    version = "1.0.0"
+                    %s
+                    lane = "processor"
+                    resolvedScope = "processor"
+
+                    """.formatted(variant);
+            default -> "";
+        };
+        return """
+                version = 7
+
+                %s
                 [[package]]
                 id = "com.example:demo"
                 version = "1.0.0"
@@ -133,6 +160,6 @@ final class BuildLockfileArtifactContractTest {
                 scope = "%s"
                 direct = true
                 %sdependencies = []
-                """.formatted(scope, packageFields);
+                """.formatted(dependencyRoot, scope, packageFields);
     }
 }

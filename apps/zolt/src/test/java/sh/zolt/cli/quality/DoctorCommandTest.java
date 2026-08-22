@@ -88,9 +88,12 @@ final class DoctorCommandTest {
         Path workspaceDir = tempDir.resolve("enclosing-workspace");
         Path memberDir = workspaceDir.resolve("modules/member");
         Files.createDirectories(memberDir);
-        Files.writeString(workspaceDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
-                members = ["modules/member"]
+                name = "enclosing-workspace"
+
+                [workspace.members]
+                include = ["modules/member"]
                 """);
 
         CommandResult result = execute("--color=never", "doctor", "--directory", memberDir.toString());
@@ -192,26 +195,23 @@ final class DoctorCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [toolchain.java]
-                version = "999"
+                version = 999
                 features = []
                 policy = "allow-system"
 
                 [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                central = false
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion()));
 
         CommandResult result = execute("--color=never", "doctor", "--directory", projectDir.toString());
@@ -295,7 +295,7 @@ final class DoctorCommandTest {
     void doctorReportsSelfHostingReadiness() throws IOException {
         Path projectDir = tempDir.resolve("self-hosting-ready");
         writeSelfHostingProjectConfig(projectDir, true);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.createDirectories(projectDir.resolve("src/main/java"));
         Files.createDirectories(projectDir.resolve("src/test/java"));
 
@@ -315,7 +315,7 @@ final class DoctorCommandTest {
     void doctorReportsSelfHostingGapsWithNextSteps() throws IOException {
         Path projectDir = tempDir.resolve("self-hosting-gaps");
         writeSelfHostingProjectConfig(projectDir, false);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.createDirectories(projectDir.resolve("src/main/java"));
         Files.createDirectories(projectDir.resolve("src/test/java"));
 
@@ -325,7 +325,7 @@ final class DoctorCommandTest {
         assertTrue(result.stdout().contains("JDK: \u001B[32mok\u001B[0m"));
         assertTrue(result.stdout().contains("Self-hosting status: \u001B[31merror\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[31mSelf-hosting\u001B[0m status"));
-        assertTrue(result.stdout().contains("\u001B[31merror:\u001B[0m JUnit Platform Console - add org.junit.platform:junit-platform-console-standalone to [test.dependencies]"));
+        assertTrue(result.stdout().contains("\u001B[31merror:\u001B[0m JUnit Platform Console - add org.junit.platform:junit-platform-console-standalone to [dependencies.test]"));
         assertFalse(result.stdout().contains("\u001B[31merror: JUnit Platform Console"));
     }
 
@@ -340,21 +340,18 @@ final class DoctorCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                central = false
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(javaVersion));
     }
 
@@ -365,30 +362,24 @@ final class DoctorCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
                 central = "https://repo.maven.apache.org/maven2"
 
                 %s
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
 
                 [native]
-                imageName = "demo"
+                name = "demo"
                 output = "target/native"
                 args = ["--no-fallback"]
                 """.formatted(
                 currentJavaMajorVersion(),
                 includeTestRunner
                         ? """
-                        [test.dependencies]
+                        [dependencies.test]
                         "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
                         """
                         : ""));
     }

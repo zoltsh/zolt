@@ -308,7 +308,7 @@ final class DependencyQualityCheck {
                                 + "` is still present on direct dependency `"
                                 + metadata.coordinate()
                                 + "` in zolt.lock.",
-                        "Check [" + metadata.section() + "]." + metadata.coordinate() + ".exclusions and run "
+                        "Check [" + metadata.manifestSection() + "]." + metadata.coordinate() + ".exclusions and run "
                                 + (workspaceLockfile ? "`zolt resolve --workspace`." : "`zolt resolve`."));
             }
         }

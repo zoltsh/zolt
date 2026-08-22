@@ -14,7 +14,7 @@ import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.doctor.SelfHostingCheckService;
 import sh.zolt.resolve.ResolveResult;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ final class SelfCheckServiceJvmFailureTest {
     void stopsWhenReadinessCheckFails() throws IOException {
         writeSelfHostingProject(tempDir, false);
         SelfCheckService service = new SelfCheckService(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new SelfHostingCheckService(),
                 (projectDirectory, config, cacheRoot, offline) -> {
                     throw new AssertionError("resolve should not run");
@@ -70,7 +70,7 @@ final class SelfCheckServiceJvmFailureTest {
                 46,
                 true);
         SelfCheckService service = new SelfCheckService(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new SelfHostingCheckService(),
                 (projectDirectory, config, cacheRoot, offline) ->
                         new ResolveResult(3, 0, 0, projectDirectory.resolve("zolt.lock")),

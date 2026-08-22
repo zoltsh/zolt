@@ -7,9 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.BuildException;
 import sh.zolt.lockfile.toml.AtomicLockfileWriter;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.VersionAliasValue;
+import sh.zolt.manifest.authored.mutation.AuthoredManifestMutator;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
@@ -17,9 +18,7 @@ import sh.zolt.workspace.service.WorkspaceMutationLock;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,201 +29,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class ManifestEditTransactionRecoveryTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+
     @TempDir
     private Path tempDir;
-
-    @Test
-    void manifestOnlyCommitRestoresTheOriginalManifest() throws IOException {
-        Path transaction = transactionDirectory();
-        Files.createDirectories(transaction);
-        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"partial\"\n");
-        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"partial\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"partial\"\n");
-        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
-
-        ManifestEditTransaction.recover(transaction, tempDir);
-
-        assertEquals("manifest = \"original\"\n", Files.readString(tempDir.resolve("zolt.toml")));
-        assertEquals("lock = \"original\"\n", Files.readString(tempDir.resolve("zolt.lock")));
-        assertFalse(Files.exists(transaction));
-    }
-
-    @Test
-    void recordedWorkspaceRootScopeRecoversLegacyManifest() throws IOException {
-        Path root = tempDir.resolve("legacy-root-recovery");
-        String encoded = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString("@workspace-root:zolt-workspace.toml".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        Path transaction = root.resolve(".zolt/manifest-edits").resolve(encoded);
-        Files.createDirectories(transaction);
-        Files.writeString(root.resolve("zolt-workspace.toml"), "platform = \"edited\"\n");
-        Files.writeString(root.resolve("zolt.lock"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("manifest-root"), ".\n");
-        Files.writeString(transaction.resolve("manifest-path"), "zolt-workspace.toml\n");
-        Files.writeString(transaction.resolve("zolt.toml.backup"), "platform = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.staged"), "platform = \"edited\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"edited\"\n");
-        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
-
-        ManifestEditRecovery.recoverAll(root, root);
-
-        assertEquals("platform = \"original\"\n", Files.readString(root.resolve("zolt-workspace.toml")));
-        assertEquals("lock = \"original\"\n", Files.readString(root.resolve("zolt.lock")));
-        assertFalse(Files.exists(transaction));
-    }
-
-    @Test
-    void completedCommitIsKeptAndOnlyJournalIsCleaned() throws IOException {
-        Path transaction = transactionDirectory();
-        Files.createDirectories(transaction);
-        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"committed\"\n");
-        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"committed\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"old\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"committed\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"old\"\n");
-        Files.writeString(transaction.resolve("state"), "COMMITTED\n");
-
-        ManifestEditTransaction.recover(transaction, tempDir);
-
-        assertEquals("manifest = \"committed\"\n", Files.readString(tempDir.resolve("zolt.toml")));
-        assertEquals("lock = \"committed\"\n", Files.readString(tempDir.resolve("zolt.lock")));
-        assertFalse(Files.exists(transaction));
-    }
-
-    @Test
-    void fullyStagedFilesArePromotedInsteadOfRolledBack() throws IOException {
-        Path transaction = transactionDirectory();
-        Files.createDirectories(transaction);
-        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"edited\"\n");
-        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"edited\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"edited\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"edited\"\n");
-        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
-
-        ManifestEditTransaction.recover(transaction, tempDir);
-
-        assertEquals("manifest = \"edited\"\n", Files.readString(tempDir.resolve("zolt.toml")));
-        assertEquals("lock = \"edited\"\n", Files.readString(tempDir.resolve("zolt.lock")));
-        assertFalse(Files.exists(transaction));
-    }
-
-    @Test
-    void preCommitJournalStatesRestoreOriginalFiles() throws IOException {
-        for (String state : new String[] {"STAGING", "PREPARED"}) {
-            Path root = tempDir.resolve(state.toLowerCase());
-            Path transaction = root.resolve(".zolt/manifest-edit-transaction");
-            Files.createDirectories(transaction);
-            Files.writeString(root.resolve("zolt.toml"), "manifest = \"original\"\n");
-            Files.writeString(root.resolve("zolt.lock"), "lock = \"original\"\n");
-            Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
-            Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"edited\"\n");
-            Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
-            Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"edited\"\n");
-            Files.writeString(transaction.resolve("state"), state + "\n");
-
-            ManifestEditTransaction.recover(transaction, root);
-
-            assertEquals("manifest = \"original\"\n", Files.readString(root.resolve("zolt.toml")));
-            assertEquals("lock = \"original\"\n", Files.readString(root.resolve("zolt.lock")));
-            assertFalse(Files.exists(transaction));
-        }
-    }
-
-    @Test
-    void incompleteJournalIsRemovedOnlyBeforeAnyCommitStateExists() throws IOException {
-        Path transaction = transactionDirectory();
-        Files.createDirectories(transaction.resolve("resolve"));
-        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"original\"\n");
-        Files.writeString(transaction.resolve("resolve/partial"), "staging\n");
-
-        ManifestEditTransaction.recover(transaction, tempDir);
-
-        assertEquals("manifest = \"original\"\n", Files.readString(tempDir.resolve("zolt.toml")));
-        assertFalse(Files.exists(transaction));
-    }
-
-    @Test
-    void recoveryRefusesToOverwriteAConcurrentManualEdit() throws IOException {
-        Path transaction = transactionDirectory();
-        Files.createDirectories(transaction);
-        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"manual\"\n");
-        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"zolt\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
-
-        assertThrows(
-                ZoltConfigException.class,
-                () -> ManifestEditTransaction.recover(transaction, tempDir));
-
-        assertEquals("manifest = \"manual\"\n", Files.readString(tempDir.resolve("zolt.toml")));
-        assertEquals("lock = \"original\"\n", Files.readString(tempDir.resolve("zolt.lock")));
-        assertTrue(Files.exists(transaction));
-    }
-
-    @Test
-    void interruptedBeforeFirstLockfileCommitRestoresManifestAndKeepsLockfileAbsent() throws IOException {
-        Path transaction = transactionDirectory();
-        Files.createDirectories(transaction);
-        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"edited\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"edited\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.absent"), "absent\n");
-        Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"new\"\n");
-        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
-
-        ManifestEditTransaction.recover(transaction, tempDir);
-
-        assertEquals("manifest = \"original\"\n", Files.readString(tempDir.resolve("zolt.toml")));
-        assertFalse(Files.exists(tempDir.resolve("zolt.lock")));
-        assertFalse(Files.exists(transaction));
-    }
-
-    @Test
-    void recoveryRestoresTheLockfileWhenTheManifestWasAlreadyRolledBack() throws IOException {
-        Path transaction = transactionDirectory();
-        Files.createDirectories(transaction);
-        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"original\"\n");
-        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"edited\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"edited\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"edited\"\n");
-        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
-
-        ManifestEditTransaction.recover(transaction, tempDir);
-
-        assertEquals("manifest = \"original\"\n", Files.readString(tempDir.resolve("zolt.toml")));
-        assertEquals("lock = \"original\"\n", Files.readString(tempDir.resolve("zolt.lock")));
-        assertFalse(Files.exists(transaction));
-    }
-
-    @Test
-    void recoveryRefusesToOverwriteAConcurrentLockfileEdit() throws IOException {
-        Path transaction = transactionDirectory();
-        Files.createDirectories(transaction);
-        Files.writeString(tempDir.resolve("zolt.toml"), "manifest = \"edited\"\n");
-        Files.writeString(tempDir.resolve("zolt.lock"), "lock = \"manual\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.backup"), "manifest = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.toml.staged"), "manifest = \"edited\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.backup"), "lock = \"original\"\n");
-        Files.writeString(transaction.resolve("zolt.lock.staged"), "lock = \"edited\"\n");
-        Files.writeString(transaction.resolve("state"), "MANIFEST_COMMITTED\n");
-
-        assertThrows(
-                ZoltConfigException.class,
-                () -> ManifestEditTransaction.recover(transaction, tempDir));
-
-        assertEquals("manifest = \"edited\"\n", Files.readString(tempDir.resolve("zolt.toml")));
-        assertEquals("lock = \"manual\"\n", Files.readString(tempDir.resolve("zolt.lock")));
-        assertTrue(Files.exists(transaction));
-    }
 
     @Test
     void standaloneProjectEditWaitsForItsMutationLock() throws Exception {
@@ -239,7 +47,9 @@ final class ManifestEditTransactionRecoveryTest {
         Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "locked"
-                members = ["member"]
+
+                [workspace.members]
+                include = ["member"]
                 """);
         Files.createDirectories(member);
         writeProject(member, "member");
@@ -260,14 +70,10 @@ final class ManifestEditTransactionRecoveryTest {
                         tempDir,
                         tempDir.resolve("cache"),
                         false,
-                        new ZoltTomlParser(),
-                        new ZoltTomlWriter(),
+                        MANIFESTS,
                         new sh.zolt.resolve.ResolveService(),
-                        config -> {
-                            var aliases = new LinkedHashMap<>(config.versionAliases());
-                            aliases.put("added", "1.0.0");
-                            return config.withVersionAliases(aliases);
-                        },
+                        config -> AuthoredManifestMutator.setVersionAlias(
+                                config, new LocalId("added"), new VersionAliasValue("1.0.0")),
                         () -> {
                             try {
                                 AtomicLockfileWriter.write(lockfile, concurrentLock);
@@ -282,6 +88,50 @@ final class ManifestEditTransactionRecoveryTest {
         assertFalse(Files.exists(transactionDirectory()));
     }
 
+    /**
+     * A concurrent manifest edit during the network resolve aborts the transaction while the journal
+     * is still in STAGING. Nothing was written, so the journal must not survive: a journal that no
+     * live content can match would make every later mutation command fail until the user deleted
+     * {@code .zolt/manifest-edits/project} by hand.
+     */
+    @Test
+    void concurrentManifestEditDuringResolveLeavesNoJournalBehind() throws IOException {
+        writeProject(tempDir, "staging-abort");
+        Path manifest = tempDir.resolve("zolt.toml");
+        String concurrent = Files.readString(manifest) + "\n[versions]\nmanual = \"3.0.0\"\n";
+
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> ManifestEditTransaction.execute(
+                        tempDir,
+                        tempDir.resolve("cache"),
+                        false,
+                        MANIFESTS,
+                        new ResolveService(),
+                        config -> AuthoredManifestMutator.setVersionAlias(
+                                config, new LocalId("added"), new VersionAliasValue("1.0.0")),
+                        () -> writeUnchecked(manifest, concurrent)));
+
+        assertTrue(
+                failure.getMessage().contains("No changes were written"),
+                failure.getMessage());
+        assertEquals(concurrent, Files.readString(manifest));
+        assertFalse(Files.exists(transactionDirectory()));
+
+        // The next mutation must succeed instead of tripping over a surviving journal.
+        ManifestEditResult retry = ManifestEditTransaction.execute(
+                tempDir,
+                tempDir.resolve("cache"),
+                true,
+                MANIFESTS,
+                null,
+                config -> AuthoredManifestMutator.setVersionAlias(
+                        config, new LocalId("added"), new VersionAliasValue("1.0.0")));
+
+        assertTrue(retry.manifestChanged());
+        assertTrue(Files.readString(manifest).contains("added"));
+    }
+
     @Test
     void expectedScopeIsVerifiedAndActualChangedPathsAreOrdered() throws IOException {
         writeProject(tempDir, "expected");
@@ -292,15 +142,11 @@ final class ManifestEditTransactionRecoveryTest {
                 tempDir,
                 tempDir.resolve("cache"),
                 true,
-                new ZoltTomlParser(),
-                new ZoltTomlWriter(),
+                MANIFESTS,
                 null,
                 new ScopeExpectation(manifest, lockfile),
-                config -> {
-                    var aliases = new LinkedHashMap<>(config.versionAliases());
-                    aliases.put("added", "1.0.0");
-                    return config.withVersionAliases(aliases);
-                });
+                config -> AuthoredManifestMutator.setVersionAlias(
+                        config, new LocalId("added"), new VersionAliasValue("1.0.0")));
 
         assertTrue(edit.changed());
         assertTrue(edit.manifestChanged());
@@ -320,8 +166,7 @@ final class ManifestEditTransactionRecoveryTest {
                         tempDir,
                         tempDir.resolve("cache"),
                         true,
-                        new ZoltTomlParser(),
-                        new ZoltTomlWriter(),
+                        MANIFESTS,
                         null,
                         new ScopeExpectation(tempDir.resolve("elsewhere/zolt.toml"), tempDir.resolve("zolt.lock")),
                         config -> {
@@ -344,7 +189,9 @@ final class ManifestEditTransactionRecoveryTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "race"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         writeProject(api, "api");
         writeProject(core, "core");
@@ -364,14 +211,10 @@ final class ManifestEditTransactionRecoveryTest {
                         api,
                         cache,
                         false,
-                        new ZoltTomlParser(),
-                        new ZoltTomlWriter(),
+                        MANIFESTS,
                         resolveService,
-                        config -> {
-                            var aliases = new LinkedHashMap<>(config.versionAliases());
-                            aliases.put("selected", "1.1.0");
-                            return config.withVersionAliases(aliases);
-                        },
+                        config -> AuthoredManifestMutator.setVersionAlias(
+                                config, new LocalId("selected"), new VersionAliasValue("1.1.0")),
                         () -> writeUnchecked(coreManifest, coreConcurrent)));
 
         assertEquals(apiOriginal, Files.readString(apiManifest));
@@ -389,7 +232,7 @@ final class ManifestEditTransactionRecoveryTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """.formatted(name));
     }
 
@@ -414,8 +257,7 @@ final class ManifestEditTransactionRecoveryTest {
                             projectRoot,
                             projectRoot.resolve("cache"),
                             true,
-                            new ZoltTomlParser(),
-                            new ZoltTomlWriter(),
+                            MANIFESTS,
                             null,
                             config -> {
                                 mutationEntered.countDown();
@@ -433,6 +275,6 @@ final class ManifestEditTransactionRecoveryTest {
     }
 
     private Path transactionDirectory() {
-        return tempDir.resolve(".zolt").resolve("manifest-edit-transaction");
+        return tempDir.resolve(".zolt").resolve("manifest-edits").resolve("project");
     }
 }

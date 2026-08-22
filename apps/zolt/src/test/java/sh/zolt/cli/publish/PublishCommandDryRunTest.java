@@ -23,9 +23,8 @@ final class PublishCommandDryRunTest {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
                 [publish]
-                releaseRepository = "company-releases"
-                snapshotRepository = "company-snapshots"
-                artifacts = ["main"]
+                release = "company-releases"
+                snapshot = "company-snapshots"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -83,18 +82,17 @@ final class PublishCommandDryRunTest {
                 main = "com.example.Main"
 
                 [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                central = false
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
+                [dependencies.test]
 
-                [build]
-                outputRoot = ".zolt/build"
-                source = "src/main/java"
-                test = "src/test/java"
-                output = ".zolt/build/classes"
-                testOutput = ".zolt/build/test-classes"
+                [build.output]
+                root = ".zolt/build"
                 """);
     }
 

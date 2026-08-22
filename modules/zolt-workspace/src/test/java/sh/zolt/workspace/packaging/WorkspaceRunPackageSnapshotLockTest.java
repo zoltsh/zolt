@@ -77,10 +77,12 @@ final class WorkspaceRunPackageSnapshotLockTest {
     }
 
     private void writeProject() throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "staged-package-run"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Path member = tempDir.resolve("apps/api");
         Files.createDirectories(member);
@@ -89,7 +91,7 @@ final class WorkspaceRunPackageSnapshotLockTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "%s"
+                java = %s
                 main = "com.acme.api.Api"
                 """.formatted(currentJavaVersion()));
         Path source = member.resolve(

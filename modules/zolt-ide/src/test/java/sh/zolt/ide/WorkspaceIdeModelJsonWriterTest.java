@@ -20,7 +20,9 @@ final class WorkspaceIdeModelJsonWriterTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api");
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), false, false);
@@ -44,12 +46,14 @@ final class WorkspaceIdeModelJsonWriterTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("modules/core", "core");
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), false, false);
@@ -69,12 +73,14 @@ final class WorkspaceIdeModelJsonWriterTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member("apps/api", "api", """
 
-                [api.dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                [dependencies.api]
+                "com.acme:core" = { workspace = true }
                 """);
         member("modules/core", "core");
 
@@ -119,7 +125,7 @@ final class WorkspaceIdeModelJsonWriterTest {
                 new WorkspaceIdeModel.WorkspaceInfo(
                         "ordered-workspace",
                         Path.of("C:\\repo"),
-                        Path.of("C:\\repo\\zolt-workspace.toml"),
+                        Path.of("C:\\repo\\zolt.toml"),
                         Path.of("C:\\repo\\zolt.lock"),
                         List.of("apps/api", "modules/core"),
                         List.of("apps/api"),
@@ -139,7 +145,7 @@ final class WorkspaceIdeModelJsonWriterTest {
                                 "error",
                                 "SECOND",
                                 "second",
-                                Path.of("C:\\repo\\zolt-workspace.toml"),
+                                Path.of("C:\\repo\\zolt.toml"),
                                 "Retry second.")));
 
         String json = new WorkspaceIdeModelJsonWriter().write(model);
@@ -153,8 +159,8 @@ final class WorkspaceIdeModelJsonWriterTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
     }
 
     private void member(String path, String name) throws IOException {
@@ -169,8 +175,8 @@ final class WorkspaceIdeModelJsonWriterTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
-        Files.writeString(member.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(member.resolve("zolt.lock"), "version = 7\n");
     }
 }

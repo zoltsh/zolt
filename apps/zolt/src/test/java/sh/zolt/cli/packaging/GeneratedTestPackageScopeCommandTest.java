@@ -10,7 +10,7 @@ import sh.zolt.build.BuildService;
 import sh.zolt.build.testruntime.compile.TestCompileService;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -129,10 +129,12 @@ final class GeneratedTestPackageScopeCommandTest {
         Path workspace = tempDir.resolve("workspace-test-tool");
         Path member = workspace.resolve("apps/app");
         Files.createDirectories(member);
-        Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+        Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "test-tool-workspace"
-                members = ["apps/app"]
+
+                [workspace.members]
+                include = ["apps/app"]
                 """);
         writeProject(
                 member,
@@ -204,11 +206,12 @@ final class GeneratedTestPackageScopeCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 %s
+
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -221,8 +224,8 @@ final class GeneratedTestPackageScopeCommandTest {
     private static String unavailableProcessGenerator(
             boolean packageTests) {
         return """
-                [generated.execTools.test-generator]
-                runner = "process"
+                [generated.tools.test-generator]
+                kind = "process"
                 binary = "zolt-missing-test-generator"
                 versionCommand = ["zolt-missing-test-generator", "--version"]
                 allowUnpinnedTool = true
@@ -235,8 +238,7 @@ final class GeneratedTestPackageScopeCommandTest {
                 produces = "test-resources"
 
                 [package]
-                tests = %s
-
+                testJar = %s
                 """.formatted(packageTests);
     }
 
@@ -252,8 +254,7 @@ final class GeneratedTestPackageScopeCommandTest {
                 required = false
 
                 [package]
-                tests = %s
-
+                testJar = %s
                 """.formatted(input, packageTests);
     }
 
@@ -296,8 +297,7 @@ final class GeneratedTestPackageScopeCommandTest {
     private static void compileTests(
             Path project,
             Path cache) {
-        ProjectConfig config = new ZoltTomlParser().parse(
-                project.resolve("zolt.toml"));
+        ProjectConfig config = new ManifestProjectLoader().load(project);
         BuildResultWithClasspaths build =
                 new BuildService().buildWithClasspaths(
                         project,

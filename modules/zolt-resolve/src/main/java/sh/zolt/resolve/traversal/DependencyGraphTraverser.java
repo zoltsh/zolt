@@ -308,7 +308,7 @@ public final class DependencyGraphTraverser {
                 .map(exclusion -> {
                     if ("*".equals(exclusion.group()) || "*".equals(exclusion.artifact())) {
                         throw ResolveException.actionable(
-                                "Wildcard dependency exclusions are not supported in [dependencyPolicy].exclude: "
+                                "Wildcard dependency exclusions are not supported in [dependencies.policy].deny: "
                                         + exclusion.group()
                                         + ":"
                                         + exclusion.artifact()

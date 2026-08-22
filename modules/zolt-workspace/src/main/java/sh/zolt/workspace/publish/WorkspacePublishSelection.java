@@ -1,7 +1,7 @@
 package sh.zolt.workspace.publish;
 
 import sh.zolt.project.PackageMode;
-import sh.zolt.publish.PublishSettingsReader;
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceSelection;
@@ -22,7 +22,7 @@ final class WorkspacePublishSelection {
      * before consumers (build order), the BOM last so consumers can already resolve it.
      */
     static List<WorkspaceMember> publishable(
-            Workspace workspace, WorkspaceSelection selection, PublishSettingsReader publishSettingsReader) {
+            Workspace workspace, WorkspaceSelection selection, ManifestPublishSettingsLoader publishSettingsLoader) {
         Map<String, WorkspaceMember> byPath = new LinkedHashMap<>();
         for (WorkspaceMember member : workspace.members()) {
             byPath.put(member.path(), member);
@@ -31,7 +31,7 @@ final class WorkspacePublishSelection {
         List<WorkspaceMember> bomMembers = new ArrayList<>();
         for (String memberPath : selection.includedMembers()) {
             WorkspaceMember member = byPath.get(memberPath);
-            if (member == null || !hasPublishConfig(member, publishSettingsReader)) {
+            if (member == null || !hasPublishConfig(member, publishSettingsLoader)) {
                 continue;
             }
             if (member.config().packageSettings().mode() == PackageMode.BOM) {
@@ -45,9 +45,9 @@ final class WorkspacePublishSelection {
         return ordered;
     }
 
-    private static boolean hasPublishConfig(WorkspaceMember member, PublishSettingsReader publishSettingsReader) {
-        return publishSettingsReader
-                .read(member.directory().resolve("zolt.toml"), member.config().repositoryCredentials())
+    private static boolean hasPublishConfig(WorkspaceMember member, ManifestPublishSettingsLoader publishSettingsLoader) {
+        return publishSettingsLoader
+                .read(member.directory().resolve("zolt.toml"))
                 .configured();
     }
 

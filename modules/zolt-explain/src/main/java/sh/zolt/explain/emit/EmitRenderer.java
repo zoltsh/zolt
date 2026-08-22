@@ -10,27 +10,24 @@ import java.util.List;
  * labelled member document per module) for a reactor / multi-project build.
  *
  * <p>Groups the mapping and rendering collaborators behind one entry point so callers depend on a
- * single seam. The {@link ProjectConfigRenderer} and {@link WorkspaceConfigRenderer} are injected by
- * the CLI (they wrap the real zolt-toml writers), keeping zolt-explain free of a zolt-toml dependency.
+ * single seam. The {@link AuthoredManifestRenderer} is injected by the CLI (it wraps the real
+ * canonical writer), keeping zolt-explain free of a zolt-toml dependency.
  */
 public final class EmitRenderer {
-    private final InspectionToProjectConfig mapper;
+    private final InspectionToManifest mapper;
     private final DraftZoltTomlRenderer draftRenderer;
     private final DraftWorkspaceRenderer workspaceRenderer;
-    private final ProjectConfigRenderer configRenderer;
-    private final WorkspaceConfigRenderer workspaceConfigRenderer;
+    private final AuthoredManifestRenderer manifestRenderer;
 
     public EmitRenderer(
-            InspectionToProjectConfig mapper,
+            InspectionToManifest mapper,
             DraftZoltTomlRenderer draftRenderer,
             DraftWorkspaceRenderer workspaceRenderer,
-            ProjectConfigRenderer configRenderer,
-            WorkspaceConfigRenderer workspaceConfigRenderer) {
+            AuthoredManifestRenderer manifestRenderer) {
         this.mapper = mapper;
         this.draftRenderer = draftRenderer;
         this.workspaceRenderer = workspaceRenderer;
-        this.configRenderer = configRenderer;
-        this.workspaceConfigRenderer = workspaceConfigRenderer;
+        this.manifestRenderer = manifestRenderer;
     }
 
     public String renderMaven(MavenInspectionResult result) {
@@ -51,18 +48,18 @@ public final class EmitRenderer {
 
     private String render(DraftEmit emit) {
         if (emit instanceof DraftWorkspace workspace) {
-            return workspaceRenderer.render(workspace, workspaceConfigRenderer, configRenderer);
+            return workspaceRenderer.render(workspace, manifestRenderer);
         }
-        return draftRenderer.render((DraftZoltToml) emit, configRenderer);
+        return draftRenderer.render((DraftZoltToml) emit, manifestRenderer);
     }
 
     private List<DraftZoltTomlDocument> renderDocuments(DraftEmit emit) {
         if (emit instanceof DraftWorkspace workspace) {
-            return workspaceRenderer.renderDocuments(workspace, workspaceConfigRenderer, configRenderer);
+            return workspaceRenderer.renderDocuments(workspace, manifestRenderer);
         }
         return List.of(new DraftZoltTomlDocument(
                 "zolt.toml",
-                withTrailingNewline(draftRenderer.render((DraftZoltToml) emit, configRenderer))));
+                withTrailingNewline(draftRenderer.render((DraftZoltToml) emit, manifestRenderer))));
     }
 
     private static String withTrailingNewline(String value) {

@@ -21,7 +21,7 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 /**
  * {@code zolt licenses --workspace} annotations must agree with the command they point at.
  *
- * <p>{@code [dependencyPolicy]} is member-local, so a member's policy governs only that member's own
+ * <p>{@code [dependencies.policy]} is member-local, so a member's policy governs only that member's own
  * dependency closure — the same scoping {@code zolt check --workspace --check license-policy} enforces.
  * A report that flagged a coordinate the enforcing command passes would be worse than no report at all,
  * so these run both surfaces over one fixture.
@@ -51,7 +51,7 @@ final class LicensesCommandWorkspacePolicyTest {
                     [dependencies]
                     "org.example:mit-lib" = "1.0.0"
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     deny = ["GPL-3.0-only"]
                     """);
             Path cache = tempDir.resolve("cache");
@@ -85,7 +85,7 @@ final class LicensesCommandWorkspacePolicyTest {
                     [dependencies]
                     "org.example:gpl-lib" = "1.0.0"
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     allow = ["GPL-3.0-only"]
                     """,
                     """
@@ -93,7 +93,7 @@ final class LicensesCommandWorkspacePolicyTest {
                     [dependencies]
                     "org.example:gpl-lib" = "1.0.0"
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     deny = ["GPL-3.0-only"]
                     """);
             Path cache = tempDir.resolve("cache");
@@ -104,7 +104,7 @@ final class LicensesCommandWorkspacePolicyTest {
 
             assertEquals(0, licenses.exitCode(), licenses.stdout() + licenses.stderr());
             assertTrue(licenses.stdout().contains(
-                    "org.example:gpl-lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny"),
+                    "org.example:gpl-lib:1.0.0  [denied] denied by [dependencies.policy.licenses].deny"),
                     licenses.stdout());
             assertTrue(licenses.stdout().contains("License policy: 1 denied, 0 unknown of 1 dependency."),
                     licenses.stdout());
@@ -122,11 +122,11 @@ final class LicensesCommandWorkspacePolicyTest {
                     [dependencies]
                     "org.example:matchit" = "1.0.0"
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     allow = ["MIT"]
                     unknown = "fail"
 
-                    [dependencyPolicy.licenses.exceptions."org.example:matchit"]
+                    [dependencies.license-exceptions."org.example:matchit"]
                     allow = ["BSD-3-Clause"]
                     version = "1.0.0"
                     reason = "Reviewed matchit for core"
@@ -136,7 +136,7 @@ final class LicensesCommandWorkspacePolicyTest {
                     [dependencies]
                     "org.example:matchit" = "1.0.0"
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     allow = ["MIT", "BSD-3-Clause"]
                     unknown = "fail"
                     """);
@@ -151,7 +151,7 @@ final class LicensesCommandWorkspacePolicyTest {
             assertEquals(0, licenses.exitCode(), licenses.stdout() + licenses.stderr());
             assertTrue(licenses.stdout().contains(
                     "org.example:matchit:1.0.0  [exception] BSD-3-Clause permitted by "
-                            + "[dependencyPolicy.licenses.exceptions.\"org.example:matchit\"]"),
+                            + "[dependencies.license-exceptions.\"org.example:matchit\"]"),
                     licenses.stdout());
             assertTrue(licenses.stdout().contains("org.example:matchit@1.0.0  [used]"), licenses.stdout());
             assertEquals(0, check.exitCode(), check.stdout() + check.stderr());
@@ -172,7 +172,7 @@ final class LicensesCommandWorkspacePolicyTest {
                     "org.example:gpl-lib" = "1.0.0"
                     "org.example:mit-lib" = "1.0.0"
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     deny = ["GPL-3.0-only"]
                     """,
                     """
@@ -181,7 +181,7 @@ final class LicensesCommandWorkspacePolicyTest {
                     "org.example:mit-lib" = "1.0.0"
                     "org.example:apache-lib" = "1.0.0"
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     deny = ["GPL-3.0-only"]
                     """);
             Path cache = tempDir.resolve("cache");
@@ -222,10 +222,10 @@ final class LicensesCommandWorkspacePolicyTest {
                     [dependencies]
                     "org.example:mit-lib" = "1.0.0"
 
-                    [provided.dependencies]
+                    [dependencies.provided]
                     "org.example:gpl-lib" = "1.0.0"
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     deny = ["GPL-3.0-only"]
                     """,
                     """
@@ -257,11 +257,11 @@ final class LicensesCommandWorkspacePolicyTest {
         try (CliTestRepository repository = CliTestRepository.start()) {
             String stalePolicy = """
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     allow = ["MIT"]
                     unknown = "fail"
 
-                    [dependencyPolicy.licenses.exceptions."org.example:missing"]
+                    [dependencies.license-exceptions."org.example:missing"]
                     allow = ["BSD-3-Clause"]
                     reason = "Reviewed dependency"
                     """;
@@ -307,10 +307,15 @@ final class LicensesCommandWorkspacePolicyTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "license-scope-workspace"
-                members = ["modules/core", "apps/admin"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/admin"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(repository.baseUri()));
         Files.writeString(core.resolve("zolt.toml"), memberConfig("core") + coreBody);
         Files.writeString(admin.resolve("zolt.toml"), memberConfig("admin") + adminBody);

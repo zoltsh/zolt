@@ -25,7 +25,9 @@ final class CheckProjectModelCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-unused-version-alias"
-                members = ["api"]
+
+                [workspace.members]
+                include = ["api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api") + """
 
@@ -44,16 +46,16 @@ final class CheckProjectModelCommandTest {
                 [dependencies]
                 "org.example:lib" = { versionRef = "used" }
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.projectlombok:lombok" = { versionRef = "lombok" }
 
-                [test.annotationProcessors]
+                [dependencies.test-processor]
                 "org.projectlombok:lombok" = { versionRef = "test-lombok" }
 
-                [dependencyConstraints]
-                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat", kind = "strict" }
+                [dependencies.constraints]
+                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat" }
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
@@ -84,38 +86,15 @@ final class CheckProjectModelCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-invalid-model") + """
 
                 [build]
-                source = "/tmp/source"
+                sources = ["/tmp/source"]
                 """);
 
         CommandResult result = execute("check", "--cwd", projectDir.toString(), "--check", "project-model");
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error project-model [build].source Path `/tmp/source` must be project-relative"));
-        assertTrue(result.stdout().contains("next: Edit zolt.toml to use a relative path"));
-        assertEquals("", result.stderr());
-    }
-
-    @Test
-    void checkProjectModelJsonReportsCompilerReleaseFailures() throws IOException {
-        Path projectDir = tempDir.resolve("check-release-model");
-        Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-release-model") + """
-
-                [compiler]
-                release = "99"
-                """);
-
-        CommandResult result = execute(
-                "check",
-                "--format", "json",
-                "--cwd", projectDir.toString(),
-                "--check", "project-model");
-
-        assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("\"status\":\"failed\""));
-        assertTrue(result.stdout().contains("\"id\":\"project-model\""));
-        assertTrue(result.stdout().contains("\"subject\":\"[compiler].release\""));
-        assertTrue(result.stdout().contains("Compiler release `99` is newer than [project].java"));
+        assertTrue(result.stdout().contains(
+                "error project-model zolt.toml Invalid value for `build.sources`"), result.stdout());
+        assertTrue(result.stdout().contains("next: Fix zolt.toml"), result.stdout());
         assertEquals("", result.stderr());
     }
 
@@ -139,14 +118,14 @@ final class CheckProjectModelCommandTest {
                 [dependencies]
                 "org.example:lib" = { versionRef = "used" }
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "org.projectlombok:lombok" = { versionRef = "lombok" }
 
-                [test.annotationProcessors]
+                [dependencies.test-processor]
                 "org.projectlombok:lombok" = { versionRef = "test-lombok" }
 
-                [dependencyConstraints]
-                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat", kind = "strict" }
+                [dependencies.constraints]
+                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat" }
                 """);
 
         CommandResult result = execute(

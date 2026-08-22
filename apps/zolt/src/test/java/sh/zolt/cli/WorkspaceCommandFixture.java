@@ -19,7 +19,9 @@ public final class WorkspaceCommandFixture {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         Files.writeString(coreDir.resolve("zolt.toml"), memberConfig("core"));
         Path coreSource = coreDir.resolve("src/main/java/com/example/core/Core.java");
@@ -40,7 +42,7 @@ public final class WorkspaceCommandFixture {
                 main = "com.example.api.Api"
 
                 [dependencies]
-                "com.example:core" = { workspace = "modules/core" }
+                "com.example:core" = { workspace = true }
                 """);
         Path apiSource = apiDir.resolve("src/main/java/com/example/api/Api.java");
         Files.createDirectories(apiSource.getParent());

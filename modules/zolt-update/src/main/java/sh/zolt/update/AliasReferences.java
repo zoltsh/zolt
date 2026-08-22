@@ -1,108 +1,170 @@
 package sh.zolt.update;
 
-import sh.zolt.project.DependencyConstraint;
-import sh.zolt.project.DependencyMetadata;
-import sh.zolt.project.ExecToolCoordinate;
-import sh.zolt.project.GeneratedSourceKind;
-import sh.zolt.project.GeneratedSourceStep;
-import sh.zolt.project.ProjectConfig;
-import java.util.ArrayList;
-import java.util.Comparator;
+import sh.zolt.manifest.DependencyConstraintSelector;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.DependencySelector;
+import sh.zolt.manifest.GeneratedArtifactRequest;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.authored.AuthoredBom;
+import sh.zolt.manifest.authored.AuthoredDependencies;
+import sh.zolt.manifest.authored.AuthoredDependency;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraint;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraints;
+import sh.zolt.manifest.authored.AuthoredGeneratedTool;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.authored.AuthoredPlatforms;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * Finds every place a {@code [versions]} alias is referenced across the configuration — dependency
- * scopes, platforms, dependency constraints, OpenAPI/protobuf/exec generated-tool version refs — so
- * both {@code zolt outdated} (governs list) and {@code zolt update} (alias fan-out warning) share
- * one complete reference scan. Coordinate-bearing references also carry their {@code group:artifact}
- * for version discovery. Results are deduplicated by label in a deterministic order.
+ * Finds every place a {@code [versions]} alias is referenced in one authored manifest — dependency
+ * lanes, platforms, dependency constraints, BOM pins and imports, and named generated-tool version
+ * references — so both {@code zolt outdated} (governs list) and {@code zolt update} (alias fan-out
+ * warning) share one complete reference scan. Coordinate-bearing references also carry their
+ * {@code group:artifact} for version discovery. Results are deduplicated by label in a deterministic
+ * order.
  */
 public final class AliasReferences {
-    private static final String PROJECT_TOOL = "project";
-
     private AliasReferences() {
     }
 
-    public static List<AliasReference> referencing(ProjectConfig config, String alias) {
+    public static List<AliasReference> referencing(AuthoredManifest manifest, String alias) {
         Map<String, AliasReference> references = new LinkedHashMap<>();
-        collectDependencyReferences(config, alias, references);
-        collectConstraintReferences(config, alias, references);
-        collectGeneratedReferences(config, alias, references);
+        collectDependencies(manifest, alias, references);
+        collectPlatforms(manifest, alias, references);
+        collectConstraints(manifest, alias, references);
+        collectBom(manifest, alias, references);
+        collectGeneratedTools(manifest, alias, references);
         return List.copyOf(references.values());
     }
 
-    public static List<String> referencingLabels(ProjectConfig config, String alias) {
-        return referencing(config, alias).stream().map(AliasReference::label).toList();
+    public static List<String> referencingLabels(AuthoredManifest manifest, String alias) {
+        return referencing(manifest, alias).stream().map(AliasReference::label).toList();
     }
 
-    private static void collectDependencyReferences(
-            ProjectConfig config, String alias, Map<String, AliasReference> references) {
-        config.dependencyMetadata().values().stream()
-                .filter(metadata -> alias.equals(metadata.versionRef()))
-                .sorted(Comparator.comparing(DependencyMetadata::section).thenComparing(DependencyMetadata::coordinate))
-                .forEach(metadata -> add(
-                        references,
-                        "[" + metadata.section() + "]." + metadata.coordinate(),
-                        Optional.of(metadata.coordinate())));
-    }
-
-    private static void collectConstraintReferences(
-            ProjectConfig config, String alias, Map<String, AliasReference> references) {
-        config.dependencyPolicy().constraints().values().stream()
-                .filter(constraint -> constraint.versionRef().filter(alias::equals).isPresent())
-                .sorted(Comparator.comparing(DependencyConstraint::coordinate))
-                .forEach(constraint -> add(
-                        references,
-                        "[dependencyConstraints]." + constraint.coordinate(),
-                        Optional.of(constraint.coordinate())));
-    }
-
-    private static void collectGeneratedReferences(
-            ProjectConfig config, String alias, Map<String, AliasReference> references) {
-        List<GeneratedSourceStep> steps = new ArrayList<>(config.build().generatedMainSources());
-        steps.addAll(config.build().generatedTestSources());
-        for (GeneratedSourceStep step : steps) {
-            collectOpenApiReference(step, alias, references);
-            collectExecReferences(step, alias, references);
-            collectProtobufReferences(step, alias, references);
-        }
-    }
-
-    private static void collectOpenApiReference(
-            GeneratedSourceStep step, String alias, Map<String, AliasReference> references) {
-        if (step.openApi().toolVersionRef().filter(alias::equals).isPresent()) {
-            add(references, "[generated.openapiTool].versionRef", step.openApi().toolCoordinate());
-        }
-    }
-
-    private static void collectExecReferences(
-            GeneratedSourceStep step, String alias, Map<String, AliasReference> references) {
-        if (step.kind() != GeneratedSourceKind.EXEC || PROJECT_TOOL.equals(step.exec().toolName())) {
-            return;
-        }
-        for (ExecToolCoordinate coordinate : step.exec().tool().coordinates()) {
-            if (coordinate.versionRef().filter(alias::equals).isPresent()) {
+    private static void collectDependencies(
+            AuthoredManifest manifest, String alias, Map<String, AliasReference> references) {
+        for (AuthoredDependency dependency : manifest.dependencies()
+                .map(AuthoredDependencies::declarations)
+                .orElseGet(List::of)) {
+            if (dependency.selector() instanceof DependencySelector.VersionReference reference
+                    && reference.alias().value().equals(alias)) {
                 add(
                         references,
-                        "[generated.execTools." + step.exec().toolName() + "].coordinates",
-                        Optional.of(coordinate.coordinate()));
+                        ManifestSections.lane(dependency.lane()) + "." + dependency.coordinate().value(),
+                        Optional.of(dependency.coordinate().value()));
             }
         }
     }
 
-    private static void collectProtobufReferences(
-            GeneratedSourceStep step, String alias, Map<String, AliasReference> references) {
-        if (step.kind() != GeneratedSourceKind.PROTOBUF) {
+    private static void collectPlatforms(
+            AuthoredManifest manifest, String alias, Map<String, AliasReference> references) {
+        manifest.platforms()
+                .map(AuthoredPlatforms::entries)
+                .orElseGet(Map::of)
+                .forEach((coordinate, selector) ->
+                        addPlatform(references, alias, ManifestSections.PLATFORMS, coordinate, selector));
+    }
+
+    private static void collectConstraints(
+            AuthoredManifest manifest, String alias, Map<String, AliasReference> references) {
+        Map<DependencyCoordinate, AuthoredDependencyConstraint> constraints = manifest.dependencyConstraints()
+                .map(AuthoredDependencyConstraints::entries)
+                .orElseGet(Map::of);
+        constraints.forEach((coordinate, constraint) -> {
+            if (constraint.selector() instanceof DependencyConstraintSelector.VersionReference reference
+                    && reference.alias().value().equals(alias)) {
+                add(
+                        references,
+                        ManifestSections.DEPENDENCY_CONSTRAINTS + "." + coordinate.value(),
+                        Optional.of(coordinate.value()));
+            }
+        });
+    }
+
+    private static void collectBom(
+            AuthoredManifest manifest, String alias, Map<String, AliasReference> references) {
+        Optional<AuthoredBom> bom = manifest.packaging().bom();
+        if (bom.isEmpty()) {
             return;
         }
-        if (step.protobuf().protocVersionRef().filter(alias::equals).isPresent()) {
-            add(references, "[generated.protobufTool].protocVersionRef", step.protobuf().protocCoordinate());
+        bom.orElseThrow().versions().orElseGet(Map::of).forEach((coordinate, version) ->
+                addPlatform(references, alias, ManifestSections.BOM_VERSIONS, coordinate, version.selector()));
+        bom.orElseThrow().imports().orElseGet(Map::of).forEach((coordinate, selector) ->
+                addPlatform(references, alias, ManifestSections.BOM_IMPORTS, coordinate, selector));
+    }
+
+    private static void collectGeneratedTools(
+            AuthoredManifest manifest, String alias, Map<String, AliasReference> references) {
+        manifest.generated().ifPresent(generated -> generated.tools().declarations()
+                .forEach((id, tool) -> collectTool(references, alias, id, tool)));
+    }
+
+    private static void collectTool(
+            Map<String, AliasReference> references,
+            String alias,
+            LocalId id,
+            AuthoredGeneratedTool tool) {
+        String section = ManifestSections.generatedTool(id);
+        switch (tool) {
+            case AuthoredGeneratedTool.OpenApi openApi -> addTool(
+                    references, alias, section + ".versionRef", openApi.coordinate(), openApi.version());
+            case AuthoredGeneratedTool.Protobuf protobuf -> {
+                addTool(
+                        references,
+                        alias,
+                        section + ".protocVersionRef",
+                        protobuf.protocCoordinate(),
+                        protobuf.protocVersion());
+                addTool(
+                        references,
+                        alias,
+                        section + ".grpcVersionRef",
+                        protobuf.grpcCoordinate(),
+                        protobuf.grpcVersion());
+            }
+            case AuthoredGeneratedTool.Jvm jvm -> {
+                for (GeneratedArtifactRequest request : jvm.coordinates()) {
+                    addTool(
+                            references,
+                            alias,
+                            section + ".coordinates",
+                            Optional.of(request.coordinate()),
+                            Optional.of(request.selector()));
+                }
+            }
+            case AuthoredGeneratedTool.Process ignored -> {
+                // A process tool declares no artifact coordinate and cannot reference an alias.
+            }
         }
-        if (step.protobuf().grpcPluginVersionRef().filter(alias::equals).isPresent()) {
-            add(references, "[generated.protobufTool].grpcPluginVersionRef", step.protobuf().grpcPluginCoordinate());
+    }
+
+    private static void addTool(
+            Map<String, AliasReference> references,
+            String alias,
+            String label,
+            Optional<DependencyCoordinate> coordinate,
+            Optional<DependencySelector> selector) {
+        if (selector.isEmpty()
+                || !(selector.orElseThrow() instanceof DependencySelector.VersionReference reference)
+                || !reference.alias().value().equals(alias)) {
+            return;
+        }
+        add(references, label, coordinate.map(DependencyCoordinate::value));
+    }
+
+    private static void addPlatform(
+            Map<String, AliasReference> references,
+            String alias,
+            String section,
+            DependencyCoordinate coordinate,
+            PlatformSelector selector) {
+        if (selector instanceof PlatformSelector.VersionReference reference
+                && reference.alias().value().equals(alias)) {
+            add(references, section + "." + coordinate.value(), Optional.of(coordinate.value()));
         }
     }
 

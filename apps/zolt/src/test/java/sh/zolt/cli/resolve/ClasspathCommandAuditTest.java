@@ -25,11 +25,11 @@ final class ClasspathCommandAuditTest {
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Classpath lane audit"));
         assertTrue(result.stdout().contains(
-                "provided            yes     no      no   no        no             no              no           no            no            no              provided-container"));
+                "provided            yes     no      yes  no        no             no              no           no            no            no              provided-container"));
         assertTrue(result.stdout().contains(
-                "- com.example:devtools:1.0.0 [dev] lanes=runtime,test package=development-only"));
+                "- com.example:devtools:1.0.0 [dev] lanes=runtime package=development-only"));
         assertTrue(result.stdout().contains(
-                "- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile package=provided-container"));
+                "- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile,test package=provided-container"));
         assertEquals("", result.stderr());
     }
 
@@ -43,7 +43,7 @@ final class ClasspathCommandAuditTest {
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("\"command\": \"classpath audit\""));
         assertTrue(result.stdout().contains("\"scope\": \"provided\""));
-        assertTrue(result.stdout().contains("\"lanes\": [\"compile\"]"));
+        assertTrue(result.stdout().contains("\"lanes\": [\"compile\", \"test\"]"));
         assertTrue(result.stdout().contains("\"disposition\": \"provided-container\""));
         assertEquals("", result.stderr());
     }
@@ -52,7 +52,7 @@ final class ClasspathCommandAuditTest {
     void classpathJsonFormatIsOnlyForAudit() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         Files.createDirectories(projectDir);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute("classpath", "--cwd", projectDir.toString(), "compile", "--format", "json");
 
@@ -63,7 +63,21 @@ final class ClasspathCommandAuditTest {
     private static void writeAuditLockfile(Path projectDir) throws IOException {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
 
                 [[package]]
                 id = "jakarta.servlet:jakarta.servlet-api"

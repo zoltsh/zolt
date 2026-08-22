@@ -24,7 +24,7 @@ final class CliMachineReadableContractTest {
         Path projectDir = tempDir.resolve("plan-contract");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("plan-contract"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "--color=always",
@@ -175,7 +175,14 @@ final class CliMachineReadableContractTest {
         Path cacheRoot = tempDir.resolve("cache");
         Files.createDirectories(projectDir);
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"
@@ -329,13 +336,23 @@ final class CliMachineReadableContractTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
 
                 [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                central = false
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
                 """);
     }
 
     private static void writeLockfile(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:app"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:app"

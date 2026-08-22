@@ -29,11 +29,12 @@ final class PlanCommandGeneratedNativeTest {
                 [versions]
                 openapi = "7.11.0"
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
-                [generated.openapiPresets.spring-api]
+                [generated.presets.spring-api]
+                kind = "openapi"
                 generator = "spring"
                 library = "spring-boot"
                 options = { interfaceOnly = "true" }
@@ -73,7 +74,7 @@ final class PlanCommandGeneratedNativeTest {
         Files.setLastModifiedTime(input, FileTime.fromMillis(2_000));
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("plan-stale-generated-source")
                 + generatedSourceConfig("main", "openapi", "target/generated/sources/openapi", "src/main/openapi/api.yaml", true));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute("plan", "--target", "build", "--cwd", projectDir.toString());
 
@@ -92,7 +93,7 @@ final class PlanCommandGeneratedNativeTest {
                 name = "plan-native"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.DemoApplication"
 
                 [platforms]
@@ -101,15 +102,22 @@ final class PlanCommandGeneratedNativeTest {
                 [dependencies]
                 "org.springframework.boot:spring-boot-starter-web" = "3.3.6"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
 
                 [native]
-                imageName = "plan-native"
+                name = "plan-native"
                 args = ["--no-fallback"]
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.springframework.boot:spring-boot-starter-web"
+                version = "3.3.6"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot-starter-web"

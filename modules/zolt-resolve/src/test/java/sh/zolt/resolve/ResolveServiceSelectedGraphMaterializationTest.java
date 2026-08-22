@@ -9,7 +9,7 @@ import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.support.ResolveServiceTestSupport;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
@@ -46,15 +46,18 @@ final class ResolveServiceSelectedGraphMaterializationTest extends ResolveServic
 
         ResolveResult result = resolveService.resolve(
                 project,
-                new ZoltTomlParser().parse("""
+                new ManifestProjectConfigLoader().load("""
                         [project]
                         name = "selected-graph"
                         version = "0.1.0"
                         group = "com.example"
-                        java = "21"
+                        java = 21
 
                         [repositories]
-                        test = "%s"
+                        central = false
+
+                        [repositories.test]
+                        url = "%s"
 
                         [dependencies]
                         "com.example:root-a" = "1.0.0"
@@ -77,15 +80,18 @@ final class ResolveServiceSelectedGraphMaterializationTest extends ResolveServic
         addArtifact("com.example", "engine", "1.0.0", pomWithVersionedChild("1.0.0", "driver", "1.0.0"));
         addArtifact("com.example", "engine", "2.0.0", pomWithVersionedChild("2.0.0", "driver", "2.0.0"));
         addArtifact("com.example", "root-a", "1.0.0", rootPom("root-a", "1.0.0"));
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "selected-graph"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "com.example:root-a" = "1.0.0"
@@ -149,15 +155,18 @@ final class ResolveServiceSelectedGraphMaterializationTest extends ResolveServic
     }
 
     private ProjectConfig config(DependencyScope firstScope, DependencyScope secondScope) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "selected-graph"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [%s]
                 "com.example:first-root" = "1.0.0"
@@ -173,7 +182,7 @@ final class ResolveServiceSelectedGraphMaterializationTest extends ResolveServic
     private static String section(DependencyScope scope) {
         return scope == DependencyScope.COMPILE
                 ? "dependencies"
-                : scope.lockfileName() + ".dependencies";
+                : "dependencies." + scope.lockfileName();
     }
 
     private static String simplePom(String artifactId) {

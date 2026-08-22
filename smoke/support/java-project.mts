@@ -15,10 +15,8 @@ export async function writeJavaProject(directory: string, spec: JavaProjectSpec)
     `name = "${spec.name}"`,
     'version = "0.1.0"',
     'group = "com.example"',
-    `java = "${spec.java}"`,
+    `java = ${spec.java}`,
     'main = "com.example.Main"',
-    "",
-    "[dependencies]",
     "",
   ].join("\n"), "utf8");
   await writeFile(join(sourceDirectory, "Main.java"), spec.source, "utf8");

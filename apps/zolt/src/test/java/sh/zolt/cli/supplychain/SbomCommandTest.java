@@ -1,5 +1,6 @@
 package sh.zolt.cli.supplychain;
 
+import static sh.zolt.cli.CliTestSupport.bomConfig;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,6 +66,23 @@ final class SbomCommandTest {
     }
 
     @Test
+    void bomWithoutAResolvedGraphProducesMetadataOnly() throws IOException {
+        Path projectDir = tempDir.resolve("platform");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("zolt.toml"), bomConfig("platform") + """
+
+                [bom.versions]
+                "org.postgresql:postgresql" = "42.7.4"
+                """);
+
+        CommandResult result = execute("sbom", "--cwd", projectDir.toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("pkg:maven/com.example/platform@0.1.0?type=pom"), result.stdout());
+        assertTrue(result.stderr().contains("contains only BOM metadata"), result.stderr());
+    }
+
+    @Test
     void refusesLegacyAmbiguityHiddenByOptionalScopeFiltering() throws IOException {
         for (String hiddenScope : new String[] {"provided", "test", "processor"}) {
             Path projectDir = tempDir.resolve("ambiguous-" + hiddenScope);
@@ -88,7 +106,7 @@ final class SbomCommandTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo"));
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
                 projectResolutionFingerprint = "sha256:cli-fixture"
 
                 [[package]]
@@ -100,6 +118,14 @@ final class SbomCommandTest {
                 jar = "org/example/lib/1.0.0/lib-1.0.0.jar"
                 jarSha256 = "1111111111111111111111111111111111111111111111111111111111111111"
                 dependencies = []
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+                optional = false
                 """);
     }
 
@@ -108,7 +134,7 @@ final class SbomCommandTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo"));
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 2
+                version = 7
 
                 [[package]]
                 id = "org.example:parent"
@@ -139,6 +165,14 @@ final class SbomCommandTest {
                 jar = "org/example/shared/1.0.0/shared-1.0.0.jar"
                 jarSha256 = "%s"
                 dependencies = []
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:parent"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+                optional = false
                 """.formatted("1".repeat(64), "2".repeat(64), hiddenScope, "2".repeat(64)));
     }
 

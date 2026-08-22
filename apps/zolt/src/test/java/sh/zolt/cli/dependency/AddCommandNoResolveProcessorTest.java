@@ -27,20 +27,20 @@ final class AddCommandNoResolveProcessorTest {
                 "add",
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
-                "processor",
-                "org.mapstruct:mapstruct-processor:1.6.3");
+                "org.mapstruct:mapstruct-processor:1.6.3",
+                "--scope", "processor");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains(
-                "\u001B[32m✔\u001B[0m Added dependency org.mapstruct:mapstruct-processor:1.6.3 to [annotationProcessors]"));
+                "\u001B[32m✔\u001B[0m Added dependency org.mapstruct:mapstruct-processor:1.6.3 to [dependencies.processor]"));
         assertFalse(result.stdout().contains(
-                "\u001B[32mAdded dependency org.mapstruct:mapstruct-processor:1.6.3 to [annotationProcessors]\u001B[0m"));
+                "\u001B[32mAdded dependency org.mapstruct:mapstruct-processor:1.6.3 to [dependencies.processor]\u001B[0m"));
         assertTrue(result.stdout().contains(
                 "\u001B[32mSkipped\u001B[0m resolve; run zolt resolve to refresh zolt.lock."));
         assertFalse(result.stdout().contains(
                 "\u001B[32mSkipped resolve; run zolt resolve to refresh zolt.lock.\u001B[0m"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(config.contains("[annotationProcessors]"));
+        assertTrue(config.contains("[dependencies.processor]"));
         assertTrue(config.contains("\"org.mapstruct:mapstruct-processor\" = \"1.6.3\""));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
     }
@@ -55,15 +55,15 @@ final class AddCommandNoResolveProcessorTest {
                 "--cwd", projectDir.toString(),
                 "--no-resolve",
                 "--managed",
-                "test-processor",
-                "io.micronaut:micronaut-inject-java");
+                "io.micronaut:micronaut-inject-java",
+                "--scope", "test-processor");
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(result.stdout().contains(
-                "Added dependency io.micronaut:micronaut-inject-java with a platform-managed version to [test.annotationProcessors]"));
+                "Added dependency io.micronaut:micronaut-inject-java with a platform-managed version to [dependencies.test-processor]"));
         String config = Files.readString(projectDir.resolve("zolt.toml"));
-        assertTrue(config.contains("[test.annotationProcessors]"));
-        assertTrue(config.contains("\"io.micronaut:micronaut-inject-java\" = {}"));
+        assertTrue(config.contains("[dependencies.test-processor]"));
+        assertTrue(config.contains("\"io.micronaut:micronaut-inject-java\" = { managed = true }"));
         assertFalse(Files.exists(projectDir.resolve("zolt.lock")));
     }
 }

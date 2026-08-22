@@ -1,6 +1,6 @@
 package sh.zolt.workspace.publish;
 
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -20,20 +20,20 @@ import java.util.Optional;
  * runs, not a member build.
  */
 public final class WorkspaceMemberDirectory {
-    private final WorkspaceDiscoveryService discoveryService;
+    private final ManifestWorkspaceLoader workspaceLoader;
 
     public WorkspaceMemberDirectory() {
-        this(new WorkspaceDiscoveryService());
+        this(new ManifestWorkspaceLoader());
     }
 
-    public WorkspaceMemberDirectory(WorkspaceDiscoveryService discoveryService) {
-        this.discoveryService = discoveryService;
+    public WorkspaceMemberDirectory(ManifestWorkspaceLoader workspaceLoader) {
+        this.workspaceLoader = workspaceLoader;
     }
 
     /** The declared member whose directory is exactly {@code startDirectory}, if there is one. */
     public Optional<WorkspaceMember> at(Path startDirectory) {
         Path directory = startDirectory.toAbsolutePath().normalize();
-        return discoveryService.discover(directory)
+        return workspaceLoader.discover(directory)
                 .filter(candidate -> !candidate.root().toAbsolutePath().normalize().equals(directory))
                 .flatMap(candidate -> candidate.members().stream()
                         .filter(member -> member.directory().toAbsolutePath().normalize().equals(directory))

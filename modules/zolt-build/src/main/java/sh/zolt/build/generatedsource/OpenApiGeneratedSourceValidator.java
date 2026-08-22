@@ -45,7 +45,7 @@ final class OpenApiGeneratedSourceValidator {
         OpenApiGenerationSettings settings = step.openApi();
         if (settings.toolCoordinate().isEmpty() || settings.toolVersion().isEmpty()) {
             throw new BuildException(
-                    "OpenAPI generation requires [generated.openapiTool].coordinate and version. "
+                    "OpenAPI generation requires [generated.tools.openapi].coordinate and version. "
                             + "Add org.openapitools:openapi-generator-cli with version or versionRef, run `zolt resolve`, then retry.");
         }
         if (settings.generator().isEmpty()) {

@@ -26,7 +26,7 @@ final class ClasspathLaneAuditFormatterEnterpriseJsonTest {
                 "com.example:devtools:1.0.0",
                 "dev",
                 true,
-                "[\"runtime\", \"test\"]",
+                "[\"runtime\"]",
                 false,
                 "development-only");
         assertPackageAuditContains(
@@ -101,7 +101,56 @@ final class ClasspathLaneAuditFormatterEnterpriseJsonTest {
 
     private static ZoltLockfile enterpriseLaneLockfile() {
         return new ZoltLockfileReader().read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:compile-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:runtime-lib"
+                version = "1.0.0"
+                lane = "runtime"
+                resolvedScope = "runtime"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.junit.jupiter:junit-jupiter"
+                version = "5.11.4"
+                lane = "test"
+                resolvedScope = "test"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-processor"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "com.example:compile-lib"

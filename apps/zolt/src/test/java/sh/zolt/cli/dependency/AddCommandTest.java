@@ -39,7 +39,7 @@ final class AddCommandTest {
                     "--cache-root", tempDir.resolve("cache").toString(),
                     "com.example:app:1.0.0");
 
-            assertEquals(0, result.exitCode());
+            assertEquals(0, result.exitCode(), result.stderr());
             assertTrue(result.stdout().contains("Added dependency com.example:app:1.0.0 to [dependencies]"));
             assertTrue(result.stdout().contains("Resolved 1 packages"));
             assertTrue(result.stdout().contains("2 downloaded"));
@@ -60,12 +60,17 @@ final class AddCommandTest {
             Path workspace = tempDir.resolve("workspace");
             Path member = workspace.resolve("apps/api");
             Files.createDirectories(member);
-            Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+            Files.writeString(workspace.resolve("zolt.toml"), """
                     [workspace]
                     name = "workspace"
-                    members = ["apps/api"]
-                    """);
-            writeProjectConfig(member, repository.baseUri().toString());
+
+                    [workspace.members]
+                    include = ["apps/api"]
+
+                    [repositories.test]
+                    url = "%s"
+                    """.formatted(repository.baseUri().toString()));
+            writeMemberConfig(member, Map.of());
             Path cache = tempDir.resolve("workspace-cache");
             CommandResult initialResolve = execute(
                     "resolve", "--workspace", "--cwd", member.toString(), "--cache-root", cache.toString());
@@ -93,15 +98,17 @@ final class AddCommandTest {
             Path workspace = tempDir.resolve("remove-workspace");
             Path member = workspace.resolve("apps/api");
             Files.createDirectories(member);
-            Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+            Files.writeString(workspace.resolve("zolt.toml"), """
                     [workspace]
                     name = "workspace"
-                    members = ["apps/api"]
-                    """);
-            writeProjectConfig(
-                    member,
-                    repository.baseUri().toString(),
-                    Map.of("com.example:old", "1.0.0"));
+
+                    [workspace.members]
+                    include = ["apps/api"]
+
+                    [repositories.test]
+                    url = "%s"
+                    """.formatted(repository.baseUri().toString()));
+            writeMemberConfig(member, Map.of("com.example:old", "1.0.0"));
             Path cache = tempDir.resolve("remove-workspace-cache");
             CommandResult initialResolve = execute(
                     "resolve", "--workspace", "--cwd", member.toString(), "--cache-root", cache.toString());
@@ -147,15 +154,17 @@ final class AddCommandTest {
             Path workspace = tempDir.resolve("update-workspace");
             Path member = workspace.resolve("apps/api");
             Files.createDirectories(member);
-            Files.writeString(workspace.resolve("zolt-workspace.toml"), """
+            Files.writeString(workspace.resolve("zolt.toml"), """
                     [workspace]
                     name = "workspace"
-                    members = ["apps/api"]
-                    """);
-            writeProjectConfig(
-                    member,
-                    repository.baseUri().toString(),
-                    Map.of("com.example:library", "1.0.0"));
+
+                    [workspace.members]
+                    include = ["apps/api"]
+
+                    [repositories.test]
+                    url = "%s"
+                    """.formatted(repository.baseUri().toString()));
+            writeMemberConfig(member, Map.of("com.example:library", "1.0.0"));
             Path cache = tempDir.resolve("update-workspace-cache");
             CommandResult initialResolve = execute(
                     "resolve", "--workspace", "--cwd", member.toString(), "--cache-root", cache.toString());
@@ -186,15 +195,32 @@ final class AddCommandTest {
             Path projectDir,
             String repositoryUrl,
             Map<String, String> dependencies) throws IOException {
+        writeProjectConfig(projectDir, repositoryUrl, dependencies, true);
+    }
+
+    /** A workspace member inherits the root repository universe and declares none of its own. */
+    private static void writeMemberConfig(
+            Path memberDir,
+            Map<String, String> dependencies) throws IOException {
+        writeProjectConfig(memberDir, null, dependencies, false);
+    }
+
+    private static void writeProjectConfig(
+            Path projectDir,
+            String repositoryUrl,
+            Map<String, String> dependencies,
+            boolean ownRepository) throws IOException {
         Files.createDirectories(projectDir);
         StringBuilder config = new StringBuilder(memberConfig("demo") + """
                 main = "com.example.Main"
+                """ + (ownRepository ? """
 
-                [repositories]
-                test = "%s"
+                [repositories.test]
+                url = "%s"
+                """.formatted(repositoryUrl) : "") + """
 
                 [dependencies]
-                """.formatted(repositoryUrl));
+                """);
         dependencies.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> config.append('"')
@@ -204,13 +230,7 @@ final class AddCommandTest {
                         .append("\"\n"));
         config.append("""
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
         Files.writeString(projectDir.resolve("zolt.toml"), config.toString());
     }

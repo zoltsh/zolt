@@ -9,6 +9,10 @@ public final class BuildPlanFormatter {
         output.append("Zolt plan\n");
         output.append("Project: ").append(plan.projectName()).append('\n');
         output.append("Root: ").append(plan.projectRoot()).append('\n');
+        output.append("Lockfile: ")
+                .append(plan.lockfilePath())
+                .append(plan.workspaceLockfile() ? " (workspace)" : "")
+                .append('\n');
         output.append("Target: ").append(plan.target().configValue()).append('\n');
         output.append("Status: ").append(plan.blocked() ? "blocked" : "ready").append('\n');
         output.append("Nodes: ").append(plan.nodes().size()).append('\n');
@@ -50,6 +54,8 @@ public final class BuildPlanFormatter {
         json.append("{\n");
         field(json, 1, "schemaVersion", plan.schemaVersion(), true);
         stringField(json, 1, "projectRoot", path(plan.projectRoot()), true);
+        stringField(json, 1, "lockfilePath", path(plan.lockfilePath()), true);
+        field(json, 1, "workspaceLockfile", plan.workspaceLockfile(), true);
         stringField(json, 1, "project", plan.projectName(), true);
         stringField(json, 1, "target", plan.target().configValue(), true);
         stringField(json, 1, "status", plan.blocked() ? "blocked" : "ready", true);
@@ -104,6 +110,16 @@ public final class BuildPlanFormatter {
             indent(json, 3);
         }
         json.append("]");
+    }
+
+    private static void field(StringBuilder json, int level, String name, boolean value, boolean trailingComma) {
+        indent(json, level);
+        string(json, name);
+        json.append(": ").append(value);
+        if (trailingComma) {
+            json.append(',');
+        }
+        json.append('\n');
     }
 
     private static void field(StringBuilder json, int level, String name, int value, boolean trailingComma) {

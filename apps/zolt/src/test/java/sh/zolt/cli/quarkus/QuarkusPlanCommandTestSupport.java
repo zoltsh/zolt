@@ -19,33 +19,26 @@ final class QuarkusPlanCommandTestSupport {
 
     static void writeProjectConfig(Path projectDir, String outputRoot) throws IOException {
         Files.createDirectories(projectDir);
-        String output = outputRoot + "/classes";
-        String testOutput = outputRoot + "/test-classes";
+        // Output paths are relative to [build.output].root, so only the root moves.
+        String output = outputRoot.equals("target") ? "" : """
+
+                [build.output]
+                root = "%s"
+                """.formatted(outputRoot);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "https://repo.maven.apache.org/maven2"
-
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                outputRoot = "%s"
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "%s"
-                testOutput = "%s"
-                """.formatted(outputRoot, output, testOutput));
+                [dependencies.test]
+                """ + output);
     }
 
     static void enableQuarkus(Path projectDir) throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), Files.readString(projectDir.resolve("zolt.toml")) + """
 
-                [framework.quarkus]
-                enabled = true
-                package = "fast-jar"
+                [package]
+                mode = "quarkus"
                 """);
     }
 
@@ -68,7 +61,14 @@ final class QuarkusPlanCommandTestSupport {
 
     static void writeQuarkusPlanLockfile(Path projectDir, Path cacheRoot) throws IOException {
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "io.quarkus:quarkus-rest"
+                version = "3.33.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "io.quarkus:quarkus-rest"

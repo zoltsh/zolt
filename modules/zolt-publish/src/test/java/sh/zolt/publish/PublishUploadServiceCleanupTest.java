@@ -1,5 +1,6 @@
 package sh.zolt.publish;
 
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,7 +12,6 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.maven.repository.MavenRepositoryClient;
-import sh.zolt.toml.ZoltTomlParser;
 
 final class PublishUploadServiceCleanupTest {
     @TempDir
@@ -35,7 +35,7 @@ final class PublishUploadServiceCleanupTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(prefixedSha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (var recorder =
                 PublishUploadServiceSigningTest.Recorder.start()) {
@@ -44,10 +44,10 @@ final class PublishUploadServiceCleanupTest {
                     name = "cleanup-warning-lib"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "%d"
+                    java = %d
 
                     [publish]
-                    releaseRepository = "local"
+                    release = "local"
 
                     [publish.repositories.local]
                     url = "%s"
@@ -58,8 +58,8 @@ final class PublishUploadServiceCleanupTest {
             Function<String, String> environment = key -> null;
             PublishUploadService service = new PublishUploadService(
                     new PublishDryRunService(environment),
-                    new ZoltTomlParser(),
-                    new PublishSettingsReader(),
+                    new ManifestProjectConfigLoader(),
+                    new ManifestPublishSettingsLoader(),
                     new MavenRepositoryClient(),
                     environment,
                     manifest -> java.util.Optional.of(

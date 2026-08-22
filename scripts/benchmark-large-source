@@ -307,11 +307,15 @@ generate_zolt_fixture() {
   cat >"$ZOLT_PROJECT/zolt.toml" <<EOF
 [workspace]
 name = "large-source"
-members = [$member_list]
-defaultMembers = ["$last"]
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[workspace.members]
+default = ["$last"]
+include = [$member_list]
+
+[workspace.project]
+group = "com.example.large"
+version = "0.1.0"
+java = 21
 EOF
 
   local index
@@ -325,25 +329,15 @@ EOF
     cat >"$ZOLT_PROJECT/$module/zolt.toml" <<EOF
 [project]
 name = "$module"
-version = "0.1.0"
-group = "com.example.large"
-java = "21"
-
-[dependencies]
 EOF
     if [[ -n "$previous" ]]; then
-      printf '"com.example.large:%s" = { workspace = "%s" }\n' "$previous" "$previous" >>"$ZOLT_PROJECT/$module/zolt.toml"
+      printf '\n[dependencies]\n' >>"$ZOLT_PROJECT/$module/zolt.toml"
+      printf '"com.example.large:%s" = { workspace = true }\n' "$previous" >>"$ZOLT_PROJECT/$module/zolt.toml"
     fi
     cat >>"$ZOLT_PROJECT/$module/zolt.toml" <<'EOF'
 
-[test.dependencies]
+[dependencies.test]
 "org.junit.jupiter:junit-jupiter" = "5.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
 EOF
     generate_sources "$ZOLT_PROJECT" "$module" "$previous"
   done

@@ -35,7 +35,7 @@ final class PublishCommandEvidenceTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-dry-run-supplemental-artifacts-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"
@@ -50,14 +50,14 @@ final class PublishCommandEvidenceTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-supplemental-artifacts") + """
 
                 [package]
                 sources = true
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -91,11 +91,11 @@ final class PublishCommandEvidenceTest {
                 }
                 """.formatted(sha256(artifact)));
         Files.writeString(artifact, "tampered\n", StandardOpenOption.APPEND);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-stale-package-evidence") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -131,11 +131,11 @@ final class PublishCommandEvidenceTest {
                   "archiveSha256": "%s"
                 }
                 """.formatted(sha256(artifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-evidence-archive-mismatch") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"

@@ -25,10 +25,10 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
-                excludeClassname = ["*ContractTest"]
-                includeTag = ["fast"]
-                excludeTag = ["slow"]
+                classes = ["*Test"]
+                excludeClasses = ["*ContractTest"]
+                tags = ["fast"]
+                excludeTags = ["slow"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/FastServiceTest.class");
         writeClass(projectDir, "target/test-classes/com/example/UserContractTest.class");
@@ -61,7 +61,7 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*MissingTest"]
+                classes = ["*MissingTest"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/FastServiceTest.class");
 
@@ -85,10 +85,10 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
 
                 [test.suites.contract]
-                includeClassname = ["*ContractTest"]
+                classes = ["*ContractTest"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/UserContractTest.class");
 
@@ -128,7 +128,7 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/AlphaTest.class");
         writeClass(projectDir, "target/test-classes/com/example/BetaTest.class");
@@ -156,7 +156,7 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         appendSuite(projectDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
                 """);
         writeClass(projectDir, "target/test-classes/com/example/AlphaTest.class");
         writeClass(projectDir, "target/test-classes/com/example/BetaTest.class");
@@ -206,13 +206,30 @@ final class TestPlanCommandTest extends TestCommandTestSupport {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-shard-plan-json"
-                members = ["modules/api"]
+
+                [workspace.members]
+                include = ["modules/api"]
+
+                [repositories]
+                central = false
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
                 """);
         writeProjectConfig(memberDir, "https://repo.maven.apache.org/maven2");
+        // A workspace member cannot own dependency repositories; the root universe is authoritative.
+        Files.writeString(memberDir.resolve("zolt.toml"),
+                Files.readString(memberDir.resolve("zolt.toml")).replace("""
+                        [repositories]
+                        central = false
+
+                        [repositories.test]
+                        url = "https://repo.maven.apache.org/maven2"
+                        """.replace("                        ", "                "), ""));
         appendSuite(memberDir, """
 
                 [test.suites.fast]
-                includeClassname = ["*Test"]
+                classes = ["*Test"]
                 """);
         writeClass(memberDir, "target/test-classes/com/example/AlphaTest.class");
         writeClass(memberDir, "target/test-classes/com/example/BetaTest.class");

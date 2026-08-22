@@ -29,7 +29,21 @@ final class WorkspaceClasspathScopeIdentityTest {
         createFile(apiJar);
         createFile(helperJar);
         ZoltLockfile lockfile = WorkspaceContentAddressedLockTestSupport.migrate(tempDir.resolve("cache"), """
-                version = 3
+                version = 7
+
+                [[dependencyRoot]]
+                member = "modules/core"
+                id = "com.example:api-lib"
+                version = "1.0.0"
+                lane = "api"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/worker"
+                id = "com.example:helper"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:api-lib"
@@ -75,13 +89,13 @@ final class WorkspaceClasspathScopeIdentityTest {
 
     private Workspace workspace() throws IOException {
         List<String> members = List.of("modules/core", "apps/api", "apps/worker");
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), "");
+        Files.writeString(tempDir.resolve("zolt.toml"), "");
         for (String member : members) {
             Files.createDirectories(tempDir.resolve(member));
         }
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("acme-platform", members, List.of(), Map.of(), Map.of()),
                 members.stream()
                         .map(member -> new WorkspaceMember(member, tempDir.resolve(member), null))

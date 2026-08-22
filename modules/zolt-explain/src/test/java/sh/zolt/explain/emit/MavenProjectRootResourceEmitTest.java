@@ -1,15 +1,11 @@
 package sh.zolt.explain.emit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.explain.maven.MavenStaticProjectInspector;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -17,7 +13,7 @@ final class MavenProjectRootResourceEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void dropsBareProjectRootResourceRootAndAnnotatesIt() throws IOException {
@@ -52,19 +48,20 @@ final class MavenProjectRootResourceEmitTest {
                 """);
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
-        ProjectConfig config = draft.config();
 
-        assertEquals(List.of("src/main/resources"), config.build().resourceRoots());
-        assertFalse(config.build().resourceRoots().contains("./"), config.build().resourceRoots().toString());
-        assertFalse(config.build().resourceRoots().contains("."), config.build().resourceRoots().toString());
+        // The project root is dropped, leaving only the Zolt convention `src/main/resources`, which the
+        // sparse manifest omits entirely. Had the bare root survived, the root list would no longer be
+        // conventional and [resources] would have to be authored.
+        assertTrue(draft.manifest().build().resources().isEmpty(),
+                () -> draft.manifest().build().resources().toString());
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
-                        note.contains("project-root") && note.contains("resource")),
+                        note.contains("project-root") && note.contains("resource") && note.contains("dropped")),
                 draft.notes().toString());
     }
 
     @Test
-    void genuineResourceRootEmitsUnchangedWithNoNote() throws IOException {
+    void conventionalResourceRootIsOmittedWithNoNote() throws IOException {
         Files.createDirectories(tempDir.resolve("src/main/resources"));
         Files.createDirectories(tempDir.resolve("src/main/java/com/ex"));
         Files.writeString(tempDir.resolve("src/main/java/com/ex/App.java"), "package com.ex; public class App { }\n");
@@ -88,9 +85,14 @@ final class MavenProjectRootResourceEmitTest {
 
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
 
-        assertEquals(List.of("src/main/resources"), draft.config().build().resourceRoots());
+        assertTrue(draft.manifest().build().resources().isEmpty(),
+                () -> draft.manifest().build().resources().toString());
         assertTrue(
                 draft.notes().stream().noneMatch(note -> note.contains("project-root")),
+                draft.notes().toString());
+        // A genuine root is carried silently: nothing was dropped and nothing was reported unmappable.
+        assertTrue(
+                draft.notes().stream().noneMatch(note -> note.contains("resource root")),
                 draft.notes().toString());
     }
 }

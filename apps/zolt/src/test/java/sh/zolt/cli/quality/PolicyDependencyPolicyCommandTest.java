@@ -24,7 +24,7 @@ final class PolicyDependencyPolicyCommandTest {
         Path projectDir = tempDir.resolve("check-dependency-policy-empty");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), CliTestSupport.memberConfig("check-dependency-policy-empty"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -52,7 +52,7 @@ final class PolicyDependencyPolicyCommandTest {
         assertTrue(result.stdout().contains(
                 "ok dependency-policy demo Dependency policy baseline is explainable: 1 platform, 2 constraints, 3 exclusions, and 1 direct explicit version."));
         assertTrue(result.stdout().contains(
-                "error dependency-policy [dependencyPolicy].exclude com.example:direct-lib Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency."));
+                "error dependency-policy [dependencies.policy].deny com.example:direct-lib Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency."));
         assertTrue(result.stdout().contains(
                 "next: Remove the direct dependency, or remove the exclusion if the dependency is intentional."));
         assertEquals("", result.stderr());
@@ -66,10 +66,12 @@ final class PolicyDependencyPolicyCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-policy-empty"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -88,12 +90,14 @@ final class PolicyDependencyPolicyCommandTest {
     void checkWorkspaceDependencyPolicyReportsSelectedMemberConflicts() throws IOException {
         Path workspaceDir = tempDir.resolve("check-workspace-dependency-policy-direct-conflict");
         Path apiDir = workspaceDir.resolve("apps/api");
-        PolicyCommandTestSupport.writePolicyProject(apiDir);
+        PolicyCommandTestSupport.writePolicyMember(apiDir);
         PolicyCommandTestSupport.writePolicyLockfile(workspaceDir);
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-policy-direct-conflict"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
 
         CommandResult result = execute(
@@ -107,7 +111,7 @@ final class PolicyDependencyPolicyCommandTest {
         assertTrue(result.stdout().contains(
                 "ok dependency-policy apps/api demo Dependency policy baseline is explainable: 1 platform, 2 constraints, 3 exclusions, and 1 direct explicit version."));
         assertTrue(result.stdout().contains(
-                "error dependency-policy apps/api [dependencyPolicy].exclude com.example:direct-lib Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency."));
+                "error dependency-policy apps/api [dependencies.policy].deny com.example:direct-lib Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency."));
         assertTrue(result.stdout().contains(
                 "next: Remove the direct dependency, or remove the exclusion if the dependency is intentional."));
         assertEquals("", result.stderr());
@@ -121,11 +125,13 @@ final class PolicyDependencyPolicyCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-policy-malformed-lockfile"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api"));
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
-                version = 5
+                version = 7
 
                 [[package]]
                 id = 42
@@ -152,7 +158,9 @@ final class PolicyDependencyPolicyCommandTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-workspace-dependency-policy-remediation"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), CliTestSupport.memberConfig("api") + """
 
@@ -160,7 +168,14 @@ final class PolicyDependencyPolicyCommandTest {
                 "com.example:lib" = "1.0.0"
                 """);
         Files.writeString(workspaceDir.resolve("zolt.lock"), """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:lib"
+                version = "2.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:lib"

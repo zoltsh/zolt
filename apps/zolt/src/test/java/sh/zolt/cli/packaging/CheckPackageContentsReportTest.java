@@ -43,7 +43,7 @@ final class CheckPackageContentsReportTest {
                                 "tomcat-embed-core",
                                 "10.1.40")
                         + " by package rule `war-runtime-lib`."));
-        assertTrue(result.stdout().contains("next: Move it to [provided.dependencies]"));
+        assertTrue(result.stdout().contains("next: Move it to [dependencies.provided]"));
     }
 
     @Test

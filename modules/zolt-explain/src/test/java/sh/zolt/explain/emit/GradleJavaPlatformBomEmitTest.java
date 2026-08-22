@@ -1,13 +1,10 @@
 package sh.zolt.explain.emit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.explain.gradle.GradleStaticProjectInspector;
-import sh.zolt.project.BomSettings;
-import sh.zolt.project.PackageMode;
-import sh.zolt.project.ProjectConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,7 +20,7 @@ final class GradleJavaPlatformBomEmitTest {
     @TempDir
     private Path tempDir;
 
-    private final InspectionToProjectConfig mapper = new InspectionToProjectConfig();
+    private final InspectionToManifest mapper = new InspectionToManifest();
 
     @Test
     void groovyJavaPlatformDraftsBomMember() throws IOException {
@@ -48,26 +45,24 @@ final class GradleJavaPlatformBomEmitTest {
                 """);
 
         DraftZoltToml draft = draft();
-        ProjectConfig config = draft.config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft);
 
-        assertEquals(PackageMode.BOM, config.packageSettings().mode());
-        BomSettings bom = config.packageSettings().bom();
+        assertTrue(subject.bom().isPresent(),
+                () -> "a java-platform project must draft a [bom] member: " + subject.manifest());
         // The platform() import becomes a [bom.imports] entry.
-        assertTrue(bom.imports().stream().anyMatch(imported ->
-                        imported.coordinate().equals("com.fasterxml.jackson:jackson-bom")
-                                && imported.version().equals("2.18.2")),
-                () -> "platform() import must become a [bom.imports] entry: " + bom.imports());
+        assertEquals("2.18.2", subject.bomImports().get("com.fasterxml.jackson:jackson-bom"),
+                () -> "platform() import must become a [bom.imports] entry: " + subject.bomImports());
         // The constraints become [bom.versions] entries (api and runtime alike).
-        assertTrue(bom.versions().stream().anyMatch(version ->
-                        version.coordinate().equals("com.example:lib-a") && version.version().equals("1.2.0")),
-                () -> "api constraint must become a [bom.versions] pin: " + bom.versions());
-        assertTrue(bom.versions().stream().anyMatch(version ->
-                        version.coordinate().equals("com.example:lib-b") && version.version().equals("3.4.5")),
-                () -> "runtime constraint must become a [bom.versions] pin: " + bom.versions());
+        assertEquals("1.2.0", subject.bomVersions().get("com.example:lib-a"),
+                () -> "api constraint must become a [bom.versions] pin: " + subject.bomVersions());
+        assertEquals("3.4.5", subject.bomVersions().get("com.example:lib-b"),
+                () -> "runtime constraint must become a [bom.versions] pin: " + subject.bomVersions());
         // A BOM carries no dependencies and no source scaffolding.
-        assertTrue(config.dependencies().isEmpty());
-        assertTrue(config.apiDependencies().isEmpty(),
-                () -> "api platform()/plain deps must not land in [api.dependencies]: " + config.apiDependencies());
+        assertTrue(subject.manifest().dependencies().isEmpty(),
+                () -> "a drafted BOM must carry no [dependencies]: " + subject.manifest().dependencies());
+        assertTrue(subject.coordinates(DependencyLane.API).isEmpty(),
+                () -> "api platform()/plain deps must not land in [dependencies.api]: "
+                        + subject.coordinates(DependencyLane.API));
         // The allowDependencies() plain dep becomes a review note, not a dependency.
         assertTrue(draft.notes().stream().anyMatch(note ->
                         note.contains("org.postgresql:postgresql")
@@ -95,20 +90,18 @@ final class GradleJavaPlatformBomEmitTest {
                 }
                 """);
 
-        ProjectConfig config = draft().config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft());
 
-        assertEquals(PackageMode.BOM, config.packageSettings().mode());
-        BomSettings bom = config.packageSettings().bom();
-        assertTrue(bom.imports().stream().anyMatch(imported ->
-                        imported.coordinate().equals("com.fasterxml.jackson:jackson-bom")
-                                && imported.version().equals("2.18.2")),
-                () -> "Kotlin-DSL platform() import must become a [bom.imports] entry: " + bom.imports());
-        assertTrue(bom.versions().stream().anyMatch(version ->
-                        version.coordinate().equals("com.example:lib-a") && version.version().equals("1.2.0")),
-                () -> "Kotlin-DSL constraint must become a [bom.versions] pin: " + bom.versions());
-        assertTrue(bom.versions().stream().anyMatch(version ->
-                        version.coordinate().equals("com.example:lib-b") && version.version().equals("3.4.5")),
-                () -> "Kotlin-DSL runtime constraint must become a [bom.versions] pin: " + bom.versions());
+        assertTrue(subject.bom().isPresent(),
+                () -> "a Kotlin-DSL java-platform project must draft a [bom] member: " + subject.manifest());
+        assertEquals("2.18.2", subject.bomImports().get("com.fasterxml.jackson:jackson-bom"),
+                () -> "Kotlin-DSL platform() import must become a [bom.imports] entry: "
+                        + subject.bomImports());
+        assertEquals("1.2.0", subject.bomVersions().get("com.example:lib-a"),
+                () -> "Kotlin-DSL constraint must become a [bom.versions] pin: " + subject.bomVersions());
+        assertEquals("3.4.5", subject.bomVersions().get("com.example:lib-b"),
+                () -> "Kotlin-DSL runtime constraint must become a [bom.versions] pin: "
+                        + subject.bomVersions());
     }
 
     @Test
@@ -132,12 +125,11 @@ final class GradleJavaPlatformBomEmitTest {
                 }
                 """);
 
-        ProjectConfig config = draft().config();
+        DraftManifestSubject subject = DraftManifestSubject.of(draft());
 
-        BomSettings bom = config.packageSettings().bom();
-        assertTrue(bom.versions().stream().anyMatch(version ->
-                        version.coordinate().equals("com.example:lib-a") && version.version().equals("1.2.0")),
-                () -> "version-catalog constraint must resolve into [bom.versions]: " + bom.versions());
+        assertEquals("1.2.0", subject.bomVersions().get("com.example:lib-a"),
+                () -> "version-catalog constraint must resolve into [bom.versions]: "
+                        + subject.bomVersions());
     }
 
     @Test
@@ -157,14 +149,14 @@ final class GradleJavaPlatformBomEmitTest {
                 """);
 
         var result = new GradleStaticProjectInspector().inspect(tempDir);
-        DraftZoltToml draft = mapper.fromGradle(result);
+        DraftManifestSubject subject = DraftManifestSubject.of(mapper.fromGradle(result));
 
         assertTrue(result.signals().stream().anyMatch(signal ->
                         signal.id().equals("gradle.dependency.dynamic-version")),
                 () -> "an interpolated constraint must raise a signal rather than vanish: " + result.signals());
-        assertTrue(draft.config().packageSettings().bom().versions().isEmpty(),
+        assertTrue(subject.bomVersions().isEmpty(),
                 () -> "the unresolved constraint must not be guessed into [bom.versions]: "
-                        + draft.config().packageSettings().bom().versions());
+                        + subject.bomVersions());
     }
 
     private DraftZoltToml draft() throws IOException {

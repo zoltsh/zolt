@@ -18,7 +18,7 @@ import sh.zolt.workspace.resolve.WorkspaceLockFreshness;
 import sh.zolt.workspace.resolve.WorkspaceLockFreshnessService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.perf.TimingRecorder;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -31,7 +31,7 @@ public final class CommandLockfiles {
     public static final String WORKSPACE_FRESHNESS_PHASE = "workspace lock freshness";
 
     private final ProjectResolve projectResolve;
-    private final WorkspaceDiscoveryService workspaceDiscoveryService;
+    private final ManifestWorkspaceLoader workspaceLoader;
     private final WorkspaceLockFreshnessService workspaceLockFreshnessService;
     private final ZoltLockfileReader lockfileReader;
     private VerifiedArtifactIndex artifactIndex;
@@ -53,18 +53,18 @@ public final class CommandLockfiles {
     private CommandLockfiles(CommandResolveServices services) {
         this(
                 services.resolveService(),
-                new WorkspaceDiscoveryService(),
+                new ManifestWorkspaceLoader(),
                 services.workspaceResolveService());
     }
 
     public CommandLockfiles(
             ResolveService resolveService,
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             WorkspaceResolveService workspaceResolveService) {
         this(
                 (workingDirectory, config, cacheRoot, locked, options) -> resolveService.resolve(
                         workingDirectory, config, cacheRoot, locked, options),
-                workspaceDiscoveryService,
+                workspaceLoader,
                 workspaceResolveService,
                 new ZoltLockfileReader(),
                 new VerifiedArtifactIndex());
@@ -72,14 +72,14 @@ public final class CommandLockfiles {
 
     CommandLockfiles(
             ProjectResolve projectResolve,
-            WorkspaceDiscoveryService workspaceDiscoveryService,
+            ManifestWorkspaceLoader workspaceLoader,
             WorkspaceResolveService workspaceResolveService,
             ZoltLockfileReader lockfileReader,
             VerifiedArtifactIndex artifactIndex) {
         this.projectResolve = projectResolve;
-        this.workspaceDiscoveryService = workspaceDiscoveryService;
+        this.workspaceLoader = workspaceLoader;
         this.workspaceLockFreshnessService = new WorkspaceLockFreshnessService(
-                workspaceDiscoveryService,
+                workspaceLoader,
                 workspaceResolveService);
         this.lockfileReader = lockfileReader;
         this.artifactIndex = artifactIndex;
@@ -122,7 +122,7 @@ public final class CommandLockfiles {
 
     private void redirectWorkspaceMemberToWorkspacePath(Path workingDirectory, String retryCommand) {
         Path normalizedDirectory = workingDirectory.toAbsolutePath().normalize();
-        Optional<Workspace> workspace = workspaceDiscoveryService.discover(normalizedDirectory);
+        Optional<Workspace> workspace = workspaceLoader.discover(normalizedDirectory);
         if (workspace.isEmpty()) {
             return;
         }

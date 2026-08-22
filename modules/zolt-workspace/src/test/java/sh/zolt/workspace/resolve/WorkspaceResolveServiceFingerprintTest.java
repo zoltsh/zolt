@@ -10,7 +10,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.resolve.ResolveResult;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -72,7 +72,7 @@ final class WorkspaceResolveServiceFingerprintTest {
         String committed = Files.readString(result.lockfilePath());
         assertEquals(
                 WorkspaceResolutionInputFingerprint.fingerprint(
-                        new WorkspaceDiscoveryService().load(tempDir), committed),
+                        new ManifestWorkspaceLoader().load(tempDir), committed),
                 reader.read(committed).workspaceResolutionInputFingerprint());
         assertTrue(reader.read(committed).workspaceResolutionInputFingerprint().isPresent());
     }
@@ -98,7 +98,7 @@ final class WorkspaceResolveServiceFingerprintTest {
         assertNotEquals(
                 reader.read(committed).workspaceResolutionInputFingerprint(),
                 WorkspaceResolutionInputFingerprint.fingerprint(
-                        new WorkspaceDiscoveryService().load(tempDir),
+                        new ManifestWorkspaceLoader().load(tempDir),
                         committed.replace("1.0.0\"", "1.0.1\"")));
     }
 
@@ -149,13 +149,18 @@ final class WorkspaceResolveServiceFingerprintTest {
     }
 
     private void writeWorkspace(String libVersion) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         Path member = tempDir.resolve("apps/api");
         Files.createDirectories(member);
@@ -164,7 +169,7 @@ final class WorkspaceResolveServiceFingerprintTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:lib" = "%s"

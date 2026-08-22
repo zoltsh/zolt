@@ -28,7 +28,7 @@ final class CheckPackageContentsEvidenceTest {
         Path projectDir = tempDir.resolve("check-context-ci-require-package-missing");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), CliTestSupport.memberConfig("check-context-ci-require-package-missing"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -69,7 +69,7 @@ final class CheckPackageContentsEvidenceTest {
 
         assertEquals(0, packageResult.exitCode());
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("ok package-contents demo Package mode `thin` has 0 dependency dispositions."));
+        assertTrue(result.stdout().contains("ok package-contents demo Package mode `jar` has 0 dependency dispositions."));
         assertEquals("", result.stderr());
     }
 
@@ -80,7 +80,7 @@ final class CheckPackageContentsEvidenceTest {
         Files.writeString(
                 projectDir.resolve("zolt.toml"),
                 Files.readString(projectDir.resolve("zolt.toml"))
-                        + "\n[package]\nmode = \"thin\"\nsources = true\n");
+                        + "\n[package]\nmode = \"jar\"\nsources = true\n");
         writeMainSource(projectDir, """
                 package com.example;
 
@@ -93,7 +93,7 @@ final class CheckPackageContentsEvidenceTest {
 
         CommandResult packaged = execute(
                 "package",
-                "--mode", "thin",
+                "--mode", "jar",
                 "--cwd", projectDir.toString(),
                 "--cache-root", cache.toString());
         CommandResult checked = execute(
@@ -108,7 +108,7 @@ final class CheckPackageContentsEvidenceTest {
         assertTrue(Files.isRegularFile(projectDir.resolve("target/demo-0.1.0-sources.jar")));
         assertEquals(0, checked.exitCode(), checked.stdout());
         assertTrue(checked.stdout().contains(
-                "ok package-contents demo Package mode `thin` has 0 dependency dispositions."));
+                "ok package-contents demo Package mode `jar` has 0 dependency dispositions."));
         assertEquals("", checked.stderr());
     }
 
@@ -319,16 +319,19 @@ final class CheckPackageContentsEvidenceTest {
                         main = "com.example.Main"
 
                         [repositories]
-                        test = "%s"
+                        central = false
+
+                        [repositories.test]
+                        url = "%s"
 
                         [dependencies]
                         "org.example:%s" = "1.0.0"
 
                         [package]
-                        mode = "uber"
+                        mode = "uber-jar"
 
                         [publish]
-                        releaseRepository = "test"
+                        release = "test"
 
                         [publish.repositories.test]
                         url = "%s"

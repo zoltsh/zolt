@@ -3,14 +3,9 @@ package sh.zolt.cli.command.config;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
-import sh.zolt.project.ProjectConfigWriteException;
-import sh.zolt.project.init.ProjectInitException;
-import sh.zolt.project.init.ProjectInitResult;
-import sh.zolt.project.init.ProjectInitializer;
-import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlWriter;
-import sh.zolt.workspace.WorkspaceConfig;
-import sh.zolt.workspace.toml.WorkspaceTomlWriter;
+import sh.zolt.init.ProjectInitException;
+import sh.zolt.init.ProjectInitResult;
+import sh.zolt.init.ProjectInitializer;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
@@ -34,6 +29,11 @@ public final class InitCommand implements Runnable {
     @Option(names = "--workspace", description = "Create a workspace root with a default app member.")
     private boolean workspace;
 
+    @Option(
+            names = "--all-members",
+            description = "Omit [workspace.members].default so every member is selected.")
+    private boolean allMembers;
+
     @Option(names = "--no-tests", description = "Create the project without JUnit or test sources.")
     private boolean noTests;
 
@@ -44,43 +44,23 @@ public final class InitCommand implements Runnable {
     private CommandSpec spec;
 
     public InitCommand() {
-        this(projectInitializer());
+        this(new ProjectInitializer());
     }
 
     InitCommand(ProjectInitializer projectInitializer) {
         this.projectInitializer = projectInitializer;
     }
 
-    private static ProjectInitializer projectInitializer() {
-        ZoltTomlWriter writer = new ZoltTomlWriter();
-        WorkspaceTomlWriter workspaceWriter = new WorkspaceTomlWriter();
-        return new ProjectInitializer((path, config) -> {
-            try {
-                writer.write(path, config);
-            } catch (ZoltConfigException exception) {
-                throw new ProjectConfigWriteException(exception.getMessage(), exception);
-            }
-        }, (path, config) -> {
-            try {
-                workspaceWriter.write(
-                        path,
-                        new WorkspaceConfig(
-                                config.name(),
-                                config.members(),
-                                config.defaultMembers(),
-                                config.repositories(),
-                                config.platforms()));
-            } catch (ZoltConfigException exception) {
-                throw new ProjectConfigWriteException(exception.getMessage(), exception);
-            }
-        });
-    }
-
     @Override
     public void run() {
+        if (allMembers && !workspace) {
+            throw CommandFailures.user(
+                    spec, new ProjectInitException("--all-members requires --workspace."));
+        }
         try {
             ProjectInitResult result = workspace
-                    ? projectInitializer.initWorkspace(projectDirectory.path(), name, group, javaVersion, !noTests)
+                    ? projectInitializer.initWorkspace(
+                            projectDirectory.path(), name, group, javaVersion, !noTests, allMembers)
                     : projectInitializer.init(projectDirectory.path(), name, group, javaVersion, !noTests);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             output.summary("Created Zolt " + (workspace ? "workspace" : "project") + " at " + result.projectDirectory());

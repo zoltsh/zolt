@@ -13,14 +13,14 @@ final class TestRunServiceLockfileTestSupport {
 
     static void writeConsoleLockfile(Path projectDir) throws IOException {
         write(projectDir, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.junit.platform:junit-platform-console-standalone"
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 dependencies = []
                 """);
@@ -28,14 +28,14 @@ final class TestRunServiceLockfileTestSupport {
 
     static void writeConsoleAndJbossLogManagerLockfile(Path projectDir) throws IOException {
         write(projectDir, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.junit.platform:junit-platform-console-standalone"
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 dependencies = []
 
@@ -52,7 +52,7 @@ final class TestRunServiceLockfileTestSupport {
 
     static void writeNonStandaloneConsoleLockfile(Path projectDir) throws IOException {
         write(projectDir, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.apiguardian:apiguardian-api"
@@ -68,7 +68,7 @@ final class TestRunServiceLockfileTestSupport {
                 version = "5.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/jupiter/junit-jupiter-engine/5.11.4/junit-jupiter-engine-5.11.4.jar"
                 dependencies = []
 

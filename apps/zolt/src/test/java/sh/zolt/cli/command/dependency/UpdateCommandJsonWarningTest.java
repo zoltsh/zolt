@@ -7,8 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.metadata.MetadataDiscovery;
 import sh.zolt.maven.metadata.VersionDiscovery;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.UpdateEngine;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -24,6 +23,9 @@ import picocli.CommandLine;
 
 /** JSON updates preserve source while keeping STDOUT exclusively machine-readable. */
 final class UpdateCommandJsonWarningTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
@@ -41,27 +43,18 @@ final class UpdateCommandJsonWarningTest {
                 [dependencies]
                 "com.example:lib" = "1.0.0"
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
-
                 [coverage]
-                minLine = 88.0 # release floor
+                line = 88 # release floor
 
                 [toolchain.java]
-                version = "21"
+                distribution = "temurin"
 
                 [publish.central]
-                automatic = false
+                tokenEnv = "ZOLT_CENTRAL_TOKEN"
+                mode = "manual"
 
-                [commands.tasks."verify.all"]
-                command = ["zolt", "check"]
-
-                [workspace]
-                name = "demo"
-                members = []
+                [tasks.verify-all]
+                run = ["zolt", "check"]
                 """);
 
         Result result = runUpdateJson(projectDir, discovery("com.example", "lib", "1.0.0", "1.1.0"));
@@ -80,11 +73,12 @@ final class UpdateCommandJsonWarningTest {
         String rewritten = Files.readString(configPath);
         assertTrue(rewritten.contains("\"com.example:lib\" = \"1.1.0\""), rewritten);
         assertTrue(rewritten.contains("# pin lib for reproducibility"), rewritten);
-        assertTrue(rewritten.contains("[coverage]\nminLine = 88.0 # release floor"), rewritten);
-        assertTrue(rewritten.contains("[toolchain.java]\nversion = \"21\""), rewritten);
-        assertTrue(rewritten.contains("[publish.central]\nautomatic = false"), rewritten);
-        assertTrue(rewritten.contains("[commands.tasks.\"verify.all\"]\ncommand = [\"zolt\", \"check\"]"), rewritten);
-        assertTrue(rewritten.contains("[workspace]\nname = \"demo\"\nmembers = []"), rewritten);
+        assertTrue(rewritten.contains("[coverage]\nline = 88 # release floor"), rewritten);
+        assertTrue(rewritten.contains("[toolchain.java]\ndistribution = \"temurin\""), rewritten);
+        assertTrue(
+                rewritten.contains("[publish.central]\ntokenEnv = \"ZOLT_CENTRAL_TOKEN\"\nmode = \"manual\""),
+                rewritten);
+        assertTrue(rewritten.contains("[tasks.verify-all]\nrun = [\"zolt\", \"check\"]"), rewritten);
     }
 
     @Test
@@ -101,11 +95,6 @@ final class UpdateCommandJsonWarningTest {
                 [dependencies]
                 "com.example:lib" = "1.0.0"
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
                 """;
         Files.writeString(configPath, original);
 
@@ -117,8 +106,12 @@ final class UpdateCommandJsonWarningTest {
         assertEquals(original, Files.readString(configPath));
     }
 
+    /**
+     * A final dependency coordinate is exact ASCII {@code group:artifact} (design §9.3), so a
+     * decomposed identifier is rejected by the parser instead of reaching the automation boundary.
+     */
     @Test
-    void policyUpdateAcceptsDecomposedDependencyIdentifier() throws IOException {
+    void policyUpdateRejectsNonAsciiDependencyIdentifier() throws IOException {
         String decomposed = "cafe\u0301";
         Path projectDir = tempDir.resolve("unicode-coordinate");
         Files.createDirectories(projectDir);
@@ -133,9 +126,10 @@ final class UpdateCommandJsonWarningTest {
                 projectDir,
                 discovery("com.example", decomposed, "1.0.0", "1.1.0"));
 
-        assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(Files.readString(configPath).contains(
-                "\"com.example:" + decomposed + "\" = \"1.1.0\""));
+        assertEquals(1, result.exitCode());
+        assertTrue(
+                (result.stdout() + result.stderr()).contains("Invalid dependency coordinate"),
+                result.stdout() + result.stderr());
     }
 
     @Test
@@ -186,7 +180,8 @@ final class UpdateCommandJsonWarningTest {
     private Result run(Path projectDir, VersionDiscovery discovery, String... args) {
         // resolveService is never touched because every invocation passes --no-resolve.
         UpdateCommand command =
-                new UpdateCommand(new ZoltTomlParser(), new ZoltTomlWriter(), null, new UpdateEngine(discovery));
+                new UpdateCommand(
+                MANIFESTS, null, new UpdateEngine(discovery));
         // Match ZoltCli.newCommandLine() so `--format json` (lowercase) parses like the real CLI.
         CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true);
         StringWriter stdout = new StringWriter();

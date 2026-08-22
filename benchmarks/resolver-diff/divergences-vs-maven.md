@@ -21,11 +21,11 @@ declaration order). Consequences:
 - Zolt never silently downgrades a transitive below what some dependency
   asked for; Maven routinely does (nearest wins even when older).
 - To force a version down, declare it directly or use
-  `[dependencyConstraints]` — mirroring Cargo/Gradle habits, not Maven's
+  `[dependencies.constraints]` — mirroring Cargo/Gradle habits, not Maven's
   "add a nearer dep" trick.
 - Every mediation is recorded in `zolt.lock` as a `[[conflict]]` entry with
   the requested set and the reason (`direct dependency wins` /
-  `newest version wins`), and `[dependencyPolicy].failOnVersionConflict`
+  `newest version wins`), and `[dependencies.policy].conflicts = "fail"`
   can hard-fail instead.
 
 Observed in practice (25-root differential sweep): spring-boot-starter-web
@@ -56,7 +56,7 @@ Artifact paths derive purely from coordinates.
   detection.
 - A dependency's explicitly declared version is never overridden by
   dependencyManagement (same as Maven).
-- Project-level `[platforms]` BOMs and `[dependencyConstraints]` apply
+- Project-level `[platforms]` BOMs and `[dependencies.constraints]` apply
   before any POM-level management, in that order.
 - Known micro-divergence: within a single POM's dependencyManagement,
   duplicate entries resolve **last-declared-wins** (Maven:
@@ -74,7 +74,7 @@ flattens to a single effective scope.
 ## Exclusions and optionals
 
 - POM `<exclusions>` support Maven wildcards (`*:*`, `group:*`).
-- `[dependencyPolicy].exclude` in `zolt.toml` deliberately rejects
+- `[dependencies.policy].deny` in `zolt.toml` deliberately rejects
   wildcards — project-level exclusions must be explicit, and can carry a
   `reason`.
 - Transitive `optional` dependencies are skipped, exactly like Maven.

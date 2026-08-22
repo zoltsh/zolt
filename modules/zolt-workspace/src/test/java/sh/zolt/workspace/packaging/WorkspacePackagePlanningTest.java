@@ -20,7 +20,7 @@ final class WorkspacePackagePlanningTest {
     @Test
     void packagePlanningSelectsRequestedApplicationAndBuildDependenciesWithoutPackaging() throws IOException {
         writeWorkspaceWithApiDependency();
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
 
         WorkspaceBuildPlan plan = new WorkspacePackageService().planPackages(
                 WorkspacePlanTarget.at(tempDir.resolve("apps/api")),
@@ -35,17 +35,19 @@ final class WorkspacePackagePlanningTest {
     }
 
     private void writeWorkspaceWithApiDependency() throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core", "apps/worker"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core", "apps/worker"]
                 """);
         member("modules/core", "core", "");
         member("apps/api", "api", """
                 main = "com.acme.api.Api"
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("apps/worker", "worker", "");
     }
@@ -58,7 +60,7 @@ final class WorkspacePackagePlanningTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
     }
 }

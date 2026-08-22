@@ -66,7 +66,7 @@ final class UpdateTargetIdTest {
         assertNotEquals(baseline, id(
                 "apps/api/zolt.toml",
                 OutdatedSurface.DEPENDENCY,
-                "[test.dependencies]",
+                "[dependencies.test]",
                 "com.example:lib"));
         assertNotEquals(baseline, id(
                 "apps/api/zolt.toml",

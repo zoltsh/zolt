@@ -32,12 +32,12 @@ final class ExecGeneratedSourceValidator {
                 if (exec.tool().mainClass().isBlank()) {
                     throw BuildException.actionable(
                             "Exec tool `" + exec.toolName() + "` for " + subject + " has no mainClass.",
-                            "Add mainClass to [generated.execTools." + exec.toolName() + "].");
+                            "Add mainClass to [generated.tools." + exec.toolName() + "].");
                 }
                 if (exec.tool().coordinates().isEmpty()) {
                     throw BuildException.actionable(
                             "Exec tool `" + exec.toolName() + "` for " + subject + " declares no coordinates.",
-                            "Add at least one { coordinate, version|versionRef } to [generated.execTools."
+                            "Add at least one { coordinate, version|versionRef } to [generated.tools."
                                     + exec.toolName() + "].");
                 }
             }
@@ -45,14 +45,14 @@ final class ExecGeneratedSourceValidator {
                 if (exec.tool().binary().isBlank() || exec.tool().versionCommand().isEmpty()) {
                     throw BuildException.actionable(
                             "Exec tool `" + exec.toolName() + "` for " + subject + " is missing binary or versionCommand.",
-                            "Add binary and versionCommand to [generated.execTools." + exec.toolName() + "].");
+                            "Add binary and versionCommand to [generated.tools." + exec.toolName() + "].");
                 }
                 if (!exec.tool().allowUnpinnedTool()) {
                     throw BuildException.actionable(
                             "Exec tool `" + exec.toolName() + "` for " + subject
                                     + "` runs an unpinned PATH binary `" + exec.tool().binary()
                                     + "` whose bytes Zolt cannot lock.",
-                            "Set allowUnpinnedTool = true on [generated.execTools." + exec.toolName()
+                            "Set allowUnpinnedTool = true on [generated.tools." + exec.toolName()
                                     + "] to acknowledge that PATH tool identity rests on the probed version only.");
                 }
             }

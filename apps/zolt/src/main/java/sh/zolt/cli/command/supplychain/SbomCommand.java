@@ -19,6 +19,7 @@ import sh.zolt.cli.ZoltCli;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.error.ActionableError;
 import sh.zolt.error.ActionableException;
 import sh.zolt.lockfile.LockPackage;
@@ -37,9 +38,10 @@ import sh.zolt.sbom.SbomTimestamp;
 import sh.zolt.sbom.SbomWorkspaceMember;
 import sh.zolt.sbom.WorkspaceSbomAssembler;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProject;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceMemberGraphRoots;
 import sh.zolt.workspace.service.Workspace;
 
@@ -49,14 +51,14 @@ public final class SbomCommand implements Runnable {
         CYCLONEDX
     }
 
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ZoltLockfileReader lockfileReader;
     private final LockSbomAssembler assembler;
     private final CycloneDxSbomWriter cycloneDxWriter;
     private final Clock clock;
     private final Map<String, String> environment;
     private final String toolVersion;
-    private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
+    private final ManifestWorkspaceLoader workspaceDiscovery = new ManifestWorkspaceLoader();
     private final WorkspaceMemberGraphRoots memberGraphRoots = new WorkspaceMemberGraphRoots();
     private final WorkspaceSbomAssembler workspaceAssembler = new WorkspaceSbomAssembler();
 
@@ -105,7 +107,7 @@ public final class SbomCommand implements Runnable {
 
     public SbomCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 new ZoltLockfileReader(),
                 new LockSbomAssembler(),
                 new CycloneDxSbomWriter(),
@@ -115,14 +117,14 @@ public final class SbomCommand implements Runnable {
     }
 
     SbomCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ZoltLockfileReader lockfileReader,
             LockSbomAssembler assembler,
             CycloneDxSbomWriter cycloneDxWriter,
             Clock clock,
             Map<String, String> environment,
             String toolVersion) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.lockfileReader = lockfileReader;
         this.assembler = assembler;
         this.cycloneDxWriter = cycloneDxWriter;
@@ -158,9 +160,14 @@ public final class SbomCommand implements Runnable {
         }
     }
 
+    /**
+     * The SBOM of the one project this directory names. A member directory is governed by the
+     * workspace root's lock (design §4.5), so its components come from that lock, never a member-local
+     * one.
+     */
     private Assembled assembleProject(SbomScopeSelection selection, Optional<String> timestampValue) {
-        Path projectRoot = projectDirectory.path();
-        ProjectConfig configForMode = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+        ManifestProject project = projectLoader.project(projectDirectory.path());
+        ProjectConfig configForMode = project.config();
         if (configForMode.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
             // A BOM has no resolved dependency graph; emit metadata only, never an error.
             CommandHumanOutput.errors(spec).detail(
@@ -168,23 +175,24 @@ public final class SbomCommand implements Runnable {
                             + "dependency graph, so listing components would be misleading).");
             SbomModel model = assembler.assemble(
                     configForMode,
-                    new ZoltLockfile(1, List.of(), List.of()),
+                    new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()),
                     selection,
                     timestampValue,
                     toolVersion,
                     LicenseIndex.empty());
             return new Assembled(model, LicenseIndex.empty());
         }
-        Path lockfilePath = projectRoot.resolve("zolt.lock");
+        Path lockfilePath = CommandProjectLockfile.path(project);
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",
-                    "Run `zolt resolve` to generate it, then re-run `zolt sbom`."));
+                    "Run `" + CommandProjectLockfile.resolveCommand(project)
+                            + "` to generate it, then re-run `zolt sbom`."));
         }
-        ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         LicenseIndex licenses = resolveLicenses(lockfile, selection);
-        SbomModel model = assembler.assemble(config, lockfile, selection, timestampValue, toolVersion, licenses);
+        SbomModel model =
+                assembler.assemble(configForMode, lockfile, selection, timestampValue, toolVersion, licenses);
         return new Assembled(model, licenses);
     }
 

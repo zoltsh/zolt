@@ -6,19 +6,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class UpdateTargetCatalogTest {
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     private final UpdateTargetCatalog catalog = new UpdateTargetCatalog();
 
     @Test
     void collectsMutableSurfacesWithCanonicalPathsAndAliasOwnership() {
-        List<UpdateTarget> targets = catalog.collect(config("""
+        List<UpdateTarget> targets = catalog.collect(manifest("""
                 [versions]
                 shared = "1.0.0"
 
@@ -26,14 +28,14 @@ final class UpdateTargetCatalogTest {
                 "com.example:aliased" = { versionRef = "shared" }
                 "com.example:direct" = "2.0.0"
 
-                [annotationProcessors]
+                [dependencies.processor]
                 "com.example:processor" = "3.0.0"
 
                 [platforms]
                 "com.example:bom" = "4.0.0"
 
-                [dependencyConstraints]
-                "com.example:constrained" = { version = "5.0.0", kind = "strict", reason = "contract" }
+                [dependencies.constraints]
+                "com.example:constrained" = { version = "5.0.0", reason = "contract" }
                 """), "apps/api/zolt.toml", "zolt.lock");
 
         assertEquals(List.of(
@@ -53,12 +55,17 @@ final class UpdateTargetCatalogTest {
 
     @Test
     void collectsOnlyLiteralPlatformsFromWorkspaceRootPolicy() {
-        WorkspaceConfig workspace = new WorkspaceConfig(
-                "demo",
-                List.of("apps/api"),
-                List.of(),
-                Map.of(),
-                Map.of("org.junit:junit-bom", "5.10.2"));
+        // A virtual workspace root owns [platforms] and [versions] and nothing project-local.
+        AuthoredManifest workspace = LOADER.document("""
+                [workspace]
+                name = "demo"
+
+                [workspace.members]
+                include = ["apps/api"]
+
+                [platforms]
+                "org.junit:junit-bom" = "5.10.2"
+                """).authored();
 
         UpdateTarget target = catalog.collect(workspace, "zolt.toml", "zolt.lock").getFirst();
 
@@ -73,49 +80,49 @@ final class UpdateTargetCatalogTest {
 
     @Test
     void preservesEveryDependencyAndProcessorSectionInIdentity() {
-        List<UpdateTarget> targets = catalog.collect(config("""
+        List<UpdateTarget> targets = catalog.collect(manifest("""
                 [dependencies]
                 "com.example:main" = "1.0.0"
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:api" = "1.0.0"
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:runtime" = "1.0.0"
-                [provided.dependencies]
+                [dependencies.provided]
                 "com.example:provided" = "1.0.0"
-                [dev.dependencies]
+                [dependencies.dev]
                 "com.example:dev" = "1.0.0"
-                [test.dependencies]
+                [dependencies.test]
                 "com.example:test" = "1.0.0"
-                [annotationProcessors]
+                [dependencies.processor]
                 "com.example:processor" = "1.0.0"
-                [test.annotationProcessors]
+                [dependencies.test-processor]
                 "com.example:test-processor" = "1.0.0"
                 """), "zolt.toml", "zolt.lock");
 
         assertEquals(List.of(
                 "[dependencies]",
-                "[api.dependencies]",
-                "[runtime.dependencies]",
-                "[provided.dependencies]",
-                "[dev.dependencies]",
-                "[test.dependencies]",
-                "[annotationProcessors]",
-                "[test.annotationProcessors]"), targets.stream().map(UpdateTarget::section).toList());
+                "[dependencies.api]",
+                "[dependencies.runtime]",
+                "[dependencies.provided]",
+                "[dependencies.dev]",
+                "[dependencies.test]",
+                "[dependencies.processor]",
+                "[dependencies.test-processor]"), targets.stream().map(UpdateTarget::section).toList());
     }
 
     @Test
     void omitsSnapshotLiteralsAndKeepsIdentityStableAcrossVersions() {
-        ProjectConfig before = config("""
+        AuthoredManifest before = manifest("""
                 [dependencies]
                 "com.example:lib" = "1.0.0"
                 "com.example:snapshot" = "2.0.0-SNAPSHOT"
-                "com.example:workspace" = { workspace = "modules/local" }
+                "com.example:workspace" = { workspace = true }
                 """);
-        ProjectConfig after = config("""
+        AuthoredManifest after = manifest("""
                 [dependencies]
                 "com.example:lib" = "1.1.0"
                 "com.example:snapshot" = "2.0.0-SNAPSHOT"
-                "com.example:workspace" = { workspace = "modules/local" }
+                "com.example:workspace" = { workspace = true }
                 """);
 
         UpdateTarget first = catalog.collect(before, "zolt.toml", "zolt.lock").getFirst();
@@ -129,8 +136,8 @@ final class UpdateTargetCatalogTest {
 
     @Test
     void reportsGeneratedToolLiteralsAsBlockedTargets() {
-        List<UpdateTarget> targets = catalog.collect(config("""
-                [generated.openapiTool]
+        List<UpdateTarget> targets = catalog.collect(manifest("""
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
 
@@ -150,9 +157,9 @@ final class UpdateTargetCatalogTest {
 
     @Test
     void reportsExecAndProtobufToolLiteralsAsBlockedTargets() {
-        UpdateTarget exec = catalog.collect(config("""
-                [generated.execTools.codegen]
-                runner = "jvm"
+        UpdateTarget exec = catalog.collect(manifest("""
+                [generated.tools.codegen]
+                kind = "jvm"
                 coordinates = [{ coordinate = "com.example:codegen", version = "1.2.3" }]
                 mainClass = "com.example.Codegen"
 
@@ -164,12 +171,12 @@ final class UpdateTargetCatalogTest {
                 output = "target/generated/sources/codegen"
                 produces = "java-sources"
                 """), "zolt.toml", "zolt.lock").getFirst();
-        List<UpdateTarget> protobuf = catalog.collect(config("""
-                [generated.protobufTool]
+        List<UpdateTarget> protobuf = catalog.collect(manifest("""
+                [generated.tools.protobuf]
                 protocCoordinate = "com.google.protobuf:protoc"
                 protocVersion = "4.28.3"
-                grpcPluginCoordinate = "io.grpc:protoc-gen-grpc-java"
-                grpcPluginVersion = "1.68.1"
+                grpcCoordinate = "io.grpc:protoc-gen-grpc-java"
+                grpcVersion = "1.68.1"
 
                 [generated.main.greeter]
                 kind = "protobuf"
@@ -189,7 +196,7 @@ final class UpdateTargetCatalogTest {
 
     @Test
     void requireFindsOnlyTheExactCurrentTarget() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [dependencies]
                 "com.example:lib" = "1.0.0"
                 """);
@@ -203,13 +210,13 @@ final class UpdateTargetCatalogTest {
                 UpdateTargetId.create(
                         "zolt.toml",
                         OutdatedSurface.DEPENDENCY,
-                        "[test.dependencies]",
+                        "[dependencies.test]",
                         "com.example:lib")));
     }
 
     @Test
     void collectionOrderAndIdsAreDeterministic() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [dependencies]
                 "com.example:zeta" = "1.0.0"
                 "com.example:alpha" = "1.0.0"
@@ -225,7 +232,7 @@ final class UpdateTargetCatalogTest {
 
     @Test
     void lockfileAndDescriptiveStateDoNotAffectIdentity() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [dependencies]
                 "com.example:lib" = "1.0.0"
                 """);
@@ -244,7 +251,7 @@ final class UpdateTargetCatalogTest {
     @Test
     void duplicateIdsAreAnInternalFailure() {
         UpdateTargetCatalog.Entry entry = catalog.entries(
-                config("""
+                manifest("""
                         [dependencies]
                         "com.example:lib" = "1.0.0"
                         """),
@@ -257,18 +264,23 @@ final class UpdateTargetCatalogTest {
         assertThrows(IllegalStateException.class, () -> UpdateTargetCatalog.addUnique(entries, entry));
     }
 
-    private static ProjectConfig config(String body) {
-        return new ZoltTomlParser().parse("""
+    private static AuthoredManifest manifest(String body) {
+        return LOADER.document(source(body)).authored();
+    }
+
+    private static ProjectConfig discovery(String body) {
+        return LOADER.load(source(body));
+    }
+
+    private static String source(String body) {
+        return """
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
-
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
+                java = 21
 
                 %s
-                """.formatted(body));
+                """.formatted(body);
     }
 }

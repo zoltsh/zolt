@@ -24,7 +24,7 @@ final class TestCompileServiceMainClasspathInvalidationTest {
 
     @Test
     void mainImplementationOnlyChangeDoesNotInvalidateTestCompileFingerprint() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         Path mainSource = source(
                 "src/main/java/com/example/Main.java",
                 "package com.example; public final class Main { public static String message() { return \"one\"; } }\n");
@@ -50,7 +50,7 @@ final class TestCompileServiceMainClasspathInvalidationTest {
 
     @Test
     void mainAbiChangeInvalidatesTestCompileFingerprint() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         Path mainSource = source(
                 "src/main/java/com/example/Main.java",
                 "package com.example; public final class Main { public static String message() { return \"one\"; } }\n");

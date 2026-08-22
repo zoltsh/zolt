@@ -28,7 +28,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectVersionOverride;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.toolchain.JavaToolchainExecutionService;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
@@ -49,7 +49,7 @@ import picocli.CommandLine.Spec;
         name = "native",
         description = "Build a native binary with GraalVM Native Image.")
 public final class NativeCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final NativeBuildService nativeBuildService;
     private final WorkspaceNativeBuildService workspaceNativeBuildService;
     private final CommandLockfiles lockfiles;
@@ -91,7 +91,7 @@ public final class NativeCommand implements Runnable {
 
     private NativeCommand(CommandNativeServices services) {
         this(
-                services.tomlParser(),
+                services.projectLoader(),
                 services.nativeBuildService(),
                 services.workspaceNativeBuildService(),
                 new CommandLockfiles(),
@@ -99,12 +99,12 @@ public final class NativeCommand implements Runnable {
     }
 
     NativeCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             NativeBuildService nativeBuildService,
             WorkspaceNativeBuildService workspaceNativeBuildService,
             CommandLockfiles lockfiles,
             JavaToolchainExecutionService toolchains) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.nativeBuildService = nativeBuildService;
         this.workspaceNativeBuildService = workspaceNativeBuildService;
         this.lockfiles = lockfiles;
@@ -153,7 +153,7 @@ public final class NativeCommand implements Runnable {
                 return;
             }
             ProjectConfig config = ProjectVersionOverride.apply(
-                    tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                    projectLoader.load(projectRoot));
             var artifactIndex = lockfiles.requireFreshLockfile(
                     projectRoot,
                     config,

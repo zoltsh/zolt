@@ -79,7 +79,7 @@ final class QuarkusTestPlanCommandTest {
         assertEquals(1, result.exitCode());
         assertEquals("", result.stdout());
         assertTrue(result.stderr().contains("Quarkus is not enabled for this project"));
-        assertTrue(result.stderr().contains("[framework.quarkus] enabled = true"));
+        assertTrue(result.stderr().contains("[package] mode = \"quarkus\""));
     }
 
     private static CommandResult testPlan(Path projectDir, String directoryOption) {
@@ -94,13 +94,9 @@ final class QuarkusTestPlanCommandTest {
 
     private static void writeProjectConfig(Path projectDir, boolean quarkus) throws IOException {
         Files.createDirectories(projectDir);
-        String framework = quarkus
-                ? "\n[framework.quarkus]\nenabled = true\npackage = \"fast-jar\"\n"
-                : "";
+        String framework = quarkus ? "\n[package]\nmode = \"quarkus\"\n" : "";
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo")
-                + "main = \"com.example.Main\"\n\n[repositories]\ntest = \"https://repo.maven.apache.org/maven2\"\n\n"
-                + "[dependencies]\n\n[test.dependencies]\n\n[build]\nsource = \"src/main/java\"\ntest = \"src/test/java\"\n"
-                + "output = \"target/classes\"\ntestOutput = \"target/test-classes\"\n"
+                + "main = \"com.example.Main\"\n\n[dependencies]\n\n[dependencies.test]\n"
                 + framework);
     }
 }

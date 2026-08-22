@@ -21,7 +21,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                   "schemaVersion": 3,
                   "command": "tree",
                   "mode": "workspace",
-                  "lockVersion": 6,
+                  "lockVersion": 7,
                   "workspace": {
                     "name": "demo-workspace",
                     "members": [
@@ -97,7 +97,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                       "version": "1.0.0",
                       "coordinate": "org.example:shared:1.0.0",
                       "scope": "test",
-                      "direct": true,
+                      "direct": false,
                       "members": ["modules/core"],
                       "dependencies": []
                     }
@@ -117,7 +117,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                 output);
         assertTrue(output.contains("\"scope\": \"compile\",\n      \"direct\": true,\n"
                 + "      \"members\": [\"apps/api\", \"modules/core\"]"), output);
-        assertTrue(output.contains("\"scope\": \"test\",\n      \"direct\": true,\n"
+        assertTrue(output.contains("\"scope\": \"test\",\n      \"direct\": false,\n"
                 + "      \"members\": [\"modules/core\"]"), output);
     }
 
@@ -177,7 +177,7 @@ final class WorkspaceDependencyJsonTest extends WorkspaceTreeTestSupport {
                   "schemaVersion": 3,
                   "command": "tree",
                   "mode": "workspace",
-                  "lockVersion": 6,
+                  "lockVersion": 7,
                   "workspace": {
                     "name": "empty",
                     "members": []

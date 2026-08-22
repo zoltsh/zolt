@@ -17,11 +17,11 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 import sh.zolt.resolve.fingerprint.ProjectResolutionFingerprint;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceResolutionInputFingerprint;
 
-/** Migrates concise CLI test fixtures onto the production version 6 artifact contract. */
+/** Adds content-addressed artifacts and fingerprints to current-schema CLI test fixtures. */
 public final class ContentAddressedLockTestSupport {
     private static final Pattern SHA_256 = Pattern.compile("[0-9a-f]{64}");
 
@@ -71,7 +71,8 @@ public final class ContentAddressedLockTestSupport {
                 legacy.conflicts(),
                 legacy.policyEffects(),
                 legacy.memberGraphs(),
-                legacy.workspaceResolutionInputFingerprint());
+                legacy.workspaceResolutionInputFingerprint(),
+                legacy.dependencyRoots());
     }
 
     public static Path cachedJar(Path lockfilePath, Path cacheRoot, String coordinate) {
@@ -94,7 +95,8 @@ public final class ContentAddressedLockTestSupport {
         if (!config.contains("[project]")) {
             return lockfile;
         }
-        String fingerprint = ProjectResolutionFingerprint.fingerprint(new ZoltTomlParser().parse(config));
+        String fingerprint = ProjectResolutionFingerprint.fingerprint(
+                new ManifestProjectLoader().load(configPath.getParent()));
         return new ZoltLockfile(
                 lockfile.version(),
                 lockfile.aliasFingerprint(),
@@ -104,7 +106,8 @@ public final class ContentAddressedLockTestSupport {
                 lockfile.conflicts(),
                 lockfile.policyEffects(),
                 lockfile.memberGraphs(),
-                lockfile.workspaceResolutionInputFingerprint());
+                lockfile.workspaceResolutionInputFingerprint(),
+                lockfile.dependencyRoots());
     }
 
     private static ZoltLockfile withWorkspaceFingerprint(Path lockfilePath, ZoltLockfile lockfile) {
@@ -115,11 +118,11 @@ public final class ContentAddressedLockTestSupport {
             return lockfile;
         }
         String config = readStringUnchecked(configPath);
-        if (!config.contains("[workspace]")) {
+        if (!config.contains("[workspace")) {
             return lockfile;
         }
         String content = new ZoltLockfileWriter().write(lockfile);
-        return new WorkspaceDiscoveryService().discover(root)
+        return new ManifestWorkspaceLoader().discover(root)
                 .flatMap(workspace -> WorkspaceResolutionInputFingerprint.fingerprint(workspace, content))
                 .map(fingerprint -> lockfile.withWorkspaceResolutionInputFingerprint(Optional.of(fingerprint)))
                 .orElse(lockfile);

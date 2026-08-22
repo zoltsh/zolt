@@ -1,30 +1,24 @@
 package sh.zolt.plan;
 
-import sh.zolt.dependency.DependencyScope;
 import sh.zolt.generated.GeneratedSourceEvidence;
 import sh.zolt.generated.GeneratedSourceEvidenceService;
-import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.toml.LockfileReadException;
-import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ResourceFilteringSettings;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public final class BuildPlanService {
     private final GeneratedSourceEvidenceService generatedSourceEvidenceService;
     private final BuildPlanGeneratedSourceNodePlanner generatedSourceNodePlanner;
     private final BuildPlanExecStepNodePlanner execStepNodePlanner = new BuildPlanExecStepNodePlanner();
-    private final ZoltLockfileReader lockfileReader = new ZoltLockfileReader();
     private final SpringBootNativePlanNodePlanner nativePlanNodePlanner;
 
     public BuildPlanService() {
@@ -50,19 +44,24 @@ public final class BuildPlanService {
         this.nativePlanNodePlanner = nativePlanNodePlanner;
     }
 
+    /** Plans a standalone project whose own directory owns its lockfile. */
     public BuildPlan plan(Path projectRoot, ProjectConfig config, PlanTarget target, Optional<Path> reportsDir) {
-        return plan(projectRoot, config, target, reportsDir, Optional.empty(), Optional.empty());
+        return plan(BuildPlanRequest.standalone(projectRoot, config, target).withReportsDir(reportsDir));
     }
 
+    /** Plans a standalone project with an explicit native-image executable. */
     public BuildPlan plan(
             Path projectRoot,
             ProjectConfig config,
             PlanTarget target,
             Optional<Path> reportsDir,
             Optional<Path> nativeImageExecutable) {
-        return plan(projectRoot, config, target, reportsDir, nativeImageExecutable, Optional.empty());
+        return plan(BuildPlanRequest.standalone(projectRoot, config, target)
+                .withReportsDir(reportsDir)
+                .withNativeImageExecutable(nativeImageExecutable));
     }
 
+    /** Plans a standalone project with an explicit resolved test runtime. */
     public BuildPlan plan(
             Path projectRoot,
             ProjectConfig config,
@@ -70,15 +69,44 @@ public final class BuildPlanService {
             Optional<Path> reportsDir,
             Optional<Path> nativeImageExecutable,
             Optional<TestRuntimePlan> testRuntime) {
-        Path root = projectRoot.toAbsolutePath().normalize();
+        return plan(BuildPlanRequest.standalone(projectRoot, config, target)
+                .withReportsDir(reportsDir)
+                .withNativeImageExecutable(nativeImageExecutable)
+                .withTestRuntime(testRuntime));
+    }
+
+    /**
+     * Plans {@code request} against the lockfile the request names.
+     *
+     * <p>Every planner reads exactly {@link BuildPlanRequest#lockfilePath()}; nothing derives a
+     * lockfile path from the project directory, so a member directory plans against the workspace
+     * root's authoritative lock and never against a member-local file (design §6.9).
+     */
+    public BuildPlan plan(BuildPlanRequest request) {
+        Objects.requireNonNull(request, "Build plan request is required.");
+        Path root = request.projectRoot();
+        Path lockfilePath = request.lockfilePath();
+        ProjectConfig config = request.config();
+        PlanTarget target = request.target();
         List<PlanNode> nodes = new ArrayList<>();
         List<GeneratedSourceEvidence> generatedSources =
                 generatedSourceEvidenceService.evidence(root, config.build());
-        Set<String> lockedExecToolGroups = lockedExecToolGroups(root);
-        addLockfileNode(nodes, root);
+        BuildPlanLockfileState lockfile = BuildPlanLockfileState.read(lockfilePath);
+        nodes.add(BuildPlanLockfileNode.node(lockfile, request.workspaceLockfile()));
+        if (lockfile.error().isPresent()) {
+            return new BuildPlan(1, root, lockfilePath, config.project().name(), target, nodes);
+        }
+        Set<String> lockedExecToolGroups = lockfile.execToolGroups();
         addBuildNodes(nodes, root, config, generatedSources, lockedExecToolGroups);
         if (target.includesTests()) {
-            addTestNodes(nodes, root, config, reportsDir, generatedSources, lockedExecToolGroups, testRuntime);
+            addTestNodes(
+                    nodes,
+                    root,
+                    config,
+                    request.reportsDir(),
+                    generatedSources,
+                    lockedExecToolGroups,
+                    request.testRuntime());
         }
         if (target.includesCoverage()) {
             addCoverageNode(nodes, config.build());
@@ -87,40 +115,13 @@ public final class BuildPlanService {
             addPackageNode(nodes, config);
         }
         if (target == PlanTarget.NATIVE) {
-            nodes.addAll(nativePlanNodePlanner.nodes(root, config, nativeImageExecutable));
+            nodes.addAll(nativePlanNodePlanner.nodes(
+                    root, lockfilePath, config, request.nativeImageExecutable()));
         }
         if (target.includesPublish()) {
             addPublishNode(nodes, config);
         }
-        return new BuildPlan(1, root, config.project().name(), target, nodes);
-    }
-
-    private static void addLockfileNode(List<PlanNode> nodes, Path root) {
-        Path lockfile = root.resolve("zolt.lock");
-        if (Files.isRegularFile(lockfile)) {
-            nodes.add(new PlanNode(
-                    "lockfile",
-                    "resolve",
-                    PlanNodeStatus.READY,
-                    "Read existing zolt.lock without refreshing dependency metadata.",
-                    List.of("zolt.toml", "zolt.lock"),
-                    List.of(),
-                    List.of("freshness: verify with `zolt resolve --locked` or `zolt check --check lockfile`"),
-                    List.of()));
-            return;
-        }
-        nodes.add(new PlanNode(
-                "lockfile",
-                "resolve",
-                PlanNodeStatus.BLOCKED,
-                "Dependency graph is not locked yet.",
-                List.of("zolt.toml"),
-                List.of("zolt.lock"),
-                List.of(),
-                List.of(new PlanBlocker(
-                        "missing-lockfile",
-                        "zolt.lock is missing; plan will not resolve or download artifacts.",
-                        "Run `zolt resolve` first, then rerun `zolt plan`."))));
+        return new BuildPlan(1, root, lockfilePath, config.project().name(), target, nodes);
     }
 
     private void addBuildNodes(
@@ -263,22 +264,6 @@ public final class BuildPlanService {
                 List.of(outputRoot(config.build()) + "/publish"),
                 List.of("mode: dry-run"),
                 List.of()));
-    }
-
-    private Set<String> lockedExecToolGroups(Path root) {
-        Path lockfilePath = root.resolve("zolt.lock");
-        if (!Files.isRegularFile(lockfilePath)) {
-            return Set.of();
-        }
-        try {
-            ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
-            return lockfile.packages().stream()
-                    .filter(lockPackage -> lockPackage.scope() == DependencyScope.TOOL_EXEC)
-                    .flatMap(lockPackage -> lockPackage.toolGroups().stream())
-                    .collect(Collectors.toUnmodifiableSet());
-        } catch (LockfileReadException exception) {
-            return Set.of();
-        }
     }
 
     private static boolean joinsCompileSources(GeneratedSourceStep step) {

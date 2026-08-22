@@ -8,7 +8,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * The {@code [dependencyPolicy.licenses]} gate configuration.
+ * The {@code [dependencies.policy.licenses]} gate configuration.
  *
  * <p>Precedence rule: a license is permitted iff its id is not in {@code deny} AND ({@code allow} is
  * empty OR its id is in {@code allow}) — deny always wins, and a non-empty allow-list is

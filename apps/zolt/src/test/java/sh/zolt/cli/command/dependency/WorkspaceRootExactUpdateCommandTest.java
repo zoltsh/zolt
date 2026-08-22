@@ -7,15 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.cli.CliTestRepository;
 import sh.zolt.maven.metadata.VersionDiscovery;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.OutdatedSurface;
 import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateTarget;
 import sh.zolt.update.UpdateTargetCatalog;
-import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
-import sh.zolt.workspace.toml.WorkspaceConfigParser;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -29,10 +26,12 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 final class WorkspaceRootExactUpdateCommandTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
-    private final WorkspaceConfigParser workspaceParser = new WorkspaceConfigParser();
     private final UpdateTargetCatalog catalog = new UpdateTargetCatalog();
 
     @Test
@@ -53,21 +52,6 @@ final class WorkspaceRootExactUpdateCommandTest {
         assertFalse(Files.exists(root.resolve("zolt.lock")));
     }
 
-    @Test
-    void updatesLegacyWorkspaceManifestByItsAuthoritativePath() throws IOException {
-        Path root = writeWorkspace(tempDir.resolve("legacy"), "zolt-workspace.toml", "", "5.10.2");
-        writeMember(root);
-        UpdateTarget target = rootTarget(
-                root.resolve("zolt-workspace.toml"), "zolt-workspace.toml");
-
-        Result result = run(root, null, exactArgs(target, "5.11.4", "--no-resolve"));
-
-        assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(Files.readString(root.resolve("zolt-workspace.toml"))
-                .contains("\"org.junit:junit-bom\" = \"5.11.4\" # root BOM"));
-        assertTrue(result.stdout().contains("\"manifestPath\": \"zolt-workspace.toml\""));
-        assertTrue(result.stdout().contains("\"changedFiles\": [\n    \"zolt-workspace.toml\""));
-    }
 
     @Test
     void rootPlatformUpdateRegeneratesTheWorkspaceRootLock() throws IOException {
@@ -77,11 +61,11 @@ final class WorkspaceRootExactUpdateCommandTest {
             Path root = writeWorkspace(
                     tempDir.resolve("resolved"),
                     "zolt.toml",
-                    "\n[repositories]\nlocal = \"" + repository.baseUri() + "\"\n",
+                    "\n[repositories.local]\nurl = \"" + repository.baseUri() + "\"\n",
                     "5.10.2");
             writeMember(root, "\n[dependencies]\n\"com.example:lib\" = \"1.0.0\"\n");
             UpdateTarget target = rootTarget(root.resolve("zolt.toml"), "zolt.toml");
-            Path cache = root.resolve("cache");
+            Path cache = tempDir.resolve("resolved-cache");
             new WorkspaceResolveService(new ResolveService()).resolve(root, cache, false, false);
             String lockBefore = Files.readString(root.resolve("zolt.lock"));
 
@@ -110,7 +94,7 @@ final class WorkspaceRootExactUpdateCommandTest {
             Path root = writeWorkspace(
                     tempDir.resolve("rollback"),
                     "zolt.toml",
-                    "\n[repositories]\nlocal = \"" + repository.baseUri() + "\"\n",
+                    "\n[repositories.local]\nurl = \"" + repository.baseUri() + "\"\n",
                     "5.10.2");
             writeMember(root, "\n[dependencies]\n\"com.example:lib\" = \"1.0.0\"\n");
             String manifestBefore = Files.readString(root.resolve("zolt.toml"));
@@ -123,7 +107,7 @@ final class WorkspaceRootExactUpdateCommandTest {
                             target,
                             "5.11.4",
                             "--cache-root",
-                            root.resolve("cache").toString()));
+                            tempDir.resolve("rollback-cache").toString()));
 
             assertEquals(1, result.exitCode());
             assertEquals(manifestBefore, Files.readString(root.resolve("zolt.toml")));
@@ -179,10 +163,7 @@ final class WorkspaceRootExactUpdateCommandTest {
     }
 
     private UpdateTarget rootTarget(Path manifest, String manifestPath) {
-        WorkspaceConfig config = manifestPath.equals("zolt.toml")
-                ? workspaceParser.parseRootConfig(manifest)
-                : workspaceParser.parse(manifest);
-        return catalog.collect(config, manifestPath, "zolt.lock").stream()
+        return catalog.collect(LOADER.document(manifest).authored(), manifestPath, "zolt.lock").stream()
                 .filter(target -> target.surface() == OutdatedSurface.PLATFORM)
                 .findFirst()
                 .orElseThrow();
@@ -201,8 +182,7 @@ final class WorkspaceRootExactUpdateCommandTest {
             throw new AssertionError("Exact update must not perform metadata discovery.");
         };
         UpdateCommand command = new UpdateCommand(
-                new ZoltTomlParser(),
-                new ZoltTomlWriter(),
+                MANIFESTS,
                 resolveService,
                 new UpdateEngine(forbiddenDiscovery),
                 beforeExecution);
@@ -239,7 +219,9 @@ final class WorkspaceRootExactUpdateCommandTest {
                 # retained workspace comment
                 [workspace]
                 name = "demo"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 %s
                 [platforms]
                 "org.junit:junit-bom" = "%s" # root BOM
@@ -259,7 +241,7 @@ final class WorkspaceRootExactUpdateCommandTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 %s
                 """.formatted(body));
         return member;

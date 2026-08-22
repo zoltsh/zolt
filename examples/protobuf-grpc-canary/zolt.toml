@@ -2,33 +2,23 @@
 name = "protobuf-grpc-canary"
 version = "0.1.0"
 group = "com.example"
-java = "21"
+java = 21
 main = "com.example.protobuf.Main"
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
 [versions]
-protobuf = "4.28.3"
 grpc = "1.68.1"
+protobuf = "4.28.3"
 
-[generated.protobufTool]
+[dependencies.test]
+"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
+
+[generated.tools.protobuf]
 protocCoordinate = "com.google.protobuf:protobuf-java"
 protocVersionRef = "protobuf"
-grpcPluginCoordinate = "io.grpc:grpc-api"
-grpcPluginVersionRef = "grpc"
+grpcCoordinate = "io.grpc:grpc-api"
+grpcVersionRef = "grpc"
 
 [generated.main.greeter]
 kind = "protobuf"
-language = "java"
 inputs = ["src/main/proto/greeter.proto"]
 output = "target/generated/sources/protobuf"
-
-[test.dependencies]
-"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"

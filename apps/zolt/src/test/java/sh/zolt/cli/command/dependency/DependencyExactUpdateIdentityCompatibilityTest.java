@@ -4,8 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.metadata.VersionDiscovery;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.OutdatedSurface;
 import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateTarget;
@@ -19,14 +18,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
+/**
+ * A final dependency coordinate is exact ASCII {@code group:artifact} (design §9.3), so a sibling
+ * declaration the parser rejects makes the whole exact update fail before either file is touched.
+ */
 final class DependencyExactUpdateIdentityCompatibilityTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
-    private final ZoltTomlParser parser = new ZoltTomlParser();
 
     @Test
-    void exactSchemaV2ReportsNoncanonicalSiblingIdentityWithoutWriting() throws IOException {
+    void unparseableSiblingDeclarationFailsClosedWithoutWriting() throws IOException {
         Path project = tempDir.resolve("noncanonical-sibling");
         Files.createDirectories(project);
         Path manifest = project.resolve("zolt.toml");
@@ -35,13 +40,13 @@ final class DependencyExactUpdateIdentityCompatibilityTest {
                 name = "noncanonical-sibling"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:lib" = "1.0.0"
                 """);
         UpdateTarget target = new UpdateTargetCatalog()
-                .collect(parser.parse(manifest), "zolt.toml", "zolt.lock")
+                .collect(LOADER.document(manifest).authored(), "zolt.toml", "zolt.lock")
                 .stream()
                 .filter(candidate -> candidate.surface() == OutdatedSurface.DEPENDENCY)
                 .findFirst()
@@ -57,7 +62,9 @@ final class DependencyExactUpdateIdentityCompatibilityTest {
         Result result = run(project, target);
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("Update target identifier must use Unicode NFC normalization"));
+        assertTrue(
+                (result.stdout() + result.stderr()).contains("Invalid dependency coordinate"),
+                result.stdout() + result.stderr());
         assertEquals(original, Files.readString(manifest));
     }
 
@@ -66,8 +73,7 @@ final class DependencyExactUpdateIdentityCompatibilityTest {
             throw new AssertionError("Exact update must not perform metadata discovery.");
         };
         UpdateCommand command = new UpdateCommand(
-                parser,
-                new ZoltTomlWriter(),
+                MANIFESTS,
                 null,
                 new UpdateEngine(forbiddenDiscovery));
         CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true);

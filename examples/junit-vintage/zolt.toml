@@ -2,20 +2,9 @@
 name = "junit-vintage"
 version = "0.1.0"
 group = "com.example"
-java = "21"
+java = 21
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
-[dependencies]
-
-[test.dependencies]
+[dependencies.test]
 "junit:junit" = "4.13.2"
-"org.junit.vintage:junit-vintage-engine" = "5.11.4"
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+"org.junit.vintage:junit-vintage-engine" = "5.11.4"

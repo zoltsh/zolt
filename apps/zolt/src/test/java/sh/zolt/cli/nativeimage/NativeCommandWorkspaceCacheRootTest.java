@@ -76,22 +76,27 @@ final class NativeCommandWorkspaceCacheRootTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "workspace-cache-root"
-                members = ["apps/app"]
-                defaultMembers = ["apps/app"]
-                """);
+
+                [workspace.members]
+                default = ["apps/app"]
+                include = ["apps/app"]
+
+                [repositories]
+                central = false
+
+                [repositories.test]
+                url = "%s"
+                """.formatted(repositoryUrl));
         Files.writeString(member.resolve("zolt.toml"), """
                 [project]
                 name = "app"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
-                [repositories]
-                test = "%s"
-
-                [generated.execTools.source-generator]
-                runner = "jvm"
+                [generated.tools.source-generator]
+                kind = "jvm"
                 coordinates = [{ coordinate = "com.example:source-generator", version = "1.0.0" }]
                 mainClass = "com.example.tool.SourceGenerator"
 
@@ -101,7 +106,7 @@ final class NativeCommandWorkspaceCacheRootTest {
                 inputs = ["model.txt"]
                 output = "target/generated/sources/model"
                 produces = "java-sources"
-                """.formatted(repositoryUrl));
+                """);
         Files.writeString(member.resolve("model.txt"), "model-v1\n");
         Path source = member.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());

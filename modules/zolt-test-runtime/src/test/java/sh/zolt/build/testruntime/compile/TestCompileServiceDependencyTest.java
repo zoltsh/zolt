@@ -29,7 +29,14 @@ final class TestCompileServiceDependencyTest {
         Path helperJar = cacheRoot.resolve("com/example/helper/1.0.0/helper-1.0.0.jar");
         createHelperJar(projectDir, helperJar);
         writeLockfile(projectDir, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:helper"
+                version = "1.0.0"
+                lane = "test"
+                resolvedScope = "test"
 
                 [[package]]
                 id = "com.example:helper"
@@ -60,12 +67,19 @@ final class TestCompileServiceDependencyTest {
     }
 
     @Test
-    void testCompileClasspathIncludesProvidedDependenciesButTestRuntimeDoesNot() throws IOException {
+    void providedDependenciesReachBothTestCompileAndTestRuntimeClasspaths() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
         Path helperJar = cacheRoot.resolve("com/example/helper/1.0.0/helper-1.0.0.jar");
         createHelperJar(projectDir, helperJar);
         writeLockfile(projectDir, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:helper"
+                version = "1.0.0"
+                lane = "provided"
+                resolvedScope = "provided"
 
                 [[package]]
                 id = "com.example:helper"
@@ -97,8 +111,8 @@ final class TestCompileServiceDependencyTest {
         assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/MainTest.class")));
         assertTrue(result.classpaths().testCompile().entries().contains(lockedHelperJar),
                 "provided dependency must be on the test compile classpath");
-        assertEquals(List.of(), result.classpaths().test().entries(),
-                "provided dependency must stay off the test runtime classpath");
+        assertTrue(result.classpaths().test().entries().contains(lockedHelperJar),
+                "provided dependency must be on the test runtime classpath");
     }
 
     @Test
@@ -107,7 +121,14 @@ final class TestCompileServiceDependencyTest {
         Path helperJar = cacheRoot.resolve("com/example/helper/1.0.0/helper-1.0.0.jar");
         createHelperJar(projectDir, helperJar);
         writeLockfile(projectDir, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:helper"
+                version = "1.0.0"
+                lane = "test"
+                resolvedScope = "test"
 
                 [[package]]
                 id = "com.example:helper"
@@ -131,7 +152,7 @@ final class TestCompileServiceDependencyTest {
 
     @Test
     void testCompilerErrorsAreSurfacedClearly() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         source(projectDir, "src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         source(projectDir, "src/test/java/com/example/BrokenTest.java", """
                 package com.example;

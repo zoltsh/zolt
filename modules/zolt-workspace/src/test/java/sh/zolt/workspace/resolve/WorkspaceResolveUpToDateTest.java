@@ -155,6 +155,7 @@ final class WorkspaceResolveUpToDateTest {
      */
     @Test
     void coverageResolveIsNeverReportedCurrent() throws IOException {
+        addArtifact("com.example", "test-lib", "1.0.0");
         addArtifact("org.jacoco", "org.jacoco.agent", "0.8.14");
         addClassifierJar("org.jacoco", "org.jacoco.agent", "0.8.14", "runtime");
         addArtifact("org.jacoco", "org.jacoco.cli", "0.8.14");
@@ -163,7 +164,7 @@ final class WorkspaceResolveUpToDateTest {
         resolve();
 
         WorkspaceResolveSnapshot coverage = service.resolveCoverageSnapshot(
-                new sh.zolt.workspace.discovery.WorkspaceDiscoveryService().load(tempDir), cacheRoot());
+                new sh.zolt.workspace.discovery.ManifestWorkspaceLoader().load(tempDir), cacheRoot());
 
         assertFalse(coverage.resolutionSkipped());
         assertTrue(Files.readString(lockfilePath()).contains("org.jacoco.agent"));
@@ -197,19 +198,24 @@ final class WorkspaceResolveUpToDateTest {
         Path member = tempDir.resolve("apps/api/zolt.toml");
         Files.writeString(member, Files.readString(member) + """
 
-                [test.dependencies]
-                "com.example:lib" = "1.0.0"
+                [dependencies.test]
+                "com.example:test-lib" = "1.0.0"
                 """);
     }
 
     private void writeWorkspace(String libVersion) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), """
+        Files.writeString(tempDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         Path member = tempDir.resolve("apps/api");
         Files.createDirectories(member);
@@ -218,7 +224,7 @@ final class WorkspaceResolveUpToDateTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:lib" = "%s"

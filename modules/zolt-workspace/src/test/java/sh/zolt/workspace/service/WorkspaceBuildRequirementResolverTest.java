@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -40,15 +40,15 @@ final class WorkspaceBuildRequirementResolverTest {
 
     @Test
     void springBootNativeBuildsRequestAotToolPackageMetadata() {
-        var config = new ZoltTomlParser().parse("""
+        var config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "app"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 """);
 
         assertTrue(new WorkspaceBuildRequirementResolver()

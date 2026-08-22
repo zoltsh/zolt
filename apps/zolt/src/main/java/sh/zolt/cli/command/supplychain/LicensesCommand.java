@@ -40,9 +40,9 @@ import sh.zolt.sbom.SbomScopeSelection;
 import sh.zolt.sbom.SbomWorkspaceMember;
 import sh.zolt.sbom.WorkspaceSbomAssembler;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.resolve.WorkspaceMemberGraphRoots;
 import sh.zolt.workspace.service.Workspace;
 
@@ -60,7 +60,7 @@ public final class LicensesCommand implements Runnable {
         JSON
     }
 
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ZoltLockfileReader lockfileReader;
     private final LockSbomAssembler assembler;
     private final String toolVersion;
@@ -68,7 +68,7 @@ public final class LicensesCommand implements Runnable {
     private final LicenseReportTextWriter textWriter = new LicenseReportTextWriter();
     private final LicenseReportJsonWriter jsonWriter = new LicenseReportJsonWriter();
     private final LicenseNoticesWriter noticesWriter = new LicenseNoticesWriter();
-    private final WorkspaceDiscoveryService workspaceDiscovery = new WorkspaceDiscoveryService();
+    private final ManifestWorkspaceLoader workspaceDiscovery = new ManifestWorkspaceLoader();
     private final WorkspaceMemberGraphRoots memberGraphRoots = new WorkspaceMemberGraphRoots();
     private final WorkspaceSbomAssembler workspaceAssembler = new WorkspaceSbomAssembler();
     private final WorkspaceLicensePolicyScopes workspaceScopes = new WorkspaceLicensePolicyScopes();
@@ -112,15 +112,15 @@ public final class LicensesCommand implements Runnable {
     private CommandSpec spec;
 
     public LicensesCommand() {
-        this(new ZoltTomlParser(), new ZoltLockfileReader(), new LockSbomAssembler(), ZoltCli.version());
+        this(new ManifestProjectLoader(), new ZoltLockfileReader(), new LockSbomAssembler(), ZoltCli.version());
     }
 
     LicensesCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ZoltLockfileReader lockfileReader,
             LockSbomAssembler assembler,
             String toolVersion) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.lockfileReader = lockfileReader;
         this.assembler = assembler;
         this.toolVersion = toolVersion;
@@ -150,15 +150,20 @@ public final class LicensesCommand implements Runnable {
         }
     }
 
+    /**
+     * The one project this directory names. A member directory is governed by the workspace root's
+     * lock (design §4.5), so its licenses are read out of that lock, never a member-local one.
+     */
     private Resolved resolveProject(SbomScopeSelection selection) {
-        Path projectRoot = projectDirectory.path();
-        Path lockfilePath = projectRoot.resolve("zolt.lock");
+        var project = projectLoader.project(projectDirectory.path());
+        Path lockfilePath = sh.zolt.cli.command.CommandProjectLockfile.path(project);
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",
-                    "Run `zolt resolve` to generate it, then re-run `zolt licenses`."));
+                    "Run `" + sh.zolt.cli.command.CommandProjectLockfile.resolveCommand(project)
+                            + "` to generate it, then re-run `zolt licenses`."));
         }
-        ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+        ProjectConfig config = project.config();
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         LicenseIndex index = resolveLicenses(lockfile, selection);
         SbomModel model = assembler.assemble(config, lockfile, selection, Optional.empty(), toolVersion, index);
@@ -218,7 +223,7 @@ public final class LicensesCommand implements Runnable {
      * {@code components} is what the report lists — every scope the user selected. {@code enforced} is
      * the separate {@link #ENFORCED_SCOPES} assembly the annotations are computed from, so an
      * optional-scope entry stays listed but unannotated. {@code scopes} pairs each member-local
-     * {@code [dependencyPolicy.licenses]} with the enforced closure it governs.
+     * {@code [dependencies.policy.licenses]} with the enforced closure it governs.
      */
     private record Resolved(
             List<SbomComponent> components,

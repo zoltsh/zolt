@@ -31,7 +31,7 @@ import sh.zolt.perf.TimingRecorder;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceBuildService;
@@ -48,7 +48,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "build", description = "Compile main Java sources with the resolved compile classpath.")
 public final class BuildCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final BuildService buildService;
     private final WorkspaceBuildService workspaceBuildService;
     private final FrameworkBuildAugmenter frameworkBuildAugmenter;
@@ -95,7 +95,7 @@ public final class BuildCommand implements Runnable {
 
     private BuildCommand(CommandBuildServices services) {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 services.buildService(),
                 services.workspaceBuildService(),
                 services.frameworkBuildAugmenter(),
@@ -103,12 +103,12 @@ public final class BuildCommand implements Runnable {
     }
 
     BuildCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             BuildService buildService,
             WorkspaceBuildService workspaceBuildService,
             FrameworkBuildAugmenter frameworkBuildAugmenter,
             CommandLockfiles lockfiles) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.buildService = buildService;
         this.workspaceBuildService = workspaceBuildService;
         this.frameworkBuildAugmenter = frameworkBuildAugmenter;
@@ -191,7 +191,7 @@ public final class BuildCommand implements Runnable {
             }
             ProjectConfig config = timings.measure(
                     "config read",
-                    () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                    () -> projectLoader.load(projectRoot));
             var artifactIndex = lockfiles.requireFreshLockfile(
                     projectRoot, config, cacheRoot, offline, "zolt build");
             progress.start("Building project");

@@ -3,6 +3,7 @@ package sh.zolt.resolve;
 import sh.zolt.resolve.support.ResolveServiceTestSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.PackageId;
@@ -61,7 +62,7 @@ final class ResolveServiceRelocationTest extends ResolveServiceTestSupport {
     }
 
     @Test
-    void relocationMissingFieldsInheritsCurrentEffectiveCoordinate() {
+    void directAuthoredRelocationIsRejectedWithTheFinalCoordinate() {
         addPom("com.legacy", "old-lib", "1.0.0", """
                 <project>
                   <groupId>com.legacy</groupId>
@@ -79,18 +80,42 @@ final class ResolveServiceRelocationTest extends ResolveServiceTestSupport {
         Path cacheRoot = tempDir.resolve("cache-inherited-relocation");
         createDirectory(projectDir);
 
-        ResolveResult result = resolveService.resolve(
+        ResolveException exception = assertThrows(ResolveException.class, () -> resolveService.resolve(
                 projectDir,
                 configWithDependencies(java.util.Map.of("com.legacy:old-lib", "1.0.0")),
-                cacheRoot);
+                cacheRoot));
 
-        assertEquals(1, result.resolvedCount());
+        assertTrue(exception.getMessage().contains("exact authored dependency-root identity"));
+        assertTrue(exception.getMessage().contains("com.legacy:new-lib:1.0.0"));
+        assertTrue(exception.getMessage().contains("Replace the declaration"));
+    }
+
+    @Test
+    void sameIdentityVersionRelocationLocksTheAuthoredIdAndSelectedVersion() {
+        addPom("com.example", "library", "1.0.0", """
+                <project>
+                  <groupId>com.example</groupId>
+                  <artifactId>library</artifactId>
+                  <version>1.0.0</version>
+                  <distributionManagement>
+                    <relocation><version>2.0.0</version></relocation>
+                  </distributionManagement>
+                </project>
+                """);
+        addArtifact("com.example", "library", "2.0.0", simplePom("com.example", "library", "2.0.0"));
+        Path projectDir = tempDir.resolve("project-version-relocation");
+        Path cacheRoot = tempDir.resolve("cache-version-relocation");
+        createDirectory(projectDir);
+
+        ResolveResult result = resolveService.resolve(
+                projectDir,
+                configWithDependencies(java.util.Map.of("com.example:library", "1.0.0")),
+                cacheRoot);
         ZoltLockfile lockfile = lockfileReader.read(result.lockfilePath());
-        LockPackage relocated = packageFor(lockfile, "com.legacy", "new-lib");
-        assertEquals("1.0.0", relocated.version());
-        assertTrue(relocated.direct());
-        assertTrue(lockfile.packages().stream().noneMatch(lockPackage ->
-                lockPackage.packageId().equals(new PackageId("com.legacy", "old-lib"))));
+
+        assertEquals("com.example:library", lockfile.dependencyRoots().getFirst().packageId().toString());
+        assertEquals("2.0.0", lockfile.dependencyRoots().getFirst().version());
+        assertEquals("2.0.0", packageFor(lockfile, "com.example", "library").version());
     }
 
     private static LockPackage packageFor(ZoltLockfile lockfile, String groupId, String artifactId) {

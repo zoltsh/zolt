@@ -24,7 +24,9 @@ smoke.suite("SLF4J workspace canary smoke", { tags: ["libraries", "workspace"] }
     await expectTextFile(join(workspace, "zolt.lock"), {
       contains: [
         "org.slf4j:slf4j-api",
-        'workspace = "slf4j-api"',
+        // A version-7 lock records the authored workspace edge as a member-qualified root.
+        '[[dependencyRoot]]\nmember = "slf4j-simple"\nid = "org.slf4j:slf4j-api"',
+        'lane = "api"',
         'members = ["slf4j-simple"]',
         "org.apache.logging.log4j:log4j-to-slf4j",
       ],

@@ -22,7 +22,7 @@ import sh.zolt.resolve.ResolveResult;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.resolve.materialization.RepositoryOverlay;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
 import sh.zolt.workspace.resolve.WorkspaceResolveSnapshot;
@@ -41,7 +41,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "resolve", description = "Resolve dependencies, download artifacts, and write zolt.lock.")
 public final class ResolveCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final ResolveService resolveService;
     private final WorkspaceResolveService workspaceResolveService;
 
@@ -85,16 +85,16 @@ public final class ResolveCommand implements Runnable {
 
     private ResolveCommand(CommandResolveServices services) {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 services.resolveService(),
                 services.workspaceResolveService());
     }
 
     ResolveCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             ResolveService resolveService,
             WorkspaceResolveService workspaceResolveService) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.resolveService = resolveService;
         this.workspaceResolveService = workspaceResolveService;
     }
@@ -125,13 +125,14 @@ public final class ResolveCommand implements Runnable {
                         ResolveCommand::workspaceResolveAttributes));
                 ResolveResult result = snapshot.result();
                 CommandResolveOutput.printWorkspace(spec, result, locked, snapshot.resolutionSkipped());
+                printPolicyWarnings(result);
                 CommandHumanOutput.of(spec).action("zolt build --workspace");
                 progress.result("Resolved " + result.resolvedCount() + " packages");
                 return;
             }
             ProjectConfig config = timings.measure(
                     "config read",
-                    () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                    () -> projectLoader.load(projectRoot));
             ProgressPhase phase = progress.phase("Resolving dependencies");
             ResolveOptions options = resolveOptions()
                     .withArtifactProgressListener(progress.artifactProgressListener());
@@ -145,6 +146,7 @@ public final class ResolveCommand implements Runnable {
                             options),
                     ResolveCommand::resolveAttributes));
             CommandResolveOutput.print(spec, result, !locked);
+            printPolicyWarnings(result);
             Optional<String> draftWarning = ResolveDraftWarning.forResult(projectRoot, config, result);
             if (draftWarning.isPresent()) {
                 CommandHumanOutput.of(spec).statusDetail("warning", draftWarning.get());
@@ -156,6 +158,13 @@ public final class ResolveCommand implements Runnable {
             throw CommandFailures.user(spec, exception);
         } finally {
             CommandTimings.print(spec, "resolve", projectRoot, timingOptions, timings);
+        }
+    }
+
+    /** Design §9.11: a mediating-but-reporting policy surfaces every warning it produced. */
+    private void printPolicyWarnings(ResolveResult result) {
+        for (String warning : result.warnings()) {
+            CommandHumanOutput.of(spec).statusDetail("warning", warning);
         }
     }
 

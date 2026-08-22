@@ -49,7 +49,7 @@ final class PublishCommandUploadTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-upload-release-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"
@@ -83,7 +83,7 @@ final class PublishCommandUploadTest {
                 sha256(sourcesArtifact),
                 sha256(javadocArtifact),
                 sha256(testsArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         try (UploadRepository repository = UploadRepository.start()) {
             Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-upload-release") + """
@@ -91,10 +91,10 @@ final class PublishCommandUploadTest {
                     [package]
                     sources = true
                     javadoc = true
-                    tests = true
+                    testJar = true
 
                     [publish]
-                    releaseRepository = "company-releases"
+                    release = "company-releases"
 
                     [publish.repositories.company-releases]
                     url = "%s"

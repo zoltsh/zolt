@@ -9,12 +9,29 @@ import java.nio.file.Path;
 final class PolicyCommandTestSupport {
     private PolicyCommandTestSupport() {}
 
+    /** The same project as a workspace member: the root owns the repositories (design 8.7). */
+    static void writePolicyMember(Path memberDir) throws IOException {
+        writePolicyProject(memberDir);
+        Files.writeString(memberDir.resolve("zolt.toml"),
+                Files.readString(memberDir.resolve("zolt.toml")).replace("""
+                        [repositories]
+                        central = false
+
+                        [repositories.test]
+                        url = "https://repo.maven.apache.org/maven2"
+
+                        """.replace("                        ", "                "), ""));
+    }
+
     static void writePolicyProject(Path projectDir) throws IOException {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
 
                 [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                central = false
+
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
                 [versions]
                 "spring-boot" = "4.0.6"
@@ -26,31 +43,39 @@ final class PolicyCommandTestSupport {
 
                 [dependencies]
                 "com.example:direct-lib" = { versionRef = "direct-lib" }
-                "org.springframework.boot:spring-boot-starter-web" = {}
+                "org.springframework.boot:spring-boot-starter-web" = { managed = true }
 
-                [dependencyPolicy]
-                exclude = [
-                  { group = "com.example", artifact = "direct-lib", reason = "Direct dependency conflict fixture" },
-                  { group = "commons-logging", artifact = "commons-logging", reason = "Use jcl-over-slf4j" },
-                  { group = "log4j", artifact = "log4j", reason = "Legacy logging baseline" }
+                [dependencies.policy]
+                deny = [
+                  { coordinate = "com.example:direct-lib", reason = "Direct dependency conflict fixture" },
+                  { coordinate = "commons-logging:commons-logging", reason = "Use jcl-over-slf4j" },
+                  { coordinate = "log4j:log4j", reason = "Legacy logging baseline" }
                 ]
 
-                [dependencyConstraints]
-                "com.example:unused" = { version = "1.0.0", kind = "strict", reason = "Unused baseline" }
-                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat-baseline", kind = "strict", reason = "Container baseline" }
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.constraints]
+                "com.example:unused" = { version = "1.0.0", reason = "Unused baseline" }
+                "org.apache.tomcat.embed:tomcat-embed-core" = { versionRef = "tomcat-baseline", reason = "Container baseline" }
                 """);
     }
 
     static void writePolicyLockfile(Path projectDir) throws IOException {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:direct-lib"
+                version = "1.2.3"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.springframework.boot:spring-boot-starter-web"
+                version = "4.0.6"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:direct-lib"
@@ -94,7 +119,7 @@ final class PolicyCommandTestSupport {
                 id = "commons-logging:commons-logging"
                 requested = "1.2"
                 source = "org.springframework.boot:spring-boot-starter-web:4.0.6"
-                policy = "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                policy = "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                 """);
     }
 }

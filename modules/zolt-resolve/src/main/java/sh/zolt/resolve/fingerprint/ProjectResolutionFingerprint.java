@@ -23,6 +23,19 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class ProjectResolutionFingerprint {
+    /**
+     * The fingerprint schema version, itself a fingerprint input so a bump restates every lock.
+     *
+     * <p>v2 (2026-08) closed two freshness false negatives and unfroze one diagnostic surface. It
+     * added the dependency variant — classifier and type — which v1 omitted, letting a manifest
+     * switch a coordinate to another published artifact while its lock stayed fresh; it put
+     * repositories in effective lookup order rather than id order, so a first-match-wins reorder
+     * stales the lock it changes the meaning of; and it replaced {@code GeneratedSourceStep.toString()}
+     * with an explicit field encoder so a diagnostic rendering is no longer frozen into checked-in
+     * locks. All three land in one restatement: every lock is rewritten once, not once per fix.
+     */
+    static final String SCHEMA = "v2";
+
     private ProjectResolutionFingerprint() {
     }
 
@@ -47,7 +60,7 @@ public final class ProjectResolutionFingerprint {
 
     static List<String> inputs(ProjectConfig config) {
         List<String> inputs = new ArrayList<>();
-        line(inputs, "schema", "v1");
+        line(inputs, "schema", SCHEMA);
         line(inputs, "java", "project", config.project().java());
         line(inputs, "java", "compilerRelease", config.compilerSettings().release());
         repositoryInputs(inputs, config.repositorySettings());
@@ -73,6 +86,7 @@ public final class ProjectResolutionFingerprint {
                 config.dependencyPolicy().exclusions(),
                 config.dependencyPolicy().constraints(),
                 config.dependencyPolicy().failOnVersionConflict());
+        generatedSourceEncodingInput(inputs, config);
         generatedSourceInputs(inputs, "generatedMain", config.build().generatedMainSources());
         generatedSourceInputs(inputs, "generatedTest", config.build().generatedTestSources());
         line(inputs, "package", "mode", resolutionPackageMode(config.packageSettings().mode()));
@@ -80,22 +94,41 @@ public final class ProjectResolutionFingerprint {
         return List.copyOf(inputs);
     }
 
-    /** Only Spring Boot archive modes contribute package tooling to dependency resolution. */
+    /**
+     * Only Spring Boot archive modes contribute package tooling to dependency resolution. The two
+     * tokens are frozen lock identity, not display symbols, so renaming a package mode never
+     * invalidates a checked-in lock.
+     */
     private static String resolutionPackageMode(PackageMode mode) {
         return mode == PackageMode.SPRING_BOOT || mode == PackageMode.SPRING_BOOT_WAR
-                ? PackageMode.SPRING_BOOT.configValue()
-                : PackageMode.THIN.configValue();
+                ? "spring-boot"
+                : "thin";
     }
 
+    /**
+     * Repositories in effective lookup order, each carrying its ordinal.
+     *
+     * <p>Order is a resolution input, not presentation: fetching is first-match-wins (design §8.5), so
+     * a manifest that only reorders {@code [repositories].order} changes which repository serves a
+     * coordinate available from more than one. While these lines were sorted by id, such an edit left
+     * the fingerprint identical and a checked-in lock stayed "fresh" over artifacts selected under a
+     * precedence the manifest no longer declares — a freshness false negative, which no later command
+     * is positioned to catch. Credentials below stay sorted by id: they are reached by reference from
+     * a repository, never by position.
+     *
+     * <p>The ordinal mirrors {@code RepositoryConfigurationIdentity}, which keys cache scopes by the
+     * same order. They stay separate values — this one is lock identity, that one is a cache key.
+     */
     private static void repositoryInputs(List<String> inputs, Map<String, RepositorySettings> repositories) {
-        repositories.values().stream()
-                .sorted(Comparator.comparing(RepositorySettings::id))
-                .forEach(repository -> line(
-                        inputs,
-                        "repository",
-                        repository.id(),
-                        repository.url(),
-                        repository.credentials().orElse("")));
+        int ordinal = 0;
+        for (RepositorySettings repository : repositories.values()) {
+            line(inputs,
+                    "repository",
+                    Integer.toString(ordinal++),
+                    repository.id(),
+                    repository.url(),
+                    repository.credentials().orElse(""));
+        }
     }
 
     private static void credentialInputs(List<String> inputs, Map<String, RepositoryCredentialSettings> credentials) {
@@ -142,6 +175,14 @@ public final class ProjectResolutionFingerprint {
                             nullToEmpty(value.workspace()),
                             Boolean.toString(value.optional()),
                             Boolean.toString(value.publishOnly()));
+                    if (!value.defaultVariant()) {
+                        line(inputs,
+                                "dependencyVariant",
+                                value.section(),
+                                value.coordinate(),
+                                nullToEmpty(value.classifier()),
+                                nullToEmpty(value.type()));
+                    }
                     value.exclusions().stream()
                             .sorted(Comparator
                                     .comparing(DependencyExclusionSpec::group)
@@ -187,13 +228,25 @@ public final class ProjectResolutionFingerprint {
                         constraint.reason().orElse("")));
     }
 
+    /**
+     * Emits the generated-source encoder version once, when the project declares any step at all, so
+     * every lock that depends on the encoding records which encoding produced it while projects with
+     * no generated sources gain no category.
+     */
+    private static void generatedSourceEncodingInput(List<String> inputs, ProjectConfig config) {
+        if (!config.build().generatedMainSources().isEmpty()
+                || !config.build().generatedTestSources().isEmpty()) {
+            line(inputs, "generatedSourceEncoding", GeneratedSourceFingerprint.ENCODING);
+        }
+    }
+
     private static void generatedSourceInputs(
             List<String> inputs,
             String section,
             List<GeneratedSourceStep> steps) {
         steps.stream()
                 .sorted(Comparator.comparing(GeneratedSourceStep::id))
-                .forEach(step -> line(inputs, section, step.id(), step.toString()));
+                .forEach(step -> GeneratedSourceFingerprint.encode(inputs, section, step));
     }
 
     private static void mapInputs(List<String> inputs, String category, Map<String, String> values) {
@@ -215,10 +268,11 @@ public final class ProjectResolutionFingerprint {
             case "workspaceCompile" -> "dependencies.compile.workspace";
             case "workspaceTest" -> "dependencies.test.workspace";
             case "managedDependency" -> parts.length > 1 ? "dependencies." + parts[1] : "dependencies";
-            case "dependencyMetadata", "dependencyMetadata.exclusion" -> "dependencyMetadata";
+            case "dependencyMetadata", "dependencyMetadata.exclusion", "dependencyVariant" ->
+                    "dependencyMetadata";
             case "dependencyPolicy.failOnVersionConflict", "dependencyPolicy.exclusion", "dependencyPolicy.constraint" ->
                     "dependencyPolicy";
-            case "generatedMain", "generatedTest" -> "generatedSources";
+            case "generatedSourceEncoding", "generatedMain", "generatedTest" -> "generatedSources";
             default -> category;
         };
     }

@@ -16,7 +16,7 @@ import sh.zolt.build.testruntime.compile.TestCompileResult;
 import sh.zolt.build.testruntime.TestRunResult;
 import sh.zolt.doctor.SelfHostingCheckService;
 import sh.zolt.resolve.ResolveResult;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -44,7 +44,7 @@ final class SelfCheckServiceNativeTest {
                         "native ok\n"));
         List<String> calls = new java.util.ArrayList<>();
         SelfCheckService service = new SelfCheckService(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new SelfHostingCheckService(),
                 (projectDirectory, config, cacheRoot, offline) ->
                         new ResolveResult(3, 0, 0, projectDirectory.resolve("zolt.lock")),
@@ -108,7 +108,7 @@ final class SelfCheckServiceNativeTest {
                         tempDir.resolve("target/native/native-image.log"),
                         "native ok\n"));
         SelfCheckService service = new SelfCheckService(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new SelfHostingCheckService(),
                 (projectDirectory, config, cacheRoot, offline) ->
                         new ResolveResult(3, 0, 0, projectDirectory.resolve("zolt.lock")),

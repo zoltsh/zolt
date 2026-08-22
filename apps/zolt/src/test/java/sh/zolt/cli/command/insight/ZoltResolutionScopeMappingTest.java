@@ -10,7 +10,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.resolve.materialization.RepositoryOverlay;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -44,23 +44,23 @@ final class ZoltResolutionScopeMappingTest {
             writeLocalArtifact(repository, "com.fixture", artifact, "1.0.0");
         }
 
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "fixture"
                 version = "9.9.9"
                 group = "com.fixture"
-                java = "21"
+                java = 21
 
                 [repositories]
-                "central" = "https://repo.maven.apache.org/maven2"
+                central = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
                 "com.fixture:compile-lib" = "1.0.0"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.fixture:runtime-lib" = "1.0.0"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "com.fixture:provided-lib" = "1.0.0"
                 """);
 

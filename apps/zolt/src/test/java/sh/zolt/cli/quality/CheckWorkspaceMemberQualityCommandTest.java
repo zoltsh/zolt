@@ -53,9 +53,9 @@ final class CheckWorkspaceMemberQualityCommandTest {
             assertTrue(check.stdout().contains(
                     "ok dependency-policy modules/core core Dependency policy baseline is explainable: 1 platform"));
             assertTrue(check.stdout().contains(
-                    "ok license-policy modules/core [dependencyPolicy.licenses] Evaluated 2 compile/runtime dependencies against [dependencyPolicy.licenses]: 0 violation(s), 0 warning(s)."));
+                    "ok license-policy modules/core [dependencies.policy.licenses] Evaluated 2 compile/runtime dependencies against [dependencies.policy.licenses]: 0 violation(s), 0 warning(s)."));
             assertTrue(check.stdout().contains(
-                    "ok license-policy apps/admin [dependencyPolicy.licenses] Evaluated 2 compile/runtime dependencies against [dependencyPolicy.licenses]: 0 violation(s), 0 warning(s)."));
+                    "ok license-policy apps/admin [dependencies.policy.licenses] Evaluated 2 compile/runtime dependencies against [dependencies.policy.licenses]: 0 violation(s), 0 warning(s)."));
             assertFalse(check.stdout().contains("license-policy modules/core org.example:admin-only"), check.stdout());
             assertEquals("", check.stderr());
         }
@@ -69,11 +69,13 @@ final class CheckWorkspaceMemberQualityCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "legacy-quality-workspace"
-                members = ["app"]
+
+                [workspace.members]
+                include = ["app"]
                 """);
         Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 unknown = "fail"
                 """);
         Files.writeString(workspace.resolve("zolt.lock"), "version = 4\n");
@@ -93,7 +95,9 @@ final class CheckWorkspaceMemberQualityCommandTest {
             assertEquals(1, result.exitCode(), qualityCheck);
             assertTrue(result.stdout().contains("error " + qualityCheck + " zolt.lock"), result.stdout());
             assertTrue(result.stdout().contains("version 4"), result.stdout());
-            assertTrue(result.stdout().contains("member-qualified optional-boundary evidence"), result.stdout());
+            assertTrue(
+                    result.stdout().contains("version 4 is older than this Zolt supports (current 7)"),
+                    result.stdout());
             assertTrue(result.stdout().contains("zolt resolve --workspace"), result.stdout());
             assertEquals("", result.stderr());
         }
@@ -129,14 +133,19 @@ final class CheckWorkspaceMemberQualityCommandTest {
             Files.writeString(workspace.resolve("zolt.toml"), """
                     [workspace]
                     name = "mixed-optionality"
-                    members = ["modules/core"]
+
+                    [workspace.members]
+                    include = ["modules/core"]
 
                     [repositories]
-                    test = "%s"
+                    central = false
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(repository.baseUri()));
             Files.writeString(core.resolve("zolt.toml"), memberConfig("core") + """
 
-                    [api.dependencies]
+                    [dependencies.api]
                     "org.example:feature" = { version = "1.0.0", optional = true }
                     "org.example:required-root" = "1.0.0"
                     """);
@@ -193,49 +202,54 @@ final class CheckWorkspaceMemberQualityCommandTest {
             Files.writeString(workspace.resolve("zolt.toml"), """
                     [workspace]
                     name = "license-identity"
-                    members = ["modules/core", "modules/bridge", "apps/app", "apps/zip-app"]
+
+                    [workspace.members]
+                    include = ["modules/core", "modules/bridge", "apps/app", "apps/zip-app"]
 
                     [repositories]
-                    test = "%s"
+                    central = false
+
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(repository.baseUri()));
             Files.writeString(core.resolve("zolt.toml"), """
                     [project]
                     name = "core"
                     version = "1.0.0"
                     group = "com.acme"
-                    java = "21"
+                    java = 21
                     """);
             Files.writeString(bridge.resolve("zolt.toml"), """
                     [project]
                     name = "bridge"
                     version = "1.0.0"
                     group = "com.acme"
-                    java = "21"
+                    java = 21
 
-                    [api.dependencies]
-                    "com.acme:core" = { workspace = "modules/core" }
+                    [dependencies.api]
+                    "com.acme:core" = { workspace = true }
                     """);
             Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
 
-                    [api.dependencies]
-                    "com.acme:bridge" = { workspace = "modules/bridge" }
+                    [dependencies.api]
+                    "com.acme:bridge" = { workspace = true }
 
                     [dependencies]
                     "com.acme:core" = { version = "1.0.0", classifier = "tests" }
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     allow = ["MIT"]
                     unknown = "fail"
                     """);
             Files.writeString(zipApp.resolve("zolt.toml"), memberConfig("zip-app") + """
 
-                    [api.dependencies]
-                    "com.acme:bridge" = { workspace = "modules/bridge" }
+                    [dependencies.api]
+                    "com.acme:bridge" = { workspace = true }
 
-                    [runtime.dependencies]
+                    [dependencies.runtime]
                     "com.acme:core" = { version = "1.0.0", type = "zip" }
 
-                    [dependencyPolicy.licenses]
+                    [dependencies.policy.licenses]
                     allow = ["MIT"]
                     unknown = "fail"
                     """);
@@ -256,10 +270,10 @@ final class CheckWorkspaceMemberQualityCommandTest {
 
             assertEquals(0, check.exitCode(), () -> check.stdout() + check.stderr());
             assertTrue(check.stdout().contains(
-                    "ok license-policy apps/app [dependencyPolicy.licenses] Evaluated 1 compile/runtime dependency"),
+                    "ok license-policy apps/app [dependencies.policy.licenses] Evaluated 1 compile/runtime dependency"),
                     check.stdout());
             assertTrue(check.stdout().contains(
-                    "ok license-policy apps/zip-app [dependencyPolicy.licenses] Evaluated 1 compile/runtime dependency"),
+                    "ok license-policy apps/zip-app [dependencies.policy.licenses] Evaluated 1 compile/runtime dependency"),
                     check.stdout());
             assertFalse(check.stdout().contains(
                     "Evaluated 2 compile/runtime dependencies"), check.stdout());
@@ -277,10 +291,15 @@ final class CheckWorkspaceMemberQualityCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "member-quality-workspace"
-                members = ["modules/feature-api", "modules/core", "apps/admin"]
+
+                [workspace.members]
+                include = ["modules/feature-api", "modules/core", "apps/admin"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "org.example:platform" = "1.0.0"
@@ -288,14 +307,14 @@ final class CheckWorkspaceMemberQualityCommandTest {
         Files.writeString(feature.resolve("zolt.toml"), memberConfig("feature-api"));
         Files.writeString(core.resolve("zolt.toml"), memberConfig("core") + """
 
-                [api.dependencies]
-                "com.example:feature-api" = { workspace = "modules/feature-api", optional = true }
+                [dependencies.api]
+                "com.example:feature-api" = { workspace = true, optional = true }
 
                 [dependencies]
-                "org.example:dual" = {}
-                "org.example:parent" = { version = "1.0.0", exclusions = [{ group = "org.example", artifact = "excluded" }] }
+                "org.example:dual" = { managed = true }
+                "org.example:parent" = { version = "1.0.0", exclude = ["org.example:excluded"] }
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 deny = ["Apache-2.0"]
                 unknown = "fail"
                 """);
@@ -304,10 +323,10 @@ final class CheckWorkspaceMemberQualityCommandTest {
                 [dependencies]
                 "org.example:admin-only" = "1.0.0"
 
-                [runtime.dependencies]
-                "org.example:dual" = { classifier = "linux" }
+                [dependencies.runtime]
+                "org.example:dual" = { managed = true, classifier = "linux" }
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["Apache-2.0", "MIT"]
                 unknown = "fail"
                 """);

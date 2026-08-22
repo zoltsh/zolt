@@ -54,11 +54,15 @@ smoke.suite("zolt workspace smoke", { tags: ["jvm", "workspace"] }, async (t: Sm
       join(workspace, "zolt.toml"),
       `[workspace]
 name = "workspace-app"
-members = ["apps/api", "modules/core", "apps/worker"]
-defaultMembers = ["apps/api"]
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[workspace.members]
+default = ["apps/api"]
+include = ["apps/api", "modules/core", "apps/worker"]
+
+[workspace.project]
+group = "com.example.workspace"
+version = "0.1.0"
+java = 21
 `,
       "utf8",
     );
@@ -69,15 +73,7 @@ central = "https://repo.maven.apache.org/maven2"
 name = "worker"
 version = "0.1.0"
 group = "com.example.workspace"
-java = "21"
-
-[dependencies]
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+java = 21
 `,
       "utf8",
     );

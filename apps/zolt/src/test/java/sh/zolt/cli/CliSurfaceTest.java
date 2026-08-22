@@ -131,6 +131,43 @@ final class CliSurfaceTest {
     }
 
     @Test
+    void initEmitsTheFinalWorkspaceMembersTable() throws IOException {
+        execute("init", "--workspace", "--directory", tempDir.toString(), "platform");
+
+        assertEquals(
+                """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                default = ["apps/platform"]
+                include = ["apps/platform"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+                """,
+                Files.readString(tempDir.resolve("platform/zolt.toml")));
+    }
+
+    @Test
+    void initAllMembersOmitsTheDefaultSelection() throws IOException {
+        execute("init", "--workspace", "--all-members", "--directory", tempDir.toString(), "platform");
+
+        assertFalse(Files.readString(tempDir.resolve("platform/zolt.toml")).contains("default ="));
+    }
+
+    @Test
+    void initRejectsAllMembersOutsideWorkspaceMode() {
+        CommandResult result = execute("init", "--all-members", "--directory", tempDir.toString(), "hello");
+
+        assertEquals(1, result.exitCode());
+        assertTrue(result.stderr().contains("--all-members requires --workspace."));
+        assertFalse(Files.exists(tempDir.resolve("hello/zolt.toml")));
+    }
+
+    @Test
     void initCanOmitTests() throws IOException {
         CommandResult result = execute(
                 "init",
@@ -211,7 +248,9 @@ final class CliSurfaceTest {
                 "check",
                 "add",
                 "remove",
-                "platform",
+                "platforms",
+                "versions",
+                "bom",
                 "resolve",
                 "tree",
                 "why",
@@ -247,6 +286,9 @@ final class CliSurfaceTest {
         assertEquals(commandClass("classpath"), "sh.zolt.cli.command.resolve.ClasspathCommand");
         assertEquals(commandClass("config"), "sh.zolt.cli.command.config.ConfigCommand");
         assertEquals(commandClass("version"), "sh.zolt.cli.command.dependency.VersionCommand");
+        assertEquals(commandClass("versions"), "sh.zolt.cli.command.dependency.VersionsCommand");
+        assertEquals(commandClass("platforms"), "sh.zolt.cli.command.dependency.PlatformsCommand");
+        assertEquals(commandClass("bom"), "sh.zolt.cli.command.dependency.BomCommand");
         assertEquals(commandClass("self"), "sh.zolt.cli.command.self.SelfCommand");
         assertEquals(commandClass("update"), "sh.zolt.cli.command.dependency.UpdateCommand");
         assertEquals(commandClass("native-smoke"), "sh.zolt.cli.command.nativeimage.NativeSmokeCommand");

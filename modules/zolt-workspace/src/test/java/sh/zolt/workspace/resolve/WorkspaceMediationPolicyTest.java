@@ -15,9 +15,11 @@ import sh.zolt.project.BuildSettings;
 import sh.zolt.project.DependencyConstraint;
 import sh.zolt.project.DependencyConstraintKind;
 import sh.zolt.project.DependencyPolicySettings;
+import sh.zolt.project.LicensePolicySettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
+import sh.zolt.project.VersionConflictPolicy;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolutionVariant;
 import java.util.List;
@@ -62,6 +64,44 @@ final class WorkspaceMediationPolicyTest {
                         "apps/worker", config(false, Optional.empty()),
                         "apps/unaffected", config(true, Optional.empty())),
                 "zolt resolve --workspace"));
+    }
+
+    /**
+     * Design §9.11: {@code warn} mediates and reports, so an affected member is named in a warning
+     * while an unaffected member and a {@code resolve} member stay silent.
+     */
+    @Test
+    void warnOnConflictReportsAffectedMembersWithoutRejectingTheWorkspace() {
+        List<LockPackage> candidates = List.of(
+                candidate("apps/api", "1.0.0"),
+                candidate("apps/worker", "2.0.0"));
+        Map<String, ProjectConfig> configs = Map.of(
+                "apps/api", config(VersionConflictPolicy.WARN, Optional.empty()),
+                "apps/worker", config(VersionConflictPolicy.RESOLVE, Optional.empty()),
+                "apps/unaffected", config(VersionConflictPolicy.WARN, Optional.empty()));
+
+        List<String> warnings =
+                WorkspaceMediationPolicyEnforcer.warnings(candidates, List.of(CONFLICT), configs);
+
+        assertEquals(1, warnings.size(), warnings.toString());
+        assertTrue(warnings.getFirst().contains("apps/api"), warnings.toString());
+        assertTrue(warnings.getFirst().contains("com.example:lib"), warnings.toString());
+        assertTrue(
+                warnings.getFirst().contains("[dependencies.policy].conflicts = \"warn\""),
+                warnings.toString());
+        assertDoesNotThrow(() -> WorkspaceMediationPolicyEnforcer.enforce(
+                candidates,
+                List.of(CONFLICT),
+                Map.of(VARIANT, "2.0.0"),
+                configs,
+                "zolt resolve --workspace"));
+        assertTrue(WorkspaceMediationPolicyEnforcer.warnings(
+                        candidates,
+                        List.of(CONFLICT),
+                        Map.of(
+                                "apps/api", config(VersionConflictPolicy.RESOLVE, Optional.empty()),
+                                "apps/worker", config(VersionConflictPolicy.FAIL, Optional.empty())))
+                .isEmpty());
     }
 
     @Test
@@ -111,8 +151,14 @@ final class WorkspaceMediationPolicyTest {
                         .toList());
     }
 
+    private static ProjectConfig config(boolean failOnConflict, Optional<String> strictVersion) {
+        return config(
+                failOnConflict ? VersionConflictPolicy.FAIL : VersionConflictPolicy.RESOLVE,
+                strictVersion);
+    }
+
     private static ProjectConfig config(
-            boolean failOnConflict,
+            VersionConflictPolicy conflicts,
             Optional<String> strictVersion) {
         Map<String, DependencyConstraint> constraints = strictVersion
                 .map(version -> Map.of(
@@ -135,7 +181,7 @@ final class WorkspaceMediationPolicyTest {
                         Map.of(),
                         BuildSettings.defaults())
                 .withDependencyPolicy(new DependencyPolicySettings(
-                        List.of(), constraints, failOnConflict));
+                        List.of(), constraints, conflicts, LicensePolicySettings.defaults()));
     }
 
     private static LockPackage candidate(String member, String version) {

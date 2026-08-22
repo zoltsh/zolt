@@ -31,11 +31,11 @@ public final class QuarkusTestPlanService {
         if (!config.frameworkSettings().quarkus().enabled()) {
             throw new QuarkusPlanException(
                     "Quarkus is not enabled for this project. "
-                            + "Add `[framework.quarkus] enabled = true` to zolt.toml, "
+                            + "Add `[package] mode = \"quarkus\"` to zolt.toml, "
                             + "run `zolt resolve`, then run `zolt quarkus test-plan` again.");
         }
         Path root = projectDirectory.toAbsolutePath().normalize();
-        Path testOutputDirectory = outputPath(root, "[build].testOutput", config.build().testOutput());
+        Path testOutputDirectory = outputPath(root, "[build.output].test", config.build().testOutput());
         Path quarkusDirectory = outputPath(
                 root,
                 "Quarkus test output",

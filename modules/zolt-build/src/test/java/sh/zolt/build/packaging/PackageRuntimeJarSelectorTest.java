@@ -13,7 +13,7 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -353,7 +353,7 @@ final class PackageRuntimeJarSelectorTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         List<ResolvedClasspathPackage> declarations = packages.stream()
                 .filter(value -> value.scope()
@@ -361,7 +361,7 @@ final class PackageRuntimeJarSelectorTest {
                 .filter(value -> value.resolvedPackage().direct())
                 .toList();
         if (!declarations.isEmpty()) {
-            toml.append("\n[provided.dependencies]\n");
+            toml.append("\n[dependencies.provided]\n");
             for (ResolvedClasspathPackage declaration : declarations) {
                 var resolved = declaration.resolvedPackage();
                 var identity = resolved.artifactIdentity();
@@ -382,6 +382,6 @@ final class PackageRuntimeJarSelectorTest {
                 toml.append(" }\n");
             }
         }
-        return new ZoltTomlParser().parse(toml.toString());
+        return new ManifestProjectConfigLoader().load(toml.toString());
     }
 }

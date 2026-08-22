@@ -12,12 +12,15 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.jar.JarOutputStream;
+import sh.zolt.dependency.DependencyLane;
+import sh.zolt.dependency.DependencyScope;
+import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 
-/** Migrates concise workspace test fixtures onto the version 6 cache-path contract. */
+/** Adds content-addressed artifacts to concise current-schema workspace test fixtures. */
 public final class WorkspaceContentAddressedLockTestSupport {
     private WorkspaceContentAddressedLockTestSupport() {}
 
@@ -31,6 +34,10 @@ public final class WorkspaceContentAddressedLockTestSupport {
     }
 
     public static ZoltLockfile migrate(Path cacheRoot, ZoltLockfile legacy) throws IOException {
+        if (legacy.version() != ZoltLockfile.CURRENT_VERSION) {
+            throw new IllegalArgumentException(
+                    "Workspace test fixture must use lockfile version " + ZoltLockfile.CURRENT_VERSION + ".");
+        }
         List<LockPackage> packages = new ArrayList<>();
         for (LockPackage lockPackage : legacy.packages()) {
             Artifact jar = migrateArtifact(cacheRoot, lockPackage.jar());
@@ -66,7 +73,8 @@ public final class WorkspaceContentAddressedLockTestSupport {
                 legacy.conflicts(),
                 legacy.policyEffects(),
                 legacy.memberGraphs(),
-                legacy.workspaceResolutionInputFingerprint());
+                legacy.workspaceResolutionInputFingerprint(),
+                legacy.dependencyRoots());
     }
 
     public static Path cachedArtifact(Path cacheRoot, Path legacyArtifact) throws IOException {
@@ -76,6 +84,46 @@ public final class WorkspaceContentAddressedLockTestSupport {
     public static void writeArtifact(Path path, String content) throws IOException {
         Files.createDirectories(path.getParent());
         Files.writeString(path, content);
+    }
+
+    public static String dependencyRoot(
+            String member,
+            String id,
+            String version,
+            DependencyLane lane,
+            DependencyScope scope) {
+        return dependencyRoot(
+                member,
+                id,
+                version,
+                LockArtifactVariant.defaultVariant(),
+                lane,
+                scope);
+    }
+
+    public static String dependencyRoot(
+            String member,
+            String id,
+            String version,
+            LockArtifactVariant variant,
+            DependencyLane lane,
+            DependencyScope scope) {
+        String variantField = variant.isDefault() ? "" : "variant = \"" + variant.key() + "\"\n";
+        return """
+
+                [[dependencyRoot]]
+                member = "%s"
+                id = "%s"
+                version = "%s"
+                %slane = "%s"
+                resolvedScope = "%s"
+                """.formatted(
+                member,
+                id,
+                version,
+                variantField,
+                lane.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-'),
+                scope.lockfileName());
     }
 
     public static String sha256(String content) {

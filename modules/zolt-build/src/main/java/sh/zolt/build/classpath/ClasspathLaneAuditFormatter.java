@@ -19,7 +19,7 @@ public final class ClasspathLaneAuditFormatter {
                     scope.lockfileName(),
                     yesNo(scope.entersMainCompileClasspath()),
                     yesNo(scope.entersMainRuntimeClasspath()),
-                    yesNo(ClasspathLanePolicy.entersTestRuntimeClasspath(scope)),
+                    yesNo(scope.entersTestRuntimeClasspath()),
                     yesNo(scope.entersMainProcessorClasspath()),
                     yesNo(scope.entersTestProcessorClasspath()),
                     yesNo(scope == DependencyScope.TOOL_SPRING_AOT),
@@ -71,7 +71,7 @@ public final class ClasspathLaneAuditFormatter {
             stringField(json, 3, "scope", scope.lockfileName(), true);
             field(json, 3, "compile", scope.entersMainCompileClasspath(), true);
             field(json, 3, "runtime", scope.entersMainRuntimeClasspath(), true);
-            field(json, 3, "test", ClasspathLanePolicy.entersTestRuntimeClasspath(scope), true);
+            field(json, 3, "test", scope.entersTestRuntimeClasspath(), true);
             field(json, 3, "processor", scope.entersMainProcessorClasspath(), true);
             field(json, 3, "testProcessor", scope.entersTestProcessorClasspath(), true);
             field(json, 3, "toolSpringAot", scope == DependencyScope.TOOL_SPRING_AOT, true);

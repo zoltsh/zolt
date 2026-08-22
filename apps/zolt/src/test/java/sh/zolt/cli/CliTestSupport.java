@@ -55,8 +55,18 @@ public final class CliTestSupport {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 """.formatted(name, currentJavaMajorVersion());
+    }
+
+    /** A BOM has no compilation target, so design 12.6 forbids {@code [project].java}. */
+    public static String bomConfig(String name) {
+        return """
+                [project]
+                name = "%s"
+                version = "0.1.0"
+                group = "com.example"
+                """.formatted(name);
     }
 
     /** Writes a current empty dependency lock carrying the project's real resolution fingerprint. */
@@ -64,7 +74,7 @@ public final class CliTestSupport {
         ContentAddressedLockTestSupport.write(
                 projectDirectory.resolve("zolt.lock"),
                 projectDirectory.resolve(".test-cache"),
-                "version = 6\n");
+                "version = 7\n");
     }
 
     public static String generatedSourceConfig(

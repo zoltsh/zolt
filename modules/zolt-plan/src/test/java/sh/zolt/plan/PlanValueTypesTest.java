@@ -50,6 +50,7 @@ final class PlanValueTypesTest {
         BuildPlan plan = new BuildPlan(
                 0,
                 projectDir.resolve("..").resolve(projectDir.getFileName()),
+                projectDir.resolve("..").resolve(projectDir.getFileName()).resolve("zolt.lock"),
                 null,
                 PlanTarget.BUILD,
                 nodes);
@@ -110,7 +111,10 @@ final class PlanValueTypesTest {
                         "zolt.lock is missing; plan will not resolve or download artifacts.",
                         "Run `zolt resolve` first, then rerun `zolt plan`.")));
 
-        BuildPlan plan = new BuildPlan(1, projectDir, "demo", PlanTarget.CI, List.of(ready, planned, blocked));
+        BuildPlan plan = new BuildPlan(
+                1,
+                projectDir,
+                projectDir.resolve("zolt.lock"), "demo", PlanTarget.CI, List.of(ready, planned, blocked));
 
         assertTrue(plan.blocked());
     }

@@ -65,6 +65,8 @@ public final class SelfParityCommand implements Runnable {
                 spec.commandLine().getErr().print(formatEntries(result.missingFromZolt()));
                 output.line("Extra in Zolt-built jar:");
                 spec.commandLine().getErr().print(formatEntries(result.extraInZolt()));
+                // print() does not autoflush, and the exception below ends the command.
+                spec.commandLine().getErr().flush();
                 throw new PrintedUserException(spec.commandLine(), "Self-hosting parity failed.");
             }
             CommandHumanOutput output = CommandHumanOutput.of(spec);

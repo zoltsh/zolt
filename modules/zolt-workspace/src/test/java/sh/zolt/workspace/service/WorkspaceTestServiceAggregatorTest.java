@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Guards: a workspace member whose {@code [test.dependencies]} declare the
+ * Guards: a workspace member whose {@code [dependencies.test]} declare the
  * {@code junit-jupiter} aggregator (engine + params, launched via the auto-injected
  * {@code junit-platform-console}) runs through the expected launcher while still allowing
  * support-only test sources that discover no tests.
@@ -71,7 +71,9 @@ final class WorkspaceTestServiceAggregatorTest {
         workspace(tempDir, """
                 [workspace]
                 name = "acme-platform"
-                members = ["core", "api"]
+
+                [workspace.members]
+                include = ["core", "api"]
                 """);
         member(tempDir, "core", "core", aggregatorTestDependencies());
         source(tempDir, "core/src/main/java/com/acme/core/Core.java", """
@@ -117,7 +119,7 @@ final class WorkspaceTestServiceAggregatorTest {
     private static String aggregatorTestDependencies() {
         return """
 
-                [test.dependencies]
+                [dependencies.test]
                 "org.junit.jupiter:junit-jupiter" = "5.11.4"
                 """;
     }
@@ -126,7 +128,21 @@ final class WorkspaceTestServiceAggregatorTest {
         // Mirrors the aggregator's resolved test-scope closure: the junit-jupiter engine plus the
         // auto-injected junit-platform-console (the launch entry point), all visible to both members.
         return """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "api"
+                id = "org.junit.jupiter:junit-jupiter"
+                version = "5.11.4"
+                lane = "test"
+                resolvedScope = "test"
+
+                [[dependencyRoot]]
+                member = "core"
+                id = "org.junit.jupiter:junit-jupiter"
+                version = "5.11.4"
+                lane = "test"
+                resolvedScope = "test"
 
                 [[package]]
                 id = "org.junit.jupiter:junit-jupiter"

@@ -55,7 +55,7 @@ public final class ExplainSignals {
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
             "Exec steps run one pinned tool over declared inputs with no shell; keep shell scripts and"
-                    + " multi-step build logic in [commands.tasks] or CI.");
+                    + " multi-step build logic in [tasks.<id>] or CI.");
     public static final ExplainSignalDefinition MAVEN_PROFILE_DETECTED = new ExplainSignalDefinition(
             "maven.profile.detected",
             ExplainSignal.Severity.BLOCK,
@@ -75,7 +75,7 @@ public final class ExplainSignals {
             "maven.framework-native.unsupported",
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
-            "Do not execute Maven framework-native plugins; migrate supported cases to typed Zolt framework settings such as `[framework.springBoot.native] enabled = true`.");
+            "Do not execute Maven framework-native plugins; migrate supported cases to typed Zolt framework settings such as `[framework.spring-boot] native = true`.");
     public static final ExplainSignalDefinition MAVEN_REACTOR_DETECTED = new ExplainSignalDefinition(
             "maven.reactor.detected",
             ExplainSignal.Severity.WARN,
@@ -85,7 +85,7 @@ public final class ExplainSignals {
             "maven.annotation-processor.path",
             ExplainSignal.Severity.WARN,
             ExplainSignal.Category.BUILDABILITY,
-            "Map compiler annotation processor paths to [annotationProcessors] and verify generated code.");
+            "Map compiler annotation processor paths to [dependencies.processor] and verify generated code.");
     public static final ExplainSignalDefinition MAVEN_PARENT_SNAPSHOT = new ExplainSignalDefinition(
             "maven.parent.snapshot",
             ExplainSignal.Severity.BLOCK,
@@ -128,7 +128,7 @@ public final class ExplainSignals {
                     ExplainSignal.Category.NON_DETERMINISM,
                     "This POM used source/target below the build JDK, so Maven compiled against the host"
                             + " JDK API. Zolt defaults to reproducible --release; only uncomment [compiler]"
-                            + " platformApi = \"host\" if a genuine post-target platform API fails the strict"
+                            + " jdkApi = \"host\" if a genuine post-target platform API fails the strict"
                             + " build, and note that host mode forfeits cross-JDK reproducibility.");
     public static final ExplainSignalDefinition MAVEN_REPOSITORY_DECLARED = new ExplainSignalDefinition(
             "maven.repository.declared",
@@ -290,19 +290,19 @@ public final class ExplainSignals {
             "gradle.framework-native.unsupported",
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
-            "Do not execute Gradle framework-native or dev-mode tasks; migrate supported cases to typed Zolt framework settings such as `[framework.springBoot.native] enabled = true`.");
+            "Do not execute Gradle framework-native or dev-mode tasks; migrate supported cases to typed Zolt framework settings such as `[framework.spring-boot] native = true`.");
     public static final ExplainSignalDefinition GRADLE_EXEC_MAPPABLE = new ExplainSignalDefinition(
             "gradle.exec-mappable",
             ExplainSignal.Severity.WARN,
             ExplainSignal.Category.BUILDABILITY,
-            "Model this single-command Exec/JavaExec task as a Zolt exec step under [generated.execTools];"
+            "Model this single-command Exec/JavaExec task as a Zolt exec step under [generated.tools];"
                     + " declare its tool, inputs, and output by hand (Zolt reads the task shape, not its full command).");
     public static final ExplainSignalDefinition GRADLE_EXEC_UNMAPPABLE = new ExplainSignalDefinition(
             "gradle.exec-unmappable",
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
             "Exec steps run one pinned tool over declared inputs with no shell or task actions;"
-                    + " keep this scripted Exec/JavaExec task in [commands.tasks] or CI.");
+                    + " keep this scripted Exec/JavaExec task in [tasks.<id>] or CI.");
     public static final ExplainSignalDefinition GRADLE_BOM_DETECTED = new ExplainSignalDefinition(
             "gradle.bom.detected",
             ExplainSignal.Severity.OK,

@@ -1,7 +1,11 @@
 [workspace]
 name = "large-workspace"
-members = ["modules/core", "modules/service", "apps/app"]
-defaultMembers = ["apps/app"]
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[workspace.members]
+default = ["apps/app"]
+include = ["apps/*", "modules/*"]
+
+[workspace.project]
+group = "com.example.large"
+version = "0.1.0"
+java = 21

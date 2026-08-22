@@ -13,7 +13,7 @@ export async function writeAuthenticatedLibrary(
   await mkdir(source, { recursive: true });
   await writeFile(join(directory, "zolt.toml"), [
     "[project]", 'name = "internal-greeting"', 'version = "1.0.0"',
-    'group = "com.example.enterprise"', 'java = "21"', "", "[dependencies]", "",
+    'group = "com.example.enterprise"', "java = 21", "",
   ].join("\n"), "utf8");
   await writeFile(join(source, "InternalGreeting.java"), [
     "package com.example.enterprise;", "", "public final class InternalGreeting {",
@@ -60,9 +60,9 @@ async function writeConsumer(
   await mkdir(source, { recursive: true });
   await writeFile(join(directory, "zolt.toml"), [
     "[project]", 'name = "authenticated-repository-app"', 'version = "0.1.0"',
-    'group = "com.example"', 'java = "21"', 'main = "com.example.consumer.Main"', "",
+    'group = "com.example"', "java = 21", 'main = "com.example.consumer.Main"', "",
     "[repositories]", `internal = { url = "${repositoryUrl}", credentials = "internal-repo" }`, "",
-    "[repositoryCredentials.internal-repo]",
+    "[credentials.internal-repo]",
     ...credentialLines,
     "",
     "[dependencies]", '"com.example.enterprise:internal-greeting" = "1.0.0"', "",

@@ -12,15 +12,17 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sh.zolt.dependency.ConflictSelectionReason;
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -37,16 +39,16 @@ final class WorkspaceMemberPolicyLockProjectionTest {
     void retainsOnlyTheMembersExactAllScopeGraphPoliciesAndConflicts() throws IOException {
         WorkspaceMember app = member("apps/app", "app", """
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:lib" = { version = "2.0.0", classifier = "linux" }
 
-                [test.dependencies]
+                [dependencies.test]
                 "com.example:test-lib" = "1.0.0"
                 """);
         WorkspaceMember admin = member("apps/admin", "admin", "");
         Workspace workspace = new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "demo",
                         List.of("apps/app", "apps/admin"),
@@ -126,7 +128,7 @@ final class WorkspaceMemberPolicyLockProjectionTest {
         WorkspaceMember app = member("apps/app", "app", "");
         Workspace workspace = new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("demo", List.of("apps/app"), List.of(), Map.of(), Map.of()),
                 List.of(app),
                 List.of());
@@ -151,6 +153,52 @@ final class WorkspaceMemberPolicyLockProjectionTest {
                 .noneMatch(LockPackage::direct));
     }
 
+    @Test
+    void preservesOnlyTheSelectedMembersDependencyRoots() throws IOException {
+        WorkspaceMember app = member("apps/app", "app", "");
+        WorkspaceMember admin = member("apps/admin", "admin", "");
+        Workspace workspace = new Workspace(
+                tempDir,
+                tempDir.resolve("zolt.toml"),
+                new WorkspaceConfig(
+                        "demo", List.of("apps/app", "apps/admin"), List.of(), Map.of(), Map.of()),
+                List.of(app, admin),
+                List.of());
+        LockDependencyRoot selected = new LockDependencyRoot(
+                "apps/app",
+                LIB,
+                "4.0.0",
+                new LockArtifactVariant("jar", Optional.of("tests")),
+                DependencyLane.API,
+                Optional.empty(),
+                true,
+                true);
+        LockDependencyRoot unrelated = new LockDependencyRoot(
+                "apps/admin",
+                UNRELATED,
+                "5.0.0",
+                null,
+                DependencyLane.IMPLEMENTATION,
+                Optional.empty(),
+                false,
+                true);
+        ZoltLockfile aggregate = new ZoltLockfile(
+                ZoltLockfile.CURRENT_VERSION,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(selected, unrelated));
+
+        ZoltLockfile projected = new WorkspaceMemberPolicyLockProjection()
+                .project("apps/app", app.config(), aggregate, workspace);
+
+        assertEquals(List.of(selected), projected.dependencyRoots());
+    }
+
     private WorkspaceMember member(
             String path,
             String name,
@@ -163,10 +211,10 @@ final class WorkspaceMemberPolicyLockProjectionTest {
                 name = "%s"
                 version = "1.0.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 %s
                 """.formatted(name, body));
-        ProjectConfig parsed = new ZoltTomlParser().parse(config);
+        ProjectConfig parsed = new ManifestProjectConfigLoader().load(config);
         return new WorkspaceMember(path, directory, parsed);
     }
 

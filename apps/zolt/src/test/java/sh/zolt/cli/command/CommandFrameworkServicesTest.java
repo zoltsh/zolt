@@ -28,7 +28,7 @@ final class CommandFrameworkServicesTest {
     void coverageCommandServicesOwnsDefaultCoverageWiring() {
         CommandCoverageServices services = CommandFrameworkServices.coverageCommandServices();
 
-        assertNotNull(services.tomlParser());
+        assertNotNull(services.projectLoader());
         assertNotNull(services.resolveService());
         assertNotNull(services.coverageService());
         assertNotNull(services.workspaceCoverageService());
@@ -49,7 +49,7 @@ final class CommandFrameworkServicesTest {
     void nativeCommandServicesOwnsDefaultNativeWiring() {
         CommandNativeServices services = CommandFrameworkServices.nativeCommandServices();
 
-        assertNotNull(services.tomlParser());
+        assertNotNull(services.projectLoader());
         assertNotNull(services.nativeBuildService());
         assertNotNull(services.workspaceNativeBuildService());
     }
@@ -58,8 +58,7 @@ final class CommandFrameworkServicesTest {
     void versionAliasCommandServicesOwnsDefaultVersionAliasWiring() {
         CommandVersionAliasServices services = CommandFrameworkServices.versionAliasCommandServices();
 
-        assertNotNull(services.tomlParser());
-        assertNotNull(services.tomlWriter());
+        assertNotNull(services.manifests());
         assertNotNull(services.resolveService());
     }
 
@@ -67,8 +66,7 @@ final class CommandFrameworkServicesTest {
     void configEditServicesOwnsDefaultConfigEditWiring() {
         CommandConfigEditServices services = CommandFrameworkServices.configEditServices();
 
-        assertNotNull(services.tomlParser());
-        assertNotNull(services.tomlWriter());
+        assertNotNull(services.manifests());
         assertNotNull(services.resolveService());
     }
 
@@ -77,8 +75,7 @@ final class CommandFrameworkServicesTest {
         CommandDependencyEditServices services = CommandFrameworkServices.dependencyEditCommandServices();
 
         assertNotNull(services.coordinateParser());
-        assertNotNull(services.tomlParser());
-        assertNotNull(services.tomlWriter());
+        assertNotNull(services.manifests());
         assertNotNull(services.resolveService());
     }
 

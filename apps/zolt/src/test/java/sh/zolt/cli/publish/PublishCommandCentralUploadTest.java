@@ -60,35 +60,33 @@ final class PublishCommandCentralUploadTest {
                   "archive": "target/%1$s-0.1.0.jar",
                   "archiveSha256": "%2$s",
                   "artifacts": [
-                    { "classifier": "main", "type": "thin", "path": "target/%1$s-0.1.0.jar", "entries": 1, "sha256": "%2$s" },
+                    { "classifier": "main", "type": "jar", "path": "target/%1$s-0.1.0.jar", "entries": 1, "sha256": "%2$s" },
                     { "classifier": "sources", "type": "jar", "path": "target/%1$s-0.1.0-sources.jar", "entries": 1, "sha256": "%3$s" },
                     { "classifier": "javadoc", "type": "jar", "path": "target/%1$s-0.1.0-javadoc.jar", "entries": 1, "sha256": "%4$s" }
                   ]
                 }
                 """.formatted(name, sha256(artifact), sha256(sourcesArtifact), sha256(javadocArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig(name) + """
+                description = "A Central-bound library."
+                url = "https://example.com/central"
+                license = "Apache-2.0"
 
                 [package]
                 sources = true
                 javadoc = true
 
-                [package.metadata]
-                name = "Central Library"
-                description = "A Central-bound library."
-                url = "https://example.com/central"
-                license = "Apache-2.0"
-                licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-                scm = "https://github.com/example/central"
-                scmConnection = "scm:git:https://github.com/example/central.git"
+                [project.scm]
+                url = "https://github.com/example/central"
+                connection = "scm:git:https://github.com/example/central.git"
 
-                [package.metadata.developer.ada]
+                [project.developers.ada]
                 name = "Ada Lovelace"
                 email = "ada@example.com"
 
                 [publish.central]
                 tokenEnv = "ZOLT_CENTRAL_TOKEN"
-                publishingType = "automatic"
+                mode = "automatic"
                 """);
         CliTestPackageEvidence.write(projectDir);
         return projectDir;

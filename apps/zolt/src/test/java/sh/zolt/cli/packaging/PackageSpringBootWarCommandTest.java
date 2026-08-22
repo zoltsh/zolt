@@ -37,7 +37,7 @@ final class PackageSpringBootWarCommandTest {
                 [package]
                 mode = "spring-boot-war"
 
-                [provided.dependencies]
+                [dependencies.provided]
                 "org.apache.tomcat.embed:tomcat-embed-core" = "10.1.40"
                 """,
                 StandardOpenOption.APPEND);

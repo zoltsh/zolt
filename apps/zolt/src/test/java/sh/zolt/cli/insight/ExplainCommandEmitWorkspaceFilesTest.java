@@ -36,7 +36,7 @@ final class ExplainCommandEmitWorkspaceFilesTest {
         assertWritten(explain, "app/zolt.toml");
         assertTrue(Files.readString(tempDir.resolve("zolt.toml")).contains("[workspace]"));
         assertTrue(Files.readString(tempDir.resolve("app/zolt.toml"))
-                .contains("\"com.acme:core\" = { workspace = \"core\" }"));
+                .contains("\"com.acme:core\" = { workspace = true }"));
         assertFalse(Files.readString(tempDir.resolve("zolt.toml")).contains("# ---"));
         assertFalse(Files.readString(tempDir.resolve("app/zolt.toml")).contains("# ---"));
 
@@ -65,7 +65,7 @@ final class ExplainCommandEmitWorkspaceFilesTest {
         assertWritten(explain, "app/zolt.toml");
         assertWritten(explain, "core/zolt.toml");
         assertTrue(Files.readString(tempDir.resolve("app/zolt.toml"))
-                .contains("\"com.example:core\" = { workspace = \"core\" }"));
+                .contains("\"com.example:core\" = { workspace = true }"));
 
         CommandResult resolve = execute(
                 "resolve",

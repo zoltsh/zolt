@@ -23,7 +23,7 @@ final class TestRunServiceFailureTest {
     @Test
     void missingConsoleJarProducesActionableError() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         source(projectDir, "src/main/java/com/example/Main.java", "package com.example; public final class Main {}\n");
         source(projectDir, "src/test/java/com/example/MainTest.java", "package com.example; public final class MainTest {}\n");
         TestRunService service = service((command, outputConsumer) -> new JavaRunner.ProcessResult(0, ""));
@@ -34,7 +34,7 @@ final class TestRunServiceFailureTest {
 
         assertTrue(exception.getMessage().contains("JUnit Platform Console is not present"));
         assertTrue(exception.getMessage().contains("Run `zolt resolve`"));
-        assertTrue(exception.getMessage().contains("test engines declared in [test.dependencies]"));
+        assertTrue(exception.getMessage().contains("test engines declared in [dependencies.test]"));
     }
 
     @Test

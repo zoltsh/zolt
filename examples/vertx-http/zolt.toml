@@ -2,34 +2,19 @@
 name = "vertx-http"
 version = "0.1.0"
 group = "com.example"
-java = "21"
+java = 21
 main = "com.example.vertx.VertxHttpApplication"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
 
 [platforms]
 "io.vertx:vertx-stack-depchain" = "4.5.11"
 
 [dependencies]
-"io.vertx:vertx-core" = { exclusions = [
-  { group = "io.netty", artifact = "netty-tcnative-boringssl-static" }
-] }
+"io.vertx:vertx-core" = { managed = true, exclude = ["io.netty:netty-tcnative-boringssl-static"] }
 "org.slf4j:slf4j-simple" = "2.0.17"
 
-[test.dependencies]
+[dependencies.test]
 "org.junit.jupiter:junit-jupiter" = "5.11.4"
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
 
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
-
 [build.metadata]
 reproducible = true
-
-[resources]
-main = ["src/main/resources"]
-test = ["src/test/resources"]

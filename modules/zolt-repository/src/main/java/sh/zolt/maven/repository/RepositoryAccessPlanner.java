@@ -7,7 +7,6 @@ import sh.zolt.project.RepositorySettings;
 import sh.zolt.project.RepositoryUrlPolicy;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -15,8 +14,15 @@ import java.util.function.Function;
 
 /**
  * Turns {@code [repositories]} configuration into the ordered, authenticated list of repositories to
- * query. Order is stable alphabetical-by-id. Shared verbatim by dependency resolution and by
- * advisory version discovery so both agree on repository order, URL safety, and credential handling.
+ * query. Shared verbatim by dependency resolution and by advisory version discovery so both agree on
+ * repository order, URL safety, and credential handling.
+ *
+ * <p>Order is the effective lookup order design §8.5 defines — the authored {@code order} array when
+ * present, otherwise custom repositories by normalized ID with enabled Central last — carried here as
+ * the iteration order of {@link RepositoryConfiguration#repositorySettings()}. Fetching is
+ * first-match-wins, so this is the order that decides which repository serves an artifact available
+ * from more than one, and re-sorting it here would put Central ahead of the private repositories a
+ * project declared to shadow it.
  */
 public final class RepositoryAccessPlanner {
     private final Function<String, String> environment;
@@ -34,25 +40,24 @@ public final class RepositoryAccessPlanner {
     }
 
     public List<RepositoryAccess> plan(RepositoryConfiguration config) {
-        Map<String, RepositorySettings> settings = config.repositorySettings().isEmpty()
-                ? ProjectConfig.defaultRepositorySettings()
-                : config.repositorySettings();
-        return plan(settings, config.repositoryCredentials());
+        return plan(config.repositorySettings(), config.repositoryCredentials());
     }
 
     private List<RepositoryAccess> plan(
             Map<String, RepositorySettings> settings,
             Map<String, RepositoryCredentialSettings> credentials) {
-        List<RepositorySettings> repositories = settings.values().stream()
-                .sorted(Comparator.comparing(RepositorySettings::id))
-                .toList();
-        if (repositories.isEmpty()) {
+        // Design §8.3: `central = false` with no custom repository is a deliberate empty universe, legal
+        // only until something needs an external artifact. Substituting Central here would turn that
+        // declaration into a silent fallback to the very repository the manifest disabled.
+        if (settings.isEmpty()) {
             throw RepositoryAccessException.actionable(
                     "No repositories are configured in zolt.toml.",
-                    "Add [repositories] with at least one Maven-compatible repository URL.");
+                    "[repositories].central = false leaves no repository to query. Add a "
+                            + "[repositories.<id>] table with a Maven-compatible url, or re-enable Maven "
+                            + "Central by removing `central = false`.");
         }
         List<RepositoryAccess> access = new ArrayList<>();
-        for (RepositorySettings repository : repositories) {
+        for (RepositorySettings repository : settings.values()) {
             access.add(new RepositoryAccess(
                     repository.id(),
                     repositoryUri(repository),
@@ -83,7 +88,7 @@ public final class RepositoryAccessPlanner {
                             + repository.id()
                             + "` references credentials `"
                             + credentialId
-                            + "`, but [repositoryCredentials."
+                            + "`, but [credentials."
                             + credentialId
                             + "] is not defined.");
         }

@@ -22,7 +22,9 @@ final class WorkspaceIdeModelVersionAliasesTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", """
 
@@ -33,7 +35,7 @@ final class WorkspaceIdeModelVersionAliasesTest {
                 [dependencies]
                 "com.google.guava:guava" = { versionRef = "guava" }
 
-                [test.dependencies]
+                [dependencies.test]
                 "org.junit.jupiter:junit-jupiter" = { versionRef = "junit" }
                 """);
 
@@ -72,8 +74,8 @@ final class WorkspaceIdeModelVersionAliasesTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
     }
 
     private void member(String path, String name) throws IOException {
@@ -88,8 +90,8 @@ final class WorkspaceIdeModelVersionAliasesTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
-        Files.writeString(member.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(member.resolve("zolt.lock"), "version = 7\n");
     }
 }

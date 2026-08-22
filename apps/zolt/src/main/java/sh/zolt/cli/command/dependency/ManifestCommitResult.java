@@ -13,15 +13,6 @@ record ManifestCommitResult(
         boolean manifestChanged,
         boolean lockfileChanged) {
 
-    static ManifestCommitResult from(ManifestEditResult result) {
-        return new ManifestCommitResult(
-                result.resolveResult(),
-                result.manifestPath(),
-                result.lockfilePath(),
-                result.manifestChanged(),
-                result.lockfileChanged());
-    }
-
     List<Path> changedPaths() {
         List<Path> paths = new ArrayList<>();
         if (manifestChanged) {

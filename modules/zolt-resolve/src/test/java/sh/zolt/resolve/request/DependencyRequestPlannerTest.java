@@ -13,7 +13,7 @@ import sh.zolt.project.DependencyPolicyExclusion;
 import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,7 +71,7 @@ final class DependencyRequestPlannerTest {
                 ResolveException.class,
                 () -> planner.plan(managedTestDependencyConfig(), Map.of(), false));
 
-        assertTrue(exception.getMessage().contains("Dependency com.example:test-app in [test.dependencies]"));
+        assertTrue(exception.getMessage().contains("Dependency com.example:test-app in [dependencies.test]"));
         assertTrue(exception.getMessage().contains("uses a platform-managed version"));
         assertTrue(exception.getMessage().contains("Add a version or add a platform"));
     }
@@ -105,7 +105,7 @@ final class DependencyRequestPlannerTest {
                 .contains("Dependency policy excludes direct dependency `org.junit.platform:junit-platform-console`"));
         assertTrue(exception.getMessage().contains("Use an internal test launcher"));
         assertTrue(exception.getMessage()
-                .contains("Remove the direct dependency or remove the matching [dependencyPolicy].exclude entry"));
+                .contains("Remove the direct dependency or remove the matching [dependencies.policy].deny entry"));
         assertTrue(exception.getMessage().contains("run `zolt build` again"));
     }
 
@@ -129,12 +129,12 @@ final class DependencyRequestPlannerTest {
     }
 
     private static ProjectConfig baseConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:app" = "1.0.0"
@@ -142,27 +142,30 @@ final class DependencyRequestPlannerTest {
     }
 
     private static ProjectConfig managedTestDependencyConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [test.dependencies]
-                "com.example:test-app" = {}
+                [platforms]
+                "com.example:platform" = "1.0.0"
+
+                [dependencies.test]
+                "com.example:test-app" = { managed = true }
                 """);
     }
 
     private static ProjectConfig testDependencyConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [test.dependencies]
+                [dependencies.test]
                 "com.example:app" = "1.0.0"
                 """);
     }

@@ -13,7 +13,7 @@ import sh.zolt.project.DependencyConstraint;
 import sh.zolt.project.DependencyConstraintKind;
 import sh.zolt.project.DependencyPolicySettings;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,7 +23,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * Isolated exec-tool closures (Hole 1) must not evade [dependencyPolicy].failOnVersionConflict, and every
+ * Isolated exec-tool closures (Hole 1) must not evade [dependencies.policy].conflicts, and every
  * mediation inside a tool closure must reach zolt.lock attributed to that tool. The fixture drives a real
  * version conflict <em>within</em> one tool's closure: gen-a pins shared 1.0.0, gen-b pins shared 2.0.0, so
  * the tool's own resolution mediates shared (newest wins 2.0.0) with no bearing on the main project graph.
@@ -46,7 +46,7 @@ final class ResolveServiceExecToolConflictTest extends ResolveServiceTestSupport
                 () -> resolveService.resolve(projectDir, config, cacheRoot));
 
         assertTrue(exception.getMessage().contains("`codegen` exec-tool closure"), exception.getMessage());
-        assertTrue(exception.getMessage().contains("disallowed by [dependencyPolicy].failOnVersionConflict"));
+        assertTrue(exception.getMessage().contains("disallowed by [dependencies.policy].conflicts"));
         assertTrue(exception.getMessage().contains("com.example:shared selected 2.0.0"));
         assertTrue(exception.getMessage().contains("newest version wins"));
         // The remediation names the tool as well, so the user knows which closure to align.
@@ -127,18 +127,21 @@ final class ResolveServiceExecToolConflictTest extends ResolveServiceTestSupport
     }
 
     private ProjectConfig codegenConfig(String toolName, String stepId) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
 
-                [generated.execTools.%s]
-                runner = "jvm"
+                [repositories.test]
+                url = "%s"
+
+                [generated.tools.%s]
+                kind = "jvm"
                 coordinates = [
                     { coordinate = "com.example:gen-a", version = "1.0.0" },
                     { coordinate = "com.example:gen-b", version = "1.0.0" },
@@ -155,26 +158,29 @@ final class ResolveServiceExecToolConflictTest extends ResolveServiceTestSupport
     }
 
     private ProjectConfig twoToolConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
 
-                [generated.execTools.codegen1]
-                runner = "jvm"
+                [repositories.test]
+                url = "%s"
+
+                [generated.tools.codegen1]
+                kind = "jvm"
                 coordinates = [
                     { coordinate = "com.example:gen-a", version = "1.0.0" },
                     { coordinate = "com.example:gen-b", version = "1.0.0" },
                 ]
                 mainClass = "com.example.Gen"
 
-                [generated.execTools.codegen2]
-                runner = "jvm"
+                [generated.tools.codegen2]
+                kind = "jvm"
                 coordinates = [
                     { coordinate = "com.example:gen-a", version = "1.0.0" },
                     { coordinate = "com.example:gen-b", version = "1.0.0" },

@@ -67,7 +67,7 @@ final class RootWorkspaceEnterpriseCommandTest {
                     "ok dependency-metadata . org.example:optional"),
                     check.stdout());
             assertTrue(check.stdout().contains(
-                    "ok license-policy . [dependencyPolicy.licenses] Evaluated 3 compile/runtime dependencies"),
+                    "ok license-policy . [dependencies.policy.licenses] Evaluated 3 compile/runtime dependencies"),
                     check.stdout());
 
             Path sbomPath = workspace.resolve("target/root-workspace.cdx.json");
@@ -146,7 +146,7 @@ final class RootWorkspaceEnterpriseCommandTest {
         LockPackage optional = packageById(lockfile, "optional");
         LockPackage leaf = packageById(lockfile, "leaf");
 
-        assertEquals(6, lockfile.version());
+        assertEquals(7, lockfile.version());
         assertEquals(java.util.List.of("."), api.members());
         assertEquals(java.util.List.of("."), api.exportedBy());
         assertEquals(java.util.List.of("."), optional.members());
@@ -202,27 +202,32 @@ final class RootWorkspaceEnterpriseCommandTest {
                 name = "app"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [workspace]
                 name = "root-workspace"
-                members = ["."]
+
+                [workspace.members]
+                include = ["."]
 
                 [repositories]
-                test = "%s"
+                central = false
 
-                [api.dependencies]
+                [repositories.test]
+                url = "%s"
+
+                [dependencies.api]
                 "org.example:api" = "1.0.0"
 
                 [dependencies]
                 "org.example:optional" = { version = "1.0.0", optional = true }
 
-                [dependencyPolicy.licenses]
+                [dependencies.policy.licenses]
                 allow = ["MIT"]
                 unknown = "fail"
 
                 [publish]
-                releaseRepository = "test"
+                release = "test"
 
                 [publish.repositories.test]
                 url = "%s"

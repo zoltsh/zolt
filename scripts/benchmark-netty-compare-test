@@ -144,7 +144,7 @@ grep -F -- '[dependencies]' "$WORK_DIR/run/projects/zolt-netty-common/zolt.toml"
   || fail "expected generated Netty dependencies"
 grep -F -- '"org.jctools:jctools-core" = "4.0.5"' "$WORK_DIR/run/projects/zolt-netty-common/zolt.toml" >/dev/null \
   || fail "expected generated jctools dependency"
-grep -F -- '[provided.dependencies]' "$WORK_DIR/run/projects/zolt-netty-common/zolt.toml" >/dev/null \
+grep -F -- '[dependencies.provided]' "$WORK_DIR/run/projects/zolt-netty-common/zolt.toml" >/dev/null \
   || fail "expected generated provided dependencies"
 
 grep -F -- "build --cwd" "$FAKE_ZOLT.invocations" >/dev/null || fail "expected Zolt build command"

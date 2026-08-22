@@ -22,7 +22,7 @@ final class BuildServiceIncrementalMainStateTest {
 
     @Test
     void repeatedMainBuildSkipsCompilationWhenInputsAreCurrent() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -50,7 +50,7 @@ final class BuildServiceIncrementalMainStateTest {
 
     @Test
     void repeatedMainBuildSkipsWhenPackageInfoDoesNotEmitAClass() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -71,7 +71,7 @@ final class BuildServiceIncrementalMainStateTest {
 
     @Test
     void failedMainCompileDeletesIncrementalOwnershipState() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         Path mainSource = source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -114,7 +114,7 @@ final class BuildServiceIncrementalMainStateTest {
 
     @Test
     void staleMainFingerprintStateFallsBackToFullFingerprint() throws IOException {
-        writeLockfile(projectDir, "version = 1\n");
+        writeLockfile(projectDir, "version = 7\n");
         source(projectDir, "src/main/java/com/example/Main.java", """
                 package com.example;
 

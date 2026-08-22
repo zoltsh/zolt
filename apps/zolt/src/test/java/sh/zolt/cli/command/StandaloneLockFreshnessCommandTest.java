@@ -144,7 +144,7 @@ final class StandaloneLockFreshnessCommandTest {
 
     @ParameterizedTest(name = "placeholder lock with {0}")
     @MethodSource("placeholderResolutionInputs")
-    void buildCannotBypassResolutionThroughAnEmptyVersionSixLock(
+    void buildCannotBypassResolutionThroughAnEmptyCurrentLock(
             String displayName,
             String resolutionInput) throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
@@ -155,12 +155,14 @@ final class StandaloneLockFreshnessCommandTest {
                     name = "placeholder-%s"
                     version = "0.1.0"
                     group = "com.example"
-                    java = "%s"
+                    java = %s
+                    %s
 
                     [repositories]
-                    test = "%s"
+                    central = false
 
-                    %s
+                    [repositories.test]
+                    url = "%s"
                     """.formatted(
                     displayName,
                     currentJavaMajorVersion(),
@@ -175,7 +177,7 @@ final class StandaloneLockFreshnessCommandTest {
                     }
                     """);
             Path lockfile = project.resolve("zolt.lock");
-            String placeholder = "version = 6\n";
+            String placeholder = "version = 7\n";
             Files.writeString(lockfile, placeholder);
 
             CommandResult result = execute(
@@ -201,11 +203,11 @@ final class StandaloneLockFreshnessCommandTest {
     private static Stream<Arguments> placeholderResolutionInputs() {
         return Stream.of(
                 Arguments.of("runtime", """
-                        [runtime.dependencies]
+                        [dependencies.runtime]
                         "com.example:missing-runtime" = "1.0.0"
                         """),
                 Arguments.of("processor", """
-                        [annotationProcessors]
+                        [dependencies.processor]
                         "com.example:missing-processor" = "1.0.0"
                         """),
                 Arguments.of("package-only", """
@@ -240,21 +242,18 @@ final class StandaloneLockFreshnessCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 "com.example:dependency" = "1.0.0"
                 "com.example:native-dependency" = { version = "1.0.0", classifier = "linux" }
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
                 """.formatted(currentJavaMajorVersion(), repository.baseUri()));
         Path source = projectRoot().resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());

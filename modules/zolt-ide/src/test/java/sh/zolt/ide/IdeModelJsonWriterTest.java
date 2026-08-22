@@ -87,7 +87,7 @@ final class IdeModelJsonWriterTest {
                 new IdeModel.CompilerInfo(null, "21", null, List.of(), List.of(), null, null),
                 new IdeModel.TestRuntimeInfo(List.of(), Map.of(), Map.of(), List.of()),
                 new IdeModel.PackageInfo(
-                        "thin",
+                        "jar",
                         false,
                         false,
                         false,

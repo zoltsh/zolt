@@ -45,7 +45,7 @@ final class TestSuiteSettingsTest {
                 () -> new TestSuiteSettings(
                         List.of(), List.of(), List.of(), List.of(), true, 0, Map.of()));
 
-        assertEquals("test.suites.maxWorkers must be greater than zero.", exception.getMessage());
+        assertEquals("test.suites.workers must be greater than zero.", exception.getMessage());
     }
 
     @Test
@@ -62,7 +62,7 @@ final class TestSuiteSettingsTest {
                         Map.of("com.example.DbTest", List.of())));
 
         assertEquals(
-                "test.suites.resourceLocks.com.example.DbTest requires at least one resource lock.",
+                "test.suites.locks.com.example.DbTest requires at least one resource lock.",
                 exception.getMessage());
     }
 }

@@ -29,7 +29,7 @@ final class BuildServiceFingerprintInvalidationTest {
     @Test
     void zoltTomlChangeInvalidatesMainBuildFingerprint() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "name = \"demo\"\n");
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -50,7 +50,7 @@ final class BuildServiceFingerprintInvalidationTest {
 
     @Test
     void lockfileChangeInvalidatesMainBuildFingerprint() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -61,7 +61,7 @@ final class BuildServiceFingerprintInvalidationTest {
                 }
                 """);
         buildService.build(projectDir, config(), projectDir.resolve("cache"));
-        writeLockfile("version = 1\n\n");
+        writeLockfile("version = 7\n\n");
 
         BuildResult result = buildService.build(projectDir, config(), projectDir.resolve("cache"));
 
@@ -71,7 +71,7 @@ final class BuildServiceFingerprintInvalidationTest {
 
     @Test
     void compilerSettingsChangeInvalidatesMainBuildFingerprint() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -100,7 +100,7 @@ final class BuildServiceFingerprintInvalidationTest {
 
     @Test
     void resourceChangeCopiesResourceWithoutWakingJavac() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -122,7 +122,7 @@ final class BuildServiceFingerprintInvalidationTest {
 
     @Test
     void missingExpectedClassFilePreventsMainBuildSkip() throws IOException {
-        writeLockfile("version = 1\n");
+        writeLockfile("version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 
@@ -189,7 +189,14 @@ final class BuildServiceFingerprintInvalidationTest {
 
     private void writeProcessorLockfile() throws IOException {
         writeLockfile("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "com.example:processor"

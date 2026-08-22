@@ -34,13 +34,13 @@ final class PublishLargeArtifactResumeTest {
         byte[] bytes = new byte[9 * 1024 * 1024];
         Arrays.fill(bytes, (byte) 17);
         Files.write(jar, bytes);
-        Files.writeString(project.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n");
 
         try (ImmutableRepository repository = ImmutableRepository.start()) {
             Files.writeString(project.resolve("zolt.toml"), memberConfig("large-publish") + """
 
                     [publish]
-                    releaseRepository = "releases"
+                    release = "releases"
 
                     [publish.repositories.releases]
                     url = "%s"

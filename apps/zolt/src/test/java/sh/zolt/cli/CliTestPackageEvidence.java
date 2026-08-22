@@ -9,7 +9,7 @@ import sh.zolt.build.packaging.PackageArtifact;
 import sh.zolt.build.packaging.PackageResult;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,7 +31,7 @@ public final class CliTestPackageEvidence {
      */
     public static void write(Path projectRoot, Path lockfile) throws IOException {
         ProjectConfig config =
-                new ZoltTomlParser().parse(projectRoot.resolve("zolt.toml"));
+                new ManifestProjectLoader().load(projectRoot);
         PackagePlan plan = new PackagePlanService().plan(
                 projectRoot,
                 config,

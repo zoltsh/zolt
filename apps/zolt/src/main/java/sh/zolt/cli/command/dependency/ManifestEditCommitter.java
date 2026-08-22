@@ -34,6 +34,8 @@ final class ManifestEditCommitter {
         }
         if (noResolve) {
             if (scope.workspace() != null) {
+                NoResolveWorkspaceComposition.requireComposable(
+                        scope.workspace(), scope.manifestPath(), editedSource);
                 scope.workspace().inputs().requireCurrent();
             }
             writer.write(scope.manifestPath(), originalSource, editedSource);

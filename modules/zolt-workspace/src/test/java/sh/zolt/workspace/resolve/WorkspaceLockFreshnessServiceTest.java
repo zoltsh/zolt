@@ -5,9 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.error.ActionableException;
+import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.LockfileSidecars;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.Workspace;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -108,28 +109,38 @@ final class WorkspaceLockFreshnessServiceTest {
     @Test
     void rejectsLegacyEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
         writeWorkspace(root);
-        Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
+        Path lockfile = root.resolve("zolt.lock");
+        String legacy = "version = 5\n";
+        Files.writeString(lockfile, legacy);
 
-        ActionableException exception = assertThrows(ActionableException.class, () -> requireFresh(root));
+        LockfileReadException exception = assertThrows(LockfileReadException.class, () -> requireFresh(root));
 
-        assertTrue(exception.getMessage().contains("version 5 predates the version 6 executable lock contract"));
+        assertTrue(exception.getMessage().contains("version 5 is older than this Zolt supports (current 7)"));
         assertEquals(List.of(), verifications);
+        assertEquals(legacy, Files.readString(lockfile));
     }
 
     @Test
-    void verifiesVersionSixEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
+    void verifiesVersionSevenEmptyPlaceholderLockfiles(@TempDir Path root) throws IOException {
         writeWorkspace(root);
-        Files.writeString(root.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
 
         assertEquals(WorkspaceLockFreshness.Outcome.VERIFIED, requireFresh(root).outcome());
         assertEquals(List.of("verify:zolt build --workspace"), verifications);
     }
 
     @Test
-    void rejectsStrippedVersionSixArtifactMetadata(@TempDir Path root) throws IOException {
+    void rejectsStrippedVersionSevenArtifactMetadata(@TempDir Path root) throws IOException {
         writeWorkspace(root);
         Files.writeString(root.resolve("zolt.lock"), """
-                version = 6
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:demo"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
@@ -154,7 +165,7 @@ final class WorkspaceLockFreshnessServiceTest {
                 name = "solo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
 
         assertTrue(service().requireFresh(root, root.resolve("cache"), false, "zolt build --workspace").isEmpty());
@@ -169,14 +180,14 @@ final class WorkspaceLockFreshnessServiceTest {
 
     private WorkspaceLockFreshnessService service() {
         return new WorkspaceLockFreshnessService(
-                new WorkspaceDiscoveryService(),
+                new ManifestWorkspaceLoader(),
                 (workspace, cacheRoot, offline, retryCommand) ->
                         verifications.add("verify:" + retryCommand),
                 new ZoltLockfileReader());
     }
 
     private static String currentFingerprint(Path root) {
-        Workspace workspace = new WorkspaceDiscoveryService().load(root);
+        Workspace workspace = new ManifestWorkspaceLoader().load(root);
         return WorkspaceResolutionInputFingerprint
                 .fingerprint(workspace, lockBody())
                 .orElseThrow();
@@ -191,7 +202,7 @@ final class WorkspaceLockFreshnessServiceTest {
 
     private static String lockBody() {
         return """
-                version = 6
+                version = 7
                 projectResolutionFingerprint = "sha256:abc"
                 """;
     }
@@ -200,7 +211,9 @@ final class WorkspaceLockFreshnessServiceTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["lib", "app"]
+
+                [workspace.members]
+                include = ["lib", "app"]
                 """);
         Files.createDirectories(root.resolve("lib"));
         Files.writeString(root.resolve("lib").resolve("zolt.toml"), """
@@ -208,7 +221,7 @@ final class WorkspaceLockFreshnessServiceTest {
                 name = "lib"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "org.slf4j:slf4j-api" = "2.0.17"
@@ -219,10 +232,10 @@ final class WorkspaceLockFreshnessServiceTest {
                 name = "app"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
-                "com.example:lib" = { workspace = "lib" }
+                "com.example:lib" = { workspace = true }
                 """);
     }
 }

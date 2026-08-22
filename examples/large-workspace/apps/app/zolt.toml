@@ -1,19 +1,10 @@
 [project]
 name = "app"
-version = "0.1.0"
-group = "com.example.large"
-java = "21"
 main = "com.example.large.app.LargeApplication"
 
 [dependencies]
-"com.example.large:service" = { workspace = "modules/service" }
+"com.example.large:service" = { workspace = true }
 "commons-io:commons-io" = "2.20.0"
 
-[test.dependencies]
+[dependencies.test]
 "org.junit.jupiter:junit-jupiter" = "5.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"

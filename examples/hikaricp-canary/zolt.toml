@@ -2,52 +2,43 @@
 name = "hikaricp-canary"
 version = "0.1.0"
 group = "com.zaxxer"
-java = "21"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
-[dependencies]
-"org.slf4j:slf4j-api" = { version = "2.0.17", optional = true, exclusions = [{ group = "org.slf4j", artifact = "slf4j-nop" }] }
-"org.checkerframework:checker-qual" = { version = "3.49.4", publishOnly = true }
-
-[test.dependencies]
-"junit:junit" = { version = "4.13.2", exclusions = [{ group = "org.hamcrest", artifact = "hamcrest-core" }] }
-"org.junit.vintage:junit-vintage-engine" = "5.11.4"
-"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
-
-[compiler]
-release = "8"
-encoding = "UTF-8"
-args = ["-Xlint:deprecation"]
-testArgs = ["-Xlint:unchecked"]
-
-[package]
-mode = "thin"
-sources = true
-javadoc = true
-tests = true
-
-[package.metadata]
-name = "HikariCP Canary"
+java = 8
 description = "Small connection-pool library fixture for Zolt canary testing."
 url = "https://github.com/brettwooldridge/HikariCP"
-license = "Apache-2.0"
-developers = ["Zolt Team"]
-scm = "https://github.com/brettwooldridge/HikariCP.git"
 issues = "https://github.com/brettwooldridge/HikariCP/issues"
+license = "Apache-2.0"
+
+[project.scm]
+url = "https://github.com/brettwooldridge/HikariCP.git"
+
+[project.developers.zolt-team]
+name = "Zolt Team"
+
+[dependencies]
+"org.checkerframework:checker-qual" = { version = "3.49.4", publishOnly = true }
+"org.slf4j:slf4j-api" = { version = "2.0.17", optional = true, exclude = ["org.slf4j:slf4j-nop"] }
+
+[dependencies.test]
+"junit:junit" = { version = "4.13.2", exclude = ["org.hamcrest:hamcrest-core"] }
+"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
+"org.junit.vintage:junit-vintage-engine" = "5.11.4"
+
+[compiler]
+args = ["-Xlint:deprecation"]
+
+[compiler.test]
+args = ["-Xlint:unchecked"]
+
+[package]
+sources = true
+javadoc = true
+testJar = true
 
 [package.manifest]
 "Automatic-Module-Name" = "com.zaxxer.hikari"
 
 [publish]
-releaseRepository = "local-releases"
+release = "local-releases"
 
 [publish.repositories.local-releases]
 url = "https://repo.example.test/releases"

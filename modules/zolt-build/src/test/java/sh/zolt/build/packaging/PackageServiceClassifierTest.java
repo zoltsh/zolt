@@ -6,7 +6,7 @@ import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.build.packageplan.PackagePlanDependency;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,7 +21,7 @@ final class PackageServiceClassifierTest {
     void thinPackagePlanShowsClassifierRuntimeArtifact() throws IOException {
         Path projectDir = project("thin");
 
-        PackagePlan plan = new PackagePlanService().plan(projectDir, config("thin"));
+        PackagePlan plan = new PackagePlanService().plan(projectDir, config("jar"));
 
         PackagePlanDependency nativeLib = plan.dependencies().getFirst();
         assertEquals("com.example:native-lib:linux-x86_64:jar:1.0.0", nativeLib.coordinate());
@@ -33,7 +33,7 @@ final class PackageServiceClassifierTest {
     void uberPackagePlanShowsClassifierRuntimeArtifactPlacement() throws IOException {
         Path projectDir = project("uber");
 
-        PackagePlan plan = new PackagePlanService().plan(projectDir, config("uber"));
+        PackagePlan plan = new PackagePlanService().plan(projectDir, config("uber-jar"));
 
         PackagePlanDependency nativeLib = plan.dependencies().getFirst();
         assertEquals("com.example:native-lib:linux-x86_64:jar:1.0.0", nativeLib.coordinate());
@@ -45,7 +45,7 @@ final class PackageServiceClassifierTest {
         Path projectDir = tempDir.resolve(mode);
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "com.example:native-lib"
@@ -60,12 +60,12 @@ final class PackageServiceClassifierTest {
     }
 
     private static ProjectConfig config(String mode) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [package]

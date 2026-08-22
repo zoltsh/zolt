@@ -32,7 +32,7 @@ final class BuildFingerprintServiceTest {
 
     @Test
     void rejectsUnsafeMainResourceRootBeforeFingerprinting() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = config().withBuildSettings(new BuildSettings(
                 "src/main/java",
                 "src/test/java",
@@ -61,7 +61,7 @@ final class BuildFingerprintServiceTest {
 
     @Test
     void rejectsUnsafeGeneratedSourceInputBeforeFingerprinting() throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         ProjectConfig config = config().withBuildSettings(config().build().withGeneratedSources(
                 List.of(new GeneratedSourceStep(
                         "openapi",
@@ -91,7 +91,7 @@ final class BuildFingerprintServiceTest {
     @Test
     void testCompileFingerprintTracksJavaGroovyAndGeneratedTestSources() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Path javaTest = write("src/test/java/com/example/AppTest.java", "final class AppTest {}\n");
         Path groovyTest = write("src/test/groovy/com/example/AppSpec.groovy", "class AppSpec {}\n");
         Path generatedTest = write(
@@ -159,7 +159,7 @@ final class BuildFingerprintServiceTest {
     @Test
     void reportsTheFingerprintComponentThatChanged() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Path source = write("src/main/java/com/example/Main.java", "package com.example; final class Main {}\n");
         write("target/classes/com/example/Main.class", "class");
         SourceDiscoveryResult sources = new SourceDiscoveryResult(List.of(source), List.of());
@@ -192,7 +192,7 @@ final class BuildFingerprintServiceTest {
     @Test
     void refreshesChangedFilesWithoutDroppingCurrentCachedHashes() throws IOException {
         Files.writeString(projectDir.resolve("zolt.toml"), "[project]\nname = \"demo\"\n");
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Path source = write("src/main/java/com/example/Main.java", "package com.example; final class Main {}\n");
         Path dependency = write("cache/example.jar", "dependency");
         write("target/classes/com/example/Main.class", "class");

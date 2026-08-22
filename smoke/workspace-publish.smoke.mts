@@ -93,7 +93,7 @@ smoke.suite("workspace publishing smoke", { tags: ["publish", "workspace", "ente
     expect.value(readiness.stdout).toContain("No upload was performed.");
     expect.value(readiness.stdout).toContain("Maven Central readiness:");
     for (const requirement of [
-      "release version", "project name", "project description", "project url",
+      "release version", "project description", "project url",
       "license name and url", "developer information", "scm url and connection",
       "sources jar", "javadoc jar", "checksums",
     ]) {
@@ -131,7 +131,7 @@ smoke.suite("workspace publishing smoke", { tags: ["publish", "workspace", "ente
     expect.value(readiness.stdout).toContain("Target URL: https://central.sonatype.com");
     expect.value(readiness.stdout).toContain("Maven Central readiness:");
     for (const requirement of [
-      "release version", "project name", "project description", "project url",
+      "release version", "project description", "project url",
       "license name and url", "scm url and connection", "checksums",
     ]) {
       expect.value(readiness.stdout).toContain(`- [x] ${requirement}`);
@@ -154,7 +154,7 @@ smoke.suite("workspace publishing smoke", { tags: ["publish", "workspace", "ente
     const signedServer = await startUploadFileServer(t, work.path("signed-repository"));
     await writeCentralCandidateFixture(signed, signedServer.url("releases"));
     await appendFile(join(signed, "zolt.toml"), [
-      "[publish.signing]", "enabled = true", `keyId = "${key.keyId}"`,
+      "[publish.signing]", 'method = "gpg"', `keyId = "${key.keyId}"`,
       `passphraseEnv = "${SIGNING_PASSPHRASE_ENV}"`, "",
     ].join("\n"), "utf8");
 

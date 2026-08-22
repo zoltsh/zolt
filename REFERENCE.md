@@ -38,14 +38,19 @@ Dependency and lockfile commands:
 
 ```sh
 zolt add GROUP:ARTIFACT:VERSION
-zolt add test GROUP:ARTIFACT:VERSION
-zolt add runtime GROUP:ARTIFACT:VERSION
-zolt add provided GROUP:ARTIFACT:VERSION
-zolt add processor GROUP:ARTIFACT:VERSION
-zolt remove GROUP:ARTIFACT
-zolt platform add GROUP:ARTIFACT:VERSION
-zolt version set ALIAS VERSION
-zolt version remove ALIAS
+zolt add GROUP:ARTIFACT:VERSION --scope test
+zolt add GROUP:ARTIFACT --managed
+zolt add GROUP:ARTIFACT --version-ref ALIAS
+zolt remove GROUP:ARTIFACT --scope test
+zolt versions set ALIAS VERSION
+zolt versions remove ALIAS
+zolt platforms set GROUP:ARTIFACT VERSION
+zolt platforms set GROUP:ARTIFACT --version-ref ALIAS
+zolt platforms remove GROUP:ARTIFACT
+zolt bom versions set GROUP:ARTIFACT VERSION
+zolt bom versions remove GROUP:ARTIFACT
+zolt bom imports set GROUP:ARTIFACT --version-ref ALIAS
+zolt bom imports remove GROUP:ARTIFACT
 zolt resolve --locked
 zolt resolve --offline
 zolt tree
@@ -114,9 +119,9 @@ zolt clean --workspace --all
 Packaging, publishing, and release commands:
 
 ```sh
-zolt package --mode thin
+zolt package --mode jar
 zolt package --mode quarkus
-zolt package --mode uber
+zolt package --mode uber-jar
 zolt package --plan --format json
 zolt publish --dry-run
 zolt publish --dry-run --sbom
@@ -130,9 +135,9 @@ zolt native
 zolt native --workspace --member apps/zolt
 ```
 
-`--mode` is temporary and is accepted only when it preserves the configured
-dependency-resolution tooling. Thin, uber, WAR, and Quarkus layouts are
-resolution-equivalent; Spring Boot jar and Spring Boot WAR are
+`--mode` is a standalone preview override and is accepted only when it preserves
+the configured dependency-resolution tooling. Jar, uber-jar, WAR, and Quarkus
+layouts are resolution-equivalent; Spring Boot jar and Spring Boot WAR are
 resolution-equivalent. A transition between those families must be persistent:
 
 ```toml
@@ -148,7 +153,7 @@ JVM inputs and their evidence are staged below `[native].output/input` (default
 `target/native/input`); configured package outputs remain byte-identical when
 native builds run before or after `zolt package`.
 
-Thin packaging writes a `.runtime-classpath` sidecar beside the application
+Jar packaging writes a `.runtime-classpath` sidecar beside the application
 jar. That file is a checkout-local launch convenience: its entries are the
 workspace and artifact-cache paths whose bytes were verified when the package
 was created. It is not a portable deployment manifest, and those paths can
@@ -158,7 +163,7 @@ the sidecar; deploy an archive package mode when the runtime must be
 self-contained.
 
 Uber-jar packaging merges runtime dependency classes into one archive. Duplicate
-class entries fail the build by default; set `[package] uberDuplicates =
+class entries fail the build by default; set `[package] duplicates =
 "first-wins"` to keep the first occurrence in the deterministic classpath order
 instead (application output wins, then earlier dependencies) and report a per-jar
 count of overridden entries. Uber jars that contain `META-INF/versions/` entries
@@ -167,21 +172,21 @@ entry sets that attribute explicitly.
 
 ```toml
 [package]
-mode = "uber"
-uberDuplicates = "first-wins"
+mode = "uber-jar"
+duplicates = "first-wins"
 ```
 
 ### Publishing to Maven repositories
 
 `zolt publish` uploads the packaged artifact, a generated POM, and any
 configured supplemental artifacts to a Maven-compatible repository. Configure
-targets under `[publish]`, referencing `[repositoryCredentials]` for
-authenticated repositories:
+targets under `[publish]`, referencing `[credentials.<id>]` for authenticated
+repositories:
 
 ```toml
 [publish]
-releaseRepository = "company-releases"
-snapshotRepository = "company-snapshots"
+release = "company-releases"
+snapshot = "company-snapshots"
 
 [publish.repositories.company-releases]
 url = "https://repo.example.com/releases"
@@ -210,29 +215,39 @@ sources = true
 javadoc = true
 ```
 
-The generated POM is enriched from `[package.metadata]`. Alongside `name`,
-`description`, `url`, `license`, `developers`, `scm`, and `issues`, publish emits
-`<packaging>` (derived from the package mode), a license `<url>`, richer SCM
-elements, and structured developers with `<id>`, `<email>`, and `<organization>`:
+The generated POM is enriched from `[project]`, `[project.scm]`, and
+`[project.developers.<id>]`. Alongside the project name, `description`, `url`,
+`license`, and `issues`, publish emits `<packaging>` (derived from the package
+mode), a license `<url>` derived from the SPDX identifier, richer SCM elements,
+and structured developers with `<id>`, `<email>`, and `<organization>`:
 
 ```toml
-[package.metadata]
-name = "Example Library"
+[project]
+name = "example-library"
+version = "1.0.0"
+group = "com.example"
+java = 21
 description = "A reusable Java library."
 url = "https://example.com/library"
+issues = "https://github.com/example/library/issues"
 license = "Apache-2.0"
-licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-scm = "https://github.com/example/library"
-scmConnection = "scm:git:https://github.com/example/library.git"
-scmDeveloperConnection = "scm:git:ssh://git@github.com/example/library.git"
-scmTag = "v1.0.0"
 
-[package.metadata.developer.ada]
+[project.scm]
+url = "https://github.com/example/library"
+connection = "scm:git:https://github.com/example/library.git"
+developerConnection = "scm:git:ssh://git@github.com/example/library.git"
+tag = "v1.0.0"
+
+[project.developers.ada]
 name = "Ada Lovelace"
 email = "ada@example.com"
 organization = "Example Inc"
 url = "https://example.com/ada"
 ```
+
+A single SPDX identifier is all a common license needs; Zolt derives the Maven
+license name and URL from it. A compound or custom license uses the one-line
+inline form `license = { id = "...", name = "...", url = "..." }`.
 
 `zolt publish --dry-run --central` reports Maven Central readiness: it checks the
 release version, the required POM metadata (name, description, url, license
@@ -253,8 +268,9 @@ is still `zolt publish --workspace`, and family-scoped gates (inter-member
 completeness, uniform versions) belong to that command rather than this per-member
 preview.
 
-Enable `[publish.signing]` to attach a detached GPG signature (`.asc`) to every
-uploaded artifact and to the POM. Publish shells out to the `gpg` binary
+Declare `[publish.signing]` to attach a detached GPG signature (`.asc`) to every
+uploaded artifact and to the POM. `method = "gpg"` is required and makes the
+backend explicit. Publish shells out to the `gpg` binary
 (`--batch --detach-sign --armor`); `keyId` selects the signing key and, when a key
 requires a passphrase, `passphraseEnv` names an environment variable holding it —
 the passphrase is fed to gpg over stdin, never the command line. Without
@@ -263,7 +279,7 @@ environment-variable name only:
 
 ```toml
 [publish.signing]
-enabled = true
+method = "gpg"
 keyId = "3AB1C2D3E4F5A6B7"
 passphraseEnv = "ZOLT_SIGNING_PASSPHRASE"
 ```
@@ -285,13 +301,14 @@ the key.
 To publish to Maven Central through the Sonatype Central Portal, configure
 `[publish.central]`. `tokenEnv` names an environment variable holding the base64
 `user:password` Portal user token (sent as `Authorization: Bearer <token>`);
-`publishingType` is `user-managed` (validate and wait for a manual publish) or
-`automatic` (publish once validated); `baseUrl` may point at an enterprise mirror:
+`mode` is `manual` (validate and wait for a manual publish) or `automatic`
+(publish once validated); the public Portal URL is implicit, and `url` may point
+at an enterprise mirror:
 
 ```toml
 [publish.central]
 tokenEnv = "ZOLT_CENTRAL_TOKEN"
-publishingType = "automatic"
+mode = "automatic"
 ```
 
 `zolt publish --central` assembles a bundle in Maven repository layout — every
@@ -303,9 +320,9 @@ network access.
 
 By default the upload returns as soon as the bundle is accepted. Add `--wait` to
 poll the deployment until it reaches a terminal state and fail the command if it
-does not publish. For `publishingType = "automatic"`, `--wait` returns once the
+does not publish. For `mode = "automatic"`, `--wait` returns once the
 deployment is `PUBLISHED` (live on Maven Central) and errors on `FAILED`, quoting
-the Portal's reported detail. For `publishingType = "user-managed"`, validation is
+the Portal's reported detail. For `mode = "manual"`, validation is
 terminal: `--wait` returns once the deployment is `VALIDATED` and reminds you to
 release it from the Portal. `--wait-timeout <seconds>` bounds the wait (default
 `300`); on timeout the command errors with the deployment id so you can check its
@@ -316,16 +333,16 @@ progress later in the Central Portal.
 A BOM (bill of materials) publishes a curated version set — workspace members at
 their locked versions plus chosen third-party pins — as the platform other teams
 import. Author it as a dedicated workspace member whose `zolt.toml` has a `[bom]`
-section; the section's presence implies `[package].mode = "bom"`.
+section; any authored BOM domain is the BOM signal, so the package mode is never
+written down. Group and version come from `[workspace.project]`, and a BOM member
+carries no Java target.
 
 ```toml
 [project]
-name = "platform-bom"
-group = "com.acme.platform"
-version = "1.4.0"
+name = "acme-bom"
 
 [bom]
-members = true                 # every workspace member, or an explicit ["core", "http"] list
+members = true                 # every consumable member, or an explicit ["modules/core", "modules/http"] list
 
 [bom.versions]                 # mirrors [versions]: fixed literals or { versionRef = "netty" }
 "org.postgresql:postgresql" = "42.7.4"
@@ -334,11 +351,14 @@ members = true                 # every workspace member, or an explicit ["core",
 "com.fasterxml.jackson:jackson-bom" = { versionRef = "jackson" }
 ```
 
+Optional `exclude = ["apps/admin"]` drops intentionally unpublished members from
+`members = true`.
+
 A BOM does not compile and has no jar: its artifact is the generated
 `<dependencyManagement>` POM. `zolt build`/`package --workspace` skip its compile
 wave and write `target/publish/<name>-<version>.pom` with package evidence.
-Declaring dependencies, sources, javadoc, tests, or a manifest on a BOM is a
-config error, and `zolt run`/`run-package` error actionably.
+Declaring dependencies, sources, javadoc, tests, a JAR manifest, or `project.java`
+on a BOM is a config error, and `zolt run`/`run-package` error actionably.
 
 `zolt publish --workspace` publishes the whole family in one operation, using the
 same per-member publication plan as a single-project publish. It runs an offline
@@ -358,7 +378,7 @@ Phase 2 uploads pre-staged bytes only, so a mid-member signing or checksum failu
 is structurally impossible once uploads begin. Maven Central receives one atomic
 family bundle (one deployment id); a plain repository receives a dependency-ordered
 sequential upload (providers first, the BOM last) that authenticates every request
-with the repository's configured `[repositoryCredentials]`. Each file is uploaded
+with the repository's configured `[credentials.<id>]`. Each file is uploaded
 idempotently — a path already holding the same bytes is skipped, so a resumed
 publish re-PUTs nothing an immutable release repository would reject, while a path
 holding different bytes is a hard, actionable conflict. On failure the publish
@@ -383,14 +403,14 @@ zolt check --workspace --context ci --require-publish-dry-run   # CI gate
 ```
 
 Consumers import the BOM through `[platforms]` and declare its members
-version-less:
+platform-managed:
 
 ```toml
 [platforms]
 "com.acme.platform:acme-bom" = "1.4.0"
 
 [dependencies]
-"com.acme:acme-http" = {}     # version supplied by the imported BOM
+"com.acme:acme-http" = { managed = true }     # version supplied by the imported BOM
 ```
 
 `zolt sbom` on a BOM emits a metadata-only CycloneDX document (a BOM has no
@@ -427,83 +447,110 @@ zolt self update
 
 ## Project Configuration
 
-A minimal project declares a Java package model, repositories, dependencies, and
-source roots:
+A minimal project declares its identity, its Java feature release, and its
+dependencies. Maven Central and the conventional Java source, resource, and
+output paths are behavior rather than boilerplate, so they are not written down:
 
 ```toml
 [project]
 name = "hello-zolt"
 version = "0.1.0"
 group = "com.example"
-java = "21"
+java = 21
 main = "com.example.Main"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
 
 [dependencies]
 "com.google.guava:guava" = "33.4.0-jre"
 
-[test.dependencies]
+[dependencies.test]
 "org.junit.jupiter:junit-jupiter" = "5.14.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
 ```
 
-Dependencies can be split by usage:
+`project.java` is an integer Java feature release and is the sole compilation
+target. Nonstandard layouts are declared only when they differ from the
+convention:
+
+```toml
+[build]
+sources = ["src/main/java", "src/generated/java"]
+
+[build.output]
+root = "build"
+```
+
+Dependencies are split by usage under one `[dependencies]` namespace. The base
+table is implementation scope, and `[dependencies.api]` is the exported compile
+boundary:
 
 ```toml
 [dependencies]
-"org.springframework.boot:spring-boot-starter-webmvc" = {}
+"org.springframework.boot:spring-boot-starter-webmvc" = { managed = true }
 
-[runtime.dependencies]
-"com.h2database:h2" = {}
+[dependencies.api]
+"org.slf4j:slf4j-api" = "2.0.17"
 
-[provided.dependencies]
-"jakarta.servlet:jakarta.servlet-api" = {}
+[dependencies.runtime]
+"com.h2database:h2" = { managed = true }
 
-[dev.dependencies]
-"org.springframework.boot:spring-boot-devtools" = {}
+[dependencies.provided]
+"jakarta.servlet:jakarta.servlet-api" = { managed = true }
 
-[annotationProcessors]
-"org.projectlombok:lombok" = {}
+[dependencies.dev]
+"org.springframework.boot:spring-boot-devtools" = { managed = true }
 
-[test.dependencies]
+[dependencies.test]
 "org.junit.jupiter:junit-jupiter" = "5.14.4"
 
-[test.annotationProcessors]
-"org.projectlombok:lombok" = {}
+[dependencies.processor]
+"org.projectlombok:lombok" = { managed = true }
+
+[dependencies.test-processor]
+"org.projectlombok:lombok" = { managed = true }
 ```
+
+Each declaration names exactly one source: a fixed version string, `{ version =
+"..." }`, `{ versionRef = "..." }`, `{ managed = true }` for a version supplied
+by an imported platform, or `{ workspace = true }` for a sibling member. An empty
+inline table has no meaning and is rejected.
 
 Version aliases, BOM/platform imports, exclusions, and constraints are first
 class:
 
 ```toml
 [versions]
-spring = "4.0.6"
+spring-boot = "4.0.6"
 
 [platforms]
-"org.springframework.boot:spring-boot-dependencies" = { versionRef = "spring" }
+"org.springframework.boot:spring-boot-dependencies" = { versionRef = "spring-boot" }
 
 [dependencies]
-"org.springframework.boot:spring-boot-starter-webmvc" = { exclusions = [{ group = "org.apache.tomcat.embed", artifact = "tomcat-embed-core" }] }
+"org.springframework.boot:spring-boot-starter-webmvc" = { managed = true, exclude = ["org.apache.tomcat.embed:tomcat-embed-core"] }
 # classifier and type select a specific published artifact for a coordinate and
-# are independent; both work in every dependency scope, with or without a
-# version or platform-managed version.
+# are independent; both work in every external dependency lane, alongside a
+# fixed version, a version alias, or a platform-managed version.
 "io.netty:netty-transport-native-epoll" = { version = "4.1.100.Final", classifier = "linux-x86_64" }
 
-[dependencyPolicy]
-exclude = [
-  { group = "commons-logging", artifact = "commons-logging", reason = "Use Spring JCL and SLF4J bridges" }
-]
+[dependencies.constraints]
+"org.apache.tomcat.embed:tomcat-embed-core" = { version = "11.0.21", reason = "Servlet baseline" }
 
-[dependencyConstraints]
-"org.apache.tomcat.embed:tomcat-embed-core" = { version = "11.0.21", kind = "strict", reason = "Servlet baseline" }
+[dependencies.policy]
+conflicts = "fail"
+deny = [
+  { coordinate = "commons-logging:commons-logging", reason = "Use Spring JCL and SLF4J bridges" },
+]
 ```
+
+`conflicts` accepts `resolve` (the default: mediate silently), `warn` (mediate,
+then report the mediation as a `zolt resolve` warning and as a
+`dependency-policy` warning in `zolt check`), and `fail` (reject any mediated
+version conflict).
+
+Per-edge `exclude` takes exact `group:artifact` coordinates and describes one
+transitive edge; `[dependencies.policy] deny` blocks a coordinate project-wide.
+Constraints are strict exact-version requirements, so there is no mode selector
+on an entry. Every entry in `[versions]`, `[platforms]`, `[dependencies]`, and
+`[dependencies.constraints]` occupies one physical line under its own table
+header — the source shape Zolt's failure-safe manifest editor requires.
 
 ## Resolution and Lockfile Contracts
 
@@ -516,8 +563,10 @@ ambient or historically shaped:
 - Dynamic versions, version ranges, external SNAPSHOT dependencies, system
   scope, and uninterpolated `${...}` versions at point of use are rejected
   instead of resolved dynamically.
-- Repositories are tried in alphabetical order of repository id because TOML
-  table order is not a contract. The `source` recorded in `zolt.lock` makes
+- Repository order is data, never incidental TOML table order. Without an
+  explicit `[repositories] order`, custom repositories are queried by normalized
+  id and enabled Maven Central is last; with `order`, the array must list every
+  enabled repository id exactly once. The `source` recorded in `zolt.lock` makes
   the selected repository id part of the lockfile contract.
 - Integrity is lockfile-pinned. Zolt records the SHA-256 of each fetched POM
   and JAR and verifies cached/build inputs against those lockfile hashes.
@@ -539,7 +588,7 @@ ambient or historically shaped:
   sweep of the cache: `zolt build --workspace` succeeding says every artifact the
   build used was intact, not that every artifact in `zolt.lock` is. Use `zolt
   resolve --locked` to check the whole lock.
-- `zolt.lock` version 6 is deterministic: no timestamps, no absolute paths,
+- `zolt.lock` version 7 is deterministic: no timestamps, no absolute paths,
   stable ordering, and LF line endings. Version 2 added variant-qualified
   dependency edges and conflict identities; version 3 added source-scope-qualified
   dependency edges; version 4 adds member-qualified workspace dependency and
@@ -547,13 +596,14 @@ ambient or historically shaped:
   closures per member; version 5 carries optional-boundary and member-attributed
   conflict evidence and requires complete member graph facts for every qualified
   identity; version 6 makes content-addressed `blobs/v2/sha256/...` artifact
-  cache paths part of the schema contract. Zolt still reads version 1 through 5
-  locks for compatible metadata and diagnostics, but graph commands refuse
-  ambiguous legacy edges and commands that materialize locked artifacts refuse
-  pre-v6 cache paths. Run `zolt resolve` (or `zolt resolve --workspace`) once to
-  migrate. Newly resolved locks use version 6 so older binaries cannot silently
-  misread either graph evidence or artifact cache paths. Newer lockfile versions
-  require a newer Zolt before `zolt resolve --locked` can verify them.
+  cache paths part of the schema contract; version 7 adds member-qualified
+  `[[dependencyRoot]]` records that keep authored lanes independent from exact
+  selected versions, variants, and resolved scopes. Current executable readers
+  reject every pre-v7 lock instead of inferring missing authored-lane evidence.
+  Run `zolt resolve` (or `zolt resolve --workspace`) once to migrate. Newly
+  resolved locks use version 7 so older binaries cannot silently misread graph,
+  cache-path, or authored-lane evidence. Newer lockfile versions require a newer
+  Zolt before `zolt resolve --locked` can verify them.
 - Manifest mutation commands preserve unrelated comments, formatting, and
   configuration byte-for-byte and fail closed if the source changes during an
   edit. Editable dependency, platform, and constraint declarations must use a
@@ -561,7 +611,7 @@ ambient or historically shaped:
   values remain readable by Zolt, but mutation commands reject them with the exact
   canonical one-line declaration to use before retrying.
 - `[publish]` is active project configuration for `zolt publish --dry-run`
-  and uploads, and can reference `[repositoryCredentials]` entries for
+  and uploads, and can reference `[credentials.<id>]` entries for
   authenticated repositories.
 - Version discovery is advisory-only. `maven-metadata.xml` is fetched only by
   `zolt outdated` and policy-driven `zolt update`. Exact target update (`zolt
@@ -576,8 +626,10 @@ ambient or historically shaped:
 ### SNAPSHOT dependencies
 
 A directly declared `-SNAPSHOT` dependency version — in `[dependencies]` and
-every other dependency section, including `runtime`/`provided`/`dev`/`test`
-dependencies and `annotationProcessors` — parses in `zolt.toml` and is decided
+every other dependency lane, including `[dependencies.runtime]`,
+`[dependencies.provided]`, `[dependencies.dev]`, `[dependencies.test]`,
+`[dependencies.processor]`, and `[dependencies.test-processor]` — parses in
+`zolt.toml` and is decided
 at resolve time rather than rejected while parsing, so the resolve layer is the
 single authority on whether a SNAPSHOT is supported (`zolt add
 group:artifact:1.0-SNAPSHOT` writes the declaration and lets resolve decide).
@@ -585,7 +637,7 @@ SNAPSHOTs are rejected by default because a moving version breaks the
 reproducibility that `zolt.lock` promises. Two narrow exceptions are allowed
 because they name artifacts that already exist on this machine rather than a
 remote moving target: workspace-member coordinates a sibling depends on with
-`{ workspace = "path" }` (built from source and locked with `source =
+`{ workspace = true }` (built from source and locked with `source =
 "workspace"`), and artifacts present in an enabled maven-local repository
 overlay (`zolt resolve --repository-overlay maven-local`), which are SHA-256
 pinned in `zolt.lock` with `source = "local-overlay:maven-local"` just like any
@@ -594,7 +646,7 @@ materialized artifact. Everything else — remote SNAPSHOT feeds,
 design; a SNAPSHOT that is neither a workspace member nor present in an enabled
 overlay is rejected at resolve time with guidance (from `zolt resolve`, `zolt
 resolve --locked`, and `zolt explain verify`) rather than fetched from the
-network. `[platforms]` and `[dependencyConstraints]` continue to reject
+network. `[platforms]` and `[dependencies.constraints]` continue to reject
 SNAPSHOTs while parsing.
 
 ## Dependency Updates
@@ -625,9 +677,9 @@ unauthenticated cache entry with a staleness note only when a fetch fails, while
 
 Reports available updates for every version surface in `zolt.toml`: `[versions]`
 aliases (with the coordinates each alias `governs`), literal-versioned
-dependencies in every scope, `[platforms]`, `[annotationProcessors]` and their
-test variants, `[dependencyConstraints]`, and `[generated.execTools]` /
-protobuf / openapi tool coordinates. A versionRef-backed entry reports under its
+dependencies in every lane, `[platforms]`, `[dependencies.processor]` and
+`[dependencies.test-processor]`, `[dependencies.constraints]`, and
+`[generated.tools.<id>]` coordinates. A versionRef-backed entry reports under its
 alias rather than twice; SNAPSHOT literals and workspace-member dependencies are
 ignored. Workspace member discovery uses its effective root-plus-member
 repository and credential policy while target identity and edits remain owned by
@@ -724,16 +776,17 @@ Project-pinned toolchains are declared in `zolt.toml` and locked in `zolt.lock`:
 
 ```toml
 [project]
-java = "21"
+java = 21
 
 [toolchain.java]
-version = "21"
+version = 21
 distribution = "graalvm-community"
 features = ["native-image"]
 policy = "prefer-managed"
 ```
 
-`version` is a concrete Java feature release such as `21` or `25`. Floating
+`version` is a concrete integer Java feature release such as `21` or `25`, and
+defaults to the effective `project.java` when omitted. Floating
 aliases such as `latest` are rejected. Zolt resolves the newest stable GA patch
 in that feature line and writes the exact provider version, artifact URL, and
 SHA-256 checksum to `zolt.lock`.
@@ -797,22 +850,23 @@ cross-version story.
 
 ```toml
 [project]
-java = "17"
+java = 17
 
 [toolchain.java]
-version = "21"
+version = 21
 distribution = "temurin"
 
 [toolchain.java.test]
-version = "17"
+version = 17
 # distribution = "temurin"   # optional; defaults to [toolchain.java].distribution
-# features = []              # optional; defaults to [toolchain.java].features
+# policy = "prefer-managed"  # optional; defaults to [toolchain.java].policy
 ```
 
-`[toolchain.java.test]` sets its own `version` and can override `distribution`
-and `features`, inheriting omitted values and `policy` from `[toolchain.java]`.
-This lets a GraalVM build toolchain require Native Image while tests run on
-Temurin with `features = []`. It resolves, installs, and locks through the same
+`[toolchain.java.test]` supports `version`, `distribution`, and `policy`, must
+contain at least one of them, and inherits the omitted ones from
+`[toolchain.java]`. This lets a GraalVM build toolchain require Native Image
+while tests run on plain Temurin; `features` do not inherit and are unsupported
+in the test-runtime table. It resolves, installs, and locks through the same
 managed-toolchain machinery: `zolt toolchain sync`
 installs it beside the build toolchain, `zolt toolchain status` and `zolt toolchain
 list` show it, and it is recorded as an additive `[[toolchain.java]]` entry in
@@ -1008,10 +1062,11 @@ sends `Authorization: Bearer <token>` on both downloads and publish uploads:
 
 ```toml
 # zolt.toml
-[repositories]
-company = { url = "https://nexus.example.com/repository/maven", credentials = "company" }
+[repositories.company]
+url = "https://nexus.example.com/repository/maven"
+credentials = "company"
 
-[repositoryCredentials.company]
+[credentials.company]
 tokenEnv = "COMPANY_ARTIFACT_TOKEN"
 ```
 
@@ -1122,12 +1177,14 @@ enabled = true
 
 [buildCache.remote]
 url = "https://nexus.example.com/repository/zolt-build-cache"
-credentials = "buildCache"   # optional; names a [repositoryCredentials] block
+credentials = "build-cache"  # optional; names a [repositoryCredentials.<id>] block
 push = false                 # devs read; set true (or ZOLT_BUILD_CACHE_PUSH=1) on CI
 
 # Credential definitions may live in user-global config for machine/CI use. Only
-# environment-variable *names* are stored — never secret values.
-[repositoryCredentials.buildCache]
+# environment-variable *names* are stored — never secret values. The machine-local
+# config keeps its own [repositoryCredentials.<id>] spelling; the manifest language
+# uses [credentials.<id>].
+[repositoryCredentials.build-cache]
 tokenEnv = "ZOLT_BUILD_CACHE_TOKEN"   # bearer; or usernameEnv + passwordEnv for basic
 ```
 
@@ -1211,48 +1268,86 @@ reproducible. Over-approximating this taint is the safe direction.
 
 ## Workspaces
 
-Workspace roots describe member projects and default selections:
+A workspace root declares a stable name, its membership, and any shared project
+defaults:
 
 ```toml
 [workspace]
 name = "workspace-app"
-members = ["apps/api", "modules/core", "tools"]
-defaultMembers = ["apps/api"]
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
+[workspace.members]
+default = ["apps/api"]
+include = ["apps/*", "modules/*", "tools"]
 
-[commands.tasks.release-notes]
+[workspace.project]
+group = "com.example"
+version = "1.4.0"
+java = 21
+
+[tasks.release-notes]
 description = "Run the Java tools member release-notes command"
-cmd = ["zolt", "run", "--workspace", "--member", "tools", "--", "release-notes"]
+run = ["zolt", "run", "--workspace", "--member", "tools", "--", "release-notes"]
+```
+
+`include` takes exact member paths or strict directory patterns where a complete
+`*` segment matches exactly one directory segment. Only a whole-segment `*` is a
+wildcard: every other portable character, brackets and braces included, is a
+literal path character, so `exclude = ["apps/notes[draft]"]` names exactly the
+directory `notes[draft]`. A `*` or `?` inside a literal segment is rejected, and
+there is no escape syntax, brace expansion, or `**`. `exclude` filters candidates
+before any member manifest is parsed. `default` takes exact member paths only and selects
+what a root command builds; omitting it deliberately selects every discovered
+member, reported as `implicit-all`. A directory becomes a member only when it
+matches `include`, survives `exclude`, and contains a valid project `zolt.toml`.
+
+`[workspace.project]` shares only `group`, `version`, `java`, and `license`, so a
+conventional member manifest is one `[project]` header and its own `name`. This
+is a closed list, not general parent-POM inheritance: `main`, description, URLs,
+developers, packaging, dependencies, and every build setting stay project-local.
+A member declares its own name and its own dependencies, and refers to a sibling
+by coordinate rather than by path:
+
+```toml
+[project]
+name = "orders-core"
+
+[dependencies]
+"com.example:orders-model" = { workspace = true }
+
+[dependencies.test]
+"org.junit.jupiter:junit-jupiter" = "5.14.4"
 ```
 
 Workspace commands resolve one root lockfile and run selected members in
 dependency order.
 
-Workspace repositories may use the same structured credential references as a
-project repository. The root policy is inherited by every member, so private
-company repositories do not need to be repeated in each member:
+The workspace root owns the dependency repository universe and its order for
+every member, so private company repositories are declared once and are never
+repeated per member:
 
 ```toml
-[repositories]
-company = { url = "https://repo.example.com/maven", credentials = "company" }
+[repositories.company]
+url = "https://repo.example.com/maven"
+credentials = "company"
 
-[repositoryCredentials.company]
+[credentials.company]
 tokenEnv = "COMPANY_ARTIFACT_TOKEN"
 ```
 
-Members may add repositories. A matching member string repository cannot remove
-authentication inherited from the workspace root, and conflicting credential
-references fail with an actionable configuration error.
+`[repositories]` or `[repositories.<id>]` in a member manifest is invalid; this
+one-universe rule prevents two members in one authoritative lock from resolving
+the same coordinate through silently different repository precedence. Root
+credentials are available to every member. A member may add a credential its own
+publication or generated tooling needs, but redeclaring a root-owned credential
+id fails with an actionable configuration error even when the value is identical.
 
 Workspace mediation is artifact-variant-aware: a plain JAR, classified JAR, and
 typed artifact of one GA mediate independently. Direct-preference and
 newest-wins are applied workspace-wide within each variant lane, and
-`[dependencyPolicy].failOnVersionConflict` is enforced for every member affected
+`[dependencies.policy] conflicts = "fail"` is enforced for every member affected
 by a resulting conflict. Cross-member mediation never silently chooses between
 another member's direct dependency and a member's strict
-`[dependencyConstraints]` pin: if the workspace-selected version would override
+`[dependencies.constraints]` pin: if the workspace-selected version would override
 that strict pin, resolve fails and requires the declarations to be aligned.
 Within one member, the ordinary single-project rule remains unchanged: its own
 direct declaration takes precedence over its own strict transitive constraint.
@@ -1305,9 +1400,11 @@ than reaching the network. A fresh clone against a cold cache therefore builds,
 instead of failing later with a cached-artifact integrity error.
 
 The annotation did not change the lock schema when it was introduced in version
-5: older Zolt versions ignore the unknown key when reading, and it is excluded
-from the bytes `--locked` compares. Newly resolved locks are now version 6 for
-the separate content-addressed cache-path contract. A full locked verification
+5: Zolt versions of that period ignored the unknown key when reading, and it is
+excluded from the bytes `--locked` compares. Version 6 later introduced the
+separate content-addressed cache-path contract. Newly resolved locks are now
+version 7 for the authored dependency-root contract, and current executable
+readers reject pre-v7 locks. A full locked verification
 that passes has proved the lock is what the current inputs derive, so the gate
 records the fingerprint it just computed, in the same position and bytes an
 ordinary `zolt resolve --workspace` would write. Without that, a lock written
@@ -1376,7 +1473,7 @@ A lock that cannot be projected unambiguously — one occurrence listed twice, o
 package attributed to a path the workspace no longer declares as a member — fails
 with an actionable error rather than emitting a document a consumer cannot key.
 
-Root-only workspaces (`members = ["."]`) use the same qualified lock contract:
+Root-only workspaces (`include = ["."]`) use the same qualified lock contract:
 project fingerprints are retained while packages, exports, and optional facts
 are attributed to `"."`. Workspace `package-contents` quality also uses each
 member's actual package/runtime closure and supports BOM POM plans; it does not
@@ -1471,7 +1568,7 @@ Resolution fails if a managed console conflicts with the resolved engine line.
 Declare a console artifact only to pin or override the launcher:
 
 ```toml
-[test.dependencies]
+[dependencies.test]
 "org.apache.groovy:groovy" = "4.0.22"
 "org.spockframework:spock-core" = "2.3-groovy-4.0"
 # Optional explicit launcher pin:
@@ -1506,9 +1603,9 @@ ungated:
 
 ```toml
 [coverage]
-minLine = 88.0
-minBranch = 74.0
-# minInstruction and minMethod are also supported.
+line = 88
+branch = 74
+# instruction and method are also supported.
 ```
 
 After `zolt coverage` writes its report, floors are checked against the report's
@@ -1516,9 +1613,9 @@ totals; any metric below its floor fails the command with a non-zero exit and an
 actionable message naming the metric, its actual coverage, and the floor. With no
 `[coverage]` section, coverage behavior is unchanged. `zolt check --context ci`
 applies the same floors when a `jacoco.xml` report is present under the coverage
-directory. In a workspace, floors in the root `zolt.toml` gate the aggregate
-`zolt coverage --workspace --all` report, while a member's own `[coverage]`
-governs that member's solo `zolt coverage` run.
+directory. In a workspace, root floors are workspace minimums: a member may raise
+a floor but never lower one, and the effective floor for each metric is the
+numeric maximum of the root and member values.
 
 ## Frameworks and Generated Sources
 
@@ -1526,8 +1623,8 @@ Zolt has project-model support for common Java application shapes:
 
 - Spring Boot web applications, executable jars, WAR-style packaging, build
   metadata, resources, and Spring Boot package modes.
-- Quarkus fast-jar packaging and Quarkus augmentation/test plan inspection when
-  `[framework.quarkus]` is enabled.
+- Quarkus fast-jar packaging and Quarkus augmentation/test plan inspection under
+  `[package] mode = "quarkus"`.
 - Micronaut-style annotation processor workflows.
 - Vert.x applications with platform BOMs and dependency exclusions.
 - OpenAPI generated Java sources with tool versioning and presets.
@@ -1541,11 +1638,12 @@ Zolt has project-model support for common Java application shapes:
 Generated-source configuration can look like this:
 
 ```toml
-[generated.openapiTool]
+[generated.tools.openapi]
 coordinate = "org.openapitools:openapi-generator-cli"
 version = "7.11.0"
 
-[generated.openapiPresets.spring-api]
+[generated.presets.spring-api]
+kind = "openapi"
 generator = "spring"
 library = "spring-boot"
 apiPackage = "com.example.generated.api"
@@ -1554,11 +1652,16 @@ invokerPackage = "com.example.generated"
 
 [generated.main.public-api]
 kind = "openapi"
-language = "java"
 input = "src/main/openapi/public-api.yaml"
-output = "target/generated/sources/openapi/public-api"
 preset = "spring-api"
 ```
+
+`openapi` and `protobuf` are reserved built-in tool ids: declare
+`[generated.tools.openapi]` only to override the request Zolt ships, and never
+repeat `kind` on a reserved id. A step's `tool` defaults to the built-in for its
+kind and its `output` defaults to `<build.output.root>/generated/sources/<id>`
+(`generated/test-sources/<id>` for a test step), so neither is written unless it
+differs. `language` is omitted while Java is the sole supported language.
 
 Protobuf/gRPC configuration can look like this:
 
@@ -1567,17 +1670,16 @@ Protobuf/gRPC configuration can look like this:
 protobuf = "4.28.3"
 grpc = "1.68.1"
 
-[generated.protobufTool]
+[generated.tools.protobuf]
 protocCoordinate = "com.google.protobuf:protobuf-java"
 protocVersionRef = "protobuf"
-grpcPluginCoordinate = "io.grpc:grpc-api"
-grpcPluginVersionRef = "grpc"
+grpcCoordinate = "io.grpc:grpc-api"
+grpcVersionRef = "grpc"
 
 [generated.main.greeter]
 kind = "protobuf"
-language = "java"
 inputs = ["src/main/proto/greeter.proto"]
-output = "target/generated/sources/protobuf"
+javaPackage = "com.example.greeter"
 ```
 
 ### Exec Steps
@@ -1585,7 +1687,7 @@ output = "target/generated/sources/protobuf"
 An exec step runs a pinned tool on declared inputs to produce one owned output
 that the build consumes — the same reproducible machinery as OpenAPI/protobuf,
 with the tool identity lifted into configuration. A named tool under
-`[generated.execTools.<name>]` (stage 1: `runner = "jvm"`) resolves its
+`[generated.tools.<id>]` with `kind = "jvm"` resolves its
 `coordinates` into the locked `tool-exec` scope, never onto application
 classpaths, and Zolt launches `<managed java> -cp <locked jars> <mainClass>
 <args>` in a sandboxed working directory with a curated environment.
@@ -1595,8 +1697,8 @@ classpaths, and Zolt launches `<managed java> -cp <locked jars> <mainClass>
 jooq = "3.19.15"
 postgres = "42.7.4"
 
-[generated.execTools.jooq]
-runner = "jvm"
+[generated.tools.jooq]
+kind = "jvm"
 coordinates = [
     { coordinate = "org.jooq:jooq-codegen", versionRef = "jooq" },
     { coordinate = "org.postgresql:postgresql", versionRef = "postgres" },
@@ -1610,7 +1712,6 @@ args = ["src/main/jooq/config.xml"]
 inputs = ["src/main/jooq/config.xml", "src/main/resources/db/schema.sql"]
 output = "target/generated/sources/jooq"
 produces = "java-sources"          # or "resources", with into = "static"
-cache = "content"                  # default (only value in stage 1)
 ```
 
 A step's position is derived entirely from its declared IO — there is no
@@ -1630,30 +1731,29 @@ every declared path is real-path-contained under the project root. `zolt plan`
 shows each step's derived position, tool identity, inputs/outputs, and cache
 policy, and `zolt check` validates the steps.
 
-Beyond the resolver-locked `jvm` runner, a tool can run a PATH binary. A
+Beyond the resolver-locked `jvm` kind, a tool can run a PATH binary. A
 `process` tool runs a `binary` discovered on the curated PATH; because PATH
 bytes are unprovable it must set `allowUnpinnedTool = true`, and its identity in
 the fingerprint is the binary name plus the probed `versionCommand` stdout (an
-optional `versionExpect` semver range fails fast on a wrong version). `cwd`
-sandboxes the working directory, `timeoutSeconds` bounds the run (default 600),
-and `secretEnv` injects a value read from a named ambient variable at run time
-without ever writing that value to config, the lockfile, fingerprints, or logs.
+optional `versionExpect` comparator guard fails fast on a wrong version). `cwd`
+sandboxes the working directory, `timeoutSeconds` bounds the whole supervised
+process tree (default 600), and `secretEnv` injects a value read from a named
+ambient variable at run time without ever writing that value to config, the
+lockfile, fingerprints, or logs.
 
 Because Zolt never reads a secret's value into the content fingerprint, a step
-that declares `secretEnv` cannot use the default `cache = "content"` — a changed
-secret would otherwise silently reuse stale output. Zolt rejects that
-combination and offers two honest paths: set `cache = "none"` (the step always
-runs and its output is non-hermetic, excluded from the shared build cache), or
-add a non-secret `cacheSalt = "<token>"` that you bump whenever the
-secret-derived output must change. The salt is your assertion and participates in
-the fingerprint; Zolt does not read secret values into fingerprints. `inheritEnv`
-is different: Zolt folds a digest of each inherited variable's actual runtime
-value into the fingerprint (never the raw value), so a changed inherited value,
-DB endpoint, or token re-runs the step on its own.
+that declares `secretEnv` requires `cache = "none"` — a changed secret would
+otherwise silently reuse stale output. The step then always runs and its output
+is non-hermetic, excluded from the shared build cache. A hand-maintained
+invalidation token is deliberately not offered: it would let stale generated
+output survive a changed secret whenever someone forgets to bump it.
+`inheritEnv` is different: Zolt folds a digest of each inherited variable's
+actual runtime value into the fingerprint (never the raw value), so a changed
+inherited value, DB endpoint, or token re-runs the step on its own.
 
 ```toml
-[generated.execTools.node]
-runner = "process"
+[generated.tools.node]
+kind = "process"
 binary = "npm"
 versionCommand = ["npm", "--version"]   # probed stdout enters the fingerprint
 versionExpect = ">=10 <11"              # optional fail-fast guard
@@ -1669,11 +1769,9 @@ output = "web/dist"
 produces = "resources"
 into = "static"
 timeoutSeconds = 900                    # per-step wall-clock bound (default 600)
-cacheSalt = "frontend-1"               # required with secretEnv on cache = "content"; bump on secret-derived change
-[generated.main.frontend-build.env]
-NODE_ENV = "production"
-[generated.main.frontend-build.secretEnv]
-NPM_TOKEN = "CI_NPM_TOKEN"              # target env name = source var; the value is never written down
+cache = "none"                          # required alongside secretEnv
+env = { NODE_ENV = "production" }
+secretEnv = { NPM_TOKEN = "CI_NPM_TOKEN" }   # target env name = source var; the value is never written down
 ```
 
 `tool = "project"` is a built-in pseudo-tool: it launches `mainClass` on the
@@ -1714,15 +1812,15 @@ those tools may read and produce:
   under the step's `cwd` but outside that output is an undeclared-output error
   naming the path.
 - Tool identity is pinned or probed-advisory, and the fingerprint records which.
-  A `jvm` tool is pinned: its coordinates resolve into the locked `tool-exec`
-  scope, never onto application classpaths, and the SHA-256 of each jar is in
-  `zolt.lock` and the fingerprint. A `process` tool is probed-advisory: PATH
+  A `kind = "jvm"` tool is pinned: its coordinates resolve into the locked
+  `tool-exec` scope, never onto application classpaths, and the SHA-256 of each
+  jar is in `zolt.lock` and the fingerprint. A `process` tool is probed-advisory: PATH
   bytes are unprovable, so its identity is the binary name plus the probed
   `versionCommand` stdout, and it requires `allowUnpinnedTool = true` to say so.
 - Skip is fingerprint-exact. A step re-runs only when its fingerprint changes —
   tool identity, argv, expanded input content, env names and literal values, a
-  digest of each `inheritEnv` variable's actual runtime value, the non-secret
-  `cacheSalt`, `cwd`, and `produces`/`into` — and its output bytes are hashed
+  digest of each `inheritEnv` variable's actual runtime value, `cwd`, and
+  `produces`/`into` — and its output bytes are hashed
   into the module build fingerprint, so a changed output invalidates exactly its
   consumers while stable output lets them skip even after an always-run step.
 - `cache = "none"` is honest non-determinism, not a cache miss. It always runs,
@@ -1735,14 +1833,13 @@ those tools may read and produce:
   table, and `secretEnv` indirection. `secretEnv` carries only names
   (`TARGET_NAME = "SOURCE_ENV_NAME"`); the secret value is read at run time and
   never appears in config, `zolt.lock`, fingerprints, plans, or logs. Because
-  the secret value is never fingerprinted, `secretEnv` forbids the default
-  `cache = "content"` unless you set a non-secret `cacheSalt` you bump on change;
-  otherwise use `cache = "none"`. For `inheritEnv`, Zolt does fold a digest of
+  the secret value is never fingerprinted, `secretEnv` requires
+  `cache = "none"`. For `inheritEnv`, Zolt does fold a digest of
   the variable's actual runtime value into the fingerprint (an unset variable
   gets a distinct marker), so a changed inherited value re-runs the step.
 - The refusals are the product. No shell strings or `sh -c` (argv arrays only,
   Zolt owns glob expansion); no lifecycle hooks or phase attachment; no in-place
-  source mutation (formatters route to `zolt task` plus a dirty-tree check); no
+  source mutation (formatters route to a `[tasks.<id>]` entry plus a dirty-tree check); no
   build-time network fetch as an input mechanism (a step that reaches the
   network owns `cache = "none"`); and no user classes in the build JVM.
 
@@ -1818,23 +1915,27 @@ zolt licenses --format json
 zolt licenses --notices THIRD_PARTY.txt
 ```
 
-Enforce a license policy under `[dependencyPolicy.licenses]`. A license is
+Enforce a license policy under `[dependencies.policy.licenses]`. A license is
 permitted iff its id is not in `deny` and (`allow` is empty or its id is in
 `allow`) — deny always wins, and a non-empty allow-list is authoritative. The
 `unknown` strictness (`fail`, `warn`, or `allow`; default `warn`) governs
 dependencies with unresolved licenses.
 
 ```toml
-[dependencyPolicy.licenses]
+[dependencies.policy.licenses]
 allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
 deny = ["GPL-3.0-only"]
-unknown = "warn"
+unknown = "fail"
 
-[dependencyPolicy.licenses.exceptions."org.example:matchit"]
+[dependencies.license-exceptions."org.example:matchit"]
 allow = ["BSD-3-Clause"]
 version = "0.8.4"
 reason = "Reviewed transitive dependency; declared as MIT AND BSD-3-Clause"
 ```
+
+Exceptions live in their own `[dependencies.license-exceptions.<coordinate>]`
+namespace so the policy table keeps canonical depth and the coordinate stays a
+structural key rather than data.
 
 An exception extends a non-empty global allow-list for one exact
 `group:artifact` only. Its `allow` entries are canonical SPDX terms, `reason` is
@@ -1856,7 +1957,7 @@ points at the command that does enforce:
 
 ```text
 MIT AND BSD-3-Clause (1)
-  org.example:matchit:0.8.4  [exception] BSD-3-Clause permitted by [dependencyPolicy.licenses.exceptions."org.example:matchit"]
+  org.example:matchit:0.8.4  [exception] BSD-3-Clause permitted by [dependencies.license-exceptions."org.example:matchit"]
     reason: Reviewed transitive dependency; declared as MIT AND BSD-3-Clause
 
 License exceptions:
@@ -1883,7 +1984,7 @@ object, and no place in the summary. Marking a test-only dependency would claim 
 violation the command named as the enforcer passes. A coordinate that is in an
 enforced scope as well as an optional one is enforced, and is annotated.
 
-In a workspace, `[dependencyPolicy]` is member-local, so each member's policy is
+In a workspace, `[dependencies.policy]` is member-local, so each member's policy is
 evaluated only against that member's own dependency closure — the same scoping
 `zolt check --workspace --check license-policy` enforces with. A coordinate takes
 the strictest verdict among the members that actually consume it; a member that
@@ -1933,11 +2034,12 @@ Gradle BOM shapes map like their Maven counterparts. A `platform('g:a:v')` or
 `enforcedPlatform(...)` import — Groovy or Kotlin DSL, a string coordinate or a
 `platform(libs.x)` version-catalog reference, in any configuration — is emitted
 under `[platforms]` rather than as a classpath dependency, and a version-less
-dependency in a build file that imports a platform is drafted as platform-managed
-`{}` with a review item to confirm the platform manages it. `enforcedPlatform`
-maps like `platform` plus a note that Gradle's version-override semantics are only
-approximated — the Zolt analog for a hard pin is a `[dependencyConstraints]` entry
-with `kind = "strict"`, which the draft points at rather than auto-generates. A
+dependency in a build file that imports a platform is drafted as
+`{ managed = true }` with a review item to confirm the platform manages it.
+`enforcedPlatform` maps like `platform` plus a note that Gradle's
+version-override semantics are only approximated — the Zolt analog for a hard pin
+is a strict `[dependencies.constraints]` entry, which the draft points at rather
+than auto-generates. A
 `java-platform` project is recognized as a BOM (`gradle.bom.detected`), and
 `zolt explain --emit-toml` drafts a `[bom]` member from it: `platform(...)` imports
 become `[bom.imports]`, `constraints { }` pins (`api`/`runtime`) become
@@ -1998,9 +2100,9 @@ zolt explain verify --zolt-dir target/zolt-draft --format json
   repository overlay, mirroring `zolt resolve --repository-overlay` — needed to verify
   overlay-backed projects, including directly declared `-SNAPSHOT` dependencies that
   resolve only from the overlay.
-- Workspace members resolve with the workspace-root `[repositories]` and `[platforms]`
-  merged in, matching `zolt resolve --workspace`, so shared root configuration is not
-  reported as drift.
+- Workspace members resolve with the root-owned `[repositories]` and shared
+  `[platforms]` applied, matching `zolt resolve --workspace`, so shared root
+  configuration is not reported as drift.
 - Exit code is `0` when the resolved sets are identical across every module and scope,
   and non-zero when any module is one-sided or any scope shows drift or a one-sided
   artifact — so it can gate a migration in CI. `--format json` emits a stable schema
@@ -2028,8 +2130,8 @@ The `examples/` directory is deliberately broad. It includes:
   Thymeleaf, H2, resources, and tests.
 - `spring-boot-enterprise-canary`: dependency policy, strict constraints,
   provided/dev scopes, annotation processors, OpenAPI generation, filtered
-  resources, test runtime settings, WAR packaging, package metadata, and publish
-  repositories.
+  resources, test runtime settings, WAR packaging, `[project]` publication
+  metadata, and publish repositories.
 - `quarkus-http`: Quarkus REST with fast-jar packaging.
 - `micronaut-http`: Micronaut HTTP with annotation processors.
 - `vertx-http` and `vertx-postgres-crud`: Vert.x application shapes.

@@ -5,8 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -196,6 +199,9 @@ final class ResolveLockfilePersistenceTest {
         String pomSha256 = "b".repeat(64);
         return new ZoltLockfile(
                 ZoltLockfile.CURRENT_VERSION,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
                 List.of(new LockPackage(
                         APP,
                         version,
@@ -207,7 +213,37 @@ final class ResolveLockfilePersistenceTest {
                         Optional.of(jarSha256),
                         Optional.of(pomSha256),
                         List.of())),
-                List.of());
+                List.of(),
+                List.of(),
+                List.of(),
+                dependencyRoots(scope, version));
+    }
+
+    private static List<LockDependencyRoot> dependencyRoots(DependencyScope scope, String version) {
+        return lane(scope)
+                .map(lane -> List.of(new LockDependencyRoot(
+                        ".",
+                        APP,
+                        version,
+                        LockArtifactVariant.defaultVariant(),
+                        lane,
+                        Optional.of(scope),
+                        false,
+                        false)))
+                .orElseGet(List::of);
+    }
+
+    private static Optional<DependencyLane> lane(DependencyScope scope) {
+        return switch (scope) {
+            case COMPILE -> Optional.of(DependencyLane.IMPLEMENTATION);
+            case RUNTIME -> Optional.of(DependencyLane.RUNTIME);
+            case PROVIDED -> Optional.of(DependencyLane.PROVIDED);
+            case DEV -> Optional.of(DependencyLane.DEV);
+            case TEST -> Optional.of(DependencyLane.TEST);
+            case PROCESSOR -> Optional.of(DependencyLane.PROCESSOR);
+            case TEST_PROCESSOR -> Optional.of(DependencyLane.TEST_PROCESSOR);
+            default -> Optional.empty();
+        };
     }
 
     private static String withJavaToolchainBlock(String content) {

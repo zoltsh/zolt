@@ -7,6 +7,7 @@ import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.plan.BuildPlan;
 import sh.zolt.plan.BuildPlanFormatter;
+import sh.zolt.plan.BuildPlanRequest;
 import sh.zolt.plan.BuildPlanService;
 import sh.zolt.plan.PlanTarget;
 import sh.zolt.plan.TestRuntimePlan;
@@ -16,7 +17,8 @@ import sh.zolt.toolchain.TestRuntimeToolchainResolver;
 import sh.zolt.toolchain.platform.HostPlatform;
 import sh.zolt.toolchain.store.ToolchainStore;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProject;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -28,7 +30,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "plan", description = "Show the typed Zolt command plan without executing it.")
 public final class PlanCommand implements Callable<Integer> {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final BuildPlanService buildPlanService;
     private final BuildPlanFormatter buildPlanFormatter;
 
@@ -56,14 +58,14 @@ public final class PlanCommand implements Callable<Integer> {
     private CommandSpec spec;
 
     public PlanCommand() {
-        this(new ZoltTomlParser(), new BuildPlanService(), new BuildPlanFormatter());
+        this(new ManifestProjectLoader(), new BuildPlanService(), new BuildPlanFormatter());
     }
 
     PlanCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             BuildPlanService buildPlanService,
             BuildPlanFormatter buildPlanFormatter) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.buildPlanService = buildPlanService;
         this.buildPlanFormatter = buildPlanFormatter;
     }
@@ -72,15 +74,17 @@ public final class PlanCommand implements Callable<Integer> {
     public Integer call() {
         try {
             Path projectRoot = projectDirectory.path();
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ManifestProject project = projectLoader.project(projectRoot);
+            ProjectConfig config = project.config();
             TestReportSettings reportSettings = TestReportSettings.reportsDirectory(reportsDir);
-            BuildPlan plan = buildPlanService.plan(
+            BuildPlan plan = buildPlanService.plan(new BuildPlanRequest(
                     projectRoot,
+                    BuildPlanRequest.lockfileFor(projectRoot, project.workspaceRoot()),
                     config,
                     target,
                     reportSettings.projectRelativeReportsDirectory(projectRoot),
                     Optional.ofNullable(nativeImageExecutable),
-                    testRuntimePlan(projectRoot, config));
+                    testRuntimePlan(projectRoot, config)));
             if (format == Format.JSON) {
                 CommandOutput.printAndFlush(spec, buildPlanFormatter.json(plan));
             } else {

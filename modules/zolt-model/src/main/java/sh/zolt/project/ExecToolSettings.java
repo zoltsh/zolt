@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * A named exec tool declared under {@code [generated.execTools.<name>]}, plus the built-in
+ * A named exec tool declared under {@code [generated.tools.<id>]}, plus the built-in
  * {@code project} pseudo-tool. Three runners are supported:
  *
  * <ul>

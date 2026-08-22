@@ -114,7 +114,7 @@ public final class NativeImageRunner {
             throw new NativeImageException("Native Image main class is missing. Add [project].main to zolt.toml.");
         }
         if (request.outputBinary() == null) {
-            throw new NativeImageException("Native Image output path is missing. Check [native].output and [native].imageName.");
+            throw new NativeImageException("Native Image output path is missing. Check [native].output and [native].name.");
         }
         if (request.logFile() == null) {
             throw new NativeImageException("Native Image log path is missing. Check the native output directory.");
@@ -122,7 +122,7 @@ public final class NativeImageRunner {
         if (NativePathOwnership.overlaps(request.outputBinary(), request.logFile())) {
             throw new NativeImageException(
                     "Native Image output binary and log must be distinct paths. "
-                            + "Change [native].imageName or [native].output.");
+                            + "Change [native].name or [native].output.");
         }
     }
 

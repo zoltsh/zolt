@@ -34,7 +34,7 @@ final class CheckExecutionContextPublishDryRunCommandTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/check-context-ci-publish-dry-run-ok-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"
@@ -49,14 +49,14 @@ final class CheckExecutionContextPublishDryRunCommandTest {
                   ]
                 }
                 """.formatted(sha256(artifact), sha256(artifact), sha256(sourcesArtifact)));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-publish-dry-run-ok") + """
 
                 [package]
                 sources = true
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -83,12 +83,12 @@ final class CheckExecutionContextPublishDryRunCommandTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-publish-dry-run-blocked") + """
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",
@@ -108,7 +108,7 @@ final class CheckExecutionContextPublishDryRunCommandTest {
         Path projectDir = tempDir.resolve("check-context-ci-publish-dry-run-json");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("check-context-ci-publish-dry-run-json"));
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",

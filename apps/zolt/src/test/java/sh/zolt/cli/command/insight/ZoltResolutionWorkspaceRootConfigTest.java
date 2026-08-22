@@ -88,10 +88,15 @@ final class ZoltResolutionWorkspaceRootConfigTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["app"]
+
+                [workspace.members]
+                include = ["app"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.example:bom" = "1.0.0"
@@ -101,7 +106,7 @@ final class ZoltResolutionWorkspaceRootConfigTest {
         Files.writeString(member.resolve("zolt.toml"), memberConfig("app") + """
 
                 [dependencies]
-                "com.example:lib" = {}
+                "com.example:lib" = { managed = true }
                 """);
     }
 

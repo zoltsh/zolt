@@ -24,32 +24,56 @@ final class PublishCommandPomTest {
         Path projectDir = tempDir.resolve("publish-dry-run-pom-metadata");
         Files.createDirectories(projectDir.resolve("target"));
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("publish-dry-run-pom-metadata") + """
-
-                [dependencies]
-                "org.example:api" = { version = "1.2.3", optional = true, exclusions = [
-                  { group = "org.legacy", artifact = "bad-lib" }
-                ] }
-                "org.example:publish-helper" = { version = "2.0.0", publishOnly = true }
-
-                [runtime.dependencies]
-                "org.example:runtime" = "3.0.0"
-
-                [provided.dependencies]
-                "jakarta.servlet:jakarta.servlet-api" = "6.1.0"
-
-                [package.metadata]
-                name = "Publish Metadata Fixture"
                 description = "Dependency metadata fixture for publish dry run."
                 url = "https://example.com/publish-metadata"
 
+                [dependencies]
+                "org.example:api" = { version = "1.2.3", optional = true, exclude = ["org.legacy:bad-lib"] }
+                "org.example:publish-helper" = { version = "2.0.0", publishOnly = true }
+
+                [dependencies.runtime]
+                "org.example:runtime" = "3.0.0"
+
+                [dependencies.provided]
+                "jakarta.servlet:jakarta.servlet-api" = "6.1.0"
+
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:api"
+                version = "1.2.3"
+                lane = "implementation"
+                optional = true
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:runtime"
+                version = "3.0.0"
+                lane = "runtime"
+                resolvedScope = "runtime"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:publish-helper"
+                version = "2.0.0"
+                lane = "implementation"
+                publishOnly = true
 
                 [[package]]
                 id = "org.example:api"
@@ -94,11 +118,11 @@ final class PublishCommandPomTest {
                 "--dry-run",
                 "--cwd", projectDir.toString());
 
+        assertEquals(0, result.exitCode(), result.stderr());
         Path pom = projectDir.resolve("target/publish/publish-dry-run-pom-metadata-0.1.0.pom");
         String pomXml = Files.readString(pom);
-        assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Generated POM: target/publish/publish-dry-run-pom-metadata-0.1.0.pom"));
-        assertTrue(pomXml.contains("<name>Publish Metadata Fixture</name>"));
+        assertTrue(pomXml.contains("<description>Dependency metadata fixture for publish dry run.</description>"));
         assertTrue(pomXml.contains("<groupId>org.example</groupId>"));
         assertTrue(pomXml.contains("<artifactId>api</artifactId>"));
         assertTrue(pomXml.contains("<optional>true</optional>"));
@@ -124,13 +148,27 @@ final class PublishCommandPomTest {
                 "org.example:alpha" = "1.0.0"
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:zeta"
+                version = "2.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:alpha"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.example:zeta"

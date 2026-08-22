@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
@@ -37,14 +38,16 @@ final class DependencyScopeTest {
         assertTrue(scope.entersMainCompileClasspath());
         assertTrue(scope.entersMainRuntimeClasspath());
         assertTrue(scope.packagedByDefault());
-        assertFalse(scope.entersTestClasspath());
+        assertTrue(scope.entersTestCompileClasspath());
+        assertTrue(scope.entersTestRuntimeClasspath());
         assertFalse(scope.entersMainProcessorClasspath());
         assertFalse(scope.entersTestProcessorClasspath());
     }
 
     @Test
     void specializedScopesEnterOnlyTheirOwnedLanes() {
-        assertTrue(DependencyScope.TEST.entersTestClasspath());
+        assertTrue(DependencyScope.TEST.entersTestCompileClasspath());
+        assertTrue(DependencyScope.TEST.entersTestRuntimeClasspath());
         assertTrue(DependencyScope.PROCESSOR.entersMainProcessorClasspath());
         assertTrue(DependencyScope.TEST_PROCESSOR.entersTestProcessorClasspath());
 
@@ -52,5 +55,25 @@ final class DependencyScopeTest {
         assertFalse(DependencyScope.DEV.packagedByDefault());
         assertFalse(DependencyScope.TOOL_COVERAGE.entersMainCompileClasspath());
         assertFalse(DependencyScope.QUARKUS_DEPLOYMENT.packagedByDefault());
+    }
+
+    @Test
+    void testLanesCoverCompileRuntimeProvidedAndTestScopesOnly() {
+        Set<DependencyScope> onTestLanes = Set.of(
+                DependencyScope.COMPILE,
+                DependencyScope.RUNTIME,
+                DependencyScope.PROVIDED,
+                DependencyScope.TEST);
+
+        for (DependencyScope scope : DependencyScope.values()) {
+            assertEquals(
+                    onTestLanes.contains(scope),
+                    scope.entersTestCompileClasspath(),
+                    scope + " test compile classpath membership");
+            assertEquals(
+                    onTestLanes.contains(scope),
+                    scope.entersTestRuntimeClasspath(),
+                    scope + " test runtime classpath membership");
+        }
     }
 }

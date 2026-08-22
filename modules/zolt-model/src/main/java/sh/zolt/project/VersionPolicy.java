@@ -36,6 +36,19 @@ public final class VersionPolicy {
     }
 
     public record Violation(String rule, String guidance) {
+        /**
+         * The guidance as two standalone sentences, so an error block can render the remediation half
+         * as its {@code Next:} line instead of burying it after a semicolon.
+         */
+        public String actionableGuidance() {
+            int separator = guidance.indexOf("; ");
+            if (separator < 0) {
+                return guidance;
+            }
+            String remediation = guidance.substring(separator + 2);
+            return guidance.substring(0, separator) + ". "
+                    + Character.toUpperCase(remediation.charAt(0)) + remediation.substring(1);
+        }
     }
 
     public static Optional<Violation> violation(Context context, String version) {

@@ -1,7 +1,6 @@
 package sh.zolt.update;
 
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.workspace.WorkspaceConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,109 +16,52 @@ public final class UpdateTargetCatalog {
     }
 
     public List<UpdateTarget> collect(
-            ProjectConfig config,
+            AuthoredManifest manifest,
             String manifestPath,
             String lockfilePath) {
-        return collect(config, manifestPath, lockfilePath, Map.of());
-    }
-
-    public List<UpdateTarget> collect(
-            ProjectConfig config,
-            String manifestPath,
-            String lockfilePath,
-            Map<UpdateTargetKey, String> blockers) {
-        return entries(config, manifestPath, lockfilePath, blockers).stream()
-                .map(Entry::target)
-                .toList();
-    }
-
-    public List<UpdateTarget> collect(
-            WorkspaceConfig config,
-            String manifestPath,
-            String lockfilePath) {
-        return collect(config, manifestPath, lockfilePath, Map.of());
-    }
-
-    public List<UpdateTarget> collect(
-            WorkspaceConfig config,
-            String manifestPath,
-            String lockfilePath,
-            Map<UpdateTargetKey, String> blockers) {
-        return entries(config, manifestPath, lockfilePath, blockers).stream()
+        return entries(manifest, manifestPath, lockfilePath).stream()
                 .map(Entry::target)
                 .toList();
     }
 
     public UpdateTarget require(
-            ProjectConfig config,
+            AuthoredManifest manifest,
             String manifestPath,
             String lockfilePath,
             UpdateTargetId targetId) {
-        return requireEntry(config, manifestPath, lockfilePath, targetId).target();
+        return requireEntry(manifest, manifestPath, lockfilePath, targetId).target();
     }
 
-    public UpdateTarget require(
-            WorkspaceConfig config,
-            String manifestPath,
-            String lockfilePath,
-            UpdateTargetId targetId) {
-        return requireEntry(config, manifestPath, lockfilePath, targetId).target();
-    }
-
-    List<Entry> entries(
-            ProjectConfig config,
-            String manifestPath,
-            String lockfilePath) {
-        return entries(config, manifestPath, lockfilePath, Map.of());
-    }
-
-    List<Entry> entries(
-            ProjectConfig config,
-            String manifestPath,
-            String lockfilePath,
-            Map<UpdateTargetKey, String> blockers) {
-        Objects.requireNonNull(config, "config");
-        String rawManifest = UpdateTargetKey.requirePath(manifestPath, "manifest path");
-        String rawLockfile = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
-        Map<UpdateTargetKey, Entry> entries = new LinkedHashMap<>();
-        for (SurfaceRequest request : collector.collect(config)) {
-            addUnique(entries, entry(request, rawManifest, rawLockfile, blockers));
-        }
-        return List.copyOf(entries.values());
-    }
-
-    List<Entry> entries(
-            WorkspaceConfig config,
-            String manifestPath,
-            String lockfilePath) {
-        return entries(config, manifestPath, lockfilePath, Map.of());
-    }
-
-    List<Entry> entries(
-            WorkspaceConfig config,
-            String manifestPath,
-            String lockfilePath,
-            Map<UpdateTargetKey, String> blockers) {
-        Objects.requireNonNull(config, "config");
-        String rawManifest = UpdateTargetKey.requirePath(manifestPath, "manifest path");
-        String rawLockfile = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
-        Map<UpdateTargetKey, Entry> entries = new LinkedHashMap<>();
-        for (SurfaceRequest request : collector.collect(config)) {
-            addUnique(entries, entry(request, rawManifest, rawLockfile, blockers));
-        }
-        return List.copyOf(entries.values());
-    }
-
-    public List<UpdateTargetReference> references(ProjectConfig config, String manifestPath) {
-        return entries(config, manifestPath, "zolt.lock").stream()
+    public List<UpdateTargetReference> references(AuthoredManifest manifest, String manifestPath) {
+        return entries(manifest, manifestPath, "zolt.lock").stream()
                 .map(Entry::reference)
                 .toList();
     }
 
-    public List<UpdateTargetReference> references(WorkspaceConfig config, String manifestPath) {
-        return entries(config, manifestPath, "zolt.lock").stream()
-                .map(Entry::reference)
-                .toList();
+    List<Entry> entries(
+            AuthoredManifest manifest,
+            String manifestPath,
+            String lockfilePath) {
+        Objects.requireNonNull(manifest, "manifest");
+        String rawManifest = UpdateTargetKey.requirePath(manifestPath, "manifest path");
+        String rawLockfile = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
+        Map<UpdateTargetKey, Entry> entries = new LinkedHashMap<>();
+        for (SurfaceRequest request : collector.collect(manifest)) {
+            addUnique(entries, entry(request, rawManifest, rawLockfile));
+        }
+        return List.copyOf(entries.values());
+    }
+
+    Entry requireEntry(
+            AuthoredManifest manifest,
+            String manifestPath,
+            String lockfilePath,
+            UpdateTargetId targetId) {
+        Objects.requireNonNull(targetId, "targetId");
+        return entries(manifest, manifestPath, lockfilePath).stream()
+                .filter(entry -> entry.target().targetId().equals(targetId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown Zolt update target `" + targetId + "`."));
     }
 
     static void addUnique(Map<UpdateTargetKey, Entry> entries, Entry entry) {
@@ -129,46 +71,16 @@ public final class UpdateTargetCatalog {
         }
     }
 
-    Entry requireEntry(
-            ProjectConfig config,
-            String manifestPath,
-            String lockfilePath,
-            UpdateTargetId targetId) {
-        Objects.requireNonNull(targetId, "targetId");
-        return entries(config, manifestPath, lockfilePath).stream()
-                .filter(entry -> entry.target().targetId().equals(targetId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown Zolt update target `" + targetId + "`."));
-    }
-
-    Entry requireEntry(
-            WorkspaceConfig config,
-            String manifestPath,
-            String lockfilePath,
-            UpdateTargetId targetId) {
-        Objects.requireNonNull(targetId, "targetId");
-        return entries(config, manifestPath, lockfilePath).stream()
-                .filter(entry -> entry.target().targetId().equals(targetId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown Zolt update target `" + targetId + "`."));
-    }
-
     private Entry entry(
             SurfaceRequest request,
             String manifestPath,
-            String lockfilePath,
-            Map<UpdateTargetKey, String> blockers) {
+            String lockfilePath) {
         UpdateTargetKey key = new UpdateTargetKey(
                 manifestPath, request.surface(), request.section(), request.identifier());
         boolean updateable = UpdateApplicability.isApplicable(request.surface());
         Optional<String> blocker = updateable
                 ? Optional.empty()
                 : Optional.of(UpdateApplicability.reason(request.surface()));
-        String contextual = (blockers == null ? Map.<UpdateTargetKey, String>of() : blockers).get(key);
-        if (contextual != null) {
-            updateable = false;
-            blocker = Optional.of(contextual);
-        }
         return new Entry(
                 new UpdateTargetReference(key, request.governs()),
                 lockfilePath,

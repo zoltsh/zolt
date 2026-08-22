@@ -31,7 +31,7 @@ final class ZoltLockfileReaderTest {
     @Test
     void readsToolAttributedConflictAndDefaultsAbsentToolToEmpty() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
 
                 [[conflict]]
                 id = "com.example:shared"
@@ -61,8 +61,8 @@ final class ZoltLockfileReaderTest {
     }
 
     @Test
-    void readsLegacyCurrentVersionWithoutResolutionMetadata() {
-        ZoltLockfile lockfile = reader.read("version = 1\n");
+    void readsCurrentVersionWithoutResolutionMetadata() {
+        ZoltLockfile lockfile = reader.read("version = 7\n");
 
         assertTrue(lockfile.projectResolutionFingerprint().isEmpty());
         assertEquals(List.of(), lockfile.projectResolutionInputFingerprints());
@@ -71,7 +71,7 @@ final class ZoltLockfileReaderTest {
     @Test
     void wrapsTomlTypeErrorsAsLockfileReadExceptions() {
         LockfileReadException exception = assertThrows(LockfileReadException.class, () -> reader.read("""
-                version = 1
+                version = 7
 
                 [[package]]
                 id = 42
@@ -84,7 +84,7 @@ final class ZoltLockfileReaderTest {
     @Test
     void readsAliasFingerprint() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
                 aliasFingerprint = "sha256:alias-inputs"
                 """);
 
@@ -94,7 +94,7 @@ final class ZoltLockfileReaderTest {
     @Test
     void readsProjectResolutionFingerprint() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
                 projectResolutionFingerprint = "sha256:project-inputs"
                 projectResolutionInputFingerprints = ["repositories=sha256:repo-inputs", "dependencies.compile=sha256:compile-inputs"]
                 """);
@@ -112,7 +112,7 @@ final class ZoltLockfileReaderTest {
                 () -> reader.read("version = 99\n"));
 
         assertEquals(
-                "zolt.lock version 99 is newer than this Zolt supports (current 6). Upgrade Zolt, then run `zolt resolve --locked` to verify the lockfile.",
+                "zolt.lock version 99 is newer than this Zolt supports (current 7). Upgrade Zolt, then run `zolt resolve --locked` to verify the lockfile.",
                 exception.getMessage());
     }
 
@@ -120,10 +120,10 @@ final class ZoltLockfileReaderTest {
     void rejectsOlderLockfileVersionWithRegenerateHint() {
         LockfileReadException exception = assertThrows(
                 LockfileReadException.class,
-                () -> reader.read("version = 0\n"));
+                () -> reader.read("version = 6\n"));
 
         assertEquals(
-                "zolt.lock version 0 is older than this Zolt supports (current 6). Run `zolt resolve` with this Zolt version to regenerate the lockfile.",
+                "zolt.lock version 6 is older than this Zolt supports (current 7). Run `zolt resolve` with this Zolt version to regenerate the lockfile.",
                 exception.getMessage());
     }
 
@@ -142,7 +142,7 @@ final class ZoltLockfileReaderTest {
         LockfileReadException exception = assertThrows(
                 LockfileReadException.class,
                 () -> reader.read("""
-                        version = 1
+                        version = 7
 
                         [[package]]
                         id = "com.example:demo"

@@ -1,0 +1,9 @@
+[project]
+name = "hello"
+version = "0.1.0"
+group = "com.example"
+java = 21
+main = "com.example.Main"
+
+[dependencies.test]
+"org.junit.jupiter:junit-jupiter" = "5.13.4"

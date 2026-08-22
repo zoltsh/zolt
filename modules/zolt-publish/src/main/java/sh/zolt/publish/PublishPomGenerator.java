@@ -1,5 +1,7 @@
 package sh.zolt.publish;
 
+import sh.zolt.dependency.DependencyLane;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.BomSettings;
@@ -9,7 +11,6 @@ import sh.zolt.project.DeveloperEntry;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.PublicationMetadata;
-import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,6 +20,7 @@ import java.util.Map;
 
 public final class PublishPomGenerator {
     public String generate(ProjectConfig config, ZoltLockfile lockfile) {
+        PublishDependencyRootCoverage.requireComplete(config, lockfile);
         StringBuilder xml = new StringBuilder();
         writeProjectHeader(xml, config);
         if (config.packageSettings().mode() == PackageMode.BOM) {
@@ -129,41 +131,24 @@ public final class PublishPomGenerator {
 
     private static List<PublishPomDependency> dependencies(ProjectConfig config, ZoltLockfile lockfile) {
         Map<String, PublishPomDependency> dependencies = new LinkedHashMap<>();
-        for (LockPackage lockPackage : lockfile.packages()) {
-            if (!lockPackage.direct() || !publishedScope(lockPackage.scope())) {
+        for (LockDependencyRoot root : lockfile.dependencyRoots()) {
+            if (!publishedLane(root.lane())) {
                 continue;
             }
-            String coordinate = coordinate(lockPackage.packageId());
+            String coordinate = coordinate(root.packageId());
             DependencyMetadata metadata =
-                    config.dependencyMetadata().get(PublishDependencyMetadataKey.of(
-                            config, lockPackage.scope(), coordinate));
+                    config.dependencyMetadata().get(PublishDependencyMetadataKey.of(root.lane(), coordinate));
             // Key by the variant-aware identity so a plain jar and a classified jar at one GA both survive
             // as distinct POM dependencies instead of the later overwriting the earlier.
             PublishPomDependency dependency = new PublishPomDependency(
-                    lockPackage.packageId().groupId(),
-                    lockPackage.packageId().artifactId(),
-                    metadata == null ? null : metadata.classifier(),
-                    lockPackage.version(),
-                    metadata == null ? null : metadata.type(),
-                    mavenScope(lockPackage.scope()),
-                    metadata != null && metadata.optional(),
+                    root.packageId().groupId(),
+                    root.packageId().artifactId(),
+                    root.variant().classifier().orElse(null),
+                    root.version(),
+                    root.variant().extension().equals("jar") ? null : root.variant().extension(),
+                    mavenScope(root.lane()),
+                    root.optional(),
                     metadata == null ? List.of() : metadata.exclusions());
-            dependencies.put(dependency.coordinate(), dependency);
-        }
-        for (DependencyMetadata metadata : config.dependencyMetadata().values()) {
-            if (!metadata.publishOnly()) {
-                continue;
-            }
-            PackageId packageId = packageId(metadata.coordinate());
-            PublishPomDependency dependency = new PublishPomDependency(
-                    packageId.groupId(),
-                    packageId.artifactId(),
-                    metadata.classifier(),
-                    metadata.version(),
-                    metadata.type(),
-                    mavenScope(metadata.section()),
-                    metadata.optional(),
-                    metadata.exclusions());
             dependencies.put(dependency.coordinate(), dependency);
         }
         return dependencies.values().stream()
@@ -220,26 +205,21 @@ public final class PublishPomGenerator {
                 .toList();
     }
 
-    private static boolean publishedScope(DependencyScope scope) {
-        return scope == DependencyScope.COMPILE
-                || scope == DependencyScope.RUNTIME
-                || scope == DependencyScope.PROVIDED;
-    }
-
-    private static String mavenScope(DependencyScope scope) {
-        return switch (scope) {
-            case RUNTIME -> "runtime";
-            case PROVIDED -> "provided";
-            default -> "compile";
+    private static boolean publishedLane(DependencyLane lane) {
+        return switch (lane) {
+            case API, IMPLEMENTATION, RUNTIME, PROVIDED -> true;
+            case DEV, TEST, PROCESSOR, TEST_PROCESSOR -> false;
         };
     }
 
-    private static String mavenScope(String section) {
-        return switch (section) {
-            case "runtime.dependencies" -> "runtime";
-            case "provided.dependencies" -> "provided";
-            case "test.dependencies" -> "test";
-            default -> "compile";
+    private static String mavenScope(DependencyLane lane) {
+        return switch (lane) {
+            case API -> "compile";
+            case IMPLEMENTATION, RUNTIME -> "runtime";
+            case PROVIDED -> "provided";
+            case DEV, TEST, PROCESSOR, TEST_PROCESSOR -> throw new PublishException(
+                    "Dependency lane `" + lane.name().toLowerCase().replace('_', '-')
+                            + "` does not have a published Maven scope.");
         };
     }
 

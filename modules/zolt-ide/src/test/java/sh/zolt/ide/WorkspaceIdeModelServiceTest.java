@@ -29,13 +29,15 @@ final class WorkspaceIdeModelServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
-                defaultMembers = ["apps/api"]
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api", "modules/core"]
                 """);
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("modules/core", "core");
 
@@ -48,7 +50,7 @@ final class WorkspaceIdeModelServiceTest {
         assertEquals(1, model.schemaVersion());
         assertEquals("acme-platform", model.workspace().name());
         assertEquals(tempDir.toAbsolutePath().normalize(), model.workspace().root());
-        assertEquals(tempDir.resolve("zolt-workspace.toml").toAbsolutePath().normalize(), model.workspace().config());
+        assertEquals(tempDir.resolve("zolt.toml").toAbsolutePath().normalize(), model.workspace().config());
         assertEquals(tempDir.resolve("zolt.lock").toAbsolutePath().normalize(), model.workspace().lockfile());
         assertEquals(List.of("apps/api", "modules/core"), model.workspace().members());
         assertEquals(List.of("apps/api"), model.workspace().defaultMembers());
@@ -70,17 +72,40 @@ final class WorkspaceIdeModelServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("modules/core", "core");
         Path cacheRoot = tempDir.resolve("cache");
         write(tempDir.resolve("zolt.lock"), cacheRoot, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "org.projectlombok:lombok"
+                version = "1.18.42"
+                lane = "processor"
+                resolvedScope = "processor"
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:test-processor"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "com.acme:core"
@@ -157,22 +182,25 @@ final class WorkspaceIdeModelServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/beta", "modules/alpha", "tools/processor"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/beta", "modules/alpha", "modules/fixtures", "tools/processor"]
                 """);
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:beta" = { workspace = "modules/beta" }
-                "com.acme:alpha" = { workspace = "modules/alpha" }
+                "com.acme:beta" = { workspace = true }
+                "com.acme:alpha" = { workspace = true }
 
-                [test.dependencies]
-                "com.acme:beta" = { workspace = "modules/beta" }
+                [dependencies.test]
+                "com.acme:fixtures" = { workspace = true }
 
-                [annotationProcessors]
-                "com.acme:processor" = { workspace = "tools/processor" }
+                [dependencies.processor]
+                "com.acme:processor" = { workspace = true }
                 """);
         member("modules/beta", "beta");
         member("modules/alpha", "alpha");
+        member("modules/fixtures", "fixtures");
         member("tools/processor", "processor");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), false, false);
@@ -180,7 +208,7 @@ final class WorkspaceIdeModelServiceTest {
         assertEquals(List.of(
                         new WorkspaceIdeModel.ProjectEdge("apps/api", "modules/alpha", "compile", "com.acme:alpha"),
                         new WorkspaceIdeModel.ProjectEdge("apps/api", "modules/beta", "compile", "com.acme:beta"),
-                        new WorkspaceIdeModel.ProjectEdge("apps/api", "modules/beta", "test", "com.acme:beta"),
+                        new WorkspaceIdeModel.ProjectEdge("apps/api", "modules/fixtures", "test", "com.acme:fixtures"),
                         new WorkspaceIdeModel.ProjectEdge("apps/api", "tools/processor", "processor", "com.acme:processor")),
                 model.edges());
     }
@@ -190,12 +218,14 @@ final class WorkspaceIdeModelServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         member("apps/api", "api", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("modules/core", "core");
         RecordingTimingRecorder recorder = new RecordingTimingRecorder();
@@ -230,7 +260,9 @@ final class WorkspaceIdeModelServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api");
         Files.delete(tempDir.resolve("zolt.lock"));
@@ -256,17 +288,19 @@ final class WorkspaceIdeModelServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api", """
 
                 [dependencies]
                 "com.acme:blocked" = "1.0.0"
 
-                [dependencyPolicy]
-                exclude = [{ group = "com.acme", artifact = "blocked", reason = "fixture" }]
+                [dependencies.policy]
+                deny = [{ coordinate = "com.acme:blocked", reason = "fixture" }]
                 """);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
 
         WorkspaceIdeModel model = service.export(tempDir, tempDir.resolve("cache"), true, true);
 
@@ -275,7 +309,7 @@ final class WorkspaceIdeModelServiceTest {
         assertTrue(diagnostic.message().contains("Dependency policy excludes direct dependency `com.acme:blocked`"));
         assertEquals(tempDir.resolve("zolt.lock").toAbsolutePath().normalize(), diagnostic.path());
         assertEquals("Run zolt resolve --workspace.", diagnostic.nextStep());
-        assertEquals("version = 6\n", Files.readString(tempDir.resolve("zolt.lock")));
+        assertEquals("version = 7\n", Files.readString(tempDir.resolve("zolt.lock")));
     }
 
     @Test
@@ -283,7 +317,9 @@ final class WorkspaceIdeModelServiceTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         member("apps/api", "api");
         new WorkspaceResolveService().resolve(tempDir, tempDir.resolve("cache"), false, true);
@@ -297,8 +333,8 @@ final class WorkspaceIdeModelServiceTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
-        Files.writeString(tempDir.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.lock"), "version = 7\n");
     }
 
     private void member(String path, String name) throws IOException {
@@ -313,9 +349,9 @@ final class WorkspaceIdeModelServiceTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
-        Files.writeString(member.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(member.resolve("zolt.lock"), "version = 7\n");
     }
 
     private static final class RecordingTimingRecorder implements IdeTimingRecorder {

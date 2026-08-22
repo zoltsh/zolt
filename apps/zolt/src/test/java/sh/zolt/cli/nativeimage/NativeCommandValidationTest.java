@@ -49,7 +49,7 @@ final class NativeCommandValidationTest {
                 "--cache-root", tempDir.resolve("cache").toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("Spring Boot native images require `[framework.springBoot.native] enabled = true`"));
+        assertTrue(result.stderr().contains("Spring Boot native images require `[framework.spring-boot] native = true`"));
         assertTrue(result.stderr().contains("Spring Boot JVM build, test, run, and executable packaging"));
         assertTrue(result.stderr().contains("explicit Zolt-owned Spring Boot AOT/native canary path"));
         assertTrue(result.stderr().contains("[package].mode = \"spring-boot\""));
@@ -97,7 +97,7 @@ final class NativeCommandValidationTest {
         NativeCommandTestSupport.writeProjectConfigWithMain(
                 projectDir, "https://repo.maven.apache.org/maven2");
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 6
+                version = 7
 
                 [[package]]
                 id = "com.example:runtime-lib"
@@ -150,8 +150,10 @@ final class NativeCommandValidationTest {
                 "--cache-root", tempDir.resolve("version-five-native-cache").toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("zolt.lock version 5 predates the version 6"), result.stderr());
-        assertTrue(result.stderr().contains("Run `zolt resolve` once"), result.stderr());
+        assertTrue(
+                result.stderr().contains("zolt.lock version 5 is older than this Zolt supports (current 7)"),
+                result.stderr());
+        assertTrue(result.stderr().contains("Run `zolt resolve` with this Zolt version"), result.stderr());
         assertFalse(Files.exists(projectDir.resolve("target/native/demo")));
         assertFalse(Files.exists(projectDir.resolve("target/demo-0.1.0.jar")));
     }

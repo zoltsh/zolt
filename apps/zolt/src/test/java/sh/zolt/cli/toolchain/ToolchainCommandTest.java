@@ -28,19 +28,8 @@ final class ToolchainCommandTest {
     void syncWritesJavaToolchainLockMetadata() throws IOException {
         Path project = tempDir.resolve("project");
         Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.toml"), """
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [toolchain.java]
-                version = "21"
-                distribution = "graalvm-community"
-                features = ["native-image"]
-                """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.toml"), graalvmProject());
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         install(store, locked());
 
@@ -71,19 +60,8 @@ final class ToolchainCommandTest {
     void statusReportsInstalledManagedToolchain() throws IOException {
         Path project = tempDir.resolve("status-project");
         Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.toml"), """
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [toolchain.java]
-                version = "21"
-                distribution = "graalvm-community"
-                features = ["native-image"]
-                """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.toml"), graalvmProject());
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         LockedJavaToolchain locked = locked();
         new ToolchainLockfileService().writeJava(project.resolve("zolt.lock"), locked);
@@ -110,19 +88,8 @@ final class ToolchainCommandTest {
     void statusCanReportJson() throws IOException {
         Path project = tempDir.resolve("json-status-project");
         Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.toml"), """
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [toolchain.java]
-                version = "21"
-                distribution = "graalvm-community"
-                features = ["native-image"]
-                """);
-        Files.writeString(project.resolve("zolt.lock"), "version = 1\n\n");
+        Files.writeString(project.resolve("zolt.toml"), graalvmProject());
+        Files.writeString(project.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         LockedJavaToolchain locked = locked();
         new ToolchainLockfileService().writeJava(project.resolve("zolt.lock"), locked);
@@ -158,14 +125,24 @@ final class ToolchainCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["apps/demo"]
+
+                [workspace.members]
+                include = ["apps/demo"]
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 """);
-        Files.writeString(workspace.resolve("zolt.lock"), "version = 1\n\n");
+        Files.createDirectories(workspace.resolve("apps/demo"));
+        Files.writeString(workspace.resolve("apps/demo/zolt.toml"), """
+                [project]
+                name = "demo-member"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
+        Files.writeString(workspace.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         install(store, locked());
 
@@ -194,14 +171,24 @@ final class ToolchainCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["apps/demo"]
+
+                [workspace.members]
+                include = ["apps/demo"]
 
                 [toolchain.java]
-                version = "21"
+                version = 21
                 distribution = "graalvm-community"
                 features = ["native-image"]
                 """);
-        Files.writeString(workspace.resolve("zolt.lock"), "version = 1\n\n");
+        Files.createDirectories(workspace.resolve("apps/demo"));
+        Files.writeString(workspace.resolve("apps/demo/zolt.toml"), """
+                [project]
+                name = "demo-member"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+                """);
+        Files.writeString(workspace.resolve("zolt.lock"), "version = 7\n\n");
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
         LockedJavaToolchain locked = locked();
         new ToolchainLockfileService().writeJava(workspace.resolve("zolt.lock"), locked);
@@ -329,18 +316,7 @@ final class ToolchainCommandTest {
     void listShowsProjectGlobalLocksAndInstalledToolchains() throws IOException {
         Path project = tempDir.resolve("list-project");
         Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.toml"), """
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [toolchain.java]
-                version = "21"
-                distribution = "graalvm-community"
-                features = ["native-image"]
-                """);
+        Files.writeString(project.resolve("zolt.toml"), graalvmProject());
         LockedJavaToolchain locked = locked();
         new ToolchainLockfileService().writeJava(project.resolve("zolt.lock"), locked);
         ToolchainStore store = new ToolchainStore(tempDir.resolve("toolchains"));
@@ -391,7 +367,7 @@ final class ToolchainCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
 
         var result = execute(
@@ -404,6 +380,21 @@ final class ToolchainCommandTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains("Toolchain sync needs an explicit [toolchain.java] table."));
+    }
+
+    private static String graalvmProject() {
+        return """
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [toolchain.java]
+                version = 21
+                distribution = "graalvm-community"
+                features = ["native-image"]
+                """;
     }
 
     private static LockedJavaToolchain locked() {

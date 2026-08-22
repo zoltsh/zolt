@@ -24,7 +24,7 @@ final class CompilerPlatformApiTest {
                 () -> CompilerPlatformApi.rejectModularHost(true, sources, "main"));
 
         assertTrue(exception.getMessage().contains("module-info.java"), exception.getMessage());
-        assertTrue(exception.getMessage().contains("platformApi"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("[compiler] jdkApi"), exception.getMessage());
     }
 
     @Test
@@ -53,7 +53,7 @@ final class CompilerPlatformApiTest {
 
         String warning = CompilerPlatformApi.determinismWarning(true, "test", jdkStatus);
 
-        assertTrue(warning.contains("testPlatformApi"), warning);
+        assertTrue(warning.contains("[compiler.test] jdkApi"), warning);
         assertTrue(warning.contains("build JDK feature version 17"), warning);
         assertTrue(warning.contains("reproducibility"), warning);
     }

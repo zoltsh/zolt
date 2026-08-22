@@ -15,7 +15,7 @@ import sh.zolt.doctor.SelfHostingCheckService;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveResult;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class SelfCheckService {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectConfigLoader manifestLoader;
     private final SelfHostingCheckService selfHostingCheckService;
     private final LockedResolver lockedResolver;
     private final ProjectBuilder projectBuilder;
@@ -35,7 +35,7 @@ public final class SelfCheckService {
 
     public SelfCheckService() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectConfigLoader(),
                 new SelfHostingCheckService(),
                 (projectDirectory, config, cacheRoot, offline) -> new ResolveService()
                         .resolve(projectDirectory, config, cacheRoot, true, offline),
@@ -53,7 +53,7 @@ public final class SelfCheckService {
     }
 
     SelfCheckService(
-            ZoltTomlParser tomlParser,
+            ManifestProjectConfigLoader manifestLoader,
             SelfHostingCheckService selfHostingCheckService,
             LockedResolver lockedResolver,
             ProjectBuilder projectBuilder,
@@ -62,7 +62,7 @@ public final class SelfCheckService {
             PackagedApplicationRunner packagedApplicationRunner,
             NativeBuilder nativeBuilder,
             NativeBinaryRunner nativeBinaryRunner) {
-        this.tomlParser = tomlParser;
+        this.manifestLoader = manifestLoader;
         this.selfHostingCheckService = selfHostingCheckService;
         this.lockedResolver = lockedResolver;
         this.projectBuilder = projectBuilder;
@@ -93,7 +93,7 @@ public final class SelfCheckService {
 
         ProjectConfig config;
         try {
-            config = tomlParser.parse(root.resolve("zolt.toml"));
+            config = manifestLoader.loadProject(root);
         } catch (RuntimeException exception) {
             steps.add(failed("config", exception.getMessage()));
             return new SelfCheckResult(steps);

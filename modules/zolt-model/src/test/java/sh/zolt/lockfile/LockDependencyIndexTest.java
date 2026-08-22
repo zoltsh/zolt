@@ -103,7 +103,7 @@ final class LockDependencyIndexTest {
         assertTrue(exception.getMessage().contains("ambiguous"));
         assertTrue(exception.getMessage().contains("zolt resolve"));
         assertTrue(
-                exception.getMessage().contains("version " + ZoltLockfile.CURRENT_VERSION),
+                exception.getMessage().contains("lockfile version " + ZoltLockfile.CURRENT_VERSION),
                 exception.getMessage());
     }
 

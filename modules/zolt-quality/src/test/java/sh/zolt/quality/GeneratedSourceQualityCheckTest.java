@@ -163,12 +163,12 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
 
     @Test
     void rejectsGeneratedPathsThatEscapeProjectRoot() throws IOException {
-        ProjectConfig config = parseProject(tempDir.resolve("bad-generated-path"), generatedSourceConfig(
-                "main",
-                "openapi",
+        // The final manifest language rejects `..` in an authored path, so the escaping step is built
+        // directly: the check still guards every non-manifest producer of a generated-source step.
+        ProjectConfig config = withGeneratedStep(
+                tempDir.resolve("bad-generated-path"),
                 "../generated/openapi",
-                "src/main/openapi/api.yaml",
-                true));
+                "src/main/openapi/api.yaml");
 
         QualityCheckResult result = check.check(Optional.empty(), tempDir.resolve("bad-generated-path"), config).getFirst();
 
@@ -182,12 +182,10 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
 
     @Test
     void rejectsGeneratedInputPathsThatEscapeProjectRoot() throws IOException {
-        ProjectConfig config = parseProject(tempDir.resolve("bad-generated-input"), generatedSourceConfig(
-                "main",
-                "openapi",
+        ProjectConfig config = withGeneratedStep(
+                tempDir.resolve("bad-generated-input"),
                 "target/generated/sources/openapi",
-                "../api.yaml",
-                true));
+                "../api.yaml");
 
         QualityCheckResult result = check.check(Optional.empty(), tempDir.resolve("bad-generated-input"), config).getFirst();
 
@@ -259,33 +257,6 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
     }
 
     @Test
-    void reportsUnacknowledgedUnpinnedProcessTool() throws IOException {
-        Path projectDir = tempDir.resolve("exec-unpinned");
-        Files.createDirectories(projectDir.resolve("web"));
-        Files.writeString(projectDir.resolve("web/package.json"), "{}\n");
-        ProjectConfig config = parseProject(projectDir, """
-
-                [generated.execTools.node]
-                runner = "process"
-                binary = "npm"
-                versionCommand = ["npm", "--version"]
-
-                [generated.main.frontend]
-                kind = "exec"
-                tool = "node"
-                inputs = ["web/package.json"]
-                output = "web/node_modules"
-                produces = "intermediate"
-                """);
-
-        QualityCheckResult result = check.check(Optional.empty(), projectDir, config).getFirst();
-
-        assertEquals(QualityCheckStatus.FAILED, result.status());
-        assertTrue(result.message().contains("allowUnpinnedTool") || result.nextStep().contains("allowUnpinnedTool"),
-                result.message() + " / " + result.nextStep());
-    }
-
-    @Test
     void requireOfflineReadyFailsForCacheNoneStep() throws IOException {
         Path projectDir = tempDir.resolve("exec-cache-none");
         Path inputFile = projectDir.resolve("src/main/jooq/config.xml");
@@ -307,14 +278,32 @@ final class GeneratedSourceQualityCheckTest extends QualityCheckServiceTestSuppo
         assertEquals(QualityCheckStatus.PASSED, normal.status());
     }
 
+    /** A generated step whose authored form the final language rejects, built through the model. */
+    private static ProjectConfig withGeneratedStep(
+            Path projectDir,
+            String output,
+            String input) throws IOException {
+        ProjectConfig parsed = parseProject(projectDir, "");
+        return parsed.withBuildSettings(parsed.build().withGeneratedSources(
+                List.of(new GeneratedSourceStep(
+                        "openapi",
+                        GeneratedSourceKind.DECLARED_ROOT,
+                        "java",
+                        output,
+                        List.of(input),
+                        true,
+                        false)),
+                List.of()));
+    }
+
     private static String execConfig(String produces) {
         return """
 
                 [versions]
                 jooq = "3.19.15"
 
-                [generated.execTools.jooq]
-                runner = "jvm"
+                [generated.tools.jooq]
+                kind = "jvm"
                 coordinates = [{ coordinate = "org.jooq:jooq-codegen", versionRef = "jooq" }]
                 mainClass = "org.jooq.codegen.GenerationTool"
 

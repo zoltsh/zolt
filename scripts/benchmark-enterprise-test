@@ -47,7 +47,7 @@ for topology in chain wide layered; do
       || fail "$topology Spring application sources differ for $competitor"
   done
 
-  grep -F '[annotationProcessors]' "$output/fixtures/zolt/modules/platform/zolt.toml" >/dev/null \
+  grep -F '[dependencies.processor]' "$output/fixtures/zolt/modules/platform/zolt.toml" >/dev/null \
     || fail "$topology Zolt fixture is missing annotation processor coverage"
   grep -F '[toolchain.java.test]' "$output/fixtures/zolt/zolt.toml" >/dev/null \
     || fail "$topology Zolt fixture is missing test runtime toolchain coverage"
@@ -67,10 +67,12 @@ done
 if grep -F 'lib001' "$WORK_DIR/wide/fixtures/zolt/modules/lib008/zolt.toml" >/dev/null; then
   fail "wide topology unexpectedly linked library modules"
 fi
-layered_edges="$(grep -c -F 'workspace = "modules/lib' "$WORK_DIR/layered/fixtures/zolt/modules/lib008/zolt.toml")"
+layered_edges="$(grep -c -E '^"bench\.enterprise:lib[0-9]+" = \{ workspace = true \}$' \
+  "$WORK_DIR/layered/fixtures/zolt/modules/lib008/zolt.toml")"
 [[ "$layered_edges" == "2" ]] \
   || fail "layered dependency fanout expected 2 graph edges, found $layered_edges"
-grep -F 'workspace = "modules/lib007"' "$WORK_DIR/chain/fixtures/zolt/modules/lib008/zolt.toml" >/dev/null \
+grep -F '"bench.enterprise:lib007" = { workspace = true }' \
+  "$WORK_DIR/chain/fixtures/zolt/modules/lib008/zolt.toml" >/dev/null \
   || fail "chain topology did not include its immediate predecessor"
 
 python3 scripts/benchmark-enterprise \

@@ -33,24 +33,22 @@ final class IdeModelCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
                 """.formatted(javaVersion, repositoryUrl));
         appendDependencies(config, dependencies);
-        config.append("\n[test.dependencies]\n");
+        config.append("\n[dependencies.test]\n");
         appendDependencies(config, testDependencies);
         config.append("""
 
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
                 """);
         Files.writeString(projectDir.resolve("zolt.toml"), config.toString());
     }

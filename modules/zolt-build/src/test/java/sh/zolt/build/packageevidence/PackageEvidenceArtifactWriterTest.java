@@ -57,7 +57,7 @@ final class PackageEvidenceArtifactWriterTest {
                         "test",
                         "test",
                         List.of(
-                                new PackagePlanOutput("main", main, "file", "thin"),
+                                new PackagePlanOutput("main", main, "file", "jar"),
                                 new PackagePlanOutput("javadoc", javadoc, "file", "jar"),
                                 new PackagePlanOutput("sources", sources, "file", "jar")),
                         List.of(),
@@ -76,7 +76,7 @@ final class PackageEvidenceArtifactWriterTest {
         assertTrue(mainIndex >= 0);
         assertTrue(javadocIndex > mainIndex);
         assertTrue(sourcesIndex > javadocIndex);
-        assertTrue(artifacts.contains("\"type\": \"thin\""));
+        assertTrue(artifacts.contains("\"type\": \"jar\""));
         assertTrue(artifacts.contains("\"entries\": 7"));
         assertTrue(artifacts.contains("\"path\": \"target/demo-0.1.0-javadoc.jar\""));
         assertTrue(artifacts.contains("\"sha256\": \"sha256:"));

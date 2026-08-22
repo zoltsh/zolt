@@ -30,31 +30,24 @@ final class PublishCommandSbomTest {
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
+                description = "Demo library for SBOM publishing."
+                url = "https://example.com/demo"
 
                 [repositories]
                 central = "https://repo.maven.apache.org/maven2"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [package.metadata]
-                name = "Demo Library"
-                description = "Demo library for SBOM publishing."
-                url = "https://example.com/demo"
+                [dependencies.test]
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
 
-                [build]
-                outputRoot = ".zolt/build"
-                source = "src/main/java"
-                test = "src/test/java"
-                output = ".zolt/build/classes"
-                testOutput = ".zolt/build/test-classes"
+                [build.output]
+                root = ".zolt/build"
                 """);
         Path source = projectDir.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());
@@ -94,12 +87,19 @@ final class PublishCommandSbomTest {
     }
 
     @Test
-    void publishSbomRefusesAmbiguousLegacyGraphBeforePlanningUploads() throws IOException {
+    void publishSbomRefusesAmbiguousCurrentGraphBeforePlanningUploads() throws IOException {
         Path projectDir = tempDir.resolve("ambiguous-publish-sbom");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo"));
         Files.writeString(projectDir.resolve("zolt.lock"), """
-                version = 2
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "org.example:parent"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "org.example:parent"

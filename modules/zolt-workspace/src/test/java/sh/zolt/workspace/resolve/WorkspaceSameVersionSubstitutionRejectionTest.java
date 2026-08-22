@@ -23,16 +23,21 @@ final class WorkspaceSameVersionSubstitutionRejectionTest
         workspace("""
                 [workspace]
                 name = "same-version-substitution"
-                members = ["modules/core", "apps/app", "apps/worker"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app", "apps/worker"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", "");
         member("apps/app", "app", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("apps/worker", "worker", """
 
@@ -76,20 +81,25 @@ final class WorkspaceSameVersionSubstitutionRejectionTest
         workspace("""
                 [workspace]
                 name = "cross-scope-same-version-substitution"
-                members = ["modules/core", "apps/app", "apps/worker"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app", "apps/worker"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("modules/core", "core", "");
         member("apps/app", "app", """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         member("apps/worker", "worker", """
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.acme:core" = "0.1.0"
                 """);
 

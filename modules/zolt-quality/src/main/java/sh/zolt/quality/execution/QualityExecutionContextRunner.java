@@ -3,7 +3,7 @@ package sh.zolt.quality.execution;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.publish.PublishDryRunService;
-import sh.zolt.publish.PublishSettingsReader;
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckRequest;
 import sh.zolt.quality.QualityCheckResult;
@@ -41,12 +41,12 @@ public final class QualityExecutionContextRunner {
 
     public static QualityExecutionContextRunner create(
             ZoltLockfileReader lockfileReader,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             Function<String, String> environment,
             PublishDryRunService publishDryRunService) {
         return create(
                 lockfileReader,
-                publishSettingsReader,
+                publishSettingsLoader,
                 environment,
                 publishDryRunService,
                 new WorkspacePublishService());
@@ -54,13 +54,13 @@ public final class QualityExecutionContextRunner {
 
     public static QualityExecutionContextRunner create(
             ZoltLockfileReader lockfileReader,
-            PublishSettingsReader publishSettingsReader,
+            ManifestPublishSettingsLoader publishSettingsLoader,
             Function<String, String> environment,
             PublishDryRunService publishDryRunService,
             WorkspacePublishService workspacePublishService) {
         return new QualityExecutionContextRunner(
                 new ExecutionContextQualityCheck(lockfileReader),
-                new CredentialQualityCheck(publishSettingsReader, environment),
+                new CredentialQualityCheck(publishSettingsLoader, environment),
                 new ExecutionEvidenceQualityCheck(),
                 new PublishDryRunQualityCheck(
                         publishDryRunService,

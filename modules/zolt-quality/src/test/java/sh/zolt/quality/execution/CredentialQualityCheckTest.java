@@ -1,15 +1,15 @@
 package sh.zolt.quality.execution;
 
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.RepositorySettings;
-import sh.zolt.publish.PublishSettingsReader;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckResult;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class CredentialQualityCheckTest {
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader manifestLoader = new ManifestProjectConfigLoader();
 
     @TempDir
     private Path tempDir;
@@ -34,17 +34,21 @@ final class CredentialQualityCheckTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                company = { url = "https://repo.example.test/maven", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.example.test/maven"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "ARTIFACTORY_USERNAME"
                 passwordEnv = "ARTIFACTORY_ACCESS_TOKEN"
                 """);
-        ProjectConfig config = parser.parse(projectDir.resolve("zolt.toml"));
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        ProjectConfig config = manifestLoader.load(projectDir.resolve("zolt.toml"));
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         assertEquals(List.of(), check.checkRepositoryCredentials(Optional.empty(), config, QualityCheckContext.LOCAL));
         assertEquals(List.of(), check.checkPublishCredentials(Optional.empty(), projectDir, config, QualityCheckContext.LOCAL));
@@ -52,67 +56,19 @@ final class CredentialQualityCheckTest {
     }
 
     @Test
-    void repositoryCredentialCheckRejectsEmbeddedUrlCredentialsWithoutLeakingThem() {
-        ProjectConfig config = parser.parse("""
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [repositories]
-                company = "https://repo-user:super-secret@repo.example.test/maven"
-                """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
-
-        List<QualityCheckResult> results = check.checkRepositoryCredentials(Optional.empty(), config, QualityCheckContext.CI);
-
-        assertEquals(1, results.size());
-        QualityCheckResult result = results.getFirst();
-        assertEquals("[repositories.company]", result.subject());
-        assertTrue(result.message().contains("CI context rejects embedded credentials in repository `company` URL."));
-        assertTrue(result.nextStep().contains("Move credentials to [repositoryCredentials] environment references."));
-        assertDoesNotLeakSecret(result);
-    }
-
-    @Test
-    void repositoryCredentialCheckReportsInvalidRepositoryUri() {
-        ProjectConfig config = parser.parse("""
-                [project]
-                name = "demo"
-                version = "0.1.0"
-                group = "com.example"
-                java = "21"
-
-                [repositories]
-                company = "https://["
-                """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
-
-        QualityCheckResult result = check.checkRepositoryCredentials(
-                Optional.of("modules/api"),
-                config,
-                QualityCheckContext.CI).getFirst();
-
-        assertEquals(Optional.of("modules/api"), result.member());
-        assertEquals("[repositories.company]", result.subject());
-        assertEquals("Repository `company` URL is not a valid URI.", result.message());
-        assertEquals(
-                "Edit [repositories.company] to use a Maven-compatible HTTPS URL without embedded credentials.",
-                result.nextStep());
-    }
-
-    @Test
     void repositoryCredentialCheckReportsMissingCredentialMetadata() {
-        ProjectConfig parsed = parser.parse("""
+        ProjectConfig parsed = manifestLoader.load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                company = "https://repo.example.test/maven"
+                central = false
+
+                [repositories.company]
+                url = "https://repo.example.test/maven"
                 """);
         ProjectConfig config = withRepositorySettings(parsed, Map.of(
                 "company",
@@ -120,38 +76,42 @@ final class CredentialQualityCheckTest {
                         "company",
                         "https://repo.example.test/maven",
                         Optional.of("company-artifactory"))));
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         QualityCheckResult result = check.checkRepositoryCredentials(
                 Optional.empty(),
                 config,
                 QualityCheckContext.CI).getFirst();
 
-        assertEquals("[repositoryCredentials.company-artifactory]", result.subject());
+        assertEquals("[credentials.company-artifactory]", result.subject());
         assertEquals("Repository `company` references missing credential metadata.", result.message());
         assertEquals(
-                "Define [repositoryCredentials.company-artifactory] with environment variable names, not secret values.",
+                "Define [credentials.company-artifactory] with environment variable names, not secret values.",
                 result.nextStep());
     }
 
     @Test
     void repositoryCredentialCheckReportsMissingEnvironmentVariableByNameOnly() {
-        ProjectConfig config = parser.parse("""
+        ProjectConfig config = manifestLoader.load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                company = { url = "https://repo.example.test/maven", credentials = "company-artifactory" }
+                central = false
 
-                [repositoryCredentials.company-artifactory]
+                [repositories.company]
+                url = "https://repo.example.test/maven"
+                credentials = "company-artifactory"
+
+                [credentials.company-artifactory]
                 usernameEnv = "ARTIFACTORY_USERNAME"
                 passwordEnv = "ARTIFACTORY_ACCESS_TOKEN"
                 """);
         CredentialQualityCheck check = new CredentialQualityCheck(
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 Map.of("ARTIFACTORY_USERNAME", "ci-user")::get);
 
         QualityCheckResult result = check.checkRepositoryCredentials(
@@ -159,7 +119,7 @@ final class CredentialQualityCheckTest {
                 config,
                 QualityCheckContext.CI).getFirst();
 
-        assertEquals("[repositoryCredentials.company-artifactory]", result.subject());
+        assertEquals("[credentials.company-artifactory]", result.subject());
         assertEquals(
                 "CI context requires environment variable ARTIFACTORY_ACCESS_TOKEN for repository `company` credentials `company-artifactory` before resolve/build work starts.",
                 result.message());
@@ -171,26 +131,33 @@ final class CredentialQualityCheckTest {
 
     @Test
     void repositoryCredentialCheckReportsCredentialedRepositorySummary() {
-        ProjectConfig config = parser.parse("""
+        ProjectConfig config = manifestLoader.load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                alpha = { url = "https://alpha.example.test/maven", credentials = "alpha-creds" }
-                beta = { url = "https://beta.example.test/maven", credentials = "beta-creds" }
+                central = false
 
-                [repositoryCredentials.alpha-creds]
+                [repositories.alpha]
+                url = "https://alpha.example.test/maven"
+                credentials = "alpha-creds"
+
+                [repositories.beta]
+                url = "https://beta.example.test/maven"
+                credentials = "beta-creds"
+
+                [credentials.alpha-creds]
                 usernameEnv = "ALPHA_USERNAME"
                 passwordEnv = "ALPHA_TOKEN"
 
-                [repositoryCredentials.beta-creds]
+                [credentials.beta-creds]
                 usernameEnv = "BETA_USERNAME"
                 passwordEnv = "BETA_TOKEN"
                 """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.of(
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.of(
                         "ALPHA_USERNAME", "alpha-user",
                         "ALPHA_TOKEN", "alpha-token",
                         "BETA_USERNAME", "beta-user",
@@ -209,21 +176,25 @@ final class CredentialQualityCheckTest {
 
     @Test
     void repositoryCredentialCheckReportsSingleCredentialedRepositorySummary() {
-        ProjectConfig config = parser.parse("""
+        ProjectConfig config = manifestLoader.load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                company = { url = "https://repo.example.test/maven", credentials = "company-creds" }
+                central = false
 
-                [repositoryCredentials.company-creds]
+                [repositories.company]
+                url = "https://repo.example.test/maven"
+                credentials = "company-creds"
+
+                [credentials.company-creds]
                 usernameEnv = "COMPANY_USERNAME"
                 passwordEnv = "COMPANY_TOKEN"
                 """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.of(
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.of(
                         "COMPANY_USERNAME", "ci-user",
                         "COMPANY_TOKEN", "ci-token")
                 ::get);
@@ -240,56 +211,56 @@ final class CredentialQualityCheckTest {
 
     @Test
     void resourceTokenCheckReportsMissingEnvTokenByNameOnly() {
-        ProjectConfig config = parser.parse("""
+        ProjectConfig config = manifestLoader.load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [resources.filtering]
-                enabled = true
+                [resources.filter]
+                include = ["**/*.properties"]
 
                 [resources.tokens]
-                apiToken = { env = "API_TOKEN" }
-                literalName = { value = "demo" }
+                api-token = { env = "API_TOKEN" }
+                literal-name = { value = "demo" }
                 """);
-        CredentialQualityCheck check = new CredentialQualityCheck(new PublishSettingsReader(), Map.<String, String>of()::get);
+        CredentialQualityCheck check = new CredentialQualityCheck(new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
 
         QualityCheckResult result = check.checkResourceTokens(
                 Optional.empty(),
                 config,
                 QualityCheckContext.CI).getFirst();
 
-        assertEquals("[resources.tokens.apiToken]", result.subject());
+        assertEquals("[resources.tokens.api-token]", result.subject());
         assertEquals(
-                "CI context requires environment variable API_TOKEN for resource token `apiToken` before resource copying.",
+                "CI context requires environment variable API_TOKEN for resource token `api-token` before resource copying.",
                 result.message());
         assertEquals(
-                "Set the named CI variable or change [resources.tokens].apiToken to an explicit non-secret value/project source. Values are never printed.",
+                "Set the named CI variable or change [resources.tokens].api-token to an explicit non-secret value/project source. Values are never printed.",
                 result.nextStep());
     }
 
     @Test
     void resourceTokenCheckReportsDeterministicSourceCounts() {
-        ProjectConfig config = parser.parse("""
+        ProjectConfig config = manifestLoader.load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [resources.filtering]
-                enabled = true
-                test = true
+                [resources.filter]
+                targets = ["main", "test"]
+                include = ["**/*.properties"]
 
                 [resources.tokens]
-                buildNumber = { env = "BUILD_NUMBER" }
-                literalName = { value = "demo" }
-                projectVersion = { project = "version" }
+                build-number = { env = "BUILD_NUMBER" }
+                literal-name = { value = "demo" }
+                project-version = { project = "version" }
                 """);
         CredentialQualityCheck check = new CredentialQualityCheck(
-                new PublishSettingsReader(),
+                new ManifestPublishSettingsLoader(),
                 Map.of("BUILD_NUMBER", "42")::get);
 
         QualityCheckResult result = check.checkResourceTokens(
@@ -300,6 +271,54 @@ final class CredentialQualityCheckTest {
         assertEquals(Optional.of("apps/api"), result.member());
         assertEquals("resource-token-inputs", result.subject());
         assertEquals("CI resource token preflight passed for 3 tokens: env=1, project=1, literal=1.", result.message());
+    }
+
+    /**
+     * A repository URL carrying user information is rejected at parse time now, so this branch is
+     * defense in depth: the check must still fail closed from a directly constructed
+     * {@link RepositorySettings}, and no diagnostic may echo the credential it found.
+     */
+    @Test
+    void repositoryUrlCredentialFailuresFailClosedWithoutEchoingTheSecret() {
+        ProjectConfig parsed = manifestLoader.load("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [repositories]
+                central = false
+
+                [repositories.company]
+                url = "https://repo.example.test/maven"
+                """);
+        CredentialQualityCheck check = new CredentialQualityCheck(
+                new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
+
+        for (Leak leak : List.of(
+                new Leak(
+                        "https://repo-user:super-secret@repo.example.test/maven",
+                        "CI context rejects embedded credentials in repository `company` URL."),
+                new Leak(
+                        "https://repo-user:super-secret@repo.example.test/ma ven",
+                        "Repository `company` URL is not a valid URI."))) {
+            ProjectConfig config = withRepositorySettings(parsed, Map.of(
+                    "company",
+                    new RepositorySettings("company", leak.url(), Optional.of("company-creds"))));
+
+            QualityCheckResult result = check.checkRepositoryCredentials(
+                    Optional.empty(), config, QualityCheckContext.CI).getFirst();
+
+            assertEquals("[repositories.company]", result.subject(), leak.url());
+            assertEquals(leak.message(), result.message(), leak.url());
+            assertDoesNotLeakSecret(result);
+            assertFalse(result.message().contains(leak.url()), result.message());
+            assertFalse(result.nextStep().contains(leak.url()), result.nextStep());
+        }
+    }
+
+    private record Leak(String url, String message) {
     }
 
     private static ProjectConfig withRepositorySettings(

@@ -8,16 +8,25 @@ public record ResolveOutput(
         ZoltLockfile lockfile,
         int downloadCount,
         ResolveMetrics metrics,
-        List<ResolvedDependencyReachability> dependencyReachability) {
+        List<ResolvedDependencyReachability> dependencyReachability,
+        List<String> warnings) {
     public ResolveOutput(ZoltLockfile lockfile, int downloadCount) {
-        this(lockfile, downloadCount, ResolveMetrics.empty(), List.of());
+        this(lockfile, downloadCount, ResolveMetrics.empty(), List.of(), List.of());
     }
 
     public ResolveOutput(
             ZoltLockfile lockfile,
             int downloadCount,
             ResolveMetrics metrics) {
-        this(lockfile, downloadCount, metrics, List.of());
+        this(lockfile, downloadCount, metrics, List.of(), List.of());
+    }
+
+    public ResolveOutput(
+            ZoltLockfile lockfile,
+            int downloadCount,
+            ResolveMetrics metrics,
+            List<ResolvedDependencyReachability> dependencyReachability) {
+        this(lockfile, downloadCount, metrics, dependencyReachability, List.of());
     }
 
     public ResolveOutput {
@@ -25,5 +34,6 @@ public record ResolveOutput(
         dependencyReachability = dependencyReachability == null
                 ? List.of()
                 : List.copyOf(dependencyReachability);
+        warnings = warnings == null ? List.of() : List.copyOf(warnings);
     }
 }

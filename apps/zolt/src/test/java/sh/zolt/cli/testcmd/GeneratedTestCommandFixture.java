@@ -1,11 +1,13 @@
 package sh.zolt.cli.testcmd;
 
 import static sh.zolt.cli.CliTestSupport.writeFakeConsoleJar;
+import static sh.zolt.cli.CliTestSupport.sha256;
 import static sh.zolt.cli.ContentAddressedLockTestSupport.write;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 final class GeneratedTestCommandFixture {
     private static final String JUNIT_JAR =
@@ -37,7 +39,7 @@ final class GeneratedTestCommandFixture {
                 project(name)
                         + jvmGeneratorConfig()
                         + (packageTests
-                                ? "\n[package]\ntests = true\n"
+                                ? "\n[package]\ntestJar = true\n"
                                 : "")
                         + (integration
                                 ? integrationConfig()
@@ -60,7 +62,7 @@ final class GeneratedTestCommandFixture {
                                 ? "GeneratedIT"
                                 : "GeneratedTest"));
         Files.writeString(root.resolve("fixtures.txt"), "seed\n");
-        write(root.resolve("zolt.lock"), cache, lockfile(null, true, false, false));
+        write(root.resolve("zolt.lock"), cache, lockfile(cache, null, true, false, false));
         return root;
     }
 
@@ -74,7 +76,9 @@ final class GeneratedTestCommandFixture {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "generated-test-workspace"
-                members = ["apps/app"]
+
+                [workspace.members]
+                include = ["apps/app"]
                 """);
         Files.writeString(
                 member.resolve("zolt.toml"),
@@ -101,7 +105,7 @@ final class GeneratedTestCommandFixture {
                                 ? "GeneratedIT"
                                 : "GeneratedTest"));
         Files.writeString(member.resolve("fixtures.txt"), "seed\n");
-        write(workspace.resolve("zolt.lock"), cache, lockfile("apps/app", true, false, false));
+        write(workspace.resolve("zolt.lock"), cache, lockfile(cache, "apps/app", true, false, false));
         return member;
     }
 
@@ -118,7 +122,7 @@ final class GeneratedTestCommandFixture {
                 project("openapi-test")
                         + """
 
-                        [generated.openapiTool]
+                        [generated.tools.openapi]
                         coordinate = "com.example:openapi-generator"
                         version = "1.0.0"
 
@@ -146,7 +150,7 @@ final class GeneratedTestCommandFixture {
                 root,
                 "src/test/openapi/api.yaml",
                 "openapi: 3.1.0\ninfo:\n  title: Test\n  version: 1\npaths: {}\n");
-        write(root.resolve("zolt.lock"), cache, lockfile(null, false, true, false));
+        write(root.resolve("zolt.lock"), cache, lockfile(cache, null, false, true, false));
         return root;
     }
 
@@ -163,7 +167,7 @@ final class GeneratedTestCommandFixture {
                 project("project-runner-test")
                         + """
 
-                        [runtime.dependencies]
+                        [dependencies.runtime]
                         "com.example:generator-runtime" = "1.0.0"
 
                         [generated.test.fixtures]
@@ -200,7 +204,7 @@ final class GeneratedTestCommandFixture {
                 root,
                 "src/test/java/com/example/ProjectRunnerTest.java",
                 "package com.example; final class ProjectRunnerTest {}\n");
-        write(root.resolve("zolt.lock"), cache, lockfile(null, false, false, true));
+        write(root.resolve("zolt.lock"), cache, lockfile(cache, null, false, false, true));
         return root;
     }
 
@@ -218,15 +222,14 @@ final class GeneratedTestCommandFixture {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
-
+                java = %s
                 """.formatted(name, currentJavaMajorVersion());
     }
 
     private static String jvmGeneratorConfig() {
         return """
-                [generated.execTools.fixture-generator]
-                runner = "jvm"
+                [generated.tools.fixture-generator]
+                kind = "jvm"
                 coordinates = [
                   { coordinate = "com.example:fixture-generator", version = "1.0.0" }
                 ]
@@ -249,78 +252,105 @@ final class GeneratedTestCommandFixture {
     private static String integrationConfig() {
         return """
 
-                [integrationTest]
+                [test.integration]
                 sources = ["src/integration-test/java"]
-                output = "target/integration-test-classes"
                 """;
     }
 
     private static String lockfile(
+            Path cache,
             String member,
             boolean jvm,
             boolean openApi,
-            boolean runtime) {
+            boolean runtime) throws IOException {
         String membership = member == null
                 ? ""
                 : "members = [\"" + member + "\"]\n";
-        StringBuilder lock = new StringBuilder(
-                "version = " + (member == null ? "1" : "5") + "\n\n");
+        StringBuilder lock = new StringBuilder("version = 7\n\n");
+        if (runtime) {
+            lock.append("""
+                    [[dependencyRoot]]
+                    member = "%s"
+                    id = "com.example:generator-runtime"
+                    version = "1.0.0"
+                    lane = "runtime"
+                    resolvedScope = "runtime"
+
+                    """.formatted(member == null ? "." : member));
+        }
         dependency(
                 lock,
+                cache,
                 "org.junit.platform:junit-platform-console-standalone",
                 "1.11.4",
                 "test",
                 JUNIT_JAR,
                 "",
-                membership);
+                membership,
+                false);
         if (jvm) {
             dependency(
                     lock,
+                    cache,
                     "com.example:fixture-generator",
                     "1.0.0",
                     "tool-exec",
                     JVM_TOOL_JAR,
                     "toolGroups = [\"fixture-generator\"]\n",
-                    membership);
+                    membership,
+                    true);
         }
         if (openApi) {
             dependency(
                     lock,
+                    cache,
                     "com.example:openapi-generator",
                     "1.0.0",
                     "tool-openapi",
                     OPENAPI_TOOL_JAR,
                     "",
-                    membership);
+                    membership,
+                    true);
         }
         if (runtime) {
             dependency(
                     lock,
+                    cache,
                     "com.example:generator-runtime",
                     "1.0.0",
                     "runtime",
                     RUNTIME_JAR,
                     "",
-                    membership);
+                    membership,
+                    true);
         }
         return lock.toString();
     }
 
     private static void dependency(
             StringBuilder lock,
+            Path cache,
             String id,
             String version,
             String scope,
             String jar,
             String extra,
-            String membership) {
+            String membership,
+            boolean direct) throws IOException {
+        Path source = cache.resolve(jar);
+        String digest = sha256(source);
+        String relative = "blobs/v2/sha256/" + digest + "/" + source.getFileName();
+        Path target = cache.resolve(relative);
+        Files.createDirectories(target.getParent());
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
         lock.append("[[package]]\n")
                 .append("id = \"").append(id).append("\"\n")
                 .append("version = \"").append(version).append("\"\n")
                 .append("source = \"maven-central\"\n")
                 .append("scope = \"").append(scope).append("\"\n")
-                .append("direct = true\n")
-                .append("jar = \"").append(jar).append("\"\n")
+                .append("direct = ").append(direct).append('\n')
+                .append("jar = \"").append(relative).append("\"\n")
+                .append("jarSha256 = \"").append(digest).append("\"\n")
                 .append(extra)
                 .append("dependencies = []\n")
                 .append(membership)

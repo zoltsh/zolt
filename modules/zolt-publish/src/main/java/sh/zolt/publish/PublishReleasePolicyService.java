@@ -4,25 +4,25 @@ import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.PublicationMetadata;
 import sh.zolt.project.VersionPolicy;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 public final class PublishReleasePolicyService {
-    private final ZoltTomlParser projectParser;
+    private final ManifestProjectConfigLoader manifestLoader;
 
     public PublishReleasePolicyService() {
-        this(new ZoltTomlParser());
+        this(new ManifestProjectConfigLoader());
     }
 
-    PublishReleasePolicyService(ZoltTomlParser projectParser) {
-        this.projectParser = projectParser;
+    PublishReleasePolicyService(ManifestProjectConfigLoader manifestLoader) {
+        this.manifestLoader = manifestLoader;
     }
 
     public PublishDryRunPlan apply(Path projectRoot, PublishDryRunPlan plan) {
-        ProjectConfig config = projectParser.parse(projectRoot.toAbsolutePath().normalize().resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.loadProject(projectRoot);
         List<String> blockers = new ArrayList<>();
         if (VersionPolicy.violation(
                 VersionPolicy.Context.PUBLISH_RELEASE,
@@ -46,26 +46,23 @@ public final class PublishReleasePolicyService {
     }
 
     private static void addMetadataBlockers(PublicationMetadata metadata, List<String> blockers) {
-        if (metadata.name().isBlank()) {
-            blockers.add("release context requires [package.metadata].name.");
-        }
         if (metadata.description().isBlank()) {
-            blockers.add("release context requires [package.metadata].description.");
+            blockers.add("release context requires [project].description.");
         }
         if (metadata.url().isBlank()) {
-            blockers.add("release context requires [package.metadata].url.");
+            blockers.add("release context requires [project].url.");
         }
         if (metadata.license().isBlank()) {
-            blockers.add("release context requires [package.metadata].license.");
+            blockers.add("release context requires [project].license.");
         }
-        if (metadata.developers().isEmpty()) {
-            blockers.add("release context requires at least one [package.metadata].developers entry.");
+        if (metadata.developers().isEmpty() && metadata.developerEntries().isEmpty()) {
+            blockers.add("release context requires at least one [project.developers.<id>] entry.");
         }
         if (metadata.scm().isBlank()) {
-            blockers.add("release context requires [package.metadata].scm.");
+            blockers.add("release context requires [project.scm].url.");
         }
         if (metadata.issues().isBlank()) {
-            blockers.add("release context requires [package.metadata].issues.");
+            blockers.add("release context requires [project].issues.");
         }
     }
 }

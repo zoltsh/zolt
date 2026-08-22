@@ -233,7 +233,7 @@ final class PackagePlanDependencyClassifier {
                 "omitted",
                 springBootWar ? "spring-boot-war-provided-coordinate-override" : "war-provided-coordinate-override",
                 "",
-                "the exact artifact variant is directly declared in [provided.dependencies], so this runtime path is omitted from the deployable runtime lib directory",
+                "the exact artifact variant is directly declared in [dependencies.provided], so this runtime path is omitted from the deployable runtime lib directory",
                 lockPackage.policies());
     }
 

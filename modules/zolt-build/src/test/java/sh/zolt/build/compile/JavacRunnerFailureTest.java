@@ -37,7 +37,7 @@ final class JavacRunnerFailureTest {
 
         assertTrue(exception.getMessage().contains("javac failed with exit code"));
         assertTrue(exception.getMessage().contains("Broken.java"));
-        assertTrue(exception.getMessage().contains("[annotationProcessors]"));
+        assertTrue(exception.getMessage().contains("[dependencies.processor]"));
         assertFalse(exception.getMessage().isBlank());
     }
 
@@ -64,7 +64,7 @@ final class JavacRunnerFailureTest {
         assertTrue(exception.getMessage().contains("javac failed with exit code"));
         assertTrue(exception.getMessage().contains("package com.nowhere does not exist"));
         assertFalse(
-                exception.getMessage().contains("[annotationProcessors]"),
+                exception.getMessage().contains("[dependencies.processor]"),
                 "missing-dependency failures must not red-herring annotation processing");
         assertTrue(exception.getMessage().contains("dependency"));
     }

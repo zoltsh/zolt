@@ -90,7 +90,7 @@ final class SpringBootAotNativeInputsTest {
                 () -> new SpringBootAotNativeInputs(projectDir).classpathEntries());
 
         assertTrue(exception.getMessage().contains("missing Spring Boot AOT reflection metadata"));
-        assertTrue(exception.getMessage().contains("[framework.springBoot.native] enabled = true"));
+        assertTrue(exception.getMessage().contains("[framework.spring-boot] native = true"));
     }
 
     @Test

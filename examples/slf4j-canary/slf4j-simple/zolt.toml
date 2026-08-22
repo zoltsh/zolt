@@ -1,49 +1,39 @@
 [project]
 name = "slf4j-simple"
-version = "0.1.0"
-group = "org.slf4j"
-java = "21"
-
-[api.dependencies]
-"org.slf4j:slf4j-api" = { workspace = "slf4j-api" }
-
-[dependencies]
-"org.apache.logging.log4j:log4j-to-slf4j" = { version = "2.25.4", optional = true, exclusions = [{ group = "org.apache.logging.log4j", artifact = "log4j-api" }, { group = "org.slf4j", artifact = "slf4j-api" }] }
-
-[test.dependencies]
-"junit:junit" = "4.13.2"
-"org.junit.vintage:junit-vintage-engine" = "5.11.4"
-"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
-
-[test.runtime]
-systemProperties = { "slf4j.canary.mode" = "workspace" }
-
-[compiler]
-release = "8"
-encoding = "UTF-8"
-args = ["-Xlint:deprecation"]
-testArgs = ["-Xlint:unchecked"]
-
-[package]
-mode = "thin"
-sources = true
-javadoc = true
-tests = true
-
-[package.metadata]
-name = "SLF4J Canary Simple Binding"
 description = "Small logging binding fixture for Zolt workspace canary testing."
 url = "https://www.slf4j.org/"
-license = "MIT"
-developers = ["Zolt Team"]
-scm = "https://github.com/qos-ch/slf4j.git"
 issues = "https://jira.qos.ch/projects/SLF4J"
+
+[project.scm]
+url = "https://github.com/qos-ch/slf4j.git"
+
+[project.developers.zolt-team]
+name = "Zolt Team"
+
+[dependencies]
+"org.apache.logging.log4j:log4j-to-slf4j" = { version = "2.25.4", optional = true, exclude = ["org.apache.logging.log4j:log4j-api", "org.slf4j:slf4j-api"] }
+
+[dependencies.api]
+"org.slf4j:slf4j-api" = { workspace = true }
+
+[dependencies.test]
+"junit:junit" = "4.13.2"
+"org.junit.platform:junit-platform-console-standalone" = "1.11.4"
+"org.junit.vintage:junit-vintage-engine" = "5.11.4"
+
+[compiler]
+args = ["-Xlint:deprecation"]
+
+[compiler.test]
+args = ["-Xlint:unchecked"]
+
+[test.runtime]
+properties = { "slf4j.canary.mode" = "workspace" }
+
+[package]
+sources = true
+javadoc = true
+testJar = true
 
 [package.manifest]
 "Automatic-Module-Name" = "org.slf4j.simple"

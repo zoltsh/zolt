@@ -48,7 +48,21 @@ final class PackageServiceSpringBootJarModeTest {
         createJarWithEntry(processorJar, "com/example/processor/Processor.class");
         sh.zolt.build.lockfile.ContentAddressedLockTestSupport.write(
                 projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
 
                 [[package]]
                 id = "org.springframework.boot:spring-boot"

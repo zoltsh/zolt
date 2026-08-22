@@ -16,14 +16,12 @@ public final class ClasspathBuilder {
                 .sorted(Comparator.comparing(ClasspathBuilder::sortKey))
                 .toList();
         return new ClasspathSet(
-                classpath(sorted, scope -> scope.entersMainCompileClasspath()),
-                classpath(sorted, scope -> scope.entersMainRuntimeClasspath()),
-                classpath(sorted, scope -> scope.entersMainRuntimeClasspath() || scope.entersTestClasspath()),
-                classpath(sorted, scope -> scope.entersMainRuntimeClasspath()
-                        || scope.entersTestClasspath()
-                        || scope == DependencyScope.PROVIDED),
-                classpath(sorted, scope -> scope.entersMainProcessorClasspath()),
-                classpath(sorted, scope -> scope.entersTestProcessorClasspath()),
+                classpath(sorted, DependencyScope::entersMainCompileClasspath),
+                classpath(sorted, DependencyScope::entersMainRuntimeClasspath),
+                classpath(sorted, DependencyScope::entersTestRuntimeClasspath),
+                classpath(sorted, DependencyScope::entersTestCompileClasspath),
+                classpath(sorted, DependencyScope::entersMainProcessorClasspath),
+                classpath(sorted, DependencyScope::entersTestProcessorClasspath),
                 classpath(sorted, scope -> scope == DependencyScope.QUARKUS_DEPLOYMENT));
     }
 

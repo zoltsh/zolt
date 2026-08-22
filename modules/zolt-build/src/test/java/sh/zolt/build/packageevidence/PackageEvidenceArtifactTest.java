@@ -12,13 +12,13 @@ final class PackageEvidenceArtifactTest {
     void keepsDeterministicArtifactEvidenceFields() {
         PackageEvidenceArtifact artifact = new PackageEvidenceArtifact(
                 "sources",
-                "thin",
+                "jar",
                 "target/demo-0.1.0-sources.jar",
                 12,
                 "sha256:abc123");
 
         assertEquals("sources", artifact.classifier());
-        assertEquals("thin", artifact.type());
+        assertEquals("jar", artifact.type());
         assertEquals("target/demo-0.1.0-sources.jar", artifact.path());
         assertEquals(12, artifact.entries());
         assertEquals("sha256:abc123", artifact.sha256());
@@ -27,16 +27,16 @@ final class PackageEvidenceArtifactTest {
     @Test
     void rejectsMissingEvidenceFieldsWithActionableMessages() {
         assertFailure(
-                () -> new PackageEvidenceArtifact("", "thin", "target/demo.jar", 1, "sha256:abc"),
+                () -> new PackageEvidenceArtifact("", "jar", "target/demo.jar", 1, "sha256:abc"),
                 "Package evidence artifact classifier is required.");
         assertFailure(
                 () -> new PackageEvidenceArtifact("main", " ", "target/demo.jar", 1, "sha256:abc"),
                 "Package evidence artifact type is required.");
         assertFailure(
-                () -> new PackageEvidenceArtifact("main", "thin", null, 1, "sha256:abc"),
+                () -> new PackageEvidenceArtifact("main", "jar", null, 1, "sha256:abc"),
                 "Package evidence artifact path is required.");
         assertFailure(
-                () -> new PackageEvidenceArtifact("main", "thin", "target/demo.jar", 1, ""),
+                () -> new PackageEvidenceArtifact("main", "jar", "target/demo.jar", 1, ""),
                 "Package evidence artifact checksum is required.");
     }
 

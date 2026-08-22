@@ -11,7 +11,7 @@ import sh.zolt.project.ProjectConfig;
 
 /**
  * Per-declaration license-policy status for a {@link LicenseReport}, so {@code zolt licenses} can show
- * what the configured {@code [dependencyPolicy.licenses]} makes of each dependency without marking an
+ * what the configured {@code [dependencies.policy.licenses]} makes of each dependency without marking an
  * unrelated Maven license row.
  *
  * <p>This is a reporting view only: verdicts come from {@link LicensePolicyEvaluator}, the same
@@ -27,7 +27,7 @@ import sh.zolt.project.ProjectConfig;
  * closure, not the reported one, and a coordinate that is in both an enforced and an optional scope is
  * in the enforcing closure and is annotated.
  *
- * <p>Across a workspace each member owns its own policy ({@code [dependencyPolicy]} is member-local,
+ * <p>Across a workspace each member owns its own policy ({@code [dependencies.policy]} is member-local,
  * not merged down from the root) while the report aggregates every member's dependencies. Evaluation is
  * therefore scoped: a member's policy sees only the closure that member consumes, exactly as
  * {@code zolt check --workspace --check license-policy} enforces it. A coordinate takes the strictest

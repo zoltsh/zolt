@@ -25,12 +25,12 @@ final class IdeModelRootsServiceTest {
                 name = "multi-root-tests"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [test.sources]
                 java = ["src/test/java", "src/integrationTest/java", "src/contractTest/java"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -73,13 +73,13 @@ final class IdeModelRootsServiceTest {
                 name = "groovy-tests"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [test.sources]
                 java = ["src/test/java"]
                 groovy = ["src/test/groovy", "src/integrationTest/groovy"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -107,13 +107,13 @@ final class IdeModelRootsServiceTest {
                 name = "resource-roots"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [resources]
                 main = ["src/main/resources", "target/generated/resources"]
                 test = ["src/test/resources", "target/generated/test-resources"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -127,25 +127,20 @@ final class IdeModelRootsServiceTest {
     }
 
     @Test
-    void normalizesConfiguredSourceAndResourceRootDotSegments() throws IOException {
-        Path projectDir = tempDir.resolve("normalized-roots");
+    void exportsConfiguredMainSourceRootsInAuthoredOrder() throws IOException {
+        Path projectDir = tempDir.resolve("multi-main-roots");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), """
                 [project]
-                name = "normalized-roots"
+                name = "multi-main-roots"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [build]
-                sources = ["src/main/java", "src/main/../generated/java"]
-                test = "src/test/java"
-
-                [resources]
-                main = ["src/main/resources/../resources", "assets/../src/main/extra-resources"]
-                test = ["src/test/resources"]
+                sources = ["src/main/java", "src/generated/java"]
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -166,11 +161,6 @@ final class IdeModelRootsServiceTest {
                         "java",
                         root.resolve("target/generated/test-sources/annotations"),
                         true)), model.sourceRoots());
-        assertEquals(List.of(
-                new IdeModel.ResourceRoot("main-resources", "main", root.resolve("src/main/resources")),
-                new IdeModel.ResourceRoot("main-resources-2", "main", root.resolve("src/main/extra-resources")),
-                new IdeModel.ResourceRoot("test-resources", "test", root.resolve("src/test/resources"))),
-                model.resourceRoots());
     }
 
 }

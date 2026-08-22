@@ -8,47 +8,72 @@ import static sh.zolt.tree.DependencyJsonFields.optionalStringField;
 import static sh.zolt.tree.DependencyJsonFields.stringArrayField;
 import static sh.zolt.tree.DependencyJsonFields.stringField;
 
-import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockArtifactVariant;
-import sh.zolt.lockfile.LockDependencyIndex;
+import sh.zolt.lockfile.LockConflict;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.dependency.ConflictSelectionReason;
-import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
 public final class DependencyJsonFormatter {
     public String tree(ProjectConfig config, ZoltLockfile lockfile) {
+        return tree(config, lockfile, ".");
+    }
+
+    /**
+     * The tree of the project identified by {@code member}: {@code .} for a standalone project, or a
+     * member path, whose packages and roots design §4.5 projects out of the one authoritative
+     * workspace lock. Conflicts and policy effects stay lock-wide facts and carry their own member
+     * attribution.
+     */
+    public String tree(ProjectConfig config, ZoltLockfile lockfile, String member) {
+        DependencyRootProjection roots = DependencyRootProjection.of(lockfile, member);
         StringBuilder json = new StringBuilder();
         json.append("{\n");
         intField(json, 1, "schemaVersion", 1, true);
         stringField(json, 1, "command", "tree", true);
         project(json, config);
         comma(json);
-        packages(json, lockfile.packages());
+        packages(json, memberPackages(lockfile, member), roots);
         comma(json);
-        stringArrayField(json, 1, "roots", roots(lockfile), true);
+        stringArrayField(json, 1, "roots", roots.graphRootCoordinates(), true);
         conflicts(json, lockfile.conflicts());
         comma(json);
-        policyEffects(json, lockfile.policyEffects());
+        policyEffects(json, lockfile.policyEffects().stream()
+                .filter(PolicyEffectScope.of(lockfile, member))
+                .toList());
         json.append("\n}\n");
         return json.toString();
     }
 
     public String why(ProjectConfig config, ZoltLockfile lockfile, PackageId target) {
-        Optional<List<LockPackage>> path = pathTo(lockfile, target);
+        return why(config, lockfile, target, ".");
+    }
+
+    /** Why {@code target} is present for the project identified by {@code member} (design §4.5). */
+    public String why(ProjectConfig config, ZoltLockfile lockfile, PackageId target, String member) {
+        DependencyRootProjection roots = DependencyRootProjection.of(lockfile, member);
+        Optional<DependencyRootProjection.ResolvedPath> resolvedPath = roots.pathTo(target);
+        if (resolvedPath.isEmpty() && roots.publishOnlyRoot(target).isPresent()) {
+            throw new DependencyWhyException(
+                    "Package " + target
+                            + " is a publish-only authored dependency, which why JSON schema 1 cannot represent. Run `zolt why "
+                            + target + "` without --format json to inspect its lane.");
+        }
+        Optional<List<LockPackage>> path = resolvedPath.map(DependencyRootProjection.ResolvedPath::packages);
         List<LockPolicyEffect> effects = path.isPresent()
                 ? policyEffects(lockfile, target)
                 : exclusionEffects(lockfile, target);
         List<LockConflict> conflicts = conflicts(lockfile, target);
         if (path.isEmpty() && effects.isEmpty() && conflicts.isEmpty()) {
             throw new DependencyWhyException(
-                    "Package " + target + " is not present in zolt.lock. Run `zolt resolve` after adding it or check the package id.");
+                    "Package " + target + " is not present in zolt.lock. Run `"
+                            + roots.regenerateCommand() + "` after adding it or check the package id.");
         }
 
         StringBuilder json = new StringBuilder();
@@ -59,7 +84,7 @@ public final class DependencyJsonFormatter {
         comma(json);
         stringField(json, 1, "target", target.toString(), true);
         stringField(json, 1, "status", path.isPresent() ? "present" : "excluded", true);
-        path(json, path.orElse(List.of()));
+        path(json, path.orElse(List.of()), roots);
         comma(json);
         conflicts(json, conflicts);
         comma(json);
@@ -77,7 +102,20 @@ public final class DependencyJsonFormatter {
         indent(json, 1).append("}");
     }
 
-    private static void packages(StringBuilder json, List<LockPackage> packages) {
+    /** The packages of one member's graph; a standalone lock holds exactly that project's graph. */
+    private static List<LockPackage> memberPackages(ZoltLockfile lockfile, String member) {
+        if (".".equals(member)) {
+            return lockfile.packages();
+        }
+        return lockfile.packages().stream()
+                .filter(lockPackage -> lockPackage.members().contains(member))
+                .toList();
+    }
+
+    private static void packages(
+            StringBuilder json,
+            List<LockPackage> packages,
+            DependencyRootProjection roots) {
         indent(json, 1).append("\"packages\": [");
         List<LockPackage> sorted = packages.stream()
                 .sorted(Comparator.comparing(DependencyJsonFormatter::coordinate))
@@ -85,7 +123,8 @@ public final class DependencyJsonFormatter {
         if (!sorted.isEmpty()) {
             json.append('\n');
             for (int index = 0; index < sorted.size(); index++) {
-                packageObject(json, 2, sorted.get(index));
+                LockPackage lockPackage = sorted.get(index);
+                packageObject(json, 2, lockPackage, roots.selects(lockPackage));
                 if (index + 1 < sorted.size()) {
                     json.append(',');
                 }
@@ -96,7 +135,11 @@ public final class DependencyJsonFormatter {
         json.append("]");
     }
 
-    private static void packageObject(StringBuilder json, int level, LockPackage lockPackage) {
+    private static void packageObject(
+            StringBuilder json,
+            int level,
+            LockPackage lockPackage,
+            boolean direct) {
         indent(json, level).append("{\n");
         stringField(json, level + 1, "id", lockPackage.packageId().toString(), true);
         stringField(json, level + 1, "version", lockPackage.version(), true);
@@ -104,18 +147,22 @@ public final class DependencyJsonFormatter {
         nonDefaultVariant(lockPackage).ifPresent(variant ->
                 stringField(json, level + 1, "variant", variant.key(), true));
         stringField(json, level + 1, "scope", lockPackage.scope().lockfileName(), true);
-        booleanField(json, level + 1, "direct", lockPackage.direct(), true);
+        booleanField(json, level + 1, "direct", direct, true);
         stringArrayField(json, level + 1, "dependencies", lockPackage.dependencies().stream().sorted().toList(), true);
         stringArrayField(json, level + 1, "policies", lockPackage.policies().stream().sorted().toList(), false);
         indent(json, level).append("}");
     }
 
-    private static void path(StringBuilder json, List<LockPackage> path) {
+    private static void path(
+            StringBuilder json,
+            List<LockPackage> path,
+            DependencyRootProjection roots) {
         indent(json, 1).append("\"path\": [");
         if (!path.isEmpty()) {
             json.append('\n');
             for (int index = 0; index < path.size(); index++) {
-                packageObject(json, 2, path.get(index));
+                LockPackage lockPackage = path.get(index);
+                packageObject(json, 2, lockPackage, roots.selects(lockPackage));
                 if (index + 1 < path.size()) {
                     json.append(',');
                 }
@@ -191,39 +238,6 @@ public final class DependencyJsonFormatter {
         json.append("]");
     }
 
-    private static List<String> roots(ZoltLockfile lockfile) {
-        return lockfile.packages().stream()
-                .filter(LockPackage::direct)
-                .map(DependencyJsonFormatter::coordinate)
-                .sorted()
-                .toList();
-    }
-
-    private static Optional<List<LockPackage>> pathTo(ZoltLockfile lockfile, PackageId target) {
-        LockDependencyIndex packages = new LockDependencyIndex(lockfile.packages());
-        ArrayDeque<PathItem> queue = new ArrayDeque<>();
-        lockfile.packages().stream()
-                .filter(LockPackage::direct)
-                .sorted(Comparator.comparing(DependencyJsonFormatter::coordinate))
-                .forEach(lockPackage -> queue.add(new PathItem(lockPackage, List.of(lockPackage))));
-
-        while (!queue.isEmpty()) {
-            PathItem item = queue.removeFirst();
-            if (item.lockPackage().packageId().equals(target)) {
-                return Optional.of(item.path());
-            }
-            item.lockPackage().dependencies().stream()
-                    .sorted()
-                    .map(edge -> packages.resolveGraphEdge(edge, "zolt resolve").orElse(null))
-                    .filter(java.util.Objects::nonNull)
-                    .filter(dependency -> !contains(item.path(), dependency))
-                    .forEach(dependency -> queue.add(new PathItem(
-                            dependency,
-                            append(item.path(), dependency))));
-        }
-        return Optional.empty();
-    }
-
     private static List<LockPolicyEffect> exclusionEffects(ZoltLockfile lockfile, PackageId target) {
         return lockfile.policyEffects().stream()
                 .filter(effect -> effect.packageId().equals(target))
@@ -249,16 +263,6 @@ public final class DependencyJsonFormatter {
 
     private static boolean exclusion(LockPolicyEffect effect) {
         return "global-exclusion".equals(effect.kind()) || "edge-exclusion".equals(effect.kind());
-    }
-
-    private static boolean contains(List<LockPackage> path, LockPackage candidate) {
-        return path.stream().anyMatch(lockPackage -> coordinate(lockPackage).equals(coordinate(candidate)));
-    }
-
-    private static List<LockPackage> append(List<LockPackage> path, LockPackage lockPackage) {
-        java.util.ArrayList<LockPackage> updated = new java.util.ArrayList<>(path);
-        updated.add(lockPackage);
-        return List.copyOf(updated);
     }
 
     private static String coordinate(LockPackage lockPackage) {
@@ -296,11 +300,5 @@ public final class DependencyJsonFormatter {
             case NEWEST_VERSION -> "newest version wins";
             case SELECTED_GRAPH -> "selected materialized graph wins";
         };
-    }
-
-    private record PathItem(LockPackage lockPackage, List<LockPackage> path) {
-        private PathItem {
-            path = List.copyOf(path);
-        }
     }
 }

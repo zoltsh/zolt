@@ -1,0 +1,27 @@
+[project]
+name = "orders-api"
+version = "0.1.0"
+group = "com.example.orders"
+java = 21
+main = "com.example.orders.Application"
+
+[versions]
+spring-boot = "4.0.6"
+
+[platforms]
+"org.springframework.boot:spring-boot-dependencies" = { versionRef = "spring-boot" }
+
+[dependencies]
+"org.springframework.boot:spring-boot-starter-webmvc" = { managed = true }
+
+[dependencies.runtime]
+"org.postgresql:postgresql" = { managed = true }
+
+[dependencies.dev]
+"org.springframework.boot:spring-boot-devtools" = { managed = true }
+
+[dependencies.test]
+"org.springframework.boot:spring-boot-starter-test" = { managed = true }
+
+[package]
+mode = "spring-boot"

@@ -9,7 +9,7 @@ import sh.zolt.project.ResourceFilteringSettings;
 import sh.zolt.project.ResourceTokenSettings;
 import sh.zolt.publish.PublishRepositorySettings;
 import sh.zolt.publish.PublishSettings;
-import sh.zolt.publish.PublishSettingsReader;
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckResult;
 import java.net.URI;
@@ -23,11 +23,11 @@ import java.util.Optional;
 import java.util.function.Function;
 
 final class CredentialQualityCheck {
-    private final PublishSettingsReader publishSettingsReader;
+    private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final CredentialEnvironmentValidator credentialEnvironmentValidator;
 
-    CredentialQualityCheck(PublishSettingsReader publishSettingsReader, Function<String, String> environment) {
-        this.publishSettingsReader = publishSettingsReader;
+    CredentialQualityCheck(ManifestPublishSettingsLoader publishSettingsLoader, Function<String, String> environment) {
+        this.publishSettingsLoader = publishSettingsLoader;
         this.credentialEnvironmentValidator = new CredentialEnvironmentValidator(environment);
     }
 
@@ -60,9 +60,9 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credentialId.orElseThrow() + "]",
+                        "[credentials." + credentialId.orElseThrow() + "]",
                         "Repository `" + repository.id() + "` references missing credential metadata.",
-                        "Define [repositoryCredentials." + credentialId.orElseThrow() + "] with environment variable names, not secret values."));
+                        "Define [credentials." + credentialId.orElseThrow() + "] with environment variable names, not secret values."));
                 continue;
             }
 
@@ -72,7 +72,7 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credential.id() + "]",
+                        "[credentials." + credential.id() + "]",
                         "CI context requires environment variable"
                                 + (missing.size() == 1 ? " " : "s ")
                                 + String.join(", ", missing)
@@ -92,7 +92,7 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credential.id() + "]",
+                        "[credentials." + credential.id() + "]",
                         "CI context rejects placeholder credential value"
                                 + (placeholders.size() == 1 ? " " : "s ")
                                 + "for environment variable"
@@ -126,7 +126,7 @@ final class CredentialQualityCheck {
         if (context != QualityCheckContext.CI) {
             return List.of();
         }
-        PublishSettings publish = publishSettingsReader.read(root.resolve("zolt.toml"), config.repositoryCredentials());
+        PublishSettings publish = publishSettingsLoader.read(root.resolve("zolt.toml"));
         if (!publish.configured()) {
             return List.of();
         }
@@ -152,9 +152,9 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credentialId.orElseThrow() + "]",
+                        "[credentials." + credentialId.orElseThrow() + "]",
                         "Publish repository `" + repository.id() + "` references missing credential metadata.",
-                        "Define [repositoryCredentials." + credentialId.orElseThrow() + "] with environment variable names, not secret values."));
+                        "Define [credentials." + credentialId.orElseThrow() + "] with environment variable names, not secret values."));
                 continue;
             }
 
@@ -164,7 +164,7 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credential.id() + "]",
+                        "[credentials." + credential.id() + "]",
                         "CI context requires environment variable"
                                 + (missing.size() == 1 ? " " : "s ")
                                 + String.join(", ", missing)
@@ -184,7 +184,7 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credential.id() + "]",
+                        "[credentials." + credential.id() + "]",
                         "CI context rejects placeholder credential value"
                                 + (placeholders.size() == 1 ? " " : "s ")
                                 + "for environment variable"
@@ -273,7 +273,12 @@ final class CredentialQualityCheck {
                         + "."));
     }
 
-    private Optional<QualityCheckResult> embeddedRepositoryCredentials(
+    /**
+     * Kept as defense in depth: a credential leak must fail closed even if parse-time URL policy
+     * regresses. Package-private and static so the leak-proof tests can drive it from a directly
+     * constructed {@link RepositorySettings}; no authored manifest can reach it any more.
+     */
+    static Optional<QualityCheckResult> embeddedRepositoryCredentials(
             Optional<String> member,
             RepositorySettings repository) {
         try {
@@ -286,7 +291,7 @@ final class CredentialQualityCheck {
                     member,
                     "[repositories." + repository.id() + "]",
                     "CI context rejects embedded credentials in repository `" + repository.id() + "` URL.",
-                    "Move credentials to [repositoryCredentials] environment references. Do not commit username, password, or token values in repository URLs."));
+                    "Move credentials to [credentials] environment references. Do not commit username, password, or token values in repository URLs."));
         } catch (URISyntaxException exception) {
             return Optional.of(QualityCheckResult.failed(
                     EXECUTION_CONTEXT,
@@ -297,7 +302,12 @@ final class CredentialQualityCheck {
         }
     }
 
-    private Optional<QualityCheckResult> embeddedPublishRepositoryCredentials(
+    /**
+     * Kept as defense in depth: a credential leak must fail closed even if parse-time URL policy
+     * regresses. Package-private and static so the leak-proof tests can drive it from a directly
+     * constructed {@link PublishRepositorySettings}; no authored manifest can reach it any more.
+     */
+    static Optional<QualityCheckResult> embeddedPublishRepositoryCredentials(
             Optional<String> member,
             PublishRepositorySettings repository) {
         try {
@@ -310,7 +320,7 @@ final class CredentialQualityCheck {
                     member,
                     "[publish.repositories." + repository.id() + "]",
                     "CI context rejects embedded credentials in publish repository `" + repository.id() + "` URL.",
-                    "Move publish credentials to [repositoryCredentials] environment references. Do not commit username, password, or token values in publish repository URLs."));
+                    "Move publish credentials to [credentials] environment references. Do not commit username, password, or token values in publish repository URLs."));
         } catch (URISyntaxException exception) {
             return Optional.of(QualityCheckResult.failed(
                     EXECUTION_CONTEXT,

@@ -6,8 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.maven.metadata.VersionDiscovery;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.update.OutdatedSurface;
 import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateTarget;
@@ -26,10 +25,12 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 final class DependencyExactUpdateCommandTest {
+    private static final ManifestMutationServices MANIFESTS = new ManifestMutationServices();
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     @TempDir
     private Path tempDir;
 
-    private final ZoltTomlParser parser = new ZoltTomlParser();
     private final UpdateTargetCatalog catalog = new UpdateTargetCatalog();
 
     @Test
@@ -37,10 +38,6 @@ final class DependencyExactUpdateCommandTest {
         Path project = writeProject(tempDir.resolve("json"), """
                 [dependencies]
                 "com.example:lib" = "1.0.0"
-
-                [workspace]
-                name = "retained-source-domain"
-                members = []
                 """);
         UpdateTarget target = target(project, "zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies]");
 
@@ -130,7 +127,7 @@ final class DependencyExactUpdateCommandTest {
                 [dependencies]
                 "com.example:lib" = "1.0.0"
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
 
@@ -141,9 +138,9 @@ final class DependencyExactUpdateCommandTest {
                 output = "target/generated/sources/openapi/api"
                 generator = "spring"
                 """);
-        UpdateTarget generated = target(project, "zolt.toml", OutdatedSurface.OPENAPI_TOOL, "[generated.openapiTool]");
+        UpdateTarget generated = target(project, "zolt.toml", OutdatedSurface.OPENAPI_TOOL, "[generated.tools.openapi]");
         UpdateTargetId unknown = UpdateTargetId.create(
-                "zolt.toml", OutdatedSurface.DEPENDENCY, "[test.dependencies]", "com.example:lib");
+                "zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies.test]", "com.example:lib");
 
         Result malformed = run(project, () -> {}, exactArgs("not-a-target", "1.1.0", "--no-resolve"));
         Result stale = run(project, () -> {}, exactArgs(unknown.toString(), "1.1.0", "--no-resolve"));
@@ -188,13 +185,15 @@ final class DependencyExactUpdateCommandTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "demo"
-                members = ["apps/api", "modules/core"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
                 """);
         Path api = writeProject(root.resolve("apps/api"), """
                 [dependencies]
                 "com.example:shared" = "1.0.0"
-                [test.dependencies]
-                "com.example:shared" = "1.0.0"
+                [dependencies.test]
+                "com.example:test-only" = "1.0.0"
                 """);
         Path core = writeProject(root.resolve("modules/core"), """
                 [dependencies]
@@ -209,21 +208,23 @@ final class DependencyExactUpdateCommandTest {
         assertEquals(0, result.exitCode(), result.stderr());
         String apiManifest = Files.readString(api.resolve("zolt.toml"));
         assertTrue(apiManifest.contains("[dependencies]\n\"com.example:shared\" = \"1.1.0\""));
-        assertTrue(apiManifest.contains("[test.dependencies]\n\"com.example:shared\" = \"1.0.0\""));
+        assertTrue(apiManifest.contains("[dependencies.test]\n\"com.example:test-only\" = \"1.0.0\""));
         assertTrue(Files.readString(core.resolve("zolt.toml")).contains("\"com.example:shared\" = \"1.0.0\""));
         assertTrue(result.stdout().contains("\"manifestPath\": \"apps/api/zolt.toml\""));
         assertTrue(result.stdout().contains("\"changedFiles\": [\n    \"apps/api/zolt.toml\""));
     }
 
     @Test
-    void rootMemberAndLegacyWorkspaceRouteExactTargets() throws IOException {
+    void rootMemberRoutesExactTargetsThroughItsOwnManifest() throws IOException {
         Path rootMember = writeProject(tempDir.resolve("root-member"), """
                 [dependencies]
                 "com.example:root" = "1.0.0"
 
                 [workspace]
                 name = "root-member"
-                members = ["."]
+
+                [workspace.members]
+                include = ["."]
                 """);
         UpdateTarget rootTarget = target(
                 rootMember, "zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies]");
@@ -234,24 +235,6 @@ final class DependencyExactUpdateCommandTest {
         assertTrue(Files.readString(rootMember.resolve("zolt.toml"))
                 .contains("\"com.example:root\" = \"1.1.0\""));
 
-        Path legacy = tempDir.resolve("legacy-workspace");
-        Path member = writeProject(legacy.resolve("apps/api"), """
-                [dependencies]
-                "com.example:legacy" = "2.0.0"
-                """);
-        Files.writeString(legacy.resolve("zolt-workspace.toml"), """
-                [workspace]
-                name = "legacy"
-                members = ["apps/api"]
-                """);
-        UpdateTarget legacyTarget = target(
-                member, "apps/api/zolt.toml", OutdatedSurface.DEPENDENCY, "[dependencies]");
-
-        Result legacyResult = run(legacy, () -> {}, exactArgs(legacyTarget, "2.1.0", "--no-resolve"));
-
-        assertEquals(0, legacyResult.exitCode(), legacyResult.stderr());
-        assertTrue(Files.readString(member.resolve("zolt.toml"))
-                .contains("\"com.example:legacy\" = \"2.1.0\""));
     }
 
     @Test
@@ -308,7 +291,7 @@ final class DependencyExactUpdateCommandTest {
         Runnable concurrent = () -> replace(
                 manifest,
                 "[dependencies]",
-                "[workspace]\nname = \"broken\"\nmembers = [\"missing-member\"]\n\n[dependencies]");
+                "[workspace]\nname = \"broken\"\n\n[workspace.members]\ninclude = [\"missing-member\"]\n\n[dependencies]");
 
         Result result = run(project, concurrent, exactArgs(
                 target, "1.1.0", "--format", "json", "--schema-version", "2", "--no-resolve"));
@@ -333,7 +316,7 @@ final class DependencyExactUpdateCommandTest {
         ResolveService resolveService = new ResolveService();
         Path manifest = project.resolve("zolt.toml");
         replace(manifest, "unused = \"1.0.0\"", "unused = \"2.0.0\"");
-        resolveService.resolve(project, parser.parse(project.resolve("zolt.toml")), cache);
+        resolveService.resolve(project, LOADER.load(project.resolve("zolt.toml")), cache);
         replace(manifest, "unused = \"2.0.0\"", "unused = \"1.0.0\"");
         String originalLock = Files.readString(project.resolve("zolt.lock"));
         UpdateTarget target = target(project, "zolt.toml", OutdatedSurface.VERSION_ALIAS, "[versions]");
@@ -363,8 +346,7 @@ final class DependencyExactUpdateCommandTest {
             throw new AssertionError("Exact update must not perform metadata discovery.");
         };
         UpdateCommand command = new UpdateCommand(
-                parser,
-                new ZoltTomlWriter(),
+                MANIFESTS,
                 resolveService,
                 new UpdateEngine(forbiddenDiscovery),
                 beforeExecution);
@@ -386,7 +368,8 @@ final class DependencyExactUpdateCommandTest {
             String manifestPath,
             OutdatedSurface surface,
             String section) {
-        return catalog.collect(parser.parse(project.resolve("zolt.toml")), manifestPath, "zolt.lock").stream()
+        return catalog.collect(
+                LOADER.document(project.resolve("zolt.toml")).authored(), manifestPath, "zolt.lock").stream()
                 .filter(candidate -> candidate.surface() == surface && candidate.section().equals(section))
                 .findFirst()
                 .orElseThrow();
@@ -409,7 +392,7 @@ final class DependencyExactUpdateCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 %s
                 """.formatted(directory.getFileName(), body));

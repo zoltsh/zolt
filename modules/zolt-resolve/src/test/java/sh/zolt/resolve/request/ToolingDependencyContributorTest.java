@@ -11,7 +11,7 @@ import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -338,50 +338,50 @@ final class ToolingDependencyContributorTest {
     }
 
     private static ProjectConfig baseConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
     }
 
     private static ProjectConfig testDependencyConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [test.dependencies]
+                [dependencies.test]
                 "com.example:app" = "1.0.0"
                 """);
     }
 
     private static ProjectConfig springBootNativeConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "spring-native-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
                 """);
     }
 
     private static ProjectConfig openApiConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "openapi-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
 
@@ -395,16 +395,18 @@ final class ToolingDependencyContributorTest {
     }
 
     private static ProjectConfig protobufConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "protobuf-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [generated.protobufTool]
+                [generated.tools.protobuf]
+                protocCoordinate = "com.google.protobuf:protoc"
                 protocVersion = "4.28.3"
-                grpcPluginVersion = "1.68.1"
+                grpcCoordinate = "io.grpc:protoc-gen-grpc-java"
+                grpcVersion = "1.68.1"
 
                 [generated.main.greeter]
                 kind = "protobuf"

@@ -10,14 +10,14 @@ import java.nio.file.Path;
 public abstract class TestCommandTestSupport {
     protected static void writeJUnitConsoleLockfile(Path projectDir, Path cacheRoot) throws IOException {
         write(projectDir.resolve("zolt.lock"), cacheRoot, """
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "org.junit.platform:junit-platform-console-standalone"
                 version = "1.11.4"
                 source = "maven-central"
                 scope = "test"
-                direct = true
+                direct = false
                 jar = "org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar"
                 dependencies = []
                 """);
@@ -36,21 +36,18 @@ public abstract class TestCommandTestSupport {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
     }
 

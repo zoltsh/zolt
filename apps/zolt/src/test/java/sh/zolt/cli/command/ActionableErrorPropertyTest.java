@@ -62,7 +62,10 @@ final class ActionableErrorPropertyTest {
                     writeConfig(dir, "unknown-dep", """
 
                             [repositories]
-                            test = "%s"
+                            central = false
+
+                            [repositories.test]
+                            url = "%s"
 
                             [dependencies]
                             "com.example:does-not-exist" = "9.9.9"

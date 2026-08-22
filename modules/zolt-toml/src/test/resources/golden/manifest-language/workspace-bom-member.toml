@@ -1,0 +1,12 @@
+[project]
+name = "platform-bom"
+
+[bom]
+members = true
+exclude = ["apps/admin"]
+
+[bom.versions]
+"org.postgresql:postgresql" = "42.7.4"
+
+[bom.imports]
+"com.fasterxml.jackson:jackson-bom" = "2.19.0"

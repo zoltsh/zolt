@@ -40,35 +40,22 @@ public final class OutdatedEngine {
         this.planner = planner;
     }
 
-    public OutdatedReport report(List<? extends UpdateReportScope> scopes, OutdatedOptions options) {
+    public OutdatedReport report(List<OutdatedScope> scopes, OutdatedOptions options) {
         List<OutdatedScopeReport> scopeReports = new ArrayList<>();
-        for (UpdateReportScope scope : scopes) {
+        for (OutdatedScope scope : scopes) {
             scopeReports.add(reportScope(scope, options));
         }
         return applyWorkspaceDedup(scopeReports);
     }
 
-    private OutdatedScopeReport reportScope(UpdateReportScope scope, OutdatedOptions options) {
-        List<List<RepositoryAccess>> repositorySets;
-        List<UpdateTargetCatalog.Entry> catalogEntries;
-        if (scope instanceof OutdatedScope project) {
-            repositorySets = List.of(planner.plan(project.discoveryConfig()));
-            catalogEntries = catalog.entries(
-                    project.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
-        } else if (scope instanceof WorkspaceOutdatedScope workspace) {
-            repositorySets = workspace.repositoryConfigurations().stream()
-                    .map(planner::plan)
-                    .toList();
-            catalogEntries = catalog.entries(
-                    workspace.config(), scope.manifestPath(), scope.lockfilePath(), scope.targetBlockers());
-        } else {
-            throw new IllegalStateException("Unknown outdated scope type " + scope.getClass().getName() + ".");
-        }
-        List<Map<String, MetadataDiscovery>> memos = new ArrayList<>();
-        repositorySets.forEach(ignored -> memos.add(new LinkedHashMap<>()));
+    private OutdatedScopeReport reportScope(OutdatedScope scope, OutdatedOptions options) {
+        List<RepositoryAccess> repositories = planner.plan(scope.discovery());
+        List<UpdateTargetCatalog.Entry> catalogEntries = catalog.entries(
+                scope.manifest(), scope.manifestPath(), scope.lockfilePath());
+        Map<String, MetadataDiscovery> memo = new LinkedHashMap<>();
         List<OutdatedEntry> entries = new ArrayList<>();
         for (UpdateTargetCatalog.Entry catalogEntry : catalogEntries) {
-            OutdatedEntry entry = evaluate(catalogEntry, repositorySets, memos, options);
+            OutdatedEntry entry = evaluate(catalogEntry, repositories, memo, options);
             if (include(entry, options)) {
                 entries.add(entry);
             }
@@ -79,12 +66,12 @@ public final class OutdatedEngine {
 
     private OutdatedEntry evaluate(
             UpdateTargetCatalog.Entry catalogEntry,
-            List<List<RepositoryAccess>> repositorySets,
-            List<Map<String, MetadataDiscovery>> memos,
+            List<RepositoryAccess> repositories,
+            Map<String, MetadataDiscovery> memo,
             OutdatedOptions options) {
         SurfaceRequest surface = catalogEntry.request();
         MetadataDiscovery discovered =
-                discoverAcrossRepositorySets(surface, repositorySets, memos, options.offline());
+                surfaceDiscovery.discover(surface, repositories, options.offline(), memo);
         if (!discovered.resolved()) {
             return entry(
                     catalogEntry,
@@ -103,75 +90,6 @@ public final class OutdatedEngine {
                 toCandidates(surface.currentVersion(), candidates),
                 source,
                 discovered.notes());
-    }
-
-    private MetadataDiscovery discoverAcrossRepositorySets(
-            SurfaceRequest surface,
-            List<List<RepositoryAccess>> repositorySets,
-            List<Map<String, MetadataDiscovery>> memos,
-            boolean offline) {
-        List<String> intersection = null;
-        List<MetadataDiscovery> discoveries = new ArrayList<>();
-        List<String> notes = new ArrayList<>();
-        boolean allResolved = true;
-        for (int index = 0; index < repositorySets.size(); index++) {
-            MetadataDiscovery discovered = surfaceDiscovery.discover(
-                    surface, repositorySets.get(index), offline, memos.get(index));
-            discoveries.add(discovered);
-            notes.addAll(discovered.notes());
-            if (!discovered.resolved()) {
-                allResolved = false;
-                continue;
-            }
-            intersection = intersection == null
-                    ? new ArrayList<>(discovered.versions())
-                    : retain(intersection, discovered.versions());
-        }
-        List<String> versions = intersection == null ? List.of() : List.copyOf(intersection);
-        Map<String, String> sourceByVersion = consensusSources(versions, discoveries, repositorySets);
-        return new MetadataDiscovery(allResolved && intersection != null, versions, sourceByVersion, notes);
-    }
-
-    private static Map<String, String> consensusSources(
-            List<String> versions,
-            List<MetadataDiscovery> discoveries,
-            List<List<RepositoryAccess>> repositorySets) {
-        Map<String, String> consensus = new LinkedHashMap<>();
-        for (String version : versions) {
-            RepositoryAccess source = null;
-            boolean universal = true;
-            for (int index = 0; index < discoveries.size(); index++) {
-                int repositoryIndex = index;
-                Optional<String> sourceId = discoveries.get(index).source(version);
-                RepositoryAccess candidate = sourceId
-                        .flatMap(id -> repositorySets.get(repositoryIndex).stream()
-                                .filter(repository -> repository.id().equals(id))
-                                .findFirst())
-                        .orElse(null);
-                if (candidate == null || source != null && !sameRepositoryView(source, candidate)) {
-                    universal = false;
-                    break;
-                }
-                source = candidate;
-            }
-            if (universal && source != null) {
-                consensus.put(version, source.id());
-            }
-        }
-        return Map.copyOf(consensus);
-    }
-
-    private static boolean sameRepositoryView(RepositoryAccess left, RepositoryAccess right) {
-        return left.id().equals(right.id())
-                && left.uri().normalize().equals(right.uri().normalize())
-                && left.authentication().map(authentication -> authentication.authorizationHeaderValue())
-                        .equals(right.authentication().map(authentication -> authentication.authorizationHeaderValue()));
-    }
-
-    private static List<String> retain(List<String> current, List<String> candidates) {
-        List<String> retained = new ArrayList<>(current);
-        retained.retainAll(candidates);
-        return retained;
     }
 
     private OutdatedCandidates toCandidates(String current, VersionCandidates candidates) {

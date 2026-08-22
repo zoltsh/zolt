@@ -6,8 +6,7 @@ import sh.zolt.framework.FrameworkPackageAugmenter;
 import sh.zolt.framework.FrameworkRunAugmenter;
 import sh.zolt.framework.FrameworkTestRunner;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
+import sh.zolt.cli.command.dependency.ManifestMutationServices;
 import java.util.Objects;
 
 public final class CommandServiceClusters {
@@ -15,12 +14,10 @@ public final class CommandServiceClusters {
     }
 
     public record CommandConfigEditServices(
-            ZoltTomlParser tomlParser,
-            ZoltTomlWriter tomlWriter,
+            ManifestMutationServices manifests,
             ResolveService resolveService) {
         public CommandConfigEditServices {
-            Objects.requireNonNull(tomlParser, "tomlParser");
-            Objects.requireNonNull(tomlWriter, "tomlWriter");
+            Objects.requireNonNull(manifests, "manifests");
             Objects.requireNonNull(resolveService, "resolveService");
         }
     }

@@ -1,5 +1,6 @@
 package sh.zolt.quality.execution;
 
+import sh.zolt.publish.ManifestPublishSettingsLoader;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -7,13 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.publish.PublishDryRunService;
-import sh.zolt.publish.PublishSettingsReader;
 import sh.zolt.quality.QualityCheckContext;
 import sh.zolt.quality.QualityCheckRequest;
 import sh.zolt.quality.QualityCheckResult;
 import sh.zolt.quality.QualityCheckService;
 import sh.zolt.quality.QualityCheckStatus;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfig;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
@@ -29,10 +29,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class QualityExecutionContextRunnerTest {
-    private final ZoltTomlParser parser = new ZoltTomlParser();
+    private final ManifestProjectConfigLoader manifestLoader = new ManifestProjectConfigLoader();
     private final QualityExecutionContextRunner runner = QualityExecutionContextRunner.create(
             new ZoltLockfileReader(),
-            new PublishSettingsReader(),
+            new ManifestPublishSettingsLoader(),
             Map.<String, String>of()::get,
             new PublishDryRunService());
 
@@ -47,12 +47,16 @@ final class QualityExecutionContextRunnerTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                private = { url = "https://repo.example.test/maven", credentials = "missing-creds" }
+                central = false
 
-                [repositoryCredentials.missing-creds]
+                [repositories.private]
+                url = "https://repo.example.test/maven"
+                credentials = "missing-creds"
+
+                [credentials.missing-creds]
                 usernameEnv = "MISSING_USER"
                 passwordEnv = "MISSING_TOKEN"
                 """);
@@ -79,18 +83,22 @@ final class QualityExecutionContextRunnerTest {
     void workspaceCiRunsMemberPreflightsForIncludedMembersAndEvidenceForSelectedMembers() throws IOException {
         Path workspaceDir = tempDir.resolve("ci-workspace");
         Files.createDirectories(workspaceDir);
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
         WorkspaceMember core = member(workspaceDir, "modules/core", """
                 [project]
                 name = "core"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                private = { url = "https://repo.example.test/maven", credentials = "company-creds" }
+                central = false
 
-                [repositoryCredentials.company-creds]
+                [repositories.private]
+                url = "https://repo.example.test/maven"
+                credentials = "company-creds"
+
+                [credentials.company-creds]
                 usernameEnv = "COMPANY_USER"
                 passwordEnv = "COMPANY_TOKEN"
                 """);
@@ -99,7 +107,7 @@ final class QualityExecutionContextRunnerTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
         Workspace workspace = workspace(workspaceDir, List.of(core, api));
 
@@ -115,7 +123,7 @@ final class QualityExecutionContextRunnerTest {
                 .map(result -> result.member().orElse("<root>") + "|" + result.subject() + "|" + result.message())
                 .toList();
         assertTrue(summaries.contains("<root>|ci|CI context policy is active. Policy source: built-in ci context. Locked model checks, generated-source checks, package diagnostics, local overlay rejection, and credential preflight are enabled."));
-        assertTrue(summaries.contains("modules/core|[repositoryCredentials.company-creds]|CI context requires environment variables COMPANY_USER, COMPANY_TOKEN for repository `private` credentials `company-creds` before resolve/build work starts."));
+        assertTrue(summaries.contains("modules/core|[credentials.company-creds]|CI context requires environment variables COMPANY_USER, COMPANY_TOKEN for repository `private` credentials `company-creds` before resolve/build work starts."));
         // The publish dry-run runs once as a family preflight (not per member).
         assertTrue(summaries.stream().anyMatch(
                 summary -> summary.startsWith("<root>|publish-dry-run|CI workspace publish dry-run preflight")));
@@ -138,10 +146,13 @@ final class QualityExecutionContextRunnerTest {
                 name = "api"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                private = "https://member.example.test/maven"
+                central = false
+
+                [repositories.private]
+                url = "https://member.example.test/maven"
                 """);
         Workspace workspace = new Workspace(
                 workspaceDir,
@@ -210,7 +221,7 @@ final class QualityExecutionContextRunnerTest {
         Path memberDir = workspaceDir.resolve(memberPath);
         Files.createDirectories(memberDir);
         Files.writeString(memberDir.resolve("zolt.toml"), toml);
-        ProjectConfig config = parser.parse(memberDir.resolve("zolt.toml"));
+        ProjectConfig config = manifestLoader.load(memberDir.resolve("zolt.toml"));
         return new WorkspaceMember(memberPath, memberDir, config);
     }
 

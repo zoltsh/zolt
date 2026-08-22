@@ -14,7 +14,7 @@ import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.maven.repository.PomInterpolationException;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -85,11 +85,11 @@ final class ClassifierArtifactResolutionTest extends ResolveServiceTestSupport {
                         [dependencies]
                         "com.example:fixture" = { version = "1.0.0", classifier = "linux-x86_64" }
 
-                        [test.dependencies]
+                        [dependencies.test]
                         "com.example:fixture" = { version = "2.0.0", classifier = "tests" }
 
-                        [dependencyPolicy]
-                        failOnVersionConflict = true
+                        [dependencies.policy]
+                        conflicts = "fail"
                         """),
                 tempDir.resolve("main-test-variants-cache"));
 
@@ -114,7 +114,7 @@ final class ClassifierArtifactResolutionTest extends ResolveServiceTestSupport {
                         [dependencies]
                         "com.example:fixture" = { version = "1.0.0", classifier = "runtime" }
 
-                        [annotationProcessors]
+                        [dependencies.processor]
                         "com.example:fixture" = { version = "2.0.0", classifier = "processor" }
                         """),
                 tempDir.resolve("dependency-processor-variants-cache"));
@@ -356,15 +356,18 @@ final class ClassifierArtifactResolutionTest extends ResolveServiceTestSupport {
     }
 
     private ProjectConfig config(String sections) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "variant-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 %s
                 """.formatted(baseUri, sections));

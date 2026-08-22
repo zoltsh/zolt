@@ -99,24 +99,23 @@ final class AddCommandValidationTest {
     }
 
     @Test
-    void addRejectsUnknownDependencySectionWithSupportedSections() throws IOException {
+    void addRejectsUnknownDependencyScopeWithSupportedScopes() throws IOException {
         Path projectDir = tempDir.resolve("demo");
         writeProjectConfig(projectDir);
 
         CommandResult result = execute(
                 "add",
                 "--cwd", projectDir.toString(),
-                "compile-only",
-                "com.example:tool:1.0.0");
+                "com.example:tool:1.0.0",
+                "--scope", "compile-only");
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stderr().contains("Unexpected dependency section `compile-only`"));
-        assertTrue(result.stderr().contains("zolt add api group:artifact"));
-        assertTrue(result.stderr().contains("zolt add runtime group:artifact"));
-        assertTrue(result.stderr().contains("zolt add provided group:artifact"));
-        assertTrue(result.stderr().contains("zolt add dev group:artifact"));
-        assertTrue(result.stderr().contains("zolt add processor group:artifact"));
-        assertTrue(result.stderr().contains("zolt add test-processor group:artifact"));
+        assertTrue(result.stderr().contains("Unexpected dependency scope `compile-only`"), result.stderr());
+        assertTrue(
+                result.stderr().contains(
+                        "zolt add group:artifact --scope "
+                                + "<implementation|api|runtime|provided|dev|test|processor|test-processor>"),
+                result.stderr());
     }
 
     private static void writeProjectConfig(Path projectDir) throws IOException {
@@ -124,18 +123,10 @@ final class AddCommandValidationTest {
         Files.writeString(projectDir.resolve("zolt.toml"), memberConfig("demo") + """
                 main = "com.example.Main"
 
-                [repositories]
-                test = "https://repo.maven.apache.org/maven2"
+                [repositories.test]
+                url = "https://repo.maven.apache.org/maven2"
 
-                [dependencies]
-
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """);
     }
 }

@@ -121,7 +121,7 @@ final class DependencyGraphResolver {
                 throw ResolveException.actionable(
                         "Dependency version selection did not stabilize while materializing the selected graph.",
                         "Align the cycling versions with a direct dependency, [platforms] BOM, or "
-                                + "[dependencyConstraints] strict constraint, then run `"
+                                + "[dependencies.constraints] strict constraint, then run `"
                                 + retryCommand
                                 + "` again.");
             }
@@ -132,7 +132,7 @@ final class DependencyGraphResolver {
                         + MAX_MATERIALIZATION_PASSES
                         + " materialization passes.",
                 "Align the changing versions with a direct dependency, [platforms] BOM, or "
-                        + "[dependencyConstraints] strict constraint, then run `"
+                        + "[dependencies.constraints] strict constraint, then run `"
                         + retryCommand
                         + "` again.");
     }

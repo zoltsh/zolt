@@ -3,7 +3,10 @@ package sh.zolt.workspace.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.workspace.WorkspaceContentAddressedLockTestSupport.dependencyRoot;
 
+import sh.zolt.dependency.DependencyLane;
+import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -250,8 +253,8 @@ final class WorkspaceMemberLaneClosureTest {
             String coreRuntimeVersion,
             String apiOnlyVersion,
             String apiDeepVersion) {
-        return lockfileReader.read("""
-                version = 5
+        String packages = """
+                version = 7
 
                 [[package]]
                 id = "com.acme:core"
@@ -348,7 +351,14 @@ final class WorkspaceMemberLaneClosureTest {
                         coreRuntimeVersion,
                         apiOnlyVersion,
                         apiDeepVersion,
-                        apiDeepVersion));
+                        apiDeepVersion);
+        return lockfileReader.read(packages
+                + dependencyRoot("modules/util", "com.acme:core", "0.1.0", DependencyLane.API, DependencyScope.COMPILE)
+                + dependencyRoot("apps/api", "com.acme:util", "0.1.0", DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE)
+                + dependencyRoot("modules/core", "org.example:core-runtime", coreRuntimeVersion, DependencyLane.RUNTIME, DependencyScope.RUNTIME)
+                + dependencyRoot("apps/api", "org.example:api-only", apiOnlyVersion, DependencyLane.IMPLEMENTATION, DependencyScope.COMPILE)
+                + dependencyRoot("modules/core", "org.example:core-api", "1.0.0", DependencyLane.API, DependencyScope.COMPILE)
+                + dependencyRoot("modules/core", "org.example:core-test", "1.0.0", DependencyLane.TEST, DependencyScope.TEST));
     }
 
     /**
@@ -356,13 +366,13 @@ final class WorkspaceMemberLaneClosureTest {
      * exported edge is what carries core's API packages onto api's compile lane.
      */
     private Workspace workspace() throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), "");
+        Files.writeString(tempDir.resolve("zolt.toml"), "");
         for (String member : MEMBERS) {
             Files.createDirectories(tempDir.resolve(member));
         }
         return new Workspace(
                 tempDir,
-                tempDir.resolve("zolt-workspace.toml"),
+                tempDir.resolve("zolt.toml"),
                 new WorkspaceConfig("acme-platform", MEMBERS, List.of(), Map.of(), Map.of()),
                 MEMBERS.stream()
                         .map(member -> new WorkspaceMember(member, tempDir.resolve(member), null))

@@ -82,6 +82,8 @@ final class WorkspacePolicyMerger {
         Map<String, String> merged = new LinkedHashMap<>(workspaceValues);
         for (Map.Entry<String, String> entry : memberValues.entrySet()) {
             String existing = merged.putIfAbsent(entry.getKey(), entry.getValue());
+            // Kept as defense in depth: effective composition already rejects member redeclaration
+            // of a root-owned credential id, and diverging secrets must never merge silently.
             if (existing != null && !existing.equals(entry.getValue())) {
                 throw new ResolveException(
                         "Workspace "

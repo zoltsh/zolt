@@ -18,7 +18,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.maven.repository.MavenRepositoryClient;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.publish.CentralPortalClient;
 import sh.zolt.publish.PublishException;
 import sh.zolt.workspace.service.WorkspaceSelectionRequest;
@@ -42,14 +42,23 @@ final class WorkspacePublishServiceTest {
         try {
             writeWorkspace(tempDir, "lib");
             Files.writeString(
-                    tempDir.resolve("zolt-workspace.toml"),
+                    tempDir.resolve("zolt.toml"),
                     """
                     [workspace]
                     name = "authenticated-publish"
-                    members = ["lib"]
+
+                    [workspace.members]
+                    include = ["lib"]
 
                     [repositories]
-                    internal = "%s"
+                    central = false
+
+                    [repositories.internal]
+                    url = "%s"
+                    credentials = "internal-creds"
+
+                    [credentials.internal-creds]
+                    tokenEnv = "PATH"
                     """.formatted(repository.baseUri()));
             Path member = tempDir.resolve("lib");
             writeMember(member, """
@@ -57,21 +66,18 @@ final class WorkspacePublishServiceTest {
                     name = "lib"
                     version = "1.0.0"
                     group = "com.acme"
-                    java = "21"
+                    java = 21
 
-                    [repositories]
-                    internal = { url = "%s", credentials = "company" }
-
-                    [repositoryCredentials.company]
+                    [credentials.publish-creds]
                     tokenEnv = "PATH"
 
                     [publish]
-                    releaseRepository = "internal"
+                    release = "internal"
 
                     [publish.repositories.internal]
                     url = "%s"
-                    credentials = "company"
-                    """.formatted(repository.baseUri(), repository.baseUri()));
+                    credentials = "publish-creds"
+                    """.formatted(repository.baseUri()));
             Path artifact = member.resolve("target/lib-1.0.0.jar");
             Files.createDirectories(artifact.getParent());
             Files.writeString(artifact, "authenticated workspace publish\n");
@@ -103,9 +109,9 @@ final class WorkspacePublishServiceTest {
 
     @Test
     void warMemberPlansAndUploadsItsWarArchiveRatherThanAJar(@TempDir Path tempDir) throws IOException {
-        Path repository = tempDir.resolve("repo");
-        Files.createDirectories(repository);
-        String repositoryUrl = repository.toUri().toString();
+        PublishFixtureRepository repository = PublishFixtureRepository.start();
+        try {
+        String repositoryUrl = repository.baseUri();
         writeWorkspace(tempDir, "web-app");
         // A WAR member: its real archive is a .war, not a .jar.
         Path member = tempDir.resolve("web-app");
@@ -114,13 +120,13 @@ final class WorkspacePublishServiceTest {
                 name = "web-app"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [package]
                 mode = "war"
 
                 [publish]
-                releaseRepository = "local"
+                release = "local"
 
                 [publish.repositories.local]
                 url = "%s"
@@ -138,19 +144,23 @@ final class WorkspacePublishServiceTest {
 
         assertTrue(report.ok(), () -> "blockers: " + report.blockers());
         assertTrue(report.uploaded());
-        Path uploaded = repository.resolve("com/acme/web-app/1.0.0/web-app-1.0.0.war");
-        assertTrue(Files.exists(uploaded), "the .war archive was uploaded");
+        assertTrue(
+                repository.has("/maven2/com/acme/web-app/1.0.0/web-app-1.0.0.war"),
+                "the .war archive was uploaded");
         assertFalse(
-                Files.exists(repository.resolve("com/acme/web-app/1.0.0/web-app-1.0.0.jar")),
+                repository.has("/maven2/com/acme/web-app/1.0.0/web-app-1.0.0.jar"),
                 "no phantom .jar is published for a WAR member");
+        } finally {
+            repository.close();
+        }
     }
 
     @Test
     void frameworkFastJarMemberRejectsSingleArtifactPublication(@TempDir Path tempDir)
             throws IOException {
-        Path repository = tempDir.resolve("repo");
-        Files.createDirectories(repository);
-        String repositoryUrl = repository.toUri().toString();
+        PublishFixtureRepository repository = PublishFixtureRepository.start();
+        try {
+        String repositoryUrl = repository.baseUri();
         writeWorkspace(tempDir, "svc");
         // A framework fast-jar member (Quarkus): its real archive is target/quarkus-app/quarkus-run.jar,
         // nothing like the synthesized target/svc-1.0.0.jar the old planner assumed.
@@ -160,13 +170,13 @@ final class WorkspacePublishServiceTest {
                 name = "svc"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [package]
                 mode = "quarkus"
 
                 [publish]
-                releaseRepository = "local"
+                release = "local"
 
                 [publish.repositories.local]
                 url = "%s"
@@ -200,8 +210,11 @@ final class WorkspacePublishServiceTest {
 
         assertTrue(exception.getMessage().contains("multi-file runtime layout"));
         assertFalse(
-                Files.exists(repository.resolve("com/acme/svc/1.0.0/svc-1.0.0.jar")),
+                repository.has("/maven2/com/acme/svc/1.0.0/svc-1.0.0.jar"),
                 "the runner alone is never uploaded as the member artifact");
+        } finally {
+            repository.close();
+        }
     }
 
     /** A stand-in for a framework's fast-jar package rules: its real archive is a runner jar. */
@@ -257,31 +270,33 @@ final class WorkspacePublishServiceTest {
                 name = "%s"
                 version = "1.0.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
 
                 [publish]
-                releaseRepository = "local"
+                release = "local"
 
                 [publish.repositories.local]
                 url = "https://repo.example.test/releases"
 
                 [publish.central]
                 tokenEnv = "%s"
+                mode = "manual"
 
                 [publish.signing]
-                enabled = true
+                method = "gpg"
                 keyId = "%s"
                 """.formatted(name, tokenEnv, keyId);
     }
 
     private static void writeWorkspace(Path root, String... members) throws IOException {
-        StringBuilder toml = new StringBuilder("[workspace]\nname = \"acme-platform\"\nmembers = [");
+        StringBuilder toml = new StringBuilder(
+                "[workspace]\nname = \"acme-platform\"\n\n[workspace.members]\ninclude = [");
         for (int index = 0; index < members.length; index++) {
             toml.append(index == 0 ? "" : ", ").append('"').append(members[index]).append('"');
         }
         toml.append("]\n");
-        Files.writeString(root.resolve("zolt-workspace.toml"), toml.toString());
-        Files.writeString(root.resolve("zolt.lock"), "version = 6\n");
+        Files.writeString(root.resolve("zolt.toml"), toml.toString());
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
     }
 
     private static void writeMember(Path member, String toml) throws IOException {
@@ -293,7 +308,7 @@ final class WorkspacePublishServiceTest {
             Path member,
             PackagePlanService packagePlanService) throws IOException {
         ProjectConfig config =
-                new ZoltTomlParser().parse(member.resolve("zolt.toml"));
+                new ManifestProjectConfigLoader().load(member.resolve("zolt.toml"));
         PackagePlan plan = packagePlanService.plan(
                 member,
                 config,

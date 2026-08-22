@@ -2,22 +2,15 @@ package sh.zolt.explain.emit;
 
 import sh.zolt.explain.gradle.GradleDependencyInspection;
 import sh.zolt.explain.gradle.GradleProjectInspection;
-import sh.zolt.project.BomSettings;
-import sh.zolt.project.BuildSettings;
-import sh.zolt.project.CompilerSettings;
-import sh.zolt.project.NativeSettings;
-import sh.zolt.project.PackageMode;
-import sh.zolt.project.PackageSettings;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.project.ProjectConfigs;
-import sh.zolt.project.ProjectMetadata;
-import sh.zolt.project.PublicationMetadata;
-import java.util.ArrayList;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.PlatformSelector;
+import sh.zolt.manifest.authored.AuthoredBom;
+import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.TreeMap;
 
 /**
  * Drafts a {@code [bom]} member from a Gradle {@code java-platform} project: {@code platform(...)}
@@ -34,9 +27,7 @@ final class GradleBomDraftMapper {
     }
 
     static DraftZoltToml map(GradleProjectInspection primary, List<String> notes) {
-        Set<String> commentedProjectKeys = new TreeSet<>();
-
-        List<BomSettings.ImportedBom> imports = new ArrayList<>();
+        Map<DependencyCoordinate, PlatformSelector> imports = new TreeMap<>();
         for (GradleDependencyInspection dependency : primary.dependencies()) {
             if (!dependency.isPlatform()) {
                 notePlainDependency(dependency, notes);
@@ -50,11 +41,8 @@ final class GradleBomDraftMapper {
                 continue;
             }
             String coordinate = GradleInspectionMapper.coordinateOf(resolved);
-            String version = GradleInspectionMapper.versionOf(resolved);
-            if (unusableBomVersion(coordinate, version, "[bom.imports]", notes)) {
-                continue;
-            }
-            imports.add(new BomSettings.ImportedBom(coordinate, version, null));
+            DraftBomEntries.addImport(
+                    imports, coordinate, GradleInspectionMapper.versionOf(resolved), notes);
             if (dependency.platformKind() == GradleDependencyInspection.PlatformKind.ENFORCED_PLATFORM) {
                 notes.add("Gradle `enforcedPlatform(" + coordinate + ")` was recorded as a [bom.imports]"
                         + " entry; a published BOM composes imports without Gradle's enforced-override"
@@ -62,7 +50,7 @@ final class GradleBomDraftMapper {
             }
         }
 
-        List<BomSettings.ManagedVersion> versions = new ArrayList<>();
+        Map<DependencyCoordinate, AuthoredBom.Version> versions = new TreeMap<>();
         for (GradleDependencyInspection constraint : primary.constraints()) {
             String resolved = constraint.resolvedCoordinate();
             if (resolved == null || resolved.isBlank()) {
@@ -71,56 +59,35 @@ final class GradleBomDraftMapper {
                         + " [bom.versions] by hand.");
                 continue;
             }
-            String coordinate = GradleInspectionMapper.coordinateOf(resolved);
-            String version = GradleInspectionMapper.versionOf(resolved);
-            if (unusableBomVersion(coordinate, version, "[bom.versions]", notes)) {
-                continue;
-            }
-            versions.add(new BomSettings.ManagedVersion(coordinate, version, null, null, null));
+            DraftBomEntries.addVersion(
+                    versions,
+                    GradleInspectionMapper.coordinateOf(resolved),
+                    GradleInspectionMapper.versionOf(resolved),
+                    Optional.empty(),
+                    notes);
         }
 
-        BomSettings bomSettings = new BomSettings(BomSettings.Members.none(), versions, imports);
-        ProjectMetadata metadata = new ProjectMetadata(
-                primary.name(),
-                GradleInspectionMapper.emittedVersion(primary),
-                GradleInspectionMapper.emittedGroup(primary),
-                GradleInspectionMapper.javaVersion(primary.javaVersion(), notes, commentedProjectKeys),
-                Optional.empty());
+        // A BOM's own Java release and main class are rejected by the authored model (design §12.6),
+        // so identity carries only name, group, and version.
+        AuthoredManifest manifest = DraftManifests.project(
+                DraftManifests.identity(
+                        primary.name(),
+                        Optional.of(GradleInspectionMapper.emittedGroup(primary)),
+                        Optional.of(GradleInspectionMapper.emittedVersion(primary)),
+                        Optional.empty(),
+                        notes),
+                DraftManifests.metadata(Optional.empty(), notes),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                AuthoredBuildConfiguration.empty(),
+                Optional.empty(),
+                DraftBomEntries.packaging(imports, versions));
         GradleInspectionMapper.addCoordinatePlaceholderNotes(primary, notes);
-        PackageSettings packageSettings = new PackageSettings(
-                        PackageMode.BOM, false, false, false, PublicationMetadata.empty())
-                .withBom(bomSettings);
-        ProjectConfig config = ProjectConfigs.withAllDependencySections(
-                metadata,
-                ProjectConfig.defaultRepositories(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Map.of(),
-                Set.of(),
-                Map.of(),
-                Set.of(),
-                BuildSettings.defaults(),
-                NativeSettings.defaults(),
-                CompilerSettings.defaults(),
-                packageSettings);
         notes.add("Drafted a [bom] member from a Gradle java-platform project: platform() imports became"
                 + " [bom.imports] and constraints became [bom.versions]. Review the pins and set members if"
                 + " this BOM should manage a Zolt workspace family.");
-        return new DraftZoltToml(config, notes, List.copyOf(commentedProjectKeys), false);
+        return new DraftZoltToml(manifest, notes);
     }
 
     private static void notePlainDependency(GradleDependencyInspection dependency, List<String> notes) {
@@ -131,15 +98,5 @@ final class GradleBomDraftMapper {
         notes.add("Gradle java-platform project declares dependency `" + coordinate + "` in `"
                 + dependency.configuration() + "`; a Zolt BOM publishes only a curated version set and"
                 + " carries no dependencies. Move it to the consuming module, or pin it under [bom.versions].");
-    }
-
-    private static boolean unusableBomVersion(
-            String coordinate, String version, String section, List<String> notes) {
-        if (version == null || version.isBlank() || version.contains("${")) {
-            notes.add("BOM entry `" + coordinate + "` has an unresolved version `" + version
-                    + "`; add it under " + section + " with a fixed version before publishing.");
-            return true;
-        }
-        return false;
     }
 }

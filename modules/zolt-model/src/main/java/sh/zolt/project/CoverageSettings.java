@@ -21,10 +21,10 @@ public record CoverageSettings(
             new CoverageSettings(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     public CoverageSettings {
-        minLine = validated("minLine", minLine);
-        minBranch = validated("minBranch", minBranch);
-        minInstruction = validated("minInstruction", minInstruction);
-        minMethod = validated("minMethod", minMethod);
+        minLine = validated("line", minLine);
+        minBranch = validated("branch", minBranch);
+        minInstruction = validated("instruction", minInstruction);
+        minMethod = validated("method", minMethod);
     }
 
     /** The empty policy: no floors configured, so coverage enforcement is a no-op. */

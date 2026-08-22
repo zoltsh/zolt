@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+QUIET=false
+EXPECTED_COMMIT=""
+CLOSURE=""
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/verify-zolt-runtime-closure [options] [closure-directory]
+
+Verifies every file in a captured Zolt JVM runtime closure. When copied into a
+closure as `verify`, the closure directory defaults to the script's directory.
+
+Options:
+  --expect-commit SHA   Require the recorded source commit to equal SHA.
+  --quiet               Suppress the success message.
+  --help, -h            Show this help and exit.
+USAGE
+}
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --expect-commit)
+      [[ "$#" -ge 2 ]] || fail "missing value for --expect-commit"
+      EXPECTED_COMMIT="$2"
+      shift 2
+      ;;
+    --quiet)
+      QUIET=true
+      shift
+      ;;
+    --help | -h)
+      usage
+      exit 0
+      ;;
+    --*)
+      printf 'error: unknown argument %s\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      [[ -z "$CLOSURE" ]] || fail "expected exactly one closure directory"
+      CLOSURE="$1"
+      shift
+      ;;
+  esac
+done
+
+if [[ -z "$CLOSURE" ]]; then
+  CLOSURE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+fi
+[[ -d "$CLOSURE" ]] || fail "runtime closure directory does not exist at $CLOSURE"
+[[ ! -L "$CLOSURE" ]] || fail "runtime closure directory must not be a symbolic link: $CLOSURE"
+CLOSURE="$(cd "$CLOSURE" && pwd -P)"
+
+verify_checksums() {
+  local output
+  if command -v shasum >/dev/null 2>&1; then
+    if ! output="$(cd "$CLOSURE" && LC_ALL=C LANG=C shasum -a 256 -c -q SHA256SUMS 2>&1)"; then
+      printf '%s\n' "$output" >&2
+      fail "runtime closure checksum verification failed"
+    fi
+  elif command -v sha256sum >/dev/null 2>&1; then
+    if ! output="$(cd "$CLOSURE" && LC_ALL=C LANG=C sha256sum --check --quiet SHA256SUMS 2>&1)"; then
+      printf '%s\n' "$output" >&2
+      fail "runtime closure checksum verification failed"
+    fi
+  else
+    fail "shasum or sha256sum is required to verify a Zolt runtime closure"
+  fi
+}
+
+for name in CLOSURE_MODE SOURCE_COMMIT SHA256SUMS run-zolt runtime-classpath verify zolt.jar; do
+  path="$CLOSURE/$name"
+  [[ -f "$path" ]] || fail "runtime closure is missing $name"
+  [[ ! -L "$path" ]] || fail "runtime closure file must not be a symbolic link: $name"
+done
+[[ -x "$CLOSURE/run-zolt" ]] || fail "runtime closure launcher is not executable: run-zolt"
+[[ -x "$CLOSURE/verify" ]] || fail "runtime closure verifier is not executable: verify"
+[[ -d "$CLOSURE/lib" ]] || fail "runtime closure is missing the lib directory"
+[[ ! -L "$CLOSURE/lib" ]] || fail "runtime closure lib directory must not be a symbolic link"
+
+SOURCE_COMMIT="$(tr -d '\n' < "$CLOSURE/SOURCE_COMMIT")"
+[[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] \
+  || fail "runtime closure SOURCE_COMMIT must contain one full lowercase Git commit SHA"
+if [[ -n "$EXPECTED_COMMIT" ]]; then
+  [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "--expect-commit must be one full lowercase Git commit SHA"
+  [[ "$SOURCE_COMMIT" == "$EXPECTED_COMMIT" ]] \
+    || fail "runtime closure source commit is $SOURCE_COMMIT, expected $EXPECTED_COMMIT"
+fi
+
+CLOSURE_MODE="$(tr -d '\n' < "$CLOSURE/CLOSURE_MODE")"
+[[ "$CLOSURE_MODE" == "runtime" || "$CLOSURE_MODE" == "manifest-cut" ]] \
+  || fail "runtime closure CLOSURE_MODE must be runtime or manifest-cut"
+
+worker_files=()
+for worker in zolt-junit-worker.jar zolt-javac-worker.jar; do
+  worker_path="$CLOSURE/libexec/$worker"
+  if [[ -e "$worker_path" || -L "$worker_path" ]]; then
+    [[ -f "$worker_path" ]] || fail "runtime closure worker is not a regular file: libexec/$worker"
+    [[ ! -L "$worker_path" ]] || fail "runtime closure worker must not be a symbolic link: libexec/$worker"
+    worker_files+=("libexec/$worker")
+  fi
+done
+if [[ "$CLOSURE_MODE" == "manifest-cut" ]]; then
+  [[ -f "$CLOSURE/libexec/zolt-junit-worker.jar" ]] \
+    || fail "manifest-cut runtime closure is missing the JUnit worker jar"
+  [[ -f "$CLOSURE/libexec/zolt-javac-worker.jar" ]] \
+    || fail "manifest-cut runtime closure is missing the javac worker jar"
+fi
+if [[ -d "$CLOSURE/libexec" ]]; then
+  [[ ! -L "$CLOSURE/libexec" ]] || fail "runtime closure libexec directory must not be a symbolic link"
+elif [[ "${#worker_files[@]}" -gt 0 ]]; then
+  fail "runtime closure worker files require the libexec directory"
+fi
+
+unexpected_node="$(find "$CLOSURE" -mindepth 1 \! -type f \! -type d -print -quit)"
+[[ -z "$unexpected_node" ]] || fail "runtime closure contains an unsupported filesystem node: $unexpected_node"
+while IFS= read -r directory; do
+  [[ "$directory" == "$CLOSURE/lib" \
+    || "$directory" == "$CLOSURE/libexec" \
+    || "$directory" == "$CLOSURE/classes" ]] \
+    || fail "runtime closure contains an unexpected top-level directory: $directory"
+done < <(find "$CLOSURE" -mindepth 1 -maxdepth 1 -type d -print)
+
+classpath_files=()
+classpath_entries=()
+dependency_index=0
+while IFS= read -r entry || [[ -n "$entry" ]]; do
+  [[ -n "$entry" ]] || fail "runtime classpath contains a blank entry"
+  printf -v expected_jar 'lib/%04d.jar' "$dependency_index"
+  printf -v expected_classes 'classes/%04d' "$dependency_index"
+  if [[ "$entry" == "$expected_jar" ]]; then
+    [[ -f "$CLOSURE/$entry" ]] || fail "runtime classpath entry does not exist: $entry"
+    [[ ! -L "$CLOSURE/$entry" ]] || fail "runtime classpath entry must not be a symbolic link: $entry"
+    classpath_files+=("$entry")
+  elif [[ "$entry" == "$expected_classes" ]]; then
+    [[ -d "$CLOSURE/$entry" ]] || fail "runtime classpath entry does not exist: $entry"
+    [[ ! -L "$CLOSURE/$entry" ]] || fail "runtime classpath entry must not be a symbolic link: $entry"
+    while IFS= read -r copied; do
+      classpath_files+=("${copied#"$CLOSURE/"}")
+    done < <(find "$CLOSURE/$entry" -type f -print | LC_ALL=C sort)
+  else
+    fail "runtime classpath entry $dependency_index must be $expected_jar or $expected_classes, found $entry"
+  fi
+  classpath_entries+=("$entry")
+  dependency_index=$((dependency_index + 1))
+done < "$CLOSURE/runtime-classpath"
+
+for root in lib classes; do
+  if [[ -d "$CLOSURE/$root" ]]; then
+    while IFS= read -r child; do
+      declared=false
+      for entry in "${classpath_entries[@]}"; do
+        if [[ "$child" == "$CLOSURE/$entry" ]]; then
+          declared=true
+          break
+        fi
+      done
+      [[ "$declared" == true ]] \
+        || fail "runtime closure $root directory does not match runtime-classpath: $child"
+    done < <(find "$CLOSURE/$root" -mindepth 1 -maxdepth 1 -print)
+  fi
+done
+
+expected_files=(CLOSURE_MODE SOURCE_COMMIT run-zolt runtime-classpath verify zolt.jar)
+if [[ "${#worker_files[@]}" -gt 0 ]]; then
+  expected_files+=("${worker_files[@]}")
+fi
+if [[ "${#classpath_files[@]}" -gt 0 ]]; then
+  expected_files+=("${classpath_files[@]}")
+fi
+manifest_index=0
+while IFS= read -r line || [[ -n "$line" ]]; do
+  digest="${line%%  *}"
+  relative="${line#*  }"
+  [[ "$line" == "$digest  $relative" && "${#digest}" -eq 64 && "$digest" != *[!0-9a-f]* ]] \
+    || fail "runtime closure SHA256SUMS contains an invalid line"
+  [[ "$manifest_index" -lt "${#expected_files[@]}" ]] \
+    || fail "runtime closure SHA256SUMS contains an unexpected entry: $relative"
+  expected_relative="${expected_files[$manifest_index]}"
+  [[ "$relative" == "$expected_relative" ]] \
+    || fail "runtime closure SHA256SUMS expected $expected_relative, found $relative"
+  manifest_index=$((manifest_index + 1))
+done < "$CLOSURE/SHA256SUMS"
+[[ "$manifest_index" -eq "${#expected_files[@]}" ]] \
+  || fail "runtime closure SHA256SUMS is incomplete"
+
+verify_checksums
+
+file_count="$(find "$CLOSURE" -type f -print | wc -l | tr -d '[:space:]')"
+expected_file_count=$((${#expected_files[@]} + 1))
+[[ "$file_count" == "$expected_file_count" ]] \
+  || fail "runtime closure contains files not declared by SHA256SUMS"
+
+if [[ "$QUIET" != true ]]; then
+  printf 'ok: verified Zolt runtime closure for source commit %s at %s\n' "$SOURCE_COMMIT" "$CLOSURE"
+fi

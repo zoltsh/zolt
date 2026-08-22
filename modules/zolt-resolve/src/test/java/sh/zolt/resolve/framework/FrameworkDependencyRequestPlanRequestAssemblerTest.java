@@ -16,7 +16,7 @@ import sh.zolt.resolve.request.DependencyRequest;
 import sh.zolt.resolve.request.RequestOrigin;
 import sh.zolt.resolve.traversal.DependencyTraversalDecision;
 import sh.zolt.resolve.version.VersionSelectionResult;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -159,12 +159,12 @@ final class FrameworkDependencyRequestPlanRequestAssemblerTest {
     }
 
     private static ProjectConfig config() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 """);
     }
 }

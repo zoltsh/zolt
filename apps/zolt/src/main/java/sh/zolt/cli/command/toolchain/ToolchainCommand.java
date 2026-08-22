@@ -4,6 +4,7 @@ import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.cli.net.CommandNetwork;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
@@ -11,7 +12,7 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.error.ActionableException;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.toolchain.JavaToolchainStatus;
 import sh.zolt.toolchain.JavaToolchainStatusService;
 import sh.zolt.toolchain.TestRuntimeToolchainResolver;
@@ -56,7 +57,7 @@ public final class ToolchainCommand implements Runnable {
             JSON
         }
 
-        private final ZoltTomlParser tomlParser;
+        private final ManifestProjectLoader projectLoader;
         private final ToolchainConfigReader toolchainConfigReader;
         private final UserGlobalConfigParser globalConfigParser;
         private final JavaToolchainStatusService statusService;
@@ -87,18 +88,18 @@ public final class ToolchainCommand implements Runnable {
 
         public StatusCommand() {
             this(
-                    new ZoltTomlParser(),
+                    new ManifestProjectLoader(),
                     new ToolchainConfigReader(),
                     new UserGlobalConfigParser(),
                     new JavaToolchainStatusService());
         }
 
         StatusCommand(
-                ZoltTomlParser tomlParser,
+                ManifestProjectLoader projectLoader,
                 ToolchainConfigReader toolchainConfigReader,
                 UserGlobalConfigParser globalConfigParser,
                 JavaToolchainStatusService statusService) {
-            this.tomlParser = tomlParser;
+            this.projectLoader = projectLoader;
             this.toolchainConfigReader = toolchainConfigReader;
             this.globalConfigParser = globalConfigParser;
             this.statusService = statusService;
@@ -139,11 +140,11 @@ public final class ToolchainCommand implements Runnable {
                 return statusService.status(
                         configured,
                         "[toolchain.java]",
-                        projectRoot.resolve("zolt.lock"),
+                        CommandProjectLockfile.path(projectRoot),
                         HostPlatform.parse(target),
                         new ToolchainStore(installRoot));
             }
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ProjectConfig config = projectLoader.load(projectRoot);
             return statusService.status(
                     projectRoot,
                     config,
@@ -155,7 +156,7 @@ public final class ToolchainCommand implements Runnable {
             if (toolchainConfigReader.readJavaTest(projectRoot.resolve("zolt.toml")).isEmpty()) {
                 return;
             }
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ProjectConfig config = projectLoader.load(projectRoot);
             new TestRuntimeToolchainResolver()
                     .resolve(
                             projectRoot,
@@ -273,7 +274,7 @@ public final class ToolchainCommand implements Runnable {
             return syncService().sync(
                     request,
                     toolchainConfigReader.readJavaTest(projectRoot.resolve("zolt.toml")),
-                    projectRoot.resolve("zolt.lock"),
+                    CommandProjectLockfile.path(projectRoot),
                     HostPlatform.parse(target),
                     new ToolchainStore(installRoot),
                     refresh);

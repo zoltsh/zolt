@@ -33,7 +33,9 @@ final class WorkspaceProcessorDirtyPlanningTest extends WorkspaceBuildServiceTes
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api", "modules/greeting-processor"]
+
+                [workspace.members]
+                include = ["apps/api", "modules/greeting-processor"]
                 """);
         member("modules/greeting-processor", "greeting-processor", "");
         processor("generated");
@@ -43,8 +45,8 @@ final class WorkspaceProcessorDirtyPlanningTest extends WorkspaceBuildServiceTes
                 "com.acme.greeting.GreetingProcessor\n");
         member("apps/api", "api", """
 
-                [annotationProcessors]
-                "com.acme:greeting-processor" = { workspace = "modules/greeting-processor" }
+                [dependencies.processor]
+                "com.acme:greeting-processor" = { workspace = true }
                 """);
         source("apps/api/src/main/java/com/acme/api/Api.java", """
                 package com.acme.api;

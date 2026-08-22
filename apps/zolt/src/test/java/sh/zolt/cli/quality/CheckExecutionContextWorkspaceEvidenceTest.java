@@ -25,10 +25,12 @@ final class CheckExecutionContextWorkspaceEvidenceTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-context-ci-workspace-reports-ok"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(reportsDir.resolve("TEST-api.xml"), "<testsuite tests=\"1\" failures=\"0\"/>\n");
 
         CommandResult result = execute(
@@ -56,15 +58,17 @@ final class CheckExecutionContextWorkspaceEvidenceTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-context-ci-workspace-selected-reports-ok"
-                members = ["modules/core", "apps/api"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/api"]
                 """);
         Files.writeString(coreDir.resolve("zolt.toml"), memberConfig("core"));
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api") + """
 
                 [dependencies]
-                "com.example:core" = { workspace = "modules/core" }
+                "com.example:core" = { workspace = true }
                 """);
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(reportsDir.resolve("TEST-api.xml"), "<testsuite tests=\"1\" failures=\"0\"/>\n");
 
         CommandResult result = execute(
@@ -91,10 +95,12 @@ final class CheckExecutionContextWorkspaceEvidenceTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-context-ci-workspace-coverage-ok"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
         Files.writeString(coverageDir.resolve("jacoco.exec"), "exec\n");
         Files.writeString(coverageDir.resolve("jacoco.xml"), "<report name=\"api\"/>\n");
         Files.writeString(coverageDir.resolve("html/index.html"), "<!doctype html>\n");
@@ -121,10 +127,12 @@ final class CheckExecutionContextWorkspaceEvidenceTest {
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "check-context-ci-workspace-coverage-missing"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         Files.writeString(apiDir.resolve("zolt.toml"), memberConfig("api"));
-        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(workspaceDir.resolve("zolt.lock"), "version = 7\n");
 
         CommandResult result = execute(
                 "check",

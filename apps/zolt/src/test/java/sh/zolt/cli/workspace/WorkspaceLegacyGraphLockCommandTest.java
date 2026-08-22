@@ -73,25 +73,24 @@ final class WorkspaceLegacyGraphLockCommandTest {
                 nativeResult
         }) {
             assertEquals(1, result.exitCode(), result.stderr());
-            assertTrue(result.stderr().contains("version 4"), result.stderr());
-            assertTrue(result.stderr().contains("executable lock contract"), result.stderr());
-            assertTrue(result.stderr().contains("zolt resolve --workspace"), result.stderr());
+            assertTrue(
+                    result.stderr().contains("version 4 is older than this Zolt supports (current 7)"),
+                    result.stderr());
+            assertTrue(result.stderr().contains("zolt resolve` with this Zolt version"), result.stderr());
         }
         for (CommandResult result : new CommandResult[] {
                 publish,
                 sbom
         }) {
             assertEquals(1, result.exitCode(), result.stderr());
-            assertTrue(result.stderr().contains("version 4"), result.stderr());
             assertTrue(
-                    result.stderr().contains("executable lock contract")
-                            || result.stderr().contains("optional-boundary"),
+                    result.stderr().contains("version 4 is older than this Zolt supports (current 7)"),
                     result.stderr());
-            assertTrue(result.stderr().contains("zolt resolve --workspace"), result.stderr());
+            assertTrue(result.stderr().contains("zolt resolve` with this Zolt version"), result.stderr());
         }
         assertEquals(0, ide.exitCode(), ide.stderr());
         assertEquals("", ide.stderr());
-        assertTrue(ide.stdout().contains("\"code\": \"LOCKFILE_GRAPH_SCHEMA_OUTDATED\""), ide.stdout());
+        assertTrue(ide.stdout().contains("\"code\": \"LOCKFILE_UNREADABLE\""), ide.stdout());
         assertTrue(ide.stdout().contains("version 4"), ide.stdout());
         assertTrue(ide.stdout().contains("\"nextStep\": \"Run zolt resolve --workspace.\""), ide.stdout());
         assertFalse(Files.exists(workspace.resolve(
@@ -108,17 +107,19 @@ final class WorkspaceLegacyGraphLockCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "legacy-optional-boundary"
-                members = ["modules/core", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/core", "apps/app"]
                 """);
         Files.writeString(core.resolve("zolt.toml"), memberConfig("core") + """
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:feature-sdk" = { version = "1.0.0", optional = true }
                 """);
         Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
 
                 [dependencies]
-                "com.acme:core" = { workspace = "modules/core" }
+                "com.acme:core" = { workspace = true }
                 """);
         Files.writeString(workspace.resolve("zolt.lock"), """
                 version = 4
@@ -159,7 +160,7 @@ final class WorkspaceLegacyGraphLockCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 """.formatted(name);
     }
 }

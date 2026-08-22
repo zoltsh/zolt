@@ -114,7 +114,7 @@ final class BuildServiceBuildCacheTest {
     }
 
     private void writeProject(String message) throws IOException {
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
         source("src/main/java/com/example/Main.java", """
                 package com.example;
 

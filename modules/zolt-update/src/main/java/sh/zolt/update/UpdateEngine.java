@@ -6,7 +6,7 @@ import sh.zolt.maven.metadata.MetadataDiscovery;
 import sh.zolt.maven.metadata.VersionDiscovery;
 import sh.zolt.maven.repository.RepositoryAccess;
 import sh.zolt.maven.repository.RepositoryAccessPlanner;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -17,9 +17,8 @@ import java.util.Optional;
 /**
  * Plans and applies dependency-version updates. Planning discovers candidates per surface, picks the
  * target at the requested ceiling, and records applicable changes as edits and unsupported ones as
- * skips. Applying uses ONLY existing mutation machinery — {@code withVersionAliases} for aliases,
- * {@code ProjectConfigDependencyMutator} for literal dependencies and platforms, and a
- * kind/reason-preserving rebuild for constraints — never writing a literal over a versionRef.
+ * skips. Applying goes through {@link UpdateApplier} and therefore through the authored mutation
+ * model, so unrelated metadata is preserved and a literal is never written over a versionRef.
  */
 public final class UpdateEngine {
     private static final Comparator<UpdateEdit> EDIT_ORDER = Comparator
@@ -42,20 +41,15 @@ public final class UpdateEngine {
         this.planner = planner;
     }
 
-    public UpdatePlan plan(ProjectConfig config, UpdateOptions options) {
-        return plan(UpdatePlanningScope.standalone(config), options);
-    }
-
     public UpdatePlan plan(UpdatePlanningScope scope, UpdateOptions options) {
-        List<RepositoryAccess> repositories = planner.plan(scope.discoveryConfig());
+        List<RepositoryAccess> repositories = planner.plan(scope.discovery());
         Map<String, MetadataDiscovery> memo = new LinkedHashMap<>();
         List<UpdateEdit> edits = new ArrayList<>();
         List<UpdateSkip> skips = new ArrayList<>();
         for (UpdateTargetCatalog.Entry entry : catalog.entries(
-                scope.mutationConfig(),
+                scope.manifest(),
                 scope.manifestPath(),
-                scope.lockfilePath(),
-                scope.targetBlockers())) {
+                scope.lockfilePath())) {
             SurfaceRequest surface = entry.request();
             if (!Selectors.matches(surface.identifier(), surface.section(), surface.surface().jsonName(), options.selectors())) {
                 continue;
@@ -100,8 +94,8 @@ public final class UpdateEngine {
                 surface.governs()));
     }
 
-    public ProjectConfig apply(ProjectConfig config, UpdatePlan plan) {
-        return applier.apply(config, plan);
+    public AuthoredManifest apply(AuthoredManifest manifest, UpdatePlan plan) {
+        return applier.apply(manifest, plan);
     }
 
     private static List<String> aliasFanOutWarnings(List<UpdateEdit> edits) {

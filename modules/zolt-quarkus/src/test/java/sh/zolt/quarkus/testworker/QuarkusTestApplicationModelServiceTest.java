@@ -118,7 +118,7 @@ final class QuarkusTestApplicationModelServiceTest {
                                 "target/classes",
                                 "target/test-classes"))));
 
-        assertTrue(exception.getMessage().contains("[build].source"));
+        assertTrue(exception.getMessage().contains("[build].sources"));
         assertTrue(exception.getMessage().contains("../outside-source"));
     }
 

@@ -6,7 +6,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Resolves the  {@code [compiler].platformApi} / {@code testPlatformApi} opt-in into the
+ * Resolves the {@code [compiler] jdkApi} / {@code [compiler.test] jdkApi} opt-in into the
  * concrete javac behavior for a source set.
  *
  * <p>Default ({@code "release"}) keeps {@code javac --release N}: the platform API is pinned to Java
@@ -31,7 +31,7 @@ public final class CompilerPlatformApi {
         }
         throw BuildException.actionable(
                 "The " + sourceSet + " source set declares a module (module-info.java) but"
-                        + " [compiler] " + hostKeyFor(sourceSet) + " = \"host\" is set.",
+                        + " " + hostKeyFor(sourceSet) + " = \"host\" is set.",
                 "Host platform-API mode compiles with -source/-target, which the Java module system"
                         + " (Java 9+) does not support at a pre-9 level. Remove the host opt-in and use"
                         + " the default --release mode, raise [project].java, or split the"
@@ -50,7 +50,7 @@ public final class CompilerPlatformApi {
         String buildJdk = jdkStatus.featureVersion()
                 .map(String::valueOf)
                 .orElse(jdkStatus.version().orElse("unknown"));
-        return "warning: [compiler] "
+        return "warning: "
                 + hostKeyFor(sourceSet)
                 + " = \"host\" compiles " + sourceSet + " sources against the build JDK's platform"
                 + " API (build JDK feature version " + buildJdk + "), not the ct.sym-pinned"
@@ -74,6 +74,6 @@ public final class CompilerPlatformApi {
     }
 
     private static String hostKeyFor(String sourceSet) {
-        return "test".equals(sourceSet) ? "testPlatformApi" : "platformApi";
+        return "test".equals(sourceSet) ? "[compiler.test] jdkApi" : "[compiler] jdkApi";
     }
 }

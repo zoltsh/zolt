@@ -76,7 +76,9 @@ final class WorkspaceTestDependencyIncrementalTest {
         workspace(tempDir, """
                 [workspace]
                 name = "incremental-test-dependency"
-                members = ["apps/a", "apps/b"]
+
+                [workspace.members]
+                include = ["apps/a", "apps/b"]
                 """);
         member(tempDir, "apps/a", "a", "");
         member(tempDir, "apps/b", "b", "");
@@ -113,7 +115,14 @@ final class WorkspaceTestDependencyIncrementalTest {
 
     private void writeLockfile(String version) throws IOException {
         lock(tempDir, """
-                version = 5
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/a"
+                id = "com.example:test-support"
+                version = "%s"
+                lane = "test"
+                resolvedScope = "test"
 
                 [[package]]
                 id = "com.example:test-support"
@@ -124,7 +133,7 @@ final class WorkspaceTestDependencyIncrementalTest {
                 jar = "com/example/test-support/%s/test-support-%s.jar"
                 members = ["apps/a"]
                 dependencies = []
-                """.formatted(version, version, version));
+                """.formatted(version, version, version, version));
     }
 
     private static void writeJar(Path path, String entryName)

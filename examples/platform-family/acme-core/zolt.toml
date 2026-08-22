@@ -2,23 +2,17 @@
 name = "acme-core"
 version = "1.0.0"
 group = "com.acme"
-java = "21"
-
-[build]
-source = "src/main/java"
-output = "target/classes"
-
-[package.metadata]
-name = "Acme Core"
+java = 21
 description = "Core utilities for the Acme platform."
 url = "https://example.test/acme"
 license = "Apache-2.0"
-licenseUrl = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-scm = "https://github.com/example/acme"
-scmConnection = "scm:git:https://github.com/example/acme.git"
+
+[project.scm]
+url = "https://github.com/example/acme"
+connection = "scm:git:https://github.com/example/acme.git"
 
 [publish]
-releaseRepository = "local"
+release = "local"
 
 [publish.repositories.local]
 url = "https://repo.example.test/releases"

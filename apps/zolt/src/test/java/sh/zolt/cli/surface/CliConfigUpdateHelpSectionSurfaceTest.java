@@ -19,7 +19,7 @@ final class CliConfigUpdateHelpSectionSurfaceTest {
         assertFalse(result.stdout().contains("\u001B["));
         assertContainsInOrder(
                 result.stdout(),
-                "Inspect user-local Zolt config diagnostics.",
+                "Inspect manifest configuration.",
                 "Usage:",
                 "Options:",
                 "--color",
@@ -48,7 +48,7 @@ final class CliConfigUpdateHelpSectionSurfaceTest {
     }
 
     @Test
-    void configShowHelpKeepsConfigPathOptionWithDefaults() {
+    void configShowHelpKeepsBothManifestViewOptions() {
         CommandResult result = execute("config", "show", "--help");
 
         assertEquals(0, result.exitCode());
@@ -56,7 +56,7 @@ final class CliConfigUpdateHelpSectionSurfaceTest {
         assertFalse(result.stdout().contains("\u001B["));
         assertContainsInOrder(
                 result.stdout(),
-                "Show effective user global config settings.",
+                "Show the authored or effective manifest configuration.",
                 "Usage:",
                 "Options:",
                 "--color",
@@ -65,21 +65,24 @@ final class CliConfigUpdateHelpSectionSurfaceTest {
                 "--quiet",
                 "--help",
                 "--version",
-                "--config",
-                "Defaults to ~/.zolt/config");
+                "--effective",
+                "--manifest");
+        // The pre-cut user-global diagnostic is removed, not aliased (design §20.2).
+        assertFalse(result.stdout().contains("--config"));
         assertFalse(result.stdout().contains("Diagnostics:"));
         assertFalse(result.stdout().contains("Resolution:"));
     }
 
     @Test
-    void configShowHelpColorsConfigOptionWithoutWarningColor() {
+    void configShowHelpColorsViewOptionsWithoutWarningColor() {
         CommandResult result = execute("--color=always", "config", "show", "--help");
 
         assertEquals(0, result.exitCode());
         assertEquals("", result.stderr());
         assertTrue(result.stdout().contains("\u001B[1;32mOptions:\u001B[0m"));
         assertTrue(result.stdout().contains("\u001B[1;36mzolt config show\u001B[0m"));
-        assertTrue(result.stdout().contains("\u001B[1;36m--config\u001B[0m\u001B[36m <CONFIG_PATH>\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--manifest\u001B[0m"));
+        assertTrue(result.stdout().contains("\u001B[1;36m--effective\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32mDiagnostics:\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32mResolution:\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[1;32m--"));

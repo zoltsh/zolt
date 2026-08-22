@@ -3,6 +3,7 @@ package sh.zolt.cli.workspace;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static sh.zolt.cli.CliTestSupport.bomConfig;
 import static sh.zolt.cli.CliTestSupport.execute;
 import static sh.zolt.cli.CliTestSupport.memberConfig;
 
@@ -24,7 +25,7 @@ final class WorkspaceProviderPackageModeCommandTest {
         for (String mode : List.of(
                 "spring-boot",
                 "quarkus",
-                "uber",
+                "uber-jar",
                 "war",
                 "spring-boot-war",
                 "bom")) {
@@ -36,27 +37,27 @@ final class WorkspaceProviderPackageModeCommandTest {
                     "--cwd", workspace.toString(),
                     "--cache-root", tempDir.resolve("cache-" + mode).toString());
 
+            // The effective workspace refuses the edge before any lock is written (design 9.8).
             assertEquals(1, result.exitCode(), result.stderr());
             assertTrue(result.stderr().contains("`" + mode + "`"), result.stderr());
-            assertTrue(result.stderr().contains("not a reusable library artifact"), result.stderr());
-            assertTrue(result.stderr().contains("package mode `thin`"), result.stderr());
+            assertTrue(result.stderr().contains("not a consumable library JAR"), result.stderr());
             assertFalse(Files.exists(workspace.resolve("zolt.lock")), mode);
         }
     }
 
     @Test
     void resolveMaterializesAThinWorkspaceProvider() throws IOException {
-        Path workspace = writeWorkspace("thin");
+        Path workspace = writeWorkspace("jar");
 
         CommandResult result = execute(
                 "resolve",
                 "--workspace",
                 "--cwd", workspace.toString(),
-                "--cache-root", tempDir.resolve("cache-thin").toString());
+                "--cache-root", tempDir.resolve("cache-jar").toString());
 
         assertEquals(0, result.exitCode(), result.stderr());
         String lockfile = Files.readString(workspace.resolve("zolt.lock"));
-        assertTrue(lockfile.startsWith("version = 6"), lockfile);
+        assertTrue(lockfile.startsWith("version = 7"), lockfile);
         assertTrue(lockfile.contains("id = \"com.example:provider\""), lockfile);
         assertTrue(lockfile.contains("workspace = \"modules/provider\""), lockfile);
     }
@@ -70,18 +71,26 @@ final class WorkspaceProviderPackageModeCommandTest {
         Files.writeString(workspace.resolve("zolt.toml"), """
                 [workspace]
                 name = "provider-%s"
-                members = ["modules/provider", "apps/app"]
+
+                [workspace.members]
+                include = ["modules/provider", "apps/app"]
                 """.formatted(mode));
         Files.writeString(app.resolve("zolt.toml"), memberConfig("app") + """
 
                 [dependencies]
-                "com.example:provider" = { workspace = "modules/provider" }
+                "com.example:provider" = { workspace = true }
                 """);
-        Files.writeString(provider.resolve("zolt.toml"), memberConfig("provider") + """
+        Files.writeString(provider.resolve("zolt.toml"), mode.equals("bom")
+                ? bomConfig("provider") + """
+
+                [bom]
+                members = true
+                """
+                : memberConfig("provider") + """
 
                 [package]
                 mode = "%s"
-                %s""".formatted(mode, mode.equals("bom") ? "\n[bom]\n" : ""));
+                """.formatted(mode));
         return workspace;
     }
 }

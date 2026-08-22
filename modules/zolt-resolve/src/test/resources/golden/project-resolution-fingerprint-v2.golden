@@ -1,0 +1,93 @@
+schema	v2
+java	project	21
+java	compilerRelease	
+repository	0	internal	https://repo.acme.example/internal	internal-token
+repository	1	company	https://repo.acme.example/company	company-basic
+repositoryCredential	company-basic	ACME_REPO_USER	ACME_REPO_PASSWORD
+repositoryCredential	internal-token		
+repositoryCredentialToken	internal-token	ACME_INTERNAL_TOKEN
+versions	guava	33.4.0-jre
+versions	netty	4.1.119.Final
+versions	openapi	7.11.0
+versions	spring	3.3.6
+platforms	org.springframework.boot:spring-boot-dependencies	3.3.6
+dependencies.api	com.example:api-dep	1.0.0
+dependencies.api	com.example:explicit-jar	1.1.0
+workspaceApi	com.example:tools	modules/tools
+dependencies.compile	com.google.guava:guava	33.4.0-jre
+dependencies.compile	io.netty:netty-transport-native-epoll	4.1.119.Final
+managedDependency	compile	com.example:managed-impl
+workspaceCompile	com.example:core	modules/core
+dependencies.runtime	com.example:runtime-dep	2.0.0
+dependencies.provided	com.example:provided-dep	3.0.0
+dependencies.dev	com.example:dev-dep	4.0.0
+dependencies.test	com.example:test-dep	5.0.0
+workspaceTest	com.example:testkit	modules/testkit
+dependencies.processor	org.mapstruct:mapstruct-processor	1.6.3
+workspaceProcessor	com.example:proc	modules/proc
+dependencies.testProcessor	com.example:test-proc-dep	6.0.0
+workspaceTestProcessor	com.example:proc	modules/proc
+dependencyMetadata	annotationProcessors	org.mapstruct:mapstruct-processor	1.6.3		false		false	false
+dependencyVariant	annotationProcessors	org.mapstruct:mapstruct-processor	jdk21	
+dependencyMetadata	api.dependencies	com.example:api-dep	1.0.0		false		false	false
+dependencyVariant	api.dependencies	com.example:api-dep		zip
+dependencyMetadata	dependencies	com.google.guava:guava	33.4.0-jre	guava	false		false	false
+dependencyMetadata	dependencies	io.netty:netty-transport-native-epoll	4.1.119.Final	netty	false		false	false
+dependencyVariant	dependencies	io.netty:netty-transport-native-epoll	linux-x86_64	
+dependencyMetadata	dev.dependencies	com.example:dev-dep	4.0.0		false		false	false
+dependencyVariant	dev.dependencies	com.example:dev-dep	tests	
+dependencyMetadata	platforms	org.springframework.boot:spring-boot-dependencies	3.3.6	spring	false		false	false
+dependencyMetadata	provided.dependencies	com.example:provided-dep	3.0.0		false		false	false
+dependencyMetadata.exclusion	provided.dependencies	com.example:provided-dep	commons-logging	commons-logging
+dependencyMetadata	runtime.dependencies	com.example:runtime-dep	2.0.0		false		false	false
+dependencyVariant	runtime.dependencies	com.example:runtime-dep	shaded	tar.gz
+dependencyMetadata	test.annotationProcessors	com.example:test-proc-dep	6.0.0		false		false	false
+dependencyVariant	test.annotationProcessors	com.example:test-proc-dep	shaded	
+dependencyMetadata	test.dependencies	com.example:test-dep	5.0.0		false		false	false
+dependencyVariant	test.dependencies	com.example:test-dep		test-jar
+dependencyPolicy.failOnVersionConflict	true
+dependencyPolicy.exclusion	log4j	log4j	known critical advisory
+dependencyPolicy.constraint	com.example:pinned	7.0.0		strict	security floor
+generatedSourceEncoding	v1
+generatedMain	protos	kind	protobuf
+generatedMain	protos	language	java
+generatedMain	protos	output	target/generated/sources/protobuf/main
+generatedMain	protos	inputs	0	src/main/proto/service.proto
+generatedMain	protos	required	true
+generatedMain	protos	clean	true
+generatedMain	protos	protobuf.protocCoordinate	com.google.protobuf:protoc
+generatedMain	protos	protobuf.grpcPluginCoordinate	io.grpc:protoc-gen-grpc-java
+generatedMain	protos	protobuf.javaPackage	com.example.proto
+generatedMain	protos	protobuf.grpc	true
+generatedMain	public-api	kind	openapi
+generatedMain	public-api	language	java
+generatedMain	public-api	output	target/generated/sources/openapi/public-api
+generatedMain	public-api	inputs	0	src/main/openapi/public-api.yaml
+generatedMain	public-api	required	true
+generatedMain	public-api	clean	true
+generatedMain	public-api	openApi.toolCoordinate	org.openapitools:openapi-generator-cli
+generatedMain	public-api	openApi.toolVersion	7.11.0
+generatedMain	public-api	openApi.toolVersionRef	openapi
+generatedMain	public-api	openApi.generator	spring
+generatedMain	public-api	openApi.apiPackage	com.example.api
+generatedTest	fixtures	kind	exec
+generatedTest	fixtures	language	java
+generatedTest	fixtures	output	target/generated/sources/exec/fixtures
+generatedTest	fixtures	inputs	0	src/test/fixtures/schema.sql
+generatedTest	fixtures	required	true
+generatedTest	fixtures	clean	true
+generatedTest	fixtures	exec.toolName	codegen
+generatedTest	fixtures	exec.tool.runner	process
+generatedTest	fixtures	exec.tool.binary	codegen
+generatedTest	fixtures	exec.tool.versionCommand	0	codegen
+generatedTest	fixtures	exec.tool.versionCommand	1	--version
+generatedTest	fixtures	exec.tool.allowUnpinnedTool	true
+generatedTest	fixtures	exec.args	0	--out
+generatedTest	fixtures	exec.args	1	target/generated/sources/exec/fixtures
+generatedTest	fixtures	exec.produces	test-sources
+generatedTest	fixtures	exec.cache	content
+generatedTest	fixtures	exec.timeoutSeconds	600
+package	mode	spring-boot
+framework.springBoot.native	enabled	false
+framework.quarkus	enabled	false
+framework.quarkus	package	fast-jar

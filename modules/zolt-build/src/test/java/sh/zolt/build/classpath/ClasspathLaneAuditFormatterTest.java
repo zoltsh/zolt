@@ -29,13 +29,34 @@ final class ClasspathLaneAuditFormatterTest {
         assertTrue(output.contains("tool-coverage"));
         assertTrue(output.contains("coverage-tooling-only"));
         assertTrue(output.contains("- com.example:compile-lib:1.0.0 [compile] lanes=compile,runtime,test package=package-default"));
-        assertTrue(output.contains("- com.example:devtools:1.0.0 [dev] lanes=runtime,test package=development-only"));
-        assertTrue(output.contains("- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile package=provided-container"));
+        assertTrue(output.contains("- com.example:devtools:1.0.0 [dev] lanes=runtime package=development-only"));
+        assertTrue(output.contains("- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile,test package=provided-container"));
     }
 
     private static ZoltLockfile lockfile() {
         return new ZoltLockfileReader().read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:compile-lib"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "jakarta.servlet:jakarta.servlet-api"
+                version = "6.1.0"
+                lane = "provided"
+                resolvedScope = "provided"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:devtools"
+                version = "1.0.0"
+                lane = "dev"
+                resolvedScope = "dev"
 
                 [[package]]
                 id = "jakarta.servlet:jakarta.servlet-api"

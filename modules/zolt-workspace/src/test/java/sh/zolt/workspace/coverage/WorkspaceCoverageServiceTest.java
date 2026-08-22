@@ -62,7 +62,7 @@ final class WorkspaceCoverageServiceTest {
         ProjectConfig coreConfig = config("core");
         Workspace workspace = capturedWorkspace(new Workspace(
                 workspaceRoot,
-                workspaceRoot.resolve("zolt-workspace.toml"),
+                workspaceRoot.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "workspace",
                         List.of("modules/core", "apps/api"),
@@ -78,7 +78,7 @@ final class WorkspaceCoverageServiceTest {
                 workspace,
                 new WorkspaceSelection(List.of("modules/core", "apps/api"), List.of("apps/api")),
                 Optional.empty(),
-                new ZoltLockfile(1, List.of(), List.of()));
+                new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()));
         WorkspaceBuildResult buildResult = new WorkspaceBuildResult(
                 Optional.empty(),
                 List.of(
@@ -250,7 +250,7 @@ final class WorkspaceCoverageServiceTest {
         ProjectConfig apiConfig = config("api");
         Workspace workspace = capturedWorkspace(new Workspace(
                 workspaceRoot,
-                workspaceRoot.resolve("zolt-workspace.toml"),
+                workspaceRoot.resolve("zolt.toml"),
                 new WorkspaceConfig(
                         "workspace",
                         List.of("apps/api"),
@@ -264,7 +264,7 @@ final class WorkspaceCoverageServiceTest {
                 workspace,
                 new WorkspaceSelection(List.of("apps/api"), List.of("apps/api")),
                 Optional.empty(),
-                new ZoltLockfile(1, List.of(), List.of()));
+                new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()));
         WorkspaceBuildResult buildResult = new WorkspaceBuildResult(
                 Optional.empty(),
                 List.of(memberBuild("apps/api", apiDir)));
@@ -400,9 +400,12 @@ final class WorkspaceCoverageServiceTest {
         String content = """
                 [workspace]
                 name = "workspace"
-                members = []
+
+                [workspace.members]
+                default = ["apps/api"]
+                include = ["apps/api", "modules/core"]
                 """;
-        String lockfileContent = "version = 1\n";
+        String lockfileContent = "version = 7\n";
         Path lockfilePath = workspace.root().resolve("zolt.lock");
         try {
             Files.writeString(workspace.configPath(), content);
@@ -431,7 +434,7 @@ final class WorkspaceCoverageServiceTest {
                         lockfilePath),
                 workspace.inputs().contentBytes(lockfilePath)
                         .orElseThrow(),
-                new ZoltLockfile(1, List.of(), List.of()));
+                new ZoltLockfile(ZoltLockfile.CURRENT_VERSION, List.of(), List.of()));
     }
 
     private static ProjectConfig config(String name) {

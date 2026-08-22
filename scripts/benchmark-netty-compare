@@ -228,28 +228,19 @@ write_zolt_overlay() {
 name = "netty-$NETTY_MODULE"
 version = "4.1.0-benchmark"
 group = "io.netty"
-java = "21"
-
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
+java = 21
 
 [dependencies]
+"commons-logging:commons-logging" = "1.2"
+"io.projectreactor.tools:blockhound" = "1.0.16.RELEASE"
+"org.apache.logging.log4j:log4j-1.2-api" = "2.25.3"
+"org.apache.logging.log4j:log4j-api" = "2.25.3"
 "org.jctools:jctools-core" = "4.0.5"
 "org.slf4j:slf4j-api" = "1.7.30"
-"commons-logging:commons-logging" = "1.2"
-"org.apache.logging.log4j:log4j-api" = "2.25.3"
-"org.apache.logging.log4j:log4j-1.2-api" = "2.25.3"
-"io.projectreactor.tools:blockhound" = "1.0.16.RELEASE"
 
-[provided.dependencies]
-"org.jetbrains:annotations-java5" = "23.0.0"
+[dependencies.provided]
 "org.jboss:jdk-misc" = "3.Final"
+"org.jetbrains:annotations-java5" = "23.0.0"
 EOF
 }
 

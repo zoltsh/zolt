@@ -16,8 +16,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
 
     @Test
     void formatsStableJsonWithPolicyEffects() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(lockPackage(
                         "com.example",
                         "app",
@@ -36,7 +35,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
                         new PackageId("commons-logging", "commons-logging"),
                         Optional.of("1.2"),
                         Optional.of("com.example:app:1.0.0"),
-                        "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)")));
+                        "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)")));
 
         String output = jsonFormatter.tree(config(), lockfile);
 
@@ -85,7 +84,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
                       "id": "commons-logging:commons-logging",
                       "requested": "1.2",
                       "source": "com.example:app:1.0.0",
-                      "policy": "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                      "policy": "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                     }
                   ]
                 }
@@ -94,8 +93,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
 
     @Test
     void emitsQualifiedPackageAndConflictVariants() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(classified("io.netty", "netty", "4.1.100.Final", "linux-x86_64")),
                 List.of(new LockConflict(
                         new PackageId("io.netty", "netty"),

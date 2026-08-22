@@ -74,10 +74,15 @@ final class WorkspaceResolveServiceLockedTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
@@ -101,22 +106,25 @@ final class WorkspaceResolveServiceLockedTest {
         workspace("""
                 [workspace]
                 name = "authenticated-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                internal = "%s"
+                central = false
+
+                [repositories.internal]
+                url = "%s"
+                credentials = "company"
+
+                [credentials.company]
+                tokenEnv = "PATH"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
-                [repositories]
-                internal = { url = "%s", credentials = "company" }
-
-                [repositoryCredentials.company]
-                tokenEnv = "PATH"
-
                 [dependencies]
                 "com.example:app" = "1.0.0"
-                """.formatted(baseUri));
+                """);
 
         service.resolve(tempDir, tempDir.resolve("first-cache"), false, false);
         assertTrue(authorizationByPath.values().stream().allMatch(requiredAuthorization::equals));
@@ -132,10 +140,15 @@ final class WorkspaceResolveServiceLockedTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
@@ -157,10 +170,15 @@ final class WorkspaceResolveServiceLockedTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
@@ -190,17 +208,22 @@ final class WorkspaceResolveServiceLockedTest {
         workspace("""
                 [workspace]
                 name = "acme-platform"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
                 """.formatted(baseUri));
         member("apps/api", "api", """
 
                 [dependencies]
                 "com.example:app" = "1.0.0"
 
-                [test.dependencies]
+                [dependencies.test]
                 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"
                 """);
         ResolveResult coverage = service.resolveWithCoverageTooling(tempDir, tempDir.resolve("cache"));
@@ -214,7 +237,7 @@ final class WorkspaceResolveServiceLockedTest {
     }
 
     private void workspace(String content) throws IOException {
-        Files.writeString(tempDir.resolve("zolt-workspace.toml"), content);
+        Files.writeString(tempDir.resolve("zolt.toml"), content);
     }
 
     private void member(String path, String name, String extraToml) throws IOException {
@@ -225,7 +248,7 @@ final class WorkspaceResolveServiceLockedTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.acme"
-                java = "21"
+                java = 21
                 %s""".formatted(name, extraToml));
     }
 

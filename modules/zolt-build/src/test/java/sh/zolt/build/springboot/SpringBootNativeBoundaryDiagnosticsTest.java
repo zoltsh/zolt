@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import sh.zolt.build.NativeImageException;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import org.junit.jupiter.api.Test;
 
 final class SpringBootNativeBoundaryDiagnosticsTest {
@@ -43,7 +43,7 @@ final class SpringBootNativeBoundaryDiagnosticsTest {
         NativeImageException exception = assertThrows(
                 NativeImageException.class,
                 () -> SpringBootNativeBoundaryDiagnostics.rejectUnsupportedEcosystem(project("""
-                        [runtime.dependencies]
+                        [dependencies.runtime]
                         "org.postgresql:postgresql" = "42.7.3"
                         """)));
 
@@ -53,16 +53,16 @@ final class SpringBootNativeBoundaryDiagnosticsTest {
     }
 
     private static ProjectConfig project(String body) {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
-                [framework.springBoot.native]
-                enabled = true
+                [framework.spring-boot]
+                native = true
 
                 """ + body);
     }

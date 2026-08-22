@@ -8,22 +8,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.UpdateClass;
 import sh.zolt.error.ActionableException;
-import sh.zolt.project.DependencyConstraint;
-import sh.zolt.project.DependencyMetadata;
-import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.manifest.DependencyConstraintSelector;
+import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.manifest.DependencySelector;
+import sh.zolt.manifest.LocalId;
+import sh.zolt.manifest.VersionAliasValue;
+import sh.zolt.manifest.authored.AuthoredDependency;
+import sh.zolt.manifest.authored.AuthoredDependencyConstraint;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class ExactUpdatePlannerTest {
+    private static final ManifestProjectConfigLoader LOADER = new ManifestProjectConfigLoader();
+
     private final ExactUpdatePlanner planner = new ExactUpdatePlanner();
     private final UpdateTargetCatalog catalog = new UpdateTargetCatalog();
     private final UpdateApplier applier = new UpdateApplier();
 
     @Test
     void plansCallerSelectedPatchMinorMajorAndNonLatestVersions() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [dependencies]
                 "com.example:lib" = "1.2.3"
                 """);
@@ -37,7 +44,7 @@ final class ExactUpdatePlannerTest {
 
     @Test
     void exactSameStringIsSuccessfulNoOp() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [dependencies]
                 "com.example:lib" = "1.2.3"
                 """);
@@ -51,7 +58,7 @@ final class ExactUpdatePlannerTest {
 
     @Test
     void rejectsDowngradesAndComparatorEquivalentSpellings() {
-        UpdateTarget target = target(config("""
+        UpdateTarget target = target(manifest("""
                 [dependencies]
                 "com.example:lib" = "1.2.3"
                 """), "com.example:lib");
@@ -69,7 +76,7 @@ final class ExactUpdatePlannerTest {
 
     @Test
     void allowsReleasesAndRequiresOptInForPrereleases() {
-        UpdateTarget target = target(config("""
+        UpdateTarget target = target(manifest("""
                 [dependencies]
                 "com.example:lib" = "1.2.3"
                 """), "com.example:lib");
@@ -87,7 +94,7 @@ final class ExactUpdatePlannerTest {
 
     @Test
     void usesVersionPolicyForEveryUnsupportedDestinationShape() {
-        UpdateTarget target = target(config("""
+        UpdateTarget target = target(manifest("""
                 [dependencies]
                 "com.example:lib" = "1.2.3"
                 """), "com.example:lib");
@@ -103,8 +110,8 @@ final class ExactUpdatePlannerTest {
 
     @Test
     void rejectsNonUpdateableGeneratedTargetsBeforeVersionValidation() {
-        ProjectConfig config = config("""
-                [generated.openapiTool]
+        AuthoredManifest config = manifest("""
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 version = "7.11.0"
 
@@ -127,7 +134,7 @@ final class ExactUpdatePlannerTest {
 
     @Test
     void applierRejectsProgrammaticallyConstructedPlansForUnsupportedSurfaces() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [dependencies]
                 "com.example:lib" = "1.2.3"
                 """);
@@ -135,13 +142,13 @@ final class ExactUpdatePlannerTest {
                 UpdateTargetId.create(
                         "zolt.toml",
                         OutdatedSurface.OPENAPI_TOOL,
-                        "[generated.openapiTool]",
+                        "[generated.tools.openapi]",
                         "org.openapitools:openapi-generator-cli"),
                 "zolt.toml",
                 "zolt.lock",
                 OutdatedSurface.OPENAPI_TOOL,
                 "org.openapitools:openapi-generator-cli",
-                "[generated.openapiTool]",
+                "[generated.tools.openapi]",
                 "7.11.0",
                 true,
                 Optional.empty(),
@@ -163,14 +170,14 @@ final class ExactUpdatePlannerTest {
 
     @Test
     void unknownTargetRequiresARefreshedCatalog() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [dependencies]
                 "com.example:lib" = "1.2.3"
                 """);
         UpdateTargetId unknown = UpdateTargetId.create(
                 "zolt.toml",
                 OutdatedSurface.DEPENDENCY,
-                "[test.dependencies]",
+                "[dependencies.test]",
                 "com.example:lib");
 
         ActionableException failure = assertThrows(
@@ -183,7 +190,7 @@ final class ExactUpdatePlannerTest {
 
     @Test
     void aliasPlanCarriesFanOutAndAppliesOnlyThroughTheAlias() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [versions]
                 shared = "1.0.0"
 
@@ -194,58 +201,68 @@ final class ExactUpdatePlannerTest {
         UpdateTarget target = target(config, "shared");
         ExactUpdatePlan plan = changed(target, "2.0.0");
 
-        ProjectConfig applied = applier.apply(config, plan);
+        AuthoredManifest applied = applier.apply(config, plan);
 
         assertEquals(List.of(
                 "[dependencies].com.example:one",
                 "[dependencies].com.example:two"), target.governs());
         assertEquals(1, plan.warnings().size());
         assertTrue(plan.warnings().getFirst().contains("updates 2 referencing coordinate(s)"));
-        assertEquals("2.0.0", applied.versionAliases().get("shared"));
-        assertEquals("shared", metadata(applied, "dependencies", "com.example:one").versionRef());
-        assertEquals("shared", metadata(applied, "dependencies", "com.example:two").versionRef());
-        assertTrue(metadata(applied, "dependencies", "com.example:two").optional());
+        assertEquals(
+                new VersionAliasValue("2.0.0"),
+                applied.versions().orElseThrow().entries().get(new LocalId("shared")));
+        assertEquals(
+                new DependencySelector.VersionReference(new LocalId("shared")),
+                declaration(applied, "com.example:one").selector());
+        assertEquals(
+                new DependencySelector.VersionReference(new LocalId("shared")),
+                declaration(applied, "com.example:two").selector());
+        assertTrue(declaration(applied, "com.example:two").metadata().optional());
     }
 
     @Test
     void dependencyApplicationPreservesRichMetadata() {
-        ProjectConfig config = config("""
+        AuthoredManifest config = manifest("""
                 [dependencies]
-                "com.example:lib" = { version = "1.2.3", optional = true, classifier = "tests", type = "jar", exclusions = [{ group = "com.example", artifact = "legacy" }] }
+                "com.example:lib" = { version = "1.2.3", optional = true, classifier = "tests", type = "jar", exclude = ["com.example:legacy"] }
                 """);
         ExactUpdatePlan plan = changed(target(config, "com.example:lib"), "1.3.0");
 
-        ProjectConfig applied = applier.apply(config, plan);
-        DependencyMetadata metadata = metadata(applied, "dependencies", "com.example:lib");
+        AuthoredManifest applied = applier.apply(config, plan);
+        AuthoredDependency declaration = declaration(applied, "com.example:lib");
 
-        assertEquals("1.3.0", applied.dependencies().get("com.example:lib"));
-        assertTrue(metadata.optional());
-        assertFalse(metadata.publishOnly());
-        assertEquals("tests", metadata.classifier());
-        assertEquals("jar", metadata.type());
-        assertEquals(1, metadata.exclusions().size());
+        assertEquals(new DependencySelector.FixedVersion("1.3.0"), declaration.selector());
+        assertTrue(declaration.metadata().optional());
+        assertFalse(declaration.metadata().publishOnly());
+        assertEquals("tests", declaration.metadata().classifier().orElseThrow());
+        assertTrue(
+                declaration.metadata().type().isEmpty(),
+                "an explicit jar type is the default variant, normalized away rather than preserved");
+        assertEquals(1, declaration.metadata().exclusions().size());
     }
 
     @Test
-    void constraintApplicationPreservesKindAndReason() {
-        ProjectConfig config = config("""
-                [dependencyConstraints]
-                "com.example:lib" = { version = "1.2.3", kind = "strict", reason = "security floor" }
+    void constraintApplicationPreservesReason() {
+        AuthoredManifest config = manifest("""
+                [dependencies.constraints]
+                "com.example:lib" = { version = "1.2.3", reason = "security floor" }
                 """);
         ExactUpdatePlan plan = changed(target(config, "com.example:lib"), "1.3.0");
 
-        ProjectConfig applied = applier.apply(config, plan);
-        DependencyConstraint constraint = applied.dependencyPolicy().constraints().get("com.example:lib");
+        AuthoredManifest applied = applier.apply(config, plan);
+        AuthoredDependencyConstraint constraint = applied.dependencyConstraints()
+                .orElseThrow()
+                .entries()
+                .get(new DependencyCoordinate("com.example:lib"));
 
-        assertEquals("1.3.0", constraint.version());
-        assertEquals("STRICT", constraint.kind().name());
+        assertEquals(
+                new DependencyConstraintSelector.FixedVersion("1.3.0"), constraint.selector());
         assertEquals("security floor", constraint.reason().orElseThrow());
-        assertTrue(constraint.versionRef().isEmpty());
     }
 
     @Test
     void hugeNumericVersionsPlanAndClassifyWithoutOverflow() {
-        UpdateTarget target = target(config("""
+        UpdateTarget target = target(manifest("""
                 [dependencies]
                 "com.example:lib" = "1.999999999999999999999999999999.1"
                 """), "com.example:lib");
@@ -272,29 +289,34 @@ final class ExactUpdatePlannerTest {
         return new ExactUpdateOptions(version, false);
     }
 
-    private UpdateTarget target(ProjectConfig config, String identifier) {
+    private UpdateTarget target(AuthoredManifest config, String identifier) {
         return catalog.collect(config, "zolt.toml", "zolt.lock").stream()
                 .filter(candidate -> candidate.identifier().equals(identifier))
                 .findFirst()
                 .orElseThrow();
     }
 
-    private static DependencyMetadata metadata(ProjectConfig config, String section, String coordinate) {
-        return config.dependencyMetadata().get(DependencyMetadata.key(section, coordinate));
+    private static AuthoredDependency declaration(AuthoredManifest manifest, String coordinate) {
+        return manifest.dependencies().orElseThrow().declarations().stream()
+                .filter(candidate -> candidate.coordinate().value().equals(coordinate))
+                .findFirst()
+                .orElseThrow();
     }
 
-    private static ProjectConfig config(String body) {
-        return new ZoltTomlParser().parse("""
+    private static AuthoredManifest manifest(String body) {
+        return LOADER.document(source(body)).authored();
+    }
+
+
+    private static String source(String body) {
+        return """
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
-
-                [repositories]
-                central = "https://repo.maven.apache.org/maven2"
+                java = 21
 
                 %s
-                """.formatted(body));
+                """.formatted(body);
     }
 }

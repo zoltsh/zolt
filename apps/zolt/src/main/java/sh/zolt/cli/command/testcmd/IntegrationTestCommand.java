@@ -27,7 +27,7 @@ import sh.zolt.resolve.ResolveException;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.TestSelectionException;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
@@ -46,7 +46,7 @@ import picocli.CommandLine.Spec;
         name = "integration-test",
         description = "Compile and run integration tests from configured integration-test roots.")
 public final class IntegrationTestCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final TestRunService testRunService;
     private final WorkspaceTestService workspaceTestService;
     private final CommandServiceBundles.TestRunServiceFactory testRunServiceFactory;
@@ -102,17 +102,17 @@ public final class IntegrationTestCommand implements Runnable {
 
     public IntegrationTestCommand() {
         this(
-                new ZoltTomlParser(),
+                new ManifestProjectLoader(),
                 CommandFrameworkServices.testCommandServices(),
                 new CommandLockfiles());
     }
 
     IntegrationTestCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             CommandTestServices testServices,
             CommandLockfiles lockfiles) {
         this(
-                tomlParser,
+                projectLoader,
                 testServices.testRunService(),
                 testServices.workspaceTestService(),
                 testServices.testRunServiceFactory(),
@@ -120,12 +120,12 @@ public final class IntegrationTestCommand implements Runnable {
     }
 
     IntegrationTestCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             TestRunService testRunService,
             WorkspaceTestService workspaceTestService,
             CommandServiceBundles.TestRunServiceFactory testRunServiceFactory,
             CommandLockfiles lockfiles) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.testRunService = testRunService;
         this.workspaceTestService = workspaceTestService;
         this.testRunServiceFactory = testRunServiceFactory;
@@ -242,7 +242,7 @@ public final class IntegrationTestCommand implements Runnable {
             List<String> requestedTestEvents) {
         ProjectConfig config = timings.measure(
                 "config read",
-                () -> tomlParser.parse(projectRoot.resolve("zolt.toml")));
+                () -> projectLoader.load(projectRoot));
         var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
         ProjectConfig integrationConfig = config.withBuildSettings(config.build().asIntegrationTestBuild());
         var compileChecker = toolchainOptions.jdkChecker(projectRoot, integrationConfig, "integration-test");

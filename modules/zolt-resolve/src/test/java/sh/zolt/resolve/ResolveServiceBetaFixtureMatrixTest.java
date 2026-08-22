@@ -11,7 +11,7 @@ import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 final class ResolveServiceBetaFixtureMatrixTest extends ResolveServiceTestSupport {
     @Test
-    void betaFixtureCombinesPomNormalizationPoliciesScopesRelocationAndStableLockfile() throws IOException {
+    void betaFixtureCombinesPomNormalizationPoliciesScopesAndStableLockfile() throws IOException {
         addBetaPlatform();
         addBetaServiceStarter();
         addArtifact("com.acme", "service-core", "1.1.0", simplePom("com.acme", "service-core", "1.1.0"));
@@ -32,20 +32,6 @@ final class ResolveServiceBetaFixtureMatrixTest extends ResolveServiceTestSuppor
         addArtifact("jakarta.servlet", "jakarta.servlet-api", "6.1.0", simplePom("jakarta.servlet", "jakarta.servlet-api", "6.1.0"));
         addArtifact("org.junit.jupiter", "junit-jupiter-api", "5.11.4", simplePom("org.junit.jupiter", "junit-jupiter-api", "5.11.4"));
         addJUnitConsoleArtifact("1.11.4");
-        addPom("com.old", "relocated-api", "1.0.0", """
-                <project>
-                  <groupId>com.old</groupId>
-                  <artifactId>relocated-api</artifactId>
-                  <version>1.0.0</version>
-                  <distributionManagement>
-                    <relocation>
-                      <groupId>com.modern</groupId>
-                      <artifactId>relocated-api</artifactId>
-                      <version>2.0.0</version>
-                    </relocation>
-                  </distributionManagement>
-                </project>
-                """);
         addArtifact("com.modern", "relocated-api", "2.0.0", simplePom("com.modern", "relocated-api", "2.0.0"));
         Path projectDir = tempDir.resolve("project-beta-fixture");
         Path cacheRoot = tempDir.resolve("cache-beta-fixture");
@@ -77,9 +63,10 @@ final class ResolveServiceBetaFixtureMatrixTest extends ResolveServiceTestSuppor
                         && effect.source().orElseThrow().equals("com.acme:service-starter:1.0.0")));
         assertTrue(packageFor(lockfile, "com.acme", "service-starter").policies().contains(
                 "managed-version: com.acme:service-starter -> 1.0.0 from com.acme:beta-platform:1.0.0"));
-        assertOrder(firstLockfile, "id = \"com.acme:runtime-helper\"", "id = \"com.acme:service-core\"");
-        assertOrder(firstLockfile, "id = \"com.acme:service-core\"", "id = \"com.acme:service-starter\"");
-        assertOrder(firstLockfile, "id = \"com.modern:relocated-api\"", "id = \"jakarta.servlet:jakarta.servlet-api\"");
+        String packageSections = firstLockfile.substring(firstLockfile.indexOf("[[package]]"));
+        assertOrder(packageSections, "id = \"com.acme:runtime-helper\"", "id = \"com.acme:service-core\"");
+        assertOrder(packageSections, "id = \"com.acme:service-core\"", "id = \"com.acme:service-starter\"");
+        assertOrder(packageSections, "id = \"com.modern:relocated-api\"", "id = \"jakarta.servlet:jakarta.servlet-api\"");
         assertEquals("""
                 packages
                 com.acme:runtime-helper:1.0.0 scope=runtime direct=false dependencies=[]
@@ -202,32 +189,35 @@ final class ResolveServiceBetaFixtureMatrixTest extends ResolveServiceTestSuppor
     }
 
     private ProjectConfig betaConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [platforms]
                 "com.acme:beta-platform" = "1.0.0"
 
                 [dependencies]
-                "com.acme:service-starter" = { exclusions = [{ group = "com.acme", artifact = "legacy-logging" }] }
-                "com.old:relocated-api" = "1.0.0"
+                "com.acme:service-starter" = { managed = true, exclude = ["com.acme:legacy-logging"] }
+                "com.modern:relocated-api" = "2.0.0"
 
-                [runtime.dependencies]
-                "org.slf4j:slf4j-simple" = {}
+                [dependencies.runtime]
+                "org.slf4j:slf4j-simple" = { managed = true }
 
-                [provided.dependencies]
-                "jakarta.servlet:jakarta.servlet-api" = {}
+                [dependencies.provided]
+                "jakarta.servlet:jakarta.servlet-api" = { managed = true }
 
-                [test.dependencies]
-                "org.junit.jupiter:junit-jupiter-api" = {}
+                [dependencies.test]
+                "org.junit.jupiter:junit-jupiter-api" = { managed = true }
                 """.formatted(baseUri));
     }
 

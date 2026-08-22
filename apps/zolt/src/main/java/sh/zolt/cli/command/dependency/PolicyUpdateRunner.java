@@ -3,41 +3,33 @@ package sh.zolt.cli.command.dependency;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandResolveOutput;
-import sh.zolt.project.ProjectConfig;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
-import sh.zolt.toml.ZoltTomlWriter;
 import sh.zolt.update.UpdateEngine;
 import sh.zolt.update.UpdateOptions;
 import sh.zolt.update.UpdatePlan;
 import sh.zolt.update.UpdatePlanJsonRenderer;
-import sh.zolt.update.UpdatePlanningScope;
 import sh.zolt.update.UpdatePlanTextRenderer;
-import sh.zolt.update.UpdateTargetKey;
+import sh.zolt.update.UpdatePlanningScope;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Optional;
 import picocli.CommandLine.Model.CommandSpec;
 
 /** Preserves the existing metadata-driven update behavior and schema-v1 output. */
 final class PolicyUpdateRunner {
-    private final ZoltTomlParser tomlParser;
-    private final ZoltTomlWriter tomlWriter;
+    private final ManifestMutationServices manifests;
     private final ResolveService resolveService;
     private final UpdateEngine engine;
     private final DependencyUpdateScopeResolver scopeResolver;
     private final Runnable beforeExecution;
 
     PolicyUpdateRunner(
-            ZoltTomlParser tomlParser,
-            ZoltTomlWriter tomlWriter,
+            ManifestMutationServices manifests,
             ResolveService resolveService,
             UpdateEngine engine,
             DependencyUpdateScopeResolver scopeResolver,
             Runnable beforeExecution) {
-        this.tomlParser = tomlParser;
-        this.tomlWriter = tomlWriter;
+        this.manifests = manifests;
         this.resolveService = resolveService;
         this.engine = engine;
         this.scopeResolver = scopeResolver;
@@ -54,13 +46,10 @@ final class PolicyUpdateRunner {
             boolean json) {
         PlannedUpdate planned = ManifestEditTransaction.inspectLocked(projectRoot, lockRoot -> {
             ResolvedUpdateScope scope = scopeResolver.policyScope(projectRoot, lockRoot);
-            UpdatePlanningScope planningScope = new UpdatePlanningScope(
-                    scope.config(),
-                    scope.discoveryConfig(),
-                    scope.manifestPath(),
-                    scope.lockfilePath(),
-                    scope.targetBlockers());
-            return new PlannedUpdate(scope, engine.plan(planningScope, options));
+            return new PlannedUpdate(scope, engine.plan(
+                    new UpdatePlanningScope(
+                            scope.manifest(), scope.discovery(), scope.manifestPath(), scope.lockfilePath()),
+                    options));
         });
         if (json) {
             runJson(spec, projectRoot, cacheRoot, planned, dryRun, noResolve);
@@ -110,36 +99,22 @@ final class PolicyUpdateRunner {
             PlannedUpdate planned,
             boolean noResolve) {
         beforeExecution.run();
-        ResolvedUpdateScope scope = planned.scope();
-        ScopeExpectation expectation = new ScopeExpectation(
-                scope.absoluteManifestPath(),
-                scope.absoluteLockfilePath(),
-                targetKeys(scope, planned.plan()),
-                Optional.of(scope.discoveryConfig()));
         return ManifestEditTransaction.execute(
                 projectRoot,
                 cacheRoot,
                 noResolve,
-                tomlParser,
-                tomlWriter,
+                manifests,
                 resolveService,
-                expectation,
+                planned.scope().expectation(),
                 current -> applyCurrentPlan(current, planned));
     }
 
-    private ProjectConfig applyCurrentPlan(ProjectConfig current, PlannedUpdate planned) {
-        if (!current.equals(planned.scope().config())) {
+    private AuthoredManifest applyCurrentPlan(AuthoredManifest current, PlannedUpdate planned) {
+        if (!current.equals(planned.scope().manifest())) {
             throw new ZoltConfigException(
                     "zolt.toml changed while dependency updates were being planned. No changes were written; retry against the current manifest.");
         }
         return engine.apply(current, planned.plan());
-    }
-
-    private static List<UpdateTargetKey> targetKeys(ResolvedUpdateScope scope, UpdatePlan plan) {
-        return plan.edits().stream()
-                .map(edit -> new UpdateTargetKey(
-                        scope.manifestPath(), edit.surface(), edit.section(), edit.identifier()))
-                .toList();
     }
 
     private record PlannedUpdate(ResolvedUpdateScope scope, UpdatePlan plan) {

@@ -28,8 +28,10 @@ projection removes the filtered edge as well as the optional-only target, so it
 cannot emit a dangling relationship. Member-qualified component graph contexts
 remain available to workspace SBOM and classpath consumers that require
 member-sensitive projection (defensive lookup, cycle-guarded). Commands that
-consume this workspace graph require lock version 5; versions 1–4 remain
-readable only for operations that do not need optional-boundary evidence.
+consumed this workspace graph required lock version 5 when the graph contract
+was introduced; versions 1–4 were then readable only for operations that did
+not need optional-boundary evidence. Current executable readers reject every
+pre-v7 lock because those schemas cannot prove authored dependency lanes.
 Therefore the SBOM graph is a READ of the lock — no re-resolution (rejected:
 needs warm cache/network, drags zolt-resolve in, re-derives persisted data) and
 no parallel edge table (rejected: it duplicates existing data for zero new
@@ -77,8 +79,9 @@ PROVIDED/DEV (--include-provided/--include-dev), TEST/TEST_PROCESSOR
 "optional". Multi-scope packages dedup to one component (required wins);
 edges filtered to surviving endpoints. purl = pkg:maven/g/a@v?type=<ext>
 [&classifier=<c>] (classifier best-effort from artifact filename;
-percent-encoded); bom-ref = purl. Root component from [project] +
-[package.metadata] (license from config — authoritative, not POM-extracted);
+percent-encoded); bom-ref = purl. Root component from [project] and
+[project.developers.<id>] (license from config — authoritative, not
+POM-extracted);
 type application when packaged as an app. metadata.tools = zolt + version.
 Workspace = ONE BOM (per-member rejected: procurement consumes one artifact;
 the graph expresses boundaries): root workspace component, members as library
@@ -131,10 +134,10 @@ guarantee + maintenance; v2 path: curated texts for top permissive ids).
 
 ## License policy
 
-Config home `[dependencyPolicy.licenses]`: `allow = [...]`, `deny = [...]`,
+Config home `[dependencies.policy.licenses]`: `allow = [...]`, `deny = [...]`,
 `unknown = "fail"|"warn"|"allow"` (default warn — failing on UNKNOWN by
 default would break most real projects; strict shops set fail in CI). Exact
-`[dependencyPolicy.licenses.exceptions."group:artifact"]` tables extend a
+`[dependencies.license-exceptions."group:artifact"]` tables extend a
 non-empty allow list with canonical SPDX terms and require a review reason;
 an optional `version` is exact. Missing, mismatched, and redundant exceptions
 fail the quality gate, and no exception can override global deny.
@@ -142,12 +145,13 @@ Precedence rule (one sentence, no ambiguity): permitted iff id ∉ deny AND
 (allow empty OR id ∈ allow) — deny always wins; a non-empty allow-list is
 authoritative. UNMAPPED matches by its raw string, otherwise follows the
 unknown strictness. Model: DependencyPolicySettings gains
-LicensePolicySettings (additive, back-compat overload). Codec: nested table
-under the existing dependencyPolicy section with key validation. Enforcement:
-new `zolt check` id `license-policy` (in IMPLEMENTED_CHECKS +
+LicensePolicySettings (additive, back-compat overload). Codec: the
+`[dependencies.policy.licenses]` table plus the sibling
+`[dependencies.license-exceptions.<coordinate>]` namespace, with key validation.
+Enforcement: new `zolt check` id `license-policy` (in IMPLEMENTED_CHECKS +
 CI_CONTEXT_CHECKS), LicensePolicyQualityCheck in zolt-quality delegating to
 zolt-sbom's evaluator; offline; failures name dependency, license, and the
-policy line with a Next: (remove dep / policy exclude / amend policy).
+policy line with a Next: (remove dep / policy deny / amend policy).
 Reporting: `zolt licenses` annotates the same evaluator's verdicts onto its own
 output — `[denied]`/`[unknown]`/`[exception]` markers carrying the evaluator's
 reason, exception lifecycle audits, a counts summary, and a pointer at the
@@ -164,7 +168,7 @@ never applies to it. A coordinate in an enforced and an optional scope is in tha
 assembly (`LockSbomAssembler` merges multi-scope duplicates, required wins) and is
 annotated. Widening `zolt check --check license-policy` is a separate decision;
 until it is taken, annotation follows it rather than leading it. Member axis: in a
-workspace `[dependencyPolicy]` is member-local, so the CLI pairs each member's
+workspace `[dependencies.policy]` is member-local, so the CLI pairs each member's
 effective config with that member's projected external closure — the same
 `WorkspaceMemberSbomLockProjection` the workspace quality check consumes, filtered
 at `requiredOnly()` whatever the report selected — and passes those
@@ -191,7 +195,7 @@ optional workspace declarations against both the project edge and version-5
 member graph, and parses qualified dependency edges for exclusions. Explicit
 dependency-metadata, dependency-policy, license-policy, and package-contents
 checks all require version-5 graph capability even when `lockfile` was not
-requested. A root-only `members = ["."]` workspace follows the same aggregation
+requested. A root-only `include = ["."]` workspace follows the same aggregation
 contract: its project fingerprints remain unchanged while external packages,
 exports, and optional facts gain `"."` member attribution.
 

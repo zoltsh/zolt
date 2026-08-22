@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.doctor.JdkChecker;
-import sh.zolt.error.ActionableException;
 import sh.zolt.framework.FrameworkTestRunner;
 import sh.zolt.resolve.ResolveService;
-import sh.zolt.workspace.discovery.WorkspaceDiscoveryService;
+import sh.zolt.workspace.WorkspaceConfigException;
+import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -54,9 +54,11 @@ final class WorkspaceCommandToolchainContextTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "large-toolchain-workspace"
-                members = [%s]
+
+                [workspace.members]
+                include = [%s]
                 """.formatted(members));
-        Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
         Workspace workspace = capturedWorkspace(root);
         CommandToolchainOptions options = options();
         List<JdkChecker> runtimeCheckers = new ArrayList<>();
@@ -111,7 +113,9 @@ final class WorkspaceCommandToolchainContextTest {
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "captured-toolchain-workspace"
-                members = ["apps/api"]
+
+                [workspace.members]
+                include = ["apps/api"]
                 """);
         writeMember(
                 member,
@@ -119,7 +123,7 @@ final class WorkspaceCommandToolchainContextTest {
                 """
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 features = []
                 policy = "prefer-managed"
                 """.formatted(currentJavaVersion()));
@@ -152,7 +156,7 @@ final class WorkspaceCommandToolchainContextTest {
                                             """
 
                                             [toolchain.java]
-                                            version = "999"
+                                            version = 999
                                             distribution = "temurin"
                                             features = []
                                             policy = "require-managed"
@@ -189,58 +193,62 @@ final class WorkspaceCommandToolchainContextTest {
         assertEquals(true, mutated.get());
     }
 
+    /**
+     * Design §11.4: the selected test JDK must execute classes compiled for the effective project
+     * release. The final language enforces that when the workspace is composed, so a member whose
+     * release outruns the shared test runtime is rejected with the same diagnostic wherever it sits
+     * in the member list.
+     */
     @Test
     void testRuntimeReleaseValidationIsIndependentOfMemberOrder()
             throws IOException {
-        Path root = tempDir.resolve("mixed-release-workspace");
+        Path lowerFirst = mixedReleaseWorkspace(
+                tempDir.resolve("lower-first"),
+                "\"modules/java-17\", \"modules/java-21\"");
+        Path higherFirst = mixedReleaseWorkspace(
+                tempDir.resolve("higher-first"),
+                "\"modules/java-21\", \"modules/java-17\"");
+
+        WorkspaceConfigException lower = assertThrows(
+                WorkspaceConfigException.class,
+                () -> capturedWorkspace(lowerFirst));
+        WorkspaceConfigException higher = assertThrows(
+                WorkspaceConfigException.class,
+                () -> capturedWorkspace(higherFirst));
+
+        assertTrue(
+                lower.getMessage().contains(
+                        "Effective test Java runtime release 17 "
+                                + "cannot execute project Java release 21."),
+                lower.getMessage());
+        assertEquals(
+                lower.getMessage().replace(lowerFirst.toString(), "<root>"),
+                higher.getMessage().replace(higherFirst.toString(), "<root>"));
+    }
+
+    /** A workspace whose shared test runtime cannot execute one of its two member releases. */
+    private static Path mixedReleaseWorkspace(Path root, String include)
+            throws IOException {
         Files.createDirectories(root);
         Files.writeString(root.resolve("zolt.toml"), """
                 [workspace]
                 name = "mixed-release-workspace"
-                members = ["modules/java-8", "modules/java-999"]
+
+                [workspace.members]
+                include = [%s]
 
                 [toolchain.java]
-                version = "%s"
+                version = 21
                 features = []
                 policy = "prefer-managed"
 
                 [toolchain.java.test]
-                version = "%s"
-                """.formatted(currentJavaVersion(), currentJavaVersion()));
-        writeMember(
-                root.resolve("modules/java-8"),
-                "java-8",
-                "8",
-                "");
-        writeMember(
-                root.resolve("modules/java-999"),
-                "java-999",
-                "999",
-                "");
-        Files.writeString(root.resolve("zolt.lock"), "version = 5\n");
-        Workspace workspace = capturedWorkspace(root);
-
-        RuntimeFailure lowerFirst = runtimeFailure(
-                workspace,
-                "modules/java-8",
-                "modules/java-999");
-        RuntimeFailure higherFirst = runtimeFailure(
-                workspace,
-                null,
-                "modules/java-999");
-
-        assertEquals(higherFirst.message(), lowerFirst.message());
-        assertTrue(lowerFirst.message().contains(
-                "Test runtime Java " + currentJavaVersion()
-                        + " is older than the compiled [project].java release 999"));
-        assertTrue(lowerFirst.message().contains(
-                "UnsupportedClassVersionError"));
-        assertEquals(
-                new WorkspaceTestToolchainMetrics(1, 0, 0, 1, 1),
-                lowerFirst.metrics());
-        assertEquals(
-                new WorkspaceTestToolchainMetrics(1, 0, 0, 1, 0),
-                higherFirst.metrics());
+                version = 17
+                """.formatted(include));
+        writeMember(root.resolve("modules/java-17"), "java-17", "17", "");
+        writeMember(root.resolve("modules/java-21"), "java-21", "21", "");
+        Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
+        return root;
     }
 
     private CommandToolchainOptions options() {
@@ -264,7 +272,7 @@ final class WorkspaceCommandToolchainContextTest {
     private static Workspace capturedWorkspace(Path root)
             throws IOException {
         Workspace discovered =
-                new WorkspaceDiscoveryService().discover(root).orElseThrow();
+                new ManifestWorkspaceLoader().discover(root).orElseThrow();
         Path lockfile = root.resolve("zolt.lock");
         return discovered.withInputs(
                 discovered.inputs().withContent(
@@ -294,56 +302,9 @@ final class WorkspaceCommandToolchainContextTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 %s
                 """.formatted(name, release, extra));
-    }
-
-    private RuntimeFailure runtimeFailure(
-            Workspace workspace,
-            String successfulMember,
-            String failingMember) {
-        List<JdkChecker> runtimeCheckers = new ArrayList<>();
-        CommandToolchainOptions.WorkspaceCommandToolchains toolchains =
-                options().workspaceTestToolchains(
-                        (compileChecker, runtimeChecker) -> {
-                            runtimeCheckers.add(runtimeChecker);
-                            return testRunService(
-                                    compileChecker,
-                                    runtimeChecker);
-                        },
-                        "test");
-        if (successfulMember != null) {
-            runtimeChecker(
-                    toolchains,
-                    workspace,
-                    successfulMember,
-                    runtimeCheckers).detect("8");
-        }
-        JdkChecker failingChecker = runtimeChecker(
-                toolchains,
-                workspace,
-                failingMember,
-                runtimeCheckers);
-        ActionableException failure = assertThrows(
-                ActionableException.class,
-                () -> failingChecker.detect("999"));
-        return new RuntimeFailure(
-                failure.getMessage(),
-                toolchains.testRunServices().toolchainMetrics());
-    }
-
-    private static JdkChecker runtimeChecker(
-            CommandToolchainOptions.WorkspaceCommandToolchains toolchains,
-            Workspace workspace,
-            String memberPath,
-            List<JdkChecker> runtimeCheckers) {
-        var member = workspace.members().stream()
-                .filter(candidate -> candidate.path().equals(memberPath))
-                .findFirst()
-                .orElseThrow();
-        toolchains.testRunServices().forMember(workspace, member);
-        return runtimeCheckers.getLast();
     }
 
     private static void writeSource(
@@ -357,12 +318,12 @@ final class WorkspaceCommandToolchainContextTest {
         return """
 
                 [toolchain.java]
-                version = "%s"
+                version = %s
                 features = []
                 policy = "prefer-managed"
 
                 [toolchain.java.test]
-                version = "%s"
+                version = %s
                 """.formatted(version, version);
     }
 
@@ -374,8 +335,4 @@ final class WorkspaceCommandToolchainContextTest {
                 : parts[0];
     }
 
-    private record RuntimeFailure(
-            String message,
-            WorkspaceTestToolchainMetrics metrics) {
-    }
 }

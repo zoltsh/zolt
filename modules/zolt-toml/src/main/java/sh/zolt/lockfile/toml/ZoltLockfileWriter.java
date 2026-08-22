@@ -4,10 +4,12 @@ import sh.zolt.dependency.ConflictSelectionReason;
 import sh.zolt.dependency.VersionComparator;
 import sh.zolt.lockfile.LockArtifactVariant;
 import sh.zolt.lockfile.LockConflict;
+import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockMemberGraph;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.LockPolicyEffect;
 import sh.zolt.lockfile.ZoltLockfile;
+import sh.zolt.manifest.WorkspaceMemberPath;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -27,6 +29,14 @@ public final class ZoltLockfileWriter {
     }
 
     public String write(ZoltLockfile lockfile) {
+        if (lockfile.version() != ZoltLockfile.CURRENT_VERSION) {
+            throw new LockfileWriteException(
+                    "Cannot write zolt.lock version " + lockfile.version() + "; current version is "
+                            + ZoltLockfile.CURRENT_VERSION + ". Regenerate the lock model before writing it.");
+        }
+        LockfileDependencyRootCompleteness.violation(lockfile).ifPresent(violation -> {
+            throw new LockfileWriteException(violation + " Refusing to write incomplete lock evidence.");
+        });
         StringBuilder output = new StringBuilder();
         output.append("version = ").append(lockfile.version()).append('\n');
         lockfile.aliasFingerprint().ifPresent(value -> assignment(output, "aliasFingerprint", value));
@@ -40,6 +50,9 @@ public final class ZoltLockfileWriter {
         lockfile.workspaceResolutionInputFingerprint().ifPresent(value ->
                 assignment(output, LockfileSidecars.WORKSPACE_RESOLUTION_INPUT_FINGERPRINT, value));
         output.append('\n');
+        for (LockDependencyRoot root : sortedDependencyRoots(lockfile.dependencyRoots())) {
+            writeDependencyRoot(output, root);
+        }
         for (LockPackage lockPackage : sortedPackages(lockfile.packages())) {
             writePackage(output, lockPackage);
         }
@@ -53,6 +66,25 @@ public final class ZoltLockfileWriter {
             writeConflict(output, conflict);
         }
         return output.toString();
+    }
+
+    private void writeDependencyRoot(StringBuilder output, LockDependencyRoot root) {
+        output.append("[[dependencyRoot]]\n");
+        assignment(output, "member", root.member());
+        assignment(output, "id", root.packageId().toString());
+        assignment(output, "version", root.version());
+        if (!root.variant().isDefault()) {
+            assignment(output, "variant", root.variant().key());
+        }
+        assignment(output, "lane", lane(root));
+        root.resolvedScope().ifPresent(scope -> assignment(output, "resolvedScope", scope.lockfileName()));
+        if (root.optional()) {
+            output.append("optional = true\n");
+        }
+        if (root.publishOnly()) {
+            output.append("publishOnly = true\n");
+        }
+        output.append('\n');
     }
 
     private void writePackage(StringBuilder output, LockPackage lockPackage) {
@@ -173,6 +205,30 @@ public final class ZoltLockfileWriter {
                                 lockPackage.packageId() + ":" + lockPackage.version() + ":" + lockPackage.scope().lockfileName())
                         .thenComparing(lockPackage -> LockArtifactVariant.of(lockPackage).key()))
                 .toList();
+    }
+
+    private static List<LockDependencyRoot> sortedDependencyRoots(
+            List<LockDependencyRoot> roots) {
+        return roots.stream()
+                .sorted(Comparator
+                        .comparing((LockDependencyRoot root) -> new WorkspaceMemberPath(root.member()))
+                        .thenComparingInt(root -> root.lane().canonicalOrder())
+                        .thenComparing(root -> root.packageId().toString())
+                        .thenComparing(root -> root.variant().key()))
+                .toList();
+    }
+
+    private static String lane(LockDependencyRoot root) {
+        return switch (root.lane()) {
+            case API -> "api";
+            case IMPLEMENTATION -> "implementation";
+            case RUNTIME -> "runtime";
+            case PROVIDED -> "provided";
+            case DEV -> "dev";
+            case TEST -> "test";
+            case PROCESSOR -> "processor";
+            case TEST_PROCESSOR -> "test-processor";
+        };
     }
 
     private static List<LockConflict> sortedConflicts(List<LockConflict> conflicts) {

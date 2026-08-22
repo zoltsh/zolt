@@ -2,25 +2,13 @@
 name = "spock-basic"
 version = "0.1.0"
 group = "com.example"
-java = "21"
+java = 21
 main = "com.example.Calculator"
 
-[repositories]
-central = "https://repo.maven.apache.org/maven2"
-
-[dependencies]
-
-[test.dependencies]
+[dependencies.test]
 "org.apache.groovy:groovy" = "4.0.22"
-"org.spockframework:spock-core" = "2.3-groovy-4.0"
 "org.junit.platform:junit-platform-console-standalone" = "1.14.4"
+"org.spockframework:spock-core" = "2.3-groovy-4.0"
 
 [test.sources]
 groovy = ["src/test/groovy"]
-
-[build]
-source = "src/main/java"
-test = "src/test/java"
-output = "target/classes"
-testOutput = "target/test-classes"
-

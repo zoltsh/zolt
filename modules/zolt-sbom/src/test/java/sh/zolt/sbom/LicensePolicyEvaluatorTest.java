@@ -33,7 +33,7 @@ final class LicensePolicyEvaluatorTest {
                 "GPL-3.0-only",
                 "GPL-3.0-only",
                 LicenseVerdict.VIOLATION,
-                "denied by [dependencyPolicy.licenses].deny",
+                "denied by [dependencies.policy.licenses].deny",
                 Optional.empty());
 
         assertEquals(LicensePolicyFindingCause.GLOBAL_DENY, finding.cause());

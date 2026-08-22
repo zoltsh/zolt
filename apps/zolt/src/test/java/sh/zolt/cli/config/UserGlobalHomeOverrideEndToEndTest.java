@@ -27,37 +27,34 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * End-to-end proof that {@code ZOLT_USER_HOME} redirects the whole user-global tree. The variable can
  * only be set for a real process, so these run the CLI entry point in a child JVM off the current test
- * classpath and assert on what the user actually sees: the config that gets read, the cache root that
- * gets reported, and a user-global directory that gets written.
+ * classpath and assert on what the user actually sees: the config that gets read and a user-global
+ * directory that gets written.
+ *
+ * <p>The probe is {@code zolt toolchain global status}, which reads {@code <root>/config.toml} and
+ * names it when no default is configured. {@code zolt config show} is no longer a user-global
+ * diagnostic (design §20.2), so it cannot serve as the probe.
  */
 final class UserGlobalHomeOverrideEndToEndTest {
     @TempDir
     private Path work;
 
     @Test
-    void configIsReadFromAndCachesResolveUnderTheOverride() throws Exception {
+    void configIsReadFromTheOverride() throws Exception {
         Path override = Files.createDirectories(work.resolve("zolt-user-home"));
         Files.writeString(override.resolve("config.toml"), """
                 version = 1
 
-                [repository]
-                downloadConcurrency = 3
+                [defaults.toolchain.java]
+                version = "21"
+                distribution = "temurin"
                 """);
 
-        CliProcessResult result = runCli(override.toString(), "config", "show");
+        CliProcessResult result = runCli(override.toString(), "toolchain", "global", "status");
 
-        assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(
-                result.stdout().contains("User global config: " + override.resolve("config.toml")),
-                result.stdout());
-        assertTrue(result.stdout().contains("config file: present"), result.stdout());
-        assertTrue(
-                result.stdout().contains("cache.root: " + override.resolve("cache")),
-                result.stdout());
-        // The override is honored as the built-in default, not as an explicit --config flag.
-        assertTrue(result.stdout().contains("config path source: built-in default"), result.stdout());
-        // The redirected config really was parsed, rather than falling back to defaults.
-        assertTrue(result.stdout().contains("repository.downloadConcurrency: 3"), result.stdout());
+        // The redirected config really was parsed, rather than falling back to defaults: the request
+        // block echoes values that exist only in the override file.
+        assertTrue(result.stdout().contains("java: 21"), result.stdout() + result.stderr());
+        assertTrue(result.stdout().contains("distribution: temurin"), result.stdout());
     }
 
     @Test
@@ -73,7 +70,7 @@ final class UserGlobalHomeOverrideEndToEndTest {
 
     @Test
     void relativeOverrideFailsWithAnActionableMessageNamingTheVariable() throws Exception {
-        CliProcessResult result = runCli("relative-user-home", "config", "show");
+        CliProcessResult result = runCli("relative-user-home", "toolchain", "global", "status");
 
         assertNotEquals(0, result.exitCode(), result.stdout());
         String combined = result.stdout() + result.stderr();
@@ -84,21 +81,27 @@ final class UserGlobalHomeOverrideEndToEndTest {
 
     @Test
     void withoutTheOverrideTheDefaultUserHomeStillApplies() throws Exception {
-        CliProcessResult result = runCli(null, "config", "show");
+        Path home = Files.createDirectories(work.resolve("plain-home"));
 
-        assertEquals(0, result.exitCode(), result.stderr());
-        Path expected = Path.of(System.getProperty("user.home"), ".zolt", "config.toml")
-                .toAbsolutePath()
-                .normalize();
-        assertTrue(result.stdout().contains("User global config: " + expected), result.stdout());
+        CliProcessResult result = runCli(null, home, "toolchain", "global", "status");
+
+        assertNotEquals(0, result.exitCode(), result.stdout());
+        Path expected = home.resolve(".zolt").resolve("config.toml").toAbsolutePath().normalize();
+        String combined = result.stdout() + result.stderr();
+        assertTrue(combined.contains(expected.toString()), combined);
     }
 
     private CliProcessResult runCli(String userHomeOverride, String... args) throws IOException, InterruptedException {
-        List<String> command = new ArrayList<>(List.of(
-                javaExecutable().toString(),
-                "-cp",
-                childClasspath(),
-                "sh.zolt.cli.ZoltCli"));
+        return runCli(userHomeOverride, null, args);
+    }
+
+    private CliProcessResult runCli(String userHomeOverride, Path userHome, String... args)
+            throws IOException, InterruptedException {
+        List<String> command = new ArrayList<>(List.of(javaExecutable().toString()));
+        if (userHome != null) {
+            command.add("-Duser.home=" + userHome);
+        }
+        command.addAll(List.of("-cp", childClasspath(), "sh.zolt.cli.ZoltCli"));
         command.addAll(List.of(args));
 
         ProcessBuilder builder = new ProcessBuilder(command);

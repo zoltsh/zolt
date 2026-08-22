@@ -17,12 +17,11 @@ import sh.zolt.explain.MigrationReadinessScorecards;
 import sh.zolt.explain.emit.DraftWorkspaceRenderer;
 import sh.zolt.explain.emit.DraftZoltTomlRenderer;
 import sh.zolt.explain.emit.EmitRenderer;
-import sh.zolt.explain.emit.InspectionToProjectConfig;
+import sh.zolt.explain.emit.InspectionToManifest;
 import sh.zolt.explain.gradle.GradleExplainFormatter;
 import sh.zolt.explain.gradle.GradleInspectionResult;
 import sh.zolt.explain.gradle.GradleStaticProjectInspector;
-import sh.zolt.toml.ZoltTomlWriter;
-import sh.zolt.workspace.toml.WorkspaceTomlWriter;
+import sh.zolt.toml.manifest.write.ManifestCanonicalWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
@@ -103,11 +102,10 @@ public final class ExplainCommand implements Callable<Integer> {
                 new MigrationBlockerReportFormatter(),
                 new MigrationReadinessScorecardFormatter(),
                 new EmitRenderer(
-                        new InspectionToProjectConfig(),
+                        new InspectionToManifest(),
                         new DraftZoltTomlRenderer(),
                         new DraftWorkspaceRenderer(),
-                        new ZoltTomlWriter()::write,
-                        new WorkspaceTomlWriter()::write));
+                        new ManifestCanonicalWriter()::write));
     }
 
     ExplainCommand(

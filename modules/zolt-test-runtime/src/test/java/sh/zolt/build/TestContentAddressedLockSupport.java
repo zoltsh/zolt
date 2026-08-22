@@ -16,7 +16,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.lockfile.toml.ZoltLockfileWriter;
 
-/** Migrates runtime test fixtures onto the production version 6 cache-path contract. */
+/** Adds content-addressed artifacts to current-schema runtime test fixtures. */
 public final class TestContentAddressedLockSupport {
     private TestContentAddressedLockSupport() {}
 
@@ -58,7 +58,8 @@ public final class TestContentAddressedLockSupport {
                 legacy.conflicts(),
                 legacy.policyEffects(),
                 legacy.memberGraphs(),
-                legacy.workspaceResolutionInputFingerprint()));
+                legacy.workspaceResolutionInputFingerprint(),
+                legacy.dependencyRoots()));
     }
 
     public static Path cachedJar(Path projectDirectory, String coordinate) {

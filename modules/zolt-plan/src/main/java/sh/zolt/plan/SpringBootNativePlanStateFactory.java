@@ -27,8 +27,10 @@ final class SpringBootNativePlanStateFactory {
         this.lockfileReader = lockfileReader;
     }
 
+    /** {@code lockfilePath} is the authoritative lockfile the caller resolved (design §6.9). */
     SpringBootNativePlanState state(
             Path root,
+            Path lockfile,
             ProjectConfig config,
             Optional<Path> nativeImageExecutable) {
         Path normalizedRoot = root.toAbsolutePath().normalize();
@@ -42,7 +44,7 @@ final class SpringBootNativePlanStateFactory {
         List<Path> generatedClasses = files(classes, ".class");
         List<Path> reflectionMetadata = namedFiles(metadata, "reflect-config.json");
         List<Path> reachabilityMetadata = namedFiles(metadata, "reachability-metadata.json");
-        Path lockfilePath = normalizedRoot.resolve("zolt.lock");
+        Path lockfilePath = lockfile.toAbsolutePath().normalize();
         NativeSettings nativeSettings = config.nativeSettings().withDefaultImageName(config.project().name());
         Path outputDirectory = normalizedRoot.resolve(nativeSettings.output()).normalize();
         Path executable = nativeImageExecutable.orElse(Path.of("native-image"));

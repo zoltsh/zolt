@@ -1,0 +1,61 @@
+# Removed pre-release manifest spellings that must stay in the tree, one entry per path and spelling.
+# Every entry names why the text is not an authored manifest spelling; anything else is a violation.
+# path|spelling|reason
+
+# The gate's own definition and scanner unit tests must name what they forbid.
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellings.java|workspace-default-members|gate definition
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellings.java|repository-credentials|gate definition
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellings.java|dependency-policy|gate definition
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellings.java|dependency-constraints|gate definition
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellings.java|coverage-min-line|gate definition
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellings.java|coverage-min-branch|gate definition
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellings.java|license-policy|gate definition
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellings.java|compiler-release|gate definition
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellingGuardrailTest.java|dependency-policy|scanner fixture
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellingGuardrailTest.java|dependency-constraints|scanner fixture
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellingGuardrailTest.java|api-dependencies|scanner fixture
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellingGuardrailTest.java|workspace-default-members|scanner fixture
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellingGuardrailTest.java|compiler-release|scanner fixture
+apps/zolt/src/test/java/sh/zolt/arch/RemovedManifestSpellingGuardrailTest.java|build-output-root|scanner fixture
+
+# Lock identity: renaming a fingerprint input token restates every checked-in lock (design 21.2).
+modules/zolt-model/src/main/java/sh/zolt/project/FrameworkSettings.java|framework-spring-boot|lock fingerprint input token
+modules/zolt-resolve/src/main/java/sh/zolt/resolve/fingerprint/ProjectResolutionFingerprint.java|dependency-policy|lock fingerprint input token
+modules/zolt-build/src/main/java/sh/zolt/build/packageplan/PackageInputFingerprint.java|dependency-policy|lock fingerprint input token
+modules/zolt-resolve/src/test/resources/golden/project-resolution-fingerprint-v2.golden|dependency-policy|lock fingerprint input token
+modules/zolt-resolve/src/test/resources/golden/project-resolution-fingerprint-v2.golden|framework-spring-boot|lock fingerprint input token
+zolt.lock|framework-spring-boot|lock fingerprint input token
+
+# Rejection fixtures: a test that proves a removed spelling is refused has to spell it out.
+modules/zolt-toml/src/test/java/sh/zolt/toml/manifest/adapter/ManifestFinalBoundaryTest.java|package-mode-symbols|removed-spelling rejection fixture
+modules/zolt-toml/src/test/java/sh/zolt/toml/manifest/publish/ManifestPublicationSigningDecoderTest.java|publish-signing-enabled|removed-spelling rejection fixture
+
+# Machine-readable report and editor-model field names, not manifest tables.
+modules/zolt-sbom/src/main/java/sh/zolt/sbom/LicenseReportJsonWriter.java|license-policy|license report JSON field
+modules/zolt-sbom/src/test/java/sh/zolt/sbom/LicenseReportPolicyAnnotationTest.java|license-policy|license report JSON field
+apps/zolt/src/test/java/sh/zolt/cli/supplychain/LicensesCommandPolicyTest.java|license-policy|license report JSON field
+smoke/sbom-licenses.smoke.mts|license-policy|license report JSON field
+REFERENCE.md|license-policy|license report JSON field
+docs/license-policy-exceptions-design.md|license-policy|license report JSON field
+modules/zolt-ide/src/main/java/sh/zolt/ide/WorkspaceIdeModelJsonWriter.java|workspace-default-members|IDE model JSON field
+
+# The machine-local user global config is a separate language the manifest cut did not touch.
+modules/zolt-config/src/main/java/sh/zolt/config/UserGlobalConfigParser.java|repository-credentials|user global config section
+modules/zolt-config/src/main/java/sh/zolt/config/UserGlobalConfigParser.java|dependency-policy|user global config section
+modules/zolt-config/src/main/java/sh/zolt/config/BuildCacheSectionParser.java|repository-credentials|user global config section
+modules/zolt-config/src/main/java/sh/zolt/config/RemoteBuildCacheConfig.java|repository-credentials|user global config section
+modules/zolt-config/src/test/java/sh/zolt/config/UserGlobalConfigParserBuildCacheTest.java|repository-credentials|user global config section
+smoke/build-cache.smoke.mts|repository-credentials|user global config section
+REFERENCE.md|repository-credentials|user global config section
+
+# Engine record components the boundary adapter documents by name.
+modules/zolt-model/src/main/java/sh/zolt/manifest/adapter/ProjectConfigRepositories.java|repository-credentials|engine record component
+
+# Design citations for abolished fields, which must keep naming what was abolished.
+modules/zolt-model/src/main/java/sh/zolt/manifest/adapter/EffectiveProjectConfigAdapter.java|compiler-release|abolished field citation
+modules/zolt-publish/src/main/java/sh/zolt/publish/ManifestPublishSettingsAdapter.java|publish-signing-enabled|abolished field citation
+apps/zolt/src/main/java/sh/zolt/cli/command/dependency/PlatformsCommand.java|platform-command|abolished command citation
+docs/manifest-language-design.md|compiler-release|design counter-example
+docs/manifest-language-design.md|framework-spring-boot|design counter-example
+docs/manifest-language-design.md|platform-command|design counter-example
+docs/manifest-language-design.md|workspace-default-members|dated pre-cut re-review note

@@ -50,7 +50,7 @@ final class ZoltLockfileReaderFieldsTest {
     @Test
     void readsDiscardedGraphConflictProvenance() {
         LockConflict conflict = reader.read("""
-                version = 5
+                version = 7
 
                 [[conflict]]
                 id = "com.example:driver"
@@ -65,7 +65,7 @@ final class ZoltLockfileReaderFieldsTest {
     @Test
     void readsSeparateDeclaredAndEffectiveOptionalFactsWithLegacyFallback() {
         List<LockMemberGraph> graphs = reader.read("""
-                version = 5
+                version = 7
 
                 [[memberGraph]]
                 member = "apps/new"
@@ -94,14 +94,14 @@ final class ZoltLockfileReaderFieldsTest {
     @Test
     void readsPolicyEffects() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
 
                 [[policy]]
                 kind = "global-exclusion"
                 id = "commons-logging:commons-logging"
                 requested = "1.2"
                 source = "org.springframework.boot:spring-boot-starter-web:3.3.6"
-                policy = "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                policy = "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                 """);
 
         LockPolicyEffect effect = lockfile.policyEffects().getFirst();
@@ -109,13 +109,27 @@ final class ZoltLockfileReaderFieldsTest {
         assertEquals(new PackageId("commons-logging", "commons-logging"), effect.packageId());
         assertEquals("1.2", effect.requestedVersion().orElseThrow());
         assertEquals("org.springframework.boot:spring-boot-starter-web:3.3.6", effect.source().orElseThrow());
-        assertEquals("[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)", effect.policy());
+        assertEquals("[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)", effect.policy());
     }
 
     @Test
     void readsInternalToolingScopes() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:processor"
+                version = "1.0.0"
+                lane = "processor"
+                resolvedScope = "processor"
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.example:test-processor"
+                version = "1.0.0"
+                lane = "test-processor"
+                resolvedScope = "test-processor"
 
                 [[package]]
                 id = "com.example:processor"
@@ -159,7 +173,14 @@ final class ZoltLockfileReaderFieldsTest {
     @Test
     void readsWorkspacePackageFields() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "."
+                id = "com.acme:core"
+                version = "0.1.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.acme:core"
@@ -182,7 +203,14 @@ final class ZoltLockfileReaderFieldsTest {
     @Test
     void readsOptionalPackageMembers() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "apps/api"
+                id = "com.example:demo"
+                version = "1.0.0"
+                lane = "implementation"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:demo"
@@ -200,7 +228,14 @@ final class ZoltLockfileReaderFieldsTest {
     @Test
     void readsOptionalExportedByMembers() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
+
+                [[dependencyRoot]]
+                member = "modules/api"
+                id = "com.example:contract"
+                version = "1.0.0"
+                lane = "api"
+                resolvedScope = "compile"
 
                 [[package]]
                 id = "com.example:contract"
@@ -208,6 +243,7 @@ final class ZoltLockfileReaderFieldsTest {
                 source = "maven-central"
                 scope = "compile"
                 direct = true
+                members = ["modules/api"]
                 exportedBy = ["modules/api"]
                 dependencies = []
                 """);
@@ -218,7 +254,7 @@ final class ZoltLockfileReaderFieldsTest {
     @Test
     void readsNonJarArtifactFields() {
         ZoltLockfile lockfile = reader.read("""
-                version = 1
+                version = 7
 
                 [[package]]
                 id = "io.quarkus.platform:quarkus-bom-quarkus-platform-properties"

@@ -9,7 +9,7 @@ import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.command.CommandWorkspaceSelections;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.clean.WorkspaceCleanResult;
 import sh.zolt.workspace.clean.WorkspaceCleanService;
 import sh.zolt.workspace.WorkspaceConfigException;
@@ -23,7 +23,7 @@ import picocli.CommandLine.Spec;
 
 @Command(name = "clean", description = "Remove project build output.")
 public final class CleanCommand implements Runnable {
-    private final ZoltTomlParser tomlParser;
+    private final ManifestProjectLoader projectLoader;
     private final CleanService cleanService;
     private final WorkspaceCleanService workspaceCleanService;
 
@@ -46,14 +46,14 @@ public final class CleanCommand implements Runnable {
     private CommandSpec spec;
 
     public CleanCommand() {
-        this(new ZoltTomlParser(), new CleanService(), new WorkspaceCleanService());
+        this(new ManifestProjectLoader(), new CleanService(), new WorkspaceCleanService());
     }
 
     CleanCommand(
-            ZoltTomlParser tomlParser,
+            ManifestProjectLoader projectLoader,
             CleanService cleanService,
             WorkspaceCleanService workspaceCleanService) {
-        this.tomlParser = tomlParser;
+        this.projectLoader = projectLoader;
         this.cleanService = cleanService;
         this.workspaceCleanService = workspaceCleanService;
     }
@@ -69,7 +69,7 @@ public final class CleanCommand implements Runnable {
                 printWorkspaceResult(result);
                 return;
             }
-            ProjectConfig config = tomlParser.parse(projectRoot.resolve("zolt.toml"));
+            ProjectConfig config = projectLoader.load(projectRoot);
             CleanResult result = cleanService.clean(projectRoot, config);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
             if (result.deletedPaths().isEmpty()) {

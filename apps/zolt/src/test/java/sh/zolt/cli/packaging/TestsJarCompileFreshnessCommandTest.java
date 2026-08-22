@@ -10,7 +10,7 @@ import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.build.testruntime.compile.TestCompileService;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.packaging.WorkspacePackageService;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
@@ -88,11 +88,13 @@ final class TestsJarCompileFreshnessCommandTest {
                 workspace.resolve("apps/app"),
                 "app");
         Files.writeString(
-                workspace.resolve("zolt-workspace.toml"),
+                workspace.resolve("zolt.toml"),
                 """
                 [workspace]
                 name = "stale-tests-workspace"
-                members = ["apps/app"]
+
+                [workspace.members]
+                include = ["apps/app"]
                 """);
         Path cache = tempDir.resolve("workspace-stale-tests-cache");
         assertSuccess(runWorkspace(
@@ -138,13 +140,13 @@ final class TestsJarCompileFreshnessCommandTest {
                 name = "%s"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [package]
-                tests = true
+                testJar = true
 
                 [publish]
-                releaseRepository = "company-releases"
+                release = "company-releases"
 
                 [publish.repositories.company-releases]
                 url = "https://repo.example.test/releases"
@@ -182,8 +184,7 @@ final class TestsJarCompileFreshnessCommandTest {
     private static void compileTests(
             Path project,
             Path cache) {
-        ProjectConfig config = new ZoltTomlParser().parse(
-                project.resolve("zolt.toml"));
+        ProjectConfig config = new ManifestProjectLoader().load(project);
         BuildResultWithClasspaths build =
                 new BuildService().buildWithClasspaths(
                         project,

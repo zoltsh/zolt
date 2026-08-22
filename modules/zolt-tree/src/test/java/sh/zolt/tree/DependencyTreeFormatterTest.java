@@ -14,8 +14,7 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
 
     @Test
     void formatsDirectAndTransitiveDependenciesDeterministically() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(
                         lockPackage("org.slf4j", "slf4j-api", "2.0.16", false, List.of()),
                         lockPackage("com.google.guava", "guava", "33.4.0-jre", true, List.of(
@@ -28,7 +27,7 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.google.guava:guava:33.4.0-jre
+                \\- com.google.guava:guava:33.4.0-jre (lane: implementation; resolved scope: compile)
                    +- com.google.guava:failureaccess:1.0.2
                    \\- org.slf4j:slf4j-api:2.0.16
                 """, output);
@@ -38,8 +37,7 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
     void resolvesVariantQualifiedEdgesToTheirOwnVersionsWithoutMislabeling() {
         // app depends on two classified netty variants at DIFFERENT versions via variant-qualified edges.
         // Each edge must resolve to its OWN variant, so the tree shows the correct distinct versions.
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(
                         lockPackage("com.example", "app", "1.0.0", true, List.of(
                                 "io.netty:netty:4.1.90.Final:jar|linux-x86_64",
@@ -52,7 +50,7 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                    +- io.netty:netty:4.1.100.Final:jar|osx-aarch_64
                    \\- io.netty:netty:4.1.90.Final:jar|linux-x86_64
                 """, output);
@@ -60,8 +58,7 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
 
     @Test
     void keepsConflictAnnotationsInTheirQualifiedVariantLanes() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(
                         lockPackage("com.example", "app", "1.0.0", true, List.of(
                                 "io.netty:netty:4.1.90.Final:jar|linux-x86_64",
@@ -94,8 +91,7 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
 
     @Test
     void marksPackagesWithSelectedConflictVersions() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(lockPackage("org.slf4j", "slf4j-api", "2.0.16", true, List.of())),
                 List.of(new LockConflict(
                         new PackageId("org.slf4j", "slf4j-api"),
@@ -107,14 +103,13 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- org.slf4j:slf4j-api:2.0.16 (conflict: selected 2.0.16; requested 1.7.36, 2.0.16; direct dependency wins)
+                \\- org.slf4j:slf4j-api:2.0.16 (lane: implementation; resolved scope: compile) (conflict: selected 2.0.16; requested 1.7.36, 2.0.16; direct dependency wins)
                 """, output);
     }
 
     @Test
     void showsPackagePolicies() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(lockPackage(
                         "com.example",
                         "app",
@@ -128,14 +123,13 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0 (policy: managed-version: com.example:app -> 1.0.0 from com.example:platform:1.0.0)
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile) (policy: managed-version: com.example:app -> 1.0.0 from com.example:platform:1.0.0)
                 """, output);
     }
 
     @Test
     void showsExcludedPolicyEffects() {
-        ZoltLockfile lockfile = new ZoltLockfile(
-                ZoltLockfile.CURRENT_VERSION,
+        ZoltLockfile lockfile = lockfile(
                 List.of(lockPackage("com.example", "app", "1.0.0", true, List.of())),
                 List.of(),
                 List.of(policyEffect()));
@@ -144,9 +138,9 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
 
         assertEquals("""
                 com.example:demo:0.1.0
-                \\- com.example:app:1.0.0
+                \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                 Policy effects
-                - global-exclusion commons-logging:commons-logging:1.2 from com.example:app:1.0.0: [dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)
+                - global-exclusion commons-logging:commons-logging:1.2 from com.example:app:1.0.0: [dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)
                 """, output);
     }
 }

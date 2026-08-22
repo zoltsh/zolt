@@ -41,7 +41,7 @@ final class IdeModelGeneratedSourcesTest {
                 name = "generated-sources"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.main.openapi]
                 kind = "declared-root"
@@ -57,7 +57,7 @@ final class IdeModelGeneratedSourcesTest {
                 required = false
                 clean = true
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -137,12 +137,12 @@ final class IdeModelGeneratedSourcesTest {
                 name = "openapi-tool-version-ref"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 openapi = "7.11.0"
 
-                [generated.openapiTool]
+                [generated.tools.openapi]
                 coordinate = "org.openapitools:openapi-generator-cli"
                 versionRef = "openapi"
 
@@ -153,7 +153,7 @@ final class IdeModelGeneratedSourcesTest {
                 output = "target/generated/sources/openapi/public-api"
                 generator = "spring"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 
@@ -184,7 +184,7 @@ final class IdeModelGeneratedSourcesTest {
                 name = "protobuf-generated-sources"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [generated.main.greeter]
                 kind = "protobuf"
@@ -192,7 +192,7 @@ final class IdeModelGeneratedSourcesTest {
                 inputs = ["src/main/proto/greeter.proto"]
                 output = "target/generated/sources/protobuf"
                 """);
-        Files.writeString(projectDir.resolve("zolt.lock"), "version = 1\n");
+        Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
 
         IdeModel model = service.export(projectDir, tempDir.resolve("cache"));
 

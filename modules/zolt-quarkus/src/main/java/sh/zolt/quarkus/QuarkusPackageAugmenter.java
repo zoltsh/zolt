@@ -34,8 +34,8 @@ public final class QuarkusPackageAugmenter implements FrameworkPackageAugmenter 
 
     @Override
     public String missingPackageResultMessage(PackageMode mode) {
-        return "Quarkus package mode requires [framework.quarkus] enabled = true in zolt.toml. "
-                + "Enable Quarkus, run `zolt resolve`, then retry `zolt package --mode quarkus`.";
+        return "Quarkus package mode requires [package] mode = \"quarkus\" in zolt.toml. "
+                + "Set the package mode, run `zolt resolve`, then retry `zolt package --mode quarkus`.";
     }
 
     @Override

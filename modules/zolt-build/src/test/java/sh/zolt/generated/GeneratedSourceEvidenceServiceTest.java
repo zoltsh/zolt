@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -85,20 +85,22 @@ final class GeneratedSourceEvidenceServiceTest {
                 package com.example.greeter;
                 public final class Hello {}
                 """, 2_000);
-        BuildSettings build = new ZoltTomlParser().parse("""
+        BuildSettings build = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "protobuf-demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [versions]
                 protoc = "4.28.3"
                 grpc = "1.68.1"
 
-                [generated.protobufTool]
+                [generated.tools.protobuf]
+                protocCoordinate = "com.google.protobuf:protoc"
                 protocVersionRef = "protoc"
-                grpcPluginVersionRef = "grpc"
+                grpcCoordinate = "io.grpc:protoc-gen-grpc-java"
+                grpcVersionRef = "grpc"
 
                 [generated.main.greeter]
                 kind = "protobuf"

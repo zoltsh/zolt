@@ -110,7 +110,7 @@ final class RunPackageCommandTest {
         assertTrue(lines[0].contains("\"depth\":0"));
         assertTrue(lines[1].contains("\"phase\":\"run packaged application\""));
         assertTrue(lines[1].contains("\"depth\":0"));
-        assertTrue(lines[1].contains("\"mode\":\"thin\""));
+        assertTrue(lines[1].contains("\"mode\":\"jar\""));
         assertTrue(lines[1].contains("\"entries\":\"1\""));
         assertTrue(lines[1].contains("\"hasMainClass\":\"true\""));
         assertTrue(lines[1].contains("\"mainClass\":\"com.example.Main\""));
@@ -139,21 +139,18 @@ final class RunPackageCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
                 main = "com.example.Main"
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
     }
 
@@ -164,20 +161,17 @@ final class RunPackageCommandTest {
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "%s"
+                java = %s
 
                 [repositories]
-                test = "%s"
+                central = false
+
+                [repositories.test]
+                url = "%s"
 
                 [dependencies]
 
-                [test.dependencies]
-
-                [build]
-                source = "src/main/java"
-                test = "src/test/java"
-                output = "target/classes"
-                testOutput = "target/test-classes"
+                [dependencies.test]
                 """.formatted(currentJavaMajorVersion(), repositoryUrl));
     }
 

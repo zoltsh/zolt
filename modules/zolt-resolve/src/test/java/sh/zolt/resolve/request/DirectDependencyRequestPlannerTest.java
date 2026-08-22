@@ -13,7 +13,7 @@ import sh.zolt.project.DependencyExclusionSpec;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
-import sh.zolt.toml.ZoltTomlParser;
+import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,14 +44,14 @@ final class DirectDependencyRequestPlannerTest {
 
     @Test
     void marksAnOptionalDeclarationOnTheDirectTraversalRoot() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [api.dependencies]
+                [dependencies.api]
                 "com.example:app" = { version = "1.0.0", optional = true }
                 """);
 
@@ -96,7 +96,7 @@ final class DirectDependencyRequestPlannerTest {
                 ResolveException.class,
                 () -> planner.plan(managedTestConfig(), Map.of()));
 
-        assertTrue(exception.getMessage().contains("Dependency com.example:managed-test in [test.dependencies]"));
+        assertTrue(exception.getMessage().contains("Dependency com.example:managed-test in [dependencies.test]"));
         assertTrue(exception.getMessage().contains("uses a platform-managed version"));
         assertTrue(exception.getMessage().contains("Add a version or add a platform"));
     }
@@ -139,12 +139,12 @@ final class DirectDependencyRequestPlannerTest {
 
     @Test
     void plansDirectClassifiedRequestWithArtifactDescriptor() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "io.netty:netty-transport-native-epoll" = { version = "4.1.100.Final", classifier = "linux-x86_64" }
@@ -163,12 +163,12 @@ final class DirectDependencyRequestPlannerTest {
 
     @Test
     void plansDirectTypedRequestWithArtifactDescriptor() {
-        ProjectConfig config = new ZoltTomlParser().parse("""
+        ProjectConfig config = new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:native" = { version = "1.0.0", type = "so" }
@@ -198,31 +198,34 @@ final class DirectDependencyRequestPlannerTest {
     }
 
     private static ProjectConfig scopeConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
                 [dependencies]
                 "com.example:app" = "1.0.0"
 
-                [runtime.dependencies]
+                [dependencies.runtime]
                 "com.example:runtime" = "2.0.0"
                 """);
     }
 
     private static ProjectConfig managedTestConfig() {
-        return new ZoltTomlParser().parse("""
+        return new ManifestProjectConfigLoader().load("""
                 [project]
                 name = "demo"
                 version = "0.1.0"
                 group = "com.example"
-                java = "21"
+                java = 21
 
-                [test.dependencies]
-                "com.example:managed-test" = {}
+                [platforms]
+                "com.example:platform" = "1.0.0"
+
+                [dependencies.test]
+                "com.example:managed-test" = { managed = true }
                 """);
     }
 

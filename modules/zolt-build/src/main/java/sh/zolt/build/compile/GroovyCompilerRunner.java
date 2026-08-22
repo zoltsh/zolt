@@ -53,7 +53,7 @@ public final class GroovyCompilerRunner {
                     "Groovy test compilation failed with exit code "
                             + result.exitCode()
                             + ". Fix the Groovy compilation errors and try again. "
-                            + "Ensure Groovy compiler tooling such as org.apache.groovy:groovy is declared in [test.dependencies].\n"
+                            + "Ensure Groovy compiler tooling such as org.apache.groovy:groovy is declared in [dependencies.test].\n"
                             + result.output().stripTrailing());
         }
         return new JavacResult(sortedSources.size(), outputDirectory, result.output());
