@@ -20,6 +20,7 @@ import sh.zolt.cli.command.CommandLockfiles;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.command.CommandServiceBundles.CommandNativeServices;
 import sh.zolt.cli.command.CommandWorkspaceSelections;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.cli.command.toolchain.CommandJavaToolchainJdkChecker;
 import sh.zolt.cli.console.ProgressWriter;
 import sh.zolt.error.ActionableException;
@@ -117,46 +118,27 @@ public final class NativeCommand implements Runnable {
         Path projectRoot = projectDirectory.path();
         try {
             if (workspace) {
-                WorkspaceNativeBuildService projectWorkspaceNativeBuildService =
-                        workspaceNativeBuildService.withJdkCheckers(workspaceJdkCheckers());
-                WorkspaceNativeBuildResult result = WorkspaceMutationLock.withWorkspaceLock(
+                buildWorkspaceNative(
+                        progress,
                         projectRoot,
-                        () -> {
-                            var target = lockfiles.requireFreshWorkspacePlanTarget(
-                                    projectRoot,
-                                    cacheRoot,
-                                    false,
-                                    "zolt native --workspace");
-                            progress.start("Building workspace native images");
-                            return projectWorkspaceNativeBuildService.buildNative(
-                                    target,
-                                    cacheRoot,
-                                    CommandWorkspaceSelections.from(all, members, memberGroups),
-                                    workspaceNativeImageResolver(),
-                                    nativeImageProgress(progress));
-                        });
-                CommandHumanOutput output = CommandHumanOutput.of(spec);
-                if (result.resolvedLockfile()) {
-                    output.success("Resolved workspace dependencies because zolt.lock was missing");
-                }
-                for (WorkspaceNativeBuildResult.MemberNativeBuildResult member : result.members()) {
-                    output.success("Built native binary in " + member.member());
-                    output.pointer("wrote", member.result().nativeImageResult().outputBinary().toString());
-                    output.pointer("logged", member.result().nativeImageResult().logFile().toString());
-                    printSpringBootAotEvidence(member.result(), " in " + member.member());
-                }
-                output.summary(
-                        "Built native binaries for " + result.members().size() + " workspace members",
-                        result.members().size() + " members");
-                output.provenance(CommandBuildProvenance.read(projectRoot));
-                progress.result("Built native binaries for " + result.members().size() + " workspace members");
+                        CommandWorkspaceSelections.from(all, members, memberGroups),
+                        "zolt native --workspace");
                 return;
             }
-            ProjectConfig config = ProjectVersionOverride.apply(
-                    projectLoader.load(projectRoot));
+            ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
+            if (context.workspaceMember()) {
+                // Design §4.5: a native image embeds the member's whole runtime closure, workspace
+                // outputs included, so the workspace builds that closure before native-image runs.
+                buildWorkspaceNative(
+                        progress,
+                        context.lockRoot(),
+                        context.memberSelection(),
+                        "zolt native");
+                return;
+            }
+            ProjectConfig config = ProjectVersionOverride.apply(context.config());
             var artifactIndex = lockfiles.requireFreshLockfile(
-                    projectRoot,
-                    config,
+                    context,
                     cacheRoot,
                     false,
                     "zolt native");
@@ -193,6 +175,50 @@ public final class NativeCommand implements Runnable {
                 | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
+    }
+
+    /**
+     * Builds native images for {@code selection} through the workspace. Reached both by
+     * {@code --workspace} and by a member-directory native build.
+     */
+    private void buildWorkspaceNative(
+            ProgressWriter progress,
+            Path workspaceRoot,
+            sh.zolt.workspace.service.WorkspaceSelectionRequest selection,
+            String retryCommand) {
+        WorkspaceNativeBuildService projectWorkspaceNativeBuildService =
+                workspaceNativeBuildService.withJdkCheckers(workspaceJdkCheckers());
+        WorkspaceNativeBuildResult result = WorkspaceMutationLock.withWorkspaceLock(
+                workspaceRoot,
+                () -> {
+                    var target = lockfiles.requireFreshWorkspacePlanTarget(
+                            workspaceRoot,
+                            cacheRoot,
+                            false,
+                            retryCommand);
+                    progress.start("Building workspace native images");
+                    return projectWorkspaceNativeBuildService.buildNative(
+                            target,
+                            cacheRoot,
+                            selection,
+                            workspaceNativeImageResolver(),
+                            nativeImageProgress(progress));
+                });
+        CommandHumanOutput output = CommandHumanOutput.of(spec);
+        if (result.resolvedLockfile()) {
+            output.success("Resolved workspace dependencies because zolt.lock was missing");
+        }
+        for (WorkspaceNativeBuildResult.MemberNativeBuildResult member : result.members()) {
+            output.success("Built native binary in " + member.member());
+            output.pointer("wrote", member.result().nativeImageResult().outputBinary().toString());
+            output.pointer("logged", member.result().nativeImageResult().logFile().toString());
+            printSpringBootAotEvidence(member.result(), " in " + member.member());
+        }
+        output.summary(
+                "Built native binaries for " + result.members().size() + " workspace members",
+                result.members().size() + " members");
+        output.provenance(CommandBuildProvenance.read(workspaceRoot));
+        progress.result("Built native binaries for " + result.members().size() + " workspace members");
     }
 
     private Path resolvedNativeImage(Path projectRoot, ProjectConfig config) {

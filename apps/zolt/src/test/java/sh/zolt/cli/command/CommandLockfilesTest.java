@@ -130,26 +130,24 @@ final class CommandLockfilesTest {
 
     @Test
     void matchingLockWithVerifiedArtifactsSkipsLockedResolve() throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = writeLock(config, true);
+        ProjectCommandContext project = lockedProject("1.0.0", true);
         AtomicInteger resolves = new AtomicInteger();
 
         lockfiles(resolves, new AtomicReference<>())
-                .requireFreshLockfile(project, config, cacheRoot(), false);
+                .requireFreshLockfile(project, cacheRoot(), false);
 
         assertEquals(0, resolves.get());
     }
 
     @Test
     void returnsTheFreshnessIndexForDownstreamClasspathProjection() throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = writeLock(config, true);
+        ProjectCommandContext project = lockedProject("1.0.0", true);
         CommandLockfiles lockfiles = lockfiles(new AtomicInteger(), new AtomicReference<>());
 
         VerifiedArtifactIndex index = lockfiles.requireFreshLockfile(
-                project, config, cacheRoot(), false);
+                project, cacheRoot(), false);
         LockfileClasspathPackageConverter.classpathPackages(
-                new ZoltLockfileReader().read(project.resolve("zolt.lock")),
+                new ZoltLockfileReader().read(project.lockfilePath()),
                 cacheRoot(),
                 index);
 
@@ -159,42 +157,35 @@ final class CommandLockfilesTest {
 
     @Test
     void matchingLockWithEmptyCacheRequiresLockedMaterialization() throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = writeLock(config, false);
+        ProjectCommandContext project = lockedProject("1.0.0", false);
         AtomicInteger resolves = new AtomicInteger();
 
         lockfiles(resolves, new AtomicReference<>())
-                .requireFreshLockfile(project, config, cacheRoot(), false);
+                .requireFreshLockfile(project, cacheRoot(), false);
 
         assertEquals(1, resolves.get());
     }
 
     @Test
     void currentVersionPlaceholderRequiresLockedVerification() throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = tempDir.resolve("placeholder-project");
-        Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.lock"), "version = 7\n");
+        ProjectCommandContext project = standaloneProject("placeholder-project", "version = 7\n");
         AtomicInteger resolves = new AtomicInteger();
 
         lockfiles(resolves, new AtomicReference<>())
-                .requireFreshLockfile(project, config, cacheRoot(), false);
+                .requireFreshLockfile(project, cacheRoot(), false);
 
         assertEquals(1, resolves.get());
     }
 
     @Test
     void legacyMetadataOnlyLockRequiresLockedVerification() throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = tempDir.resolve("legacy-metadata-project");
-        Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.lock"), "version = 5\n");
+        ProjectCommandContext project = standaloneProject("legacy-metadata-project", "version = 5\n");
         AtomicInteger resolves = new AtomicInteger();
 
         LockfileReadException exception = assertThrows(
                 LockfileReadException.class,
                 () -> lockfiles(resolves, new AtomicReference<>())
-                        .requireFreshLockfile(project, config, cacheRoot(), false));
+                        .requireFreshLockfile(project, cacheRoot(), false));
 
         assertTrue(exception.getMessage().contains("version 5 is older than this Zolt supports (current 7)"));
         assertEquals(0, resolves.get());
@@ -217,26 +208,24 @@ final class CommandLockfilesTest {
 
     @Test
     void matchingLockWithCorruptBytesRequiresLockedMaterialization() throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = writeLock(config, true);
+        ProjectCommandContext project = lockedProject("1.0.0", true);
         Files.writeString(cacheRoot().resolve(JAR_PATH), "corrupt");
         AtomicInteger resolves = new AtomicInteger();
 
         lockfiles(resolves, new AtomicReference<>())
-                .requireFreshLockfile(project, config, cacheRoot(), false);
+                .requireFreshLockfile(project, cacheRoot(), false);
 
         assertEquals(1, resolves.get());
     }
 
     @Test
     void incompleteOfflineCacheUsesLockedOfflineResolve() throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = writeLock(config, false);
+        ProjectCommandContext project = lockedProject("1.0.0", false);
         AtomicInteger resolves = new AtomicInteger();
         AtomicReference<ResolveOptions> options = new AtomicReference<>();
 
         lockfiles(resolves, options)
-                .requireFreshLockfile(project, config, cacheRoot(), true, "zolt build");
+                .requireFreshLockfile(project, cacheRoot(), true, "zolt build");
 
         assertEquals(1, resolves.get());
         assertTrue(options.get().offline());
@@ -245,9 +234,8 @@ final class CommandLockfilesTest {
 
     @Test
     void versionFiveLockRequiresMigrationBeforeLockedMaterialization() throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = writeLock(config, false);
-        Path lockfile = project.resolve("zolt.lock");
+        ProjectCommandContext project = lockedProject("1.0.0", false);
+        Path lockfile = project.lockfilePath();
         Files.writeString(lockfile, Files.readString(lockfile)
                 .replaceFirst("version = 7", "version = 5")
                 .replace(JAR_PATH, "com/example/demo/1.0.0/demo-1.0.0.jar")
@@ -258,7 +246,7 @@ final class CommandLockfilesTest {
         LockfileReadException exception = assertThrows(
                 LockfileReadException.class,
                 () -> lockfiles(resolves, new AtomicReference<>())
-                        .requireFreshLockfile(project, config, cacheRoot(), false));
+                        .requireFreshLockfile(project, cacheRoot(), false));
 
         assertTrue(exception.getMessage().contains("version 5 is older than this Zolt supports (current 7)"));
         assertTrue(exception.getMessage().contains("zolt resolve"));
@@ -266,13 +254,12 @@ final class CommandLockfilesTest {
     }
 
     private void assertMissingArtifactRequiresMaterialization(String relativePath) throws Exception {
-        ProjectConfig config = config("1.0.0");
-        Path project = writeLock(config, true);
+        ProjectCommandContext project = lockedProject("1.0.0", true);
         Files.delete(cacheRoot().resolve(relativePath));
         AtomicInteger resolves = new AtomicInteger();
 
         lockfiles(resolves, new AtomicReference<>())
-                .requireFreshLockfile(project, config, cacheRoot(), false);
+                .requireFreshLockfile(project, cacheRoot(), false);
 
         assertEquals(1, resolves.get(), relativePath);
     }
@@ -292,9 +279,10 @@ final class CommandLockfilesTest {
                 new VerifiedArtifactIndex());
     }
 
-    private Path writeLock(ProjectConfig config, boolean materialize) throws Exception {
-        Path project = tempDir.resolve("locked-project");
-        Files.createDirectories(project);
+    /** A standalone project whose own directory holds both its manifest and its lock. */
+    private ProjectCommandContext lockedProject(String dependencyVersion, boolean materialize)
+            throws Exception {
+        Path project = writeProject("locked-" + dependencyVersion, dependencyVersion);
         if (materialize) {
             writeCacheArtifact(JAR_PATH, JAR_BYTES);
             writeCacheArtifact(POM_PATH, POM_BYTES);
@@ -327,13 +315,28 @@ final class CommandLockfilesTest {
                 artifactSha256 = "%s"
                 dependencies = []
                 """.formatted(
-                ProjectResolutionFingerprint.fingerprint(config),
+                ProjectResolutionFingerprint.fingerprint(
+                        new ManifestProjectLoader().load(project)),
                 JAR_PATH,
                 POM_PATH,
                 sha256(JAR_BYTES),
                 sha256(POM_BYTES),
                 SECONDARY_PATH,
                 sha256(SECONDARY_BYTES)));
+        return ProjectCommandContext.load(new ManifestProjectLoader(), project);
+    }
+
+    /** A standalone project carrying a hand-written lock, for the unreadable-lock cases. */
+    private ProjectCommandContext standaloneProject(String name, String lockfile) throws Exception {
+        Path project = writeProject(name, "1.0.0");
+        Files.writeString(project.resolve("zolt.lock"), lockfile);
+        return ProjectCommandContext.load(new ManifestProjectLoader(), project);
+    }
+
+    private Path writeProject(String name, String dependencyVersion) throws Exception {
+        Path project = tempDir.resolve(name);
+        Files.createDirectories(project);
+        Files.writeString(project.resolve("zolt.toml"), manifest(dependencyVersion));
         return project;
     }
 
@@ -411,9 +414,12 @@ final class CommandLockfilesTest {
     }
 
     private ProjectConfig config(String dependencyVersion) throws Exception {
-        Path project = tempDir.resolve("project-" + dependencyVersion);
-        Files.createDirectories(project);
-        Files.writeString(project.resolve("zolt.toml"), """
+        return new ManifestProjectLoader().load(
+                writeProject("project-" + dependencyVersion, dependencyVersion));
+    }
+
+    private static String manifest(String dependencyVersion) {
+        return """
                 [project]
                 name = "demo"
                 version = "0.1.0"
@@ -422,7 +428,6 @@ final class CommandLockfilesTest {
 
                 [dependencies]
                 "com.example:demo" = "%s"
-                """.formatted(dependencyVersion));
-        return new ManifestProjectLoader().load(project);
+                """.formatted(dependencyVersion);
     }
 }

@@ -31,6 +31,7 @@ import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
+import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.test.WorkspaceTestResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
@@ -147,6 +148,7 @@ public final class IntegrationTestCommand implements Runnable {
             if (workspace) {
                 runWorkspaceIntegrationTests(
                         projectRoot,
+                        CommandWorkspaceSelections.from(all, members, memberGroups),
                         timings,
                         testSelection,
                         testJvmArguments,
@@ -154,7 +156,24 @@ public final class IntegrationTestCommand implements Runnable {
                         requestedTestEvents);
                 return;
             }
-            runSingleProjectIntegrationTests(projectRoot, timings, testSelection, testJvmArguments, requestedTestEvents);
+            ProjectCommandContext context = timings.measure(
+                    "config read",
+                    () -> ProjectCommandContext.load(projectLoader, projectRoot));
+            if (context.workspaceMember()) {
+                // Design §4.5: the integration-test lane is a member projection of the workspace
+                // resolution, and its providers are workspace outputs, not lock artifacts.
+                runWorkspaceIntegrationTests(
+                        context.lockRoot(),
+                        context.memberSelection(),
+                        timings,
+                        testSelection,
+                        testJvmArguments,
+                        TestReportSettings.reportsDirectory(workspaceReportsDir()),
+                        requestedTestEvents);
+                return;
+            }
+            runSingleProjectIntegrationTests(
+                    context, timings, testSelection, testJvmArguments, requestedTestEvents);
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
@@ -175,7 +194,8 @@ public final class IntegrationTestCommand implements Runnable {
     }
 
     private void runWorkspaceIntegrationTests(
-            Path projectRoot,
+            Path workspaceRoot,
+            WorkspaceSelectionRequest selection,
             TimingRecorder timings,
             TestSelection testSelection,
             TestJvmArguments testJvmArguments,
@@ -188,9 +208,10 @@ public final class IntegrationTestCommand implements Runnable {
                 workspaceToolchains.mainCheckers(),
                 workspaceToolchains.testRunServices());
         WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
-                projectRoot,
+                workspaceRoot,
                 () -> {
-                    var target = lockfiles.requireFreshWorkspaceLockfile(timings, projectRoot, cacheRoot, false);
+                    var target = lockfiles.requireFreshWorkspaceLockfile(
+                            timings, workspaceRoot, cacheRoot, false);
                     return timings.measure(
                             "integration-test workspace",
                             () -> {
@@ -199,7 +220,7 @@ public final class IntegrationTestCommand implements Runnable {
                                         () -> projectWorkspaceTestService.planTests(
                                                 target,
                                                 cacheRoot,
-                                                CommandWorkspaceSelections.from(all, members, memberGroups)),
+                                                selection),
                                         CommandBuildAttributes::workspaceBuildPlan);
                                 WorkspaceBuildResult buildResult = timings.measure(
                                         "build workspace integration-test inputs",
@@ -235,15 +256,14 @@ public final class IntegrationTestCommand implements Runnable {
     }
 
     private void runSingleProjectIntegrationTests(
-            Path projectRoot,
+            ProjectCommandContext context,
             TimingRecorder timings,
             TestSelection testSelection,
             TestJvmArguments testJvmArguments,
             List<String> requestedTestEvents) {
-        ProjectConfig config = timings.measure(
-                "config read",
-                () -> projectLoader.load(projectRoot));
-        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        Path projectRoot = context.projectRoot();
+        ProjectConfig config = context.config();
+        var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
         ProjectConfig integrationConfig = config.withBuildSettings(config.build().asIntegrationTestBuild());
         var compileChecker = toolchainOptions.jdkChecker(projectRoot, integrationConfig, "integration-test");
         TestRunService projectTestRunService =

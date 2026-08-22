@@ -7,13 +7,10 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.resolve.ResolveException;
 import sh.zolt.resolve.ResolveOptions;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.resolve.fingerprint.ProjectResolutionFingerprint;
 import sh.zolt.cli.command.CommandServiceBundles.CommandResolveServices;
-import sh.zolt.workspace.service.Workspace;
-import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.resolve.WorkspaceLockFreshness;
 import sh.zolt.workspace.resolve.WorkspaceLockFreshnessService;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
@@ -86,60 +83,48 @@ public final class CommandLockfiles {
     }
 
     public VerifiedArtifactIndex requireFreshLockfile(
-            Path workingDirectory,
-            ProjectConfig config,
+            ProjectCommandContext context,
             Path cacheRoot,
             boolean offline) {
-        return requireFreshLockfile(workingDirectory, config, cacheRoot, offline, "zolt resolve");
+        return requireFreshLockfile(context, cacheRoot, offline, "zolt resolve");
     }
 
+    /**
+     * Gates a command on a current lock and returns the artifacts it verified.
+     *
+     * <p>The lockfile path comes from {@code context}, never from the directory the command was
+     * started in. A member directory has no lock of its own, so a member command gates on the
+     * workspace root's lock through the same freshness service {@code --workspace} uses; a
+     * member-local file left behind by an older Zolt is neither read nor written.
+     */
     public VerifiedArtifactIndex requireFreshLockfile(
-            Path workingDirectory,
-            ProjectConfig config,
+            ProjectCommandContext context,
             Path cacheRoot,
             boolean offline,
             String retryCommand) {
-        Path lockfilePath = workingDirectory.resolve("zolt.lock");
+        if (context.workspaceMember()) {
+            return requireFreshWorkspacePlanTarget(
+                            context.lockRoot(), cacheRoot, offline, "zolt resolve --workspace")
+                    .artifactIndex();
+        }
+        Path lockfilePath = context.lockfilePath();
         if (!Files.isRegularFile(lockfilePath)) {
             return artifactIndex;
         }
         ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         ContentAddressedLockCapability.requireExecutableLockfile(lockfile, "zolt resolve");
         boolean artifactsReady = lockedArtifactsReady(lockfile, cacheRoot);
-        if (matchesProjectResolutionFingerprint(lockfilePath, config) && artifactsReady) {
+        if (matchesProjectResolutionFingerprint(lockfilePath, context.config()) && artifactsReady) {
             return artifactIndex;
         }
-        redirectWorkspaceMemberToWorkspacePath(workingDirectory, retryCommand);
         projectResolve.resolve(
-                workingDirectory,
-                config,
+                context.projectRoot(),
+                context.config(),
                 cacheRoot,
                 true,
                 ResolveOptions.offline(offline).withRetryCommand(retryCommand));
         artifactIndex = new VerifiedArtifactIndex();
         return artifactIndex;
-    }
-
-    private void redirectWorkspaceMemberToWorkspacePath(Path workingDirectory, String retryCommand) {
-        Path normalizedDirectory = workingDirectory.toAbsolutePath().normalize();
-        Optional<Workspace> workspace = workspaceLoader.discover(normalizedDirectory);
-        if (workspace.isEmpty()) {
-            return;
-        }
-        Optional<WorkspaceMember> member = workspace.orElseThrow().members().stream()
-                .filter(candidate -> candidate.directory().toAbsolutePath().normalize().equals(normalizedDirectory))
-                .findFirst();
-        if (member.isEmpty()) {
-            return;
-        }
-        String memberPath = member.orElseThrow().path();
-        throw ResolveException.actionable(
-                "zolt.lock is out of date for workspace member `" + memberPath + "`.",
-                "This directory is a member of the workspace at "
-                        + workspace.orElseThrow().root()
-                        + ", whose lockfile a member-directory build never refreshes. "
-                        + "Run `" + retryCommand + " --workspace --member " + memberPath
-                        + "` to build it through the workspace lock.");
     }
 
     public void requireFreshWorkspaceLockfile(Path workingDirectory, Path cacheRoot, boolean offline) {

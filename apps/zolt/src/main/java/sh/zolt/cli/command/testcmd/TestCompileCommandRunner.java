@@ -9,23 +9,21 @@ import sh.zolt.cli.command.CommandBuildProvenance;
 import sh.zolt.cli.command.CommandLockfiles;
 import sh.zolt.cli.command.CommandServiceBundles.TestRunServiceFactory;
 import sh.zolt.cli.command.CommandToolchainOptions;
-import sh.zolt.cli.command.CommandWorkspaceSelections;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.cli.command.build.CommandBuildAttributes;
 import sh.zolt.cli.console.ProgressWriter;
 import sh.zolt.perf.TimingRecorder;
 import sh.zolt.project.ProjectConfig;
-import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
 import sh.zolt.workspace.service.WorkspaceMutationLock;
+import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.test.WorkspaceTestCompileResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
 import java.nio.file.Path;
-import java.util.List;
 import picocli.CommandLine.Model.CommandSpec;
 
 final class TestCompileCommandRunner {
-    private final ManifestProjectLoader projectLoader;
     private final WorkspaceTestService workspaceTestService;
     private final TestRunServiceFactory testRunServiceFactory;
     private final CommandLockfiles lockfiles;
@@ -33,13 +31,11 @@ final class TestCompileCommandRunner {
     private final CommandSpec spec;
 
     TestCompileCommandRunner(
-            ManifestProjectLoader projectLoader,
             WorkspaceTestService workspaceTestService,
             TestRunServiceFactory testRunServiceFactory,
             CommandLockfiles lockfiles,
             CommandToolchainOptions toolchainOptions,
             CommandSpec spec) {
-        this.projectLoader = projectLoader;
         this.workspaceTestService = workspaceTestService;
         this.testRunServiceFactory = testRunServiceFactory;
         this.lockfiles = lockfiles;
@@ -48,11 +44,9 @@ final class TestCompileCommandRunner {
     }
 
     void compileWorkspace(
-            Path projectRoot,
+            Path workspaceRoot,
             Path cacheRoot,
-            boolean all,
-            List<String> members,
-            List<String> memberGroups,
+            WorkspaceSelectionRequest selection,
             TimingRecorder timings,
             ProgressWriter progress) {
         CommandToolchainOptions.WorkspaceCommandToolchains workspaceToolchains =
@@ -64,9 +58,9 @@ final class TestCompileCommandRunner {
                 workspaceToolchains.testRunServices());
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         WorkspaceTestCompileResult result = WorkspaceMutationLock.withWorkspaceLock(
-                projectRoot,
+                workspaceRoot,
                 () -> {
-                    var target = lockfiles.requireFreshWorkspaceLockfile(timings, projectRoot, cacheRoot, false);
+                    var target = lockfiles.requireFreshWorkspaceLockfile(timings, workspaceRoot, cacheRoot, false);
                     progress.start("Compiling workspace tests");
                     return timings.measure(
                             "compile workspace tests",
@@ -76,7 +70,7 @@ final class TestCompileCommandRunner {
                                         () -> projectWorkspaceTestService.planTests(
                                                 target,
                                                 cacheRoot,
-                                                CommandWorkspaceSelections.from(all, members, memberGroups)),
+                                                selection),
                                         CommandBuildAttributes::workspaceBuildPlan);
                                 WorkspaceBuildResult buildResult = timings.measure(
                                         "build workspace test inputs",
@@ -101,25 +95,24 @@ final class TestCompileCommandRunner {
                         + " workspace members; use --all to compile every member"
                 : "Compiled tests for " + compiledMembers + " workspace members";
         output.summary(summary, result.testSourceCount() + " test source files");
-        output.provenance(CommandBuildProvenance.read(projectRoot));
+        output.provenance(CommandBuildProvenance.read(workspaceRoot));
         progress.result("Compiled tests for " + compiledMembers + " workspace members");
     }
 
     void compileSingle(
-            Path projectRoot,
+            ProjectCommandContext context,
             Path cacheRoot,
             boolean noBuildCache,
             TimingRecorder timings,
             ProgressWriter progress) {
-        ProjectConfig config = timings.measure(
-                "config read",
-                () -> projectLoader.load(projectRoot));
+        Path projectRoot = context.projectRoot();
+        ProjectConfig config = context.config();
         var compileChecker = toolchainOptions.jdkChecker(projectRoot, config, "test");
         TestRunService projectTestRunService = testRunServiceFactory.create(
                         compileChecker,
                         toolchainOptions.testRuntimeRunChecker(projectRoot, config, compileChecker))
                 .withBuildCache(CommandBuildCache.service(noBuildCache, false));
-        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
         progress.start("Compiling tests");
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         output.work("Compiling tests for " + config.project().name());

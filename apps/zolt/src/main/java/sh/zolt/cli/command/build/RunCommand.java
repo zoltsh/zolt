@@ -13,15 +13,8 @@ import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.ZoltCli;
-import sh.zolt.cli.command.CommandFailures;
-import sh.zolt.cli.command.CommandFrameworkServices;
-import sh.zolt.cli.command.CommandLockfiles;
-import sh.zolt.cli.command.CommandOutput;
-import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.*;
 import sh.zolt.cli.command.CommandServiceBundles.CommandRunServices;
-import sh.zolt.cli.command.CommandTimings;
-import sh.zolt.cli.command.CommandToolchainOptions;
-import sh.zolt.cli.command.CommandWorkspaceSelections;
 import sh.zolt.error.ActionableException;
 import sh.zolt.framework.FrameworkRunException;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -118,78 +111,23 @@ public final class RunCommand implements Runnable {
         Path projectRoot = projectDirectory.path();
         try {
             if (workspace) {
-                WorkspaceRunService projectWorkspaceRunService =
-                        workspaceRunService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("run"));
-                WorkspaceRunResult result = timings.measure(
-                        "run workspace",
-                        () -> {
-                            WorkspaceRunSnapshot snapshot =
-                                    WorkspaceMutationLock.withWorkspaceLock(
-                                            projectRoot,
-                                            () -> {
-                                                var target = lockfiles.requireFreshWorkspaceLockfile(
-                                                        timings, projectRoot, cacheRoot, false);
-                                                WorkspaceBuildPlan plan = timings.measure(
-                                                        "plan workspace run",
-                                                        () -> projectWorkspaceRunService.planRun(
-                                                                target,
-                                                                cacheRoot,
-                                                                CommandWorkspaceSelections.from(
-                                                                        all,
-                                                                        members,
-                                                                        memberGroups)),
-                                                        CommandBuildAttributes::workspaceBuildPlan);
-                                                WorkspaceBuildResult buildResult = timings.measure(
-                                                        "build workspace run inputs",
-                                                        () -> projectWorkspaceRunService.buildRunInputs(
-                                                                plan,
-                                                                cacheRoot),
-                                                        CommandBuildAttributes::workspaceBuild);
-                                                return projectWorkspaceRunService.snapshotRun(
-                                                        plan,
-                                                        buildResult);
-                                            });
-                            try (snapshot) {
-                                return timings.measure(
-                                        "launch workspace members",
-                                        () -> projectWorkspaceRunService.runSnapshot(
-                                                snapshot,
-                                                arguments,
-                                                output -> CommandOutput.printAndFlush(spec, output)),
-                                        CommandRunAttributes::workspaceRun);
-                            }
-                        },
-                        CommandRunAttributes::workspaceRun);
-                CommandHumanOutput output = CommandHumanOutput.of(spec);
-                if (result.resolvedLockfile()) {
-                    output.success("Resolved workspace dependencies because zolt.lock was missing");
-                }
-                for (WorkspaceRunResult.MemberRunResult member : result.members()) {
-                    JavaRunResult javaRunResult = member.result().javaRunResult();
-                    if (!javaRunResult.diagnosticTail().isEmpty() && !javaRunResult.endedWithNewline()) {
-                        output.blankLine();
-                    }
-                    if (javaRunResult.signalled()) {
-                        output.summary("Stopped "
-                                + javaRunResult.mainClass()
-                                + " in "
-                                + member.member()
-                                + " (signal "
-                                + javaRunResult.signal()
-                                + ")");
-                    } else {
-                        output.summary("Ran "
-                                + javaRunResult.mainClass()
-                                + " in "
-                                + member.member());
-                    }
-                }
+                runWorkspace(
+                        timings,
+                        projectRoot,
+                        CommandWorkspaceSelections.from(all, members, memberGroups));
                 return;
             }
-            ProjectConfig config = timings.measure(
+            ProjectCommandContext context = timings.measure(
                     "config read",
-                    () -> projectLoader.load(projectRoot));
-            var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+                    () -> ProjectCommandContext.load(projectLoader, projectRoot));
+            if (context.workspaceMember()) {
+                // Design §4.5: only the workspace knows which providers this member's runtime needs
+                // and in what order to build them; the selection launches this member alone.
+                runWorkspace(timings, context.lockRoot(), context.memberSelection());
+                return;
+            }
+            ProjectConfig config = context.config();
+            var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
             RunResult result = timings.measure(
                     "run application",
                     () -> runService.withJdkChecker(toolchainOptions.jdkChecker(projectRoot, config, "run")).run(
@@ -231,6 +169,79 @@ public final class RunCommand implements Runnable {
             throw CommandFailures.user(spec, exception);
         } finally {
             CommandTimings.print(spec, "run", projectRoot, timingOptions, timings);
+        }
+    }
+
+    /**
+     * Builds {@code selection}'s closure through the workspace and launches the selected members.
+     * Reached both by {@code --workspace} and by a member-directory run.
+     */
+    private void runWorkspace(
+            TimingRecorder timings,
+            Path workspaceRoot,
+            sh.zolt.workspace.service.WorkspaceSelectionRequest selection) {
+        WorkspaceRunService projectWorkspaceRunService =
+                workspaceRunService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("run"));
+        WorkspaceRunResult result = timings.measure(
+                "run workspace",
+                () -> {
+                    WorkspaceRunSnapshot snapshot =
+                            WorkspaceMutationLock.withWorkspaceLock(
+                                    workspaceRoot,
+                                    () -> {
+                                        var target = lockfiles.requireFreshWorkspaceLockfile(
+                                                timings, workspaceRoot, cacheRoot, false);
+                                        WorkspaceBuildPlan plan = timings.measure(
+                                                "plan workspace run",
+                                                () -> projectWorkspaceRunService.planRun(
+                                                        target,
+                                                        cacheRoot,
+                                                        selection),
+                                                CommandBuildAttributes::workspaceBuildPlan);
+                                        WorkspaceBuildResult buildResult = timings.measure(
+                                                "build workspace run inputs",
+                                                () -> projectWorkspaceRunService.buildRunInputs(
+                                                        plan,
+                                                        cacheRoot),
+                                                CommandBuildAttributes::workspaceBuild);
+                                        return projectWorkspaceRunService.snapshotRun(
+                                                plan,
+                                                buildResult);
+                                    });
+                    try (snapshot) {
+                        return timings.measure(
+                                "launch workspace members",
+                                () -> projectWorkspaceRunService.runSnapshot(
+                                        snapshot,
+                                        arguments,
+                                        output -> CommandOutput.printAndFlush(spec, output)),
+                                CommandRunAttributes::workspaceRun);
+                    }
+                },
+                CommandRunAttributes::workspaceRun);
+        CommandHumanOutput output = CommandHumanOutput.of(spec);
+        if (result.resolvedLockfile()) {
+            output.success("Resolved workspace dependencies because zolt.lock was missing");
+        }
+        for (WorkspaceRunResult.MemberRunResult member : result.members()) {
+            JavaRunResult javaRunResult = member.result().javaRunResult();
+            if (!javaRunResult.diagnosticTail().isEmpty() && !javaRunResult.endedWithNewline()) {
+                output.blankLine();
+            }
+            if (javaRunResult.signalled()) {
+                output.summary("Stopped "
+                        + javaRunResult.mainClass()
+                        + " in "
+                        + member.member()
+                        + " (signal "
+                        + javaRunResult.signal()
+                        + ")");
+            } else {
+                output.summary("Ran "
+                        + javaRunResult.mainClass()
+                        + " in "
+                        + member.member());
+            }
         }
     }
 

@@ -14,14 +14,8 @@ import sh.zolt.build.SourceDiscoveryException;
 import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.ZoltCli;
-import sh.zolt.cli.command.CommandFailures;
-import sh.zolt.cli.command.CommandFrameworkServices;
-import sh.zolt.cli.command.CommandLockfiles;
-import sh.zolt.cli.command.CommandOutput;
-import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.*;
 import sh.zolt.cli.command.CommandServiceBundles.CommandRunPackageServices;
-import sh.zolt.cli.command.CommandTimings;
-import sh.zolt.cli.command.CommandWorkspaceSelections;
 import sh.zolt.cli.command.build.CommandBuildAttributes;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.perf.TimingRecorder;
@@ -32,6 +26,7 @@ import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildResult;
+import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.packaging.WorkspacePackageResult;
 import sh.zolt.workspace.packaging.WorkspaceRunPackageResult;
@@ -127,10 +122,28 @@ public final class RunPackageCommand implements Runnable {
                 PackageCommandModes.rejectWorkspaceModeOverride(
                         "run-package",
                         packageModeOverride);
-                runWorkspacePackages(projectRoot, timings, packageModeOverride);
+                runWorkspacePackages(
+                        projectRoot,
+                        CommandWorkspaceSelections.from(all, members, memberGroups),
+                        timings,
+                        packageModeOverride);
                 return;
             }
-            runSinglePackage(projectRoot, timings, packageModeOverride);
+            ProjectCommandContext context = timings.measure(
+                    "config read",
+                    () -> ProjectCommandContext.load(projectLoader, projectRoot));
+            if (context.workspaceMember()) {
+                // Design §4.5: the packaged runtime of a member embeds workspace outputs, so the
+                // workspace builds and packages the closure and launches this member alone.
+                PackageCommandModes.rejectWorkspaceModeOverride("run-package", packageModeOverride);
+                runWorkspacePackages(
+                        context.lockRoot(),
+                        context.memberSelection(),
+                        timings,
+                        packageModeOverride);
+                return;
+            }
+            runSinglePackage(context, timings, packageModeOverride);
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
@@ -151,7 +164,8 @@ public final class RunPackageCommand implements Runnable {
     }
 
     private void runWorkspacePackages(
-            Path projectRoot,
+            Path workspaceRoot,
+            WorkspaceSelectionRequest selection,
             TimingRecorder timings,
             Optional<PackageMode> packageModeOverride) {
         WorkspaceRunPackageResult result = timings.measure(
@@ -159,19 +173,16 @@ public final class RunPackageCommand implements Runnable {
                 () -> {
                     sh.zolt.workspace.packaging.WorkspaceRunPackageSnapshot snapshot =
                             sh.zolt.workspace.service.WorkspaceMutationLock.withWorkspaceLock(
-                                    projectRoot,
+                                    workspaceRoot,
                                     () -> {
                                         var target = lockfiles.requireFreshWorkspaceLockfile(
-                                                timings, projectRoot, cacheRoot, false);
+                                                timings, workspaceRoot, cacheRoot, false);
                                         WorkspaceBuildPlan plan = timings.measure(
                                                 "plan workspace run packages",
                                                 () -> workspaceRunPackageService.planRunPackages(
                                                         target,
                                                         cacheRoot,
-                                                        CommandWorkspaceSelections.from(
-                                                                all,
-                                                                members,
-                                                                memberGroups)),
+                                                        selection),
                                                 CommandBuildAttributes::workspaceBuildPlan);
                                         WorkspaceBuildResult buildResult = timings.measure(
                                                 "build workspace run-package inputs",
@@ -220,15 +231,14 @@ public final class RunPackageCommand implements Runnable {
     }
 
     private void runSinglePackage(
-            Path projectRoot,
+            ProjectCommandContext context,
             TimingRecorder timings,
             Optional<PackageMode> packageModeOverride) {
+        Path projectRoot = context.projectRoot();
         ProjectConfig config = PackageCommandModes.withPackageModeOverride(
-                timings.measure(
-                        "config read",
-                        () -> projectLoader.load(projectRoot)),
+                context.config(),
                 packageModeOverride);
-        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
         RunPackageResult result = timings.measure(
                 "run packaged application",
                 () -> runPackageService.runPackage(

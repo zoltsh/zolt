@@ -30,11 +30,8 @@ import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
-import sh.zolt.workspace.service.WorkspaceBuildPlan;
-import sh.zolt.workspace.service.WorkspaceBuildResult;
-import sh.zolt.workspace.service.WorkspaceMutationLock;
+import sh.zolt.workspace.service.WorkspaceSelectionRequest;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.packaging.WorkspacePackageResult;
 import sh.zolt.workspace.packaging.WorkspacePackageService;
 import sh.zolt.workspace.publish.WorkspaceBomPackager;
 import java.nio.file.Path;
@@ -177,13 +174,34 @@ public final class PackageCommand implements Runnable {
                         "Use `zolt package --plan --format json`.");
             }
             if (workspace) {
-                PackageCommandModes.rejectWorkspaceModeOverride(
-                        "package",
+                if (planOnly) {
+                    throw PackageException.actionable(
+                            "Package --plan is currently single-project.",
+                            "Run it from the member project you want to inspect.");
+                }
+                PackageCommandModes.rejectWorkspaceModeOverride("package", packageModeOverride);
+                packageWorkspace(
+                        projectRoot,
+                        CommandWorkspaceSelections.from(all, members, memberGroups),
+                        timings,
                         packageModeOverride);
-                runWorkspacePackage(projectRoot, timings, packageModeOverride, planOnly);
                 return;
             }
-            runSingleProjectPackage(projectRoot, timings, packageModeOverride, planOutputFormat);
+            ProjectCommandContext context = timings.measure(
+                    "config read",
+                    () -> ProjectCommandContext.load(projectLoader, projectRoot));
+            if (context.workspaceMember() && !planOnly) {
+                // Design §4.5: packaging a member packages the workspace outputs it embeds, in
+                // workspace order. `--plan` stays a read-only projection of the same root lock.
+                PackageCommandModes.rejectWorkspaceModeOverride("package", packageModeOverride);
+                packageWorkspace(
+                        context.lockRoot(),
+                        context.memberSelection(),
+                        timings,
+                        packageModeOverride);
+                return;
+            }
+            runSingleProjectPackage(context, timings, packageModeOverride, planOutputFormat);
         } catch (BuildException
                 | JavacException
                 | GroovyCompileException
@@ -202,74 +220,33 @@ public final class PackageCommand implements Runnable {
         }
     }
 
-    private void runWorkspacePackage(
-            Path projectRoot,
+    private void packageWorkspace(
+            Path workspaceRoot,
+            WorkspaceSelectionRequest selection,
             TimingRecorder timings,
-            Optional<PackageMode> packageModeOverride,
-            boolean planOnly) {
-        if (planOnly) {
-            throw PackageException.actionable(
-                    "Package --plan is currently single-project.",
-                    "Run it from the member project you want to inspect.");
-        }
-        ProgressWriter progress = CommandProgress.human(spec);
-        WorkspacePackageService projectWorkspacePackageService =
-                workspacePackageService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("package"));
-        WorkspacePackageResult result = WorkspaceMutationLock.withWorkspaceLock(projectRoot, () -> {
-            var target = lockfiles.requireFreshWorkspaceLockfile(timings, projectRoot, cacheRoot, false);
-            progress.start("Packaging workspace");
-            return timings.measure(
-                    "package workspace",
-                    () -> {
-                        WorkspaceBuildPlan plan = timings.measure(
-                                "plan workspace packages",
-                                () -> projectWorkspacePackageService.planPackages(
-                                        target,
-                                        cacheRoot,
-                                        CommandWorkspaceSelections.from(all, members, memberGroups)),
-                                CommandBuildAttributes::workspaceBuildPlan);
-                        WorkspaceBuildResult buildResult = timings.measure(
-                                "build workspace package inputs",
-                                () -> projectWorkspacePackageService.buildPackageInputs(plan, cacheRoot),
-                                CommandBuildAttributes::workspaceBuild);
-                        return timings.measure(
-                                "assemble workspace packages",
-                                () -> projectWorkspacePackageService.packageBuiltJars(
-                                        plan,
-                                        buildResult,
-                                        cacheRoot,
-                                        packageModeOverride),
-                                CommandPackageAttributes::workspacePackage);
-                    },
-                    CommandPackageAttributes::workspacePackage);
-        });
-        CommandHumanOutput output = CommandHumanOutput.of(spec);
-        if (result.resolvedLockfile()) {
-            output.success("Resolved workspace dependencies because zolt.lock was missing");
-        }
-        for (WorkspacePackageResult.MemberPackageResult member : result.members()) {
-            packageResultWriter.print(CommandHumanOutput.of(spec), member.result(), " in " + member.member());
-        }
-        String workspaceSummary = CommandPackageResultWriter.workspaceSummary(result);
-        output.success(workspaceSummary);
-        output.provenance(CommandBuildProvenance.read(projectRoot));
-        progress.result(workspaceSummary);
+            Optional<PackageMode> packageModeOverride) {
+        new WorkspacePackageCommandRunner(
+                        workspacePackageService, packageResultWriter, lockfiles, toolchainOptions, spec)
+                .packageMembers(workspaceRoot, cacheRoot, selection, timings, packageModeOverride);
     }
 
     private void runSingleProjectPackage(
-            Path projectRoot,
+            ProjectCommandContext context,
             TimingRecorder timings,
             Optional<PackageMode> packageModeOverride,
             PackageCommandModes.PlanOutputFormat planOutputFormat) {
+        Path projectRoot = context.projectRoot();
         ProjectConfig config = PackageCommandModes.withPackageModeOverride(
-                timings.measure(
-                        "config read",
-                        () -> projectLoader.load(projectRoot)),
+                context.config(),
                 packageModeOverride);
         if (!planOnly) {
             packageService.preparePackageToolingIfNeeded(projectRoot, config, cacheRoot);
         }
-        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        // `--plan` from a member is a read-only projection of a lock this path cannot refresh — only
+        // `zolt resolve` does, from either scope — so it reports the plan instead of gating (§6.8).
+        var artifactIndex = planOnly && context.workspaceMember()
+                ? new VerifiedArtifactIndex()
+                : lockfiles.requireFreshLockfile(context, cacheRoot, false);
         if (config.packageSettings().mode() == PackageMode.BOM) {
             runSingleProjectBomPackage(projectRoot, config, artifactIndex);
             return;
@@ -280,7 +257,7 @@ public final class PackageCommand implements Runnable {
                     () -> packagePlanService.plan(
                             projectRoot,
                             config,
-                            CommandProjectLockfile.path(projectRoot),
+                            context.lockfilePath(),
                             cacheRoot),
                     CommandPackageAttributes::packagePlan);
             if (planOutputFormat == PackageCommandModes.PlanOutputFormat.JSON) {

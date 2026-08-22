@@ -35,7 +35,6 @@ import sh.zolt.workspace.discovery.ManifestProjectLoader;
 import sh.zolt.workspace.service.*;
 import sh.zolt.workspace.testpool.WorkspaceTestConcurrency;
 import sh.zolt.workspace.WorkspaceConfigException;
-import sh.zolt.workspace.test.WorkspaceTestResult;
 import sh.zolt.workspace.test.WorkspaceTestService;
 import java.nio.file.Path;
 import java.util.List;
@@ -165,19 +164,27 @@ public final class TestCommand implements Runnable {
                     TestShardSpec.parse(shardValue),
                     WorkspaceTestConcurrency.fromCli(testWorkers));
             if (workspace) {
-                if (compileOnly) {
-                    compileRunner().compileWorkspace(
-                            projectRoot, cacheRoot, all, members, memberGroups, timings, CommandProgress.human(spec));
-                } else {
-                    runWorkspaceTests(projectRoot, timings, CommandProgress.human(spec), request);
-                }
+                runWorkspace(
+                        projectRoot,
+                        CommandWorkspaceSelections.from(all, members, memberGroups),
+                        timings,
+                        request);
+                return;
+            }
+            ProjectCommandContext context = timings.measure(
+                    "config read",
+                    () -> ProjectCommandContext.load(projectLoader, projectRoot));
+            if (context.workspaceMember()) {
+                // Design §4.5: the member's test lane is a projection of the workspace resolution, and
+                // its providers must be built first, so the workspace service owns both paths.
+                runWorkspace(context.lockRoot(), context.memberSelection(), timings, request);
                 return;
             }
             if (compileOnly) {
                 compileRunner().compileSingle(
-                        projectRoot, cacheRoot, noBuildCache, timings, CommandProgress.human(spec));
+                        context, cacheRoot, noBuildCache, timings, CommandProgress.human(spec));
             } else {
-                runSingleProjectTests(projectRoot, timings, CommandProgress.human(spec), request);
+                runSingleProjectTests(context, timings, CommandProgress.human(spec), request);
             }
         } catch (BuildException
                 | JavacException
@@ -200,84 +207,39 @@ public final class TestCommand implements Runnable {
         }
     }
 
-    private void runWorkspaceTests(
-            Path projectRoot,
+    /**
+     * The workspace path, whether {@code --workspace} named the members or a member directory did.
+     */
+    private void runWorkspace(
+            Path workspaceRoot,
+            WorkspaceSelectionRequest selection,
             TimingRecorder timings,
-            ProgressWriter progress,
             TestCommandRequest request) {
-        var workspaceToolchains = toolchainOptions.workspaceTestToolchains(testRunServiceFactory, "test");
-        WorkspaceTestService projectWorkspaceTestService = workspaceTestService.withMemberServices(
-                workspaceToolchains.mainCheckers(),
-                workspaceToolchains.testRunServices());
-        CommandHumanOutput output = CommandHumanOutput.of(spec);
-        WorkspaceTestResult result = WorkspaceMutationLock.withWorkspaceLock(
-                projectRoot,
-                () -> {
-                    var target = lockfiles.requireFreshWorkspaceLockfile(timings, projectRoot, cacheRoot, false);
-                    progress.start("Testing workspace");
-                    return timings.measure(
-                            "test workspace",
-                            () -> {
-                                WorkspaceBuildPlan plan = timings.measure(
-                                        "plan workspace tests",
-                                        () -> projectWorkspaceTestService.planTests(
-                                                target,
-                                                cacheRoot,
-                                                CommandWorkspaceSelections.from(all, members, memberGroups)),
-                                        CommandBuildAttributes::workspaceBuildPlan);
-                                WorkspaceBuildResult buildResult = timings.measure(
-                                        "build workspace test inputs",
-                                        () -> projectWorkspaceTestService.buildTestInputs(plan, cacheRoot),
-                                        build -> CommandBuildAttributes.workspaceBuild(build, plan.selection()));
-                                return timings.measure(
-                                        "run workspace test members",
-                                        () -> projectWorkspaceTestService.runTests(
-                                                plan,
-                                                buildResult,
-                                        cacheRoot,
-                                        request.testSelection(),
-                                        request.testJvmArguments(),
-                                        request.reportSettings(),
-                                        request.requestedTestEvents(),
-                                        request.suiteName(),
-                                        request.shard(),
-                                                request.profileSettings(),
-                                                request.concurrency()),
-                                        CommandTestAttributes::workspaceTest);
-                            },
-                            CommandTestAttributes::workspaceTest);
-                });
-        if (result.resolvedLockfile()) {
-            output.detail("Resolved workspace dependencies because zolt.lock was missing");
+        if (compileOnly) {
+            compileRunner().compileWorkspace(
+                    workspaceRoot, cacheRoot, selection, timings, CommandProgress.human(spec));
+            return;
         }
-        WorkspaceTestCommandOutput.printMembers(spec, output, result);
-        result.profileDirectory().ifPresent(directory ->
-                CommandTestProfileOutput.print(output, directory, request.profileSettings()));
-        int testedMembers = result.members().size();
-        String summary = testedMembers < result.totalMemberCount()
-                ? "Tested " + testedMembers + " of " + result.totalMemberCount()
-                        + " workspace members; use --all to test every member"
-                : "Tests passed for " + testedMembers + " workspace members";
-        output.summary(summary, testedMembers + " members");
-        output.provenance(CommandBuildProvenance.read(projectRoot));
-        progress.result("Tested " + testedMembers + " workspace members");
+        new WorkspaceTestCommandRunner(
+                        workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec)
+                .runTests(
+                        workspaceRoot, cacheRoot, selection, timings, CommandProgress.human(spec), request);
     }
 
     private void runSingleProjectTests(
-            Path projectRoot,
+            ProjectCommandContext context,
             TimingRecorder timings,
             ProgressWriter progress,
             TestCommandRequest request) {
-        ProjectConfig config = timings.measure(
-                "config read",
-                () -> projectLoader.load(projectRoot));
+        Path projectRoot = context.projectRoot();
+        ProjectConfig config = context.config();
         var compileChecker = toolchainOptions.jdkChecker(projectRoot, config, "test");
         TestRunService projectTestRunService =
                 testRunServiceFactory.create(
                                 compileChecker,
                                 toolchainOptions.testRuntimeRunChecker(projectRoot, config, compileChecker))
                         .withBuildCache(CommandBuildCache.service(noBuildCache, false));
-        var artifactIndex = lockfiles.requireFreshLockfile(projectRoot, config, cacheRoot, false);
+        var artifactIndex = lockfiles.requireFreshLockfile(context, cacheRoot, false);
         progress.start("Testing project");
         CommandHumanOutput output = CommandHumanOutput.of(spec);
         output.work("Testing " + config.project().name());
@@ -342,6 +304,6 @@ public final class TestCommand implements Runnable {
 
     private TestCompileCommandRunner compileRunner() {
         return new TestCompileCommandRunner(
-                projectLoader, workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec);
+                workspaceTestService, testRunServiceFactory, lockfiles, toolchainOptions, spec);
     }
 }

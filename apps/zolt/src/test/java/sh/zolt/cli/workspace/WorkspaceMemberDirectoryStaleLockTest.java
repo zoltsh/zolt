@@ -19,20 +19,20 @@ final class WorkspaceMemberDirectoryStaleLockTest {
     @TempDir
     private Path tempDir;
 
+    /**
+     * Design §4.5/§6.8: a member-directory build routes through the workspace, so a {@code zolt.lock}
+     * an older Zolt left in the member directory is not a source of resolved facts and not a reason to
+     * refuse. It is ignored: the build reads the root lock, compiles, and leaves the stray file exactly
+     * as it found it. (The redirect to `--workspace --member` this used to require is obsolete — there
+     * is no longer a member-directory path that could consume the file.)
+     */
     @Test
-    void buildMemberDirectoryRedirectsToWorkspaceMemberInsteadOfDeadEndResolve() throws IOException {
+    void buildMemberDirectoryIgnoresLeftoverMemberLock() throws IOException {
         try (CliTestRepository repository = CliTestRepository.start()) {
             repository.addArtifact("com.example", "app", "1.0.0", """
                     <project>
                       <groupId>com.example</groupId>
                       <artifactId>app</artifactId>
-                      <version>1.0.0</version>
-                    </project>
-                    """);
-            repository.addArtifact("com.example", "extra", "1.0.0", """
-                    <project>
-                      <groupId>com.example</groupId>
-                      <artifactId>extra</artifactId>
                       <version>1.0.0</version>
                     </project>
                     """);
@@ -68,29 +68,23 @@ final class WorkspaceMemberDirectoryStaleLockTest {
                     "--workspace",
                     "--cwd", memberDir.toString(),
                     "--cache-root", cacheRoot.toString());
-            // The leftover an older standalone command wrote into the member directory. No command
-            // creates one any more, so the fixture plants it directly.
-            Files.writeString(memberDir.resolve("zolt.lock"), "version = 7\n");
-            // Change a member input so the member-local zolt.lock is now stale.
-            writeMemberConfig(memberDir, "com.example:extra");
+            // The leftover an older standalone command wrote into the member directory.
+            String leftover = "version = 7\n";
+            Files.writeString(memberDir.resolve("zolt.lock"), leftover);
 
             CommandResult result = execute(
                     "build",
                     "--cwd", memberDir.toString(),
                     "--cache-root", cacheRoot.toString());
 
-            assertEquals(0, workspaceResolve.exitCode());
-            assertEquals(1, result.exitCode());
-            assertTrue(Files.exists(memberDir.resolve("zolt.lock")));
-            // No dead-end bare `zolt resolve` next-step.
-            assertFalse(
-                    result.stderr().contains("Run `zolt resolve` to refresh it"),
-                    "expected no dead-end zolt resolve next-step, got: " + result.stderr());
-            // Instead the message names the workspace-member path that actually works.
-            assertTrue(
-                    result.stderr().contains("--workspace --member modules/core"),
-                    "expected redirect naming --workspace --member, got: " + result.stderr());
-            assertFalse(Files.exists(memberDir.resolve("target/classes/com/example/core/Core.class")));
+            assertEquals(0, workspaceResolve.exitCode(), workspaceResolve.stderr());
+            assertEquals(0, result.exitCode(), result.stderr());
+            assertTrue(Files.exists(memberDir.resolve("target/classes/com/example/core/Core.class")));
+            assertEquals(
+                    leftover,
+                    Files.readString(memberDir.resolve("zolt.lock")),
+                    "the member-local lock is neither consumed nor rewritten");
+            assertFalse(result.stderr().contains("--workspace --member"), result.stderr());
         }
     }
 

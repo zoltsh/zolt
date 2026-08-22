@@ -12,15 +12,8 @@ import sh.zolt.cache.LocalArtifactCache;
 import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.CommandProgress;
 import sh.zolt.cli.ZoltCli;
-import sh.zolt.cli.command.CommandFailures;
-import sh.zolt.cli.command.CommandBuildProvenance;
-import sh.zolt.cli.command.CommandFrameworkServices;
-import sh.zolt.cli.command.CommandLockfiles;
-import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.*;
 import sh.zolt.cli.command.CommandServiceBundles.CommandBuildServices;
-import sh.zolt.cli.command.CommandTimings;
-import sh.zolt.cli.command.CommandToolchainOptions;
-import sh.zolt.cli.command.CommandWorkspaceSelections;
 import sh.zolt.cli.console.ProgressWriter;
 import sh.zolt.error.ActionableException;
 import sh.zolt.framework.FrameworkBuildAugmentationResult;
@@ -124,76 +117,35 @@ public final class BuildCommand implements Runnable {
         CommandBuildCacheSupport buildCache = CommandBuildCacheSupport.create(noBuildCache, offline);
         try {
             if (workspace) {
-                WorkspaceBuildService projectWorkspaceBuildService = buildCache.applyTo(
-                        workspaceBuildService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("build")));
-                WorkspaceBuildResult result = WorkspaceMutationLock.withWorkspaceLock(
+                buildWorkspace(
+                        timings,
+                        progress,
+                        output,
+                        buildCache,
                         projectRoot,
-                        () -> {
-                            var target = lockfiles.requireFreshWorkspaceLockfile(
-                                    timings, projectRoot, cacheRoot, offline, "zolt build --workspace");
-                            progress.start("Building workspace");
-                            return timings.measure(
-                                    "build workspace",
-                                    () -> {
-                                        WorkspaceBuildPlan plan = timings.measure(
-                                                "plan workspace build",
-                                                () -> projectWorkspaceBuildService.planBuild(
-                                                        target,
-                                                        cacheRoot,
-                                                        offline,
-                                                        CommandWorkspaceSelections.from(
-                                                                all,
-                                                                members,
-                                                                memberGroups)),
-                                                CommandBuildAttributes::workspaceBuildPlan);
-                                        return timings.measure(
-                                                "compile workspace members",
-                                                () -> projectWorkspaceBuildService.build(plan, cacheRoot),
-                                                CommandBuildAttributes::workspaceBuild);
-                                    },
-                                    CommandBuildAttributes::workspaceBuild);
-                        });
-                if (result.resolvedLockfile()) {
-                    output.detail("Resolved workspace dependencies because zolt.lock was missing");
-                }
-                for (WorkspaceBuildResult.MemberBuildResult member : result.members()) {
-                    if (member.result().mainCompilationSkipped()) {
-                        output.detail("Skipped main compilation in " + member.member() + "; inputs are unchanged");
-                    } else if (member.result().mainCompilationRestored()) {
-                        output.detail(
-                                "Restored "
-                                        + member.result().mainRestoredClassCount()
-                                        + " main classes in "
-                                        + member.member()
-                                        + " (build cache)");
-                    } else {
-                        output.detail(
-                                "Compiled "
-                                        + member.result().sourceCount()
-                                        + " main source files in "
-                                        + member.member());
-                        if (processorFullCompile(member.result())) {
-                            output.detail("full compile: " + member.result().mainIncrementalFallbackReason()
-                                    + " in " + member.member());
-                        }
-                    }
-                }
-                if (result.mainCompilationExecutedCount() == 0) {
-                    output.detail("Skipped workspace main compilation; inputs are unchanged");
-                } else {
-                    output.summary(
-                            "Compiled " + result.compiledSourceCount() + " workspace main source files",
-                            result.members().size() + " members");
-                }
-                output.provenance(CommandBuildProvenance.read(projectRoot));
-                progress.result("Built " + result.sourceCount() + " workspace main source files");
+                        CommandWorkspaceSelections.from(all, members, memberGroups),
+                        "zolt build --workspace");
                 return;
             }
-            ProjectConfig config = timings.measure(
+            ProjectCommandContext context = timings.measure(
                     "config read",
-                    () -> projectLoader.load(projectRoot));
+                    () -> ProjectCommandContext.load(projectLoader, projectRoot));
+            if (context.workspaceMember()) {
+                // Design §4.5: a member command runs through the workspace, which owns the lock, the
+                // provider closure, and the build order this member's compile depends on.
+                buildWorkspace(
+                        timings,
+                        progress,
+                        output,
+                        buildCache,
+                        context.lockRoot(),
+                        context.memberSelection(),
+                        "zolt build");
+                return;
+            }
+            ProjectConfig config = context.config();
             var artifactIndex = lockfiles.requireFreshLockfile(
-                    projectRoot, config, cacheRoot, offline, "zolt build");
+                    context, cacheRoot, offline, "zolt build");
             progress.start("Building project");
             output.work("Building " + config.project().name());
             BuildResult result = timings.measure(
@@ -263,6 +215,81 @@ public final class BuildCommand implements Runnable {
             buildCache.surfaceWarnings(output);
             CommandTimings.print(spec, "build", projectRoot, timingOptions, timings);
         }
+    }
+
+    /**
+     * Builds {@code selection} through the workspace rooted at {@code workspaceRoot}. Reached both by
+     * {@code --workspace} and by a member-directory build; the only difference is which members the
+     * selection names.
+     */
+    private void buildWorkspace(
+            TimingRecorder timings,
+            ProgressWriter progress,
+            CommandHumanOutput output,
+            CommandBuildCacheSupport buildCache,
+            Path workspaceRoot,
+            sh.zolt.workspace.service.WorkspaceSelectionRequest selection,
+            String retryCommand) {
+        WorkspaceBuildService projectWorkspaceBuildService = buildCache.applyTo(
+                workspaceBuildService.withJdkCheckers(toolchainOptions.workspaceJdkCheckers("build")));
+        WorkspaceBuildResult result = WorkspaceMutationLock.withWorkspaceLock(
+                workspaceRoot,
+                () -> {
+                    var target = lockfiles.requireFreshWorkspaceLockfile(
+                            timings, workspaceRoot, cacheRoot, offline, retryCommand);
+                    progress.start("Building workspace");
+                    return timings.measure(
+                            "build workspace",
+                            () -> {
+                                WorkspaceBuildPlan plan = timings.measure(
+                                        "plan workspace build",
+                                        () -> projectWorkspaceBuildService.planBuild(
+                                                target,
+                                                cacheRoot,
+                                                offline,
+                                                selection),
+                                        CommandBuildAttributes::workspaceBuildPlan);
+                                return timings.measure(
+                                        "compile workspace members",
+                                        () -> projectWorkspaceBuildService.build(plan, cacheRoot),
+                                        CommandBuildAttributes::workspaceBuild);
+                            },
+                            CommandBuildAttributes::workspaceBuild);
+                });
+        if (result.resolvedLockfile()) {
+            output.detail("Resolved workspace dependencies because zolt.lock was missing");
+        }
+        for (WorkspaceBuildResult.MemberBuildResult member : result.members()) {
+            if (member.result().mainCompilationSkipped()) {
+                output.detail("Skipped main compilation in " + member.member() + "; inputs are unchanged");
+            } else if (member.result().mainCompilationRestored()) {
+                output.detail(
+                        "Restored "
+                                + member.result().mainRestoredClassCount()
+                                + " main classes in "
+                                + member.member()
+                                + " (build cache)");
+            } else {
+                output.detail(
+                        "Compiled "
+                                + member.result().sourceCount()
+                                + " main source files in "
+                                + member.member());
+                if (processorFullCompile(member.result())) {
+                    output.detail("full compile: " + member.result().mainIncrementalFallbackReason()
+                            + " in " + member.member());
+                }
+            }
+        }
+        if (result.mainCompilationExecutedCount() == 0) {
+            output.detail("Skipped workspace main compilation; inputs are unchanged");
+        } else {
+            output.summary(
+                    "Compiled " + result.compiledSourceCount() + " workspace main source files",
+                    result.members().size() + " members");
+        }
+        output.provenance(CommandBuildProvenance.read(workspaceRoot));
+        progress.result("Built " + result.sourceCount() + " workspace main source files");
     }
 
     /**

@@ -12,10 +12,10 @@ import sh.zolt.cli.command.CommandLockfiles;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.command.CommandProjectLockfile;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.lockfile.toml.LockfileReadException;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
-import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveException;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
@@ -121,17 +121,20 @@ public final class ClasspathCommand implements Runnable {
             Path projectRoot = projectDirectory.path();
             Path configPath = projectRoot.resolve("zolt.toml");
             if (Files.isRegularFile(configPath)) {
+                ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
                 // A workspace member's lock is the workspace root's, and only the workspace path
-                // refreshes it, so a read-only classpath query neither gates on its freshness nor
-                // consults a member-local zolt.lock (design §6.9).
-                var artifactIndex = CommandProjectLockfile.governedByWorkspace(projectRoot)
+                // refreshes it, so a read-only classpath query does not gate on its freshness
+                // (design §6.8).
+                var artifactIndex = context.workspaceMember()
                         ? new VerifiedArtifactIndex()
-                        : lockfiles.requireFreshLockfile(
-                                projectRoot, projectLoader.load(projectRoot), cacheRoot, false);
-                printClasspath(projectRoot, cacheRoot, artifactIndex);
+                        : lockfiles.requireFreshLockfile(context, cacheRoot, false);
+                printClasspath(context.lockfilePath(), cacheRoot, artifactIndex);
                 return;
             }
-            printClasspath(projectRoot, cacheRoot, new VerifiedArtifactIndex());
+            printClasspath(
+                    CommandProjectLockfile.path(projectRoot),
+                    cacheRoot,
+                    new VerifiedArtifactIndex());
         } catch (ArtifactCacheException
                 | ClasspathCommandException
                 | LockfileReadException
@@ -142,11 +145,10 @@ public final class ClasspathCommand implements Runnable {
     }
 
     private void printClasspath(
-            Path projectRoot,
+            Path lockfilePath,
             Path cacheRoot,
             VerifiedArtifactIndex artifactIndex) {
-            ZoltLockfile lockfile = lockfileReader.read(
-                    CommandProjectLockfile.path(projectRoot));
+            ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
             Kind parsedKind = Kind.parse(kind);
             if (parsedKind == Kind.AUDIT) {
                 String output = format == Format.JSON
