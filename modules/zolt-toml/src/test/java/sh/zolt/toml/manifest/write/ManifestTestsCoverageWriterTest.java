@@ -69,7 +69,7 @@ final class ManifestTestsCoverageWriterTest {
         assertEquals(
                 """
                 [test.sources]
-                java = ["src/custom-test/java", "src/test/java"]
+                java = ["src/test/java", "src/custom-test/java"]
                 groovy = ["src/spec/groovy"]
 
                 [test.runtime]
@@ -79,7 +79,7 @@ final class ManifestTestsCoverageWriterTest {
                 events = ["passed", "skipped", "failed"]
 
                 [test.integration]
-                sources = ["src/contract/java", "src/integration-test/java"]
+                sources = ["src/integration-test/java", "src/contract/java"]
                 resources = ["fixtures/integration"]
 
                 [test.suites.alpha]

@@ -14,7 +14,7 @@ import sh.zolt.manifest.TestClassPattern;
 
 final class AuthoredTestsTest {
     @Test
-    void storesDistinctSortedRootsAndNamedSuites() {
+    void storesDistinctAuthoredOrderRootsAndSortedNamedSuites() {
         AuthoredTests.Sources sources = new AuthoredTests.Sources(
                 List.of(path("src/z-test/java"), path("src/a-test/java")),
                 List.of(path("src/test/groovy")));
@@ -30,8 +30,9 @@ final class AuthoredTestsTest {
         suites.clear();
 
         assertEquals(
-                List.of(path("src/a-test/java"), path("src/z-test/java")),
-                tests.sources().orElseThrow().java());
+                List.of(path("src/z-test/java"), path("src/a-test/java")),
+                tests.sources().orElseThrow().java(),
+                "test source roots are order-bearing and keep authored order");
         assertEquals(
                 List.of("fast", "smoke"),
                 tests.suites().keySet().stream().map(LocalId::value).toList());

@@ -48,7 +48,7 @@ final class ManifestBuildDecoderTest {
                 """).orElseThrow();
 
         assertEquals(
-                List.of(path("src/alpha/java"), path("src/zeta/java")),
+                List.of(path("src/zeta/java"), path("src/alpha/java")),
                 build.sources());
         AuthoredBuild.Output output = build.output().orElseThrow();
         assertEquals(path("target"), output.root().orElseThrow());
@@ -149,7 +149,7 @@ final class ManifestBuildDecoderTest {
                 """).orElseThrow();
 
         assertEquals(
-                List.of(path("src/kotlinx-compat/java"), path("src/main/java")),
+                List.of(path("src/main/java"), path("src/kotlinx-compat/java")),
                 build.sources());
     }
 

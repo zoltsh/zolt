@@ -43,19 +43,19 @@ final class IdeModelRootsServiceTest {
                         "java",
                         root.resolve("target/generated/sources/annotations"),
                         true),
-                new IdeModel.SourceRoot(
-                        "test-java-1",
-                        "test",
-                        "java",
-                        root.resolve("src/contractTest/java"),
-                        false),
+                new IdeModel.SourceRoot("test-java-1", "test", "java", root.resolve("src/test/java"), false),
                 new IdeModel.SourceRoot(
                         "test-java-2",
                         "test",
                         "java",
                         root.resolve("src/integrationTest/java"),
                         false),
-                new IdeModel.SourceRoot("test-java-3", "test", "java", root.resolve("src/test/java"), false),
+                new IdeModel.SourceRoot(
+                        "test-java-3",
+                        "test",
+                        "java",
+                        root.resolve("src/contractTest/java"),
+                        false),
                 new IdeModel.SourceRoot(
                         "test-generated-java",
                         "test",
@@ -88,13 +88,13 @@ final class IdeModelRootsServiceTest {
                 "test-groovy-1",
                 "test",
                 "groovy",
-                root.resolve("src/integrationTest/groovy"),
+                root.resolve("src/test/groovy"),
                 false)));
         assertTrue(model.sourceRoots().contains(new IdeModel.SourceRoot(
                 "test-groovy-2",
                 "test",
                 "groovy",
-                root.resolve("src/test/groovy"),
+                root.resolve("src/integrationTest/groovy"),
                 false)));
     }
 
@@ -127,7 +127,7 @@ final class IdeModelRootsServiceTest {
     }
 
     @Test
-    void exportsConfiguredMainSourceRootsInCanonicalOrder() throws IOException {
+    void exportsConfiguredMainSourceRootsInAuthoredOrder() throws IOException {
         Path projectDir = tempDir.resolve("multi-main-roots");
         Files.createDirectories(projectDir);
         Files.writeString(projectDir.resolve("zolt.toml"), """
@@ -146,8 +146,8 @@ final class IdeModelRootsServiceTest {
 
         Path root = projectDir.toAbsolutePath().normalize();
         assertEquals(List.of(
-                new IdeModel.SourceRoot("main-java", "main", "java", root.resolve("src/generated/java"), false),
-                new IdeModel.SourceRoot("main-java-2", "main", "java", root.resolve("src/main/java"), false),
+                new IdeModel.SourceRoot("main-java", "main", "java", root.resolve("src/main/java"), false),
+                new IdeModel.SourceRoot("main-java-2", "main", "java", root.resolve("src/generated/java"), false),
                 new IdeModel.SourceRoot(
                         "main-generated-java",
                         "main",

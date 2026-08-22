@@ -41,7 +41,7 @@ final class ManifestBuildCompilerWriterTest {
         assertEquals(
                 """
                 [build]
-                sources = ["src/generated/java", "src/main/java"]
+                sources = ["src/main/java", "src/generated/java"]
 
                 [build.output]
                 root = ".zolt/build"

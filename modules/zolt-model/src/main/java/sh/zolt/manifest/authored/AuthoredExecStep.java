@@ -41,7 +41,7 @@ public record AuthoredExecStep(
         mainClass = Objects.requireNonNull(mainClass, "Exec step main class must not be null.");
         validateProjectMainClass(tool, mainClass);
         args = immutableArguments(args);
-        inputs = ManifestModelValues.sortedDistinctList(inputs, "Exec step inputs");
+        inputs = ManifestModelValues.orderedDistinctList(inputs, "Exec step inputs");
         if (inputs.isEmpty()) {
             throw new IllegalArgumentException("An exec step requires at least one input.");
         }

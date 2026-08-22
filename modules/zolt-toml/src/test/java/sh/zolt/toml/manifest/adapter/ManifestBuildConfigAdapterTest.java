@@ -149,7 +149,7 @@ final class ManifestBuildConfigAdapterTest {
     }
 
     @Test
-    void multiRootArraysAreCanonicallySorted() {
+    void multiRootArraysKeepAuthoredOrderAndTheirFirstEntryStaysPrimary() {
         ProjectConfig adapted = FinalManifests.load(
                 """
                 [project]
@@ -162,10 +162,10 @@ final class ManifestBuildConfigAdapterTest {
                 sources = ["src/main/java", "src/extra/java"]
                 """);
         assertEquals(
-                List.of("src/extra/java", "src/main/java"),
+                List.of("src/main/java", "src/extra/java"),
                 adapted.build().sourceRoots(),
-                "design §5.5 makes semantically unordered path arrays canonically sorted");
-        assertEquals("src/extra/java", adapted.build().source());
+                "design §5.5 keeps order-bearing path arrays in authored order");
+        assertEquals("src/main/java", adapted.build().source());
     }
 
     @Test

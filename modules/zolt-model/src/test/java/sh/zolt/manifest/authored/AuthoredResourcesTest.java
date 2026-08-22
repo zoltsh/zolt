@@ -16,7 +16,7 @@ import sh.zolt.manifest.ResourceGlob;
 
 final class AuthoredResourcesTest {
     @Test
-    void retainsTypedTokenSourcesAndCanonicalCollectionOrder() {
+    void retainsTypedTokenSourcesAuthoredRootOrderAndCanonicalSetOrder() {
         ArrayList<ManifestRelativePath> roots = new ArrayList<>(List.of(
                 path("src/z/resources"), path("src/a/resources")));
         LinkedHashMap<LocalId, AuthoredResources.Token> tokens = new LinkedHashMap<>();
@@ -36,7 +36,9 @@ final class AuthoredResourcesTest {
         tokens.clear();
 
         assertEquals(
-                List.of(path("src/a/resources"), path("src/z/resources")), resources.main());
+                List.of(path("src/z/resources"), path("src/a/resources")),
+                resources.main(),
+                "resource roots are order-bearing and keep authored order");
         assertEquals(
                 List.of("build-id", "channel", "project-version"),
                 resources.tokens().keySet().stream().map(LocalId::value).toList());

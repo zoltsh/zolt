@@ -67,7 +67,10 @@ final class InspectionToManifestRootsTest {
         DraftZoltToml draft = mapper.fromMaven(new MavenStaticProjectInspector().inspect(tempDir));
 
         AuthoredBuild build = draft.manifest().build().build().orElseThrow();
-        assertEquals(List.of("src/gen", "src/java"), paths(build.sources()));
+        assertEquals(
+                List.of("src/java", "src/gen"),
+                paths(build.sources()),
+                "the inspected primary root stays first");
         AuthoredResources resources = draft.manifest().build().resources().orElseThrow();
         assertEquals(List.of("config"), paths(resources.main()));
         assertEquals(List.of("test-config"), paths(resources.test()));
@@ -141,7 +144,10 @@ final class InspectionToManifestRootsTest {
         DraftZoltToml draft = mapper.fromGradle(new GradleStaticProjectInspector().inspect(tempDir));
 
         AuthoredBuild build = draft.manifest().build().build().orElseThrow();
-        assertEquals(List.of("src/generated/java", "src/java"), paths(build.sources()));
+        assertEquals(
+                List.of("src/java", "src/generated/java"),
+                paths(build.sources()),
+                "the inspected srcDirs order is preserved");
         assertTrue(
                 draft.notes().stream().anyMatch(note ->
                         note.contains("Test sources live outside")

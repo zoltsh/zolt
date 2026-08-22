@@ -54,7 +54,7 @@ final class ManifestResourcesDecoderTest {
                 """).orElseThrow();
 
         assertEquals(
-                List.of(path("src/a/resources"), path("src/z/resources")),
+                List.of(path("src/z/resources"), path("src/a/resources")),
                 resources.main());
         assertEquals(List.of(path("src/test/resources")), resources.test());
         AuthoredResources.Filter filter = resources.filter().orElseThrow();

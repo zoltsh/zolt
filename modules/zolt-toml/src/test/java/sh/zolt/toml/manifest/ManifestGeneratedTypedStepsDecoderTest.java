@@ -86,7 +86,7 @@ final class ManifestGeneratedTypedStepsDecoderTest {
 
     @ParameterizedTest
     @MethodSource("lanes")
-    void decodesProtobufAndDeclaredInputsAsSortedImmutableValues(Lane lane) {
+    void decodesProtobufAndDeclaredInputsAsAuthoredOrderImmutableValues(Lane lane) {
         ManifestGeneratedStepsDecoder.Decoded decoded = decode("""
                 [generated.%s.z-proto]
                 kind = "protobuf"
@@ -110,7 +110,7 @@ final class ManifestGeneratedTypedStepsDecoderTest {
                 AuthoredProtobufStep.class, steps.get(id("z-proto")));
         assertEquals(Optional.of(GeneratedLanguage.JAVA), protobuf.settings().language());
         assertEquals(Optional.of(id("undeclared-protobuf")), protobuf.tool());
-        assertEquals(List.of("proto/a.proto", "proto/z.proto"), values(protobuf.inputs()));
+        assertEquals(List.of("proto/z.proto", "proto/a.proto"), values(protobuf.inputs()));
         assertEquals(Optional.of(path("missing/generated/protobuf")), protobuf.output());
         assertEquals(Optional.of("org.example.proto"), protobuf.javaPackage());
         assertEquals(Optional.of(false), protobuf.grpc());
@@ -120,7 +120,7 @@ final class ManifestGeneratedTypedStepsDecoderTest {
 
         AuthoredDeclaredRootStep declared = assertInstanceOf(
                 AuthoredDeclaredRootStep.class, steps.get(id("a-root")));
-        assertEquals(List.of("fixtures/a", "fixtures/z"), values(declared.inputs()));
+        assertEquals(List.of("fixtures/z", "fixtures/a"), values(declared.inputs()));
         assertEquals(path("missing/generated/fixtures"), declared.output());
         assertTrue(declared.settings().language().isEmpty());
         assertThrows(UnsupportedOperationException.class, () -> declared.inputs().clear());

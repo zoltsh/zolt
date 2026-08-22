@@ -48,7 +48,7 @@ final class ManifestGeneratedExecStepDecoderTest {
         assertEquals(id("undeclared-tool"), step.tool());
         assertTrue(step.mainClass().isEmpty());
         assertEquals(List.of("--z-last", "", "--a-first"), step.args());
-        assertEquals(List.of("schema/a.sql", "schema/z.sql"), values(step.inputs()));
+        assertEquals(List.of("schema/z.sql", "schema/a.sql"), values(step.inputs()));
         assertEquals(path("missing/generated/sql"), step.output());
         assertEquals(GeneratedOutputKind.RESOURCES, step.produces());
         assertEquals(Optional.of(path("META-INF/generated")), step.into());

@@ -14,7 +14,7 @@ public record AuthoredDeclaredRootStep(
         ManifestRelativePath output) implements AuthoredGeneratedStep {
     public AuthoredDeclaredRootStep {
         Objects.requireNonNull(settings, "Declared-root step settings must not be null.");
-        inputs = ManifestModelValues.sortedDistinctList(inputs, "Declared-root step inputs");
+        inputs = ManifestModelValues.orderedDistinctList(inputs, "Declared-root step inputs");
         if (inputs.isEmpty()) {
             throw new IllegalArgumentException("A declared-root step requires at least one input.");
         }

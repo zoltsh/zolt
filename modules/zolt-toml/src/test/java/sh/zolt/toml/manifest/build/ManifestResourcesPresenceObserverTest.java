@@ -43,8 +43,8 @@ final class ManifestResourcesPresenceObserverTest {
         assertThrows(UnsupportedOperationException.class, () -> first.tokens().clear());
         assertEquals(
                 List.of(
-                        new ManifestRelativePath("src/a/resources"),
-                        new ManifestRelativePath("src/z/resources")),
+                        new ManifestRelativePath("src/z/resources"),
+                        new ManifestRelativePath("src/a/resources")),
                 complete.main());
         assertEquals(1, complete.test().size());
         assertTrue(complete.filter().isPresent());

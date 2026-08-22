@@ -12,7 +12,7 @@ public record AuthoredBuild(
         Optional<Output> output,
         Optional<Metadata> metadata) {
     public AuthoredBuild {
-        sources = ManifestModelValues.sortedDistinctList(sources, "Build source roots");
+        sources = ManifestModelValues.orderedDistinctList(sources, "Build source roots");
         output = Objects.requireNonNull(output, "Authored build output must not be null.");
         metadata = Objects.requireNonNull(metadata, "Authored build metadata must not be null.");
         if (sources.isEmpty() && output.isEmpty() && metadata.isEmpty()) {

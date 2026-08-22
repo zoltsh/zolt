@@ -616,7 +616,9 @@ include = [
 ]
 ```
 
-Semantically unordered path and ID arrays are sorted in canonical generated output. Explicit repository `order` is semantic and is preserved exactly.
+Semantically unordered path and ID arrays are sorted in canonical generated output. Order-bearing arrays are not: they keep authored order everywhere, in the authored model, in the effective view, and in canonical generated output alike. The authored model preserves the order of an order-bearing array and rejects duplicates in it; effective semantics decide whether that order matters; the canonical writer sorts only truly set-like collections; and the source-preserving writer never reorders anything.
+
+Order-bearing arrays are at least: build source roots, test source roots (Java and Groovy), resource roots, integration-test source and resource roots, generated-step inputs, argv arrays, and explicit repository `order`. The first entry of an ordered root array is the primary root, so sorting it would silently change behavior by lexical accident. Set-like collections — license policy allow/deny terms, license-exception allow terms, inherited environment names, resource-filter include globs, test-suite resource locks, and workspace member `include`/`exclude`/`default` patterns — stay sorted.
 
 ## 5.6 Dynamic-entry ordering
 

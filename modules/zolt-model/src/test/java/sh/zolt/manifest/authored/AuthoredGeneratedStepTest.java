@@ -44,7 +44,7 @@ final class AuthoredGeneratedStepTest {
     }
 
     @Test
-    void protobufAndDeclaredRootSortAndCopyNonemptyInputs() {
+    void protobufAndDeclaredRootKeepAuthoredOrderAndCopyNonemptyInputs() {
         ArrayList<ResourceGlob> inputs = new ArrayList<>(List.of(
                 new ResourceGlob("src/z.proto"),
                 new ResourceGlob("src/a.proto")));
@@ -54,8 +54,9 @@ final class AuthoredGeneratedStepTest {
         inputs.clear();
 
         assertEquals(
-                List.of(new ResourceGlob("src/a.proto"), new ResourceGlob("src/z.proto")),
-                protobuf.inputs());
+                List.of(new ResourceGlob("src/z.proto"), new ResourceGlob("src/a.proto")),
+                protobuf.inputs(),
+                "generator inputs are order-bearing and keep authored order");
         assertThrows(UnsupportedOperationException.class, () -> protobuf.inputs().clear());
         assertThrows(IllegalArgumentException.class, () -> new AuthoredDeclaredRootStep(
                 GeneratedStepSettings.defaultsOmitted(),
@@ -64,7 +65,7 @@ final class AuthoredGeneratedStepTest {
     }
 
     @Test
-    void execRetainsArgOrderAndCanonicalizesUnorderedInputsAndEnvironment() {
+    void execRetainsArgAndInputOrderAndCanonicalizesUnorderedEnvironment() {
         ArrayList<String> args = new ArrayList<>(List.of("", "src/config.xml"));
         LinkedHashMap<EnvironmentVariableName, String> env = new LinkedHashMap<>();
         env.put(new EnvironmentVariableName("NODE_ENV"), "production");

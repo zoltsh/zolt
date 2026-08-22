@@ -39,7 +39,7 @@ final class ManifestResourcesWriterTest {
         assertEquals(
                 """
                 [resources]
-                main = ["config", "src/main/resources"]
+                main = ["src/main/resources", "config"]
                 test = ["fixtures"]
 
                 [resources.filter]

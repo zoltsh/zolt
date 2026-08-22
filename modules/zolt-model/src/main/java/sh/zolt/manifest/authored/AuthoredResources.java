@@ -19,8 +19,8 @@ public record AuthoredResources(
         Optional<Filter> filter,
         Map<LocalId, Token> tokens) {
     public AuthoredResources {
-        main = ManifestModelValues.sortedDistinctList(main, "Main resource roots");
-        test = ManifestModelValues.sortedDistinctList(test, "Test resource roots");
+        main = ManifestModelValues.orderedDistinctList(main, "Main resource roots");
+        test = ManifestModelValues.orderedDistinctList(test, "Test resource roots");
         filter = Objects.requireNonNull(filter, "Authored resource filter must not be null.");
         tokens = immutableTokens(tokens);
         rejectEnvironmentCaseCollisions(tokens);

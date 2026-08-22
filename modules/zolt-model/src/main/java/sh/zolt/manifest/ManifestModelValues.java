@@ -31,6 +31,21 @@ public final class ManifestModelValues {
         return List.copyOf(values);
     }
 
+    /**
+     * An order-preserving immutable copy that rejects duplicates.
+     *
+     * <p>Design §5.5: an order-bearing authored array — source roots, resource roots, generator
+     * inputs — keeps exactly the order the author wrote, because effective semantics read it (the
+     * first source root is the legacy primary root) and canonical output must round-trip it. Only
+     * truly set-like collections use {@link #sortedDistinctList}.
+     */
+    public static <T> List<T> orderedDistinctList(List<T> values, String label) {
+        List<T> copy = immutableList(values, label);
+        rejectDuplicates(copy, label);
+        return copy;
+    }
+
+    /** A sorted immutable copy that rejects duplicates, for truly set-like collections only. */
     public static <T extends Comparable<? super T>> List<T> sortedDistinctList(
             List<T> values, String label) {
         List<T> copy = new ArrayList<>(immutableList(values, label));

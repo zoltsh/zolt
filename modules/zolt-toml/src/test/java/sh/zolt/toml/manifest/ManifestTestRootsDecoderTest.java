@@ -23,7 +23,7 @@ final class ManifestTestRootsDecoderTest {
     }
 
     @Test
-    void decodesAllFourArraysAsSortedImmutableRoots() {
+    void decodesAllFourArraysAsAuthoredOrderImmutableRoots() {
         ManifestDecodeIndex index = ManifestSemanticTestSupport.index("""
                 [test.sources]
                 java = ["src/z-test/java", "src/a-test/java"]
@@ -37,18 +37,18 @@ final class ManifestTestRootsDecoderTest {
         AuthoredTests.Sources sources = decoder.decodeSources(index).orElseThrow();
         AuthoredTests.Integration integration = decoder.decodeIntegration(index).orElseThrow();
         assertEquals(
-                List.of(path("src/a-test/java"), path("src/z-test/java")),
+                List.of(path("src/z-test/java"), path("src/a-test/java")),
                 sources.java());
         assertEquals(
-                List.of(path("src/a-test/groovy"), path("src/z-test/groovy")),
+                List.of(path("src/z-test/groovy"), path("src/a-test/groovy")),
                 sources.groovy());
         assertEquals(
-                List.of(path("src/a-integration/java"), path("src/z-integration/java")),
+                List.of(path("src/z-integration/java"), path("src/a-integration/java")),
                 integration.sources());
         assertEquals(
                 List.of(
-                        path("src/a-integration/resources"),
-                        path("src/z-integration/resources")),
+                        path("src/z-integration/resources"),
+                        path("src/a-integration/resources")),
                 integration.resources());
         assertThrows(UnsupportedOperationException.class, sources.java()::clear);
         assertThrows(UnsupportedOperationException.class, integration.resources()::clear);

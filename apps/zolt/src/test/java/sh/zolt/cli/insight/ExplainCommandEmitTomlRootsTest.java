@@ -71,7 +71,7 @@ final class ExplainCommandEmitTomlRootsTest {
 
         assertEquals(0, result.exitCode(), () -> result.stderr());
         assertTrue(result.stdout().contains("[build]"), () -> result.stdout());
-        assertTrue(result.stdout().contains("sources = [\"src/gen\", \"src/java\"]"), () -> result.stdout());
+        assertTrue(result.stdout().contains("sources = [\"src/java\", \"src/gen\"]"), () -> result.stdout());
         assertTrue(result.stdout().contains("[resources]"), () -> result.stdout());
         assertTrue(result.stdout().contains("main = [\"config\"]"), () -> result.stdout());
         assertTrue(result.stdout().contains("test = [\"test-config\"]"), () -> result.stdout());
@@ -84,7 +84,7 @@ final class ExplainCommandEmitTomlRootsTest {
                 () -> result.stdout());
 
         AuthoredManifest parsed = new ManifestProjectConfigLoader().document(result.stdout()).authored();
-        assertEquals(List.of("src/gen", "src/java"), paths(parsed.build().build().orElseThrow().sources()));
+        assertEquals(List.of("src/java", "src/gen"), paths(parsed.build().build().orElseThrow().sources()));
         AuthoredResources resources = parsed.build().resources().orElseThrow();
         assertEquals(List.of("config"), paths(resources.main()));
         assertEquals(List.of("test-config"), paths(resources.test()));

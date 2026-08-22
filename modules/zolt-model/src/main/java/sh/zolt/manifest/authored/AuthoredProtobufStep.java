@@ -20,7 +20,7 @@ public record AuthoredProtobufStep(
     public AuthoredProtobufStep {
         Objects.requireNonNull(settings, "Protobuf step settings must not be null.");
         tool = Objects.requireNonNull(tool, "Protobuf step tool reference must not be null.");
-        inputs = ManifestModelValues.sortedDistinctList(inputs, "Protobuf step inputs");
+        inputs = ManifestModelValues.orderedDistinctList(inputs, "Protobuf step inputs");
         if (inputs.isEmpty()) {
             throw new IllegalArgumentException("A Protobuf step requires at least one input.");
         }

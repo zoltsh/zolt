@@ -284,7 +284,7 @@ final class ManifestGeneratedStepsWriterTest {
                 [generated.<lane>.b-protobuf]
                 kind = "protobuf"
                 tool = "custom-protobuf"
-                inputs = ["proto/a.proto", "proto/z.proto"]
+                inputs = ["proto/z.proto", "proto/a.proto"]
                 output = "target/generated/protobuf"
                 javaPackage = "org.example.proto"
                 grpc = false
@@ -293,7 +293,7 @@ final class ManifestGeneratedStepsWriterTest {
                 kind = "exec"
                 tool = "process"
                 args = ["generate", "--all"]
-                inputs = ["schema/a.sql", "schema/z.sql"]
+                inputs = ["schema/z.sql", "schema/a.sql"]
                 output = "target/generated/resources"
                 produces = "resources"
                 into = "generated"
@@ -314,7 +314,7 @@ final class ManifestGeneratedStepsWriterTest {
 
                 [generated.<lane>.e-root]
                 kind = "declared-root"
-                inputs = ["fixtures/a", "fixtures/z"]
+                inputs = ["fixtures/z", "fixtures/a"]
                 output = "target/generated/fixtures"
                 required = false
                 clean = true

@@ -34,8 +34,8 @@ public record AuthoredTests(
             List<ManifestRelativePath> java,
             List<ManifestRelativePath> groovy) {
         public Sources {
-            java = ManifestModelValues.sortedDistinctList(java, "Java test source roots");
-            groovy = ManifestModelValues.sortedDistinctList(groovy, "Groovy test source roots");
+            java = ManifestModelValues.orderedDistinctList(java, "Java test source roots");
+            groovy = ManifestModelValues.orderedDistinctList(groovy, "Groovy test source roots");
             if (java.isEmpty() && groovy.isEmpty()) {
                 throw new IllegalArgumentException("Authored test sources must not be empty.");
             }
@@ -47,9 +47,9 @@ public record AuthoredTests(
             List<ManifestRelativePath> sources,
             List<ManifestRelativePath> resources) {
         public Integration {
-            sources = ManifestModelValues.sortedDistinctList(
+            sources = ManifestModelValues.orderedDistinctList(
                     sources, "Integration-test source roots");
-            resources = ManifestModelValues.sortedDistinctList(
+            resources = ManifestModelValues.orderedDistinctList(
                     resources, "Integration-test resource roots");
             if (sources.isEmpty() && resources.isEmpty()) {
                 throw new IllegalArgumentException("Authored integration tests must not be empty.");
