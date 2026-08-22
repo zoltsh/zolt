@@ -41,7 +41,7 @@ public record NativeOutputPlan(
         String output = config.nativeSettings().output();
         ProjectPaths.output(root, "[native].output", output);
         String imageName = ProjectPaths.filenameComponent(
-                "[native].imageName",
+                "[native].name",
                 config.nativeSettings().withDefaultImageName(config.project().name()).imageName());
         NativeOutputPlan plan = new NativeOutputPlan(
                 ProjectPaths.output(root, "native binary", output + "/" + imageName),
@@ -164,7 +164,7 @@ public record NativeOutputPlan(
                         + secondKind
                         + " `"
                         + second
-                        + "`. Choose distinct [native].output and [native].imageName values that do not overlap "
+                        + "`. Choose distinct [native].output and [native].name values that do not overlap "
                         + "project inputs, build outputs, package outputs, caches, and the configured native-image executable.");
     }
 

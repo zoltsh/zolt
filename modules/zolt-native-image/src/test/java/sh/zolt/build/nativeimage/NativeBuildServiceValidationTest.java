@@ -106,7 +106,7 @@ final class NativeBuildServiceValidationTest extends NativeBuildServiceTestSuppo
                         projectDir.resolve("cache"),
                         Path.of("native-image")));
 
-        assertTrue(exception.getMessage().contains("[native].imageName"));
+        assertTrue(exception.getMessage().contains("[native].name"));
         assertTrue(exception.getMessage().contains("bin/demo"));
     }
 }
