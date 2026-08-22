@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
 import sh.zolt.error.ActionableError;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
@@ -11,6 +12,7 @@ import sh.zolt.manifest.adapter.ProjectConfigCoverage;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.effective.EffectiveManifest;
 import sh.zolt.manifest.effective.EffectiveManifestComposer;
+import sh.zolt.manifest.effective.EffectiveWorkspace;
 import sh.zolt.project.CoverageSettings;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.ZoltConfigException;
@@ -26,9 +28,12 @@ import sh.zolt.toml.manifest.ZoltManifestParser;
  * diagnostics with no compatibility hints (design §21, Phase 2).
  */
 public final class ManifestProjectConfigLoader {
+    private static final String MANIFEST = "zolt.toml";
+
     private final ZoltManifestParser parser;
     private final EffectiveManifestComposer composer;
     private final EffectiveProjectConfigAdapter adapter;
+    private final EnclosingWorkspaceLocator workspaces;
 
     public ManifestProjectConfigLoader() {
         this(new ZoltManifestParser(), new EffectiveManifestComposer(), new EffectiveProjectConfigAdapter());
@@ -41,11 +46,83 @@ public final class ManifestProjectConfigLoader {
         this.parser = parser;
         this.composer = composer;
         this.adapter = adapter;
+        this.workspaces = new EnclosingWorkspaceLocator(parser);
     }
 
-    /** Loads and adapts the manifest at {@code path}. */
+    /** Loads and adapts the manifest at {@code path} with no workspace context. */
     public ProjectConfig load(Path path) {
         return load(read(path));
+    }
+
+    /**
+     * Loads and adapts the project in {@code projectDirectory}, composing it as a workspace member
+     * when a workspace encloses it (design §4.5 "Command discovery"). This is the entry point for
+     * every command that reads "the project here": a member manifest may legally omit inherited
+     * identity, spell {@code workspace = true}, or reference a root-owned alias, so composing it
+     * standalone rejects manifests that are valid.
+     */
+    public ProjectConfig loadProject(Path projectDirectory) {
+        Optional<EnclosingWorkspaceLocator.Membership> located = workspaces.locate(projectDirectory);
+        if (located.isEmpty()) {
+            return adapter.adapt(effective(manifestPath(projectDirectory)));
+        }
+        EnclosingWorkspaceLocator.Membership membership = located.orElseThrow();
+        WorkspaceMemberPath path = membership.memberPath();
+        EffectiveWorkspace workspace = composeWorkspace(membership);
+        return adapter.adapt(
+                member(workspace, path),
+                EffectiveProjectConfigAdapter.workspacePaths(workspace, path));
+    }
+
+    /**
+     * The effective view of the project in {@code projectDirectory}: composed as a workspace member
+     * when a workspace encloses it, and standalone otherwise. A root-project workspace composes as
+     * its own {@code .} member (design §4.4).
+     */
+    public EffectiveManifest effectiveProject(Path projectDirectory) {
+        Optional<EnclosingWorkspaceLocator.Membership> located = workspaces.locate(projectDirectory);
+        if (located.isEmpty()) {
+            return effective(manifestPath(projectDirectory));
+        }
+        EnclosingWorkspaceLocator.Membership membership = located.orElseThrow();
+        return member(composeWorkspace(membership), membership.memberPath());
+    }
+
+    /**
+     * Composes the whole workspace, not just the one member: a {@code workspace = true} dependency
+     * resolves by effective member identity across the graph (design §9.8), so the sibling members
+     * must be composed for the consumer's own view to be complete.
+     */
+    private EffectiveWorkspace composeWorkspace(EnclosingWorkspaceLocator.Membership membership) {
+        try {
+            return composer.composeWorkspace(membership.root(), workspaces.members(membership));
+        } catch (IllegalArgumentException exception) {
+            throw new ZoltConfigException(
+                    "Invalid effective workspace at "
+                            + membership.workspaceRoot().resolve(MANIFEST) + ": "
+                            + exception.getMessage());
+        }
+    }
+
+    private static EffectiveManifest member(EffectiveWorkspace workspace, WorkspaceMemberPath path) {
+        EffectiveManifest member = workspace.members().get(path);
+        if (member == null) {
+            throw new ZoltConfigException(
+                    "Workspace member `" + path + "` has no effective manifest.");
+        }
+        return member;
+    }
+
+    /** The root of the workspace enclosing {@code projectDirectory}, when the directory is a member. */
+    public Optional<Path> enclosingWorkspaceRoot(Path projectDirectory) {
+        return workspaces.locate(projectDirectory)
+                .map(EnclosingWorkspaceLocator.Membership::workspaceRoot);
+    }
+
+    private static Path manifestPath(Path projectDirectory) {
+        Objects.requireNonNull(projectDirectory, "Project directory is required.");
+        Path directory = projectDirectory.toAbsolutePath().normalize();
+        return Files.isRegularFile(directory) ? directory : directory.resolve(MANIFEST);
     }
 
     /** Parses and adapts already-captured manifest bytes. */
