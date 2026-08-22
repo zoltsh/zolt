@@ -65,7 +65,7 @@ public final class SelfHostingParityService {
         if (workspaceDetector.usesRealWorkspace(root)) {
             packageResult = workspacePackager.packageJar(root, cacheRoot);
         } else {
-            ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
+            ProjectConfig config = manifestLoader.loadProject(root);
             packageResult = projectPackager.packageJar(root, config, cacheRoot);
         }
         Path zoltJar = packageResult.jarPath();

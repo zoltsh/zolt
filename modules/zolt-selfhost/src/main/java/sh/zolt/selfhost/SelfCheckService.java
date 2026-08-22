@@ -93,7 +93,7 @@ public final class SelfCheckService {
 
         ProjectConfig config;
         try {
-            config = manifestLoader.load(root.resolve("zolt.toml"));
+            config = manifestLoader.loadProject(root);
         } catch (RuntimeException exception) {
             steps.add(failed("config", exception.getMessage()));
             return new SelfCheckResult(steps);

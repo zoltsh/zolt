@@ -88,7 +88,7 @@ public final class IdeModelService {
         IdeTimingRecorder recorder = timings == null ? IdeTimingRecorder.disabled() : timings;
         ProjectConfig config = recorder.measure(
                 "read ide project config",
-                () -> readConfig(configPath, diagnostics));
+                () -> readConfig(root, configPath, diagnostics));
         IdeModel.ClasspathInfo classpaths = recorder.measure(
                 "build ide classpaths",
                 () -> classpathModelBuilder.build(lockfilePath, normalizedCacheRoot, root, config, diagnostics),
@@ -230,9 +230,12 @@ public final class IdeModelService {
                 : "LOCKFILE_CHECK_FAILED";
     }
 
-    private ProjectConfig readConfig(Path configPath, List<IdeModel.Diagnostic> diagnostics) {
+    private ProjectConfig readConfig(
+            Path projectDirectory,
+            Path configPath,
+            List<IdeModel.Diagnostic> diagnostics) {
         try {
-            return manifestLoader.load(configPath);
+            return manifestLoader.loadProject(projectDirectory);
         } catch (ZoltConfigException exception) {
             String code = exception.getMessage().startsWith("Could not read zolt.toml")
                     ? "CONFIG_UNREADABLE"

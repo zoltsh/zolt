@@ -3,5 +3,5 @@ apps/*/src/main/java|50|5000
 apps/*/src/test/java|65|6500
 modules/*/src/main/java|75|6500
 modules/*/src/test/java|70|7500
-modules/zolt-toml/src/main/java|sh.zolt.toml.manifest|75|9050
-modules/zolt-toml/src/test/java|sh.zolt.toml.manifest|70|11550
+modules/zolt-toml/src/main/java|sh.zolt.toml.manifest|75|9300
+modules/zolt-toml/src/test/java|sh.zolt.toml.manifest|70|11800

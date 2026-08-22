@@ -108,7 +108,7 @@ public final class QualityCheckService {
         }
 
         try {
-            ProjectConfig config = manifestLoader.load(root.resolve("zolt.toml"));
+            ProjectConfig config = manifestLoader.loadProject(root);
             return new QualityCheckReport(root, false, runProjectChecks(request, requestedChecks, config));
         } catch (ZoltConfigException exception) {
             return new QualityCheckReport(root, false, QualityCheckCatalog.unavailableResults(
