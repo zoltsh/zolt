@@ -92,6 +92,26 @@ final class MemberClasspathProjectionTest {
                         + result.stdout());
     }
 
+    /**
+     * The same projection binds the other read-only report over the root lock: a member's package plan
+     * describes the dependencies THIS member packages, not every package in the workspace.
+     */
+    @Test
+    void memberPackagePlanReportsOnlyMemberClosure() throws IOException {
+        MemberDirectoryFixture.Fixture fixture = MemberDirectoryFixture.create(tempDir);
+
+        CommandResult result = execute(
+                "package", "--plan",
+                "--cwd", fixture.apiDir().toString(),
+                "--cache-root", fixture.cacheRoot().toString());
+
+        assertEquals(0, result.exitCode(), result.stderr());
+        assertTrue(result.stdout().contains("com.example:api-only:1.0.0"), result.stdout());
+        assertFalse(
+                result.stdout().contains("com.example:unrelated-only"),
+                () -> "libs/unrelated is outside this member's closure: " + result.stdout());
+    }
+
     /** A project outside every workspace still reports its own complete lock, member column and all. */
     @Test
     void standaloneClasspathBehaviorIsUnchanged() throws IOException {

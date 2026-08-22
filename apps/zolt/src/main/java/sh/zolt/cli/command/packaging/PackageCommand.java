@@ -257,7 +257,7 @@ public final class PackageCommand implements Runnable {
                     () -> packagePlanService.plan(
                             projectRoot,
                             config,
-                            context.lockfilePath(),
+                            CommandMemberLock.authoritative(context),
                             cacheRoot),
                     CommandPackageAttributes::packagePlan);
             if (planOutputFormat == PackageCommandModes.PlanOutputFormat.JSON) {
