@@ -3,6 +3,20 @@
 Breaking changes to Zolt's CLI and configuration, newest first. Each entry names
 the old behavior, the new behavior, and how to migrate.
 
+## Implementation dependencies publish with Maven `runtime` scope
+
+- **Old behavior:** generated POMs published `implementation` dependencies with
+  Maven `compile` scope, exposing them on every consumer's compile classpath.
+- **New behavior:** dependency publication scope corrected: Zolt now publishes
+  implementation dependencies with Maven `runtime` scope instead of `compile`
+  scope. This fixes pre-release POM generation behavior and changes generated
+  POMs for projects with implementation dependencies. `api` dependencies keep
+  Maven's default `compile` scope, which a POM leaves unwritten.
+- **Migration:** republish affected artifacts. A consumer that compiled against
+  a transitively exposed implementation dependency must declare that dependency
+  itself, or the publishing project must move it from `[dependencies]` to
+  `[dependencies.api]`.
+
 ## The final manifest language replaces the pre-release syntax outright
 
 - **Old behavior:** `zolt.toml` used the pre-release syntax: a flat

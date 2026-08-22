@@ -119,6 +119,48 @@ final class PublishPomGoldenTest {
     }
 
     /**
+     * Design §8.1: {@code [dependencies.api]} is compile-scoped for consumers and
+     * {@code [dependencies]} is implementation-only. Maven spells the first with its default scope,
+     * which a POM leaves unwritten, and the second with an explicit {@code runtime} scope. Pinning
+     * both in one golden keeps the pair from silently collapsing back onto one scope.
+     */
+    @Test
+    void apiAndImplementationLanesRenderCompileAndRuntimeScopesInOnePom() throws IOException {
+        ProjectConfig config = PublishManifestFixtures.standalone("""
+                [project]
+                name = "app"
+                version = "1.0.0"
+                group = "com.example"
+                java = 21
+
+                [dependencies]
+                "ch.qos.logback:logback-classic" = "1.5.18"
+
+                [dependencies.api]
+                "org.slf4j:slf4j-api" = "2.0.13"
+                """);
+        ZoltLockfile lockfile = lockfile(
+                List.of(
+                        external("ch.qos.logback", "logback-classic", "1.5.18", DependencyScope.COMPILE),
+                        external("org.slf4j", "slf4j-api", "2.0.13", DependencyScope.COMPILE)),
+                List.of(
+                        root(
+                                "ch.qos.logback",
+                                "logback-classic",
+                                "1.5.18",
+                                LockArtifactVariant.defaultVariant(),
+                                DependencyLane.IMPLEMENTATION),
+                        root(
+                                "org.slf4j",
+                                "slf4j-api",
+                                "2.0.13",
+                                LockArtifactVariant.defaultVariant(),
+                                DependencyLane.API)));
+
+        assertEquals(golden("lane-scopes.pom.xml"), generator.generate(config, lockfile));
+    }
+
+    /**
      * Design §14.4 gives the POM display name no authored spelling and derives it from project
      * identity. Sonatype rejects a POM without {@code <name>}, so a manifest carrying nothing but its
      * identity still has to emit one — the artifact ID, as Maven conventionally titles such a project.
@@ -222,12 +264,21 @@ final class PublishPomGoldenTest {
             String artifact,
             String version,
             LockArtifactVariant variant) {
+        return root(group, artifact, version, variant, DependencyLane.API);
+    }
+
+    private static LockDependencyRoot root(
+            String group,
+            String artifact,
+            String version,
+            LockArtifactVariant variant,
+            DependencyLane lane) {
         return new LockDependencyRoot(
                 ".",
                 new PackageId(group, artifact),
                 version,
                 variant,
-                DependencyLane.API,
+                lane,
                 Optional.of(DependencyScope.COMPILE),
                 false,
                 false);
