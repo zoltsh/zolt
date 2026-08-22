@@ -11,6 +11,7 @@ import sh.zolt.dependency.DependencyLane;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
 import sh.zolt.lockfile.LockArtifactVariant;
+import sh.zolt.lockfile.LockDependencyGraphException;
 import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
@@ -311,6 +312,73 @@ final class ZoltLockfileDependencyRootCodecTest {
         ZoltLockfile lockfile = lockfile(List.of(), List.of(tool));
 
         assertEquals(lockfile, reader.read(writer.write(lockfile)));
+    }
+
+    /**
+     * Design §4.5 attributes every locked package to the members that declared it, so a root selects a
+     * package only for a member it is attributed to. A root naming member B for a dependency member A
+     * declared is misattributed evidence: the lock model refuses to hold the pair, and the reader
+     * refuses the persisted bytes. Root completeness now applies that same shared selection rule
+     * rather than a coordinate-only copy of it, so the two guards cannot drift apart.
+     */
+    @Test
+    void rejectsARootAttributedToAMemberThatDidNotDeclareTheDependency() {
+        LockDependencyRoot rootNamingB = resolved(
+                "modules/b", "com.example:lib", DependencyLane.API, DependencyScope.COMPILE, null, false);
+        LockPackage declaredByA = attributedTo(lockPackage(rootNamingB), "modules/a");
+
+        LockDependencyGraphException rejected = assertThrows(
+                LockDependencyGraphException.class,
+                () -> lockfile(List.of(rootNamingB), List.of(declaredByA)));
+        assertTrue(
+                rejected.getMessage().contains("selects missing package `com.example:lib:1.0.0:jar:compile`"),
+                rejected.getMessage());
+
+        LockfileReadException readFailure = assertThrows(LockfileReadException.class, () -> reader.read("""
+                version = 7
+
+                [[dependencyRoot]]
+                member = "modules/b"
+                id = "com.example:lib"
+                version = "1.0.0"
+                lane = "api"
+                resolvedScope = "compile"
+
+                [[package]]
+                id = "com.example:lib"
+                version = "1.0.0"
+                source = "maven-central"
+                scope = "compile"
+                direct = true
+                members = ["modules/a"]
+                dependencies = []
+                """));
+        assertTrue(
+                readFailure.getMessage().contains("selects missing package `com.example:lib:1.0.0:jar:compile`"),
+                readFailure.getMessage());
+    }
+
+    private static LockPackage attributedTo(LockPackage lockPackage, String member) {
+        return new LockPackage(
+                lockPackage.packageId(),
+                lockPackage.version(),
+                lockPackage.source(),
+                lockPackage.scope(),
+                lockPackage.direct(),
+                lockPackage.jar(),
+                lockPackage.pom(),
+                lockPackage.jarSha256(),
+                lockPackage.pomSha256(),
+                lockPackage.artifact(),
+                lockPackage.artifactType(),
+                lockPackage.artifactSha256(),
+                lockPackage.workspace(),
+                lockPackage.workspaceOutput(),
+                lockPackage.dependencies(),
+                List.of(member),
+                lockPackage.exportedBy(),
+                lockPackage.policies(),
+                lockPackage.toolGroups());
     }
 
     private static ZoltLockfile lockfile(

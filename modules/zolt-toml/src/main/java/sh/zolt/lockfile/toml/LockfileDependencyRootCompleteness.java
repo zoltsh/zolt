@@ -8,7 +8,14 @@ import sh.zolt.lockfile.LockDependencyRoot;
 import sh.zolt.lockfile.LockPackage;
 import sh.zolt.lockfile.ZoltLockfile;
 
-/** Checks persisted v7 direct-package evidence without constraining ephemeral lock projections. */
+/**
+ * Checks persisted v7 direct-package evidence without constraining ephemeral lock projections.
+ *
+ * <p>Selection is {@link LockDependencyRoot#selects(LockPackage)} itself rather than a local copy of
+ * its coordinate comparison: the shared rule also requires the root's member to be one the package is
+ * attributed to, so a root naming a member that never declared the dependency no longer passes as
+ * evidence for it.
+ */
 final class LockfileDependencyRootCompleteness {
     private static final EnumSet<DependencyScope> DECLARATION_SCOPES = EnumSet.of(
             DependencyScope.COMPILE,
@@ -27,18 +34,10 @@ final class LockfileDependencyRootCompleteness {
                 .filter(LockPackage::direct)
                 .filter(lockPackage -> DECLARATION_SCOPES.contains(lockPackage.scope()))
                 .filter(lockPackage -> lockfile.dependencyRoots().stream()
-                        .filter(root -> !root.publishOnly())
-                        .noneMatch(root -> selects(root, lockPackage)))
+                        .noneMatch(root -> root.selects(lockPackage)))
                 .findFirst()
                 .map(lockPackage -> "Direct package `" + selectedPackage(lockPackage)
                         + "` has no exact dependencyRoot in zolt.lock.");
-    }
-
-    private static boolean selects(LockDependencyRoot root, LockPackage lockPackage) {
-        return root.packageId().equals(lockPackage.packageId())
-                && root.version().equals(lockPackage.version())
-                && root.variant().equals(LockArtifactVariant.of(lockPackage))
-                && root.resolvedScope().orElseThrow() == lockPackage.scope();
     }
 
     private static String selectedPackage(LockPackage lockPackage) {
