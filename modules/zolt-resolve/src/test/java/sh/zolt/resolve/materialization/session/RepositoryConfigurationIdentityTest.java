@@ -24,8 +24,22 @@ final class RepositoryConfigurationIdentityTest {
                         """));
     }
 
+    /**
+     * Design §8.5 makes repository lookup order authored policy and fetching is first-match-wins, so
+     * two projects that declare the same repositories in opposite order can select different bytes for
+     * the same coordinate. Sharing one persistent cache scope between them would let the first
+     * project's choice answer for the second, so order is part of the identity.
+     */
     @Test
-    void ignoresDeclarationOrderBecauseRepositoriesAreQueriedInIdOrder() {
+    void sameRepositorySetDifferentOrderHasDifferentIdentity() {
+        assertNotEquals(
+                identity(orderedRepositories("[\"alpha\", \"zeta\"]")),
+                identity(orderedRepositories("[\"zeta\", \"alpha\"]")));
+    }
+
+    /** Declaration order is not lookup order: §8.5 derives the default from sorted IDs. */
+    @Test
+    void sameOrderedRepositoryConfigurationHasStableIdentity() {
         assertEquals(
                 identity("""
                         [repositories]
@@ -47,6 +61,60 @@ final class RepositoryConfigurationIdentityTest {
                         [repositories.alpha]
                         url = "https://repo.example/alpha"
                         """));
+        assertEquals(
+                """
+                repository\t0\talpha\thttps://repo.example/alpha\t
+                repository\t1\tzeta\thttps://repo.example/zeta\t""",
+                identity(orderedRepositories("[\"alpha\", \"zeta\"]")));
+    }
+
+    /**
+     * The identity is a cache key that outlives the process, so it names credential environment
+     * variables and never reads them. Pinning the whole value is the strongest statement of that:
+     * nothing beyond repository sequence, ID, URL, credential reference, and authentication form is
+     * in it at all.
+     */
+    @Test
+    void credentialSecretValuesDoNotEnterIdentity() {
+        assertEquals(
+                """
+                repository\t0\tcompany\thttps://repo.example/company\tcompany-artifactory
+                repository\t1\tinternal\thttps://repo.example/internal\tinternal-registry
+                credential\tcompany-artifactory\tbasic\tREPOSITORY_USERNAME\tREPOSITORY_PASSWORD
+                credential\tinternal-registry\ttoken\tREPOSITORY_TOKEN""",
+                identity("""
+                        [repositories]
+                        central = false
+
+                        [repositories.company]
+                        url = "https://repo.example/company"
+                        credentials = "company-artifactory"
+
+                        [repositories.internal]
+                        url = "https://repo.example/internal"
+                        credentials = "internal-registry"
+
+                        [credentials.company-artifactory]
+                        usernameEnv = "REPOSITORY_USERNAME"
+                        passwordEnv = "REPOSITORY_PASSWORD"
+
+                        [credentials.internal-registry]
+                        tokenEnv = "REPOSITORY_TOKEN"
+                        """));
+    }
+
+    private static String orderedRepositories(String order) {
+        return """
+                [repositories]
+                central = false
+                order = %s
+
+                [repositories.alpha]
+                url = "https://repo.example/alpha"
+
+                [repositories.zeta]
+                url = "https://repo.example/zeta"
+                """.formatted(order);
     }
 
     @Test
