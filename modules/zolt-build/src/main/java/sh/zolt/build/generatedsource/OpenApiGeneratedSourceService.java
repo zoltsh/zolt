@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 public final class OpenApiGeneratedSourceService {
@@ -164,13 +165,24 @@ public final class OpenApiGeneratedSourceService {
         }
     }
 
+    /**
+     * The generator subprocess launch policy: a cleared environment carrying only the curated map, so
+     * generator post-processing hooks configured through Zolt's ambient environment cannot run.
+     */
+    static SupervisedProcessSpec processSpec(
+            List<String> command, Path directory, UnaryOperator<String> ambientEnv) {
+        return SupervisedProcessSpec.builder(command)
+                .directory(directory)
+                .environment(OpenApiGeneratorEnvironment.build(ambientEnv))
+                .clearEnvironment(true)
+                .inputPolicy(ProcessInputPolicy.CLOSED)
+                .build();
+    }
+
     private static ProcessResult runProcess(List<String> command, Path directory) {
         try {
             SupervisedProcessResult result = new ProcessSupervisor().run(
-                    SupervisedProcessSpec.builder(command)
-                            .directory(directory)
-                            .inputPolicy(ProcessInputPolicy.CLOSED)
-                            .build());
+                    processSpec(command, directory, System::getenv));
             return new ProcessResult(result.exitCode(), result.diagnosticTail());
         } catch (IOException exception) {
             throw new BuildException(
