@@ -1,6 +1,7 @@
 package sh.zolt.publish;
 
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -145,6 +146,26 @@ final class PublishCentralReadinessServiceTest {
         assertTrue(PublishCentralReadiness.allSatisfied(requirements), requirements.toString());
     }
 
+    /**
+     * Design §7.3: an SPDX expression has no derivable license URL, so readiness must say so instead
+     * of reporting a project Central would reject as ready.
+     */
+    @Test
+    void spdxExpressionWithoutAnExplicitUrlFailsTheLicenseRequirement() throws IOException {
+        Path root = writeProject("""
+                [publish.signing]
+                method = "gpg"
+                """, "license = { id = \"Apache-2.0 OR MIT\", name = \"Apache-2.0 or MIT\" }");
+
+        PublishCentralRequirement license = service(env(null)).evaluate(root, plan()).stream()
+                .filter(r -> r.name().equals("license name and url"))
+                .findFirst()
+                .orElseThrow();
+
+        assertFalse(license.satisfied());
+        assertTrue(license.remediation().contains("explicit name and url"), license.remediation());
+    }
+
     private static void assertActionable(PublishException exception) {
         String message = exception.getMessage();
         assertTrue(message.contains(SourceDateEpoch.ENV_NAME), message);
@@ -160,6 +181,10 @@ final class PublishCentralReadinessServiceTest {
     }
 
     private Path writeProject(String publishBody) throws IOException {
+        return writeProject(publishBody, "");
+    }
+
+    private Path writeProject(String publishBody, String projectBody) throws IOException {
         Path root = tempDir.resolve("readiness");
         Files.createDirectories(root);
         Files.writeString(root.resolve("zolt.lock"), "version = 7\n");
@@ -169,7 +194,7 @@ final class PublishCentralReadinessServiceTest {
                 version = "0.1.0"
                 group = "com.example"
                 java = %d
-                """.formatted(Runtime.version().feature()) + "\n" + publishBody;
+                """.formatted(Runtime.version().feature()) + projectBody + "\n\n" + publishBody;
         Files.writeString(root.resolve("zolt.toml"), toml);
         return root;
     }

@@ -7,6 +7,7 @@ import sh.zolt.manifest.ProjectLicense;
 import sh.zolt.manifest.authored.AuthoredProjectDeveloper;
 import sh.zolt.manifest.authored.AuthoredProjectMetadata;
 import sh.zolt.manifest.authored.AuthoredProjectScm;
+import sh.zolt.license.SpdxCatalog;
 import sh.zolt.manifest.effective.EffectiveProjectIdentity;
 import sh.zolt.manifest.effective.EffectiveValue;
 import sh.zolt.project.DeveloperEntry;
@@ -84,9 +85,16 @@ final class ProjectConfigIdentity {
     }
 
     /**
-     * Design 7.3: the shorthand names one current SPDX identifier and Zolt derives the standard
+     * Design §7.3: the shorthand names one current SPDX identifier and Zolt derives the standard
      * license URL for it, so a shorthand license still carries publishable POM metadata. The inline
      * metadata form owns its own URL.
+     *
+     * <p>An inline {@code id} is not the shorthand: it may be an SPDX <em>expression</em>
+     * ({@code Apache-2.0 OR MIT}) or an identifier the catalog does not know, and neither has a page
+     * on the SPDX license list. Deriving one anyway would write a URL that 404s into the POM and the
+     * SBOM, and would let Central readiness call that publishable — so only a canonical catalog entry
+     * yields a derived URL, and §7.3 requires the author to state {@code name} and {@code url} for
+     * everything else.
      */
     private static String licenseUrl(EffectiveProjectIdentity identity) {
         return identity.license()
@@ -94,14 +102,16 @@ final class ProjectConfigIdentity {
                 .map(license -> switch (license) {
                     case ProjectLicense.Identifier identifier -> spdxUrl(identifier.id());
                     case ProjectLicense.Metadata authored -> authored.url()
-                            .or(() -> authored.id().map(ProjectConfigIdentity::spdxUrl))
+                            .or(() -> authored.id()
+                                    .flatMap(id -> SpdxCatalog.defaultCatalog().canonicalLicense(id))
+                                    .map(ProjectConfigIdentity::spdxUrl))
                             .orElse("");
                 })
                 .orElse("");
     }
 
-    private static String spdxUrl(String identifier) {
-        return "https://spdx.org/licenses/" + identifier + ".html";
+    private static String spdxUrl(String canonicalIdentifier) {
+        return "https://spdx.org/licenses/" + canonicalIdentifier + ".html";
     }
 
     private static List<DeveloperEntry> developers(AuthoredProjectMetadata metadata) {
