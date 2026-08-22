@@ -16,7 +16,7 @@ public final class ClasspathLanePolicy {
         if (scope.entersMainRuntimeClasspath()) {
             lanes.add("runtime");
         }
-        if (entersTestRuntimeClasspath(scope)) {
+        if (scope.entersTestRuntimeClasspath()) {
             lanes.add("test");
         }
         if (scope.entersMainProcessorClasspath()) {
@@ -44,10 +44,6 @@ public final class ClasspathLanePolicy {
             lanes.add("tool-coverage");
         }
         return List.copyOf(lanes);
-    }
-
-    public static boolean entersTestRuntimeClasspath(DependencyScope scope) {
-        return scope.entersMainRuntimeClasspath() || scope.entersTestClasspath();
     }
 
     public static String disposition(DependencyScope scope) {

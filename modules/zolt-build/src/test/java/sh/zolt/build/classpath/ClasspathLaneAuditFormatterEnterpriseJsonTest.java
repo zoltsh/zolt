@@ -26,7 +26,7 @@ final class ClasspathLaneAuditFormatterEnterpriseJsonTest {
                 "com.example:devtools:1.0.0",
                 "dev",
                 true,
-                "[\"runtime\", \"test\"]",
+                "[\"runtime\"]",
                 false,
                 "development-only");
         assertPackageAuditContains(

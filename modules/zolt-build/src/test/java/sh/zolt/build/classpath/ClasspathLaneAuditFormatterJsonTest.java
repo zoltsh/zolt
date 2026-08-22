@@ -28,7 +28,7 @@ final class ClasspathLaneAuditFormatterJsonTest {
         assertTrue(output.contains("\"coordinate\": \"com.example:compile-lib:1.0.0\""));
         assertTrue(output.contains("\"lanes\": [\"compile\", \"runtime\", \"test\"]"));
         assertTrue(output.contains("\"coordinate\": \"jakarta.servlet:jakarta.servlet-api:6.1.0\""));
-        assertTrue(output.contains("\"lanes\": [\"compile\"]"));
+        assertTrue(output.contains("\"lanes\": [\"compile\", \"test\"]"));
     }
 
     private static ZoltLockfile lockfile() {

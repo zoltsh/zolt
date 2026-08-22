@@ -51,8 +51,8 @@ final class PackagePlanCommandTest extends PackagePlanCommandTestSupport {
         assertTrue(result.stdout().contains("com.example:runtime-lib:1.0.0 [runtime] included -> WEB-INF/lib/" + runtimeNestedName + " rule=spring-boot-war-runtime-lib"));
         assertTrue(result.stdout().contains("jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] provided -> WEB-INF/lib-provided/" + providedNestedName + " rule=spring-boot-war-provided-lib"));
         assertTrue(result.stdout().contains("com.example:devtools:1.0.0 [dev] omitted rule=dev-only-omitted"));
-        assertTrue(result.stdout().contains("jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] provided -> WEB-INF/lib-provided/" + providedNestedName + " rule=spring-boot-war-provided-lib lanes=compile packageDefault=false lane=provided-container"));
-        assertTrue(result.stdout().contains("com.example:devtools:1.0.0 [dev] omitted rule=dev-only-omitted lanes=runtime,test packageDefault=false lane=development-only"));
+        assertTrue(result.stdout().contains("jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] provided -> WEB-INF/lib-provided/" + providedNestedName + " rule=spring-boot-war-provided-lib lanes=compile,test packageDefault=false lane=provided-container"));
+        assertTrue(result.stdout().contains("com.example:devtools:1.0.0 [dev] omitted rule=dev-only-omitted lanes=runtime packageDefault=false lane=development-only"));
         assertTrue(result.stdout().contains("warning CONTAINER_DEPENDENCY_PACKAGED org.apache.tomcat.embed:tomcat-embed-core:10.1.40 rule=spring-boot-war-runtime-lib"));
         assertFalse(Files.exists(projectDir.resolve("target/package-plan-boot-war-0.1.0.war")));
     }

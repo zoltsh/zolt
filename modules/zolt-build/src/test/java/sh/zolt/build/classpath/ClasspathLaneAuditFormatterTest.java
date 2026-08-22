@@ -29,8 +29,8 @@ final class ClasspathLaneAuditFormatterTest {
         assertTrue(output.contains("tool-coverage"));
         assertTrue(output.contains("coverage-tooling-only"));
         assertTrue(output.contains("- com.example:compile-lib:1.0.0 [compile] lanes=compile,runtime,test package=package-default"));
-        assertTrue(output.contains("- com.example:devtools:1.0.0 [dev] lanes=runtime,test package=development-only"));
-        assertTrue(output.contains("- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile package=provided-container"));
+        assertTrue(output.contains("- com.example:devtools:1.0.0 [dev] lanes=runtime package=development-only"));
+        assertTrue(output.contains("- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile,test package=provided-container"));
     }
 
     private static ZoltLockfile lockfile() {

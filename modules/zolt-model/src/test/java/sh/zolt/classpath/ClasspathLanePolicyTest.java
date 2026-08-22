@@ -1,9 +1,7 @@
 package sh.zolt.classpath;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import sh.zolt.dependency.DependencyScope;
 import java.util.List;
@@ -14,15 +12,12 @@ final class ClasspathLanePolicyTest {
     void regularScopesMapToExpectedClasspathLanes() {
         assertEquals(List.of("compile", "runtime", "test"), ClasspathLanePolicy.lanes(DependencyScope.COMPILE));
         assertEquals(List.of("runtime", "test"), ClasspathLanePolicy.lanes(DependencyScope.RUNTIME));
-        assertEquals(List.of("runtime", "test"), ClasspathLanePolicy.lanes(DependencyScope.DEV));
-        assertEquals(List.of("compile"), ClasspathLanePolicy.lanes(DependencyScope.PROVIDED));
+        assertEquals(List.of("runtime"), ClasspathLanePolicy.lanes(DependencyScope.DEV));
+        assertEquals(List.of("compile", "test"), ClasspathLanePolicy.lanes(DependencyScope.PROVIDED));
         assertEquals(List.of("test"), ClasspathLanePolicy.lanes(DependencyScope.TEST));
         assertEquals(List.of("processor"), ClasspathLanePolicy.lanes(DependencyScope.PROCESSOR));
         assertEquals(List.of("test-processor"), ClasspathLanePolicy.lanes(DependencyScope.TEST_PROCESSOR));
 
-        assertTrue(ClasspathLanePolicy.entersTestRuntimeClasspath(DependencyScope.COMPILE));
-        assertTrue(ClasspathLanePolicy.entersTestRuntimeClasspath(DependencyScope.TEST));
-        assertFalse(ClasspathLanePolicy.entersTestRuntimeClasspath(DependencyScope.PROCESSOR));
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> ClasspathLanePolicy.lanes(DependencyScope.COMPILE).add("custom"));

@@ -78,7 +78,7 @@ final class ToolingDependencyContributor {
         boolean consoleAlreadyOnTestClasspath = requests.stream()
                 .anyMatch(request -> request.packageId().groupId().equals("org.junit.platform")
                         && request.packageId().artifactId().startsWith("junit-platform-console")
-                        && request.scope().entersTestClasspath());
+                        && request.scope().entersTestRuntimeClasspath());
         if (consoleAlreadyOnTestClasspath) {
             return;
         }
@@ -111,7 +111,7 @@ final class ToolingDependencyContributor {
             List<DependencyRequest> requests,
             RequestVersionOrigin versionOrigin) {
         return requests.stream()
-                .filter(request -> request.scope().entersTestClasspath())
+                .filter(request -> request.scope().entersTestRuntimeClasspath())
                 .filter(request -> request.versionOrigin() == versionOrigin)
                 .map(ToolingDependencyContributor::junitPlatformVersion)
                 .flatMap(Optional::stream)

@@ -67,7 +67,7 @@ final class TestCompileServiceDependencyTest {
     }
 
     @Test
-    void testCompileClasspathIncludesProvidedDependenciesButTestRuntimeDoesNot() throws IOException {
+    void providedDependenciesReachBothTestCompileAndTestRuntimeClasspaths() throws IOException {
         Path cacheRoot = projectDir.resolve("cache");
         Path helperJar = cacheRoot.resolve("com/example/helper/1.0.0/helper-1.0.0.jar");
         createHelperJar(projectDir, helperJar);
@@ -111,8 +111,8 @@ final class TestCompileServiceDependencyTest {
         assertTrue(Files.exists(projectDir.resolve("target/test-classes/com/example/MainTest.class")));
         assertTrue(result.classpaths().testCompile().entries().contains(lockedHelperJar),
                 "provided dependency must be on the test compile classpath");
-        assertEquals(List.of(), result.classpaths().test().entries(),
-                "provided dependency must stay off the test runtime classpath");
+        assertTrue(result.classpaths().test().entries().contains(lockedHelperJar),
+                "provided dependency must be on the test runtime classpath");
     }
 
     @Test

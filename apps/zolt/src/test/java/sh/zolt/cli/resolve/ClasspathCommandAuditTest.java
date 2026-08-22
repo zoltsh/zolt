@@ -25,11 +25,11 @@ final class ClasspathCommandAuditTest {
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Classpath lane audit"));
         assertTrue(result.stdout().contains(
-                "provided            yes     no      no   no        no             no              no           no            no            no              provided-container"));
+                "provided            yes     no      yes  no        no             no              no           no            no            no              provided-container"));
         assertTrue(result.stdout().contains(
-                "- com.example:devtools:1.0.0 [dev] lanes=runtime,test package=development-only"));
+                "- com.example:devtools:1.0.0 [dev] lanes=runtime package=development-only"));
         assertTrue(result.stdout().contains(
-                "- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile package=provided-container"));
+                "- jakarta.servlet:jakarta.servlet-api:6.1.0 [provided] lanes=compile,test package=provided-container"));
         assertEquals("", result.stderr());
     }
 
@@ -43,7 +43,7 @@ final class ClasspathCommandAuditTest {
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("\"command\": \"classpath audit\""));
         assertTrue(result.stdout().contains("\"scope\": \"provided\""));
-        assertTrue(result.stdout().contains("\"lanes\": [\"compile\"]"));
+        assertTrue(result.stdout().contains("\"lanes\": [\"compile\", \"test\"]"));
         assertTrue(result.stdout().contains("\"disposition\": \"provided-container\""));
         assertEquals("", result.stderr());
     }
