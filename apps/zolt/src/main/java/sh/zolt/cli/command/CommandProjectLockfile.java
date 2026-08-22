@@ -1,28 +1,30 @@
 package sh.zolt.cli.command;
 
+import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.workspace.discovery.ManifestProject;
 import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import sh.zolt.workspace.service.Workspace;
 import java.nio.file.Path;
 
 /**
- * The one lockfile that governs a project directory.
+ * The one lockfile that governs a project directory, for the commands that know only a directory.
  *
  * <p>Design §4.5: a workspace has exactly one authoritative lockfile, at its root, and no command
  * creates or consumes a member-local {@code zolt.lock}. A command started inside a member directory
  * therefore projects its answer from the root lock — the member view of the graph is a selection out
  * of the one workspace-wide resolution, not a resolution of its own. A directory outside every
  * workspace keeps its own lockfile.
+ *
+ * <p>A command that also needs the project's configuration loads {@link ProjectCommandContext}
+ * instead, which carries the same answer beside the member identity and pays for discovery once.
  */
 public final class CommandProjectLockfile {
-    private static final String LOCKFILE = "zolt.lock";
-
     private CommandProjectLockfile() {
     }
 
     /** The authoritative lockfile path for an already-discovered project. */
     public static Path path(ManifestProject project) {
-        return project.workspaceRoot().orElseGet(project::directory).resolve(LOCKFILE);
+        return ProjectLockfile.in(project.workspaceRoot().orElseGet(project::directory));
     }
 
     /**
@@ -41,7 +43,7 @@ public final class CommandProjectLockfile {
     }
 
     public static Path path(Path projectDirectory, ManifestWorkspaceLoader workspaceLoader) {
-        return root(projectDirectory, workspaceLoader).resolve(LOCKFILE);
+        return ProjectLockfile.in(root(projectDirectory, workspaceLoader));
     }
 
     /**
