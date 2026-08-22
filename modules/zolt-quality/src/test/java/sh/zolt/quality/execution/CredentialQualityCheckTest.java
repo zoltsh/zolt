@@ -273,6 +273,54 @@ final class CredentialQualityCheckTest {
         assertEquals("CI resource token preflight passed for 3 tokens: env=1, project=1, literal=1.", result.message());
     }
 
+    /**
+     * A repository URL carrying user information is rejected at parse time now, so this branch is
+     * defense in depth: the check must still fail closed from a directly constructed
+     * {@link RepositorySettings}, and no diagnostic may echo the credential it found.
+     */
+    @Test
+    void repositoryUrlCredentialFailuresFailClosedWithoutEchoingTheSecret() {
+        ProjectConfig parsed = manifestLoader.load("""
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                group = "com.example"
+                java = 21
+
+                [repositories]
+                central = false
+
+                [repositories.company]
+                url = "https://repo.example.test/maven"
+                """);
+        CredentialQualityCheck check = new CredentialQualityCheck(
+                new ManifestPublishSettingsLoader(), Map.<String, String>of()::get);
+
+        for (Leak leak : List.of(
+                new Leak(
+                        "https://repo-user:super-secret@repo.example.test/maven",
+                        "CI context rejects embedded credentials in repository `company` URL."),
+                new Leak(
+                        "https://repo-user:super-secret@repo.example.test/ma ven",
+                        "Repository `company` URL is not a valid URI."))) {
+            ProjectConfig config = withRepositorySettings(parsed, Map.of(
+                    "company",
+                    new RepositorySettings("company", leak.url(), Optional.of("company-creds"))));
+
+            QualityCheckResult result = check.checkRepositoryCredentials(
+                    Optional.empty(), config, QualityCheckContext.CI).getFirst();
+
+            assertEquals("[repositories.company]", result.subject(), leak.url());
+            assertEquals(leak.message(), result.message(), leak.url());
+            assertDoesNotLeakSecret(result);
+            assertFalse(result.message().contains(leak.url()), result.message());
+            assertFalse(result.nextStep().contains(leak.url()), result.nextStep());
+        }
+    }
+
+    private record Leak(String url, String message) {
+    }
+
     private static ProjectConfig withRepositorySettings(
             ProjectConfig config,
             Map<String, RepositorySettings> repositorySettings) {

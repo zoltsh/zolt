@@ -1,6 +1,7 @@
 package sh.zolt.quality.execution;
 
 import sh.zolt.publish.ManifestPublishSettingsLoader;
+import sh.zolt.publish.PublishRepositorySettings;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -115,6 +116,30 @@ final class CredentialPublishQualityCheckTest {
         assertEquals("publish-credentials", result.subject());
         assertEquals("CI publish credential preflight passed for 1 credentialed publish repository.", result.message());
         assertEquals("", result.nextStep());
+    }
+
+    /**
+     * A publish repository URL carrying user information is rejected at parse time now, so no
+     * authored manifest can reach this branch; it stays as defense in depth and is driven from a
+     * directly constructed {@link PublishRepositorySettings}. No diagnostic may echo the credential.
+     */
+    @Test
+    void publishRepositoryUrlCredentialFailuresFailClosedWithoutEchoingTheSecret() {
+        for (String url : List.of(
+                "https://publish-user:super-secret@repo.example.test/releases",
+                "https://publish-user:super-secret@repo.example.test/rele ases")) {
+            QualityCheckResult result = CredentialQualityCheck.embeddedPublishRepositoryCredentials(
+                            Optional.empty(),
+                            new PublishRepositorySettings(
+                                    "company-releases", url, Optional.of("publish-creds")))
+                    .orElseThrow(() -> new AssertionError(url));
+
+            assertEquals("[publish.repositories.company-releases]", result.subject(), url);
+            assertTrue(result.message().contains("company-releases"), result.message());
+            assertDoesNotLeakSecret(result);
+            assertFalse(result.message().contains(url), result.message());
+            assertFalse(result.nextStep().contains(url), result.nextStep());
+        }
     }
 
     private static void assertDoesNotLeakSecret(QualityCheckResult result) {
