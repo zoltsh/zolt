@@ -42,7 +42,7 @@ public final class PublishCentralReadinessService {
 
     /**
      * Evaluates Central readiness from already-resolved config and publish settings. The workspace
-     * publish path supplies the policy-merged member config so inherited {@code [package.metadata]}
+     * publish path supplies the policy-merged member config so inherited {@code [project]} metadata
      * and {@code [publish.signing]} are honoured without re-reading the member {@code zolt.toml}.
      */
     public List<PublishCentralRequirement> evaluate(

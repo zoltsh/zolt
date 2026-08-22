@@ -99,7 +99,7 @@ final class PublishCentralReadinessTest {
         assertFalse(byName.get("release version").satisfied());
         assertTrue(byName.get("release version").remediation().contains("-SNAPSHOT"));
         assertFalse(byName.get("license name and url").satisfied());
-        assertTrue(byName.get("license name and url").remediation().contains("licenseUrl"));
+        assertTrue(byName.get("license name and url").remediation().contains("[project].license"));
         assertFalse(byName.get("developer information").satisfied());
         assertFalse(byName.get("scm url and connection").satisfied());
         assertFalse(byName.get("sources jar").satisfied());

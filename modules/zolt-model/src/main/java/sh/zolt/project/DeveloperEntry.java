@@ -1,7 +1,7 @@
 package sh.zolt.project;
 
 /**
- * A structured POM developer entry sourced from {@code [package.metadata.developer.<id>]}. The
+ * A structured POM developer entry sourced from {@code [project.developers.<id>]}. The
  * table key supplies {@link #id()}; the remaining fields are optional. Maven Central requires at
  * least one developer with a name and email, which this record can carry (the simpler
  * {@code developers} name array cannot).

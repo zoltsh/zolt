@@ -47,22 +47,22 @@ public final class PublishReleasePolicyService {
 
     private static void addMetadataBlockers(PublicationMetadata metadata, List<String> blockers) {
         if (metadata.description().isBlank()) {
-            blockers.add("release context requires [package.metadata].description.");
+            blockers.add("release context requires [project].description.");
         }
         if (metadata.url().isBlank()) {
-            blockers.add("release context requires [package.metadata].url.");
+            blockers.add("release context requires [project].url.");
         }
         if (metadata.license().isBlank()) {
-            blockers.add("release context requires [package.metadata].license.");
+            blockers.add("release context requires [project].license.");
         }
         if (metadata.developers().isEmpty() && metadata.developerEntries().isEmpty()) {
-            blockers.add("release context requires at least one [package.metadata].developers entry.");
+            blockers.add("release context requires at least one [project.developers.<id>] entry.");
         }
         if (metadata.scm().isBlank()) {
-            blockers.add("release context requires [package.metadata].scm.");
+            blockers.add("release context requires [project.scm].url.");
         }
         if (metadata.issues().isBlank()) {
-            blockers.add("release context requires [package.metadata].issues.");
+            blockers.add("release context requires [project].issues.");
         }
     }
 }

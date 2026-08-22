@@ -186,7 +186,7 @@ public final class LockSbomAssembler {
                 emittableLicenses(rootLicenses(config)));
     }
 
-    /** The root license is authoritative from config ([package.metadata]), not POM-extracted. */
+    /** The root license is authoritative from config ([project].license), not POM-extracted. */
     private List<SbomLicense> rootLicenses(ProjectConfig config) {
         String license = config.packageSettings().metadata().license();
         String licenseUrl = config.packageSettings().metadata().licenseUrl();

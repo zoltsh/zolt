@@ -60,7 +60,7 @@ final class PublishCommandReleaseContextTest {
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains("Context: release"));
         assertTrue(result.stdout().contains("Policy source: built-in release context"));
-        assertTrue(result.stdout().contains("release context requires [package.metadata].license."));
+        assertTrue(result.stdout().contains("release context requires [project].license."));
         assertTrue(result.stdout().contains("release context requires a sources jar"));
         assertTrue(result.stdout().contains("release context requires a javadoc jar"));
         assertTrue(result.stdout().contains("Status: blocked"));
