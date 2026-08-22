@@ -89,9 +89,7 @@ public final class JavaToolchainStatusService {
         Path projectManifest = projectRoot.resolve(MANIFEST).toAbsolutePath().normalize();
         Path workspaceManifest = lockRoot.resolve(MANIFEST).toAbsolutePath().normalize();
         Optional<String> memberPath = memberPath(projectManifest, workspaceManifest);
-        if (memberPath.isPresent()
-                && Files.isRegularFile(workspaceManifest)
-                && configReader.declaresWorkspace(workspaceManifest)) {
+        if (memberPath.isPresent()) {
             ToolchainConfigReader.MemberToolchains member = configReader.readWorkspaceMember(
                     workspaceManifest, projectManifest, memberPath.orElseThrow());
             return new AuthoredRequest(
@@ -106,10 +104,25 @@ public final class JavaToolchainStatusService {
         return new AuthoredRequest(configReader.readJava(workspaceManifest), WORKSPACE_SOURCE);
     }
 
-    /** The workspace-relative member path of {@code projectManifest}, or empty when it is outside. */
-    private static Optional<String> memberPath(Path projectManifest, Path workspaceManifest) {
+    /**
+     * The workspace-relative member path to compose {@code projectManifest} at, or empty when it is
+     * not composable as a member of the workspace rooted at {@code workspaceManifest}. A workspace
+     * root is its own {@code .} member only when it declares a root {@code [project]} (design §4.4);
+     * a virtual root has no project to compose and reports its shared request as authored.
+     */
+    private Optional<String> memberPath(Path projectManifest, Path workspaceManifest) {
+        if (!Files.isRegularFile(workspaceManifest)) {
+            return Optional.empty();
+        }
+        ToolchainConfigReader.ManifestDomains root = configReader.domains(workspaceManifest);
+        if (!root.workspace()) {
+            return Optional.empty();
+        }
         if (projectManifest.equals(workspaceManifest)) {
-            return Optional.of(".");
+            return root.project() ? Optional.of(".") : Optional.empty();
+        }
+        if (!Files.isRegularFile(projectManifest)) {
+            return Optional.empty();
         }
         String relative = workspaceManifest.getParent()
                 .relativize(projectManifest.getParent())

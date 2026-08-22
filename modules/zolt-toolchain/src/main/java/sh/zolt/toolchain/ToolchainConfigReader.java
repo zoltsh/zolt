@@ -10,6 +10,7 @@ import sh.zolt.manifest.authored.AuthoredJavaTestToolchain;
 import sh.zolt.manifest.authored.AuthoredJavaToolchain;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.effective.EffectiveJavaRuntime;
+import sh.zolt.manifest.effective.EffectiveManifest;
 import sh.zolt.manifest.effective.EffectiveTestJavaRuntime;
 import sh.zolt.manifest.effective.EffectiveToolchains;
 import sh.zolt.project.toolchain.JavaFeatureRelease;
@@ -82,25 +83,28 @@ public final class ToolchainConfigReader {
         return readWorkspaceMember(read(rootManifest), read(memberManifest), memberPath);
     }
 
-    /** Whether the manifest at {@code configPath} declares a {@code [workspace]} root domain. */
-    public boolean declaresWorkspace(Path configPath) {
-        return loader.document(read(configPath)).authored().workspace().isPresent();
+    /**
+     * The root domains one manifest declares, which is what decides whether a directory is composed
+     * as a workspace member or as a standalone project (design §4.1, §4.2, §4.4).
+     */
+    public ManifestDomains domains(Path configPath) {
+        AuthoredManifest authored = loader.document(read(configPath)).authored();
+        return new ManifestDomains(
+                authored.workspace().isPresent(), authored.project().isPresent());
+    }
+
+    /** Which root domains a manifest declares. */
+    public record ManifestDomains(boolean workspace, boolean project) {
     }
 
     public MemberToolchains readWorkspaceMember(
             String rootContent,
             String memberContent,
             String memberPath) {
-        EffectiveToolchains effective = loader
-                .effectiveWorkspaceMember(rootContent, memberContent, memberPath)
-                .project()
-                .shared()
-                .toolchains();
-        boolean authoredByMember = loader.document(memberContent)
-                .authored()
-                .toolchains()
-                .mainJava()
-                .isPresent();
+        EffectiveManifest manifest =
+                loader.effectiveWorkspaceMember(rootContent, memberContent, memberPath);
+        EffectiveToolchains effective = manifest.project().shared().toolchains();
+        boolean authoredByMember = manifest.authored().toolchains().mainJava().isPresent();
         Optional<JavaToolchainRequest> main = effective.mainJava().flatMap(ToolchainConfigReader::mainRequest);
         return new MemberToolchains(
                 main,
