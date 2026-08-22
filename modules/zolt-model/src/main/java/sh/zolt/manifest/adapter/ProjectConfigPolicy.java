@@ -78,7 +78,7 @@ final class ProjectConfigPolicy {
                 .orElse(Map.of())
                 .forEach((coordinate, constraint) ->
                         adapted.put(coordinate.value(), constraint(coordinate, constraint, versions)));
-        return Map.copyOf(adapted);
+        return ProjectConfigOrder.map(adapted);
     }
 
     private static DependencyConstraint constraint(
@@ -129,7 +129,7 @@ final class ProjectConfigPolicy {
                         exception.allow().stream().map(SpdxLicenseTerm::value).toList(),
                         exception.version(),
                         exception.reason())));
-        return Map.copyOf(adapted);
+        return ProjectConfigOrder.map(adapted);
     }
 
     private static List<String> terms(List<LicensePolicyTerm> terms) {

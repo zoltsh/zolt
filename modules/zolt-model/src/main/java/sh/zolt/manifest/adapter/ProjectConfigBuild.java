@@ -168,7 +168,7 @@ final class ProjectConfigBuild {
         resources.map(AuthoredResources::tokens)
                 .orElse(Map.of())
                 .forEach((id, token) -> tokens.put(id.value(), token(token)));
-        return Map.copyOf(tokens);
+        return ProjectConfigOrder.map(tokens);
     }
 
     private static ResourceTokenSettings token(AuthoredResources.Token token) {
@@ -202,7 +202,7 @@ final class ProjectConfigBuild {
         tests.map(AuthoredTests::suites)
                 .orElse(Map.of())
                 .forEach((id, suite) -> suites.put(id.value(), suite(suite)));
-        return Map.copyOf(suites);
+        return ProjectConfigOrder.map(suites);
     }
 
     private static TestSuiteSettings suite(AuthoredTestSuite suite) {

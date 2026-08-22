@@ -252,7 +252,7 @@ final class ProjectConfigGenerated {
     private static Map<String, String> merged(Map<String, String> preset, Map<String, String> step) {
         Map<String, String> merged = new TreeMap<>(preset);
         merged.putAll(step);
-        return Map.copyOf(merged);
+        return ProjectConfigOrder.map(merged);
     }
 
     private static String derivedOutput(

@@ -58,19 +58,19 @@ final class ProjectConfigDependencyLanes {
     }
 
     Map<String, String> versioned(DependencyLane lane) {
-        return Map.copyOf(lanes.get(lane).versioned);
+        return ProjectConfigOrder.map(lanes.get(lane).versioned);
     }
 
     Set<String> managed(DependencyLane lane) {
-        return Set.copyOf(lanes.get(lane).managed);
+        return ProjectConfigOrder.set(lanes.get(lane).managed);
     }
 
     Map<String, String> workspace(DependencyLane lane) {
-        return Map.copyOf(lanes.get(lane).workspace);
+        return ProjectConfigOrder.map(lanes.get(lane).workspace);
     }
 
     Map<String, DependencyMetadata> metadata() {
-        return Map.copyOf(metadata);
+        return ProjectConfigOrder.map(metadata);
     }
 
     private void add(

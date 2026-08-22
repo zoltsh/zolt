@@ -17,7 +17,7 @@ final class ProjectConfigVersions {
     static Map<String, String> aliases(Map<LocalId, EffectiveValue<VersionAliasValue>> versions) {
         LinkedHashMap<String, String> aliases = new LinkedHashMap<>();
         versions.forEach((alias, value) -> aliases.put(alias.value(), value.value().value()));
-        return Map.copyOf(aliases);
+        return ProjectConfigOrder.map(aliases);
     }
 
     /** The literal version behind a platform selector. */

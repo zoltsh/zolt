@@ -152,7 +152,7 @@ public final class EffectiveProjectConfigAdapter {
                 paths.put(edge.declaration().coordinate(), edge.provider().value());
             }
         }
-        return Map.copyOf(paths);
+        return ProjectConfigOrder.map(paths);
     }
 
     private static Map<String, String> platforms(
@@ -182,7 +182,7 @@ public final class EffectiveProjectConfigAdapter {
                                 List.of()));
             }
         }
-        return Map.copyOf(platforms);
+        return ProjectConfigOrder.map(platforms);
     }
 
 }
