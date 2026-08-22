@@ -18,6 +18,12 @@ import org.junit.jupiter.api.io.TempDir;
  * {@code [native].output} is relative to {@code [build.output].root} (design §12.5), so every
  * ownership fixture here places the native namespace by moving the output root rather than by
  * authoring an escaping native path.
+ *
+ * <p>The collision matrix proves each configured package output family — archive, war archive,
+ * evidence sidecar, supplemental runtime classpath, classifier jar, and publication POM — is owned
+ * independently. The private staging fixtures use filesystem aliases because {@code [native].output}
+ * can only name a directory strictly below the output root, so nothing authored can place a package
+ * output inside the staging directory.
  */
 final class NativeOutputPlanTest {
     @TempDir
@@ -43,23 +49,50 @@ final class NativeOutputPlanTest {
 
     @Test
     void rejectsEveryReservedNativeName() {
-        for (String imageName : List.of("native-image.log", "spring-aot-evidence.json", "input")) {
+        for (Reserved reserved : List.of(
+                new Reserved("native-image.log", "native log"),
+                new Reserved("spring-aot-evidence.json", "Spring Boot native evidence"),
+                new Reserved("input", "native package input"))) {
             NativeImageException exception = assertThrows(
                     NativeImageException.class,
-                    () -> NativeOutputPlan.plan(project, config("jar", "native", imageName)),
-                    imageName);
+                    () -> NativeOutputPlan.plan(project, config("jar", "native", reserved.imageName())),
+                    reserved.imageName());
             assertTrue(exception.getMessage().contains("Native output ownership conflict"), exception.getMessage());
+            assertTrue(exception.getMessage().contains("native binary"), exception.getMessage());
+            assertTrue(exception.getMessage().contains(reserved.managedKind()), exception.getMessage());
         }
     }
 
     @Test
-    void rejectsANativeBinaryThatIsAConfiguredPublicationOutput() {
-        NativeImageException exception = assertThrows(
-                NativeImageException.class,
-                () -> NativeOutputPlan.plan(project, config("jar", "publish", "demo-0.1.0.pom")));
+    void rejectsConfiguredArchiveEvidenceSidecarSupplementalAndPublicationCollisions() {
+        for (Collision collision : List.of(
+                new Collision("uber-jar", "demo-0.1.0.jar", "demo", "target/demo-0.1.0.jar"),
+                new Collision("spring-boot-war", "demo-0.1.0.war", "demo", "target/demo-0.1.0.war"),
+                new Collision(
+                        "jar",
+                        "demo-0.1.0.jar.zolt-package.json",
+                        "demo",
+                        "target/demo-0.1.0.jar.zolt-package.json"),
+                new Collision(
+                        "jar",
+                        "demo-0.1.0.runtime-classpath",
+                        "demo",
+                        "target/demo-0.1.0.runtime-classpath"),
+                new Collision("jar", "demo-0.1.0-sources.jar", "demo", "target/demo-0.1.0-sources.jar"),
+                new Collision("jar", "publish", "demo-0.1.0.pom", "target/publish/demo-0.1.0.pom"))) {
+            NativeImageException exception = assertThrows(
+                    NativeImageException.class,
+                    () -> NativeOutputPlan.plan(
+                            project,
+                            config(collision.mode(), collision.output(), collision.imageName())),
+                    collision.toString());
 
-        assertTrue(exception.getMessage().contains("native binary"), exception.getMessage());
-        assertTrue(exception.getMessage().contains("configured package output"), exception.getMessage());
+            assertTrue(exception.getMessage().contains("native binary"), exception.getMessage());
+            assertTrue(exception.getMessage().contains("configured package output"), exception.getMessage());
+            assertTrue(
+                    exception.getMessage().contains(project.resolve(collision.owned()).toString()),
+                    exception.getMessage());
+        }
     }
 
     @Test
@@ -97,6 +130,33 @@ final class NativeOutputPlanTest {
         assertTrue(exception.getMessage().contains("configured package output"), exception.getMessage());
     }
 
+    @Test
+    void rejectsConfiguredOutputsInsidePrivateNativeInput() throws IOException {
+        Files.createDirectories(project.resolve("target/publish"));
+        Files.createDirectories(project.resolve("target/native"));
+        Files.createSymbolicLink(project.resolve("target/native/input"), Path.of("..", "publish"));
+
+        NativeImageException exception = assertThrows(
+                NativeImageException.class,
+                () -> NativeOutputPlan.plan(project, config("jar", "native", "demo")));
+
+        assertTrue(exception.getMessage().contains("native package input"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("configured package output"), exception.getMessage());
+    }
+
+    @Test
+    void rejectsANativeBinaryAliasedInsidePrivateNativeInput() throws IOException {
+        Files.createDirectories(project.resolve("target/native"));
+        Files.createSymbolicLink(project.resolve("target/native/input"), Path.of(".."));
+
+        NativeImageException exception = assertThrows(
+                NativeImageException.class,
+                () -> NativeOutputPlan.plan(project, config("jar", "native", "demo")));
+
+        assertTrue(exception.getMessage().contains("native binary"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("native package input"), exception.getMessage());
+    }
+
     private static ProjectConfig config(String mode, String output, String imageName) {
         return new ManifestProjectConfigLoader().load("""
                 [project]
@@ -116,5 +176,11 @@ final class NativeOutputPlanTest {
                 output = "%s"
                 name = "%s"
                 """.formatted(mode, output, imageName));
+    }
+
+    private record Reserved(String imageName, String managedKind) {
+    }
+
+    private record Collision(String mode, String output, String imageName, String owned) {
     }
 }

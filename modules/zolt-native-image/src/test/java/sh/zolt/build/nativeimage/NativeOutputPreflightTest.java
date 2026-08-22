@@ -135,6 +135,23 @@ final class NativeOutputPreflightTest {
     }
 
     @Test
+    void rejectsPrivateStagingAliasedIntoAnAuthoritativeSourceTree() throws IOException {
+        Files.createDirectories(project.resolve("src/main/java"));
+        Files.createDirectories(project.resolve("target/native"));
+        Files.createSymbolicLink(project.resolve("target/native/input"), project.resolve("src/main/java"));
+
+        NativeImageException exception = assertThrows(
+                NativeImageException.class,
+                () -> NativeOutputPlan.plan(project, config("target", "native", "demo", "")));
+
+        assertTrue(exception.getMessage().contains("native managed path"), exception.getMessage());
+        assertTrue(exception.getMessage().contains("main source root"), exception.getMessage());
+        assertTrue(
+                exception.getMessage().contains(project.resolve("target/native/input").toString()),
+                exception.getMessage());
+    }
+
+    @Test
     void rejectsDeclaredGeneratedInputsAndOutputs() {
         String generated = """
                 [generated.main.codegen]
