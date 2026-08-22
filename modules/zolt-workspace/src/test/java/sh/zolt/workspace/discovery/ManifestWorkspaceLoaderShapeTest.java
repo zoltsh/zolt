@@ -17,8 +17,8 @@ import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.Workspace;
 
 /**
- * Final-language-only workspace shapes the legacy dialect could not express: implicit-all selection,
- * hoisted BOM members, root-owned shared configuration, and the root-project workspace.
+ * Workspace shapes only the final language expresses: implicit-all selection, hoisted BOM members,
+ * root-owned shared configuration, and the root-project workspace.
  */
 final class ManifestWorkspaceLoaderShapeTest {
     private final ManifestWorkspaceLoader loader = new ManifestWorkspaceLoader();

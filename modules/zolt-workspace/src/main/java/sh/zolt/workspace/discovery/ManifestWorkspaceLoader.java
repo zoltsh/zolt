@@ -37,14 +37,14 @@ import sh.zolt.workspace.service.WorkspaceProjectEdge;
 /**
  * Loads a final-language workspace and projects it onto the legacy {@link Workspace} graph.
  *
- * <p>This is the final-language twin of {@link WorkspaceDiscoveryService}. Membership expansion,
+ * <p>Membership expansion,
  * exclusion, effective composition, and selection are owned by {@link ManifestWorkspaceDiscovery};
  * this class only adapts the resulting {@link sh.zolt.workspace.discovery.DiscoveredWorkspace} into
  * the {@link Workspace}/{@link WorkspaceMember}/{@link WorkspaceProjectEdge} shape the pre-cut engine
  * consumes.
  *
- * <p>Freshness inputs are the discovery capture verbatim. The final capture is a strict superset of
- * the legacy one: it still records the root manifest and every member manifest byte-for-byte, adds a
+ * <p>Freshness inputs are the discovery capture verbatim: it records the root manifest and every
+ * member manifest byte-for-byte, adds a
  * {@code missing} entry for each expanded candidate directory without a manifest, and records
  * directory listings that stay outside {@link sh.zolt.workspace.service.WorkspaceInputs#digestsRelativeTo}
  * so that pure directory churn does not stale the lock (design §6.8).

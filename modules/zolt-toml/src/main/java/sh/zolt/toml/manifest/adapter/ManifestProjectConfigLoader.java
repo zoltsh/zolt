@@ -21,11 +21,9 @@ import sh.zolt.toml.manifest.ZoltManifestParser;
  * Loads one standalone {@code zolt.toml} written in the final manifest language and projects it onto
  * the legacy {@link ProjectConfig} the build engine consumes.
  *
- * <p>This loader parses only the final language. It is the final-language twin of
- * {@link sh.zolt.toml.ZoltTomlParser}, which keeps parsing only the legacy language; no source
- * revision contains a parser that accepts both (design §21.2). Rejected legacy spellings surface as
- * ordinary unknown-field or unknown-value diagnostics with no compatibility hints (design §21,
- * Phase 2).
+ * <p>This loader parses only the final language; the tree contains no parser for any other
+ * (design §21.1). Rejected pre-release spellings surface as ordinary unknown-field or unknown-value
+ * diagnostics with no compatibility hints (design §21, Phase 2).
  */
 public final class ManifestProjectConfigLoader {
     private final ZoltManifestParser parser;

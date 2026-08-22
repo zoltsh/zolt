@@ -32,8 +32,7 @@ import sh.zolt.project.PublicationMetadata;
  *
  * <p>This is the one boundary between the final manifest language and the pre-cut engine model. It
  * reads only composed effective values, never manifest source text, so it stays a pure model-to-model
- * projection with no second parser. The legacy parser continues to parse only the legacy language;
- * this adapter serves only the final language.
+ * projection with no second parser.
  *
  * <p>Legacy semantics that the final language abolishes are reported as their legacy "absent" value
  * rather than being reconstructed:

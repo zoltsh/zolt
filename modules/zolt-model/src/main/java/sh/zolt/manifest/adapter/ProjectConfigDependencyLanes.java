@@ -193,8 +193,8 @@ final class ProjectConfigDependencyLanes {
     }
 
     /**
-     * The order in which the legacy parser visited dependency sections, which the legacy
-     * {@code dependencyMetadata} map preserved as insertion order.
+     * The pre-cut dependency-section visit order, which the engine's {@code dependencyMetadata}
+     * map preserves as insertion order.
      */
     private static int legacyOrder(DependencyLane lane) {
         return switch (lane) {
