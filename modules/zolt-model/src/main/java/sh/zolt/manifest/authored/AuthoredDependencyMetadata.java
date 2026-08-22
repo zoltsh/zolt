@@ -20,7 +20,12 @@ public record AuthoredDependencyMetadata(
         Objects.requireNonNull(type, "Dependency type must not be null.");
         Objects.requireNonNull(exclusions, "Dependency exclusions must not be null.");
         classifier = classifier.map(DependencyVariantValue::classifier);
-        type = type.map(DependencyVariantValue::type);
+        // An explicit `jar` names the default variant design §9.7 already assumes, and the canonical
+        // writer omits it on rewrite. Retaining it would leave one variant identity with two model
+        // spellings — enough to wedge the source-preserving editor on any declaration that carried it,
+        // and to publish a POM the canonical manifest does not describe.
+        type = type.map(DependencyVariantValue::type)
+                .filter(value -> !DependencyVariant.DEFAULT_TYPE.equals(value));
         for (DependencyCoordinate exclusion : exclusions) {
             Objects.requireNonNull(exclusion, "Dependency exclusion must not be null.");
         }

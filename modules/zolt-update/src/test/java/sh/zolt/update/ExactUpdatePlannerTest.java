@@ -235,7 +235,9 @@ final class ExactUpdatePlannerTest {
         assertTrue(declaration.metadata().optional());
         assertFalse(declaration.metadata().publishOnly());
         assertEquals("tests", declaration.metadata().classifier().orElseThrow());
-        assertEquals("jar", declaration.metadata().type().orElseThrow());
+        assertTrue(
+                declaration.metadata().type().isEmpty(),
+                "an explicit jar type is the default variant, normalized away rather than preserved");
         assertEquals(1, declaration.metadata().exclusions().size());
     }
 

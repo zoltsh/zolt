@@ -14,6 +14,15 @@ public record DependencyMetadata(
         List<DependencyExclusionSpec> exclusions,
         String classifier,
         String type) {
+    /**
+     * The Maven artifact type a coordinate selects when the manifest names none (design §9.7). The
+     * canonical writer omits an authored {@code type = "jar"} on rewrite, so this record erases it
+     * too: one variant identity has to mean one thing everywhere, or the same dependency would
+     * publish a different POM and fingerprint to a different lock depending on which of two
+     * equivalent spellings the manifest happened to use.
+     */
+    public static final String DEFAULT_TYPE = "jar";
+
     public DependencyMetadata {
         section = normalize(section);
         coordinate = normalize(coordinate);
@@ -22,7 +31,12 @@ public record DependencyMetadata(
         workspace = workspace == null || workspace.isBlank() ? null : workspace;
         exclusions = exclusions == null ? List.of() : List.copyOf(exclusions);
         classifier = classifier == null || classifier.isBlank() ? null : classifier;
-        type = type == null || type.isBlank() ? null : type;
+        type = type == null || type.isBlank() || DEFAULT_TYPE.equals(type) ? null : type;
+    }
+
+    /** True when this declaration selects the default unclassified {@code jar} (design §9.7). */
+    public boolean defaultVariant() {
+        return classifier == null && type == null;
     }
 
     public DependencyMetadata(

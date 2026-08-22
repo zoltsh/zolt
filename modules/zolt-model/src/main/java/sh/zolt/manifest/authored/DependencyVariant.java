@@ -3,13 +3,15 @@ package sh.zolt.manifest.authored;
 import java.util.Objects;
 import java.util.Optional;
 import sh.zolt.manifest.DependencyCoordinate;
+import sh.zolt.project.DependencyMetadata;
 
 /** Canonical dependency artifact identity with an explicit default type and classifier absence. */
 public record DependencyVariant(
         DependencyCoordinate coordinate,
         String type,
         Optional<String> classifier) implements Comparable<DependencyVariant> {
-    public static final String DEFAULT_TYPE = "jar";
+    /** One frozen token, shared with the engine model so both sides normalize identically. */
+    public static final String DEFAULT_TYPE = DependencyMetadata.DEFAULT_TYPE;
 
     public DependencyVariant {
         Objects.requireNonNull(coordinate, "Dependency variant coordinate must not be null.");

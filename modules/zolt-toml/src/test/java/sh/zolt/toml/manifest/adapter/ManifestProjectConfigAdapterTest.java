@@ -2,6 +2,7 @@ package sh.zolt.toml.manifest.adapter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -150,7 +151,10 @@ final class ManifestProjectConfigAdapterTest {
         DependencyMetadata netty = metadata(adapted, "dependencies", "io.netty:netty-handler");
         assertEquals("netty", netty.versionRef());
         assertEquals("linux-x86_64", netty.classifier());
-        assertEquals("jar", netty.type());
+        assertNull(
+                netty.type(),
+                "an authored type = \"jar\" is the default variant the canonical writer omits, so the "
+                        + "engine model erases it rather than carrying a second spelling to the POM");
 
         DependencyMetadata publishOnly = metadata(adapted, "dependencies", "com.example:publish-only");
         assertTrue(publishOnly.publishOnly());
