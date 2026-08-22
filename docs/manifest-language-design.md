@@ -3040,15 +3040,39 @@ A member mutation:
 
 ## 19.3 Recovery states
 
-Recovery distinguishes live file state, not just journal labels:
+A journal records one of four logical states, each written through a sibling temporary and an atomic move so no reader observes a half-written record:
+
+| State | Meaning |
+| --- | --- |
+| `STAGING` | Journal created; backups and the staged manifest written. No live file touched. |
+| `PREPARED` | Resolution finished and the staged lock is recorded. No live file touched. |
+| `COMMITTING` | A live file may already have been replaced. |
+| `COMMITTED` | Both files are committed; only the journal remains to remove. |
+
+`COMMITTING` is written **before the first live-file mutation**, inside the lockfile compare-and-set companion callback, while the checked cross-process mutation lock of §19.4 is still held:
+
+```java
+requireManifestUnchanged(manifestPath, originalSource);
+writeState(COMMITTING);
+writer.write(manifestPath, originalSource, editedSource);
+// return; the lockfile writer then replaces zolt.lock
+```
+
+After the compare-and-set returns, `writeState(COMMITTED)` and journal cleanup follow. Ordering that state after the manifest replacement instead would leave the window `state = PREPARED, manifest = staged, lock = original` reachable both by process termination and by the state write itself throwing — a window in which the journal claims nothing was written while the manifest already changed. This logical ordering is the guarantee; forcing state and staged data to storage is the separate durability enhancement of §19.5 and cannot substitute for it.
+
+Once a journal reaches `COMMITTING`, recovery distinguishes live file content, never the label:
 
 | Live manifest | Live lock | Decision |
 | --- | --- | --- |
-| original | original | Rollback/cleanup is complete |
-| staged | original | Restore original manifest |
-| staged | staged | Complete commit and clean journal |
-| original | staged | Restore original lock or refuse if unsafe |
-| anything else | anything else | Refuse to overwrite concurrent/manual changes |
+| original | original | Nothing was committed; clean up |
+| staged | original | Restore the original manifest |
+| staged | staged | Commit completed; clean up |
+| original | staged | Restore the original lock |
+| unknown | anything | Refuse to overwrite |
+
+`unknown` is content matching neither recorded copy. Refusal names the journal directory, the live file, and its live, original, and staged digests, so one diagnostic tells the user which backup to compare against and which single directory to remove.
+
+`STAGING` and `PREPARED` claim no live file was touched, and a journal that stopped there is cleaned rather than compared — its manifest may differ from both recorded copies because of a benign concurrent edit made while the resolve ran, and refusing on that difference would leave a journal that blocks every later mutation (§19.1). That claim is checked against one piece of live evidence before it is trusted: a `STAGING` or `PREPARED` journal whose live manifest is byte-identical to its staged copy is rolled back through the matrix above rather than discarded, which is how a journal written before `COMMITTING` existed recovers from the same window.
 
 Recovery is discoverable from the workspace root and does not depend on rerunning the exact command from the exact member directory.
 
@@ -3062,10 +3086,11 @@ Required primitive:
 AtomicLockfileWriter.compareAndSetAtomically(
         lockfilePath,
         expectedSnapshot,
-        replacement);
+        replacement,
+        companionCommit);
 ```
 
-A concurrent ordinary `zolt resolve` cannot land between verification and replacement.
+A concurrent ordinary `zolt resolve` cannot land between verification and replacement. `companionCommit` runs after the expected snapshot matches and before the replacement, under the same lock, and is where the manifest side of the transaction commits — including the `COMMITTING` state transition of §19.3.
 
 ## 19.5 Transaction durability boundary
 

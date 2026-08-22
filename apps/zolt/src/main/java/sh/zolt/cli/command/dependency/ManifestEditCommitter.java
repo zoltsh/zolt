@@ -65,28 +65,24 @@ final class ManifestEditCommitter {
             SourceWriter writer,
             Runnable beforeLockfileCompareAndSet) {
         Path transaction = scope.transactionDirectory();
-        Path lockfileBackup = transaction.resolve("zolt.lock.backup");
         Path resolveDirectory = transaction.resolve("resolve");
         try {
             Files.createDirectories(resolveDirectory);
-            ManifestEditRecovery.writeScope(transaction, scope);
-            Files.writeString(transaction.resolve("zolt.toml.backup"), originalSource);
-            Files.writeString(transaction.resolve("zolt.toml.staged"), editedSource);
+            ManifestEditJournal.writeScope(transaction, scope);
+            ManifestEditJournal.writeManifestCopies(transaction, originalSource, editedSource);
             FileSnapshot originalLockfile = AtomicLockfileWriter.capture(scope.lockfilePath());
+            ManifestEditJournal.writeOriginalLock(transaction, originalLockfile);
             if (originalLockfile.exists()) {
-                Files.writeString(lockfileBackup, originalLockfile.content());
                 Files.writeString(resolveDirectory.resolve("zolt.lock"), originalLockfile.content());
-            } else {
-                Files.writeString(transaction.resolve("zolt.lock.absent"), "absent\n");
             }
-            ManifestEditRecovery.writeState(transaction, ManifestEditRecovery.STAGING);
+            ManifestEditJournal.writeState(transaction, ManifestEditJournal.STAGING);
 
             ResolveResult staged = resolveStaged(
                     scope, resolveDirectory, cacheRoot, resolveService, standaloneConfig, editedSource);
             String resolvedLockfile = Files.readString(resolveDirectory.resolve("zolt.lock"));
-            Files.writeString(transaction.resolve("zolt.lock.staged"), resolvedLockfile);
+            ManifestEditJournal.writeStagedLock(transaction, resolvedLockfile);
             requireManifestUnchanged(scope.manifestPath(), originalSource);
-            ManifestEditRecovery.writeState(transaction, ManifestEditRecovery.PREPARED);
+            ManifestEditJournal.writeState(transaction, ManifestEditJournal.PREPARED);
 
             beforeLockfileCompareAndSet.run();
             if (scope.workspace() != null) {
@@ -98,12 +94,24 @@ final class ManifestEditCommitter {
                         originalLockfile,
                         FileSnapshot.present(resolvedLockfile),
                         () -> {
+                            // COMMITTING claims the live files may already differ from the journal
+                            // originals, so it is entered only once its precondition holds: this
+                            // read re-establishes, under the same lockfile mutation lock that the
+                            // replacement runs under, that the manifest is still the captured
+                            // bytes. A concurrent edit refused here wrote nothing and leaves the
+                            // journal at PREPARED, which recovery discards rather than wedges.
+                            requireManifestUnchanged(scope.manifestPath(), originalSource);
+                            // Design §19.3: the durable record is then written before the first
+                            // live-file mutation. Recording it afterwards leaves a window — process
+                            // termination, or that state write itself throwing — in which the
+                            // manifest is staged, the lock is original, and the journal still
+                            // claims nothing was written.
+                            ManifestEditJournal.writeState(
+                                    transaction, ManifestEditJournal.COMMITTING);
                             writer.write(scope.manifestPath(), originalSource, editedSource);
-                            ManifestEditRecovery.writeState(
-                                    transaction, ManifestEditRecovery.MANIFEST_COMMITTED);
                         });
             } catch (AtomicLockfileWriter.ConcurrentWriteException exception) {
-                ManifestEditRecovery.deleteRecursively(transaction);
+                ManifestEditJournal.deleteRecursively(transaction);
                 throw new ZoltConfigException(ActionableError.of(
                         "zolt.lock changed while dependency resolution was in progress. No changes were written.",
                         "Retry the command against the current lockfile.",
@@ -193,8 +201,8 @@ final class ManifestEditCommitter {
 
     private static void finish(Path transaction) throws IOException {
         try {
-            ManifestEditRecovery.writeState(transaction, ManifestEditRecovery.COMMITTED);
-            ManifestEditRecovery.deleteRecursively(transaction);
+            ManifestEditJournal.writeState(transaction, ManifestEditJournal.COMMITTED);
+            ManifestEditJournal.deleteRecursively(transaction);
         } catch (IOException ignored) {
             // Both files are committed. Recovery recognizes staged/staged if cleanup was interrupted.
         }

@@ -75,8 +75,8 @@ record ManifestMutationScope(
                 normalizedProject,
                 normalizedProject.resolve("zolt.lock"),
                 normalizedProject.resolve(".zolt")
-                        .resolve(ManifestEditRecovery.JOURNALS_DIRECTORY)
-                        .resolve(ManifestEditRecovery.STANDALONE_JOURNAL),
+                        .resolve(ManifestEditJournal.JOURNALS_DIRECTORY)
+                        .resolve(ManifestEditJournal.STANDALONE_JOURNAL),
                 null);
     }
 
@@ -85,7 +85,7 @@ record ManifestMutationScope(
                 .withoutPadding()
                 .encodeToString(identity.getBytes(StandardCharsets.UTF_8));
         return lockRoot.resolve(".zolt")
-                .resolve(ManifestEditRecovery.JOURNALS_DIRECTORY)
+                .resolve(ManifestEditJournal.JOURNALS_DIRECTORY)
                 .resolve(encoded);
     }
 
