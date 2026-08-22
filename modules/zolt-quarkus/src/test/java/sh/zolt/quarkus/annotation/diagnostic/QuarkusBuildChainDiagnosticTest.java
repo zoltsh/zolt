@@ -16,6 +16,12 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class QuarkusBuildChainDiagnosticTest {
+    /**
+     * Design §9.2 puts the provided lane on the test lanes, so this module's own test JVM can see
+     * {@code io.quarkus:quarkus-junit}. The system-loader report therefore pins the diagnostic's
+     * stable shape rather than whether one third-party class happens to be resolvable, which is a
+     * property of the classpath the test runs on and not of the diagnostic.
+     */
     @Test
     void writesSystemBuildChainDiagnostic() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -26,8 +32,29 @@ final class QuarkusBuildChainDiagnosticTest {
         String output = output(out);
         assertTrue(output.contains("Zolt Quarkus build-chain diagnostic:"));
         assertTrue(output.contains("  systemLoader="));
-        assertTrue(output.contains("    TestBuildChainFunction=<unavailable: ClassNotFoundException>"));
+        assertTrue(
+                output.contains("    TestBuildChainFunction.loader=")
+                        || output.contains("    TestBuildChainFunction=<unavailable: "),
+                output);
         assertFalse(output.contains("  quarkusRuntimeLoader="));
+    }
+
+    /** The unavailable branch, pinned against a loader that provably cannot see Quarkus JUnit. */
+    @Test
+    void reportsUnavailableBuildChainFunctionWhenTheLoaderCannotSeeQuarkusJUnit() throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        QuarkusBuildChainDiagnostic diagnostic = diagnostic(out);
+        try (URLClassLoader runtimeLoader =
+                new URLClassLoader(new URL[0], ClassLoader.getPlatformClassLoader())) {
+
+            diagnostic.write(runtimeLoader);
+        }
+
+        String output = output(out);
+        assertTrue(output.contains("  quarkusRuntimeLoader="), output);
+        assertTrue(
+                output.contains("    TestBuildChainFunction=<unavailable: ClassNotFoundException>"),
+                output);
     }
 
     @Test

@@ -122,11 +122,10 @@ public final class CompiledTestRunner {
                 testProfileSettings,
                 projectDirectory,
                 config);
-        List<Path> runnerClasspath = new ArrayList<>();
-        runnerClasspath.add(compileResult.outputDirectory());
-        runnerClasspath.add(compileResult.buildResult().outputDirectory());
-        runnerClasspath.addAll(classpaths.test().entries());
-        runnerClasspath = absolutePaths(runnerClasspath);
+        List<Path> runnerClasspath = absolutePaths(TestRuntimeClasspathOrder.compose(
+                compileResult.outputDirectory(),
+                compileResult.buildResult().outputDirectory(),
+                classpaths.test().entries()));
         if (!junitLauncherClasspath.hasConsoleJar(runnerClasspath)) {
             throw new TestRunException(
                     "JUnit Platform Console is not present on the test classpath. "

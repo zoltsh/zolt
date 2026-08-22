@@ -1387,6 +1387,7 @@ Consequences:
 - API dependencies are the only dependencies exposed to a downstream member's compile classpath.
 - Implementation dependencies remain available to the current project but become runtime dependencies for published consumers.
 - Test classpaths include the project's API, implementation, runtime, and provided lanes plus test dependencies.
+- Test classpath order is behavior, not cosmetics: the project's own compiled outputs come first — test output, then main output — and resolved dependency entries follow in resolution order. The JVM resolves a duplicate fully qualified name by classpath position, first entry wins, so this order decides which class a test loads when a resolved jar carries a name the project also compiles. Because the provided lane is on the test lanes, that collision is reachable: a provided artifact is compile-visible and test-visible but its transitive runtime closure is deliberately never resolved, so its `META-INF/services` registrations can name providers whose peers are absent. A project that needs such a provider to initialize declares the missing peer under `[dependencies.test]`; a project that needs it neutralized supplies its own class of the same name from a test source root, which wins by this order.
 - Dev dependencies are for interactive/development run workflows only; tests that need them declare them under test.
 - Uber and framework package closures include API, implementation, and runtime lanes, never provided, dev, test, or processor lanes.
 
