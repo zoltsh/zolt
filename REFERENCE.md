@@ -1172,12 +1172,14 @@ enabled = true
 
 [buildCache.remote]
 url = "https://nexus.example.com/repository/zolt-build-cache"
-credentials = "build-cache"  # optional; names a [credentials.<id>] block
+credentials = "build-cache"  # optional; names a [repositoryCredentials.<id>] block
 push = false                 # devs read; set true (or ZOLT_BUILD_CACHE_PUSH=1) on CI
 
 # Credential definitions may live in user-global config for machine/CI use. Only
-# environment-variable *names* are stored — never secret values.
-[credentials.build-cache]
+# environment-variable *names* are stored — never secret values. The machine-local
+# config keeps its own [repositoryCredentials.<id>] spelling; the manifest language
+# uses [credentials.<id>].
+[repositoryCredentials.build-cache]
 tokenEnv = "ZOLT_BUILD_CACHE_TOKEN"   # bearer; or usernameEnv + passwordEnv for basic
 ```
 
