@@ -121,6 +121,22 @@ final class ManifestPackageDecoderTest {
                 "expected boolean but found string");
     }
 
+    /**
+     * Design §12.1: {@code bom} is internal packaging implied by a BOM domain, so it names the wrong
+     * domain rather than mistyping a mode. Only that value earns the domain hint.
+     */
+    @Test
+    void modeBomSuggestsTheBomDomainWhileOtherInvalidSymbolsDoNot() {
+        assertShapeFailure(
+                "package.mode = \"bom\"\n",
+                "Author a [bom] domain instead; BOM packaging has no package.mode spelling.");
+        ZoltConfigException other = assertThrows(
+                ZoltConfigException.class,
+                () -> decode("package.mode = \"zip\"\n"));
+        assertTrue(other.getMessage().contains("Invalid symbol `zip` for `package.mode`"), other.getMessage());
+        assertFalse(other.getMessage().contains("[bom] domain"), other.getMessage());
+    }
+
     @Test
     void requiresANonNullDecodeIndex() {
         assertThrows(NullPointerException.class, () -> decoder.decode(null));

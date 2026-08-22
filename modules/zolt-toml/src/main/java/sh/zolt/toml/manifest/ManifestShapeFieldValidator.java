@@ -129,7 +129,7 @@ final class ManifestShapeFieldValidator {
         Consumer<String> validate = item -> {
             if (!family.accepts(item)) {
                 diagnostics.add(source, "Invalid symbol `" + item + "` for `" + path
-                        + "`; expected one of " + family.values() + ".");
+                        + "`; expected one of " + family.values() + "." + suggestion(path, item));
             }
         };
         if (value instanceof String string) {
@@ -139,6 +139,18 @@ final class ManifestShapeFieldValidator {
                 validate.accept((String) array.get(index));
             }
         }
+    }
+
+    /**
+     * Design §12.1: {@code bom} is internal packaging that a BOM domain implies, so authoring it as a
+     * package mode is not a typo among the mode symbols — it names the wrong domain. The generic
+     * symbol list cannot say that, so this one value carries the domain it should have been.
+     */
+    private static String suggestion(String path, String item) {
+        if ("package.mode".equals(path) && "bom".equals(item)) {
+            return " Author a [bom] domain instead; BOM packaging has no package.mode spelling.";
+        }
+        return "";
     }
 
     private void validateDirect(

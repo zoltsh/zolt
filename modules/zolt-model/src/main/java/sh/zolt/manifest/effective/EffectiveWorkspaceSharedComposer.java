@@ -37,6 +37,7 @@ final class EffectiveWorkspaceSharedComposer {
                     "A workspace member cannot declare dependency repositories; "
                             + "the workspace root repository universe is authoritative.");
         }
+        EffectiveStandaloneSharedComposer.requireNoBomCoverage(member.build().coverage(), bom);
 
         Map<LocalId, EffectiveValue<VersionAliasValue>> versions = mergeNamed(
                 root.versions().map(value -> value.entries()).orElseGet(Map::of),

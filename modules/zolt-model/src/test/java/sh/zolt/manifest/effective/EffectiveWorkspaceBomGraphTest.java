@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import sh.zolt.manifest.CoveragePercentage;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.LocalId;
 import sh.zolt.manifest.PlatformSelector;
@@ -17,6 +18,8 @@ import sh.zolt.manifest.ProjectVersion;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.WorkspaceMemberPattern;
 import sh.zolt.manifest.authored.AuthoredBom;
+import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
+import sh.zolt.manifest.authored.AuthoredCoverage;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.authored.AuthoredPackage;
 import sh.zolt.manifest.authored.AuthoredPackaging;
@@ -180,6 +183,54 @@ final class EffectiveWorkspaceBomGraphTest {
                         Optional.empty(),
                         Optional.empty()))
                 .create();
+    }
+
+    /**
+     * Design §12.6 bans tests on a BOM member and gives it no compilable sources, so §10.10 coverage
+     * floors have nothing to gate; a non-BOM member composed from the same root keeps its floors.
+     */
+    @Test
+    void rejectsAuthoredCoverageFloorsOnABomMemberOnly() {
+        AuthoredManifest coveredBom = new WorkspaceManifestFixture()
+                .identity(WorkspaceManifestFixture.sparseIdentity("platform-bom"))
+                .packaging(new AuthoredPackaging(
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(all(List.of()))))
+                .build(coverageOnly())
+                .create();
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> COMPOSER.composeWorkspace(root(), Map.of(BOM, coveredBom, CORE, member("core"))));
+
+        assertEquals(
+                "An effective BOM cannot author coverage floors; a BOM has no compilable sources or"
+                        + " tests to measure. Remove [coverage] from the BOM manifest and author it on"
+                        + " the workspace root or on the members that run tests.",
+                failure.getMessage());
+
+        AuthoredManifest coveredLibrary = new WorkspaceManifestFixture()
+                .identity(WorkspaceManifestFixture.sparseIdentity("core"))
+                .build(coverageOnly())
+                .create();
+        EffectiveWorkspace composed = COMPOSER.composeWorkspace(root(), Map.of(CORE, coveredLibrary));
+        assertTrue(composed.members().get(CORE).project().shared().coverage().line().isPresent());
+    }
+
+    private static AuthoredBuildConfiguration coverageOnly() {
+        return new AuthoredBuildConfiguration(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new AuthoredCoverage(
+                        Optional.of(new CoveragePercentage(88.0)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty())));
     }
 
     private static AuthoredManifest bomMember(String name, AuthoredBom bom) {

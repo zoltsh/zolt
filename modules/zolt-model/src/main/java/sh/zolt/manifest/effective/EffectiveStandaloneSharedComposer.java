@@ -26,6 +26,7 @@ final class EffectiveStandaloneSharedComposer {
             EffectiveProjectIdentity identity,
             String manifestPath,
             boolean bom) {
+        requireNoBomCoverage(authored.build().coverage(), bom);
         return new EffectiveSharedConfiguration(
                 authored.versions()
                         .map(values -> effectiveValues(
@@ -88,6 +89,21 @@ final class EffectiveStandaloneSharedComposer {
         return EffectiveValue.builtIn(EffectiveCentralRepository.enabled(
                 DependencyRepository.unauthenticated(
                         AuthoredDependencyRepositories.MAVEN_CENTRAL_URL)));
+    }
+
+    /**
+     * Design §12.6: a BOM may not author tests and has no compilable sources, so it has no execution
+     * domain for §10.10 coverage floors to gate. The authored layer defers the decision (a shared
+     * domain is only meaningful once the BOM-ness of the manifest is known), so composition is where
+     * an authored floor on a BOM is rejected.
+     */
+    static void requireNoBomCoverage(Optional<AuthoredCoverage> authored, boolean bom) {
+        if (bom && authored.isPresent()) {
+            throw new IllegalArgumentException(
+                    "An effective BOM cannot author coverage floors; a BOM has no compilable sources"
+                            + " or tests to measure. Remove [coverage] from the BOM manifest and author"
+                            + " it on the workspace root or on the members that run tests.");
+        }
     }
 
     static EffectiveCoverage coverage(

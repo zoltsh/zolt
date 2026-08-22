@@ -38,7 +38,7 @@ final class ManifestPackageManifestDecoderTest {
                 Zeta = "last"
                 "Automatic-Module-Name" = "com.example.library"
                 Alpha = "first"
-                "X.Vendor-Flag" = ""
+                "X.Vendor-Flag" = "enabled"
                 """).orElseThrow();
 
         assertEquals(
@@ -46,7 +46,7 @@ final class ManifestPackageManifestDecoderTest {
                 List.copyOf(manifest.attributes().keySet()));
         assertEquals("first", manifest.attributes().get("Alpha"));
         assertEquals("com.example.library", manifest.attributes().get("Automatic-Module-Name"));
-        assertEquals("", manifest.attributes().get("X.Vendor-Flag"));
+        assertEquals("enabled", manifest.attributes().get("X.Vendor-Flag"));
         assertThrows(UnsupportedOperationException.class, manifest.attributes()::clear);
     }
 
@@ -72,6 +72,31 @@ final class ManifestPackageManifestDecoderTest {
         assertShapeFailure(
                 "[package.manifest]\nName = 42\n",
                 "expected string but found integer");
+    }
+
+    /**
+     * Design §12.2 gives attributes JAR manifest spelling and never makes a blank entry meaningful,
+     * so both halves of a blank entry are rejected: the name at the shape layer, the value at the
+     * model layer with the offending attribute anchored in the diagnostic.
+     */
+    @Test
+    void rejectsBlankAttributeNamesAndBlankAttributeValues() {
+        for (String name : List.of("\"\"", "\" \"")) {
+            assertShapeFailure(
+                    "[package.manifest]\n" + name + " = \"value\"\n",
+                    "JAR manifest attribute names must be nonblank");
+        }
+        for (String value : List.of("\"\"", "\"   \"")) {
+            ZoltConfigException failure = assertThrows(
+                    ZoltConfigException.class,
+                    () -> decode("[package.manifest]\n\"X.Vendor-Flag\" = " + value + "\n"),
+                    value);
+            assertTrue(failure.getMessage().contains("package.manifest"), failure.getMessage());
+            assertTrue(
+                    failure.getMessage().contains(
+                            "Package manifest attribute `X.Vendor-Flag` value must not be blank."),
+                    failure.getMessage());
+        }
     }
 
     @Test

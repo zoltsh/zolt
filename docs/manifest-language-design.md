@@ -2048,7 +2048,7 @@ Rules:
 "Automatic-Module-Name" = "com.example.library"
 ```
 
-Keys preserve JAR manifest spelling and are quoted when needed.
+Keys preserve JAR manifest spelling and are quoted when needed. An attribute name and its value are both nonblank: a blank name has no JAR spelling and a blank value stamps an empty header, so an attribute that carries nothing is omitted rather than blanked.
 
 ## 12.3 Spring Boot
 
@@ -2110,7 +2110,7 @@ Rules:
 - Optional `exclude` is an array of exact member paths and is valid only with `members = true`; it removes intentionally unpublished members without introducing a second glob language.
 - A standalone or import-only BOM may omit `[bom]` and declare only `[bom.versions]` and/or `[bom.imports]`.
 - BOM version and import entries occupy one physical line and participate in `zolt update` and the source-preserving editor.
-- A BOM member does not consume `[workspace.project].java` and may not author `project.java`, `project.main`, compilable sources, ordinary dependency lanes, compiler settings, tests, generated producers, native-image settings, or a JAR manifest.
+- A BOM member does not consume `[workspace.project].java` and may not author `project.java`, `project.main`, compilable sources, ordinary dependency lanes, compiler settings, tests, coverage floors, generated producers, native-image settings, or a JAR manifest. Coverage floors are rejected at composition rather than while decoding, because a shared domain is only known to belong to a BOM once BOM-ness is composed.
 
 `[bom.versions]` values are a fixed version string or a one-line table containing exactly one of `version` or `versionRef`, plus optional `classifier` and `type`. `[bom.imports]` values are a fixed version string or a one-line table containing exactly one of `version` or `versionRef`; import type and scope are fixed to Maven `pom`/`import`, so classifier and type fields are rejected. Ranges, dynamic versions, interpolation, managed selectors, and workspace selectors are unsupported in both maps.
 

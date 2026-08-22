@@ -25,8 +25,11 @@ import sh.zolt.manifest.ProjectName;
 import sh.zolt.manifest.ProjectVersion;
 import sh.zolt.manifest.RepositoryCredential;
 import sh.zolt.manifest.RepositoryUrl;
+import sh.zolt.manifest.CoveragePercentage;
 import sh.zolt.manifest.VersionAliasValue;
 import sh.zolt.manifest.authored.AuthoredBom;
+import sh.zolt.manifest.authored.AuthoredBuildConfiguration;
+import sh.zolt.manifest.authored.AuthoredCoverage;
 import sh.zolt.manifest.authored.AuthoredCredentials;
 import sh.zolt.manifest.authored.AuthoredDependencies;
 import sh.zolt.manifest.authored.AuthoredDependency;
@@ -166,6 +169,42 @@ final class StandaloneManifestIntegrityValidatorTest {
                 memberFailure.getMessage());
     }
 
+    /**
+     * Design §12.6 bans tests on a BOM and gives it no compilable sources, so §10.10 coverage floors
+     * have nothing to gate. The authored layer defers the decision until BOM-ness is known, so the
+     * rejection lands at composition — and only for a BOM.
+     */
+    @Test
+    void rejectsAuthoredCoverageFloorsOnAStandaloneBom() {
+        AuthoredBom bom = new AuthoredBom(
+                Optional.empty(), Optional.of(Map.of()), Optional.empty());
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> COMPOSER.composeStandalone(bomManifest(bom, coverageOnly())));
+
+        assertEquals(
+                "An effective BOM cannot author coverage floors; a BOM has no compilable sources or"
+                        + " tests to measure. Remove [coverage] from the BOM manifest and author it on"
+                        + " the workspace root or on the members that run tests.",
+                failure.getMessage());
+        assertDoesNotThrow(() -> COMPOSER.composeStandalone(
+                new StandaloneManifestFixture().build(coverageOnly()).create()));
+    }
+
+    private static AuthoredBuildConfiguration coverageOnly() {
+        return new AuthoredBuildConfiguration(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new AuthoredCoverage(
+                        Optional.of(new CoveragePercentage(88.0)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty())));
+    }
+
     @Test
     void composesStandaloneBomWithoutInventingJava() {
         AuthoredBom bom = new AuthoredBom(
@@ -276,6 +315,10 @@ final class StandaloneManifestIntegrityValidatorTest {
     }
 
     private static AuthoredManifest bomManifest(AuthoredBom bom) {
+        return bomManifest(bom, null);
+    }
+
+    private static AuthoredManifest bomManifest(AuthoredBom bom, AuthoredBuildConfiguration build) {
         AuthoredProjectIdentity identity = new AuthoredProjectIdentity(
                 new ProjectName("catalog"),
                 Optional.of(new ProjectVersion("1.0.0")),
@@ -288,10 +331,13 @@ final class StandaloneManifestIntegrityValidatorTest {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(bom));
-        return new StandaloneManifestFixture()
+        StandaloneManifestFixture fixture = new StandaloneManifestFixture()
                 .identity(identity)
-                .packaging(packaging)
-                .create();
+                .packaging(packaging);
+        if (build != null) {
+            fixture = fixture.build(build);
+        }
+        return fixture.create();
     }
 
     private static void assertUndefinedAlias(
