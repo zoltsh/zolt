@@ -34,7 +34,6 @@ const FRAMEWORK_CONFIG: Readonly<Record<NativeDiagnosticFramework, readonly stri
     "",
     "[package]",
     'mode = "quarkus"',
-    'package = "fast-jar"',
   ],
 };
 
