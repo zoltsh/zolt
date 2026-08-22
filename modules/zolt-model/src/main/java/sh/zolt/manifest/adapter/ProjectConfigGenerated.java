@@ -1,15 +1,10 @@
 package sh.zolt.manifest.adapter;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import sh.zolt.manifest.DependencySelector;
-import sh.zolt.manifest.GeneratedArtifactRequest;
-import sh.zolt.manifest.GeneratedCachePolicy;
-import sh.zolt.manifest.GeneratedOutputKind;
 import sh.zolt.manifest.GeneratedStepSettings;
 import sh.zolt.manifest.DependencyCoordinate;
 import sh.zolt.manifest.LocalId;
@@ -25,13 +20,9 @@ import sh.zolt.manifest.authored.AuthoredOpenApiOptions;
 import sh.zolt.manifest.authored.AuthoredOpenApiStep;
 import sh.zolt.manifest.authored.AuthoredProtobufStep;
 import sh.zolt.manifest.effective.EffectiveValue;
-import sh.zolt.project.ExecGenerationSettings;
-import sh.zolt.project.ExecToolCoordinate;
-import sh.zolt.project.ExecToolSettings;
 import sh.zolt.project.GeneratedSourceKind;
 import sh.zolt.project.GeneratedSourceStep;
 import sh.zolt.project.OpenApiGenerationSettings;
-import sh.zolt.project.ProducesLane;
 import sh.zolt.project.ProtobufGenerationSettings;
 
 /**
@@ -46,7 +37,6 @@ import sh.zolt.project.ProtobufGenerationSettings;
 final class ProjectConfigGenerated {
     private static final LocalId OPENAPI = new LocalId("openapi");
     private static final LocalId PROTOBUF = new LocalId("protobuf");
-    private static final LocalId PROJECT = new LocalId("project");
     private static final String JAVA = "java";
     /**
      * Default coordinates for the reserved built-in generated tools.
@@ -107,7 +97,8 @@ final class ProjectConfigGenerated {
                     openApi(id, openApi, sources, outputRoot, versions, mainScope);
             case AuthoredProtobufStep protobuf ->
                     protobuf(id, protobuf, sources, outputRoot, versions, mainScope);
-            case AuthoredExecStep exec -> exec(id, exec, sources, versions);
+            case AuthoredExecStep exec ->
+                    ProjectConfigGeneratedExec.step(id, exec, sources, versions);
             case AuthoredDeclaredRootStep declaredRoot -> declaredRoot(id, declaredRoot);
         };
     }
@@ -182,42 +173,6 @@ final class ProjectConfigGenerated {
                         step.grpc().orElse(true)));
     }
 
-    private static GeneratedSourceStep exec(
-            LocalId id,
-            AuthoredExecStep step,
-            AuthoredGeneratedSources sources,
-            Map<LocalId, EffectiveValue<VersionAliasValue>> versions) {
-        Map<String, String> environment = new LinkedHashMap<>();
-        step.env().forEach((name, value) -> environment.put(name.value(), value));
-        Map<String, String> secretEnvironment = new LinkedHashMap<>();
-        step.secretEnv().forEach((target, source) ->
-                secretEnvironment.put(target.value(), source.value()));
-        ExecGenerationSettings settings = new ExecGenerationSettings(
-                step.tool().value(),
-                execTool(step, sources, versions),
-                step.args(),
-                produces(step.produces()),
-                step.into().map(ManifestRelativePath::value),
-                environment,
-                step.cache().orElse(GeneratedCachePolicy.CONTENT).configValue(),
-                step.cwd().map(ManifestRelativePath::value),
-                secretEnvironment,
-                step.inheritEnv().stream().map(name -> name.value()).toList(),
-                step.timeoutSeconds().orElse(ExecGenerationSettings.DEFAULT_TIMEOUT_SECONDS),
-                Optional.empty());
-        return new GeneratedSourceStep(
-                id.value(),
-                GeneratedSourceKind.EXEC,
-                JAVA,
-                step.output().value(),
-                step.inputs().stream().map(ResourceGlob::value).toList(),
-                step.settings().required().orElse(true),
-                step.settings().clean().orElse(true),
-                OpenApiGenerationSettings.empty(),
-                ProtobufGenerationSettings.empty(),
-                settings);
-    }
-
     private static GeneratedSourceStep declaredRoot(LocalId id, AuthoredDeclaredRootStep step) {
         GeneratedStepSettings settings = step.settings();
         return new GeneratedSourceStep(
@@ -228,50 +183,6 @@ final class ProjectConfigGenerated {
                 step.inputs().stream().map(ResourceGlob::value).toList(),
                 settings.required().orElse(true),
                 settings.clean().orElse(false));
-    }
-
-    private static ExecToolSettings execTool(
-            AuthoredExecStep step,
-            AuthoredGeneratedSources sources,
-            Map<LocalId, EffectiveValue<VersionAliasValue>> versions) {
-        LocalId tool = step.tool();
-        if (PROJECT.equals(tool)) {
-            return ExecToolSettings.project(step.mainClass().orElseThrow().value());
-        }
-        AuthoredGeneratedTool declaration = sources.tools().declarations().get(tool);
-        if (declaration == null) {
-            throw new IllegalArgumentException("Generated exec step references undefined tool `" + tool + "`.");
-        }
-        return switch (declaration) {
-            case AuthoredGeneratedTool.Jvm jvm -> new ExecToolSettings(
-                    "jvm",
-                    coordinates(jvm.coordinates(), versions, "[generated.tools." + tool + "]"),
-                    jvm.mainClass().value());
-            case AuthoredGeneratedTool.Process process -> ExecToolSettings.process(
-                    process.binary().value(),
-                    process.versionCommand(),
-                    process.versionExpect().map(expectation -> expectation.value()),
-                    process.allowUnpinnedTool());
-            case AuthoredGeneratedTool.OpenApi ignored -> throw new IllegalArgumentException(
-                    "Generated exec step cannot reference OpenAPI tool `" + tool + "`.");
-            case AuthoredGeneratedTool.Protobuf ignored -> throw new IllegalArgumentException(
-                    "Generated exec step cannot reference Protobuf tool `" + tool + "`.");
-        };
-    }
-
-    private static List<ExecToolCoordinate> coordinates(
-            List<GeneratedArtifactRequest> requests,
-            Map<LocalId, EffectiveValue<VersionAliasValue>> versions,
-            String subject) {
-        List<ExecToolCoordinate> coordinates = new ArrayList<>(requests.size());
-        for (GeneratedArtifactRequest request : requests) {
-            DependencySelector selector = request.selector();
-            coordinates.add(new ExecToolCoordinate(
-                    request.coordinate().value(),
-                    Optional.of(ProjectConfigVersions.resolve(selector, versions, subject)),
-                    Optional.ofNullable(ProjectConfigVersions.reference(selector))));
-        }
-        return List.copyOf(coordinates);
     }
 
     /**
@@ -343,16 +254,6 @@ final class ProjectConfigGenerated {
         Map<String, String> merged = new TreeMap<>(preset);
         merged.putAll(step);
         return Map.copyOf(merged);
-    }
-
-    private static ProducesLane produces(GeneratedOutputKind kind) {
-        return switch (kind) {
-            case JAVA_SOURCES -> ProducesLane.JAVA_SOURCES;
-            case TEST_SOURCES -> ProducesLane.TEST_SOURCES;
-            case RESOURCES -> ProducesLane.RESOURCES;
-            case TEST_RESOURCES -> ProducesLane.TEST_RESOURCES;
-            case INTERMEDIATE -> ProducesLane.INTERMEDIATE;
-        };
     }
 
     private static String derivedOutput(
