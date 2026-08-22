@@ -274,7 +274,78 @@ final class ManifestWorkspaceDiscoveryTest {
 
         assertEquals(tempDir.toAbsolutePath().normalize(),
                 discovery.discoverRoot(tempDir).orElseThrow());
-        assertThrows(WorkspaceConfigException.class, () -> discovery.load(tempDir));
+        WorkspaceConfigException failure = assertThrows(
+                WorkspaceConfigException.class, () -> discovery.load(tempDir));
+        // The diagnostic has to name the member manifest and the field that broke, or the adopter has
+        // no way to tell which of many members the aggregate load failed on.
+        assertTrue(failure.getMessage().contains(invalid.toString()), failure.getMessage());
+        assertTrue(failure.getMessage().contains("Invalid workspace manifest at"), failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains("Fix the TOML syntax near line 1"),
+                failure.getMessage());
+    }
+
+    /**
+     * Design §4.2/§4.4: composition draws a hard line around what a member may declare, and each
+     * rejection names the member that broke it.
+     */
+    @Test
+    void compositionRejectsANestedWorkspaceDomainInAMember() throws IOException {
+        root("""
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                include = ["apps/*"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "1.0.0"
+                java = 21
+                """);
+        Path api = tempDir.resolve("apps/api");
+        Files.createDirectories(api);
+        Files.writeString(api.resolve("zolt.toml"), """
+                [workspace]
+                name = "nested"
+
+                [workspace.members]
+                include = ["sub"]
+
+                [project]
+                name = "api"
+                """);
+
+        WorkspaceConfigException failure = assertThrows(
+                WorkspaceConfigException.class, () -> discovery.load(tempDir));
+
+        assertTrue(
+                failure.getMessage().contains(
+                        "Workspace member `apps/api` cannot declare a nested [workspace] domain."),
+                failure.getMessage());
+    }
+
+    @Test
+    void rootMemberWithoutARootProjectIsRejectedByName() throws IOException {
+        root("""
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                include = ["."]
+
+                [workspace.project]
+                group = "com.example"
+                version = "1.0.0"
+                java = 21
+                """);
+
+        WorkspaceConfigException failure = assertThrows(
+                WorkspaceConfigException.class, () -> discovery.load(tempDir));
+
+        assertTrue(
+                failure.getMessage().contains("The `.` workspace member requires a root [project] domain."),
+                failure.getMessage());
     }
 
     @Test

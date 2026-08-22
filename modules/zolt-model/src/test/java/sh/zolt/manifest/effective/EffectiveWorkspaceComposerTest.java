@@ -182,6 +182,18 @@ final class EffectiveWorkspaceComposerTest {
         assertMessage(
                 () -> COMPOSER.composeWorkspace(root, Map.of(CORE, nested)),
                 "cannot declare a nested [workspace]");
+
+        // The "requires a [project] domain" refusals name what is missing and where, so an adopter
+        // never has to guess which manifest the aggregate composition rejected.
+        AuthoredManifest virtualDotRoot = new WorkspaceManifestFixture()
+                .virtualRoot(workspace(List.of("."), Optional.empty()))
+                .create();
+        assertMessage(
+                () -> COMPOSER.composeWorkspace(virtualDotRoot, Map.of(ROOT, virtualDotRoot)),
+                "The `.` workspace member requires a root [project] domain.");
+        assertMessage(
+                () -> COMPOSER.composeStandalone(virtualDotRoot),
+                "Standalone effective composition does not accept a [workspace] domain.");
     }
 
     @Test

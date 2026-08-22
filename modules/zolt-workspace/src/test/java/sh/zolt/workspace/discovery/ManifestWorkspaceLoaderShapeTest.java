@@ -202,6 +202,41 @@ final class ManifestWorkspaceLoaderShapeTest {
                 adapted.members().getFirst().directory());
     }
 
+    /**
+     * The root {@code .} member is an ordinary member in the build graph: a workspace dependency it
+     * declares orders its provider before it, exactly as for any other member (design §4.4).
+     */
+    @Test
+    void rootMemberIsOrderedAfterTheProviderItDependsOn() throws IOException {
+        FinalWorkspaceFixtures.write(finalRoot, "zolt.toml", """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                default = ["."]
+                include = [".", "modules/*"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "1.4.0"
+                java = 21
+
+                [project]
+                name = "platform-root"
+
+                [dependencies]
+                "com.example:core" = { workspace = true }
+                """);
+        FinalWorkspaceFixtures.write(finalRoot, "modules/core/zolt.toml", """
+                [project]
+                name = "core"
+                """);
+
+        Workspace adapted = loader.load(finalRoot);
+
+        assertEquals(List.of("modules/core", "."), adapted.buildOrder());
+    }
+
     @Test
     void workspaceSelectorsInRuntimeLanesAreRejected() throws IOException {
         FinalWorkspaceFixtures.write(finalRoot, "zolt.toml", """
