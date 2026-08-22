@@ -122,16 +122,7 @@ final class PackageNestedArtifactAuthorityTestFixtures {
                 mode == PackageMode.SPRING_BOOT_WAR
                         ? "\"org.springframework.boot:spring-boot-loader\" = \"4.0.6\"\n"
                         : "",
-                manifestMode(mode)));
-    }
-
-    /** Legacy {@link PackageMode} to its final {@code [package].mode} symbol (design §17.2). */
-    static String manifestMode(PackageMode mode) {
-        return switch (mode) {
-            case THIN -> "jar";
-            case UBER -> "uber-jar";
-            default -> mode.configValue();
-        };
+                mode.configValue()));
     }
 
     static LockPackage lockPackage(

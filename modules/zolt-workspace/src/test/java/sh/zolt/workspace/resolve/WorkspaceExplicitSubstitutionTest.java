@@ -109,7 +109,7 @@ final class WorkspaceExplicitSubstitutionTest extends WorkspaceLockfileAggregato
                     mode.toString());
             assertTrue(exception.getMessage().contains("`" + mode.configValue() + "`"));
             assertTrue(exception.getMessage().contains("not a reusable library artifact"));
-            assertTrue(exception.getMessage().contains("package mode `thin`"));
+            assertTrue(exception.getMessage().contains("package mode `jar`"));
         }
     }
 

@@ -35,7 +35,7 @@ final class PublishCommandReleaseContextSnapshotTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-dry-run-release-context-snapshot-0.1.0-SNAPSHOT.jar",
                       "entries": 1,
                       "sha256": "%s"

@@ -38,7 +38,7 @@ final class PackagePlanJsonTest extends PackagePlanCommandTestSupport {
         assertFalse(result.stdout().contains("\u001B["), "JSON output should not contain ANSI: " + result.stdout());
         assertFalse(result.stdout().contains("Packaging "), "JSON output should not contain progress text: " + result.stdout());
         assertTrue(result.stdout().startsWith("{\n"));
-        assertTrue(result.stdout().contains("\"mode\": \"thin\""));
+        assertTrue(result.stdout().contains("\"mode\": \"jar\""));
         assertTrue(result.stdout().contains("\"runtimeClasspath\": \"" + projectDir.resolve("target/package-plan-json-0.1.0.runtime-classpath")));
         assertTrue(result.stdout().contains("\"coordinate\": \"com.example:runtime-lib:1.0.0\""));
         assertTrue(result.stdout().contains("\"lanes\": [\"runtime\", \"test\"]"));

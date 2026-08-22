@@ -49,7 +49,7 @@ final class PublishCommandUploadTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-upload-release-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"

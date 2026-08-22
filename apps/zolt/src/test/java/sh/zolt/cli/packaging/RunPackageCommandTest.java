@@ -110,7 +110,7 @@ final class RunPackageCommandTest {
         assertTrue(lines[0].contains("\"depth\":0"));
         assertTrue(lines[1].contains("\"phase\":\"run packaged application\""));
         assertTrue(lines[1].contains("\"depth\":0"));
-        assertTrue(lines[1].contains("\"mode\":\"thin\""));
+        assertTrue(lines[1].contains("\"mode\":\"jar\""));
         assertTrue(lines[1].contains("\"entries\":\"1\""));
         assertTrue(lines[1].contains("\"hasMainClass\":\"true\""));
         assertTrue(lines[1].contains("\"mainClass\":\"com.example.Main\""));

@@ -140,7 +140,7 @@ final class UberJarLayoutAssemblerTest {
 
         assertTrue(exception.getMessage().contains("Duplicate uber jar entry `shared.txt`"));
         assertTrue(exception.getMessage().contains("Move one dependency out of the runtime classpath"));
-        assertTrue(exception.getMessage().contains("thin"));
+        assertTrue(exception.getMessage().contains("jar"));
     }
 
     @Test

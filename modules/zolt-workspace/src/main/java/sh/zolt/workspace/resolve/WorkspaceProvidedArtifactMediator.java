@@ -70,7 +70,7 @@ final class WorkspaceProvidedArtifactMediator {
                             + "`, whose package mode is `"
                             + mode.configValue()
                             + "`. Executable, application, WAR, and BOM packaging is not a reusable library artifact.",
-                    "Split shared code into a separate workspace member with package mode `thin`, then depend on that member.");
+                    "Split shared code into a separate workspace member with package mode `jar`, then depend on that member.");
         });
     }
 

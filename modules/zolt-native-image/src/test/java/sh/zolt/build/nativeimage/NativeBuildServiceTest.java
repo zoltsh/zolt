@@ -242,7 +242,7 @@ final class NativeBuildServiceTest extends NativeBuildServiceTestSupport {
 
         assertTrue(exception.getMessage().contains("Micronaut native images are not supported"));
         assertTrue(exception.getMessage().contains("Micronaut JVM build/test flows"));
-        assertTrue(exception.getMessage().contains("zolt package --mode thin"));
+        assertTrue(exception.getMessage().contains("zolt package --mode jar"));
         assertTrue(commands.isEmpty());
     }
 

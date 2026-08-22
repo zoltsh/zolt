@@ -127,7 +127,7 @@ final class PublishCommandCredentialTest {
                   "archive": "target/nexus-central-0.1.0.jar",
                   "archiveSha256": "%s",
                   "artifacts": [
-                    { "classifier": "main", "type": "thin", "path": "target/nexus-central-0.1.0.jar", "entries": 1, "sha256": "%s" },
+                    { "classifier": "main", "type": "jar", "path": "target/nexus-central-0.1.0.jar", "entries": 1, "sha256": "%s" },
                     { "classifier": "sources", "type": "jar", "path": "target/nexus-central-0.1.0-sources.jar", "entries": 1, "sha256": "%s" },
                     { "classifier": "javadoc", "type": "jar", "path": "target/nexus-central-0.1.0-javadoc.jar", "entries": 1, "sha256": "%s" }
                   ]

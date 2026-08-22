@@ -107,7 +107,7 @@ final class QuarkusFastJarLayoutAssemblerTest {
                         "inspect package directory"));
 
         assertEquals(
-                "Framework package mode `quarkus` returned package mode `thin`. Check the framework package adapter.",
+                "Framework package mode `quarkus` returned package mode `jar`. Check the framework package adapter.",
                 exception.getMessage());
     }
 }

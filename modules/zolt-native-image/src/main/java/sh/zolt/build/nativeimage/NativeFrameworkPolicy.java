@@ -29,7 +29,7 @@ final class NativeFrameworkPolicy {
                     "Micronaut native images are not supported by Zolt yet. "
                             + "Zolt supports basic Micronaut JVM build/test flows through Java annotation processors, "
                             + "but does not run Micronaut AOT or framework-native processing in the public beta. "
-                            + "Use `zolt build`, `zolt test`, or `zolt package --mode thin` for the current beta path.");
+                            + "Use `zolt build`, `zolt test`, or `zolt package --mode jar` for the current beta path.");
         }
         if (quarkusProject(config)) {
             throw new NativeImageException(

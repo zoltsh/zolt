@@ -137,7 +137,7 @@ final class PackageModePackagerRegistry {
                 optionalCacheRoot(
                         request.cacheRoot(),
                         request.classpathPackages(),
-                        "Uber package mode requires dependency jar access from zolt.lock. Use single-project `zolt package --mode uber` for now; workspace uber packaging is not wired yet."),
+                        "Uber package mode requires dependency jar access from zolt.lock. Use single-project `zolt package --mode uber-jar` for now; workspace uber packaging is not wired yet."),
                 request.classpathPackages(),
                 request.applicationInputs(),
                 request.digests()));

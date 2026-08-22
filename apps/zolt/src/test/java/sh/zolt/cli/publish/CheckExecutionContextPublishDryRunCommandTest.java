@@ -34,7 +34,7 @@ final class CheckExecutionContextPublishDryRunCommandTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/check-context-ci-publish-dry-run-ok-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"

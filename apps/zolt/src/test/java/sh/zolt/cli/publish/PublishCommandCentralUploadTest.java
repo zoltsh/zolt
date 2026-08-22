@@ -60,7 +60,7 @@ final class PublishCommandCentralUploadTest {
                   "archive": "target/%1$s-0.1.0.jar",
                   "archiveSha256": "%2$s",
                   "artifacts": [
-                    { "classifier": "main", "type": "thin", "path": "target/%1$s-0.1.0.jar", "entries": 1, "sha256": "%2$s" },
+                    { "classifier": "main", "type": "jar", "path": "target/%1$s-0.1.0.jar", "entries": 1, "sha256": "%2$s" },
                     { "classifier": "sources", "type": "jar", "path": "target/%1$s-0.1.0-sources.jar", "entries": 1, "sha256": "%3$s" },
                     { "classifier": "javadoc", "type": "jar", "path": "target/%1$s-0.1.0-javadoc.jar", "entries": 1, "sha256": "%4$s" }
                   ]

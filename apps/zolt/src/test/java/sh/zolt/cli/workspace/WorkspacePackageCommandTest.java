@@ -34,7 +34,7 @@ final class WorkspacePackageCommandTest {
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Resolved workspace dependencies because zolt.lock was missing"));
-        assertTrue(result.stdout().contains("Packaged 1 compiled files as thin jar in apps/api"));
+        assertTrue(result.stdout().contains("Packaged 1 compiled files as jar in apps/api"));
         assertTrue(result.stdout().contains("Included Main-Class manifest entry in apps/api"));
         assertTrue(result.stdout().contains("Packaged 1 workspace members"));
         String[] lines = result.stderr().lines().toArray(String[]::new);

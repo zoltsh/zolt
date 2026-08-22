@@ -87,7 +87,7 @@ smoke.suite("zolt command options smoke", { tags: ["commands"] }, async (t: Smok
     ]);
     expectNoAnsi(t, packagePlan.stdout, "package plan json stdout");
     parseJsonObject(t, packagePlan.stdout, "package plan json stdout");
-    expect.value(packagePlan.stdout).toContain("\"mode\": \"thin\"");
+    expect.value(packagePlan.stdout).toContain("\"mode\": \"jar\"");
     expect.value(packagePlan.stdout).toContain("\"archive\":");
     expect.value(packagePlan.stdout).toContain("\"dependencies\": [");
   });

@@ -22,7 +22,7 @@ export const FRAMEWORK_NATIVE_DIAGNOSTIC_CONTRACTS: readonly FrameworkNativeDiag
   {
     framework: "micronaut",
     mode: "Micronaut native images are not supported",
-    nextStep: "zolt package --mode thin",
+    nextStep: "zolt package --mode jar",
   },
   {
     framework: "quarkus",

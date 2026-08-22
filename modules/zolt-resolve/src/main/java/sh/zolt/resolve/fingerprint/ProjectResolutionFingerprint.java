@@ -80,11 +80,15 @@ public final class ProjectResolutionFingerprint {
         return List.copyOf(inputs);
     }
 
-    /** Only Spring Boot archive modes contribute package tooling to dependency resolution. */
+    /**
+     * Only Spring Boot archive modes contribute package tooling to dependency resolution. The two
+     * tokens are frozen lock identity, not display symbols, so renaming a package mode never
+     * invalidates a checked-in lock.
+     */
     private static String resolutionPackageMode(PackageMode mode) {
         return mode == PackageMode.SPRING_BOOT || mode == PackageMode.SPRING_BOOT_WAR
-                ? PackageMode.SPRING_BOOT.configValue()
-                : PackageMode.THIN.configValue();
+                ? "spring-boot"
+                : "thin";
     }
 
     private static void repositoryInputs(List<String> inputs, Map<String, RepositorySettings> repositories) {

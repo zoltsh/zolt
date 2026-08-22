@@ -32,7 +32,7 @@ final class PublishCommandReleaseContextTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-dry-run-release-context-blocked-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"
@@ -85,7 +85,7 @@ final class PublishCommandReleaseContextTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-dry-run-release-context-ok-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"

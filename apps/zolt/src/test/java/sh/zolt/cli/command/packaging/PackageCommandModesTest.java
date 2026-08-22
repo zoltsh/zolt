@@ -65,16 +65,8 @@ final class PackageCommandModesTest {
 
                 [package]
                 mode = "%s"
-                """.formatted(authored(mode)));
+                """.formatted(mode.configValue()));
 
     }
 
-    /** The final language spells the pre-cut {@code thin} and {@code uber} modes differently. */
-    private static String authored(PackageMode mode) {
-        return switch (mode) {
-            case THIN -> "jar";
-            case UBER -> "uber-jar";
-            default -> mode.configValue();
-        };
-    }
 }

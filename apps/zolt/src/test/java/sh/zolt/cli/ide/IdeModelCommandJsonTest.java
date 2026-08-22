@@ -40,7 +40,7 @@ final class IdeModelCommandJsonTest {
         assertTrue(json.contains("\"project\": {\n    \"name\": \"demo\""));
         assertTrue(json.contains("\"java\": {\n    \"version\": \"" + currentJavaMajorVersionValue()));
         assertTrue(json.contains("\"compiler\": {\n    \"release\": null"));
-        assertTrue(json.contains("\"package\": {\n    \"mode\": \"thin\""));
+        assertTrue(json.contains("\"package\": {\n    \"mode\": \"jar\""));
         assertTrue(json.contains("\"paths\": {\n    \"root\": \"" + root(projectDir)));
         assertTrue(json.contains("\"sourceRoots\": ["));
         assertTrue(json.contains("\"generatedSources\": []"));

@@ -34,7 +34,7 @@ final class CheckExecutionContextCommandTest {
         assertTrue(result.stdout().contains("ok project-model check-context-ci Project model is valid"));
         assertTrue(result.stdout().contains("ok dependency-policy check-context-ci Dependency policy baseline is explainable"));
         assertTrue(result.stdout().contains("ok generated-sources check-context-ci No declared generated-source steps require validation."));
-        assertTrue(result.stdout().contains("ok package-contents check-context-ci Package mode `thin` has 0 dependency dispositions."));
+        assertTrue(result.stdout().contains("ok package-contents check-context-ci Package mode `jar` has 0 dependency dispositions."));
         assertEquals("", result.stderr());
     }
 

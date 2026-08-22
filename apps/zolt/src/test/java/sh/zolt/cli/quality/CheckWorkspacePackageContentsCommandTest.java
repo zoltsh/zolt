@@ -56,16 +56,16 @@ final class CheckWorkspacePackageContentsCommandTest {
                     "ok package-contents apps/webapp webapp Package mode `war` has 1 dependency dispositions."),
                     check.stdout());
             assertTrue(check.stdout().contains(
-                    "ok package-contents tools/admin admin Package mode `thin` has 1 dependency dispositions."),
+                    "ok package-contents tools/admin admin Package mode `jar` has 1 dependency dispositions."),
                     check.stdout());
             assertTrue(check.stdout().contains(
                     "ok package-contents platform platform Package mode `bom` has 0 dependency dispositions."),
                     check.stdout());
             assertTrue(check.stdout().contains(
-                    "ok package-contents apps/consumer consumer Package mode `uber` has 1 dependency dispositions."),
+                    "ok package-contents apps/consumer consumer Package mode `uber-jar` has 1 dependency dispositions."),
                     check.stdout());
             assertTrue(check.stdout().contains(
-                    "ok package-contents apps/required-consumer required-consumer Package mode `uber` has 2 dependency dispositions."),
+                    "ok package-contents apps/required-consumer required-consumer Package mode `uber-jar` has 2 dependency dispositions."),
                     check.stdout());
             assertFalse(
                     check.stdout().contains(

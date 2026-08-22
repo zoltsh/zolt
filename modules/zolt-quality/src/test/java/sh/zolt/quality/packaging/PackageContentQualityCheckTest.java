@@ -278,7 +278,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
                 QualityCheckService.PACKAGE_CONTENTS,
                 QualityCheckStatus.PASSED,
                 "current-evidence",
-                "Package mode `thin` has 0 dependency dispositions.",
+                "Package mode `jar` has 0 dependency dispositions.",
                 "");
     }
 

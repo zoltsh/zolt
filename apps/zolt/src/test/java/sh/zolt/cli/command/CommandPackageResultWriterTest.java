@@ -32,11 +32,11 @@ final class CommandPackageResultWriterTest {
 
         assertEquals(
                 """
-                SUMMARY Packaged 2 compiled files as thin jar
+                SUMMARY Packaged 2 compiled files as jar
                 DETAIL Included Main-Class manifest entry
                 DETAIL Run with: java -jar target/demo.jar
                 DETAIL Run with dependencies: zolt run-package -- [args]
-                DETAIL Thin jar: dependencies are not bundled.
+                DETAIL Jar: dependencies are not bundled.
                 POINTER wrote target/demo.jar
                 POINTER wrote target/demo.runtime-classpath
                 POINTER wrote target/demo.jar.zolt-package.json
@@ -57,7 +57,7 @@ final class CommandPackageResultWriterTest {
 
         assertEquals(
                 """
-                SUMMARY Packaged 4 compiled files as uber jar in member
+                SUMMARY Packaged 4 compiled files as uber-jar in member
                 DETAIL Included Main-Class manifest entry in member
                 POINTER wrote member/target/demo.jar
                 """,
@@ -82,7 +82,7 @@ final class CommandPackageResultWriterTest {
 
         String output = print(result, "");
 
-        assertTrue(output.startsWith("SUMMARY Reused 2 compiled files as thin jar\n"), output);
+        assertTrue(output.startsWith("SUMMARY Reused 2 compiled files as jar\n"), output);
         assertTrue(output.contains("POINTER using target/demo.jar\n"), output);
         assertFalse(output.contains("POINTER wrote"), output);
     }
@@ -99,7 +99,7 @@ final class CommandPackageResultWriterTest {
 
         assertEquals(
                 """
-                SUMMARY Packaged 3 compiled files as war war
+                SUMMARY Packaged 3 compiled files as war
                 DETAIL WAR is a servlet container deployment artifact; use `spring-boot-war` for java -jar.
                 DETAIL WAR: application classes are under WEB-INF/classes and runtime dependencies are under WEB-INF/lib.
                 POINTER wrote target/demo.war

@@ -41,11 +41,11 @@ final class PackageCommandTest extends PackageCommandTestSupport {
         Path jarPath = projectDir.resolve("target/demo-0.1.0.jar");
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("Resolved dependencies because zolt.lock was missing"));
-        assertTrue(result.stdout().contains("Packaged 1 compiled files as thin jar"));
+        assertTrue(result.stdout().contains("Packaged 1 compiled files as jar"));
         assertTrue(result.stdout().contains("Included Main-Class manifest entry"));
         assertTrue(result.stdout().contains("Run with: java -jar " + jarPath));
         assertTrue(result.stdout().contains("Run with dependencies: zolt run-package -- [args]"));
-        assertTrue(result.stdout().contains("Thin jar: dependencies are not bundled."));
+        assertTrue(result.stdout().contains("Jar: dependencies are not bundled."));
         assertTrue(result.stdout().contains(
                 "→ wrote " + projectDir.resolve("target/demo-0.1.0.runtime-classpath")));
         assertTrue(result.stdout().contains("→ wrote " + jarPath));
@@ -82,13 +82,13 @@ final class PackageCommandTest extends PackageCommandTestSupport {
 
         CommandResult result = execute(
                 "package",
-                "--mode", "thin",
+                "--mode", "jar",
                 "--cwd", projectDir.toString(),
                 "--cache-root", tempDir.resolve("cache").toString());
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stderr().contains("changes dependency-resolution tooling"));
-        assertTrue(result.stderr().contains("Set `[package].mode = \"thin\"`"));
+        assertTrue(result.stderr().contains("Set `[package].mode = \"jar\"`"));
         assertTrue(result.stderr().contains("run `zolt resolve`"));
         assertTrue(Files.readString(projectDir.resolve("zolt.toml")).contains("mode = \"spring-boot\""));
         assertFalse(Files.exists(projectDir.resolve("target/demo-0.1.0.jar")));
@@ -110,13 +110,13 @@ final class PackageCommandTest extends PackageCommandTestSupport {
 
         CommandResult result = execute(
                 "package",
-                "--mode", "uber",
+                "--mode", "uber-jar",
                 "--cwd", projectDir.toString(),
                 "--cache-root", tempDir.resolve("cache").toString());
 
         Path jarPath = projectDir.resolve("target/demo-0.1.0.jar");
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("Packaged 1 compiled files as uber jar"));
+        assertTrue(result.stdout().contains("Packaged 1 compiled files as uber-jar"));
         assertTrue(result.stdout().contains("Run as a self-contained jar: java -jar " + jarPath + " [args]"));
         assertTrue(result.stdout().contains(
                 "Uber jar: runtime dependency classes and resources are merged into the archive root."));
@@ -135,12 +135,12 @@ final class PackageCommandTest extends PackageCommandTestSupport {
         CommandResult result = execute(
                 "--color=always",
                 "package",
-                "--mode", "uber",
+                "--mode", "uber-jar",
                 "--cwd", projectDir.toString(),
                 "--cache-root", tempDir.resolve("color-cache").toString());
 
         assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(result.stdout().contains("\u001B[32m✔\u001B[0m Packaged 1 compiled files as uber jar"));
+        assertTrue(result.stdout().contains("\u001B[32m✔\u001B[0m Packaged 1 compiled files as uber-jar"));
         assertTrue(result.stdout().contains("Run as a self-contained jar: "));
         assertFalse(result.stdout().contains("\u001B[32mRun as"));
         assertFalse(result.stdout().contains("\u001B[36mRun as"));
@@ -168,12 +168,12 @@ final class PackageCommandTest extends PackageCommandTestSupport {
 
         CommandResult result = execute(
                 "package",
-                "--mode", "uber",
+                "--mode", "uber-jar",
                 "--cwd", projectDir.toString(),
                 "--cache-root", tempDir.resolve("cache").toString());
 
         assertEquals(0, result.exitCode(), result.stderr());
-        assertTrue(result.stdout().contains("Packaged 1 compiled files as uber jar"));
+        assertTrue(result.stdout().contains("Packaged 1 compiled files as uber-jar"));
         assertEquals(thinLockfile, Files.readString(projectDir.resolve("zolt.lock")));
     }
 

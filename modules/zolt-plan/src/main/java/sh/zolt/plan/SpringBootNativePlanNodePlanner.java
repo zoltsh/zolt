@@ -83,7 +83,7 @@ final class SpringBootNativePlanNodePlanner {
             blockers.add(new PlanBlocker(
                     "unsupported-micronaut-native",
                     "Micronaut native images are not supported by Zolt yet.",
-                    "Use `zolt build`, `zolt test`, or `zolt package --mode thin` for the current beta path."));
+                    "Use `zolt build`, `zolt test`, or `zolt package --mode jar` for the current beta path."));
         }
         if (SpringBootNativeProjectDetector.quarkusProject(config)) {
             blockers.add(new PlanBlocker(

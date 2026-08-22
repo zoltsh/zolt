@@ -331,7 +331,7 @@ final class ProjectValueObjectsTest {
 
         assertEquals(Optional.of(PackageMode.SPRING_BOOT_WAR), PackageMode.fromConfigValue("spring-boot-war"));
         assertEquals(Optional.empty(), PackageMode.fromConfigValue(null));
-        assertEquals("thin, spring-boot, war, spring-boot-war, quarkus, uber, bom", PackageMode.supportedValues());
+        assertEquals("jar, spring-boot, war, spring-boot-war, quarkus, uber-jar, bom", PackageMode.supportedValues());
         assertEquals("jar", PackageMode.THIN.artifactType());
         assertEquals("jar", PackageMode.QUARKUS.artifactType());
         assertEquals("war", PackageMode.SPRING_BOOT_WAR.artifactType());

@@ -139,15 +139,6 @@ final class ResolveServiceSpringBootLoaderVariantTest
                                 && lockPackage.direct()));
     }
 
-    /** Legacy {@link PackageMode} to its final {@code [package].mode} symbol (design §17.2). */
-    private static String manifestMode(PackageMode mode) {
-        return switch (mode) {
-            case THIN -> "jar";
-            case UBER -> "uber-jar";
-            default -> mode.configValue();
-        };
-    }
-
     private ProjectConfig config(PackageMode mode) {
         return new ManifestProjectConfigLoader().load("""
                 [project]
@@ -167,7 +158,7 @@ final class ResolveServiceSpringBootLoaderVariantTest
 
                 [package]
                 mode = "%s"
-                """.formatted(baseUri, manifestMode(mode)));
+                """.formatted(baseUri, mode.configValue()));
     }
 
     private ProjectConfig providedConfig(PackageMode mode) {
@@ -189,6 +180,6 @@ final class ResolveServiceSpringBootLoaderVariantTest
 
                 [package]
                 mode = "%s"
-                """.formatted(baseUri, manifestMode(mode)));
+                """.formatted(baseUri, mode.configValue()));
     }
 }

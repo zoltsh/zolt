@@ -31,7 +31,7 @@ final class NativePackageOutputIsolationCommandTest {
             addSpringArtifacts(repository);
             Path nativeImage = NativeCommandTestSupport.writeFakeNativeImage(
                     tempDir.resolve("fake-native-image"));
-            for (String mode : List.of("thin", "uber", "spring-boot", "spring-boot-war")) {
+            for (String mode : List.of("jar", "uber-jar", "spring-boot", "spring-boot-war")) {
                 Path project = writeProject(mode, repository.baseUri().toString());
                 Path cache = tempDir.resolve("cache-" + mode);
                 assertSuccess(execute(
@@ -65,10 +65,10 @@ final class NativePackageOutputIsolationCommandTest {
         // Native output paths are relative to [build.output].root (design 10.2), so a collision with a
         // package artifact is authored by pointing a build output at the native directory instead.
         for (Collision collision : List.of(
-                new Collision("uber", "native", "native-image.log", ""),
-                new Collision("uber", "native", "spring-aot-evidence.json", ""),
-                new Collision("uber", "native", "input", ""),
-                new Collision("uber", "native", "demo", "native"),
+                new Collision("uber-jar", "native", "native-image.log", ""),
+                new Collision("uber-jar", "native", "spring-aot-evidence.json", ""),
+                new Collision("uber-jar", "native", "input", ""),
+                new Collision("uber-jar", "native", "demo", "native"),
                 new Collision("war", "native", "demo", "native"))) {
             Path project = writeCollisionProject(collision);
             Path cache = tempDir.resolve("collision-cache-" + collision.id());
@@ -127,7 +127,7 @@ final class NativePackageOutputIsolationCommandTest {
 
                 [publish.repositories.test-releases]
                 url = "https://repo.example.test/releases"
-                """.formatted(Runtime.version().feature(), repositoryUrl, authoredMode(mode), spring));
+                """.formatted(Runtime.version().feature(), repositoryUrl, mode, spring));
         Path source = project.resolve("src/main/java/com/example/Main.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, """
@@ -161,7 +161,7 @@ final class NativePackageOutputIsolationCommandTest {
                 name = "%s"
                 """.formatted(
                 Runtime.version().feature(),
-                authoredMode(collision.mode()),
+                collision.mode(),
                 collision.buildOutputMain().isEmpty()
                         ? ""
                         : "\n[build.output]\nmain = \"" + collision.buildOutputMain() + "\"\n",
@@ -205,15 +205,6 @@ final class NativePackageOutputIsolationCommandTest {
         return hashes;
     }
 
-    /** The manifest names package modes with the final symbols; the engine still reports the old ones. */
-    private static String authoredMode(String mode) {
-        return switch (mode) {
-            case "thin" -> "jar";
-            case "uber" -> "uber-jar";
-            default -> mode;
-        };
-    }
-
     private static CommandResult nativeCommand(Path project, Path cache, Path nativeImage) {
         return execute(
                 "native",
@@ -225,7 +216,7 @@ final class NativePackageOutputIsolationCommandTest {
     private static void assertPrivateInputEvidence(Path nativeInput, String configuredMode) throws IOException {
         Path evidence = nativeInput.resolveSibling("demo-0.1.0.jar.zolt-package.json");
         assertTrue(Files.isRegularFile(evidence), configuredMode);
-        if ("uber".equals(configuredMode)) {
+        if ("uber-jar".equals(configuredMode)) {
             return;
         }
         Path runtimeClasspath = nativeInput.resolveSibling("demo-0.1.0.runtime-classpath");
@@ -233,7 +224,7 @@ final class NativePackageOutputIsolationCommandTest {
         if (configuredMode.startsWith("spring-boot")) {
             assertTrue(Files.readString(runtimeClasspath).contains("spring-boot-loader"), configuredMode);
             String manifest = Files.readString(evidence);
-            assertTrue(manifest.contains("\"mode\": \"thin\""), manifest);
+            assertTrue(manifest.contains("\"mode\": \"jar\""), manifest);
             assertTrue(manifest.contains("\"kind\": \"runtime-classpath\""), manifest);
         }
     }

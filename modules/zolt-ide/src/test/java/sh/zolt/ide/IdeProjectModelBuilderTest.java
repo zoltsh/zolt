@@ -89,7 +89,7 @@ final class IdeProjectModelBuilderTest {
 
         Path root = projectDir.toAbsolutePath().normalize();
         assertEquals(new IdeModel.PackageInfo(
-                        "thin",
+                        "jar",
                         true,
                         true,
                         true,

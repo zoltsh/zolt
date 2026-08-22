@@ -65,7 +65,7 @@ final class PackagePlanFormatterTest {
         assertEquals(
                 """
                 Package plan
-                Mode: thin
+                Mode: jar
                 Archive: %s
                 Application output: %s
                 Application layout: archive root
@@ -98,7 +98,7 @@ final class PackagePlanFormatterTest {
         assertEquals(
                 """
                 {
-                  "mode": "uber",
+                  "mode": "uber-jar",
                   "archive": "%s",
                   "applicationOutput": "%s",
                   "applicationLayout": "archive root",

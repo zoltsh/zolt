@@ -35,7 +35,7 @@ final class PublishCommandEvidenceTest {
                   "artifacts": [
                     {
                       "classifier": "main",
-                      "type": "thin",
+                      "type": "jar",
                       "path": "target/publish-dry-run-supplemental-artifacts-0.1.0.jar",
                       "entries": 1,
                       "sha256": "%s"

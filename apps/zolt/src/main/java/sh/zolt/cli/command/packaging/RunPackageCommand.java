@@ -46,7 +46,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-@Command(name = "run-package", description = "Run a packaged thin jar with runtime dependencies.")
+@Command(name = "run-package", description = "Run a packaged jar with runtime dependencies.")
 public final class RunPackageCommand implements Runnable {
     private final ManifestProjectLoader projectLoader;
     private final RunPackageService runPackageService;

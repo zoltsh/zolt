@@ -69,7 +69,7 @@ final class CheckPackageContentsEvidenceTest {
 
         assertEquals(0, packageResult.exitCode());
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("ok package-contents demo Package mode `thin` has 0 dependency dispositions."));
+        assertTrue(result.stdout().contains("ok package-contents demo Package mode `jar` has 0 dependency dispositions."));
         assertEquals("", result.stderr());
     }
 
@@ -93,7 +93,7 @@ final class CheckPackageContentsEvidenceTest {
 
         CommandResult packaged = execute(
                 "package",
-                "--mode", "thin",
+                "--mode", "jar",
                 "--cwd", projectDir.toString(),
                 "--cache-root", cache.toString());
         CommandResult checked = execute(
@@ -108,7 +108,7 @@ final class CheckPackageContentsEvidenceTest {
         assertTrue(Files.isRegularFile(projectDir.resolve("target/demo-0.1.0-sources.jar")));
         assertEquals(0, checked.exitCode(), checked.stdout());
         assertTrue(checked.stdout().contains(
-                "ok package-contents demo Package mode `thin` has 0 dependency dispositions."));
+                "ok package-contents demo Package mode `jar` has 0 dependency dispositions."));
         assertEquals("", checked.stderr());
     }
 
