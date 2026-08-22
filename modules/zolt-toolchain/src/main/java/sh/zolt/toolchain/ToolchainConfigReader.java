@@ -45,14 +45,7 @@ public final class ToolchainConfigReader {
             return authored.toolchains().mainJava()
                     .flatMap(toolchain -> authoredJava(toolchain, sharedRelease(authored)));
         }
-        return toolchains(content).mainJava().flatMap(runtime -> switch (runtime) {
-            case EffectiveJavaRuntime.System ignored -> Optional.empty();
-            case EffectiveJavaRuntime.Requested requested -> Optional.of(new JavaToolchainRequest(
-                    requested.version().value().toString(),
-                    Optional.of(requested.distribution().value()),
-                    requested.features().value(),
-                    requested.policy().value()));
-        });
+        return toolchains(content).mainJava().flatMap(ToolchainConfigReader::mainRequest);
     }
 
     /**
@@ -71,18 +64,69 @@ public final class ToolchainConfigReader {
             return authored.toolchains().testJava()
                     .flatMap(toolchain -> authoredJavaTest(toolchain, sharedRelease(authored)));
         }
-        return toolchains(content).testJava().flatMap(runtime -> switch (runtime) {
+        return toolchains(content).testJava().flatMap(ToolchainConfigReader::testRequest);
+    }
+
+    /**
+     * Reads one workspace member's effective Java toolchains (design §4.5 "Java toolchains"). The
+     * member inherits the root {@code [toolchain.java]} and {@code [toolchain.java.test]} whole when
+     * it declares none of its own, and the {@code version} default is the member's effective project
+     * release, which may itself come from {@code [workspace.project]} (design §4.3, §11.3). A member
+     * is never composed standalone: it may legally spell {@code workspace = true}, reference a
+     * root-owned credential, or omit an inherited identity field.
+     */
+    public MemberToolchains readWorkspaceMember(
+            String rootContent,
+            String memberContent,
+            String memberPath) {
+        EffectiveToolchains effective = loader
+                .effectiveWorkspaceMember(rootContent, memberContent, memberPath)
+                .project()
+                .shared()
+                .toolchains();
+        boolean authoredByMember = loader.document(memberContent)
+                .authored()
+                .toolchains()
+                .mainJava()
+                .isPresent();
+        Optional<JavaToolchainRequest> main = effective.mainJava().flatMap(ToolchainConfigReader::mainRequest);
+        return new MemberToolchains(
+                main,
+                main.isPresent() && !authoredByMember,
+                effective.testJava().flatMap(ToolchainConfigReader::testRequest));
+    }
+
+    /** One workspace member's effective toolchain requests and where the main request was authored. */
+    public record MemberToolchains(
+            Optional<JavaToolchainRequest> main,
+            boolean mainInherited,
+            Optional<JavaToolchainRequest> test) {
+    }
+
+    private EffectiveToolchains toolchains(String content) {
+        return loader.effective(content).project().shared().toolchains();
+    }
+
+    private static Optional<JavaToolchainRequest> mainRequest(EffectiveJavaRuntime runtime) {
+        return switch (runtime) {
+            case EffectiveJavaRuntime.System ignored -> Optional.empty();
+            case EffectiveJavaRuntime.Requested requested -> Optional.of(new JavaToolchainRequest(
+                    requested.version().value().toString(),
+                    Optional.of(requested.distribution().value()),
+                    requested.features().value(),
+                    requested.policy().value()));
+        };
+    }
+
+    private static Optional<JavaToolchainRequest> testRequest(EffectiveTestJavaRuntime runtime) {
+        return switch (runtime) {
             case EffectiveTestJavaRuntime.SameAsMain ignored -> Optional.empty();
             case EffectiveTestJavaRuntime.Requested requested -> Optional.of(new JavaToolchainRequest(
                     requested.version().value().toString(),
                     Optional.of(requested.distribution().value()),
                     Set.of(),
                     requested.policy().value()));
-        });
-    }
-
-    private EffectiveToolchains toolchains(String content) {
-        return loader.effective(content).project().shared().toolchains();
+        };
     }
 
     private static Optional<JavaToolchainRequest> authoredJava(

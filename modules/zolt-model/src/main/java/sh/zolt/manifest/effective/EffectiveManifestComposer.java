@@ -80,6 +80,29 @@ public final class EffectiveManifestComposer {
         return new EffectiveWorkspace(root, effective);
     }
 
+    /**
+     * Composes one workspace member against its authored root without expanding the rest of the
+     * member set.
+     *
+     * <p>Design §4.5 "Command discovery": a directory a workspace expanded into a member is always
+     * evaluated with the workspace root's shared configuration. A reader that needs exactly one
+     * member's effective view uses this rather than {@link #composeStandalone(AuthoredManifest)},
+     * which both drops the root's shared domains and rejects member-only spellings such as
+     * {@code workspace = true}.
+     */
+    public EffectiveManifest composeWorkspaceMember(
+            AuthoredManifest root,
+            WorkspaceMemberPath path,
+            AuthoredManifest member) {
+        Objects.requireNonNull(root, "Authored workspace root must not be null.");
+        Objects.requireNonNull(path, "Workspace member path must not be null.");
+        Objects.requireNonNull(member, "Authored workspace member must not be null.");
+        AuthoredWorkspace workspace = root.workspace().orElseThrow(() ->
+                new IllegalArgumentException("Workspace composition requires a [workspace] root domain."));
+        validateMemberManifest(root, path, member);
+        return composeMember(root, workspace, path, member);
+    }
+
     private EffectiveManifest composeMember(
             AuthoredManifest root,
             AuthoredWorkspace workspace,

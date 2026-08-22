@@ -5,8 +5,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import sh.zolt.error.ActionableError;
+import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
 import sh.zolt.manifest.adapter.ProjectConfigCoverage;
+import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.manifest.effective.EffectiveManifest;
 import sh.zolt.manifest.effective.EffectiveManifestComposer;
 import sh.zolt.project.CoverageSettings;
@@ -97,6 +99,29 @@ public final class ManifestProjectConfigLoader {
         ZoltManifestDocument document = parser.parse(source);
         try {
             return composer.composeStandalone(document.authored());
+        } catch (IllegalArgumentException exception) {
+            throw new ZoltConfigException(exception.getMessage());
+        }
+    }
+
+    /**
+     * Parses a workspace root and one of its members and composes that member's effective view
+     * (design §4.5). {@code memberPath} is the member's workspace-relative path; the root-project
+     * member {@code "."} reuses the root document, so {@code memberSource} is then the root source.
+     */
+    public EffectiveManifest effectiveWorkspaceMember(
+            String rootSource,
+            String memberSource,
+            String memberPath) {
+        Objects.requireNonNull(rootSource, "Workspace root manifest source is required.");
+        Objects.requireNonNull(memberSource, "Workspace member manifest source is required.");
+        WorkspaceMemberPath path = new WorkspaceMemberPath(memberPath);
+        AuthoredManifest root = parser.parse(rootSource).authored();
+        AuthoredManifest member = path.value().equals(".")
+                ? root
+                : parser.parse(memberSource).authored();
+        try {
+            return composer.composeWorkspaceMember(root, path, member);
         } catch (IllegalArgumentException exception) {
             throw new ZoltConfigException(exception.getMessage());
         }
