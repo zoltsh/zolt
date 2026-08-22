@@ -43,17 +43,13 @@ import java.util.Set;
  *
  * <p><strong>Workspace siblings (fact: a sibling's own externals reach the consumer).</strong> The
  * aggregated lock attributes a sibling-owned external (guava, declared by acme-core) onto the consumer
- * (acme-http) classpath, yet a workspace lock entry deliberately carries an EMPTY
- * {@link LockPackage#dependencies()} — aggregation cannot attribute a sibling's own edges — so a plain
- * BFS would stop at the sibling and drop guava from acme-http's SBOM. This projection is therefore
- * workspace-aware: for every sibling reachable from the member it resolves the sibling's own
- * dependency roots and materializes a populated copy of the sibling's lock entry
- * whose {@code dependencies} list carries synthetic edges to the sibling's <em>propagating</em> direct
- * externals — its api/compile/runtime dependencies, the scopes that transitively land on a consumer's
- * classpath ({@code provided}/{@code dev}/{@code test} are NOT transitive and are excluded). Its own
- * workspace siblings recurse the same way, so a transitive sibling chain (http&#8594;core&#8594;util)
- * fully resolves. The unified BFS then walks those synthetic edges and each external's own edges,
- * pulling the sibling-owned transitive externals into the member's SBOM as-is.
+ * (acme-http) classpath. A workspace lock entry carries its owner's <em>propagating</em> direct
+ * externals in {@link LockPackage#dependencies()} — its compile and runtime directs, the scopes that
+ * transitively land on a consumer's classpath ({@code provided}/{@code dev}/{@code test} are NOT
+ * transitive and are excluded), so this projection walks those edges to reach guava rather than
+ * stopping at the sibling. Each reached sibling's own siblings recurse the same way, so a transitive
+ * sibling chain (http&#8594;core&#8594;util) fully resolves, and the unified BFS pulls every
+ * sibling-owned transitive external into the member's SBOM as-is.
  *
  * <p><strong>Root authority.</strong> The aggregated lock's {@code direct} flag is OR'd across every
  * member and must NOT drive a member's SBOM. Member-qualified {@code dependencyRoot} records select
