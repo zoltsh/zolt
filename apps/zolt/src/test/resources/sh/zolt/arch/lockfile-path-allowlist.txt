@@ -5,5 +5,5 @@
 # input list is not path derivation and needs no entry here.
 #
 # Allowances are intentionally strict: remove the entry when the file stops deriving the path.
-apps/zolt/src/main/java/sh/zolt/cli/command/dependency/ManifestEditCommitter.java|manifest-edit transaction seam; the resolve staging directory is a transaction scratch root, not a project, and the file is owned by the concurrent manifest-edit wave
-apps/zolt/src/main/java/sh/zolt/cli/command/dependency/ManifestEditRecovery.java|manifest-edit transaction seam; recovery reads the journal's recorded lock root, and the file is owned by the concurrent manifest-edit wave
+apps/zolt/src/main/java/sh/zolt/cli/command/dependency/ManifestEditCommitter.java|manifest-edit transaction seam; the resolve staging directory is a transaction scratch root, not a project lock root
+apps/zolt/src/main/java/sh/zolt/cli/command/dependency/ManifestEditRecovery.java|manifest-edit transaction seam; recovery resolves the journal's recorded lock root, which the live matrix classifies
