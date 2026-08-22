@@ -116,7 +116,7 @@ final class QuarkusTestPlanServiceTest {
                                 "target/classes",
                                 "../outside-test-classes"))));
 
-        assertTrue(exception.getMessage().contains("[build].testOutput"));
+        assertTrue(exception.getMessage().contains("[build.output].test"));
         assertTrue(exception.getMessage().contains("../outside-test-classes"));
     }
 

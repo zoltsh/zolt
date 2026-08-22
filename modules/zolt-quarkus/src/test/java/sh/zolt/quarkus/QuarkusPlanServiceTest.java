@@ -154,7 +154,7 @@ final class QuarkusPlanServiceTest {
                         projectDir.resolve("cache")));
 
         assertTrue(exception.getMessage().contains("Quarkus is not enabled"));
-        assertTrue(exception.getMessage().contains("Add `[framework.quarkus] enabled = true`"));
+        assertTrue(exception.getMessage().contains("Add `[package] mode = \"quarkus\"`"));
     }
 
     @Test
@@ -229,7 +229,7 @@ final class QuarkusPlanServiceTest {
                         emptyLockfile(),
                         projectDir.resolve("cache")));
 
-        assertTrue(exception.getMessage().contains("[build].output"));
+        assertTrue(exception.getMessage().contains("[build.output].main"));
         assertTrue(exception.getMessage().contains("../outside-classes"));
     }
 

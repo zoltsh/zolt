@@ -29,7 +29,8 @@ public final class QuarkusProductionOutputValidator {
         if (summary.uberJar()) {
             throw new QuarkusAugmentationException(
                     "Quarkus production application reported an uber jar, but Zolt expected fast-jar output. "
-                            + "Set [framework.quarkus].package = \"fast-jar\" and try again.");
+                            + "[package] mode = \"quarkus\" builds the fast-jar layout; remove the "
+                            + "Quarkus uber-jar configuration and try again.");
         }
 
         Path packageDirectory = normalize(descriptor.packageDirectory());

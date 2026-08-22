@@ -79,7 +79,7 @@ final class QuarkusTestPlanCommandTest {
         assertEquals(1, result.exitCode());
         assertEquals("", result.stdout());
         assertTrue(result.stderr().contains("Quarkus is not enabled for this project"));
-        assertTrue(result.stderr().contains("[framework.quarkus] enabled = true"));
+        assertTrue(result.stderr().contains("[package] mode = \"quarkus\""));
     }
 
     private static CommandResult testPlan(Path projectDir, String directoryOption) {
