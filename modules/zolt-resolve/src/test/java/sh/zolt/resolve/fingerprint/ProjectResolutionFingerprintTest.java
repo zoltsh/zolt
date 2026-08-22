@@ -4,9 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.manifest.WorkspaceMemberPath;
+import sh.zolt.manifest.adapter.EffectiveProjectConfigAdapter;
+import sh.zolt.manifest.authored.AuthoredManifest;
+import sh.zolt.manifest.effective.EffectiveManifestComposer;
+import sh.zolt.manifest.effective.EffectiveWorkspace;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class ProjectResolutionFingerprintTest {
@@ -86,6 +93,86 @@ final class ProjectResolutionFingerprintTest {
         assertNotEquals(
                 valueFor(baseInputs, "dependencies.compile"),
                 valueFor(changedDependencyInputs, "dependencies.compile"));
+    }
+
+    /**
+     * The fingerprint hashes five workspace lane families, so a member's {@code workspace = true}
+     * edges have to reach it: adding or moving one changes what the member resolves even though no
+     * external coordinate moved (design §9.8).
+     */
+    @Test
+    void workspaceDependencyLanesReachTheFingerprint() {
+        ProjectConfig member = workspaceMember("""
+                [project]
+                name = "api"
+
+                [dependencies]
+                "com.example:core" = { workspace = true }
+                """);
+
+        List<String> inputs = ProjectResolutionFingerprint.inputs(member);
+
+        assertTrue(
+                inputs.stream().anyMatch(input ->
+                        input.startsWith("workspaceCompile\t")
+                                && input.contains("com.example:core")
+                                && input.endsWith("modules/core")),
+                () -> "expected the workspace compile edge and its provider path: " + inputs);
+    }
+
+    @Test
+    void movingAWorkspaceEdgeToAnotherLaneChangesTheFingerprint() {
+        String compile = ProjectResolutionFingerprint.fingerprint(workspaceMember("""
+                [project]
+                name = "api"
+
+                [dependencies]
+                "com.example:core" = { workspace = true }
+                """));
+        String test = ProjectResolutionFingerprint.fingerprint(workspaceMember("""
+                [project]
+                name = "api"
+
+                [dependencies.test]
+                "com.example:core" = { workspace = true }
+                """));
+        String none = ProjectResolutionFingerprint.fingerprint(workspaceMember("""
+                [project]
+                name = "api"
+                """));
+
+        assertNotEquals(compile, test);
+        assertNotEquals(compile, none);
+        assertNotEquals(test, none);
+    }
+
+    /** Composes {@code memberToml} as the {@code apps/api} member of a two-member workspace. */
+    private ProjectConfig workspaceMember(String memberToml) {
+        Map<WorkspaceMemberPath, AuthoredManifest> members = new LinkedHashMap<>();
+        WorkspaceMemberPath api = new WorkspaceMemberPath("apps/api");
+        members.put(api, manifestLoader.document(memberToml).authored());
+        members.put(
+                new WorkspaceMemberPath("modules/core"),
+                manifestLoader.document("""
+                        [project]
+                        name = "core"
+                        """).authored());
+        AuthoredManifest root = manifestLoader.document("""
+                [workspace]
+                name = "fingerprint"
+
+                [workspace.members]
+                include = ["apps/*", "modules/*"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "0.1.0"
+                java = 21
+                """).authored();
+        EffectiveWorkspace workspace = new EffectiveManifestComposer().composeWorkspace(root, members);
+        return new EffectiveProjectConfigAdapter().adapt(
+                workspace.members().get(api),
+                EffectiveProjectConfigAdapter.workspacePaths(workspace, api));
     }
 
     private ProjectConfig parse(String toml) {

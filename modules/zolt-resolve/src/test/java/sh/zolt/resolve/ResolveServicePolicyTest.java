@@ -12,6 +12,7 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.DependencyExclusionSpec;
 import sh.zolt.project.DependencyMetadata;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import java.nio.file.Path;
 import java.util.List;
@@ -50,6 +51,58 @@ final class ResolveServicePolicyTest extends ResolveServiceTestSupport {
                         && effect.requestedVersion().orElseThrow().equals("1.0.0")
                         && effect.source().orElseThrow().equals("com.example:app:1.0.0")
                         && effect.policy().contains("dependency edge exclusion")));
+    }
+
+    /**
+     * The resolver's wildcard-exclusion gate fires before any repository request. The final manifest
+     * language cannot spell a wildcard exclusion at all — {@code exclude} takes exact
+     * {@code group:artifact} coordinates (design §9.5) — so the guard is defense in depth for a
+     * {@link ProjectConfig} built programmatically, and it must still cost no network access.
+     */
+    @Test
+    void wildcardDirectDependencyExclusionsFailBeforeNetworkAccess() {
+        Path projectDir = tempDir.resolve("project-wildcard-exclusion");
+        Path cacheRoot = tempDir.resolve("cache-wildcard-exclusion");
+        createDirectory(projectDir);
+        ProjectConfig config = config().withDependencyMetadata(Map.of(
+                DependencyMetadata.key("dependencies", "com.example:app"),
+                new DependencyMetadata(
+                        "dependencies",
+                        "com.example:app",
+                        "1.0.0",
+                        false,
+                        null,
+                        false,
+                        false,
+                        List.of(new DependencyExclusionSpec("*", "legacy-logging")))));
+
+        ResolveException exception = assertThrows(
+                ResolveException.class,
+                () -> resolveService.resolve(projectDir, config, cacheRoot));
+
+        assertTrue(exception.getMessage().contains("Wildcard dependency exclusions are not supported"));
+        assertTrue(exception.getMessage().contains("*:legacy-logging"));
+        assertTrue(exception.getMessage().contains("Replace it with explicit group and artifact exclusions"));
+        assertEquals(0, totalRequests.get());
+    }
+
+    @Test
+    void authoredWildcardExclusionIsRejectedAtTheManifestBoundary() {
+        ZoltConfigException failure = assertThrows(
+                ZoltConfigException.class,
+                () -> new ManifestProjectConfigLoader().load("""
+                        [project]
+                        name = "demo"
+                        version = "0.1.0"
+                        group = "com.example"
+                        java = 21
+
+                        [dependencies]
+                        "com.example:app" = { version = "1.0.0", exclude = ["*:legacy-logging"] }
+                        """));
+
+        assertTrue(failure.getMessage().contains("dependencies.com.example:app.exclude[0]"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("use exact `group:artifact` syntax"), failure.getMessage());
     }
 
     @Test

@@ -125,7 +125,11 @@ final class ResolveServiceOverlayTest extends ResolveServiceTestSupport {
                 java = 21
 
                 [repositories]
-                "company" = { url = "%s", credentials = "company-artifactory" }
+                central = false
+
+                [repositories.company]
+                url = "%s"
+                credentials = "company-artifactory"
 
                 [credentials.company-artifactory]
                 usernameEnv = "ZOLT_TEST_MISSING_REPOSITORY_USERNAME"
