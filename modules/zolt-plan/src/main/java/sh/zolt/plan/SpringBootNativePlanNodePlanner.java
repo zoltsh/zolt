@@ -20,8 +20,13 @@ final class SpringBootNativePlanNodePlanner {
         this.stateFactory = stateFactory;
     }
 
-    List<PlanNode> nodes(Path root, ProjectConfig config, Optional<Path> nativeImageExecutable) {
-        SpringBootNativePlanState state = stateFactory.state(root, config, nativeImageExecutable);
+    List<PlanNode> nodes(
+            Path root,
+            Path lockfilePath,
+            ProjectConfig config,
+            Optional<Path> nativeImageExecutable) {
+        SpringBootNativePlanState state =
+                stateFactory.state(root, lockfilePath, config, nativeImageExecutable);
         List<PlanNode> nodes = new ArrayList<>();
         nodes.add(nativeIntent(config, state));
         nodes.add(supportBoundary(config));

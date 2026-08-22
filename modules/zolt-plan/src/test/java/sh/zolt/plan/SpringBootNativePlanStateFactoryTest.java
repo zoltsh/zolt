@@ -49,6 +49,7 @@ final class SpringBootNativePlanStateFactoryTest {
 
         SpringBootNativePlanState state = factory.state(
                 projectDir.resolve(".").resolve("..").resolve(projectDir.getFileName()),
+                projectDir.resolve("zolt.lock"),
                 nativeConfig(new NativeSettings("", ".zolt/native", List.of("--verbose"))),
                 Optional.of(Path.of("tools/native-image")));
 
@@ -82,6 +83,7 @@ final class SpringBootNativePlanStateFactoryTest {
 
         SpringBootNativePlanState state = factory.state(
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 nativeConfig(NativeSettings.defaults()),
                 Optional.of(projectDir.resolve("missing/native-image")));
 
@@ -94,6 +96,7 @@ final class SpringBootNativePlanStateFactoryTest {
     void stateReportsMissingAotFreshnessWhenNoAotEvidenceExists() {
         SpringBootNativePlanState state = factory.state(
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 nativeConfig(NativeSettings.defaults()),
                 Optional.empty());
 

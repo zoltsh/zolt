@@ -956,6 +956,8 @@ Display-only or command-selection data does not stale the lock. Raw `include`, `
 
 Changing only `default` never requires a lockfile rewrite.
 
+A workspace has exactly one authoritative `zolt.lock`, at the workspace root. A member directory never has one, and no command ever reads or writes a member-local lockfile — including a command run from inside a member. Every plan, resolve, package, and test path therefore takes the authoritative lockfile path explicitly from the caller that already knows whether the directory is a member; nothing derives it by resolving `zolt.lock` against the project directory. Machine output names that path canonically and absolutely; human output may label it as the workspace lock, never as a `../..` relative path.
+
 ## 6.9 Root member
 
 Exact `.` is allowed:

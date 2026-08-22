@@ -19,6 +19,7 @@ final class BuildPlanFormatterTest {
         BuildPlan plan = new BuildPlan(
                 1,
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 "demo",
                 PlanTarget.PACKAGE,
                 List.of(
@@ -48,6 +49,7 @@ final class BuildPlanFormatterTest {
                 Zolt plan
                 Project: demo
                 Root: %s
+                Lockfile: %s
                 Target: package
                 Status: blocked
                 Nodes: 2
@@ -59,7 +61,9 @@ final class BuildPlanFormatterTest {
                   blocker missing-main-class: Spring Boot package modes require [project].main.
                     next: Add [project].main to zolt.toml.
                 """
-                .formatted(projectDir.toAbsolutePath().normalize());
+                .formatted(
+                        projectDir.toAbsolutePath().normalize(),
+                        projectDir.toAbsolutePath().normalize().resolve("zolt.lock"));
 
         assertEquals(expected, formatter.text(plan));
     }
@@ -71,6 +75,7 @@ final class BuildPlanFormatterTest {
         BuildPlan plan = new BuildPlan(
                 1,
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 "demo",
                 PlanTarget.CI,
                 List.of(
@@ -100,6 +105,8 @@ final class BuildPlanFormatterTest {
                 {
                   "schemaVersion": 1,
                   "projectRoot": "%s",
+                  "lockfilePath": "%s",
+                  "workspaceLockfile": false,
                   "project": "demo",
                   "target": "ci",
                   "status": "blocked",
@@ -133,7 +140,10 @@ final class BuildPlanFormatterTest {
                   ]
                 }
                 """
-                .formatted(projectDir.toAbsolutePath().normalize().toString().replace("\\", "\\\\"));
+                .formatted(
+                        projectDir.toAbsolutePath().normalize().toString().replace("\\", "\\\\"),
+                        projectDir.toAbsolutePath().normalize().resolve("zolt.lock").toString()
+                                .replace("\\", "\\\\"));
 
         assertEquals(expected, formatter.json(plan));
     }
@@ -143,6 +153,7 @@ final class BuildPlanFormatterTest {
         BuildPlan plan = new BuildPlan(
                 1,
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 "demo",
                 PlanTarget.PACKAGE,
                 List.of(new PlanNode(
@@ -187,7 +198,10 @@ final class BuildPlanFormatterTest {
 
     @Test
     void formatsEmptyReadyPlanAsEmptyNodeArray() {
-        BuildPlan plan = new BuildPlan(0, projectDir, null, PlanTarget.BUILD, null);
+        BuildPlan plan = new BuildPlan(
+                0,
+                projectDir,
+                projectDir.resolve("zolt.lock"), null, PlanTarget.BUILD, null);
 
         String json = formatter.json(plan);
 
@@ -199,12 +213,18 @@ final class BuildPlanFormatterTest {
 
     @Test
     void formatsEmptyReadyPlanAsTextSummaryWithoutNodeRows() {
-        BuildPlan plan = new BuildPlan(0, projectDir.resolve("."), null, PlanTarget.BUILD, null);
+        BuildPlan plan = new BuildPlan(
+                0,
+                projectDir.resolve("."),
+                projectDir.resolve(".").resolve("zolt.lock"), null, PlanTarget.BUILD, null);
 
         String expected = "Zolt plan\n"
                 + "Project: \n"
                 + "Root: "
                 + projectDir.toAbsolutePath().normalize()
+                + "\n"
+                + "Lockfile: "
+                + projectDir.toAbsolutePath().normalize().resolve("zolt.lock")
                 + "\n"
                 + "Target: build\n"
                 + "Status: ready\n"
