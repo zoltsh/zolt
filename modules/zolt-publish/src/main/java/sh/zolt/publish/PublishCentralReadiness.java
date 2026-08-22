@@ -60,11 +60,11 @@ final class PublishCentralReadiness {
         requirements.add(requirement(
                 "project description",
                 !metadata.description().isBlank(),
-                "Add [package.metadata].description."));
+                "Add [project].description."));
         requirements.add(requirement(
                 "project url",
                 !metadata.url().isBlank(),
-                "Add [package.metadata].url."));
+                "Add [project].url."));
         requirements.add(requirement(
                 "license name and url",
                 !metadata.license().isBlank() && !metadata.licenseUrl().isBlank(),
@@ -74,12 +74,11 @@ final class PublishCentralReadiness {
         requirements.add(requirement(
                 "developer information",
                 hasIdentifiableDeveloper(metadata),
-                "Add [package.metadata].developers or a [package.metadata.developer.<id>] table "
-                        + "with a name and email."));
+                "Add a [project.developers.<id>] table with a name and email."));
         requirements.add(requirement(
                 "scm url and connection",
                 !metadata.scm().isBlank() && !metadata.scmConnection().isBlank(),
-                "Add [package.metadata].scm and [package.metadata].scmConnection."));
+                "Add [project.scm].url and [project.scm].connection."));
         if (!pomPackaging) {
             // A BOM (pom packaging) has no compiled sources or Javadoc; Central accepts the POM alone.
             requirements.add(requirement(
