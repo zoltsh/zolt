@@ -1,41 +1,5 @@
 package sh.zolt.cli;
 
-import sh.zolt.cli.command.build.BuildCommand;
-import sh.zolt.cli.command.build.CleanCommand;
-import sh.zolt.cli.command.build.PlanCommand;
-import sh.zolt.cli.command.build.RunCommand;
-import sh.zolt.cli.command.config.ConfigCommand;
-import sh.zolt.cli.command.config.InitCommand;
-import sh.zolt.cli.command.dependency.AddCommand;
-import sh.zolt.cli.command.dependency.ConflictsCommand;
-import sh.zolt.cli.command.dependency.BomCommand;
-import sh.zolt.cli.command.dependency.PlatformsCommand;
-import sh.zolt.cli.command.dependency.RemoveCommand;
-import sh.zolt.cli.command.dependency.VersionCommand;
-import sh.zolt.cli.command.dependency.VersionsCommand;
-import sh.zolt.cli.command.ide.IdeCommand;
-import sh.zolt.cli.command.insight.ExplainCommand;
-import sh.zolt.cli.command.insight.TreeCommand;
-import sh.zolt.cli.command.insight.WhyCommand;
-import sh.zolt.cli.command.nativeimage.NativeCommand;
-import sh.zolt.cli.command.nativeimage.NativeSmokeCommand;
-import sh.zolt.cli.command.packaging.PackageCommand;
-import sh.zolt.cli.command.packaging.RunPackageCommand;
-import sh.zolt.cli.command.packaging.SelfParityCommand;
-import sh.zolt.cli.command.publish.PublishCommand;
-import sh.zolt.cli.command.publish.ReleaseArchiveCommand;
-import sh.zolt.cli.command.publish.ReleaseVerifyCommand;
-import sh.zolt.cli.command.quality.CheckCommand;
-import sh.zolt.cli.command.quality.CoverageCommand;
-import sh.zolt.cli.command.quality.DoctorCommand;
-import sh.zolt.cli.command.quality.PolicyCommand;
-import sh.zolt.cli.command.quarkus.QuarkusCommand;
-import sh.zolt.cli.command.resolve.ClasspathCommand;
-import sh.zolt.cli.command.resolve.ResolveCommand;
-import sh.zolt.cli.command.selfhost.SelfCheckCommand;
-import sh.zolt.cli.command.testcmd.IntegrationTestCommand;
-import sh.zolt.cli.command.testcmd.TestCommand;
-import sh.zolt.cli.command.workspace.WorkspaceCommand;
 import sh.zolt.cli.console.ColorMode;
 import sh.zolt.cli.console.ConsoleStyle;
 import sh.zolt.cli.console.ProgressMode;
@@ -51,59 +15,7 @@ import picocli.CommandLine.Spec;
 @Command(
         name = "zolt",
         versionProvider = ZoltCli.ZoltVersionProvider.class,
-        description = "The modern Java build toolkit.",
-        subcommands = {
-                ZoltHelpCommand.class,
-                InitCommand.class,
-                VersionCommand.class,
-                VersionsCommand.class,
-                WorkspaceCommand.class,
-                sh.zolt.cli.command.self.SelfCommand.class,
-                ConfigCommand.class,
-                sh.zolt.cli.command.cache.CacheCommand.class,
-                CheckCommand.class,
-                AddCommand.class,
-                RemoveCommand.class,
-                PlatformsCommand.class,
-                BomCommand.class,
-                ResolveCommand.class,
-                TreeCommand.class,
-                WhyCommand.class,
-                PolicyCommand.class,
-                ConflictsCommand.class,
-                sh.zolt.cli.command.dependency.OutdatedCommand.class,
-                sh.zolt.cli.command.dependency.UpdateCommand.class,
-                ExplainCommand.class,
-                PlanCommand.class,
-                ClasspathCommand.class,
-                IdeCommand.class,
-                sh.zolt.cli.command.toolchain.ToolchainCommand.class,
-                sh.zolt.cli.command.toolchain.ExecCommand.class,
-                sh.zolt.cli.command.toolchain.ShimsCommand.class,
-                QuarkusCommand.class,
-                sh.zolt.cli.command.task.AliasesCommand.class,
-                sh.zolt.cli.command.task.TasksCommand.class,
-                sh.zolt.cli.command.task.TaskCommand.class,
-                BuildCommand.class,
-                RunCommand.class,
-                TestCommand.class,
-                IntegrationTestCommand.class,
-                CoverageCommand.class,
-                PackageCommand.class,
-                PublishCommand.class,
-                sh.zolt.cli.command.supplychain.SbomCommand.class,
-                sh.zolt.cli.command.supplychain.LicensesCommand.class,
-                RunPackageCommand.class,
-                NativeCommand.class,
-                NativeSmokeCommand.class,
-                ReleaseArchiveCommand.class,
-                sh.zolt.cli.command.publish.ReleaseIndexCommand.class,
-                ReleaseVerifyCommand.class,
-                SelfCheckCommand.class,
-                SelfParityCommand.class,
-                CleanCommand.class,
-                DoctorCommand.class
-        })
+        description = "The modern Java build toolkit.")
 public final class ZoltCli implements Runnable {
     public static final String VERSION = "0.1.0-SNAPSHOT";
 
@@ -214,8 +126,9 @@ public final class ZoltCli implements Runnable {
 
     static CommandLine newCommandLine() {
         ZoltCli rootCommand = new ZoltCli();
-        CommandLine commandLine = new CommandLine(rootCommand)
-                .setCaseInsensitiveEnumValuesAllowed(true);
+        CommandLine commandLine = new CommandLine(rootCommand);
+        ZoltSubcommands.addTo(commandLine);
+        commandLine.setCaseInsensitiveEnumValuesAllowed(true);
         configureUniversalHelp(commandLine);
         CliUsageConfiguration.apply(commandLine, rootCommand::consoleStyle);
         configureExecutionHandling(commandLine, rootCommand);
