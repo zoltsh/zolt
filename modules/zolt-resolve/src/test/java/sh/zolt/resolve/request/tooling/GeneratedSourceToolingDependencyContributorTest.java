@@ -105,7 +105,8 @@ final class GeneratedSourceToolingDependencyContributorTest {
                         version = "7.11.0"
                         """), new ArrayList<>()));
 
-        assertTrue(exception.getMessage().contains("OpenAPI generation requires [generated.tools.openapi].coordinate"));
+        assertTrue(exception.getMessage().contains(
+                "OpenAPI generation step `public-api` requires a coordinate on the [generated.tools.<id>] table"));
         assertTrue(exception.getMessage().contains("run `zolt resolve`"));
     }
 
@@ -118,7 +119,8 @@ final class GeneratedSourceToolingDependencyContributorTest {
                         coordinate = "org.openapitools:openapi-generator-cli"
                         """), new ArrayList<>()));
 
-        assertTrue(exception.getMessage().contains("OpenAPI generation requires [generated.tools.openapi].version"));
+        assertTrue(exception.getMessage().contains(
+                "requires a version for org.openapitools:openapi-generator-cli"));
         assertTrue(exception.getMessage().contains("org.openapitools:openapi-generator-cli"));
         assertTrue(exception.getMessage().contains("run `zolt resolve`"));
     }

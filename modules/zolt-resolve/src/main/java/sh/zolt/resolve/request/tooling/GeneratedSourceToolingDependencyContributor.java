@@ -92,18 +92,21 @@ public final class GeneratedSourceToolingDependencyContributor {
         if (steps.isEmpty()) {
             return;
         }
-        OpenApiGenerationSettings settings = steps.getFirst().openApi();
+        GeneratedSourceStep step = steps.getFirst();
+        OpenApiGenerationSettings settings = step.openApi();
         String coordinate = settings.toolCoordinate()
                 .filter(value -> !value.isBlank())
                 .orElseThrow(() -> new ResolveException(
-                        "OpenAPI generation requires [generated.tools.openapi].coordinate. "
+                        "OpenAPI generation step `" + step.id()
+                                + "` requires a coordinate on the [generated.tools.<id>] table it names. "
                                 + "Add org.openapitools:openapi-generator-cli with version or versionRef, run `zolt resolve`, then retry."));
         String version = settings.toolVersion()
                 .filter(value -> !value.isBlank())
                 .orElseThrow(() -> new ResolveException(
-                        "OpenAPI generation requires [generated.tools.openapi].version for "
-                                + coordinate
-                                + ". Add version or versionRef, run `zolt resolve`, then retry."));
+                        "OpenAPI generation step `" + step.id()
+                                + "` requires a version for " + coordinate
+                                + " on the [generated.tools.<id>] table it names. "
+                                + "Add version or versionRef, run `zolt resolve`, then retry."));
         addToolRequest(requests, coordinate, version, DependencyScope.TOOL_OPENAPI);
     }
 
