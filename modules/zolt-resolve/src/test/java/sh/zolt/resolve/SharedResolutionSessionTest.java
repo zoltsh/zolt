@@ -90,9 +90,9 @@ final class SharedResolutionSessionTest extends ResolveServiceTestSupport {
         addRepositoryArtifact("repo-a", "lib-a", "jar-a");
         addRepositoryArtifact("repo-b", "lib-b", "jar-b");
         ProjectConfig privateFirst = repositoryOrdering(
-                Map.of("a-private", repositoryUrl("repo-a"), "b-public", repositoryUrl("repo-b")));
+                ordered("a-private", repositoryUrl("repo-a"), "b-public", repositoryUrl("repo-b")));
         ProjectConfig publicFirst = repositoryOrdering(
-                Map.of("a-public", repositoryUrl("repo-b"), "b-private", repositoryUrl("repo-a")));
+                ordered("a-public", repositoryUrl("repo-b"), "b-private", repositoryUrl("repo-a")));
         Path cacheRoot = tempDir.resolve("cache");
         WorkspaceResolutionSession session =
                 resolveService.newResolutionSession(cacheRoot, ResolveOptions.defaults());
@@ -171,6 +171,17 @@ final class SharedResolutionSessionTest extends ResolveServiceTestSupport {
                 Map.of("com.example:app", "1.0.0"),
                 Map.of(),
                 sh.zolt.project.BuildSettings.defaults());
+    }
+
+    /**
+     * Repository lookup order is authored policy (design §8.5) and the planner carries it verbatim, so
+     * an ordering fixture has to state it — {@code Map.of} publishes an arbitrary iteration order.
+     */
+    private static Map<String, String> ordered(String firstId, String firstUrl, String secondId, String secondUrl) {
+        Map<String, String> repositories = new java.util.LinkedHashMap<>();
+        repositories.put(firstId, firstUrl);
+        repositories.put(secondId, secondUrl);
+        return repositories;
     }
 
     private ProjectConfig repositoryOrdering(Map<String, String> repositories) {

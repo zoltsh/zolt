@@ -38,6 +38,63 @@ final class RepositoryAccessPlannerTest {
         assertTrue(access.get(1).authentication().isEmpty());
     }
 
+    /**
+     * Design §8.5: fetching is first-match-wins, so an authored {@code order} has to survive to the
+     * plan verbatim. Re-sorting it here would let Maven Central answer for a coordinate a private
+     * repository was declared to serve first.
+     */
+    @Test
+    void queriesRepositoriesInTheAuthoredLookupOrder() {
+        List<RepositoryAccess> access = new RepositoryAccessPlanner().plan(config("""
+                [repositories]
+                order = ["snapshots", "releases", "central"]
+
+                [repositories.releases]
+                url = "https://repo.example/releases"
+
+                [repositories.snapshots]
+                url = "https://repo.example/snapshots"
+                """));
+
+        assertEquals(
+                List.of("snapshots", "releases", "central"),
+                access.stream().map(RepositoryAccess::id).toList());
+    }
+
+    /** Design §8.2/§8.5: adding a private repository shadows Central rather than trailing it. */
+    @Test
+    void placesCentralLastWhenCustomRepositoriesExist() {
+        List<RepositoryAccess> access = new RepositoryAccessPlanner().plan(config("""
+                [repositories.acme]
+                url = "https://repo.example/acme"
+
+                [repositories.zeta]
+                url = "https://repo.example/zeta"
+                """));
+
+        assertEquals(List.of("acme", "zeta", "central"), access.stream().map(RepositoryAccess::id).toList());
+        assertEquals(ProjectConfig.MAVEN_CENTRAL, access.getLast().uri().toString());
+    }
+
+    /**
+     * Design §8.3: {@code central = false} with no custom repository is a deliberate empty universe.
+     * The first request for an external artifact fails with an actionable diagnostic instead of
+     * silently falling back to the repository the manifest disabled.
+     */
+    @Test
+    void reportsTheEmptyRepositoryUniverseInsteadOfFallingBackToCentral() {
+        RepositoryAccessException exception = assertThrows(
+                RepositoryAccessException.class,
+                () -> new RepositoryAccessPlanner().plan(config("""
+                        [repositories]
+                        central = false
+                        """)));
+
+        assertTrue(exception.getMessage().contains("No repositories are configured in zolt.toml."));
+        assertTrue(exception.actionableError().remediation()
+                .contains("[repositories].central = false leaves no repository to query"));
+    }
+
     @Test
     void resolvesCredentialedRepositoryFromEnvironment() {
         RepositoryAccessPlanner planner = new RepositoryAccessPlanner(Map.of(
