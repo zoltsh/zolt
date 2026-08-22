@@ -63,7 +63,7 @@ final class WorkspaceMediationPolicyEnforcer {
                                     + selected
                                     + "`.",
                             "Align the workspace dependency versions with the member's "
-                                    + "[dependencyConstraints] strict constraint, then run `"
+                                    + "[dependencies.constraints] strict constraint, then run `"
                                     + retryCommand
                                     + "` again.");
                 }
@@ -109,9 +109,9 @@ final class WorkspaceMediationPolicyEnforcer {
         throw ResolveException.actionable(
                 "Workspace dependency version conflicts affecting member `"
                         + member
-                        + "` are disallowed by [dependencyPolicy].failOnVersionConflict.",
+                        + "` are disallowed by [dependencies.policy].conflicts.",
                 "Align the conflicting versions with a workspace-wide direct dependency, [platforms] "
-                        + "BOM, or [dependencyConstraints] strict constraint, then run `"
+                        + "BOM, or [dependencies.constraints] strict constraint, then run `"
                         + retryCommand
                         + "` again. Conflicts: "
                         + descriptions);

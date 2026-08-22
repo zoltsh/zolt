@@ -60,8 +60,8 @@ final class ExplainSignalsTest {
         ExplainSignalDefinition maven = definition("maven.framework-native.unsupported");
         ExplainSignalDefinition gradle = definition("gradle.framework-native.unsupported");
 
-        assertTrue(maven.nextStep().contains("[framework.springBoot.native] enabled = true"));
-        assertTrue(gradle.nextStep().contains("[framework.springBoot.native] enabled = true"));
+        assertTrue(maven.nextStep().contains("[framework.spring-boot] native = true"));
+        assertTrue(gradle.nextStep().contains("[framework.spring-boot] native = true"));
         assertTrue(maven.nextStep().contains("typed Zolt framework settings"));
         assertTrue(gradle.nextStep().contains("typed Zolt framework settings"));
         assertFalse(maven.nextStep().contains("need dedicated Zolt support"));

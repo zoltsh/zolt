@@ -35,7 +35,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
                         new PackageId("commons-logging", "commons-logging"),
                         Optional.of("1.2"),
                         Optional.of("com.example:app:1.0.0"),
-                        "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)")));
+                        "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)")));
 
         String output = jsonFormatter.tree(config(), lockfile);
 
@@ -84,7 +84,7 @@ final class DependencyTreeJsonTest extends DependencyTreeTestSupport {
                       "id": "commons-logging:commons-logging",
                       "requested": "1.2",
                       "source": "com.example:app:1.0.0",
-                      "policy": "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                      "policy": "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                     }
                   ]
                 }

@@ -83,7 +83,7 @@ final class DependencyTraversalCandidateSelectorTest {
         assertTrue(global.selectedItem().isEmpty());
         assertEquals("global-exclusion", global.policyEffects().getFirst().kind());
         assertEquals(
-                "[dependencyPolicy].exclude com.example:global-lib (use platform replacement)",
+                "[dependencies.policy].deny com.example:global-lib (use platform replacement)",
                 global.policyEffects().getFirst().policy());
     }
 

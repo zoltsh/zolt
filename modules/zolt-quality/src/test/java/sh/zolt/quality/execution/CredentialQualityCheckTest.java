@@ -83,10 +83,10 @@ final class CredentialQualityCheckTest {
                 config,
                 QualityCheckContext.CI).getFirst();
 
-        assertEquals("[repositoryCredentials.company-artifactory]", result.subject());
+        assertEquals("[credentials.company-artifactory]", result.subject());
         assertEquals("Repository `company` references missing credential metadata.", result.message());
         assertEquals(
-                "Define [repositoryCredentials.company-artifactory] with environment variable names, not secret values.",
+                "Define [credentials.company-artifactory] with environment variable names, not secret values.",
                 result.nextStep());
     }
 
@@ -119,7 +119,7 @@ final class CredentialQualityCheckTest {
                 config,
                 QualityCheckContext.CI).getFirst();
 
-        assertEquals("[repositoryCredentials.company-artifactory]", result.subject());
+        assertEquals("[credentials.company-artifactory]", result.subject());
         assertEquals(
                 "CI context requires environment variable ARTIFACTORY_ACCESS_TOKEN for repository `company` credentials `company-artifactory` before resolve/build work starts.",
                 result.message());

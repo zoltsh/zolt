@@ -191,7 +191,7 @@ final class MigrationReadinessFixtureTest {
         assertEquals(json, normalize(formatter.json(MigrationBlockerReports.from(MigrationReadinessScorecards.from(second))), fixture));
         assertFalse(Files.exists(marker));
         assertTrue(text.contains("Zolt migration blocker report: gradle project"));
-        assertTrue(text.contains("blocked  configurations.all, excludes, force, or resolutionStrategy -> [dependencyPolicy] and [dependencyConstraints]"));
+        assertTrue(text.contains("blocked  configurations.all, excludes, force, or resolutionStrategy -> [dependencies.policy] and [dependencies.constraints]"));
         assertTrue(text.contains("blocked  imperative dependency or configuration mutation -> [dependencies], classpath lanes, processors, and generated roots"));
         assertTrue(text.contains("blocked  bootWar archive mutation -> package placement policy"));
         assertTrue(text.contains("non-deterministic  credentials resolved from Gradle properties, env, or defaults -> [repositories] credential identities"));

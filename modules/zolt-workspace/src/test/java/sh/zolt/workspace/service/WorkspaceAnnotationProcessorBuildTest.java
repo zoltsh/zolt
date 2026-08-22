@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * End-to-end proof for : a consumer member declares another workspace member as an
- * annotation processor via {@code [annotationProcessors] "x" = { workspace = true }}. The
+ * annotation processor via {@code [dependencies.processor] "x" = { workspace = true }}. The
  * processor member is compiled first, runs during the consumer's compile (generating a source that
  * the consumer references), and neither the processor member's output nor its transitive
  * dependencies leak onto the consumer's compile/runtime/test classpaths.

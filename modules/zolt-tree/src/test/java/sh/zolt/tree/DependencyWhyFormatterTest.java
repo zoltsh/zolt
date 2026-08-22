@@ -98,7 +98,7 @@ final class DependencyWhyFormatterTest extends DependencyWhyTestSupport {
         assertEquals("""
                 com.example:demo:0.1.0
                 \\- commons-logging:commons-logging (excluded by dependency policy)
-                   \\- global-exclusion requested 1.2 from com.example:app:1.0.0: [dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)
+                   \\- global-exclusion requested 1.2 from com.example:app:1.0.0: [dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)
                 """, output);
     }
 }

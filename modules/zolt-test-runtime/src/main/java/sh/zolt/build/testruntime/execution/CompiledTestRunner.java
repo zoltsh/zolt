@@ -131,7 +131,7 @@ public final class CompiledTestRunner {
             throw new TestRunException(
                     "JUnit Platform Console is not present on the test classpath. "
                             + "Run `zolt resolve` to refresh Zolt's test runner tooling. "
-                            + "Keep JUnit, Spock, and other test engines declared in [test.dependencies].");
+                            + "Keep JUnit, Spock, and other test engines declared in [dependencies.test].");
         }
 
         JdkStatus jdkStatus = jdkDetector.detect(config.project().java());

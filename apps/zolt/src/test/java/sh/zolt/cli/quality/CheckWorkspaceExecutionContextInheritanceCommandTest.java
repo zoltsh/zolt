@@ -30,7 +30,7 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains(
-                "error execution-context apps/api [repositoryCredentials.company] "
+                "error execution-context apps/api [credentials.company] "
                         + "CI context requires environment variable "
                         + MISSING_TOKEN
                         + " for repository `company` credentials `company`"));
@@ -82,7 +82,7 @@ final class CheckWorkspaceExecutionContextInheritanceCommandTest {
 
         assertEquals(1, result.exitCode());
         assertTrue(result.stdout().contains(
-                "error execution-context apps/api [repositoryCredentials.company] "
+                "error execution-context apps/api [credentials.company] "
                         + "CI context requires environment variable "
                         + MISSING_PUBLISH_TOKEN
                         + " for publish repository `releases` credentials `company`"));

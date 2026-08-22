@@ -132,7 +132,7 @@ final class QualityCheckServiceTest {
 
         assertEquals("error", report.status());
         String output = QualityCheckFormatter.text(report);
-        assertTrue(output.contains("error execution-context [repositoryCredentials.company-artifactory] CI context rejects placeholder credential values"));
+        assertTrue(output.contains("error execution-context [credentials.company-artifactory] CI context rejects placeholder credential values"));
         assertTrue(output.contains("ARTIFACTORY_USERNAME, ARTIFACTORY_ACCESS_TOKEN"));
         assertFalse(output.contains("read.only"));
         assertFalse(output.contains("ReadOnly"));
@@ -182,7 +182,7 @@ final class QualityCheckServiceTest {
 
         assertEquals("error", report.status());
         String output = QualityCheckFormatter.text(report);
-        assertTrue(output.contains("error execution-context [repositoryCredentials.publish-creds] CI context rejects placeholder credential values"));
+        assertTrue(output.contains("error execution-context [credentials.publish-creds] CI context rejects placeholder credential values"));
         assertTrue(output.contains("PUBLISH_USERNAME, PUBLISH_ACCESS_TOKEN"));
         assertTrue(output.contains("publish repository `company-releases`"));
         assertFalse(output.contains("dummy"));

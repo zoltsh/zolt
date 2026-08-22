@@ -85,7 +85,7 @@ abstract class DependencyWhyTestSupport extends DependencyTreeTestSupport {
                         new PackageId("commons-logging", "commons-logging"),
                         Optional.of("1.2"),
                         Optional.of("com.example:app:1.0.0"),
-                        "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)")));
+                        "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)")));
     }
 
     protected static ZoltLockfile conflictedLockfile() {

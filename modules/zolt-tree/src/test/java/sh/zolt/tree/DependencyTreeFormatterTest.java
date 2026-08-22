@@ -140,7 +140,7 @@ final class DependencyTreeFormatterTest extends DependencyTreeTestSupport {
                 com.example:demo:0.1.0
                 \\- com.example:app:1.0.0 (lane: implementation; resolved scope: compile)
                 Policy effects
-                - global-exclusion commons-logging:commons-logging:1.2 from com.example:app:1.0.0: [dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)
+                - global-exclusion commons-logging:commons-logging:1.2 from com.example:app:1.0.0: [dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)
                 """, output);
     }
 }

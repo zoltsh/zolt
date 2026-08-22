@@ -173,7 +173,7 @@ final class DependencyWhyJsonFormatterTest extends DependencyWhyTestSupport {
                       "id": "commons-logging:commons-logging",
                       "requested": "1.2",
                       "source": "com.example:app:1.0.0",
-                      "policy": "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                      "policy": "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                     }
                   ]
                 }

@@ -117,15 +117,15 @@ public final class GeneratedSourceToolingDependencyContributor {
         ProtobufGenerationSettings settings = steps.getFirst().protobuf();
         addProtobufToolRequest(
                 requests,
-                "Protobuf generation requires [generated.protobufTool].protocCoordinate.",
-                "Protobuf generation requires [generated.protobufTool].protocVersion",
+                "Protobuf generation requires [generated.tools.protobuf].protocCoordinate.",
+                "Protobuf generation requires [generated.tools.protobuf].protocVersion",
                 settings.protocCoordinate(),
                 settings.protocVersion());
         if (settings.grpc()) {
             addProtobufToolRequest(
                     requests,
-                    "Protobuf gRPC generation requires [generated.protobufTool].grpcPluginCoordinate.",
-                    "Protobuf gRPC generation requires [generated.protobufTool].grpcPluginVersion",
+                    "Protobuf gRPC generation requires [generated.tools.protobuf].grpcCoordinate.",
+                    "Protobuf gRPC generation requires [generated.tools.protobuf].grpcVersion",
                     settings.grpcPluginCoordinate(),
                     settings.grpcPluginVersion());
         }
@@ -141,7 +141,7 @@ public final class GeneratedSourceToolingDependencyContributor {
                 .filter(value -> !value.isBlank())
                 .orElseThrow(() -> new ResolveException(
                         missingCoordinateMessage
-                                + " Add [generated.protobufTool] versions, run `zolt resolve`, then retry."));
+                                + " Add [generated.tools.protobuf] versions, run `zolt resolve`, then retry."));
         String version = versionValue
                 .filter(value -> !value.isBlank())
                 .orElseThrow(() -> new ResolveException(

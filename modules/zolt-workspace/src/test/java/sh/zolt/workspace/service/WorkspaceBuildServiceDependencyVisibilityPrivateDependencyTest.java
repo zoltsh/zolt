@@ -182,7 +182,7 @@ final class WorkspaceBuildServiceDependencyVisibilityPrivateDependencyTest
         assertTrue(exception.getMessage().contains("javac failed with exit code"));
         assertTrue(exception.getMessage().contains("Api.java"));
         assertTrue(exception.getMessage().contains("com.example.internal"));
-        assertTrue(exception.getMessage().contains("move it to [api.dependencies]"));
+        assertTrue(exception.getMessage().contains("move it to [dependencies.api]"));
         assertTrue(Files.exists(tempDir.resolve("modules/core/target/classes/com/acme/core/Core.class")));
         assertFalse(Files.exists(tempDir.resolve("apps/api/target/classes/com/acme/api/Api.class")));
     }

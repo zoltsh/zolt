@@ -67,7 +67,7 @@ final class RootWorkspaceEnterpriseCommandTest {
                     "ok dependency-metadata . org.example:optional"),
                     check.stdout());
             assertTrue(check.stdout().contains(
-                    "ok license-policy . [dependencyPolicy.licenses] Evaluated 3 compile/runtime dependencies"),
+                    "ok license-policy . [dependencies.policy.licenses] Evaluated 3 compile/runtime dependencies"),
                     check.stdout());
 
             Path sbomPath = workspace.resolve("target/root-workspace.cdx.json");

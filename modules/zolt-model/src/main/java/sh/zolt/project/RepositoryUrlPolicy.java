@@ -14,7 +14,7 @@ public final class RepositoryUrlPolicy {
         if (userInfo != null && !userInfo.isBlank()) {
             throw new IllegalArgumentException(
                     subject
-                            + " URL contains embedded credentials. Move credentials to [repositoryCredentials] environment references and set the repository credentials field instead of putting username, password, or token values in the URL.");
+                            + " URL contains embedded credentials. Move credentials to [credentials] environment references and set the repository credentials field instead of putting username, password, or token values in the URL.");
         }
         String scheme = uri.getScheme();
         if (scheme == null || scheme.isBlank()) {

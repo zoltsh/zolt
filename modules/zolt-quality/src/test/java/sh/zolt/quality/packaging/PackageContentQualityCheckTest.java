@@ -100,7 +100,7 @@ final class PackageContentQualityCheckTest extends PackageQualityCheckTestSuppor
                                         "10.1.40")
                                 .nestedJarName()));
         assertEquals(
-                "Move it to [provided.dependencies] when the servlet container supplies it, then run `zolt resolve`.",
+                "Move it to [dependencies.provided] when the servlet container supplies it, then run `zolt resolve`.",
                 result.nextStep());
     }
 

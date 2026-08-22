@@ -123,7 +123,7 @@ final class QualityExecutionContextRunnerTest {
                 .map(result -> result.member().orElse("<root>") + "|" + result.subject() + "|" + result.message())
                 .toList();
         assertTrue(summaries.contains("<root>|ci|CI context policy is active. Policy source: built-in ci context. Locked model checks, generated-source checks, package diagnostics, local overlay rejection, and credential preflight are enabled."));
-        assertTrue(summaries.contains("modules/core|[repositoryCredentials.company-creds]|CI context requires environment variables COMPANY_USER, COMPANY_TOKEN for repository `private` credentials `company-creds` before resolve/build work starts."));
+        assertTrue(summaries.contains("modules/core|[credentials.company-creds]|CI context requires environment variables COMPANY_USER, COMPANY_TOKEN for repository `private` credentials `company-creds` before resolve/build work starts."));
         // The publish dry-run runs once as a family preflight (not per member).
         assertTrue(summaries.stream().anyMatch(
                 summary -> summary.startsWith("<root>|publish-dry-run|CI workspace publish dry-run preflight")));

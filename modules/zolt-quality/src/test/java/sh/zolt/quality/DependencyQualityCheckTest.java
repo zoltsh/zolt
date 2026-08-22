@@ -322,9 +322,9 @@ final class DependencyQualityCheckTest extends QualityCheckServiceTestSupport {
 
         assertEquals(List.of(
                         "passed|policy-conflicts|Dependency policy baseline is explainable: 0 platforms, 2 constraints, 1 exclusion, and 2 direct explicit versions.|",
-                        "failed|[dependencyConstraints].com.example:direct-lib|Strict constraint for `com.example:direct-lib` is overridden by a direct dependency version.|Align the direct dependency version with [dependencyConstraints], or remove the strict constraint if the direct override is intentional.",
-                        "failed|[dependencyConstraints].com.example:transitive-lib|Strict constraint expected `com.example:transitive-lib` version `1.0.0`, but zolt.lock selected `2.0.0`.|Run `zolt resolve` after updating [dependencyConstraints], or change the strict constraint to the selected baseline.",
-                        "failed|[dependencyPolicy].exclude com.example:direct-lib|Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency.|Remove the direct dependency, or remove the exclusion if the dependency is intentional.",
+                        "failed|[dependencies.constraints].com.example:direct-lib|Strict constraint for `com.example:direct-lib` is overridden by a direct dependency version.|Align the direct dependency version with [dependencies.constraints], or remove the strict constraint if the direct override is intentional.",
+                        "failed|[dependencies.constraints].com.example:transitive-lib|Strict constraint expected `com.example:transitive-lib` version `1.0.0`, but zolt.lock selected `2.0.0`.|Run `zolt resolve` after updating [dependencies.constraints], or change the strict constraint to the selected baseline.",
+                        "failed|[dependencies.policy].deny com.example:direct-lib|Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency.|Remove the direct dependency, or remove the exclusion if the dependency is intentional.",
                         "failed|[dependencies].com.example:stale-direct|Direct dependency `com.example:stale-direct:1.0.0` is declared, but zolt.lock did not select that version.|Run `zolt resolve`, then review the selected version or update the direct dependency declaration."),
                 results.stream()
                         .map(result -> result.status().jsonValue()

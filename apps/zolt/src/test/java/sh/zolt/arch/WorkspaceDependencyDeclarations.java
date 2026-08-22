@@ -116,7 +116,7 @@ final class WorkspaceDependencyDeclarations {
      *
      * <p>The guard's subject is whether an edge is declared at all, not which
      * language spells it, so the pre-conversion repository spellings
-     * ([api.dependencies] and {@code workspace = "<path>"}) read as the same edge
+     * ([dependencies.api] and {@code workspace = "<path>"}) read as the same edge
      * as the final ones. The repository converts to the final language atomically
      * in one commit (design §21.2); until then its own manifests are the legacy
      * shape the pinned bootstrap engine parses.

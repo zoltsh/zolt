@@ -21,7 +21,7 @@ import java.util.Set;
  * Current-member provided declarations that authoritatively override deployable runtime artifacts.
  *
  * <p>Workspace lock directness is aggregate state, so it is deliberately ignored here. Authority is
- * the intersection of this member's exact {@code [provided.dependencies]} declarations and the
+ * the intersection of this member's exact {@code [dependencies.provided]} declarations and the
  * resolved provided lane. Runtime reachability is retained separately so Spring Boot WAR placement
  * can choose exactly one of {@code WEB-INF/lib} and {@code WEB-INF/lib-provided}.
  */

@@ -236,7 +236,7 @@ final class LicensePolicyQualityCheckTest extends QualityCheckServiceTestSupport
 
         assertEquals(1, failures(results).size(), results.toString());
         QualityCheckResult failure = failures(results).getFirst();
-        assertEquals("[dependencyPolicy.licenses.exceptions.\"org.example:lib\"]", failure.subject());
+        assertEquals("[dependencies.license-exceptions.\"org.example:lib\"]", failure.subject());
         assertTrue(failure.message().contains("reviewed version 0.9.0"), failure.message());
         assertTrue(failure.message().contains("resolved version is 1.0.0"), failure.message());
     }

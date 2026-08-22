@@ -80,7 +80,7 @@ final class CheckExecutionContextCiTest {
                 "--cwd", projectDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error execution-context [repositoryCredentials.company-artifactory] CI context requires environment variables ZOLT_TEST_MISSING_CHECK_CONTEXT_USERNAME, ZOLT_TEST_MISSING_CHECK_CONTEXT_PASSWORD"));
+        assertTrue(result.stdout().contains("error execution-context [credentials.company-artifactory] CI context requires environment variables ZOLT_TEST_MISSING_CHECK_CONTEXT_USERNAME, ZOLT_TEST_MISSING_CHECK_CONTEXT_PASSWORD"));
         assertTrue(result.stdout().contains("repository `company` credentials `company-artifactory`"));
         assertTrue(result.stdout().contains("Secret values are never printed"));
         assertFalse(result.stdout().contains("repo.example.test/maven"));
@@ -113,7 +113,7 @@ final class CheckExecutionContextCiTest {
                 "--cwd", projectDir.toString());
 
         assertEquals(1, result.exitCode());
-        assertTrue(result.stdout().contains("error execution-context [repositoryCredentials.publish-creds] CI context requires environment variables ZOLT_TEST_MISSING_PUBLISH_CHECK_USERNAME, ZOLT_TEST_MISSING_PUBLISH_CHECK_PASSWORD"));
+        assertTrue(result.stdout().contains("error execution-context [credentials.publish-creds] CI context requires environment variables ZOLT_TEST_MISSING_PUBLISH_CHECK_USERNAME, ZOLT_TEST_MISSING_PUBLISH_CHECK_PASSWORD"));
         assertTrue(result.stdout().contains("publish repository `company-releases` credentials `publish-creds`"));
         assertTrue(result.stdout().contains("Secret values are never printed"));
         assertFalse(result.stdout().contains("repo.example.test/releases"));

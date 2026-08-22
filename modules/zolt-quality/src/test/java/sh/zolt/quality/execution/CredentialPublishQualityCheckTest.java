@@ -68,7 +68,7 @@ final class CredentialPublishQualityCheckTest {
                 config,
                 QualityCheckContext.CI).getFirst();
 
-        assertEquals("[repositoryCredentials.publish-creds]", result.subject());
+        assertEquals("[credentials.publish-creds]", result.subject());
         assertEquals(
                 "CI context requires environment variables PUBLISH_USERNAME, PUBLISH_ACCESS_TOKEN for publish repository `company-releases` credentials `publish-creds` before publish work starts.",
                 result.message());

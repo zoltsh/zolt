@@ -96,7 +96,7 @@ final class DirectDependencyRequestPlannerTest {
                 ResolveException.class,
                 () -> planner.plan(managedTestConfig(), Map.of()));
 
-        assertTrue(exception.getMessage().contains("Dependency com.example:managed-test in [test.dependencies]"));
+        assertTrue(exception.getMessage().contains("Dependency com.example:managed-test in [dependencies.test]"));
         assertTrue(exception.getMessage().contains("uses a platform-managed version"));
         assertTrue(exception.getMessage().contains("Add a version or add a platform"));
     }

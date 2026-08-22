@@ -71,7 +71,7 @@ final class DependencyRequestPlannerTest {
                 ResolveException.class,
                 () -> planner.plan(managedTestDependencyConfig(), Map.of(), false));
 
-        assertTrue(exception.getMessage().contains("Dependency com.example:test-app in [test.dependencies]"));
+        assertTrue(exception.getMessage().contains("Dependency com.example:test-app in [dependencies.test]"));
         assertTrue(exception.getMessage().contains("uses a platform-managed version"));
         assertTrue(exception.getMessage().contains("Add a version or add a platform"));
     }
@@ -105,7 +105,7 @@ final class DependencyRequestPlannerTest {
                 .contains("Dependency policy excludes direct dependency `org.junit.platform:junit-platform-console`"));
         assertTrue(exception.getMessage().contains("Use an internal test launcher"));
         assertTrue(exception.getMessage()
-                .contains("Remove the direct dependency or remove the matching [dependencyPolicy].exclude entry"));
+                .contains("Remove the direct dependency or remove the matching [dependencies.policy].deny entry"));
         assertTrue(exception.getMessage().contains("run `zolt build` again"));
     }
 

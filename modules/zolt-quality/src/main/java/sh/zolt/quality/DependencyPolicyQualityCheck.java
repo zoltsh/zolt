@@ -127,7 +127,7 @@ final class DependencyPolicyQualityCheck {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
                         member,
-                        "[dependencyConstraints]." + constraint.coordinate(),
+                        "[dependencies.constraints]." + constraint.coordinate(),
                         "Strict constraint expected `"
                                 + constraint.coordinate()
                                 + "` version `"
@@ -137,16 +137,16 @@ final class DependencyPolicyQualityCheck {
                                 + "`.",
                         "Run `"
                                 + resolveCommand(workspace)
-                                + "` after updating [dependencyConstraints], or change the strict constraint to the selected baseline."));
+                                + "` after updating [dependencies.constraints], or change the strict constraint to the selected baseline."));
             } else if ("direct-override".equals(constraint.status())) {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
                         member,
-                        "[dependencyConstraints]." + constraint.coordinate(),
+                        "[dependencies.constraints]." + constraint.coordinate(),
                         "Strict constraint for `"
                                 + constraint.coordinate()
                                 + "` is overridden by a direct dependency version.",
-                        "Align the direct dependency version with [dependencyConstraints], or remove the strict constraint if the direct override is intentional."));
+                        "Align the direct dependency version with [dependencies.constraints], or remove the strict constraint if the direct override is intentional."));
             }
         }
     }
@@ -160,7 +160,7 @@ final class DependencyPolicyQualityCheck {
                 results.add(QualityCheckResult.failed(
                         DEPENDENCY_POLICY,
                         member,
-                        "[dependencyPolicy].exclude " + exclusion.coordinate(),
+                        "[dependencies.policy].deny " + exclusion.coordinate(),
                         "Dependency policy excludes `"
                                 + exclusion.coordinate()
                                 + "`, but that package is still a direct dependency.",

@@ -55,11 +55,11 @@ final class ProjectModelQualityCheck {
         return Optional.of(QualityCheckResult.warning(
                 PROJECT_MODEL,
                 member,
-                "[build].outputRoot",
+                "[build.output].root",
                 "Maven or Gradle project files are present ("
                         + String.join(", ", legacyFiles)
-                        + ") while Zolt outputRoot is `target`, so tools may write into the same output tree.",
-                "For side-by-side migration, set [build].outputRoot = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate."));
+                        + ") while the Zolt build output root is `target`, so tools may write into the same output tree.",
+                "For side-by-side migration, set [build.output].root = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate."));
     }
 
     private static List<String> legacyBuildFiles(Path projectRoot) {

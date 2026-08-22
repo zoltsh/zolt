@@ -252,7 +252,7 @@ final class ResolveServiceGeneratedSourceTest extends ResolveServiceTestSupport 
                 ResolveException.class,
                 () -> resolveService.resolve(projectDir, processorPlatformConfig(), cacheRoot));
 
-        assertTrue(exception.getMessage().contains("Dependency com.example:processor in [annotationProcessors]"));
+        assertTrue(exception.getMessage().contains("Dependency com.example:processor in [dependencies.processor]"));
         assertTrue(exception.getMessage().contains("uses a platform-managed version"));
     }
 }

@@ -49,7 +49,7 @@ public final class SelfHostingCheckService {
         add(checks, "JUnit Platform Console",
                 declaresJUnitPlatformConsole(config),
                 JUNIT_PLATFORM_CONSOLE + " is declared",
-                "add " + JUNIT_PLATFORM_CONSOLE + " to [test.dependencies]");
+                "add " + JUNIT_PLATFORM_CONSOLE + " to [dependencies.test]");
         NativeSettings nativeSettings = config.nativeSettings().withDefaultImageName(config.project().name());
         add(checks, "native image name",
                 nativeSettings.imageName() != null && !nativeSettings.imageName().isBlank(),

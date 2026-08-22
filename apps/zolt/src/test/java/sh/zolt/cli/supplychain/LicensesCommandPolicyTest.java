@@ -39,7 +39,7 @@ final class LicensesCommandPolicyTest {
         assertEquals(0, result.exitCode(), result.stderr());
         assertTrue(
                 result.stdout().contains(
-                        "org.example:lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny"),
+                        "org.example:lib:1.0.0  [denied] denied by [dependencies.policy.licenses].deny"),
                 result.stdout());
         assertTrue(result.stdout().contains("License policy: 1 denied, 0 unknown of 1 dependency."), result.stdout());
         assertTrue(
@@ -147,7 +147,7 @@ final class LicensesCommandPolicyTest {
         assertTrue(licenses.stdout().contains("1 stale exception"), licenses.stdout());
         assertEquals(1, check.exitCode(), check.stdout() + check.stderr());
         assertTrue(check.stdout().contains(
-                "[dependencyPolicy.licenses.exceptions.\"org.example:missing\"]"), check.stdout());
+                "[dependencies.license-exceptions.\"org.example:missing\"]"), check.stdout());
     }
 
     @Test
@@ -228,7 +228,7 @@ final class LicensesCommandPolicyTest {
         assertEquals(0, text.exitCode(), text.stderr());
         assertTrue(
                 text.stdout().contains(
-                        "org.example:lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny"),
+                        "org.example:lib:1.0.0  [denied] denied by [dependencies.policy.licenses].deny"),
                 text.stdout());
         assertTrue(text.stdout().contains("License policy: 1 denied, 0 unknown of 1 dependency."), text.stdout());
         // And again the enforcing command agrees — this time by failing.

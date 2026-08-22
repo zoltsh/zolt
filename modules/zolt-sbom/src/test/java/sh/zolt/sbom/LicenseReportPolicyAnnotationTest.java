@@ -90,10 +90,10 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
                   org.example:lib-a:1.0.0
 
                 GPL-3.0-only (1)
-                  org.example:lib-b:2.0.0  [denied] denied by [dependencyPolicy.licenses].deny
+                  org.example:lib-b:2.0.0  [denied] denied by [dependencies.policy.licenses].deny
 
                 UNKNOWN (1)
-                  org.example:lib-c:3.0.0  [unknown] unrecognized license ([dependencyPolicy.licenses].unknown = warn)
+                  org.example:lib-c:3.0.0  [unknown] unrecognized license ([dependencies.policy.licenses].unknown = warn)
                   note: no license found in the cached POM chain; run `zolt resolve` to cache POMs, then re-run.
 
                 License policy: 1 denied, 1 unknown of 3 dependencies. 0 permitted by exception; 0 stale exceptions.
@@ -114,7 +114,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
         assertEquals(0, annotations.unknown());
         assertTrue(
                 text.contains("org.example:lib-c:3.0.0  [denied] unrecognized license and "
-                        + "[dependencyPolicy.licenses].unknown = fail"),
+                        + "[dependencies.policy.licenses].unknown = fail"),
                 text);
         assertTrue(text.contains(
                 "License policy: 2 denied, 0 unknown of 3 dependencies. "
@@ -155,7 +155,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
                           "policy": {
                             "status": "denied",
                             "license": "GPL-3.0-only",
-                            "reason": "denied by [dependencyPolicy.licenses].deny"
+                            "reason": "denied by [dependencies.policy.licenses].deny"
                           }
                         }
                       ]
@@ -171,7 +171,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
                           "policy": {
                             "status": "unknown",
                             "license": "UNKNOWN",
-                            "reason": "unrecognized license ([dependencyPolicy.licenses].unknown = warn)"
+                            "reason": "unrecognized license ([dependencies.policy.licenses].unknown = warn)"
                           }
                         }
                       ]
@@ -220,7 +220,7 @@ final class LicenseReportPolicyAnnotationTest extends SbomTestSupport {
 
         assertTrue(text.contains(
                 "org.example:lib-a:1.0.0  [exception] BSD-3-Clause permitted by "
-                        + "[dependencyPolicy.licenses.exceptions.\"org.example:lib-a\"]\n"
+                        + "[dependencies.license-exceptions.\"org.example:lib-a\"]\n"
                         + "    reason: Reviewed transitive dependency"), text);
         assertTrue(text.contains("org.example:lib-a@1.0.0  [used]"), text);
         assertTrue(text.contains("1 permitted by exception"), text);

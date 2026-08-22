@@ -52,7 +52,7 @@ final class PolicyDependencyPolicyCommandTest {
         assertTrue(result.stdout().contains(
                 "ok dependency-policy demo Dependency policy baseline is explainable: 1 platform, 2 constraints, 3 exclusions, and 1 direct explicit version."));
         assertTrue(result.stdout().contains(
-                "error dependency-policy [dependencyPolicy].exclude com.example:direct-lib Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency."));
+                "error dependency-policy [dependencies.policy].deny com.example:direct-lib Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency."));
         assertTrue(result.stdout().contains(
                 "next: Remove the direct dependency, or remove the exclusion if the dependency is intentional."));
         assertEquals("", result.stderr());
@@ -111,7 +111,7 @@ final class PolicyDependencyPolicyCommandTest {
         assertTrue(result.stdout().contains(
                 "ok dependency-policy apps/api demo Dependency policy baseline is explainable: 1 platform, 2 constraints, 3 exclusions, and 1 direct explicit version."));
         assertTrue(result.stdout().contains(
-                "error dependency-policy apps/api [dependencyPolicy].exclude com.example:direct-lib Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency."));
+                "error dependency-policy apps/api [dependencies.policy].deny com.example:direct-lib Dependency policy excludes `com.example:direct-lib`, but that package is still a direct dependency."));
         assertTrue(result.stdout().contains(
                 "next: Remove the direct dependency, or remove the exclusion if the dependency is intentional."));
         assertEquals("", result.stderr());

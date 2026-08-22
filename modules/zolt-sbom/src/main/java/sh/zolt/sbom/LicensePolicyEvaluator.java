@@ -144,7 +144,7 @@ public final class LicensePolicyEvaluator {
                     declaration,
                     canonical,
                     LicenseVerdict.VIOLATION,
-                    "denied by [dependencyPolicy.licenses].deny",
+                    "denied by [dependencies.policy.licenses].deny",
                     LicensePolicyFindingCause.GLOBAL_DENY));
         }
         if (policy.allow().isEmpty() || policy.allow().contains(canonical)) {
@@ -160,7 +160,7 @@ public final class LicensePolicyEvaluator {
         Optional<LicensePolicyException> exception = matchingException(policy, dependency, version, canonical);
         if (exception.isPresent()) {
             LicensePolicyException matched = exception.orElseThrow();
-            String path = "[dependencyPolicy.licenses.exceptions.\"" + dependency + "\"]";
+            String path = "[dependencies.license-exceptions.\"" + dependency + "\"]";
             LicensePolicyFinding finding = new LicensePolicyFinding(
                     coordinate,
                     purl,
@@ -178,7 +178,7 @@ public final class LicensePolicyEvaluator {
                 declaration,
                 canonical,
                 LicenseVerdict.VIOLATION,
-                "not in [dependencyPolicy.licenses].allow",
+                "not in [dependencies.policy.licenses].allow",
                 LicensePolicyFindingCause.ALLOW_LIST));
     }
 
@@ -203,7 +203,7 @@ public final class LicensePolicyEvaluator {
             LicensePolicySettings policy) {
         if (policy.deny().contains(raw)) {
             return finding(coordinate, purl, raw, raw, LicenseVerdict.VIOLATION,
-                    "denied by [dependencyPolicy.licenses].deny",
+                    "denied by [dependencies.policy.licenses].deny",
                     LicensePolicyFindingCause.GLOBAL_DENY);
         }
         if (policy.allow().contains(raw)) {
@@ -227,10 +227,10 @@ public final class LicensePolicyEvaluator {
             LicensePolicySettings policy) {
         return switch (policy.unknown()) {
             case FAIL -> finding(coordinate, purl, declaration, label, LicenseVerdict.VIOLATION,
-                    "unrecognized license and [dependencyPolicy.licenses].unknown = fail",
+                    "unrecognized license and [dependencies.policy.licenses].unknown = fail",
                     LicensePolicyFindingCause.UNRECOGNIZED);
             case WARN -> finding(coordinate, purl, declaration, label, LicenseVerdict.WARN,
-                    "unrecognized license ([dependencyPolicy.licenses].unknown = warn)",
+                    "unrecognized license ([dependencies.policy.licenses].unknown = warn)",
                     LicensePolicyFindingCause.UNRECOGNIZED);
             case ALLOW -> finding(
                     coordinate,

@@ -155,7 +155,7 @@ final class GeneratedSourceToolingDependencyContributorTest {
                         protocCoordinate = "com.google.protobuf:protoc"
                         """), new ArrayList<>()));
 
-        assertTrue(exception.getMessage().contains("Protobuf generation requires [generated.protobufTool].protocVersion"));
+        assertTrue(exception.getMessage().contains("Protobuf generation requires [generated.tools.protobuf].protocVersion"));
         assertTrue(exception.getMessage().contains("com.google.protobuf:protoc"));
     }
 
@@ -170,7 +170,7 @@ final class GeneratedSourceToolingDependencyContributorTest {
                         grpcCoordinate = "io.grpc:protoc-gen-grpc-java"
                         """), new ArrayList<>()));
 
-        assertTrue(exception.getMessage().contains("Protobuf gRPC generation requires [generated.protobufTool].grpcPluginVersion"));
+        assertTrue(exception.getMessage().contains("Protobuf gRPC generation requires [generated.tools.protobuf].grpcVersion"));
         assertTrue(exception.getMessage().contains("io.grpc:protoc-gen-grpc-java"));
         assertTrue(exception.getMessage().contains("run `zolt resolve`"));
     }

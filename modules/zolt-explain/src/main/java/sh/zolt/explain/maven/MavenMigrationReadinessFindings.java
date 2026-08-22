@@ -97,7 +97,7 @@ public final class MavenMigrationReadinessFindings {
                     MigrationReadinessCategory.PLANNED,
                     signal,
                     "maven-compiler-plugin annotationProcessorPaths",
-                    "[annotationProcessors]",
+                    "[dependencies.processor]",
                     "",
                     signal.nextStep());
             case "maven.parent.snapshot" -> MigrationReadinessFindings.finding(

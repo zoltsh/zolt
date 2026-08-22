@@ -75,7 +75,7 @@ public final class ExplainSignals {
             "maven.framework-native.unsupported",
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
-            "Do not execute Maven framework-native plugins; migrate supported cases to typed Zolt framework settings such as `[framework.springBoot.native] enabled = true`.");
+            "Do not execute Maven framework-native plugins; migrate supported cases to typed Zolt framework settings such as `[framework.spring-boot] native = true`.");
     public static final ExplainSignalDefinition MAVEN_REACTOR_DETECTED = new ExplainSignalDefinition(
             "maven.reactor.detected",
             ExplainSignal.Severity.WARN,
@@ -85,7 +85,7 @@ public final class ExplainSignals {
             "maven.annotation-processor.path",
             ExplainSignal.Severity.WARN,
             ExplainSignal.Category.BUILDABILITY,
-            "Map compiler annotation processor paths to [annotationProcessors] and verify generated code.");
+            "Map compiler annotation processor paths to [dependencies.processor] and verify generated code.");
     public static final ExplainSignalDefinition MAVEN_PARENT_SNAPSHOT = new ExplainSignalDefinition(
             "maven.parent.snapshot",
             ExplainSignal.Severity.BLOCK,
@@ -290,7 +290,7 @@ public final class ExplainSignals {
             "gradle.framework-native.unsupported",
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
-            "Do not execute Gradle framework-native or dev-mode tasks; migrate supported cases to typed Zolt framework settings such as `[framework.springBoot.native] enabled = true`.");
+            "Do not execute Gradle framework-native or dev-mode tasks; migrate supported cases to typed Zolt framework settings such as `[framework.spring-boot] native = true`.");
     public static final ExplainSignalDefinition GRADLE_EXEC_MAPPABLE = new ExplainSignalDefinition(
             "gradle.exec-mappable",
             ExplainSignal.Severity.WARN,

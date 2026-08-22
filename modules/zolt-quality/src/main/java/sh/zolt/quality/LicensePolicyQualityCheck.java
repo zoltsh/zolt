@@ -30,7 +30,7 @@ import sh.zolt.sbom.SbomScopeGroup;
 import sh.zolt.sbom.SbomScopeSelection;
 
 /**
- * Offline license-policy gate for {@code zolt check}. Reads {@code [dependencyPolicy.licenses]},
+ * Offline license-policy gate for {@code zolt check}. Reads {@code [dependencies.policy.licenses]},
  * resolves the compile/runtime dependency licenses from cached POMs, and evaluates them: deny/allow
  * violations fail, UNKNOWN follows the configured strictness. Every failure names the dependency, the
  * license, and the policy line, with an actionable {@code Next:}.
@@ -65,9 +65,9 @@ final class LicensePolicyQualityCheck {
             return List.of(QualityCheckResult.skipped(
                     LICENSE_POLICY,
                     member,
-                    "[dependencyPolicy.licenses]",
+                    "[dependencies.policy.licenses]",
                     "No license policy configured; nothing to enforce.",
-                    "Add [dependencyPolicy.licenses] allow/deny/unknown to enforce license compliance."));
+                    "Add [dependencies.policy.licenses] allow/deny/unknown to enforce license compliance."));
         }
         if (!Files.isRegularFile(lockfilePath)) {
             return List.of(QualityCheckResult.failed(
@@ -105,9 +105,9 @@ final class LicensePolicyQualityCheck {
             return List.of(QualityCheckResult.skipped(
                     LICENSE_POLICY,
                     member,
-                    "[dependencyPolicy.licenses]",
+                    "[dependencies.policy.licenses]",
                     "No license policy configured; nothing to enforce.",
-                    "Add [dependencyPolicy.licenses] allow/deny/unknown to enforce license compliance."));
+                    "Add [dependencies.policy.licenses] allow/deny/unknown to enforce license compliance."));
         }
         return evaluate(member, effectiveConfig, memberSbomLock, cacheRoot, true);
     }
@@ -174,31 +174,31 @@ final class LicensePolicyQualityCheck {
         long stale = evaluation.exceptionAudits().stream().filter(LicenseExceptionAudit::failure).count();
         String message = "Evaluated " + total + " compile/runtime "
                 + QualityCheckText.plural(total, "dependency", "dependencies")
-                + " against [dependencyPolicy.licenses]: " + violations + " violation(s), "
+                + " against [dependencies.policy.licenses]: " + violations + " violation(s), "
                 + warnings + " warning(s). " + exceptions + " permitted by exception, "
                 + stale + " stale exception(s).";
-        return QualityCheckResult.passed(LICENSE_POLICY, member, "[dependencyPolicy.licenses]", message);
+        return QualityCheckResult.passed(LICENSE_POLICY, member, "[dependencies.policy.licenses]", message);
     }
 
     private static String nextStep(LicensePolicyFinding finding) {
         if (finding.cause() == LicensePolicyFindingCause.GLOBAL_DENY) {
             return "Remove " + finding.coordinate()
-                    + " or amend [dependencyPolicy.licenses].deny after review; an exception cannot override deny.";
+                    + " or amend [dependencies.policy.licenses].deny after review; an exception cannot override deny.";
         }
         if (finding.cause() == LicensePolicyFindingCause.UNRECOGNIZED) {
             return "Run `zolt resolve`, verify the dependency's cached POM license metadata, or amend "
-                    + "[dependencyPolicy.licenses].unknown after review; scoped exceptions require SPDX terms.";
+                    + "[dependencies.policy.licenses].unknown after review; scoped exceptions require SPDX terms.";
         }
         return "Remove " + finding.coordinate()
-                + ", add `" + finding.license() + "` to [dependencyPolicy.licenses].allow, or add an exact reviewed "
-                + "[dependencyPolicy.licenses.exceptions.\"group:artifact\"] entry.";
+                + ", add `" + finding.license() + "` to [dependencies.policy.licenses].allow, or add an exact reviewed "
+                + "[dependencies.license-exceptions.\"group:artifact\"] entry.";
     }
 
     private static QualityCheckResult exceptionFailure(
             Optional<String> member,
             LicenseExceptionAudit audit) {
         String dependency = audit.exception().dependency();
-        String path = "[dependencyPolicy.licenses.exceptions.\"" + dependency + "\"]";
+        String path = "[dependencies.license-exceptions.\"" + dependency + "\"]";
         String message = switch (audit.status()) {
             case MISSING -> "Scoped license exception is stale: " + dependency
                     + " is absent from the compile/runtime dependency closure.";

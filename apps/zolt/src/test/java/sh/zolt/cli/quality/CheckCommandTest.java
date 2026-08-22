@@ -103,8 +103,8 @@ final class CheckCommandTest extends CheckCommandTestSupport {
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("ok project-model check-output-root-migration Project model is valid"));
-        assertTrue(result.stdout().contains("warning project-model [build].outputRoot Maven or Gradle project files are present (pom.xml) while Zolt outputRoot is `target`"));
-        assertTrue(result.stdout().contains("next: For side-by-side migration, set [build].outputRoot = \".zolt/build\""));
+        assertTrue(result.stdout().contains("warning project-model [build.output].root Maven or Gradle project files are present (pom.xml) while the Zolt build output root is `target`"));
+        assertTrue(result.stdout().contains("next: For side-by-side migration, set [build.output].root = \".zolt/build\""));
         assertEquals("", result.stderr());
     }
 
@@ -117,9 +117,9 @@ final class CheckCommandTest extends CheckCommandTestSupport {
                 "--color=always", "check", "--check", "project-model", "--cwd", projectDir.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("\u001B[33mwarning\u001B[0m project-model [build].outputRoot"));
+        assertTrue(result.stdout().contains("\u001B[33mwarning\u001B[0m project-model [build.output].root"));
         assertEquals(
-                "  next: For side-by-side migration, set [build].outputRoot = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate.",
+                "  next: For side-by-side migration, set [build.output].root = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate.",
                 lineContaining(result.stdout(), "next: For side-by-side migration"));
         assertFalse(result.stdout().contains("\u001B[33mwarning project-model"));
         assertEquals("", result.stderr());
@@ -140,7 +140,7 @@ final class CheckCommandTest extends CheckCommandTestSupport {
 
         assertEquals(0, result.exitCode());
         assertTrue(result.stdout().contains("ok project-model check-output-root-isolated Project model is valid"));
-        assertTrue(!result.stdout().contains("warning project-model [build].outputRoot"));
+        assertTrue(!result.stdout().contains("warning project-model [build.output].root"));
         assertEquals("", result.stderr());
     }
 

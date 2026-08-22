@@ -198,8 +198,8 @@ public final class JavacRunner {
                     + "missing or unresolved: check the declared dependencies and zolt.lock.";
         }
         return "Fix the Java compilation errors and try again. "
-                + "If annotation processing is configured, inspect [annotationProcessors], "
-                + "[test.annotationProcessors], and processor-scoped entries in zolt.lock.";
+                + "If annotation processing is configured, inspect [dependencies.processor], "
+                + "[dependencies.test-processor], and processor-scoped entries in zolt.lock.";
     }
 
     private static boolean isMissingDependencyFailure(String diagnostics) {

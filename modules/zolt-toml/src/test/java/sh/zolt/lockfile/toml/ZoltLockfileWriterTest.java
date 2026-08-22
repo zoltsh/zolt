@@ -247,13 +247,13 @@ final class ZoltLockfileWriterTest {
                                 new PackageId("org.slf4j", "jcl-over-slf4j"),
                                 Optional.of("2.0.16"),
                                 Optional.of("com.example:app:1.0.0"),
-                                "[dependencyPolicy].exclude org.slf4j:jcl-over-slf4j"),
+                                "[dependencies.policy].deny org.slf4j:jcl-over-slf4j"),
                         new LockPolicyEffect(
                                 "global-exclusion",
                                 new PackageId("commons-logging", "commons-logging"),
                                 Optional.of("1.2"),
                                 Optional.of("com.example:app:1.0.0"),
-                                "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)")));
+                                "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)")));
 
         String output = writer.write(lockfile);
 
@@ -264,7 +264,7 @@ final class ZoltLockfileWriterTest {
                 id = "commons-logging:commons-logging"
                 requested = "1.2"
                 source = "com.example:app:1.0.0"
-                policy = "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                policy = "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                 """));
     }
 

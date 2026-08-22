@@ -143,7 +143,7 @@ final class JdkDetectorTest {
 
         assertFalse(status.ok());
         assertTrue(status.problems().contains(
-                "Java version mismatch. zolt.toml requires 21 or newer but detected 17. Install Java 21 or newer, set JAVA_HOME to a suitable JDK, or update [project].java. Use [compiler].release for older bytecode targets."));
+                "Java version mismatch. zolt.toml requires 21 or newer but detected 17. Install Java 21 or newer, set JAVA_HOME to a suitable JDK, or update [project].java."));
     }
 
     @Test

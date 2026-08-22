@@ -208,7 +208,7 @@ public final class PublishDryRunService {
             if (PublishRepositoryBlockers.hasEmbeddedCredentials(repository.url())) {
                 blockers.add("publish repository `"
                         + repository.id()
-                        + "` URL contains embedded credentials. Move credentials to [repositoryCredentials] environment references.");
+                        + "` URL contains embedded credentials. Move credentials to [credentials] environment references.");
             }
             blockers.addAll(PublishRepositoryBlockers.credentialBlockers(
                     repository, config.repositoryCredentials(), environment));

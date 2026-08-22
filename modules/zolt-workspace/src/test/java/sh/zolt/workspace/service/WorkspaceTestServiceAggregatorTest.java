@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Guards: a workspace member whose {@code [test.dependencies]} declare the
+ * Guards: a workspace member whose {@code [dependencies.test]} declare the
  * {@code junit-jupiter} aggregator (engine + params, launched via the auto-injected
  * {@code junit-platform-console}) runs through the expected launcher while still allowing
  * support-only test sources that discover no tests.

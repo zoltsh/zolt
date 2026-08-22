@@ -34,7 +34,7 @@ final class TestRunServiceFailureTest {
 
         assertTrue(exception.getMessage().contains("JUnit Platform Console is not present"));
         assertTrue(exception.getMessage().contains("Run `zolt resolve`"));
-        assertTrue(exception.getMessage().contains("test engines declared in [test.dependencies]"));
+        assertTrue(exception.getMessage().contains("test engines declared in [dependencies.test]"));
     }
 
     @Test

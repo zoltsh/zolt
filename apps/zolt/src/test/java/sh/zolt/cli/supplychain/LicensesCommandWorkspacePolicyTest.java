@@ -21,7 +21,7 @@ import sh.zolt.cli.CliTestSupport.CommandResult;
 /**
  * {@code zolt licenses --workspace} annotations must agree with the command they point at.
  *
- * <p>{@code [dependencyPolicy]} is member-local, so a member's policy governs only that member's own
+ * <p>{@code [dependencies.policy]} is member-local, so a member's policy governs only that member's own
  * dependency closure — the same scoping {@code zolt check --workspace --check license-policy} enforces.
  * A report that flagged a coordinate the enforcing command passes would be worse than no report at all,
  * so these run both surfaces over one fixture.
@@ -104,7 +104,7 @@ final class LicensesCommandWorkspacePolicyTest {
 
             assertEquals(0, licenses.exitCode(), licenses.stdout() + licenses.stderr());
             assertTrue(licenses.stdout().contains(
-                    "org.example:gpl-lib:1.0.0  [denied] denied by [dependencyPolicy.licenses].deny"),
+                    "org.example:gpl-lib:1.0.0  [denied] denied by [dependencies.policy.licenses].deny"),
                     licenses.stdout());
             assertTrue(licenses.stdout().contains("License policy: 1 denied, 0 unknown of 1 dependency."),
                     licenses.stdout());
@@ -151,7 +151,7 @@ final class LicensesCommandWorkspacePolicyTest {
             assertEquals(0, licenses.exitCode(), licenses.stdout() + licenses.stderr());
             assertTrue(licenses.stdout().contains(
                     "org.example:matchit:1.0.0  [exception] BSD-3-Clause permitted by "
-                            + "[dependencyPolicy.licenses.exceptions.\"org.example:matchit\"]"),
+                            + "[dependencies.license-exceptions.\"org.example:matchit\"]"),
                     licenses.stdout());
             assertTrue(licenses.stdout().contains("org.example:matchit@1.0.0  [used]"), licenses.stdout());
             assertEquals(0, check.exitCode(), check.stdout() + check.stderr());

@@ -65,8 +65,7 @@ public record JdkStatus(
                     + version.orElseThrow()
                     + ". Install Java "
                     + requiredVersion
-                    + " or newer, set JAVA_HOME to a suitable JDK, or update [project].java. "
-                    + "Use [compiler].release for older bytecode targets.");
+                    + " or newer, set JAVA_HOME to a suitable JDK, or update [project].java.");
         }
         return List.copyOf(problems);
     }

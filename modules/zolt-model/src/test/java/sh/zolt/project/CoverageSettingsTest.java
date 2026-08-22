@@ -36,7 +36,7 @@ final class CoverageSettingsTest {
                 IllegalArgumentException.class,
                 () -> new CoverageSettings(
                         Optional.of(120.0), Optional.empty(), Optional.empty(), Optional.empty()));
-        assertTrue(exception.getMessage().contains("[coverage].minLine"));
+        assertTrue(exception.getMessage().contains("[coverage].line"));
     }
 
     @Test

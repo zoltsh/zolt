@@ -16,7 +16,7 @@ import java.util.Set;
 /**
  * Assembles the {@code -processorpath} contribution from workspace-member annotation processors.
  *
- * <p>A workspace processor edge ({@code [annotationProcessors] "x" = { workspace = "modules/proc" }})
+ * <p>A workspace processor edge ({@code [dependencies.processor] "x" = { workspace = "modules/proc" }})
  * makes the processor member a build prerequisite, but its compiled output and transitive
  * dependencies must land on the consumer's processor path ONLY — never on its compile, runtime,
  * test, package, or native classpaths. The processor member is therefore deliberately excluded from

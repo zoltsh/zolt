@@ -96,22 +96,22 @@ final class ManifestFinalBoundaryTest {
     }
 
     @Test
-    void legacyDialectSpellingsAreRejectedWithoutCompatibilityHints() {
+    void removedSpellingsAreRejectedWithoutCompatibilityHints() {
         assertPlainRejection(
                 """
                 [project]
-                name = "legacy"
+                name = "removed"
                 version = "1.0.0"
                 group = "com.example"
                 java = 21
 
-                [api.dependencies]
+                [%s.dependencies]
                 "org.slf4j:slf4j-api" = "2.0.17"
-                """);
+                """.formatted("api"));
         assertPlainRejection(
                 """
                 [project]
-                name = "legacy"
+                name = "removed"
                 version = "1.0.0"
                 group = "com.example"
                 java = "21"
@@ -119,7 +119,7 @@ final class ManifestFinalBoundaryTest {
         assertPlainRejection(
                 """
                 [project]
-                name = "legacy"
+                name = "removed"
                 version = "1.0.0"
                 group = "com.example"
                 java = 21

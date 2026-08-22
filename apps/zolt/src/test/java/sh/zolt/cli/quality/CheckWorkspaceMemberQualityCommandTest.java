@@ -53,9 +53,9 @@ final class CheckWorkspaceMemberQualityCommandTest {
             assertTrue(check.stdout().contains(
                     "ok dependency-policy modules/core core Dependency policy baseline is explainable: 1 platform"));
             assertTrue(check.stdout().contains(
-                    "ok license-policy modules/core [dependencyPolicy.licenses] Evaluated 2 compile/runtime dependencies against [dependencyPolicy.licenses]: 0 violation(s), 0 warning(s)."));
+                    "ok license-policy modules/core [dependencies.policy.licenses] Evaluated 2 compile/runtime dependencies against [dependencies.policy.licenses]: 0 violation(s), 0 warning(s)."));
             assertTrue(check.stdout().contains(
-                    "ok license-policy apps/admin [dependencyPolicy.licenses] Evaluated 2 compile/runtime dependencies against [dependencyPolicy.licenses]: 0 violation(s), 0 warning(s)."));
+                    "ok license-policy apps/admin [dependencies.policy.licenses] Evaluated 2 compile/runtime dependencies against [dependencies.policy.licenses]: 0 violation(s), 0 warning(s)."));
             assertFalse(check.stdout().contains("license-policy modules/core org.example:admin-only"), check.stdout());
             assertEquals("", check.stderr());
         }
@@ -270,10 +270,10 @@ final class CheckWorkspaceMemberQualityCommandTest {
 
             assertEquals(0, check.exitCode(), () -> check.stdout() + check.stderr());
             assertTrue(check.stdout().contains(
-                    "ok license-policy apps/app [dependencyPolicy.licenses] Evaluated 1 compile/runtime dependency"),
+                    "ok license-policy apps/app [dependencies.policy.licenses] Evaluated 1 compile/runtime dependency"),
                     check.stdout());
             assertTrue(check.stdout().contains(
-                    "ok license-policy apps/zip-app [dependencyPolicy.licenses] Evaluated 1 compile/runtime dependency"),
+                    "ok license-policy apps/zip-app [dependencies.policy.licenses] Evaluated 1 compile/runtime dependency"),
                     check.stdout());
             assertFalse(check.stdout().contains(
                     "Evaluated 2 compile/runtime dependencies"), check.stdout());

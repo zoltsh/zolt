@@ -61,7 +61,7 @@ final class MavenAnnotationProcessorInspectionTest {
 
         assertTrue(scorecardText.contains("generated-sources: planned"), () -> scorecardText);
         assertTrue(scorecardText.contains("maven-compiler-plugin annotationProcessorPaths"), () -> scorecardText);
-        assertTrue(scorecardText.contains("[annotationProcessors]"), () -> scorecardText);
+        assertTrue(scorecardText.contains("[dependencies.processor]"), () -> scorecardText);
         assertTrue(scorecardText.contains("signal: maven.annotation-processor.path"), () -> scorecardText);
         assertTrue(blockerText.contains("maven-compiler-plugin annotationProcessorPaths"), () -> blockerText);
         assertTrue(blockerText.contains("signal: maven.annotation-processor.path"), () -> blockerText);

@@ -49,7 +49,7 @@ final class ResolveServicePolicyConstraintTest extends ResolveServiceTestSupport
         assertEquals("global-exclusion", effect.kind());
         assertEquals("1.0.0", effect.requestedVersion().orElseThrow());
         assertEquals("com.example:app:1.0.0", effect.source().orElseThrow());
-        assertEquals("[dependencyPolicy].exclude com.example:lib (Use the internal logging bridge instead)", effect.policy());
+        assertEquals("[dependencies.policy].deny com.example:lib (Use the internal logging bridge instead)", effect.policy());
     }
 
     @Test
@@ -157,14 +157,14 @@ final class ResolveServicePolicyConstraintTest extends ResolveServiceTestSupport
                 () -> resolveService.resolve(projectDir, config, cacheRoot));
 
         assertTrue(exception.getMessage().contains(
-                "Dependency version conflicts are disallowed by [dependencyPolicy].failOnVersionConflict"));
+                "Dependency version conflicts are disallowed by [dependencies.policy].conflicts"));
         assertTrue(exception.getMessage().contains("com.example:lib selected 2.0.0"));
         assertTrue(exception.getMessage().contains("direct dependency wins"));
         assertTrue(exception.getMessage().contains("1.0.0 [transitive compile]"));
         assertTrue(exception.getMessage().contains("2.0.0 [direct compile]"));
         assertTrue(exception.getMessage().contains("Align the conflicting versions with a [platforms] BOM"));
-        assertTrue(exception.getMessage().contains("[dependencyConstraints] strict constraint"));
-        assertTrue(!exception.getMessage().contains("[dependencyPolicy] strict constraint"));
+        assertTrue(exception.getMessage().contains("[dependencies.constraints] strict constraint"));
+        assertTrue(!exception.getMessage().contains("[dependencies.policy] strict constraint"));
     }
 
     @Test
@@ -206,7 +206,7 @@ final class ResolveServicePolicyConstraintTest extends ResolveServiceTestSupport
 
         assertTrue(exception.getMessage().contains("Dependency policy excludes direct dependency `com.example:app`"));
         assertTrue(exception.getMessage().contains("Application artifact is banned in this policy"));
-        assertTrue(exception.getMessage().contains("Remove the direct dependency or remove the matching [dependencyPolicy].exclude entry"));
+        assertTrue(exception.getMessage().contains("Remove the direct dependency or remove the matching [dependencies.policy].deny entry"));
         assertEquals(0, totalRequests.get());
     }
 
@@ -227,7 +227,7 @@ final class ResolveServicePolicyConstraintTest extends ResolveServiceTestSupport
                 () -> resolveService.resolve(projectDir, config, cacheRoot));
 
         assertTrue(exception.getMessage().contains(
-                "Wildcard dependency exclusions are not supported in [dependencyPolicy].exclude: com.example:*"));
+                "Wildcard dependency exclusions are not supported in [dependencies.policy].deny: com.example:*"));
         assertTrue(exception.getMessage().contains("Replace it with explicit group and artifact exclusions"));
     }
 }

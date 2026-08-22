@@ -83,7 +83,7 @@ public final class RepositoryAccessPlanner {
                             + repository.id()
                             + "` references credentials `"
                             + credentialId
-                            + "`, but [repositoryCredentials."
+                            + "`, but [credentials."
                             + credentialId
                             + "] is not defined.");
         }

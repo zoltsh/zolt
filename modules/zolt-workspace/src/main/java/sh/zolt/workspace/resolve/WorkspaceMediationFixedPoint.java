@@ -120,7 +120,7 @@ final class WorkspaceMediationFixedPoint {
                         + MAX_PASSES
                         + " passes.",
                 "Align the changing versions with workspace-wide direct dependencies, [platforms] "
-                        + "BOMs, or [dependencyConstraints] strict constraints, then run `"
+                        + "BOMs, or [dependencies.constraints] strict constraints, then run `"
                         + options.retryCommand()
                         + "` again.");
     }
@@ -148,7 +148,7 @@ final class WorkspaceMediationFixedPoint {
                         + mismatches(outputs, overrides, provided)
                         + ".",
                 "Align the cycling versions with workspace-wide direct dependencies, [platforms] "
-                        + "BOMs, or [dependencyConstraints] strict constraints, then run `"
+                        + "BOMs, or [dependencies.constraints] strict constraints, then run `"
                         + options.retryCommand()
                         + "` again.");
     }

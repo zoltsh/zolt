@@ -30,7 +30,7 @@ import sh.zolt.project.ProtobufGenerationSettings;
  * and {@code [generated.test]} domains onto the legacy {@link GeneratedSourceStep} list.
  *
  * <p>The final language replaced the single global {@code [generated.openapiTool]},
- * {@code [generated.protobufTool]}, and {@code [generated.execTools]} registries with one named
+ * {@code [generated.tools.protobuf]}, and {@code [generated.execTools]} registries with one named
  * {@code [generated.tools.<id>]} namespace (design §13.2), so the adapter resolves each step's tool
  * reference and folds the declaration into the per-step legacy settings the engine expects.
  */

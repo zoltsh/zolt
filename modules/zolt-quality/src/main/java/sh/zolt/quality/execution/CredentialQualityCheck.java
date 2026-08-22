@@ -60,9 +60,9 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credentialId.orElseThrow() + "]",
+                        "[credentials." + credentialId.orElseThrow() + "]",
                         "Repository `" + repository.id() + "` references missing credential metadata.",
-                        "Define [repositoryCredentials." + credentialId.orElseThrow() + "] with environment variable names, not secret values."));
+                        "Define [credentials." + credentialId.orElseThrow() + "] with environment variable names, not secret values."));
                 continue;
             }
 
@@ -72,7 +72,7 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credential.id() + "]",
+                        "[credentials." + credential.id() + "]",
                         "CI context requires environment variable"
                                 + (missing.size() == 1 ? " " : "s ")
                                 + String.join(", ", missing)
@@ -92,7 +92,7 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credential.id() + "]",
+                        "[credentials." + credential.id() + "]",
                         "CI context rejects placeholder credential value"
                                 + (placeholders.size() == 1 ? " " : "s ")
                                 + "for environment variable"
@@ -152,9 +152,9 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credentialId.orElseThrow() + "]",
+                        "[credentials." + credentialId.orElseThrow() + "]",
                         "Publish repository `" + repository.id() + "` references missing credential metadata.",
-                        "Define [repositoryCredentials." + credentialId.orElseThrow() + "] with environment variable names, not secret values."));
+                        "Define [credentials." + credentialId.orElseThrow() + "] with environment variable names, not secret values."));
                 continue;
             }
 
@@ -164,7 +164,7 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credential.id() + "]",
+                        "[credentials." + credential.id() + "]",
                         "CI context requires environment variable"
                                 + (missing.size() == 1 ? " " : "s ")
                                 + String.join(", ", missing)
@@ -184,7 +184,7 @@ final class CredentialQualityCheck {
                 results.add(QualityCheckResult.failed(
                         EXECUTION_CONTEXT,
                         member,
-                        "[repositoryCredentials." + credential.id() + "]",
+                        "[credentials." + credential.id() + "]",
                         "CI context rejects placeholder credential value"
                                 + (placeholders.size() == 1 ? " " : "s ")
                                 + "for environment variable"
@@ -286,7 +286,7 @@ final class CredentialQualityCheck {
                     member,
                     "[repositories." + repository.id() + "]",
                     "CI context rejects embedded credentials in repository `" + repository.id() + "` URL.",
-                    "Move credentials to [repositoryCredentials] environment references. Do not commit username, password, or token values in repository URLs."));
+                    "Move credentials to [credentials] environment references. Do not commit username, password, or token values in repository URLs."));
         } catch (URISyntaxException exception) {
             return Optional.of(QualityCheckResult.failed(
                     EXECUTION_CONTEXT,
@@ -310,7 +310,7 @@ final class CredentialQualityCheck {
                     member,
                     "[publish.repositories." + repository.id() + "]",
                     "CI context rejects embedded credentials in publish repository `" + repository.id() + "` URL.",
-                    "Move publish credentials to [repositoryCredentials] environment references. Do not commit username, password, or token values in publish repository URLs."));
+                    "Move publish credentials to [credentials] environment references. Do not commit username, password, or token values in publish repository URLs."));
         } catch (URISyntaxException exception) {
             return Optional.of(QualityCheckResult.failed(
                     EXECUTION_CONTEXT,

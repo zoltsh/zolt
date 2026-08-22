@@ -193,7 +193,7 @@ public final class GradleMigrationReadinessFindings {
                     MigrationReadinessCategory.BLOCKED,
                     signal,
                     "configurations.all, excludes, force, or resolutionStrategy",
-                    "[dependencyPolicy] and [dependencyConstraints]",
+                    "[dependencies.policy] and [dependencies.constraints]",
                     "",
                     signal.nextStep());
             case "gradle.openapi.generated-sources" -> MigrationReadinessFindings.finding(

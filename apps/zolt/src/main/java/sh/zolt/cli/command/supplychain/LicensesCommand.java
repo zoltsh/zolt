@@ -218,7 +218,7 @@ public final class LicensesCommand implements Runnable {
      * {@code components} is what the report lists — every scope the user selected. {@code enforced} is
      * the separate {@link #ENFORCED_SCOPES} assembly the annotations are computed from, so an
      * optional-scope entry stays listed but unannotated. {@code scopes} pairs each member-local
-     * {@code [dependencyPolicy.licenses]} with the enforced closure it governs.
+     * {@code [dependencies.policy.licenses]} with the enforced closure it governs.
      */
     private record Resolved(
             List<SbomComponent> components,

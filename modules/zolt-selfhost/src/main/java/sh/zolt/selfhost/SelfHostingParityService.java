@@ -145,7 +145,7 @@ public final class SelfHostingParityService {
                 .findFirst()
                 .orElseThrow(() -> new SelfHostingParityException(
                         "Self-hosting parity expected workspace package to produce a selected member. "
-                                + "Check [workspace].defaultMembers or pass a single-project Zolt checkout."))
+                                + "Check [workspace.members].default or pass a single-project Zolt checkout."))
                 .result();
     }
 

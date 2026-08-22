@@ -23,7 +23,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * Isolated exec-tool closures (Hole 1) must not evade [dependencyPolicy].failOnVersionConflict, and every
+ * Isolated exec-tool closures (Hole 1) must not evade [dependencies.policy].conflicts, and every
  * mediation inside a tool closure must reach zolt.lock attributed to that tool. The fixture drives a real
  * version conflict <em>within</em> one tool's closure: gen-a pins shared 1.0.0, gen-b pins shared 2.0.0, so
  * the tool's own resolution mediates shared (newest wins 2.0.0) with no bearing on the main project graph.
@@ -46,7 +46,7 @@ final class ResolveServiceExecToolConflictTest extends ResolveServiceTestSupport
                 () -> resolveService.resolve(projectDir, config, cacheRoot));
 
         assertTrue(exception.getMessage().contains("`codegen` exec-tool closure"), exception.getMessage());
-        assertTrue(exception.getMessage().contains("disallowed by [dependencyPolicy].failOnVersionConflict"));
+        assertTrue(exception.getMessage().contains("disallowed by [dependencies.policy].conflicts"));
         assertTrue(exception.getMessage().contains("com.example:shared selected 2.0.0"));
         assertTrue(exception.getMessage().contains("newest version wins"));
         // The remediation names the tool as well, so the user knows which closure to align.

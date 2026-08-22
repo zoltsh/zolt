@@ -81,7 +81,7 @@ final class QualityCheckEnterpriseTest extends QualityCheckServiceTestSupport {
                 .toList();
         assertEquals(List.of(
                         "execution-context|com.example:local-lib:1.0.0|CI context rejects local repository overlay origin `local-overlay:maven-local`.",
-                        "execution-context|[repositoryCredentials.company-artifactory]|CI context requires environment variable ARTIFACTORY_ACCESS_TOKEN for repository `company` credentials `company-artifactory` before resolve/build work starts.",
+                        "execution-context|[credentials.company-artifactory]|CI context requires environment variable ARTIFACTORY_ACCESS_TOKEN for repository `company` credentials `company-artifactory` before resolve/build work starts.",
                         "lockfile|zolt.lock|Repository `company` requires credentials `company-artifactory`, but environment variables ARTIFACTORY_USERNAME, ARTIFACTORY_ACCESS_TOKEN are not set. Set the variables and retry. Secret values are never written to zolt.lock or command output.",
                         "generated-sources|[generated.main.openapi]|Generated source root `target/generated/sources/openapi` is missing."),
                 failures.stream()

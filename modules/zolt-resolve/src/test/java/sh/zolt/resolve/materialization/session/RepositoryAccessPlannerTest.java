@@ -101,7 +101,7 @@ final class RepositoryAccessPlannerTest {
                         "https://user:super-secret@repo.example/company")));
 
         assertTrue(exception.getMessage().contains("Repository `company` URL contains embedded credentials"));
-        assertTrue(exception.getMessage().contains("Move credentials to [repositoryCredentials] environment references"));
+        assertTrue(exception.getMessage().contains("Move credentials to [credentials] environment references"));
         assertTrue(!exception.getMessage().contains("user:super-secret"));
         assertTrue(!exception.getMessage().contains("super-secret"));
     }
@@ -188,7 +188,7 @@ final class RepositoryAccessPlannerTest {
                 () -> new RepositoryAccessPlanner().plan(config));
 
         assertTrue(exception.getMessage().contains("Repository `company` references credentials `company-artifactory`"));
-        assertTrue(exception.getMessage().contains("[repositoryCredentials.company-artifactory] is not defined"));
+        assertTrue(exception.getMessage().contains("[credentials.company-artifactory] is not defined"));
     }
 
     @Test

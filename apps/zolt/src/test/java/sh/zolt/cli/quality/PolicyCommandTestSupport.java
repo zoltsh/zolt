@@ -119,7 +119,7 @@ final class PolicyCommandTestSupport {
                 id = "commons-logging:commons-logging"
                 requested = "1.2"
                 source = "org.springframework.boot:spring-boot-starter-web:4.0.6"
-                policy = "[dependencyPolicy].exclude commons-logging:commons-logging (Use jcl-over-slf4j)"
+                policy = "[dependencies.policy].deny commons-logging:commons-logging (Use jcl-over-slf4j)"
                 """);
     }
 }

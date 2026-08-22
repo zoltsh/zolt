@@ -78,9 +78,9 @@ final class LockfilePolicyPlannerTest {
                         GUAVA,
                         Optional.of("32.0.0-jre"),
                         Optional.of("transitive"),
-                        "[dependencyPolicy].constraints com.google.guava:guava")));
+                        "[dependencies.policy].constraints com.google.guava:guava")));
 
-        assertEquals(List.of("[dependencyPolicy].constraints com.google.guava:guava"), policies);
+        assertEquals(List.of("[dependencies.policy].constraints com.google.guava:guava"), policies);
     }
 
     @Test

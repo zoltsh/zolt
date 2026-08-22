@@ -56,10 +56,10 @@ final class ProjectModelQualityCheckTest extends QualityCheckServiceTestSupport 
         assertEquals(QualityCheckStatus.PASSED, results.get(0).status());
         QualityCheckResult warning = results.get(1);
         assertEquals(QualityCheckStatus.WARNING, warning.status());
-        assertEquals("[build].outputRoot", warning.subject());
+        assertEquals("[build.output].root", warning.subject());
         assertTrue(warning.message().contains("Maven or Gradle project files are present (pom.xml, build.gradle)"));
         assertEquals(
-                "For side-by-side migration, set [build].outputRoot = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate.",
+                "For side-by-side migration, set [build.output].root = \".zolt/build\" in zolt.toml so Zolt-owned outputs stay separate.",
                 warning.nextStep());
     }
 

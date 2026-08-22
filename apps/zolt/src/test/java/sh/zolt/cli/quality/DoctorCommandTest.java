@@ -325,7 +325,7 @@ final class DoctorCommandTest {
         assertTrue(result.stdout().contains("JDK: \u001B[32mok\u001B[0m"));
         assertTrue(result.stdout().contains("Self-hosting status: \u001B[31merror\u001B[0m"));
         assertFalse(result.stdout().contains("\u001B[31mSelf-hosting\u001B[0m status"));
-        assertTrue(result.stdout().contains("\u001B[31merror:\u001B[0m JUnit Platform Console - add org.junit.platform:junit-platform-console-standalone to [test.dependencies]"));
+        assertTrue(result.stdout().contains("\u001B[31merror:\u001B[0m JUnit Platform Console - add org.junit.platform:junit-platform-console-standalone to [dependencies.test]"));
         assertFalse(result.stdout().contains("\u001B[31merror: JUnit Platform Console"));
     }
 

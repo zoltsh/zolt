@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Enforces {@code [dependencyPolicy].failOnVersionConflict} against a resolved selection. Each isolated
+ * Enforces {@code [dependencies.policy].conflicts} against a resolved selection. Each isolated
  * exec-tool closure (Hole 1) resolves in its own right, so a conflict inside a tool never mediates against
  * the main graph or another tool; it must therefore be enforced per tool closure too, or a conflict inside
  * a tool would silently evade the policy. The main graph is enforced first (its error and behaviour stay
@@ -56,11 +56,11 @@ final class VersionConflictPolicyEnforcer {
 
     private static String message(String toolName) {
         if (toolName == null) {
-            return "Dependency version conflicts are disallowed by [dependencyPolicy].failOnVersionConflict.";
+            return "Dependency version conflicts are disallowed by [dependencies.policy].conflicts.";
         }
         return "Dependency version conflicts in the `"
                 + toolName
-                + "` exec-tool closure are disallowed by [dependencyPolicy].failOnVersionConflict.";
+                + "` exec-tool closure are disallowed by [dependencies.policy].conflicts.";
     }
 
     private static String remediation(String toolName, String retryCommand, List<String> conflicts) {
@@ -70,7 +70,7 @@ final class VersionConflictPolicyEnforcer {
         return "Align "
                 + where
                 + " with a [platforms] BOM, a direct dependency, or a "
-                + "[dependencyConstraints] strict constraint, then run `"
+                + "[dependencies.constraints] strict constraint, then run `"
                 + retryCommand
                 + "` again. Conflicts: "
                 + String.join("; ", conflicts);

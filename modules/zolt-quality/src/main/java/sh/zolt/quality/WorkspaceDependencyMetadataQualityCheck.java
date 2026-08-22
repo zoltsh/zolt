@@ -53,7 +53,7 @@ final class WorkspaceDependencyMetadataQualityCheck {
                                     + "` is not represented as an exported workspace edge."
                             : "Workspace implementation dependency `" + metadata.coordinate()
                                     + "` is incorrectly represented as exported.",
-                    "Keep public workspace dependencies in [api.dependencies], implementation dependencies in [dependencies], and run `zolt resolve --workspace`.");
+                    "Keep public workspace dependencies in [dependencies.api], implementation dependencies in [dependencies], and run `zolt resolve --workspace`.");
         }
         if (edge.optional() != metadata.optional()) {
             return failed(

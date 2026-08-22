@@ -22,7 +22,7 @@ import sh.zolt.workspace.service.WorkspaceMember;
  * {@code zolt licenses --workspace} annotates the way {@code zolt check --workspace --check
  * license-policy} enforces.
  *
- * <p>{@code [dependencyPolicy]} is member-local. Evaluating every member's policy against the whole
+ * <p>{@code [dependencies.policy]} is member-local. Evaluating every member's policy against the whole
  * aggregate would let a strict member deny a coordinate it never depends on, and the report would then
  * contradict the very command it names as the enforcer.
  *

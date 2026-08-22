@@ -8,7 +8,7 @@ import java.util.function.Function;
 
 /**
  * Resolves the {@link RepositoryAuthentication} for a publish repository from the project's
- * {@code [repositoryCredentials]} table and the environment. Secrets are read from the named
+ * {@code [credentials]} table and the environment. Secrets are read from the named
  * environment variables only, never from config values. Shared by the single-project and workspace
  * publish uploaders so every request to a credentialed repository is authenticated identically.
  */
