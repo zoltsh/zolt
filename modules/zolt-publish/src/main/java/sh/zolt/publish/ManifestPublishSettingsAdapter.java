@@ -15,8 +15,7 @@ import sh.zolt.manifest.authored.AuthoredPublishing;
 /**
  * Projects the final {@code [publish]} domain onto the legacy {@link PublishSettings}.
  *
- * <p>The final-language twin of {@link PublishSettingsReader}, which keeps reading only the legacy
- * dialect. Two legacy fields have no final source:
+ * <p>Two legacy fields have no final source:
  *
  * <ul>
  *   <li>{@code [publish].artifacts} — design §14.1 makes package mode the sole main-artifact
