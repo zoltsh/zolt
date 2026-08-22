@@ -84,13 +84,19 @@
     "allDeclaredMethods": true
   },
   {
-    "name": "sh.zolt.cli.command.dependency.VersionCommand$SetCommand",
+    "name": "sh.zolt.cli.command.dependency.VersionsCommand",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
     "allDeclaredMethods": true
   },
   {
-    "name": "sh.zolt.cli.command.dependency.VersionCommand$RemoveCommand",
+    "name": "sh.zolt.cli.command.dependency.VersionsCommand$SetCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.VersionsCommand$RemoveCommand",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
     "allDeclaredMethods": true
@@ -204,19 +210,67 @@
     "allDeclaredMethods": true
   },
   {
-    "name": "sh.zolt.cli.command.dependency.PlatformCommand",
+    "name": "sh.zolt.cli.command.dependency.PlatformsCommand",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
     "allDeclaredMethods": true
   },
   {
-    "name": "sh.zolt.cli.command.dependency.PlatformCommand$AddCommand",
+    "name": "sh.zolt.cli.command.dependency.PlatformsCommand$SetCommand",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
     "allDeclaredMethods": true
   },
   {
-    "name": "sh.zolt.cli.command.dependency.PlatformCommand$RemoveCommand",
+    "name": "sh.zolt.cli.command.dependency.PlatformsCommand$RemoveCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.BomCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.BomCommand$VersionsCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.BomCommand$VersionsCommand$SetCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.BomCommand$VersionsCommand$RemoveCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.BomCommand$ImportsCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.BomCommand$ImportsCommand$SetCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.BomCommand$ImportsCommand$RemoveCommand",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sh.zolt.cli.command.dependency.BomCommand$BomEditCommand",
     "allDeclaredConstructors": true,
     "allDeclaredFields": true,
     "allDeclaredMethods": true
