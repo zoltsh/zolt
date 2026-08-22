@@ -1284,9 +1284,13 @@ description = "Run the Java tools member release-notes command"
 run = ["zolt", "run", "--workspace", "--member", "tools", "--", "release-notes"]
 ```
 
-`include` takes exact member paths or strict directory patterns where `*`
-matches exactly one directory segment; `exclude` filters candidates before any
-member manifest is parsed. `default` takes exact member paths only and selects
+`include` takes exact member paths or strict directory patterns where a complete
+`*` segment matches exactly one directory segment. Only a whole-segment `*` is a
+wildcard: every other portable character, brackets and braces included, is a
+literal path character, so `exclude = ["apps/notes[draft]"]` names exactly the
+directory `notes[draft]`. A `*` or `?` inside a literal segment is rejected, and
+there is no escape syntax, brace expansion, or `**`. `exclude` filters candidates
+before any member manifest is parsed. `default` takes exact member paths only and selects
 what a root command builds; omitting it deliberately selects every discovered
 member, reported as `implicit-all`. A directory becomes a member only when it
 matches `include`, survives `exclude`, and contains a valid project `zolt.toml`.

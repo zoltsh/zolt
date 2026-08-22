@@ -31,7 +31,7 @@ final class WorkspaceMemberExpanderTest {
 
         assertEquals(
                 List.of("services/alpha/api", "services/zeta/api"),
-                expansion.candidates().stream().map(candidate -> candidate.path().value()).toList());
+                expansion.candidates().stream().map(candidate -> candidate.path()).toList());
     }
 
     @Test
@@ -131,7 +131,7 @@ final class WorkspaceMemberExpanderTest {
     }
 
     private static List<String> paths(WorkspaceMemberExpander.Expansion expansion) {
-        return expansion.candidates().stream().map(candidate -> candidate.path().value()).toList();
+        return expansion.candidates().stream().map(candidate -> candidate.path()).toList();
     }
 
     private static WorkspaceMemberPattern pattern(String value) {

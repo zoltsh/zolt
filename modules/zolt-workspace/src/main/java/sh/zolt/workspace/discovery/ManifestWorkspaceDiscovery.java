@@ -123,10 +123,11 @@ public final class ManifestWorkspaceDiscovery {
                 continue;
             }
             ZoltManifestDocument document = member.orElseThrow();
-            authoredMembers.put(candidate.path(), document.authored());
+            WorkspaceMemberPath path = memberPath(candidate);
+            authoredMembers.put(path, document.authored());
             contributingIncludes.addAll(candidate.matchedBy());
-            discoveredMembers.put(candidate.path(), new DiscoveredWorkspaceMember(
-                    candidate.path(), candidate.directory(), document, candidate.matchedBy()));
+            discoveredMembers.put(path, new DiscoveredWorkspaceMember(
+                    path, candidate.directory(), document, candidate.matchedBy()));
         }
         for (WorkspaceMemberPattern include : membership.include()) {
             if (!contributingIncludes.contains(include)) {
@@ -158,12 +159,31 @@ public final class ManifestWorkspaceDiscovery {
                 capture.snapshot());
     }
 
+    /**
+     * The strict member identity of a manifest-bearing candidate.
+     *
+     * <p>Design §6.5: strict identity is constructed only once a candidate has a manifest, so an
+     * unrelated directory whose name cannot be a member path is simply not a member. A directory that
+     * does carry a manifest must be renamed, because Zolt cannot address it.
+     */
+    private static WorkspaceMemberPath memberPath(WorkspaceMemberExpander.Candidate candidate) {
+        Optional<String> problem = WorkspaceMemberPath.problem(candidate.path());
+        if (problem.isPresent()) {
+            throw new WorkspaceConfigException(
+                    "Workspace member directory " + candidate.directory()
+                            + " contains zolt.toml but its path `" + candidate.path()
+                            + "` is not a portable member path: " + problem.orElseThrow()
+                            + " Rename the directory to a portable name, then rerun.");
+        }
+        return new WorkspaceMemberPath(candidate.path());
+    }
+
     private Optional<ZoltManifestDocument> memberDocument(
             Path root,
             ZoltManifestDocument rootDocument,
             WorkspaceMemberExpander.Candidate candidate,
             WorkspaceInputCapture capture) {
-        if (candidate.path().value().equals(".")) {
+        if (candidate.path().equals(".")) {
             return Optional.of(rootDocument);
         }
         Path manifest = candidate.directory().resolve(MANIFEST);

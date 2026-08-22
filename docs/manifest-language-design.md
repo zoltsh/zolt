@@ -736,15 +736,23 @@ apps/**
 modules/experimental-*
 modules/?ore
 modules/[ab]*
-{apps,modules}/*
 ../shared
 C:\projects\member
 apps//api
 apps/./api
 ```
 
+Literal, not rejected — `[`, `]`, `{`, and `}` are ordinary path characters:
+
+```text
+apps/notes[draft]
+{apps,modules}/api
+```
+
 Rules:
 
+- Only a complete segment equal to `*` has wildcard semantics. Every other portable character is literal, in patterns and in paths alike, so `exclude = ["apps/notes[draft]"]` selects exactly the directory named `notes[draft]`.
+- `*` or `?` appearing inside a literal segment is rejected. There is no escape language and no host glob semantics: brace expansion, character classes, and `**` do not exist.
 - `*` matches exactly one directory segment.
 - `*` matches directories only.
 - `*` does not match a dot-prefixed directory.
@@ -797,6 +805,8 @@ A pattern such as `apps/*`:
 Multi-segment patterns repeat this deterministic directory enumeration at each segment. Unreadable traversed directories are errors with the failing path.
 
 ## 6.5 Exclusion and manifest validation
+
+Candidates stay raw normalized directory paths until they are known to bear a manifest. A candidate earns strict member identity only after step 3, so an unrelated sibling directory can never invalidate a workspace: a name Zolt cannot address is enumerated, excluded, or ignored for lacking a manifest like any other. A candidate that *does* contain `zolt.toml` under such a name is a hard error naming the exact directory and instructing a rename, because there is no member path that could address it.
 
 After all include entries expand to directory candidates:
 

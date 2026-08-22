@@ -84,7 +84,7 @@ public record DiscoveredWorkspace(
             }
             for (WorkspaceMemberPattern evidence : member.matchedBy()) {
                 if (!authoredMembership.include().contains(evidence)
-                        || !WorkspaceMemberExpander.matches(evidence, path)) {
+                        || !evidence.matches(path)) {
                     throw new IllegalArgumentException(
                             "Workspace member `" + path + "` has invalid include evidence `"
                                     + evidence + "`.");

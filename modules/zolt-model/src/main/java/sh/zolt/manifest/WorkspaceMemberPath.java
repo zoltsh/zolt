@@ -1,6 +1,7 @@
 package sh.zolt.manifest;
 
 import java.util.Objects;
+import java.util.Optional;
 import sh.zolt.unicode.Unicode17Portability;
 
 /** One normalized exact workspace member path, including the root-project special case {@code .}. */
@@ -43,13 +44,28 @@ public record WorkspaceMemberPath(String value) implements Comparable<WorkspaceM
         return value;
     }
 
+    /**
+     * The reason {@code value} cannot be a member path, or empty when it is one.
+     *
+     * <p>Deferred discovery uses this to decide whether an enumerated directory can carry a member
+     * identity at all, without an exception controlling ordinary control flow.
+     */
+    public static Optional<String> problem(String value) {
+        try {
+            new WorkspaceMemberPath(value);
+            return Optional.empty();
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            return Optional.of(exception.getMessage());
+        }
+    }
+
+    /**
+     * Only {@code *} and {@code ?} are pattern syntax. Brackets and braces are ordinary literal
+     * characters in a member path, so a directory named {@code notes[draft]} is an ordinary name
+     * (design §6.3).
+     */
     private static boolean containsPatternSyntax(String segment) {
-        return segment.indexOf('*') >= 0
-                || segment.indexOf('?') >= 0
-                || segment.indexOf('[') >= 0
-                || segment.indexOf(']') >= 0
-                || segment.indexOf('{') >= 0
-                || segment.indexOf('}') >= 0;
+        return segment.indexOf('*') >= 0 || segment.indexOf('?') >= 0;
     }
 
     private static boolean hasWindowsDrivePrefix(String value) {

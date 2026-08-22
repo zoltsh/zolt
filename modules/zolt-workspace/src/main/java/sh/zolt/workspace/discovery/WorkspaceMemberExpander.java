@@ -11,12 +11,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import sh.zolt.manifest.ManifestModelValues;
 import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.manifest.WorkspaceMemberPattern;
 import sh.zolt.unicode.Unicode17Portability;
 import sh.zolt.workspace.WorkspaceConfigException;
 
-/** Expands the final one-segment wildcard grammar without host glob or case semantics. */
+/**
+ * Expands the final one-segment wildcard grammar without host glob or case semantics.
+ *
+ * <p>Expansion yields raw normalized directory candidates and applies exclusions to them. A candidate
+ * never earns a strict {@link WorkspaceMemberPath} identity here, so an unrelated sibling directory
+ * whose name cannot be a member path — {@code apps/we?rd} — is enumerated, excluded, or ignored for
+ * lacking a manifest instead of failing the whole workspace (design §6.5).
+ */
 final class WorkspaceMemberExpander {
     Expansion expand(
             Path root,
@@ -30,7 +38,8 @@ final class WorkspaceMemberExpander {
             List<WorkspaceMemberPattern> includes,
             List<WorkspaceMemberPattern> excludes,
             WorkspaceInputCapture capture) {
-        TreeMap<WorkspaceMemberPath, MutableCandidate> candidates = new TreeMap<>();
+        TreeMap<String, MutableCandidate> candidates =
+                new TreeMap<>(ManifestModelValues.CODE_POINT_ORDER);
         for (WorkspaceMemberPattern include : includes) {
             List<DirectoryCandidate> matches = expand(root, include, capture);
             if (!include.hasWildcard() && matches.isEmpty()) {
@@ -50,12 +59,11 @@ final class WorkspaceMemberExpander {
         }
         rejectRealDirectoryAliases(candidates.values());
 
-        LinkedHashMap<WorkspaceMemberPattern, List<WorkspaceMemberPath>> excludedBy =
-                new LinkedHashMap<>();
+        LinkedHashMap<WorkspaceMemberPattern, List<String>> excludedBy = new LinkedHashMap<>();
         for (WorkspaceMemberPattern exclude : excludes) {
-            ArrayList<WorkspaceMemberPath> matches = new ArrayList<>();
+            ArrayList<String> matches = new ArrayList<>();
             candidates.keySet().stream()
-                    .filter(path -> matches(exclude, path))
+                    .filter(exclude::matchesPath)
                     .forEach(matches::add);
             excludedBy.put(exclude, List.copyOf(matches));
         }
@@ -63,7 +71,7 @@ final class WorkspaceMemberExpander {
         ArrayList<Candidate> remaining = new ArrayList<>();
         for (MutableCandidate candidate : candidates.values()) {
             List<WorkspaceMemberPattern> matchingExcludes = excludes.stream()
-                    .filter(exclude -> matches(exclude, candidate.candidate().path()))
+                    .filter(exclude -> exclude.matchesPath(candidate.candidate().path()))
                     .toList();
             if (!matchingExcludes.isEmpty()) {
                 if (candidate.matchedBy().stream().anyMatch(include -> !include.hasWildcard())) {
@@ -87,8 +95,7 @@ final class WorkspaceMemberExpander {
             WorkspaceMemberPattern pattern,
             WorkspaceInputCapture capture) {
         if (pattern.value().equals(".")) {
-            return List.of(new DirectoryCandidate(
-                    new WorkspaceMemberPath("."), root, "."));
+            return List.of(new DirectoryCandidate(".", root, "."));
         }
         List<Traversal> current = List.of(new Traversal(root, List.of(), List.of()));
         for (String segment : pattern.segments()) {
@@ -130,7 +137,7 @@ final class WorkspaceMemberExpander {
     }
 
     private static List<Traversal> deduplicated(List<Traversal> traversals) {
-        TreeMap<WorkspaceMemberPath, Traversal> unique = new TreeMap<>();
+        TreeMap<String, Traversal> unique = new TreeMap<>(ManifestModelValues.CODE_POINT_ORDER);
         for (Traversal traversal : traversals) {
             DirectoryCandidate candidate = traversal.candidate();
             Traversal existing = unique.putIfAbsent(candidate.path(), traversal);
@@ -163,11 +170,11 @@ final class WorkspaceMemberExpander {
 
     private static void rejectRealDirectoryAliases(
             Iterable<MutableCandidate> candidates) {
-        Map<Path, WorkspaceMemberPath> logicalByRealDirectory = new LinkedHashMap<>();
+        Map<Path, String> logicalByRealDirectory = new LinkedHashMap<>();
         for (MutableCandidate candidate : candidates) {
             try {
                 Path real = candidate.candidate().directory().toRealPath();
-                WorkspaceMemberPath existing = logicalByRealDirectory.putIfAbsent(
+                String existing = logicalByRealDirectory.putIfAbsent(
                         real, candidate.candidate().path());
                 if (existing != null && !existing.equals(candidate.candidate().path())) {
                     throw new WorkspaceConfigException(
@@ -183,12 +190,6 @@ final class WorkspaceMemberExpander {
         }
     }
 
-    static boolean matches(
-            WorkspaceMemberPattern pattern,
-            WorkspaceMemberPath path) {
-        return pattern.matches(path);
-    }
-
     private static int compareNames(String left, String right) {
         int normalized = sh.zolt.manifest.ManifestModelValues.CODE_POINT_ORDER.compare(
                 Unicode17Portability.normalizeNfc(left),
@@ -198,17 +199,18 @@ final class WorkspaceMemberExpander {
                 : sh.zolt.manifest.ManifestModelValues.CODE_POINT_ORDER.compare(left, right);
     }
 
+    /** One remaining directory candidate, still identified by its raw normalized path. */
     record Candidate(
-            WorkspaceMemberPath path,
+            String path,
             Path directory,
             List<WorkspaceMemberPattern> matchedBy) {}
 
     record Expansion(
             List<Candidate> candidates,
-            Map<WorkspaceMemberPattern, List<WorkspaceMemberPath>> excludedBy) {}
+            Map<WorkspaceMemberPattern, List<String>> excludedBy) {}
 
     private record DirectoryCandidate(
-            WorkspaceMemberPath path,
+            String path,
             Path directory,
             String rawPath) {}
 
@@ -236,9 +238,8 @@ final class WorkspaceMemberExpander {
         }
 
         private DirectoryCandidate candidate() {
-            String normalized = String.join("/", normalizedSegments);
             return new DirectoryCandidate(
-                    new WorkspaceMemberPath(normalized), directory, String.join("/", rawSegments));
+                    String.join("/", normalizedSegments), directory, String.join("/", rawSegments));
         }
     }
 }

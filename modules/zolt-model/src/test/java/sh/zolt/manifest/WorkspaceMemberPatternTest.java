@@ -34,6 +34,25 @@ final class WorkspaceMemberPatternTest {
         assertEquals(pattern, new WorkspaceMemberPattern("modules/caf\u00e9/*"));
     }
 
+    /**
+     * Design §6.3: only a complete `*` segment is a wildcard. Brackets and braces are literal
+     * characters, so a pattern naming them selects exactly that directory.
+     */
+    @Test
+    void bracketAndBraceSegmentsAreLiteralAndMatchExactly() {
+        WorkspaceMemberPattern bracket = new WorkspaceMemberPattern("apps/notes[draft]");
+
+        assertFalse(bracket.hasWildcard());
+        assertTrue(bracket.matches(new WorkspaceMemberPath("apps/notes[draft]")));
+        assertTrue(bracket.matchesPath("apps/notes[draft]"));
+        assertFalse(bracket.matchesPath("apps/notesd"));
+        assertFalse(bracket.matchesPath("apps/we?rd"));
+        assertTrue(new WorkspaceMemberPattern("apps/*").matchesPath("apps/notes[draft]"));
+        assertTrue(new WorkspaceMemberPattern("apps/*").matchesPath("apps/we?rd"));
+        assertEquals(
+                "{apps,modules}/api", new WorkspaceMemberPattern("{apps,modules}/api").value());
+    }
+
     @Test
     void rejectsUnsupportedPatternAndPathSyntax() {
         List<String> invalid = List.of(
@@ -50,7 +69,6 @@ final class WorkspaceMemberPatternTest {
                 "modules/experimental-*",
                 "modules/?ore",
                 "modules/[ab]*",
-                "{apps,modules}/*",
                 "apps/\u0000",
                 "apps/\tapi");
 

@@ -39,11 +39,23 @@ public record WorkspaceMemberPattern(String value) implements Comparable<Workspa
      */
     public boolean matches(WorkspaceMemberPath path) {
         Objects.requireNonNull(path, "Matched workspace member path must not be null.");
-        if (value.equals(".") || path.value().equals(".")) {
-            return value.equals(path.value());
+        return matchesPath(path.value());
+    }
+
+    /**
+     * The same selection decision against a raw NFC-normalized {@code /}-separated directory path.
+     *
+     * <p>Candidate expansion applies exclusions before any candidate earns a strict
+     * {@link WorkspaceMemberPath} identity, so both expanders share exactly this matcher rather than
+     * requiring an identity that a not-yet-a-member directory may not be able to carry (design §6.5).
+     */
+    public boolean matchesPath(String normalizedPath) {
+        Objects.requireNonNull(normalizedPath, "Matched workspace directory path must not be null.");
+        if (value.equals(".") || normalizedPath.equals(".")) {
+            return value.equals(normalizedPath);
         }
         List<String> patternSegments = segments();
-        List<String> pathSegments = List.of(path.value().split("/", -1));
+        List<String> pathSegments = List.of(normalizedPath.split("/", -1));
         if (patternSegments.size() != pathSegments.size()) {
             return false;
         }
@@ -83,12 +95,7 @@ public record WorkspaceMemberPattern(String value) implements Comparable<Workspa
         if (segment.equals("*")) {
             return;
         }
-        if (segment.indexOf('*') >= 0
-                || segment.indexOf('?') >= 0
-                || segment.indexOf('[') >= 0
-                || segment.indexOf(']') >= 0
-                || segment.indexOf('{') >= 0
-                || segment.indexOf('}') >= 0) {
+        if (segment.indexOf('*') >= 0 || segment.indexOf('?') >= 0) {
             throw invalid(value, "use only literal segments or a complete `*` segment");
         }
     }

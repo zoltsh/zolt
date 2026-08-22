@@ -94,38 +94,63 @@ final class EnclosingWorkspaceLocator {
         Objects.requireNonNull(membership, "Workspace membership is required.");
         AuthoredWorkspaceMembers declared = membership.root().workspace().orElseThrow().members();
         TreeMap<WorkspaceMemberPath, AuthoredManifest> members = new TreeMap<>();
-        for (WorkspaceMemberPath path : candidates(membership.workspaceRoot(), declared)) {
-            if (path.value().equals(".")) {
-                members.put(path, membership.root());
+        for (String candidate : candidates(membership.workspaceRoot(), declared)) {
+            if (candidate.equals(".")) {
+                members.put(new WorkspaceMemberPath("."), membership.root());
                 continue;
             }
-            Path manifest = membership.workspaceRoot().resolve(path.value()).resolve(MANIFEST);
-            readIfPresent(manifest)
-                    .ifPresent(source -> members.put(path, parse(manifest, source)));
+            Path manifest = membership.workspaceRoot().resolve(candidate).resolve(MANIFEST);
+            readIfPresent(manifest).ifPresent(source ->
+                    members.put(memberPath(candidate, manifest), parse(manifest, source)));
         }
         return members;
     }
 
-    /** The included, non-excluded member paths that exist beneath {@code workspaceRoot}. */
-    private static List<WorkspaceMemberPath> candidates(
+    /**
+     * The strict member identity of a manifest-bearing candidate.
+     *
+     * <p>Design §6.5: a directory only earns a member identity once it has a manifest, so an unrelated
+     * sibling whose name cannot be a member path is skipped rather than failing every command run
+     * inside the workspace. One that does carry a manifest must be renamed, because Zolt cannot
+     * address it — and workspace discovery reports the same thing.
+     */
+    private static WorkspaceMemberPath memberPath(String candidate, Path manifest) {
+        Optional<String> problem = WorkspaceMemberPath.problem(candidate);
+        if (problem.isPresent()) {
+            throw new ZoltConfigException(ActionableError.of(
+                    "Workspace member manifest " + manifest + " has path `" + candidate
+                            + "`, which is not a portable member path: " + problem.orElseThrow(),
+                    "Rename the directory to a portable name, then rerun."));
+        }
+        return new WorkspaceMemberPath(candidate);
+    }
+
+    /**
+     * The included, non-excluded raw directory paths beneath {@code workspaceRoot}.
+     *
+     * <p>Candidates stay raw normalized paths through exclusion so that the shared
+     * {@link WorkspaceMemberPattern#matchesPath} decides membership before any strict identity exists,
+     * exactly as workspace discovery does.
+     */
+    private static List<String> candidates(
             Path workspaceRoot, AuthoredWorkspaceMembers declared) {
-        TreeMap<String, WorkspaceMemberPath> unique = new TreeMap<>();
+        TreeMap<String, String> unique = new TreeMap<>();
         for (WorkspaceMemberPattern include : declared.include()) {
-            for (WorkspaceMemberPath path : expand(workspaceRoot, include)) {
-                unique.putIfAbsent(path.value(), path);
+            for (String path : expand(workspaceRoot, include)) {
+                unique.putIfAbsent(path, path);
             }
         }
         return unique.values().stream()
                 .filter(path -> declared.exclude().stream()
-                        .noneMatch(exclude -> exclude.matches(path)))
+                        .noneMatch(exclude -> exclude.matchesPath(path)))
                 .toList();
     }
 
     /** Walks one include pattern over real directories, expanding each {@code *} segment. */
-    private static List<WorkspaceMemberPath> expand(
+    private static List<String> expand(
             Path workspaceRoot, WorkspaceMemberPattern pattern) {
         if (pattern.value().equals(".")) {
-            return List.of(new WorkspaceMemberPath("."));
+            return List.of(".");
         }
         List<List<String>> current = List.of(List.of());
         for (String segment : pattern.segments()) {
@@ -139,9 +164,7 @@ final class EnclosingWorkspaceLocator {
             }
             current = List.copyOf(next);
         }
-        return current.stream()
-                .map(segments -> new WorkspaceMemberPath(String.join("/", segments)))
-                .toList();
+        return current.stream().map(segments -> String.join("/", segments)).toList();
     }
 
     /** The normalized child directory names one pattern segment selects under {@code parent}. */
