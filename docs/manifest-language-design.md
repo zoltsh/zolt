@@ -928,12 +928,15 @@ The complete schema-v1 success shape is:
         "projectName": "core",
         "matchedBy": ["modules/*"]
       }
-    ]
+    ],
+    "staleExclusions": []
   }
 }
 ```
 
-`selection.source` is exactly `explicit-default` or `implicit-all`. `selection.members` is the final selected subset; `workspace.members` is the complete final member set. All paths are canonical workspace-relative manifest paths using `/`; the root member uses path `.` and manifest path `zolt.toml`. Members, selected paths, and each `matchedBy` array are sorted by the same Unicode code-point order used by discovery. Pattern evidence is retained after deduplication. The output contains no absolute paths, timestamps, host data, or lock freshness, so identical workspace source produces identical bytes. Field order is the order shown above. Adding, removing, renaming, or retyping a field requires a new schema version.
+`selection.source` is exactly `explicit-default` or `implicit-all`. `selection.members` is the final selected subset; `workspace.members` is the complete final member set. `staleExclusions` is the authored `[workspace.members].exclude` entries that matched no expanded candidate (§6.2); it is always present and is `[]` when every exclusion did work. All paths are canonical workspace-relative manifest paths using `/`; the root member uses path `.` and manifest path `zolt.toml`. Members, selected paths, `staleExclusions`, and each `matchedBy` array are sorted by the same Unicode code-point order used by discovery. Pattern evidence is retained after deduplication. The output contains no absolute paths, timestamps, host data, or lock freshness, so identical workspace source produces identical bytes. Field order is the order shown above. Adding, removing, renaming, or retyping a field requires a new schema version.
+
+The text projection prints `stale excludes: <patterns>` in the header block only when there is something to report, so the common case stays quiet while the closed JSON shape stays constant.
 
 A newly discovered project makes the authoritative root `zolt.lock` stale:
 
@@ -3394,6 +3397,7 @@ changingPatternsWithSameEffectiveSetDoesNotStaleLock
 lockedResolveReportsAddedMember
 workspaceMembersJsonDefaultsToSchemaV1
 workspaceMembersJsonSchemaV1MatchesGolden
+workspaceMembersReportStaleExclusions
 workspaceMembersJsonUsesOnlyRelativeSortedPaths
 workspaceMembersJsonRejectsUnsupportedSchemaBeforeOutput
 ```

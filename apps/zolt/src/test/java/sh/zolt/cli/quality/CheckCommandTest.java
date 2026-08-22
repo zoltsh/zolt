@@ -178,6 +178,42 @@ final class CheckCommandTest extends CheckCommandTestSupport {
         assertEquals("", result.stderr());
     }
 
+    /**
+     * Design §6.2: an exclusion matching no expanded candidate is allowed but reported by
+     * {@code zolt check --workspace} as stale configuration, so it warns without failing the report.
+     */
+    @Test
+    void staleExcludeIsReportedByCheck() throws IOException {
+        WorkspaceCommandFixture.WorkspaceApplicationFixture fixture =
+                WorkspaceCommandFixture.create(tempDir, "check-stale-exclude");
+        Files.writeString(fixture.workspaceDir().resolve("zolt.toml"), """
+                [workspace]
+                name = "workspace"
+
+                [workspace.members]
+                include = ["apps/api", "modules/core"]
+                exclude = ["modules/retired"]
+                """);
+
+        CommandResult result = execute(
+                "check",
+                "--workspace",
+                "--check", "project-model",
+                "--cwd", fixture.workspaceDir().toString());
+
+        assertEquals(0, result.exitCode(), result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "warning project-model [workspace.members].exclude Workspace exclusion "
+                                + "`modules/retired` matched no workspace member."),
+                result.stdout());
+        assertTrue(
+                result.stdout().contains(
+                        "next: Remove the stale entry from [workspace.members].exclude,"),
+                result.stdout());
+        assertEquals("", result.stderr());
+    }
+
     @Test
     void checkPrintsTimingsWhenRequested() throws IOException {
         Path projectDir = tempDir.resolve("check-timings");

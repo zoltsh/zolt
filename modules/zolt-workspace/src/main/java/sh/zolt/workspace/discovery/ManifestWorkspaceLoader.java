@@ -116,7 +116,8 @@ public final class ManifestWorkspaceLoader {
                 members,
                 edges,
                 buildOrderPlanner.buildOrder(members, edges),
-                discovered.inputs());
+                discovered.inputs(),
+                discovered.staleExclusions().stream().map(Object::toString).toList());
     }
 
     private List<WorkspaceMember> members(

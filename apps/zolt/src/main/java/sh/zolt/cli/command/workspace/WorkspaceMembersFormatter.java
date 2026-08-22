@@ -5,15 +5,24 @@ import sh.zolt.manifest.WorkspaceMemberPath;
 import sh.zolt.workspace.discovery.DiscoveredWorkspace;
 import sh.zolt.workspace.discovery.DiscoveredWorkspaceMember;
 
-/** Deterministic human and schema-v1 projections of final workspace discovery. */
+/**
+ * Deterministic human and schema-v1 projections of final workspace discovery.
+ *
+ * <p>Design §6.2: an authored exclusion that matched no expanded candidate is allowed but reported.
+ * Schema v1 always carries {@code staleExclusions} so automation reads one closed shape; the text
+ * projection prints the line only when there is something to report.
+ */
 final class WorkspaceMembersFormatter {
     String text(DiscoveredWorkspace workspace) {
         StringBuilder output = new StringBuilder();
         output.append("Workspace ").append(workspaceName(workspace)).append('\n')
                 .append("  manifest: zolt.toml\n")
                 .append("  selection: ").append(workspace.selection().source().value()).append('\n')
-                .append("  selected: ").append(joinPaths(workspace.selection().members())).append("\n\n")
-                .append("Members\n");
+                .append("  selected: ").append(joinPaths(workspace.selection().members())).append('\n');
+        if (!workspace.staleExclusions().isEmpty()) {
+            output.append("  stale excludes: ").append(joinPatterns(workspace)).append('\n');
+        }
+        output.append('\n').append("Members\n");
         for (DiscoveredWorkspaceMember member : workspace.members().values()) {
             output.append("  ").append(member.path()).append('\n')
                     .append("    manifest: ").append(member.manifestPath()).append('\n')
@@ -56,7 +65,17 @@ final class WorkspaceMembersFormatter {
             }
             output.append('\n');
         }
-        return output.append("    ]\n  }\n}\n").toString();
+        output.append("    ],\n")
+                .append("    \"staleExclusions\": ");
+        stringArray(output, workspace.staleExclusions().stream().map(Object::toString).toList());
+        return output.append("\n  }\n}\n").toString();
+    }
+
+    private static String joinPatterns(DiscoveredWorkspace workspace) {
+        return workspace.staleExclusions().stream()
+                .map(Object::toString)
+                .reduce((left, right) -> left + ", " + right)
+                .orElseThrow();
     }
 
     private static String workspaceName(DiscoveredWorkspace workspace) {

@@ -231,6 +231,7 @@ public final class QualityCheckService {
                         members));
                 case LOCKFILE -> results.add(lockfileQualityCheck.checkWorkspaceLockfile(request, workspace));
                 case PROJECT_MODEL -> {
+                    WorkspaceStaleExclusionCheck.check(workspace).ifPresent(results::add);
                     for (String memberPath : selection.includedMembers()) {
                         WorkspaceMember member = members.get(memberPath);
                         results.addAll(projectModelQualityCheck.check(

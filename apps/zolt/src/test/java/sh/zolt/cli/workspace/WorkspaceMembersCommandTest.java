@@ -87,7 +87,8 @@ final class WorkspaceMembersCommandTest {
                         "projectName": "core",
                         "matchedBy": ["modules/*"]
                       }
-                    ]
+                    ],
+                    "staleExclusions": []
                   }
                 }
                 """, result.stdout());
@@ -157,6 +158,50 @@ final class WorkspaceMembersCommandTest {
         assertEquals(1, legacyResult.exitCode());
         assertEquals("", legacyResult.stdout());
         assertTrue(legacyResult.stderr().contains("No final Zolt workspace was found"));
+    }
+
+    /**
+     * Design §6.2: an exclusion that matched no expanded candidate is allowed but reported. Schema
+     * v1 always carries the array so automation reads one closed shape; the text projection adds the
+     * line only when there is something to report.
+     */
+    @Test
+    void staleExcludesAreReportedInBothProjections() throws IOException {
+        Files.writeString(workspace.resolve("zolt.toml"), """
+                [workspace]
+                name = "platform"
+
+                [workspace.members]
+                include = ["modules/*"]
+                exclude = ["modules/retired", "apps/legacy"]
+
+                [workspace.project]
+                group = "com.example"
+                version = "1.0.0"
+                java = 21
+                """);
+
+        CommandResult text = run();
+        CommandResult json = run("--format", "json");
+
+        assertEquals(0, text.exitCode(), text.stderr());
+        assertEquals("""
+                Workspace platform
+                  manifest: zolt.toml
+                  selection: implicit-all
+                  selected: modules/core
+                  stale excludes: apps/legacy, modules/retired
+
+                Members
+                  modules/core
+                    manifest: modules/core/zolt.toml
+                    project: core
+                    matched by: modules/*
+                """, text.stdout());
+        assertEquals(0, json.exitCode(), json.stderr());
+        assertTrue(
+                json.stdout().contains("    \"staleExclusions\": [\"apps/legacy\", \"modules/retired\"]\n"),
+                json.stdout());
     }
 
     @Test
