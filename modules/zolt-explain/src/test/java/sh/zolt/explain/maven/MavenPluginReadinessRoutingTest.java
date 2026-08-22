@@ -121,7 +121,7 @@ final class MavenPluginReadinessRoutingTest {
         MigrationReadinessScorecard scorecard = MigrationReadinessScorecards.from(inspector.inspect(tempDir));
         String text = new MigrationReadinessScorecardFormatter().text(scorecard);
 
-        assertConcern(text, "generated-sources", "blocked", "Maven generated-source plugin", "[generatedSources]");
+        assertConcern(text, "generated-sources", "blocked", "Maven generated-source plugin", "[generated.main] and [generated.test]");
         assertConcern(text, "tests", "planned", "Maven test execution plugin", "[test] and integration-test settings");
     }
 

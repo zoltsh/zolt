@@ -74,7 +74,7 @@ final class MavenExecPluginSignalTest {
         ExplainSignal signal = signal(result, "maven.plugin.exec-unmappable");
         assertEquals(ExplainSignal.Severity.BLOCK, signal.severity());
         String blockers = blockersText(result);
-        assertTrue(blockers.contains("[commands.tasks] or CI"), () -> blockers);
+        assertTrue(blockers.contains("[tasks.<id>] or CI"), () -> blockers);
     }
 
     @Test

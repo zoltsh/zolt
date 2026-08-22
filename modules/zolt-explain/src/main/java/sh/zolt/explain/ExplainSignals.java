@@ -55,7 +55,7 @@ public final class ExplainSignals {
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
             "Exec steps run one pinned tool over declared inputs with no shell; keep shell scripts and"
-                    + " multi-step build logic in [commands.tasks] or CI.");
+                    + " multi-step build logic in [tasks.<id>] or CI.");
     public static final ExplainSignalDefinition MAVEN_PROFILE_DETECTED = new ExplainSignalDefinition(
             "maven.profile.detected",
             ExplainSignal.Severity.BLOCK,
@@ -128,7 +128,7 @@ public final class ExplainSignals {
                     ExplainSignal.Category.NON_DETERMINISM,
                     "This POM used source/target below the build JDK, so Maven compiled against the host"
                             + " JDK API. Zolt defaults to reproducible --release; only uncomment [compiler]"
-                            + " platformApi = \"host\" if a genuine post-target platform API fails the strict"
+                            + " jdkApi = \"host\" if a genuine post-target platform API fails the strict"
                             + " build, and note that host mode forfeits cross-JDK reproducibility.");
     public static final ExplainSignalDefinition MAVEN_REPOSITORY_DECLARED = new ExplainSignalDefinition(
             "maven.repository.declared",
@@ -302,7 +302,7 @@ public final class ExplainSignals {
             ExplainSignal.Severity.BLOCK,
             ExplainSignal.Category.MIGRATION_BLOCKER,
             "Exec steps run one pinned tool over declared inputs with no shell or task actions;"
-                    + " keep this scripted Exec/JavaExec task in [commands.tasks] or CI.");
+                    + " keep this scripted Exec/JavaExec task in [tasks.<id>] or CI.");
     public static final ExplainSignalDefinition GRADLE_BOM_DETECTED = new ExplainSignalDefinition(
             "gradle.bom.detected",
             ExplainSignal.Severity.OK,

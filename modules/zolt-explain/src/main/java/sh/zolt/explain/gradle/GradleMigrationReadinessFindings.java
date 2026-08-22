@@ -32,7 +32,7 @@ public final class GradleMigrationReadinessFindings {
                     MigrationReadinessCategory.BLOCKED,
                     signal,
                     "Gradle scripted Exec/JavaExec task",
-                    "[commands.tasks] or CI",
+                    "[tasks.<id>] or CI",
                     "",
                     signal.nextStep());
             case "gradle.project.missing-build-file" -> MigrationReadinessFindings.finding(
@@ -209,7 +209,7 @@ public final class GradleMigrationReadinessFindings {
                     MigrationReadinessCategory.SUPPORTED,
                     signal,
                     "processResources filter(ReplaceTokens, ...)",
-                    "[resources.filtering] and [resources.tokens]",
+                    "[resources.filter] and [resources.tokens]",
                     "",
                     signal.nextStep());
             case "gradle.test-runtime-settings" -> MigrationReadinessFindings.finding(
