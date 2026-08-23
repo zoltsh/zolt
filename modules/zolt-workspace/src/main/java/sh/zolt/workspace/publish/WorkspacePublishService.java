@@ -8,7 +8,7 @@ import sh.zolt.publish.PublishCentralReadinessService;
 import sh.zolt.publish.PublishDryRunService;
 import sh.zolt.publish.PublishException;
 import sh.zolt.publish.ManifestPublishSettingsLoader;
-import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
+import sh.zolt.workspace.member.MemberResolvedViewService;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceBuildPlan;
 import sh.zolt.workspace.service.WorkspaceBuildService;
@@ -74,9 +74,7 @@ public final class WorkspacePublishService {
             PackagePlanService packagePlanService) {
         this(
                 new WorkspaceBuildService(),
-                new WorkspaceMemberPolicyResolver(),
-                new WorkspaceMemberPomLockProjection(),
-                new WorkspaceBomFamily(),
+                new MemberResolvedViewService(),
                 new ManifestPublishSettingsLoader(),
                 new PublishCentralReadinessService(),
                 new PublishDryRunService(packagePlanService),
@@ -87,9 +85,7 @@ public final class WorkspacePublishService {
 
     WorkspacePublishService(
             WorkspaceBuildService workspaceBuildService,
-            WorkspaceMemberPolicyResolver policyResolver,
-            WorkspaceMemberPomLockProjection projection,
-            WorkspaceBomFamily bomFamily,
+            MemberResolvedViewService viewService,
             ManifestPublishSettingsLoader publishSettingsLoader,
             PublishCentralReadinessService centralReadinessService,
             PublishDryRunService dryRunService,
@@ -102,15 +98,11 @@ public final class WorkspacePublishService {
         this.centralPublisher = centralPublisher;
         this.staging = new WorkspacePublishStaging();
         this.memberPlanner = new WorkspaceMemberPlanner(
-                policyResolver,
-                projection,
-                bomFamily,
+                viewService,
                 publishSettingsLoader,
                 centralReadinessService,
                 dryRunService,
-                packagePlanService,
-                new WorkspaceMemberSbomLockProjection(),
-                new sh.zolt.workspace.service.WorkspaceClasspathService());
+                packagePlanService);
     }
 
     public WorkspacePublishReport publish(

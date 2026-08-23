@@ -3,7 +3,6 @@ package sh.zolt.workspace.publish;
 import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.packageplan.PackagePlan;
 import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.publish.PublishCentralReadinessService;
 import sh.zolt.publish.PublishCentralRequirement;
@@ -12,9 +11,9 @@ import sh.zolt.publish.PublishDryRunService;
 import sh.zolt.publish.PublishInterMemberGuard;
 import sh.zolt.publish.PublishSettings;
 import sh.zolt.publish.ManifestPublishSettingsLoader;
-import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
+import sh.zolt.workspace.member.MemberResolvedView;
+import sh.zolt.workspace.member.MemberResolvedViewService;
 import sh.zolt.workspace.service.Workspace;
-import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -23,46 +22,39 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Builds one publishable member's {@link MemberPublication} for {@code zolt publish --workspace}: it
- * resolves the policy-merged config, projects the per-member publish lock (fact 6: directness from
- * config, versions from the aggregated lock), then reuses the single-project planner
+ * Builds one publishable member's {@link MemberPublication} for {@code zolt publish --workspace} and
+ * for every member-directory {@code zolt publish} mode: it takes the member's
+ * {@link MemberResolvedView} of the workspace lock, then reuses the single-project planner
  * ({@link PublishDryRunService#planResolved}) so the member carries the same sources/javadoc/SBOM/
  * checksum/signature plans and repository-credential/URL-safety policy as a single-project publish.
  * Inter-member completeness and per-member Central readiness are layered on top; on a resume, an
  * absent inter-member provider is a note only when the durable state proves it already published, a
  * blocker otherwise. Extracted from {@link WorkspacePublishService} so the orchestrator holds only the
  * two-phase flow and this file-size budget.
+ *
+ * <p>The lock projections are not this class's own: {@link MemberResolvedViewService} owns them for
+ * the whole member-facing command matrix, so a member's published POM lists exactly the roots
+ * {@code zolt check} evaluates policy over and its attached SBOM describes exactly the closure
+ * {@code zolt sbom} prints.
  */
 final class WorkspaceMemberPlanner {
-    private final WorkspaceMemberPolicyResolver policyResolver;
-    private final WorkspaceMemberPomLockProjection projection;
-    private final WorkspaceBomFamily bomFamily;
+    private final MemberResolvedViewService viewService;
     private final ManifestPublishSettingsLoader publishSettingsLoader;
     private final PublishCentralReadinessService centralReadinessService;
     private final PublishDryRunService dryRunService;
     private final PackagePlanService packagePlanService;
-    private final WorkspaceMemberSbomLockProjection sbomProjection;
-    private final WorkspaceClasspathService classpathService;
 
     WorkspaceMemberPlanner(
-            WorkspaceMemberPolicyResolver policyResolver,
-            WorkspaceMemberPomLockProjection projection,
-            WorkspaceBomFamily bomFamily,
+            MemberResolvedViewService viewService,
             ManifestPublishSettingsLoader publishSettingsLoader,
             PublishCentralReadinessService centralReadinessService,
             PublishDryRunService dryRunService,
-            PackagePlanService packagePlanService,
-            WorkspaceMemberSbomLockProjection sbomProjection,
-            WorkspaceClasspathService classpathService) {
-        this.policyResolver = policyResolver;
-        this.projection = projection;
-        this.bomFamily = bomFamily;
+            PackagePlanService packagePlanService) {
+        this.viewService = viewService;
         this.publishSettingsLoader = publishSettingsLoader;
         this.centralReadinessService = centralReadinessService;
         this.dryRunService = dryRunService;
         this.packagePlanService = packagePlanService;
-        this.sbomProjection = sbomProjection;
-        this.classpathService = classpathService;
     }
 
     Result plan(
@@ -137,41 +129,48 @@ final class WorkspaceMemberPlanner {
             Path cacheRoot,
             boolean central,
             WorkspaceMemberSbomGenerator sbomGenerator) {
-        ProjectConfig config = policyResolver.merge(workspace, member);
-        boolean bom = config.packageSettings().mode() == PackageMode.BOM;
-        ZoltLockfile memberLock = bom
-                ? bomFamily.familyLock(workspace, aggregatedLock, member)
-                : projection.project(member.path(), config, aggregatedLock);
-        ZoltLockfile packageLock = bom
-                ? memberLock
-                : classpathService
-                        .packageLocksForMembers(
-                                workspace,
-                                aggregatedLock,
-                                List.of(member.path()))
-                        .get(member.path());
+        return planOffline(
+                viewService.view(
+                        workspace,
+                        aggregatedLock,
+                        member,
+                        MemberResolvedViewService.authoritativeLockfile(workspace)),
+                cacheRoot,
+                central,
+                sbomGenerator);
+    }
+
+    /** As above, for a caller that already projected the member's view of the workspace lock. */
+    Planned planOffline(
+            MemberResolvedView view,
+            Path cacheRoot,
+            boolean central,
+            WorkspaceMemberSbomGenerator sbomGenerator) {
+        ProjectConfig config = view.effectiveConfig();
+        boolean bom = view.bom();
+        ZoltLockfile memberLock = view.publicationLock();
         PublishSettings publish =
-                publishSettingsLoader.read(member.directory().resolve("zolt.toml"));
+                publishSettingsLoader.read(view.memberDirectory().resolve("zolt.toml"));
         // Resolve the member's REAL primary artifact through the framework-aware package planner (the
         // same path single-project publishing plans) — a Quarkus fast-jar's quarkus-run.jar or any
         // future mode's real archive, not a synthesized <name>-<version>.jar. The lock only feeds the
         // planner's discarded dependency listing; the archive path derives from the member dir + config.
         PackagePlan packagePlan =
                 packagePlanService.plan(
-                        member.directory(),
+                        view.memberDirectory(),
                         config,
-                        packageLock,
+                        view.packageLock(),
                         cacheRoot);
-        // The POM plan below consumes the POM-shaped memberLock; the SBOM consumes the full closure.
+        // The POM plan below consumes the POM-shaped publication lock; the SBOM consumes the full
+        // dependency-graph closure. Both are the member's own slice of the one workspace resolution.
         Optional<Path> sbomFile = bom
                 ? Optional.empty()
-                : sbomGenerator.generate(member.directory(), config,
-                        sbomProjection.project(member.path(), config, aggregatedLock, workspace, policyResolver));
+                : sbomGenerator.generate(view.memberDirectory(), config, view.dependencyGraphLock());
 
         // Reuse the single-project planner against the projected member lock: this is the sole source
         // of the member's supplemental/SBOM/checksum plans and its credential + URL-safety blockers.
         PublishDryRunPlan memberPlan = dryRunService.planResolved(
-                member.directory(),
+                view.memberDirectory(),
                 config,
                 publish,
                 () -> memberLock,

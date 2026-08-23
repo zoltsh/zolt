@@ -1,6 +1,7 @@
 package sh.zolt.workspace.publish;
 
 import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
+import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -32,11 +33,25 @@ public final class WorkspaceMemberDirectory {
 
     /** The declared member whose directory is exactly {@code startDirectory}, if there is one. */
     public Optional<WorkspaceMember> at(Path startDirectory) {
+        return membershipAt(startDirectory).map(Membership::member);
+    }
+
+    /**
+     * As {@link #at}, keeping the declaring workspace beside the member. Every member-facing command
+     * needs both — the member to project, the workspace to project it out of — and discovery is the
+     * expensive half, so asking for them together costs one pass instead of two.
+     */
+    public Optional<Membership> membershipAt(Path startDirectory) {
         Path directory = startDirectory.toAbsolutePath().normalize();
         return workspaceLoader.discover(directory)
                 .filter(candidate -> !candidate.root().toAbsolutePath().normalize().equals(directory))
                 .flatMap(candidate -> candidate.members().stream()
                         .filter(member -> member.directory().toAbsolutePath().normalize().equals(directory))
-                        .findFirst());
+                        .findFirst()
+                        .map(member -> new Membership(candidate, member)));
+    }
+
+    /** A directory that IS a declared workspace member, with the workspace that declares it. */
+    public record Membership(Workspace workspace, WorkspaceMember member) {
     }
 }

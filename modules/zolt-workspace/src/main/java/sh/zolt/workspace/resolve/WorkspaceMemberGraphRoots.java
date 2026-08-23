@@ -1,14 +1,20 @@
 package sh.zolt.workspace.resolve;
 
 import java.util.List;
-import sh.zolt.lockfile.LockDependencyEdge;
 import sh.zolt.lockfile.LockDependencyGraphException;
-import sh.zolt.lockfile.LockGraphRootSelector;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.project.ProjectConfig;
+import sh.zolt.workspace.member.MemberResolvedViewService;
 import sh.zolt.workspace.service.Workspace;
 
-/** Computes the exact locked roots of one member's dependency graph. */
+/**
+ * Computes the exact locked roots of one member's dependency graph, for the workspace-shaped reports
+ * that hold a member path and a config rather than a
+ * {@link sh.zolt.workspace.member.MemberResolvedView}.
+ *
+ * <p>The selection rule itself lives in {@link MemberResolvedViewService#graphRoots}, which is also
+ * what a member's own view answers, so a member's roots cannot depend on which entry point asked.
+ */
 public final class WorkspaceMemberGraphRoots {
     private final WorkspaceMemberPolicyLockProjection projection =
             new WorkspaceMemberPolicyLockProjection();
@@ -28,17 +34,9 @@ public final class WorkspaceMemberGraphRoots {
                             + ZoltLockfile.CURRENT_VERSION + ", but found version " + aggregate.version()
                             + ". Run `zolt resolve --workspace` to regenerate the lockfile.");
         }
-        ZoltLockfile memberLock = projection.project(memberPath, effectiveConfig, aggregate, workspace);
-        return LockGraphRootSelector.select(
-                        memberLock.packages(),
-                        memberLock.dependencyRoots(),
-                        aggregate.packages(),
-                        "zolt resolve --workspace")
-                .stream()
-                .map(LockDependencyEdge::of)
-                .map(LockDependencyEdge::encode)
-                .sorted()
-                .toList();
+        return MemberResolvedViewService.graphRoots(
+                projection.project(memberPath, effectiveConfig, aggregate, workspace),
+                aggregate);
     }
 
 }
