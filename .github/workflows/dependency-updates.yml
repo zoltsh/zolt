@@ -1,0 +1,58 @@
+name: dependency updates
+
+on:
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Create or reconcile managed dependency pull requests
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zolt-dependency-updates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    name: update dependencies
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Update dependencies
+        id: updates
+        uses: zoltsh/update-dependencies@84221108b5604f61f77c6d026b6a25b348be27a7 # v0.2.0
+        with:
+          workspace: "true"
+          update-ceiling: minor
+          open-pull-requests-limit: "5"
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish }}
+
+      # Pull requests opened with GITHUB_TOKEN do not emit pull_request events.
+      - name: Validate changed dependency pull requests
+        if: steps.updates.outputs.created-pull-request-count != '0' || steps.updates.outputs.updated-pull-request-count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr list --state open --limit 100 --json headRefName --jq '.[].headRefName' |
+            while IFS= read -r branch; do
+              case "$branch" in
+                zolt/update/*) gh workflow run ci.yml --ref "$branch" ;;
+              esac
+            done
