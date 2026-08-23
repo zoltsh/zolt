@@ -527,6 +527,25 @@ This is not a style preference, because a member-local `zolt.lock` is **observat
 
 **Workspace routing.** A command that builds, runs, or packages a member runs through that member's workspace service with the current member selected — the same path `--workspace --member <path>` takes — not through a standalone service pointed at the root lock. `--workspace` and a member directory select different members; they do not select different machinery. The workspace path is what guarantees the member's workspace providers are built first, in workspace build order, with the member-specific graph projection its lanes need. This binds `build`, `run`, `test`, `test --compile-only`, `integration-test`, `package`, `run-package`, `native`, and `coverage`; `resolve` from a member resolves the whole workspace. Read-only projections (`classpath`, `package --plan`) select the member's graph out of the root lock without gating on its freshness, because only `zolt resolve` refreshes it.
 
+**The member projection.** Finding the root lock is only half the rule. That lock is the whole workspace's resolution, so handing it unfiltered to a single-project consumer is as wrong as reading a member-local one — it just fails plausibly instead of loudly: a member's SBOM attests to a sibling's dependencies, a member's POM declares them, a member's license report enforces policy over them. Every member-facing consumer therefore takes a **member projection** of the root lock, and the projection has more than one shape, because a supply-chain report (every reachable transitive component, with hashes and edges), a POM (authored directs only), a packaging closure, and an all-scope policy view are different selections out of the same resolution. One boundary — `MemberResolvedView` — carries them together with the authoritative lockfile path and the member's identity, so a command cannot pick the right lock and then the wrong slice of it.
+
+**Command matrix.** Every command that reads locked dependency facts, in the three positions of the audit rule:
+
+| Command | Standalone project | Workspace member | Workspace root |
+| --- | --- | --- | --- |
+| `build`, `run`, `test`, `integration-test`, `package`, `run-package`, `native`, `coverage` | standalone service, own lock | workspace service, this member selected, member lane projection | actionable rejection (`--workspace`) |
+| `resolve` | standalone resolve, writes its own lock | resolves the whole workspace, writes the root lock | resolves the whole workspace |
+| `classpath`, `package --plan` | standalone, own lock | member lane projection of the root lock, ungated on freshness | actionable rejection (`--workspace`) |
+| `sbom` | standalone, own lock | `dependencyGraphLock` — the member's full reachable closure | actionable rejection (`--workspace`) |
+| `licenses` | standalone, own lock | `dependencyGraphLock` — licences of the packages this member reaches | actionable rejection (`--workspace`) |
+| `check` | standalone project checks | workspace quality projection, exactly this member selected | actionable rejection (`--workspace`) |
+| `ide model` | standalone export, own lock | the workspace export's own machinery, this member's model returned | model carrying an actionable `WORKSPACE_ROOT_HAS_NO_PROJECT` diagnostic |
+| `publish` — every mode: plain dry run and upload, Central dry run and upload, `--sbom`, `--context release` | standalone planner, own lock | workspace member planner: `publicationLock` for the POM, `dependencyGraphLock` for the attached SBOM, `packageLock` for the artifact | actionable rejection (`--workspace`) |
+| `quarkus plan` | standalone, own lock path passed in | `packageLock` — the member's runtime and Quarkus-deployment closure | actionable rejection (`--workspace`) |
+| `doctor --self-hosting` | standalone, own lock | the authoritative root lock | actionable rejection (`--workspace`) |
+
+`ide model` rejects differently because its contract is a model, not an exit code: an IDE always receives a parseable model, so the refusal is a diagnostic inside it naming the invocation that works.
+
 A member's toolchain reads from both roots at once: the `[toolchain.java]` / `[toolchain.java.test]` request from the member's own manifest, and the locked toolchain that satisfies it from the workspace root's lock.
 
 This is a closed list, not a general parent-POM inheritance system. A new shared domain requires an explicit language decision.
