@@ -21,30 +21,44 @@ import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 
 /**
- * The report, publish, and framework-plan half of the member-command matrix: a member-local
+ * The report, publish, framework-plan, and toolchain half of the member-command matrix: a member-local
  * {@code zolt.lock} is completely observationally irrelevant to every command that reads or plans from
  * a lock.
  *
  * <p>{@code MemberDirectoryCommandRoutingTest} pins the same invariant for the build-shaped commands
  * (build, run, test, package, native, classpath). This one covers the commands that PRODUCE evidence
- * or publications, where a wrong answer is not a failed build but a plausible document: an SBOM, a
- * license report, a quality verdict, an IDE model, a POM, an augmentation plan.
+ * or publications, where a wrong answer is not a failed build but a plausible document — an SBOM, a
+ * license report, a quality verdict, an IDE model, a POM, an augmentation plan — and the two toolchain
+ * commands that answer from a lock without producing anything at all.
  *
- * <p>The planted lock is the dangerous shape, not an obviously broken one: current schema, valid, and
- * fingerprint-matching for the member's own config, so a standalone freshness gate accepts it without
- * complaint. It names one package no member depends on. Two properties are asserted per command: the
- * output is identical to the same command against a clean fixture of the same workspace, and the
- * planted file is left exactly as it was found — neither consumed nor rewritten.
+ * <p>Two lock shapes are planted, because they prove different things. The valid one is the dangerous
+ * shape: current schema, fingerprint-matching for the member's own config, so a standalone freshness
+ * gate accepts it without complaint and a command that reads it returns a plausible wrong answer. The
+ * malformed one is not TOML at all, so a command that so much as opens it fails. The first proves a
+ * command did not USE the member's lock; the second proves it never OPENED it.
  *
  * <p><strong>Extending this.</strong> Add an {@link Arguments} row naming the command and the
  * {@link Fixtures} kind its workspace needs. A command belongs here once it can be started in a member
- * directory and its answer depends on locked dependency facts. Two workspace kinds exist because the
- * shapes are mutually exclusive: a publishable jar member and a Quarkus fast-jar member cannot be the
- * same project.
+ * directory and its answer depends on locked facts. A command that cannot take appended options — one
+ * with free-form trailing arguments, or without {@code --cache-root} — writes {@link #MEMBER_DIRECTORY}
+ * into its own row instead. Two workspace kinds exist because the shapes are mutually exclusive: a
+ * publishable jar member and a Quarkus fast-jar member cannot be the same project.
  */
 final class MemberCommandProjectionMatrixTest {
     /** A coordinate no member depends on, so any trace of it in an output is a read of the poison. */
     private static final String POISON = "poison";
+
+    /**
+     * Stands for the member directory in a row that points itself at the member. Most rows are run with
+     * {@code --cwd <member> --cache-root <fixture cache>} appended, which the toolchain rows cannot use:
+     * {@code zolt exec} passes everything after {@code --} to the child process, so nothing may be
+     * appended, and {@code zolt toolchain list} has no {@code --cache-root} because it reads no
+     * artifacts. A row naming this token is run exactly as written, with the token substituted.
+     */
+    private static final String MEMBER_DIRECTORY = "<member>";
+
+    /** Not TOML. A command that opens this file fails; one that never opens it cannot notice. */
+    private static final String MALFORMED_LOCK = "not a lockfile";
 
     @TempDir
     private Path tempDir;
@@ -64,10 +78,10 @@ final class MemberCommandProjectionMatrixTest {
         try (CliTestRepository repository = CliTestRepository.start();
                 Scenario clean = open(kind, repository);
                 Scenario poisoned = open(kind, repository)) {
-            CommandResult expected = clean.run(arguments);
+            CommandResult expected = run(clean, arguments);
             String planted = poisoned.plantPoisonedMemberLock();
 
-            CommandResult actual = poisoned.run(arguments);
+            CommandResult actual = run(poisoned, arguments);
 
             assertEquals(expected.exitCode(), actual.exitCode(), actual.stdout() + actual.stderr());
             assertFalse(actual.stdout().contains(POISON), actual.stdout());
@@ -96,7 +110,7 @@ final class MemberCommandProjectionMatrixTest {
             throws IOException {
         try (CliTestRepository repository = CliTestRepository.start();
                 Scenario scenario = open(kind, repository)) {
-            CommandResult result = scenario.run(arguments);
+            CommandResult result = run(scenario, arguments);
 
             assertFalse(result.stdout().isBlank() && result.stderr().isBlank(),
                     () -> name + " produced no output at all");
@@ -108,9 +122,44 @@ final class MemberCommandProjectionMatrixTest {
     }
 
     /**
-     * Every member-facing command whose answer depends on locked dependency facts. The publish rows
-     * cover both target shapes: a plain repository (which requires a configured repository) and Maven
-     * Central (which does not, and assembles a bundle instead).
+     * The same invariant against bytes that are not TOML at all, which is a stronger statement than the
+     * planted valid lock above: that one proves a command did not USE the member's lock, this one
+     * proves it never OPENED it, because opening these bytes fails loudly and unmistakably.
+     *
+     * <p>One scenario, not two: what is asserted is the absence of a lockfile read, not an equality
+     * between runs, so the clean twin buys nothing here. The exit code is deliberately not asserted for
+     * the same reason it is not asserted above — some rows legitimately exit non-zero for this fixture.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("memberCommands")
+    void malformedMemberLockChangesNothing(String name, Fixtures kind, List<String> arguments)
+            throws IOException {
+        try (CliTestRepository repository = CliTestRepository.start();
+                Scenario scenario = open(kind, repository)) {
+            Files.writeString(scenario.memberLock(), MALFORMED_LOCK);
+
+            CommandResult result = run(scenario, arguments);
+
+            String output = result.stdout() + result.stderr();
+            assertFalse(
+                    output.contains("Could not parse zolt.lock"),
+                    () -> name + " parsed the member-local lock: " + output);
+            assertFalse(
+                    output.contains(scenario.memberLock().toString()),
+                    () -> name + " opened the member-local lock: " + output);
+            assertEquals(
+                    MALFORMED_LOCK,
+                    Files.readString(scenario.memberLock()),
+                    () -> name + " consumed or rewrote the member-local lock");
+        }
+    }
+
+    /**
+     * Every member-facing command whose answer depends on locked facts. The publish rows cover both
+     * target shapes: a plain repository (which requires a configured repository) and Maven Central
+     * (which does not, and assembles a bundle instead). The two toolchain rows are the commands with no
+     * authored request to fall back on — this fixture's workspace declares no {@code [toolchain.java]},
+     * so both must reach ambient Java, and the lock they consult on the way is the root's.
      */
     private static Stream<Arguments> memberCommands() {
         return Stream.of(
@@ -124,7 +173,27 @@ final class MemberCommandProjectionMatrixTest {
                         List.of("publish", "--dry-run", "--central")),
                 Arguments.of("publish --dry-run --sbom", Fixtures.REPORTS,
                         List.of("publish", "--dry-run", "--sbom")),
-                Arguments.of("quarkus plan", Fixtures.QUARKUS, List.of("quarkus", "plan")));
+                Arguments.of("quarkus plan", Fixtures.QUARKUS, List.of("quarkus", "plan")),
+                Arguments.of("exec", Fixtures.REPORTS,
+                        List.of("exec", "--directory", MEMBER_DIRECTORY, "--", "java", "-version")),
+                Arguments.of("toolchain list", Fixtures.REPORTS,
+                        List.of("toolchain", "list", "--directory", MEMBER_DIRECTORY)));
+    }
+
+    /**
+     * Runs one row against one scenario. A row that names {@link #MEMBER_DIRECTORY} points itself at the
+     * member and is run exactly as written; every other row is run in the member directory with the
+     * fixture's cache appended.
+     */
+    private static CommandResult run(Scenario scenario, List<String> arguments) {
+        if (!arguments.contains(MEMBER_DIRECTORY)) {
+            return scenario.run(arguments);
+        }
+        return scenario.runVerbatim(arguments.stream()
+                .map(argument -> MEMBER_DIRECTORY.equals(argument)
+                        ? scenario.memberDirectory().toString()
+                        : argument)
+                .toList());
     }
 
     /**
@@ -142,7 +211,12 @@ final class MemberCommandProjectionMatrixTest {
     private interface Scenario extends AutoCloseable {
         CommandResult run(List<String> arguments);
 
+        /** Runs a row that already points itself at the member, with nothing appended. */
+        CommandResult runVerbatim(List<String> arguments);
+
         String plantPoisonedMemberLock() throws IOException;
+
+        Path memberDirectory();
 
         Path memberLock();
 
@@ -175,8 +249,18 @@ final class MemberCommandProjectionMatrixTest {
         }
 
         @Override
+        public CommandResult runVerbatim(List<String> arguments) {
+            return execute(arguments.toArray(String[]::new));
+        }
+
+        @Override
         public String plantPoisonedMemberLock() throws IOException {
             return fixture.plantPoisonedMemberLock();
+        }
+
+        @Override
+        public Path memberDirectory() {
+            return fixture.apiDir();
         }
 
         @Override
@@ -220,8 +304,18 @@ final class MemberCommandProjectionMatrixTest {
         }
 
         @Override
+        public CommandResult runVerbatim(List<String> arguments) {
+            return execute(arguments.toArray(String[]::new));
+        }
+
+        @Override
         public String plantPoisonedMemberLock() throws IOException {
             return fixture.plantPoisonedMemberLock();
+        }
+
+        @Override
+        public Path memberDirectory() {
+            return fixture.quarkusMember();
         }
 
         @Override
