@@ -3,7 +3,7 @@ name = "zolt"
 main = "sh.zolt.cli.ZoltCli"
 
 [dependencies]
-"info.picocli:picocli" = "4.7.6"
+"info.picocli:picocli" = "4.7.7"
 "sh.zolt:zolt-build" = { workspace = true }
 "sh.zolt:zolt-config" = { workspace = true }
 "sh.zolt:zolt-explain" = { workspace = true }
