@@ -1,4 +1,4 @@
-package sh.zolt.cli.workspace;
+package sh.zolt.cli.member;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static sh.zolt.cli.CliTestSupport.execute;

@@ -1,4 +1,4 @@
-package sh.zolt.cli.workspace;
+package sh.zolt.cli.member;
 
 import java.io.IOException;
 import java.nio.file.Files;
