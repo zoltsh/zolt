@@ -32,7 +32,6 @@ public final class CommandProjectLockfile {
      * needing the project's configuration. Only a directory the workspace actually expanded into — its
      * root or one of its members — is governed by the root lock; anything else keeps its own.
      */
-    /** The authoritative lockfile path for a directory, discovering its workspace on the spot. */
     public static Path path(Path projectDirectory) {
         return path(projectDirectory, new ManifestWorkspaceLoader());
     }
