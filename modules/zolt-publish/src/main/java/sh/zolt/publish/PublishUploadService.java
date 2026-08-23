@@ -87,16 +87,33 @@ public final class PublishUploadService {
             Optional<Path> sbomFile,
             Path cacheRoot) {
         Path root = projectRoot.toAbsolutePath().normalize();
-        PublishDryRunPlan plan = dryRunService.plan(
+        return uploadResolved(
                 root,
-                true,
-                sbomFile,
-                cacheRoot);
+                manifestLoader.loadProject(root),
+                publishSettingsLoader.read(root.resolve("zolt.toml")),
+                dryRunService.plan(root, true, sbomFile, cacheRoot));
+    }
+
+    /**
+     * Uploads from already-resolved inputs — the (policy-merged) config, the publish settings, and the
+     * plan naming every file to stage — instead of re-reading and re-planning them from disk.
+     *
+     * <p>This is the reuse seam for a live publish from a workspace member directory: the member's plan
+     * comes from the workspace projection of the root lock (a member has no lock of its own), while
+     * staging, signing, the durable publication transaction, credential resolution, and URL policy stay
+     * verbatim what a single-project upload does. Uploading is the irreversible half of publishing, so
+     * it must not re-derive inputs the plan was already built from and risk uploading different bytes
+     * than the dry run showed.
+     */
+    public PublishUploadResult uploadResolved(
+            Path projectRoot,
+            ProjectConfig config,
+            PublishSettings settings,
+            PublishDryRunPlan plan) {
+        Path root = projectRoot.toAbsolutePath().normalize();
         if (!plan.ok()) {
             throw new PublishException("Publish is blocked. Run `zolt publish --dry-run` and resolve the reported blockers before uploading.");
         }
-        ProjectConfig config = manifestLoader.loadProject(root);
-        PublishSettings settings = publishSettingsLoader.read(root.resolve("zolt.toml"));
         PublishRepositorySettings repository = selectedRepository(settings, plan);
         Optional<RepositoryAuthentication> authentication = authentication(repository, config);
         URI repositoryUri = repositoryUri(repository);

@@ -57,6 +57,19 @@ final class MemberProjectionFixture implements AutoCloseable {
     }
 
     static MemberProjectionFixture create(Path tempDir) throws IOException {
+        return create(tempDir, false);
+    }
+
+    /**
+     * The same workspace with {@code apps/api} and {@code libs/core} publishable to the fixture
+     * repository, so every {@code zolt publish} mode — plain dry run, plain upload, Central dry run,
+     * Central upload, SBOM attachment, release-policy preflight — has something real to plan and push.
+     */
+    static MemberProjectionFixture createPublishable(Path tempDir) throws IOException {
+        return create(tempDir, true);
+    }
+
+    private static MemberProjectionFixture create(Path tempDir, boolean publishable) throws IOException {
         CliTestRepository repository = CliTestRepository.start();
         repository.addArtifact("com.example", "api-only", "1.0.0", pom("api-only", API_ONLY_LICENSE));
         repository.addArtifact("com.example", "sibling-only", "1.0.0", pom("sibling-only", SIBLING_ONLY_LICENSE));
@@ -84,15 +97,16 @@ final class MemberProjectionFixture implements AutoCloseable {
                 url = "%s"
                 """.formatted(Runtime.version().feature(), repository.baseUri()));
 
+        String publish = publishable ? publishable(repository.baseUri().toString()) : "";
         member(workspaceDir, API_MEMBER, "api", """
                 [dependencies]
                 "%s" = { workspace = true }
                 "%s" = "1.0.0"
-                """.formatted(PROVIDER, API_ONLY));
+                """.formatted(PROVIDER, API_ONLY) + publish);
         member(workspaceDir, CORE_MEMBER, "core", """
                 [dependencies]
                 "%s" = "1.0.0"
-                """.formatted(SIBLING_ONLY));
+                """.formatted(SIBLING_ONLY) + publish);
         member(workspaceDir, UNRELATED_MEMBER, "unrelated", """
                 [dependencies]
                 "%s" = "1.0.0"
@@ -194,23 +208,13 @@ final class MemberProjectionFixture implements AutoCloseable {
     }
 
     /**
-     * A publishable member: Central-shaped metadata plus a release repository, so a dry run plans a
-     * real POM and a real artifact set rather than stopping at a configuration blocker.
+     * A publishable member: release-shaped metadata plus a release repository pointing at the fixture
+     * server, so a dry run plans a real POM and a live upload really uploads. Signing is deliberately
+     * absent — these tests are about which lock the plan came from, and requiring a GPG key would make
+     * them depend on the developer's keyring.
      */
-    static String publishable() {
+    private static String publishable(String repositoryUrl) {
         return """
-
-                description = "A publishable workspace member."
-                url = "https://example.com/family"
-                license = "Apache-2.0"
-
-                [project.scm]
-                url = "https://github.com/example/family"
-                connection = "scm:git:https://github.com/example/family.git"
-
-                [project.developers.ada]
-                name = "Ada Lovelace"
-                email = "ada@example.com"
 
                 [package]
                 sources = true
@@ -220,12 +224,33 @@ final class MemberProjectionFixture implements AutoCloseable {
                 release = "company-releases"
 
                 [publish.repositories.company-releases]
-                url = "https://repo.example.test/releases"
+                url = "%s"
+                """.formatted(repositoryUrl);
+    }
 
-                [publish.signing]
-                method = "gpg"
-                keyId = "ABCDEF0123456789"
-                """;
+    /**
+     * Adds release-context metadata to a member, keeping TOML's rule that a table's own keys precede
+     * the next table header: the scalars land under {@code [project]}, the sub-tables at the end.
+     */
+    static void addReleaseMetadata(Path memberDir) throws IOException {
+        Path manifest = memberDir.resolve("zolt.toml");
+        String source = Files.readString(manifest);
+        int afterName = source.indexOf('\n', source.indexOf("name = ")) + 1;
+        Files.writeString(manifest, source.substring(0, afterName) + """
+                description = "A publishable workspace member."
+                url = "https://example.com/family"
+                issues = "https://example.com/family/issues"
+                license = "Apache-2.0"
+                """ + source.substring(afterName) + """
+
+                [project.scm]
+                url = "https://github.com/example/family"
+                connection = "scm:git:https://github.com/example/family.git"
+
+                [project.developers.ada]
+                name = "Ada Lovelace"
+                email = "ada@example.com"
+                """);
     }
 
     private static void member(Path workspaceDir, String path, String name, String body)

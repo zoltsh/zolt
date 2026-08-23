@@ -164,32 +164,31 @@ public final class PublishCommand implements Callable<Integer> {
             if (workspace) {
                 return runWorkspacePublish(projectRoot);
             }
-            // A workspace member has no member-level zolt.lock, so a Central dry run there plans through
-            // the workspace planner against the aggregated root lock (and brings its own member SBOM).
-            // It therefore takes the same workspace lock freshness gate and the same --offline handling as
+            // A workspace member has no member-level zolt.lock, so EVERY mode plans through the
+            // workspace planner against the aggregated root lock (and brings its own member SBOM). It
+            // therefore takes the same workspace lock freshness gate and the same --offline handling as
             // `publish --workspace`; both entry paths must give identical dependency guarantees.
-            PublishMemberDryRun memberDryRun = PublishMemberDryRun.resolve(
-                    dryRun && central,
+            PublishMemberRoute member = PublishMemberRoute.resolve(
                     workspacePublishService,
                     lockfiles,
                     projectRoot,
                     cacheRoot,
                     offline,
+                    central,
+                    invocation(),
                     sbomGenerator.memberGenerator(sbom, ZoltCli.version()));
-            Optional<Path> sbomFile = memberDryRun.present() ? Optional.empty() : generateSbom(projectRoot);
+            Optional<Path> sbomFile = member.present() ? Optional.empty() : generateSbom(projectRoot);
+            Path publishRoot = member.root(projectRoot);
             if (central && !dryRun) {
                 progress.start("Publishing to Maven Central");
-                PublishDryRunPlan plan =
-                        dryRunService.plan(
-                                projectRoot,
-                                false,
-                                sbomFile,
-                                cacheRoot);
+                PublishDryRunPlan plan = member.plan(
+                        () -> dryRunService.plan(projectRoot, false, sbomFile, cacheRoot));
                 if (!plan.ok()) {
                     CommandOutput.printAndFlush(spec, PublishDryRunFormatter.text(plan));
                     return 1;
                 }
-                List<PublishCentralRequirement> readiness = centralReadinessService.evaluate(projectRoot, plan);
+                List<PublishCentralRequirement> readiness =
+                        member.readiness(centralReadinessService, projectRoot, plan);
                 if (!readiness.stream().allMatch(PublishCentralRequirement::satisfied)) {
                     CommandOutput.printAndFlush(spec, PublishDryRunFormatter.centralReadiness(readiness));
                     return 1;
@@ -197,30 +196,33 @@ public final class PublishCommand implements Callable<Integer> {
                 Optional<Duration> waitTimeout = wait
                         ? Optional.of(Duration.ofSeconds(waitTimeoutSeconds))
                         : Optional.empty();
-                PublishCentralUploadResult centralResult = centralPublishService.publish(projectRoot, plan, waitTimeout);
+                PublishCentralUploadResult centralResult =
+                        centralPublishService.publish(publishRoot, plan, waitTimeout);
                 CommandOutput.printAndFlush(spec, PublishCentralUploadFormatter.text(centralResult));
-                progress.result(centralProgressResult(centralResult.outcome()));
+                progress.result(PublishReportFormatter.centralProgress(centralResult.outcome()));
                 return 0;
             }
             if (dryRun) {
                 progress.start("Preparing publish dry run");
                 PublishDryRunPlan planned =
-                        memberDryRun.plan(() -> dryRunService.plan(projectRoot, !central, sbomFile, cacheRoot));
+                        member.plan(() -> dryRunService.plan(projectRoot, !central, sbomFile, cacheRoot));
                 PublishDryRunPlan plan = context == PublishContext.RELEASE
-                        ? releasePolicyService.apply(projectRoot, planned)
+                        ? member.config()
+                                .map(config -> releasePolicyService.apply(config, planned))
+                                .orElseGet(() -> releasePolicyService.apply(projectRoot, planned))
                         : planned;
                 StringBuilder output = new StringBuilder(PublishDryRunFormatter.text(plan));
                 boolean centralReady = true;
                 if (central) {
                     List<PublishCentralRequirement> readiness =
-                            memberDryRun.readiness(centralReadinessService, projectRoot, plan);
+                            member.readiness(centralReadinessService, projectRoot, plan);
                     output.append(PublishDryRunFormatter.centralReadiness(readiness));
                     centralReady = readiness.stream().allMatch(PublishCentralRequirement::satisfied);
                     if (plan.ok()) {
-                        Path bundleRoot = memberDryRun.root(projectRoot);
-                        PublishCentralBundleResult bundle = centralPublishService.assembleBundle(bundleRoot, plan);
+                        PublishCentralBundleResult bundle =
+                                centralPublishService.assembleBundle(publishRoot, plan);
                         output.append(PublishDryRunFormatter.centralBundle(
-                                displayPath(bundleRoot, bundle.bundlePath()), bundle.entries()));
+                                PublishReportFormatter.displayPath(publishRoot, bundle.bundlePath()), bundle.entries()));
                     }
                 }
                 CommandOutput.printAndFlush(spec, output.toString());
@@ -228,8 +230,13 @@ public final class PublishCommand implements Callable<Integer> {
                 return plan.ok() && centralReady ? 0 : 1;
             }
             progress.start("Publishing artifacts");
-            PublishUploadResult result =
-                    uploadService.upload(
+            PublishUploadResult result = member.present()
+                    ? uploadService.uploadResolved(
+                            publishRoot,
+                            member.config().orElseThrow(),
+                            member.publish().orElseThrow(),
+                            member.plan(() -> dryRunService.plan(projectRoot, true, sbomFile, cacheRoot)))
+                    : uploadService.upload(
                             projectRoot,
                             sbomFile,
                             cacheRoot);
@@ -276,7 +283,7 @@ public final class PublishCommand implements Callable<Integer> {
                     selection,
                     options,
                     sbomGenerator.memberGenerator(sbom, ZoltCli.version()));
-            CommandOutput.printAndFlush(spec, formatWorkspaceReport(report));
+            CommandOutput.printAndFlush(spec, PublishReportFormatter.workspaceReport(report));
             if (!report.ok()) {
                 return 1;
             }
@@ -285,62 +292,23 @@ public final class PublishCommand implements Callable<Integer> {
         });
     }
 
-    private static String formatWorkspaceReport(WorkspacePublishReport report) {
-        StringBuilder output = new StringBuilder();
-        output.append("Workspace publish family (").append(report.members().size()).append(" member(s)):\n");
-        for (WorkspacePublishReport.Member member : report.members()) {
-            output.append("- ").append(member.coordinate());
-            if (member.bom()) {
-                output.append(" [bom]");
-            }
-            output.append(" -> ").append(member.plan().repositoryId()).append('\n');
-        }
-        if (!report.blockers().isEmpty()) {
-            output.append("Blockers:\n");
-            for (String blocker : report.blockers()) {
-                output.append("- ").append(blocker).append('\n');
-            }
-        }
-        if (!report.notes().isEmpty()) {
-            output.append("Notes:\n");
-            for (String note : report.notes()) {
-                output.append("- ").append(note).append('\n');
-            }
-        }
-        report.deploymentId().ifPresent(id -> output.append("Central deployment id: ").append(id).append('\n'));
-        report.centralOutcome().ifPresent(outcome -> output.append(centralStatusLine(outcome)));
-        report.resumeCommand().ifPresent(command -> output.append("Resume with: ").append(command).append('\n'));
-        if (report.ok()) {
-            output.append(report.uploaded() ? "Uploaded the family.\n" : "No blockers. Nothing uploaded (dry run).\n");
-        }
-        return output.toString();
-    }
-
-    private static String centralStatusLine(PublishCentralPublishOutcome outcome) {
-        return switch (outcome) {
-            case UPLOADED -> "Central status: uploaded — validation continues on the Portal\n";
-            case PUBLISHED -> "Central status: published to Maven Central\n";
-            case AWAITING_MANUAL_RELEASE -> "Central status: validated — finish publishing in the Central Portal "
-                    + "(https://central.sonatype.com/publishing/deployments)\n";
-        };
-    }
-
     private Optional<Path> generateSbom(Path projectRoot) {
         return sbomGenerator.generate(sbom, projectRoot, ZoltCli.version());
     }
 
-    private static String centralProgressResult(PublishCentralPublishOutcome outcome) {
-        return switch (outcome) {
-            case UPLOADED, PUBLISHED -> "Published to Maven Central";
-            case AWAITING_MANUAL_RELEASE -> "Validated on the Central Portal — release it to finish publishing";
-        };
+    /** The invocation as the user typed its publishing-relevant flags, for a stale-lock refusal. */
+    private String invocation() {
+        StringBuilder command = new StringBuilder("zolt publish");
+        if (dryRun) {
+            command.append(" --dry-run");
+        }
+        if (central) {
+            command.append(" --central");
+        }
+        if (sbom) {
+            command.append(" --sbom");
+        }
+        return command.toString();
     }
 
-    private static String displayPath(Path root, Path path) {
-        Path normalizedRoot = root.toAbsolutePath().normalize();
-        Path normalized = path.toAbsolutePath().normalize();
-        return normalized.startsWith(normalizedRoot)
-                ? normalizedRoot.relativize(normalized).toString()
-                : normalized.toString();
-    }
 }

@@ -1,27 +1,34 @@
 package sh.zolt.cli.command.publish;
 
-import sh.zolt.cli.command.CommandLockfiles;
-import sh.zolt.publish.PublishCentralReadinessService;
-import sh.zolt.publish.PublishCentralRequirement;
-import sh.zolt.publish.PublishDryRunPlan;
-import sh.zolt.workspace.publish.WorkspaceMemberDirectory;
-import sh.zolt.workspace.publish.WorkspaceMemberDryRun;
-import sh.zolt.workspace.publish.WorkspaceMemberSbomGenerator;
-import sh.zolt.workspace.publish.WorkspacePublishService;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import sh.zolt.cli.command.CommandLockfiles;
+import sh.zolt.project.ProjectConfig;
+import sh.zolt.publish.PublishCentralReadinessService;
+import sh.zolt.publish.PublishCentralRequirement;
+import sh.zolt.publish.PublishDryRunPlan;
+import sh.zolt.publish.PublishSettings;
+import sh.zolt.workspace.publish.WorkspaceMemberDirectory;
+import sh.zolt.workspace.publish.WorkspaceMemberDryRun;
+import sh.zolt.workspace.publish.WorkspaceMemberSbomGenerator;
+import sh.zolt.workspace.publish.WorkspacePublishService;
 
 /**
- * Routes {@code zolt publish --dry-run --central} to the workspace planner when it runs inside a
- * workspace member directory. Members have no member-level {@code zolt.lock}, so the standalone
- * planner has nothing to read there; the workspace planner builds the member's plan from the
- * aggregated root lock instead and the command renders the same Central readiness checklist.
+ * Routes {@code zolt publish} to the workspace planner whenever it runs inside a workspace member
+ * directory — in EVERY mode, not one.
  *
- * <p>Deliberately narrow: only the {@code --dry-run --central} path routes. A live member publish and
- * every non-Central dry run keep their standalone behaviour, and family publishing stays behind
- * {@code --workspace}. Outside a member directory this is {@link #absent()} and nothing changes.
+ * <p>Members have no member-level {@code zolt.lock}, so the standalone planner has nothing to read
+ * there; the workspace planner builds the member's plan from the aggregated root lock instead. That
+ * was true of the Central dry run when it was the only routed mode, and it is equally true of a plain
+ * repository dry run, a plain live upload, a Central live upload, an attached SBOM, and a release-policy
+ * preflight. A publication is the most consequential thing a member command emits: a POM listing a
+ * sibling's dependencies, or an SBOM attesting to packages this artifact never contained, is wrong
+ * evidence that outlives the command. One route means every mode publishes the same bytes.
+ *
+ * <p>Outside a member directory this is {@link #absent()} and nothing changes: a standalone project
+ * keeps the standalone planner and its own lock.
  *
  * <p>Because this route plans against the workspace-aggregated root lock, it owes the same dependency
  * guarantees {@code zolt publish --workspace} gives: {@link #resolve} runs
@@ -35,32 +42,43 @@ import java.util.function.Supplier;
  * {@code zolt.toml}, its own {@code zolt.lock} — otherwise gets refused by a root lock governing members
  * it is not one of, which is exactly the "outside a member directory nothing changes" guarantee above.
  * The membership test reads config only, so ordering it first costs no lock read.
+ *
+ * <p><strong>Family scope stays behind {@code --workspace}.</strong> This routes ONE member: it applies
+ * no inter-member completeness gate and no uniform-version rule, because those are answers about a
+ * family and this command was asked about a member.
  */
-final class PublishMemberDryRun {
+final class PublishMemberRoute {
     private final Optional<WorkspaceMemberDryRun> member;
 
-    private PublishMemberDryRun(Optional<WorkspaceMemberDryRun> member) {
+    private PublishMemberRoute(Optional<WorkspaceMemberDryRun> member) {
         this.member = member;
     }
 
-    static PublishMemberDryRun absent() {
-        return new PublishMemberDryRun(Optional.empty());
+    static PublishMemberRoute absent() {
+        return new PublishMemberRoute(Optional.empty());
     }
 
-    static PublishMemberDryRun resolve(
-            boolean enabled,
+    /**
+     * @param central whether this invocation targets Maven Central, which decides whether a configured
+     *     internal repository is required — the same distinction the standalone planner draws
+     * @param command the exact user-facing invocation, so a stale-lock refusal names what was run
+     */
+    static PublishMemberRoute resolve(
             WorkspacePublishService workspacePublishService,
             CommandLockfiles lockfiles,
             Path projectRoot,
             Path cacheRoot,
             boolean offline,
+            boolean central,
+            String command,
             WorkspaceMemberSbomGenerator sbomGenerator) {
-        if (!enabled || workspacePublishService.memberDirectory().at(projectRoot).isEmpty()) {
+        if (workspacePublishService.memberDirectory().at(projectRoot).isEmpty()) {
             return absent();
         }
-        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, offline, "zolt publish --dry-run --central");
-        return new PublishMemberDryRun(
-                workspacePublishService.planMemberDryRun(projectRoot, cacheRoot, offline, true, sbomGenerator));
+        lockfiles.requireFreshWorkspaceLockfile(projectRoot, cacheRoot, offline, command);
+        return new PublishMemberRoute(
+                workspacePublishService.planMemberDryRun(
+                        projectRoot, cacheRoot, offline, central, sbomGenerator));
     }
 
     boolean present() {
@@ -74,6 +92,16 @@ final class PublishMemberDryRun {
 
     PublishDryRunPlan plan(Supplier<PublishDryRunPlan> standalone) {
         return member.map(WorkspaceMemberDryRun::plan).orElseGet(standalone);
+    }
+
+    /** The policy-merged member config the plan was built from. */
+    Optional<ProjectConfig> config() {
+        return member.map(WorkspaceMemberDryRun::config);
+    }
+
+    /** The member's publish settings as the planner read them. */
+    Optional<PublishSettings> publish() {
+        return member.map(WorkspaceMemberDryRun::publish);
     }
 
     /**

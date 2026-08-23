@@ -22,7 +22,16 @@ public final class PublishReleasePolicyService {
     }
 
     public PublishDryRunPlan apply(Path projectRoot, PublishDryRunPlan plan) {
-        ProjectConfig config = manifestLoader.loadProject(projectRoot);
+        return apply(manifestLoader.loadProject(projectRoot), plan);
+    }
+
+    /**
+     * The release-context policy over an already-resolved config, for a caller that holds one — a
+     * workspace member's policy-merged config, which the planner used and which a re-read of the
+     * member's raw {@code zolt.toml} would not reproduce. The policy must judge the same project the
+     * plan describes.
+     */
+    public PublishDryRunPlan apply(ProjectConfig config, PublishDryRunPlan plan) {
         List<String> blockers = new ArrayList<>();
         if (VersionPolicy.violation(
                 VersionPolicy.Context.PUBLISH_RELEASE,
