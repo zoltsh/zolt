@@ -3,6 +3,7 @@ package sh.zolt.quarkus;
 import sh.zolt.framework.FrameworkBuildAugmentationResult;
 import sh.zolt.framework.FrameworkBuildAugmenter;
 import sh.zolt.framework.FrameworkBuildException;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.quarkus.production.QuarkusBuildAugmentationService;
 import java.nio.file.Path;
@@ -21,11 +22,11 @@ public final class QuarkusBuildAugmenter implements FrameworkBuildAugmenter {
 
     @Override
     public Optional<FrameworkBuildAugmentationResult> augmentIfEnabled(
-            Path projectDirectory,
+            ProjectBuildContext context,
             ProjectConfig config,
             Path cacheRoot) {
         try {
-            return augmentationService.augmentIfEnabled(projectDirectory, config, cacheRoot)
+            return augmentationService.augmentIfEnabled(context, config, cacheRoot)
                     .map(result -> new FrameworkBuildAugmentationResult(
                             "Quarkus",
                             result.workerResult().runnerJar()));

@@ -1,5 +1,6 @@
 package sh.zolt.cli.command;
 
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.workspace.discovery.ManifestProject;
@@ -63,6 +64,15 @@ public record ProjectCommandContext(
 
     public ProjectConfig config() {
         return project.config();
+    }
+
+    /**
+     * This boundary's answer, in the shape core build, test, and package operations consume. Design
+     * §4.5: the boundary decides {@code (projectRoot, lockfilePath, memberPath)} once and hands it
+     * down; nothing downstream re-derives any of the three.
+     */
+    public ProjectBuildContext buildContext() {
+        return new ProjectBuildContext(projectRoot, lockfilePath, memberPath);
     }
 
     /**

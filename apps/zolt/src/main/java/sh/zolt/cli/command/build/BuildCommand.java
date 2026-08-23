@@ -186,7 +186,7 @@ public final class BuildCommand implements Runnable {
                     timings.measure(
                             "framework augmentation",
                             () -> frameworkBuildAugmenter.augmentIfEnabled(
-                                    projectRoot,
+                                    context.buildContext(),
                                     config,
                                     cacheRoot),
                             CommandBuildAttributes::frameworkAugmentation);

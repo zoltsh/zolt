@@ -7,6 +7,7 @@ import sh.zolt.framework.FrameworkRunAugmenter;
 import sh.zolt.framework.FrameworkRunResult;
 import sh.zolt.project.BuildSettings;
 import sh.zolt.project.FrameworkSettings;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectConfigs;
 import sh.zolt.project.ProjectMetadata;
@@ -48,10 +49,16 @@ abstract class RunServiceTestSupport {
         return new FrameworkRunAugmenter() {
             @Override
             public Optional<FrameworkRunResult> augmentIfEnabled(
-                    Path actualProjectDirectory,
+                    ProjectBuildContext actualContext,
                     ProjectConfig actualConfig,
                     Path actualCacheRoot) {
-                org.junit.jupiter.api.Assertions.assertEquals(projectDirectory, actualProjectDirectory);
+                org.junit.jupiter.api.Assertions.assertEquals(
+                        projectDirectory.toAbsolutePath().normalize(), actualContext.projectRoot());
+                // The standalone run lane owns its lock, so the adapter is handed that path — never
+                // asked to find one (design §4.5).
+                org.junit.jupiter.api.Assertions.assertEquals(
+                        projectDirectory.toAbsolutePath().normalize().resolve("zolt.lock"),
+                        actualContext.lockfilePath());
                 org.junit.jupiter.api.Assertions.assertEquals(config, actualConfig);
                 org.junit.jupiter.api.Assertions.assertEquals(cacheRoot, actualCacheRoot);
                 return result;

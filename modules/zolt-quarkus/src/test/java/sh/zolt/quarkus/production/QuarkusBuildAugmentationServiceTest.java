@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.lockfile.ProjectBuildContext;
 import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,7 @@ final class QuarkusBuildAugmentationServiceTest extends QuarkusBuildAugmentation
                 });
 
         Optional<QuarkusAugmentationResult> result = service.augmentIfEnabled(
-                Path.of("/repo"),
+                ProjectBuildContext.standalone(Path.of("/repo")),
                 config(false),
                 Path.of("/cache"));
 
@@ -35,17 +36,26 @@ final class QuarkusBuildAugmentationServiceTest extends QuarkusBuildAugmentation
         assertFalse(ran[0]);
     }
 
+    /**
+     * The member shape, because it is the one the defect lived in: the augmenter plans against the
+     * WORKSPACE root's lock while compiling a member's own directory (design §4.5).
+     */
     @Test
     void runsAugmentationForQuarkusEnabledProject() {
-        Path projectDirectory = Path.of("/repo");
+        Path workspaceRoot = Path.of("/ws");
+        Path projectDirectory = workspaceRoot.resolve("apps/api");
+        ProjectBuildContext context = ProjectBuildContext.member(
+                projectDirectory, workspaceRoot.resolve("zolt.lock"), "apps/api");
         Path cacheRoot = Path.of("/cache");
         var config = config(true);
         var plan = plan();
         var request = request();
         var expected = result(request);
         QuarkusBuildAugmentationService service = new QuarkusBuildAugmentationService(
-                (actualProjectDirectory, actualConfig, actualCacheRoot) -> {
-                    assertEquals(projectDirectory, actualProjectDirectory);
+                (actualContext, actualConfig, actualCacheRoot) -> {
+                    assertEquals(projectDirectory, actualContext.projectRoot());
+                    assertEquals(workspaceRoot.resolve("zolt.lock"), actualContext.lockfilePath());
+                    assertEquals("apps/api", actualContext.memberPath());
                     assertSame(config, actualConfig);
                     assertEquals(cacheRoot, actualCacheRoot);
                     return plan;
@@ -60,7 +70,7 @@ final class QuarkusBuildAugmentationServiceTest extends QuarkusBuildAugmentation
                     return expected;
                 });
 
-        Optional<QuarkusAugmentationResult> result = service.augmentIfEnabled(projectDirectory, config, cacheRoot);
+        Optional<QuarkusAugmentationResult> result = service.augmentIfEnabled(context, config, cacheRoot);
 
         assertTrue(result.isPresent());
         assertSame(expected, result.orElseThrow());

@@ -47,11 +47,18 @@ final class StrayMemberLockIrrelevanceTest {
     private static final String POISONED_MEMBER_LOCK = """
             version = 7
 
+            [[dependencyRoot]]
+            member = "."
+            id = "com.example:phantom"
+            version = "9.9.9"
+            lane = "implementation"
+            resolvedScope = "compile"
+
             [[package]]
             id = "com.example:phantom"
             version = "9.9.9"
             source = "maven-central"
-            scope = "main"
+            scope = "compile"
             direct = true
             jar = "com/example/phantom/9.9.9/phantom-9.9.9.jar"
             dependencies = []

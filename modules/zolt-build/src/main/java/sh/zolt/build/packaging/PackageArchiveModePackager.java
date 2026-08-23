@@ -16,6 +16,7 @@ import sh.zolt.framework.FrameworkPackageAugmenter;
 import sh.zolt.framework.FrameworkPackageResult;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.PackageMode;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -184,14 +185,15 @@ final class PackageArchiveModePackager {
     }
 
     PackageResult packageFrameworkJar(
-            Path projectDirectory,
-            Path lockfilePath,
+            ProjectBuildContext context,
             ProjectConfig config,
             BuildResult buildResult,
             PackageMode mode,
             Path cacheRoot) {
+        // Design §4.5: the adapter plans against the authoritative lock the context names, so a member
+        // packaged through the workspace never has its own directory searched for a zolt.lock.
         Optional<FrameworkPackageResult> result = frameworkPackageAugmenter.augmentIfEnabled(
-                projectDirectory,
+                context,
                 config,
                 cacheRoot);
         FrameworkPackageResult packageResult = result.orElseThrow(() -> new PackageException(

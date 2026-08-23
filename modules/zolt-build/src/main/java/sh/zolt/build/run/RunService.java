@@ -10,6 +10,7 @@ import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.framework.FrameworkRunAugmenter;
 import sh.zolt.framework.FrameworkRunResult;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -111,8 +112,10 @@ public final class RunService {
                 cacheRoot,
                 false,
                 artifactIndex);
-        Optional<FrameworkRunResult> frameworkRunResult =
-                frameworkRunAugmenter.augmentIfEnabled(projectDirectory, config, cacheRoot);
+        // Standalone lane: RunCommand routes a member to WorkspaceRunService before reaching here, so
+        // this project directory is its own lock root and may declare itself one (design §4.5).
+        Optional<FrameworkRunResult> frameworkRunResult = frameworkRunAugmenter.augmentIfEnabled(
+                ProjectBuildContext.standalone(projectDirectory), config, cacheRoot);
 
         JdkStatus jdkStatus = jdkDetector.detect(config.project().java());
         if (!jdkStatus.ok()) {

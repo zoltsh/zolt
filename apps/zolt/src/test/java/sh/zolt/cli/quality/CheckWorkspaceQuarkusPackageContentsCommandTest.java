@@ -151,9 +151,9 @@ final class CheckWorkspaceQuarkusPackageContentsCommandTest {
     }
 
     private static FrameworkPackageAugmenter fakeQuarkusAugmenter() {
-        return (projectDirectory, config, cacheRoot) -> {
+        return (context, config, cacheRoot) -> {
             Path packageDirectory =
-                    projectDirectory.resolve("target/quarkus-app");
+                    context.projectRoot().resolve("target/quarkus-app");
             Path runner =
                     packageDirectory.resolve("quarkus-run.jar");
             Path libraryDirectory = packageDirectory.resolve("lib");
@@ -163,8 +163,10 @@ final class CheckWorkspaceQuarkusPackageContentsCommandTest {
                         new JarOutputStream(Files.newOutputStream(runner))) {
                     // A deterministic empty runner is enough for the package contract seam.
                 }
+                // The seam names the authoritative lock, so the adapter reads it instead of climbing
+                // out of the member directory to guess where the workspace root is (design §4.5).
                 Path runtimeJar = new ZoltLockfileReader()
-                        .read(projectDirectory.getParent().getParent().resolve("zolt.lock"))
+                        .read(context.lockfilePath())
                         .packages()
                         .stream()
                         .filter(lockPackage -> lockPackage.packageId().groupId().equals("org.example"))

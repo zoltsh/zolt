@@ -16,7 +16,7 @@ final class QuarkusRunAugmenterTest {
                 FrameworkRunException.class,
                 () -> augmenter.augmentIfEnabled(null, null, null));
 
-        assertTrue(exception.getMessage().contains("Quarkus build augmentation requires a project directory."));
+        assertTrue(exception.getMessage().contains("Quarkus build augmentation requires a project build context."));
         assertInstanceOf(QuarkusAugmentationException.class, exception.getCause());
     }
 }

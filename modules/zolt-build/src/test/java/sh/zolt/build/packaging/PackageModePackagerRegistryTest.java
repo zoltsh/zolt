@@ -13,6 +13,7 @@ import sh.zolt.build.packageplan.PackageInputBudget;
 import sh.zolt.build.packageplan.PackageInputSnapshot;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.PackageSettings;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -70,8 +71,7 @@ final class PackageModePackagerRegistryTest {
 
     private static PackageAssemblyRequest request(PackageMode mode) {
         return new PackageAssemblyRequest(
-                Path.of("project"),
-                Path.of("project/zolt.lock"),
+                ProjectBuildContext.standalone(Path.of("project")),
                 projectConfig(mode),
                 buildResult(),
                 Optional.empty(),

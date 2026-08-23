@@ -12,6 +12,7 @@ import sh.zolt.build.packaging.layout.ThinJarLayoutAssembler;
 import sh.zolt.framework.FrameworkPackageAugmenter;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.PackageMode;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -45,8 +46,7 @@ final class PackagePrimaryArtifactAssembler {
     }
 
     PackageResult assemble(
-            Path projectDirectory,
-            Path lockfilePath,
+            ProjectBuildContext context,
             ProjectConfig config,
             BuildResult buildResult,
             Optional<Path> cacheRoot,
@@ -55,8 +55,7 @@ final class PackagePrimaryArtifactAssembler {
             PackageInputSnapshot applicationInputs,
             PackageArchiveDigests digests) {
         return packagers.assemble(new PackageAssemblyRequest(
-                projectDirectory,
-                lockfilePath,
+                context,
                 config,
                 buildResult,
                 cacheRoot,
@@ -128,8 +127,7 @@ final class PackageModePackagerRegistry {
                         "Spring Boot WAR package mode requires dependency jar access from zolt.lock. Persist `[package].mode = \"spring-boot-war\"`, run `zolt resolve`, then run `zolt package`."),
                 request.classpathPackages()));
         packagers.put(PackageMode.QUARKUS, request -> archiveModePackager.packageFrameworkJar(
-                request.projectDirectory(),
-                request.lockfilePath(),
+                request.context(),
                 request.config(),
                 request.buildResult(),
                 PackageMode.QUARKUS,
@@ -195,8 +193,7 @@ interface PackageModePackager {
 }
 
 record PackageAssemblyRequest(
-        Path projectDirectory,
-        Path lockfilePath,
+        ProjectBuildContext context,
         ProjectConfig config,
         BuildResult buildResult,
         Optional<Path> cacheRoot,
@@ -205,8 +202,7 @@ record PackageAssemblyRequest(
         PackageInputSnapshot applicationInputs,
         PackageArchiveDigests digests) {
     PackageAssemblyRequest {
-        Objects.requireNonNull(projectDirectory, "projectDirectory");
-        Objects.requireNonNull(lockfilePath, "lockfilePath");
+        Objects.requireNonNull(context, "context");
         Objects.requireNonNull(config, "config");
         Objects.requireNonNull(buildResult, "buildResult");
         Objects.requireNonNull(applicationInputs, "applicationInputs");
@@ -214,5 +210,15 @@ record PackageAssemblyRequest(
         cacheRoot = cacheRoot == null ? Optional.empty() : cacheRoot;
         classpathPackages = classpathPackages == null ? Optional.empty() : classpathPackages;
         classpaths = classpaths == null ? Optional.empty() : classpaths;
+    }
+
+    /** Where this project's manifest, sources, and outputs live. */
+    Path projectDirectory() {
+        return context.projectRoot();
+    }
+
+    /** The authoritative lockfile for this package — the workspace root's for a member. */
+    Path lockfilePath() {
+        return context.lockfilePath();
     }
 }

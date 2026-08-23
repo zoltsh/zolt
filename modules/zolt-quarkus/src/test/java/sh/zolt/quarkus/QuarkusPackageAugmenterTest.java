@@ -11,6 +11,7 @@ import sh.zolt.quarkus.bootstrap.QuarkusBootstrapWorkerResult;
 import sh.zolt.quarkus.production.QuarkusAugmentationResult;
 import sh.zolt.quarkus.production.QuarkusBuildAugmentationService;
 import sh.zolt.quarkus.production.QuarkusBuildAugmentationServiceTestSupport;
+import sh.zolt.lockfile.ProjectBuildContext;
 import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ final class QuarkusPackageAugmenterTest extends QuarkusBuildAugmentationServiceT
                 (actualConfig, request) -> augmentationResult));
 
         Optional<FrameworkPackageResult> result = augmenter.augmentIfEnabled(
-                Path.of("/repo"),
+                ProjectBuildContext.standalone(Path.of("/repo")),
                 config,
                 Path.of("/cache"));
 

@@ -320,8 +320,7 @@ public final class PackageService {
             }
             PackageArchiveDigests digests = new PackageArchiveDigests();
             PackageResult result = primaryArtifactAssembler.assemble(
-                    projectDirectory,
-                    context.lockfilePath(),
+                    context,
                     config,
                     buildResult,
                     cacheRoot,

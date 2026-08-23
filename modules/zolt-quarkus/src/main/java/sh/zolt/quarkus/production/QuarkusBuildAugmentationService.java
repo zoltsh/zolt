@@ -2,6 +2,7 @@ package sh.zolt.quarkus.production;
 
 import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.quarkus.QuarkusAugmentationException;
 import sh.zolt.quarkus.QuarkusPlan;
@@ -20,8 +21,8 @@ public final class QuarkusBuildAugmentationService {
 
     public QuarkusBuildAugmentationService() {
         this(
-                (projectDirectory, config, cacheRoot) ->
-                        new QuarkusPlanService().plan(projectDirectory, config, cacheRoot),
+                (context, config, cacheRoot) -> new QuarkusPlanService()
+                        .planFrom(context.projectRoot(), config, context.lockfilePath(), cacheRoot),
                 plan -> new QuarkusAugmentationRequestFactory().create(plan),
                 new WorkerBackedAugmentationRunner(
                         new JdkDetector(),
@@ -47,11 +48,11 @@ public final class QuarkusBuildAugmentationService {
     }
 
     public Optional<QuarkusAugmentationResult> augmentIfEnabled(
-            Path projectDirectory,
+            ProjectBuildContext context,
             ProjectConfig config,
             Path cacheRoot) {
-        if (projectDirectory == null) {
-            throw new QuarkusAugmentationException("Quarkus build augmentation requires a project directory.");
+        if (context == null) {
+            throw new QuarkusAugmentationException("Quarkus build augmentation requires a project build context.");
         }
         if (config == null) {
             throw new QuarkusAugmentationException("Quarkus build augmentation requires a project config.");
@@ -62,7 +63,7 @@ public final class QuarkusBuildAugmentationService {
         if (!config.frameworkSettings().quarkus().enabled()) {
             return Optional.empty();
         }
-        QuarkusPlan plan = planner.plan(projectDirectory, config, cacheRoot);
+        QuarkusPlan plan = planner.plan(context, config, cacheRoot);
         QuarkusAugmentationRequest request = requestCreator.create(plan);
         return Optional.of(runner.augment(config, request));
     }
@@ -83,7 +84,7 @@ public final class QuarkusBuildAugmentationService {
 
     @FunctionalInterface
     public interface QuarkusPlanner {
-        QuarkusPlan plan(Path projectDirectory, ProjectConfig config, Path cacheRoot);
+        QuarkusPlan plan(ProjectBuildContext context, ProjectConfig config, Path cacheRoot);
     }
 
     @FunctionalInterface
