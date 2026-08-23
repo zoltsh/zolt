@@ -33,6 +33,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
 
         IdeModel.FrameworkInfo frameworks = builder.build(
                 projectDir.toAbsolutePath().normalize(),
+                projectDir.toAbsolutePath().normalize().resolve("zolt.lock"),
                 tempDir.resolve("cache"),
                 config,
                 diagnostics);
@@ -54,6 +55,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
 
         IdeModel.FrameworkInfo frameworks = builder.build(
                 projectDir.toAbsolutePath().normalize(),
+                projectDir.toAbsolutePath().normalize().resolve("zolt.lock"),
                 null,
                 config,
                 diagnostics);
@@ -79,6 +81,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
 
         IdeModel.FrameworkInfo frameworks = builder.build(
                 projectDir.toAbsolutePath().normalize(),
+                projectDir.toAbsolutePath().normalize().resolve("zolt.lock"),
                 tempDir.resolve("cache"),
                 config,
                 diagnostics);
@@ -132,7 +135,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
         ProjectConfig config = quarkusProject(projectDir);
         Path root = projectDir.toAbsolutePath().normalize();
         List<IdeModel.Diagnostic> missingDiagnostics = new ArrayList<>();
-        IdeModel.FrameworkInfo missingFrameworks = builder.build(root, tempDir.resolve("cache"), config, missingDiagnostics);
+        IdeModel.FrameworkInfo missingFrameworks = builder.build(root, root.resolve("zolt.lock"), tempDir.resolve("cache"), config, missingDiagnostics);
         new QuarkusAugmentationMetadataWriter().write(
                 root,
                 missingFrameworks.quarkus().inputFingerprint());
@@ -141,7 +144,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
         writeGeneratedOutput(root.resolve("target/quarkus-app/quarkus/transformed-bytecode.jar"));
         List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
 
-        IdeModel.FrameworkInfo frameworks = builder.build(root, tempDir.resolve("cache"), config, diagnostics);
+        IdeModel.FrameworkInfo frameworks = builder.build(root, root.resolve("zolt.lock"), tempDir.resolve("cache"), config, diagnostics);
 
         assertEquals("current", frameworks.quarkus().augmentationStatus());
         assertEquals(
@@ -160,6 +163,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
 
         IdeModel.FrameworkInfo frameworks = builder.build(
                 projectDir.toAbsolutePath().normalize(),
+                projectDir.toAbsolutePath().normalize().resolve("zolt.lock"),
                 tempDir.resolve("cache"),
                 config,
                 diagnostics);
@@ -185,6 +189,7 @@ final class QuarkusIdeFrameworkModelProviderTest {
 
         IdeModel.FrameworkInfo frameworks = builder.build(
                 projectDir.toAbsolutePath().normalize(),
+                projectDir.toAbsolutePath().normalize().resolve("zolt.lock"),
                 tempDir.resolve("cache"),
                 config,
                 diagnostics);

@@ -101,7 +101,7 @@ public final class IdeModelService {
         }
         IdeModel.FrameworkInfo frameworkInfo = recorder.measure(
                 "build ide framework model",
-                () -> frameworkModelProvider.build(root, normalizedCacheRoot, config, diagnostics));
+                () -> frameworkModelProvider.build(root, lockfilePath, normalizedCacheRoot, config, diagnostics));
 
         return recorder.measure(
                 "assemble ide model",
@@ -167,7 +167,8 @@ public final class IdeModelService {
                 projectModelBuilder.outputInfo(root, config, modelDiagnostics),
                 dependencyModelBuilder.build(config),
                 classpaths,
-                frameworkModelProvider.build(root, null, config, modelDiagnostics),
+                frameworkModelProvider.build(
+                        root, lockfilePath.toAbsolutePath().normalize(), null, config, modelDiagnostics),
                 modelDiagnostics);
     }
 

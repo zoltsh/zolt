@@ -1,6 +1,5 @@
 package sh.zolt.quarkus;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.build.classpath.LockfileClasspathPackageConverter;
@@ -60,10 +59,23 @@ public final class QuarkusPlanService {
         this.augmentationStateReader = augmentationStateReader;
     }
 
-    public QuarkusPlan plan(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
+    /**
+     * Plans from the lock at {@code lockfilePath}, which the CALLER decided owns this project.
+     *
+     * <p>This service used to resolve {@code zolt.lock} against {@code projectDirectory} itself, which
+     * is right for a standalone project and wrong for a workspace member: the member directory holds no
+     * lock, so a plan started in {@code apps/api} failed on a lock that exists at the workspace root.
+     * Ownership is a command-boundary decision (design §4.5), so it arrives as an argument — and for a
+     * member the caller passes the member's PROJECTION of the root lock rather than a path at all, via
+     * {@link #plan(Path, ProjectConfig, ZoltLockfile, Path)}.
+     */
+    public QuarkusPlan planFrom(
+            Path projectDirectory,
+            ProjectConfig config,
+            Path lockfilePath,
+            Path cacheRoot) {
         requireEnabled(config);
-        ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
-        return plan(projectDirectory, config, lockfile, cacheRoot);
+        return plan(projectDirectory, config, lockfileReader.read(lockfilePath), cacheRoot);
     }
 
     public QuarkusPlan planFrom(

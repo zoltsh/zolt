@@ -1,6 +1,5 @@
 package sh.zolt.quarkus;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.ide.IdeFrameworkModelProvider;
 import sh.zolt.ide.IdeModel;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -25,14 +24,16 @@ public final class QuarkusIdeFrameworkModelProvider implements IdeFrameworkModel
     @Override
     public IdeModel.FrameworkInfo build(
             Path root,
+            Path lockfilePath,
             Path cacheRoot,
             ProjectConfig config,
             List<IdeModel.Diagnostic> diagnostics) {
-        return new IdeModel.FrameworkInfo(quarkusInfo(root, cacheRoot, config, diagnostics));
+        return new IdeModel.FrameworkInfo(quarkusInfo(root, lockfilePath, cacheRoot, config, diagnostics));
     }
 
     private IdeModel.QuarkusInfo quarkusInfo(
             Path root,
+            Path lockfilePath,
             Path cacheRoot,
             ProjectConfig config,
             List<IdeModel.Diagnostic> diagnostics) {
@@ -58,7 +59,7 @@ public final class QuarkusIdeFrameworkModelProvider implements IdeFrameworkModel
         }
 
         try {
-            QuarkusPlan plan = quarkusPlanService.plan(root, config, cacheRoot);
+            QuarkusPlan plan = quarkusPlanService.planFrom(root, config, lockfilePath, cacheRoot);
             quarkusDiagnostics(plan, diagnostics);
             return new IdeModel.QuarkusInfo(
                     true,
@@ -79,7 +80,7 @@ public final class QuarkusIdeFrameworkModelProvider implements IdeFrameworkModel
                     "warning",
                     "QUARKUS_MODEL_UNAVAILABLE",
                     exception.getMessage(),
-                    ProjectLockfile.in(root).normalize(),
+                    lockfilePath.normalize(),
                     "Run zolt resolve, then run zolt build."));
             return quarkusInfoWithoutPlan(root, config, outputLayout, "unknown");
         }

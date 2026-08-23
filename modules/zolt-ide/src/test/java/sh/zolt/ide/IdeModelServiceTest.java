@@ -296,7 +296,7 @@ final class IdeModelServiceTest {
                 java = 21
                 """);
         Files.writeString(projectDir.resolve("zolt.lock"), "version = 7\n");
-        IdeModelService frameworkService = new IdeModelService((root, cacheRoot, config, diagnostics) -> {
+        IdeModelService frameworkService = new IdeModelService((root, lockfilePath, cacheRoot, config, diagnostics) -> {
             diagnostics.add(new IdeModel.Diagnostic(
                     "warning",
                     "QUARKUS_AUGMENTATION_MISSING",

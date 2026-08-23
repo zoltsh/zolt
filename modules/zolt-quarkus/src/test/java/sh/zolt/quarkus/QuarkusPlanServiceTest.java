@@ -209,7 +209,7 @@ final class QuarkusPlanServiceTest {
 
         LockfileReadException exception = assertThrows(
                 LockfileReadException.class,
-                () -> new QuarkusPlanService().plan(projectDir, config(), cacheRoot));
+                () -> new QuarkusPlanService().planFrom(projectDir, config(), projectDir.resolve("zolt.lock"), cacheRoot));
 
         assertTrue(exception.getMessage().contains(
                 "Cached jar integrity check failed for io.quarkus:quarkus-rest-deployment:3.33.2"));

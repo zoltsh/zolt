@@ -6,6 +6,7 @@ import sh.zolt.cli.command.CommandAttributeKeys;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandOutput;
 import sh.zolt.cli.command.CommandProjectDirectory;
+import sh.zolt.cli.command.CommandProjectLockfile;
 import sh.zolt.cli.command.CommandTimings;
 import sh.zolt.cli.command.testplan.TestPlanCommand;
 import sh.zolt.lockfile.toml.LockfileReadException;
@@ -21,8 +22,11 @@ import sh.zolt.quarkus.testplan.QuarkusTestPlanFormatter;
 import sh.zolt.quarkus.testplan.QuarkusTestPlanService;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.workspace.discovery.ManifestProjectLoader;
+import sh.zolt.workspace.member.MemberProjectionLoader;
+import sh.zolt.workspace.member.MemberResolvedView;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
@@ -48,6 +52,7 @@ public final class QuarkusCommand implements Runnable {
     @Command(name = "plan", description = "Print the Quarkus augmentation input plan.")
     public static final class PlanCommand implements Runnable {
         private final ManifestProjectLoader projectLoader;
+        private final MemberProjectionLoader memberProjections = new MemberProjectionLoader();
         private final QuarkusPlanService quarkusPlanService;
         private final QuarkusPlanFormatter quarkusPlanFormatter;
         private final QuarkusAugmentationRequestFactory augmentationRequestFactory;
@@ -83,17 +88,34 @@ public final class QuarkusCommand implements Runnable {
             this.augmentationRequestFactory = augmentationRequestFactory;
         }
 
+        /**
+         * A member directory holds no {@code zolt.lock}: the plan used to derive one there and fail on
+         * a lock that exists at the workspace root. A member plans from its projection of that root
+         * lock — its own runtime and deployment closure, the same one the workspace packager uses — so
+         * the augmentation inputs it prints are the inputs its build will actually see. A standalone
+         * project passes the boundary's own lock path and is unchanged.
+         */
         @Override
         public void run() {
             TimingRecorder timings = CommandTimings.recorder(timingOptions);
             Path projectRoot = projectDirectory.path();
             try {
-                ProjectConfig config = timings.measure(
+                Optional<MemberResolvedView> member = timings.measure(
                         "config read",
-                        () -> projectLoader.load(projectRoot));
+                        () -> memberProjections.at(projectRoot, "zolt quarkus plan"));
+                ProjectConfig config = member
+                        .map(MemberResolvedView::effectiveConfig)
+                        .orElseGet(() -> projectLoader.load(projectRoot));
                 QuarkusPlan plan = timings.measure(
                         "quarkus plan",
-                        () -> quarkusPlanService.plan(projectRoot, config, cacheRoot),
+                        () -> member
+                                .map(view -> quarkusPlanService.plan(
+                                        view.memberDirectory(), config, view.packageLock(), cacheRoot))
+                                .orElseGet(() -> quarkusPlanService.planFrom(
+                                        projectRoot,
+                                        config,
+                                        CommandProjectLockfile.path(projectRoot),
+                                        cacheRoot)),
                         QuarkusCommand::quarkusPlanAttributes);
                 String output = timings.measure(
                         "quarkus plan format",
@@ -102,7 +124,8 @@ public final class QuarkusCommand implements Runnable {
                 timings.measure(
                         "quarkus augmentation request",
                         () -> augmentationRequestFactory.create(plan));
-            } catch (LockfileReadException | QuarkusPlanException | ZoltConfigException exception) {
+            } catch (LockfileReadException | QuarkusPlanException | ZoltConfigException
+                    | sh.zolt.error.ActionableException exception) {
                 throw CommandFailures.user(spec, exception);
             } finally {
                 CommandTimings.print(spec, "quarkus plan", projectRoot, timingOptions, timings);
