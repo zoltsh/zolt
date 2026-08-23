@@ -30,7 +30,7 @@ sources together with the compiled dependencies below.
 
 picocli
     Maven coordinates: info.picocli:picocli
-    Version:           4.7.6
+    Version:           4.7.7
     License:           Apache-2.0 (see LICENSE in this distribution)
     Homepage:          https://picocli.info
 
