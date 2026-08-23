@@ -10,6 +10,8 @@
 #   * workspace root       - the workspace owns its one authoritative lock
 #   * standalone entry     - a standalone project directory IS its own lock root
 
+modules/zolt-workspace/src/main/java/sh/zolt/workspace/member/MemberResolvedViewService.java|workspace-root ownership for the member projection layer; every view carries the answer onward
+
 # --- command boundary -------------------------------------------------------------------------
 apps/zolt/src/main/java/sh/zolt/cli/command/ProjectCommandContext.java|command boundary; loads the (projectRoot, lockRoot, lockfilePath, memberPath) pair once and hands it down
 apps/zolt/src/main/java/sh/zolt/cli/command/CommandProjectLockfile.java|command boundary; resolves a started directory to the workspace root that owns the lock
@@ -41,6 +43,7 @@ modules/zolt-update/src/main/java/sh/zolt/update/OutdatedScopes.java|command bou
 # --- transitional: owned by the concurrent member-command matrix wave --------------------------
 modules/zolt-ide/src/main/java/sh/zolt/ide/IdeModelService.java|standalone entry point only; the member route projects through WorkspaceIdeModelService
 modules/zolt-ide/src/main/java/sh/zolt/ide/WorkspaceIdeModelService.java|workspace-root ownership for the workspace ide export
+modules/zolt-ide/src/main/java/sh/zolt/ide/WorkspaceIdeLockState.java|workspace-root ownership; holds the workspace ide export lock state split out of the service
 modules/zolt-quality/src/main/java/sh/zolt/quality/QualityCheckService.java|standalone entry point only; a member check routes through the workspace quality projection
 modules/zolt-quality/src/main/java/sh/zolt/quality/LockfileQualityCheck.java|standalone lock check; member scope receives the projected view
 modules/zolt-quality/src/main/java/sh/zolt/quality/DependencyQualityCheck.java|standalone dependency facts; member scope receives the projected view

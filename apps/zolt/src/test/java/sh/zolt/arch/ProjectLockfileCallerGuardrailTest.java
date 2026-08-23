@@ -231,11 +231,13 @@ final class ProjectLockfileCallerGuardrailTest {
     }
 
     /**
-     * The transitional entries are real and carry the agreed reason, so pruning them after the
-     * member-projection wave is a search for one string rather than an audit.
+     * The member-projection wave is complete: every derivation site either became a permanent
+     * ownership boundary with its own reason or stopped deriving. The transitional marker exists
+     * only in this test now, as a tombstone — an entry carrying it means someone reopened the
+     * transition without finishing it.
      */
     @Test
-    void transitionalEntriesCarryTheAgreedReason() throws IOException {
+    void noTransitionalEntriesRemain() throws IOException {
         Map<String, String> allowlist = readAllowlist();
 
         List<String> transitional = allowlist.entrySet().stream()
@@ -244,14 +246,10 @@ final class ProjectLockfileCallerGuardrailTest {
                 .sorted()
                 .toList();
 
-        assertFalse(
+        assertTrue(
                 transitional.isEmpty(),
-                "the member-projection wave still owns derivation sites; keep them marked for pruning");
-        for (String path : transitional) {
-            assertTrue(
-                    Files.isRegularFile(RepositoryPaths.root().resolve(path)),
-                    () -> "Transitional entry does not exist: " + path);
-        }
+                () -> "The member-projection wave completed; these entries must carry a permanent"
+                        + " ownership reason or be removed: " + transitional);
     }
 
     private static List<String> calls(String display, String source) {
