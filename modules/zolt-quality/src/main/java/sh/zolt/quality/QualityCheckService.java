@@ -7,6 +7,7 @@ import sh.zolt.quality.packaging.PackageQualityCheck;
 import sh.zolt.toml.ZoltConfigException;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
 import sh.zolt.workspace.WorkspaceConfigException;
+import sh.zolt.workspace.publish.WorkspaceMemberDirectory;
 import sh.zolt.workspace.service.*;
 import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
 import java.nio.file.Path;
@@ -35,7 +36,9 @@ public final class QualityCheckService {
 
     private final ManifestProjectConfigLoader manifestLoader;
     private final ManifestWorkspaceLoader workspaceLoader;
+    private final WorkspaceMemberDirectory memberDirectory = new WorkspaceMemberDirectory();
     private final WorkspaceMemberSelector workspaceMemberSelector;
+    private final WorkspaceQualityChecks workspaceChecks;
     private final GeneratedSourceQualityCheck generatedSourceQualityCheck;
     private final LockfileQualityCheck lockfileQualityCheck;
     private final QualityExecutionContextRunner executionContextRunner;
@@ -43,7 +46,6 @@ public final class QualityCheckService {
     private final PackageQualityCheck packageQualityCheck;
     private final DependencyQualityCheck dependencyQualityCheck;
     private final LicensePolicyQualityCheck licensePolicyQualityCheck;
-    private final WorkspaceQualityProjectionService workspaceQualityProjectionService;
 
     public QualityCheckService() {
         this(QualityCheckDependencies.create(System::getenv));
@@ -69,6 +71,7 @@ public final class QualityCheckService {
         this.manifestLoader = manifestLoader;
         this.workspaceLoader = workspaceLoader;
         this.workspaceMemberSelector = workspaceMemberSelector;
+        this.workspaceChecks = new WorkspaceQualityChecks(dependencies);
         this.generatedSourceQualityCheck = dependencies.generatedSourceQualityCheck();
         this.lockfileQualityCheck = dependencies.lockfileQualityCheck();
         this.executionContextRunner = dependencies.executionContextRunner();
@@ -76,7 +79,6 @@ public final class QualityCheckService {
         this.packageQualityCheck = dependencies.packageQualityCheck();
         this.dependencyQualityCheck = dependencies.dependencyQualityCheck();
         this.licensePolicyQualityCheck = dependencies.licensePolicyQualityCheck();
-        this.workspaceQualityProjectionService = dependencies.workspaceQualityProjectionService();
     }
 
     public QualityCheckReport check(QualityCheckRequest request) {
@@ -95,7 +97,10 @@ public final class QualityCheckService {
                 }
                 Workspace workspace = maybeWorkspace.orElseThrow();
                 WorkspaceSelection selection = workspaceMemberSelector.select(workspace, request.workspaceSelection());
-                return new QualityCheckReport(root, true, runWorkspaceChecks(request, requestedChecks, workspace, selection));
+                return new QualityCheckReport(
+                        root,
+                        true,
+                        workspaceChecks.run(request, requestedChecks, workspace, selection, Optional.empty()));
             } catch (WorkspaceConfigException exception) {
                 return new QualityCheckReport(root, true, QualityCheckCatalog.unavailableResults(
                         requestedChecks,
@@ -103,6 +108,25 @@ public final class QualityCheckService {
                         exception.getMessage(),
                         "Fix workspace config or run `zolt check` for a single project."));
             }
+        }
+
+        // A member directory without --workspace is still a member. Its config was composed against the
+        // workspace root and its dependency facts live in the workspace root's lock, so running the
+        // project path here would check a workspace-member config against a member-local lock that does
+        // not exist — a split-brain answer, and in practice a "zolt.lock is missing" failure over a lock
+        // that is present. The member's checks are the workspace's checks with exactly this member
+        // selected; membership is settled from config alone, before any lock is read.
+        Optional<WorkspaceMemberDirectory.Membership> membership = membership(root);
+        if (membership.isPresent()) {
+            Workspace workspace = membership.orElseThrow().workspace();
+            String memberPath = membership.orElseThrow().member().path();
+            WorkspaceSelection selection = workspaceMemberSelector.select(
+                    workspace, WorkspaceSelectionRequest.exact(List.of(memberPath)));
+            return new QualityCheckReport(
+                    root,
+                    false,
+                    workspaceChecks.run(
+                            request, requestedChecks, workspace, selection, Optional.of(memberPath)));
         }
 
         try {
@@ -121,22 +145,29 @@ public final class QualityCheckService {
         return QualityCheckCatalog.supportedChecks();
     }
 
+    /**
+     * Whether this directory is a declared workspace member — the routing question, asked from config
+     * alone and before any lock is read.
+     *
+     * <p>A manifest too broken to discover a workspace through is NOT reported here. Membership is only
+     * a choice of path; the standalone path's own loader diagnoses the same file precisely (naming
+     * {@code zolt.toml} and the exact invalid symbol), and answering with a vaguer "workspace config"
+     * failure would replace a good diagnosis with a worse one for a project that has no workspace.
+     */
+    private Optional<WorkspaceMemberDirectory.Membership> membership(Path projectRoot) {
+        try {
+            return memberDirectory.membershipAt(projectRoot);
+        } catch (WorkspaceConfigException exception) {
+            return Optional.empty();
+        }
+    }
+
     private static QualityCheckResult commandSurfaceProjectResult(ProjectConfig config) {
         return QualityCheckResult.passed(
                 COMMAND_SURFACE,
                 Optional.empty(),
                 config.project().name(),
                 "zolt check uses typed Zolt project data; no Maven, Gradle, or shell hooks are run.");
-    }
-
-    private static QualityCheckResult commandSurfaceWorkspaceResult(Workspace workspace, WorkspaceSelection selection) {
-        return QualityCheckResult.passed(
-                COMMAND_SURFACE,
-                Optional.empty(),
-                workspace.root().getFileName().toString(),
-                "zolt check selected "
-                        + selection.includedMembers().size()
-                        + " workspace members using typed Zolt workspace data; no Maven, Gradle, or shell hooks are run.");
     }
 
     private List<QualityCheckResult> runProjectChecks(
@@ -198,152 +229,4 @@ public final class QualityCheckService {
         return List.copyOf(results);
     }
 
-    private List<QualityCheckResult> runWorkspaceChecks(
-            QualityCheckRequest request,
-            List<String> requestedChecks,
-            Workspace workspace,
-            WorkspaceSelection selection) {
-        List<QualityCheckResult> results = new ArrayList<>();
-        Map<String, WorkspaceMember> members = membersByPath(workspace);
-        WorkspaceQualityProjection qualityProjection = null;
-        WorkspaceQualityProjectionException projectionFailure = null;
-        if (requestedChecks.stream().anyMatch(QualityCheckService::graphDependentCheck)) {
-            try {
-                qualityProjection = workspaceQualityProjectionService.project(
-                        workspace,
-                        selection,
-                        members,
-                        requestedChecks.contains(PACKAGE_CONTENTS),
-                        request.cacheRoot());
-            } catch (WorkspaceQualityProjectionException exception) {
-                projectionFailure = exception;
-            }
-        }
-        for (String requestedCheck : requestedChecks) {
-            switch (requestedCheck) {
-                case COMMAND_SURFACE -> results.add(commandSurfaceWorkspaceResult(workspace, selection));
-                case CACHE_INTEGRITY -> results.add(lockfileQualityCheck.checkWorkspaceCacheIntegrity(request, workspace));
-                case EXECUTION_CONTEXT -> results.addAll(executionContextRunner.checkWorkspace(
-                        request,
-                        workspace,
-                        selection,
-                        members));
-                case LOCKFILE -> results.add(lockfileQualityCheck.checkWorkspaceLockfile(request, workspace));
-                case PROJECT_MODEL -> {
-                    WorkspaceStaleExclusionCheck.check(workspace).ifPresent(results::add);
-                    for (String memberPath : selection.includedMembers()) {
-                        WorkspaceMember member = members.get(memberPath);
-                        results.addAll(projectModelQualityCheck.check(
-                                Optional.of(member.path()),
-                                member.directory(),
-                                member.config()));
-                    }
-                }
-                case DEPENDENCY_METADATA -> {
-                    if (projectionFailure != null) {
-                        results.add(graphProjectionFailure(requestedCheck, projectionFailure));
-                    } else {
-                        results.addAll(dependencyQualityCheck.checkWorkspaceMetadata(
-                                workspace,
-                                selection,
-                                qualityProjection));
-                    }
-                }
-                case DEPENDENCY_POLICY -> {
-                    if (projectionFailure != null) {
-                        results.add(graphProjectionFailure(requestedCheck, projectionFailure));
-                    } else {
-                        for (String memberPath : selection.includedMembers()) {
-                            WorkspaceMemberQualityView view = qualityProjection.member(memberPath);
-                            results.addAll(dependencyQualityCheck.checkProjectedPolicy(
-                                    Optional.of(memberPath),
-                                    view.member().directory(),
-                                    view.effectiveConfig(),
-                                    view.policyLock()));
-                        }
-                    }
-                }
-                case LICENSE_POLICY -> {
-                    if (projectionFailure != null) {
-                        results.add(graphProjectionFailure(requestedCheck, projectionFailure));
-                    } else {
-                        for (String memberPath : selection.includedMembers()) {
-                            WorkspaceMemberQualityView view = qualityProjection.member(memberPath);
-                            results.addAll(licensePolicyQualityCheck.checkProjected(
-                                    Optional.of(memberPath),
-                                    view.effectiveConfig(),
-                                    view.sbomLock(),
-                                    request.cacheRoot()));
-                        }
-                    }
-                }
-                case PACKAGE_METADATA -> {
-                    for (String memberPath : selection.includedMembers()) {
-                        WorkspaceMember member = members.get(memberPath);
-                        results.add(packageQualityCheck.checkMetadata(
-                                Optional.of(member.path()),
-                                member.directory(),
-                                member.config()));
-                    }
-                }
-                case PACKAGE_CONTENTS -> {
-                    if (projectionFailure != null) {
-                        results.add(graphProjectionFailure(requestedCheck, projectionFailure));
-                    } else {
-                        for (String memberPath : selection.includedMembers()) {
-                            WorkspaceMemberQualityView view = qualityProjection.member(memberPath);
-                            results.addAll(packageQualityCheck.checkContents(
-                                    Optional.of(memberPath),
-                                    view.effectiveConfig(),
-                                    view.packagePlan().orElseThrow(),
-                                    request.requirePackage()));
-                        }
-                    }
-                }
-                case MANIFEST_METADATA -> {
-                    for (String memberPath : selection.includedMembers()) {
-                        WorkspaceMember member = members.get(memberPath);
-                        results.add(packageQualityCheck.checkManifestMetadata(
-                                Optional.of(member.path()),
-                                member.config()));
-                    }
-                }
-                case GENERATED_SOURCES -> {
-                    for (String memberPath : selection.includedMembers()) {
-                        WorkspaceMember member = members.get(memberPath);
-                        results.addAll(generatedSourceQualityCheck.check(
-                                Optional.of(member.path()),
-                                member.directory(),
-                                member.config(),
-                                request.context() == QualityCheckContext.CI && request.requireOfflineReady()));
-                    }
-                }
-                default -> results.add(QualityCheckCatalog.unsupportedOrSkipped(requestedCheck));
-            }
-        }
-        return List.copyOf(results);
-    }
-
-    private static Map<String, WorkspaceMember> membersByPath(Workspace workspace) {
-        Map<String, WorkspaceMember> members = new LinkedHashMap<>();
-        for (WorkspaceMember member : workspace.members()) {
-            members.put(member.path(), member);
-        }
-        return Collections.unmodifiableMap(members);
-    }
-
-    private static boolean graphDependentCheck(String check) {
-        return Set.of(DEPENDENCY_METADATA, DEPENDENCY_POLICY, LICENSE_POLICY, PACKAGE_CONTENTS).contains(check);
-    }
-
-    private static QualityCheckResult graphProjectionFailure(
-            String check,
-            WorkspaceQualityProjectionException failure) {
-        return QualityCheckResult.failed(
-                check,
-                Optional.empty(),
-                "zolt.lock",
-                failure.getMessage(),
-                failure.nextStep());
-    }
 }
