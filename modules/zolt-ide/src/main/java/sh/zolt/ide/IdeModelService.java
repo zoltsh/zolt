@@ -238,6 +238,17 @@ public final class IdeModelService {
         try {
             return manifestLoader.loadProject(projectDirectory);
         } catch (ZoltConfigException exception) {
+            // A workspace root is not a broken project — it is the wrong scope for a project model, and
+            // the fix is a different invocation rather than an edit to zolt.toml.
+            if (exception.getMessage().contains("declares no [project]")) {
+                diagnostics.add(new IdeModel.Diagnostic(
+                        "error",
+                        "WORKSPACE_ROOT_HAS_NO_PROJECT",
+                        exception.getMessage(),
+                        configPath,
+                        "Run zolt ide model --workspace --format json, or run from a member directory."));
+                return null;
+            }
             String code = exception.getMessage().startsWith("Could not read zolt.toml")
                     ? "CONFIG_UNREADABLE"
                     : "CONFIG_INVALID";

@@ -121,14 +121,20 @@ public final class IdeCommand implements Runnable {
                     CommandOutput.printAndFlush(spec, output);
                     return;
                 }
+                // A member directory names a member project, and a member's model is a projection of
+                // the workspace lock — its classpath, its authoritative lockfile path, and its
+                // freshness. Exporting it standalone would read a member-local zolt.lock that never
+                // exists and hand the IDE an empty classpath. Not a member: standalone, unchanged.
                 IdeModel model = timings.measure(
                         "ide model export",
-                        () -> ideModelService.export(
-                                projectRoot,
-                                cacheRoot,
-                                true,
-                                offline,
-                                timings),
+                        () -> workspaceIdeModelService
+                                .exportMember(projectRoot, cacheRoot, true, offline, timings)
+                                .orElseGet(() -> ideModelService.export(
+                                        projectRoot,
+                                        cacheRoot,
+                                        true,
+                                        offline,
+                                        timings)),
                         IdeCommand::ideModelAttributes);
                 String output = timings.measure(
                         "ide model json",

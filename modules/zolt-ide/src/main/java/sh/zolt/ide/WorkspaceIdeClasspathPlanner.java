@@ -27,9 +27,22 @@ final class WorkspaceIdeClasspathPlanner {
             Workspace workspace,
             Path cacheRoot,
             ZoltLockfile lockfile) {
+        return classpaths(workspace, cacheRoot, lockfile, workspace.members());
+    }
+
+    /**
+     * Classpaths for exactly {@code members}, projected from the same workspace lock. A member-directory
+     * export asks for one; the workspace export asks for all. Both come through here, so a member's
+     * classpath cannot depend on whether the IDE asked for the member or for the workspace.
+     */
+    Map<String, IdeModel.ClasspathInfo> classpaths(
+            Workspace workspace,
+            Path cacheRoot,
+            ZoltLockfile lockfile,
+            List<WorkspaceMember> members) {
         Map<String, IdeModel.ClasspathInfo> classpathsByMember = new LinkedHashMap<>();
         if (lockfile == null) {
-            for (WorkspaceMember member : workspace.members()) {
+            for (WorkspaceMember member : members) {
                 classpathsByMember.put(member.path(), emptyClasspaths());
             }
             return Collections.unmodifiableMap(classpathsByMember);
@@ -38,10 +51,10 @@ final class WorkspaceIdeClasspathPlanner {
                 workspace,
                 lockfile,
                 cacheRoot,
-                workspace.members().stream()
+                members.stream()
                         .map(WorkspaceMember::path)
                         .toList());
-        for (WorkspaceMember member : workspace.members()) {
+        for (WorkspaceMember member : members) {
             ClasspathSet classpaths = zoltClasspathsByMember.get(member.path());
             Optional<Path> mainOutput = outputPath(member, "[build.output].main", member.config().build().output());
             Optional<Path> testOutput = outputPath(member, "[build.output].test", member.config().build().testOutput());

@@ -1,22 +1,15 @@
 package sh.zolt.ide;
 
 import sh.zolt.lockfile.ProjectLockfile;
-import sh.zolt.cache.ArtifactCacheException;
-import sh.zolt.error.ActionableException;
-import sh.zolt.lockfile.toml.LockfileReadException;
-import sh.zolt.lockfile.ZoltLockfile;
-import sh.zolt.lockfile.ContentAddressedLockCapability;
-import sh.zolt.lockfile.WorkspaceGraphLockCapability;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
-import sh.zolt.resolve.ResolveException;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceClasspathService;
 import sh.zolt.workspace.WorkspaceConfigException;
 import sh.zolt.workspace.service.WorkspaceMember;
 import sh.zolt.workspace.service.WorkspaceProjectEdge;
 import sh.zolt.workspace.discovery.ManifestWorkspaceLoader;
+import sh.zolt.workspace.publish.WorkspaceMemberDirectory;
 import sh.zolt.workspace.resolve.WorkspaceResolveService;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,10 +20,11 @@ public final class WorkspaceIdeModelService {
     private static final int SCHEMA_VERSION = 1;
 
     private final ManifestWorkspaceLoader workspaceLoader;
+    private final WorkspaceMemberDirectory memberDirectory;
     private final IdeModelService ideModelService;
     private final ZoltLockfileReader lockfileReader;
     private final WorkspaceIdeClasspathPlanner classpathPlanner;
-    private final WorkspaceResolveService workspaceResolveService;
+    private final WorkspaceIdeLockState lockStateReader;
 
     public WorkspaceIdeModelService() {
         this(new IdeModelService());
@@ -52,10 +46,11 @@ public final class WorkspaceIdeModelService {
             WorkspaceClasspathService workspaceClasspathService,
             WorkspaceResolveService workspaceResolveService) {
         this.workspaceLoader = workspaceLoader;
+        this.memberDirectory = new WorkspaceMemberDirectory(workspaceLoader);
         this.ideModelService = ideModelService;
         this.lockfileReader = lockfileReader;
         this.classpathPlanner = new WorkspaceIdeClasspathPlanner(workspaceClasspathService);
-        this.workspaceResolveService = workspaceResolveService;
+        this.lockStateReader = new WorkspaceIdeLockState(lockfileReader, workspaceResolveService);
     }
 
     public WorkspaceIdeModel export(Path startDirectory, Path cacheRoot, boolean checkLock, boolean offline) {
@@ -78,9 +73,9 @@ public final class WorkspaceIdeModelService {
                 return missingWorkspace(start);
             }
             Workspace workspace = discovered.orElseThrow();
-            WorkspaceLockState lockState = recorder.measure(
+            WorkspaceIdeLockState.WorkspaceLockState lockState = recorder.measure(
                     "read workspace ide lock",
-                    () -> workspaceLockState(workspace, cacheRoot, checkLock, offline),
+                    () -> lockStateReader.read(workspace, cacheRoot, checkLock, offline),
                     WorkspaceIdeModelService::workspaceLockAttributes);
             List<WorkspaceIdeModel.ProjectModel> projects = recorder.measure(
                     "export workspace ide projects",
@@ -104,6 +99,55 @@ public final class WorkspaceIdeModelService {
         }
     }
 
+    /**
+     * The project model for the ONE member whose directory is {@code startDirectory}, or empty when
+     * that directory is not a declared workspace member.
+     *
+     * <p>An IDE opening {@code apps/api} asks for that project's model, not the workspace's — but the
+     * project it is asking about is a member, whose classpath is a projection of the workspace lock and
+     * whose config only composes against the workspace root. Exporting it standalone reads
+     * {@code apps/api/zolt.lock}, finds nothing, and hands the IDE an empty classpath with a
+     * {@code LOCKFILE_MISSING} diagnostic — for a member whose dependencies are fully resolved at the
+     * root. So this reuses the workspace export's own machinery and returns the member's slice of it.
+     *
+     * <p>{@code checkLock} therefore means workspace freshness here: a member's lock IS the workspace's,
+     * so its staleness diagnostic names {@code zolt resolve --workspace}.
+     */
+    public Optional<IdeModel> exportMember(
+            Path startDirectory,
+            Path cacheRoot,
+            boolean checkLock,
+            boolean offline,
+            IdeTimingRecorder timings) {
+        Path start = startDirectory.toAbsolutePath().normalize();
+        IdeTimingRecorder recorder = timings == null ? IdeTimingRecorder.disabled() : timings;
+        Optional<WorkspaceMemberDirectory.Membership> membership = recorder.measure(
+                "discover ide member",
+                () -> memberDirectory.membershipAt(start));
+        if (membership.isEmpty()) {
+            return Optional.empty();
+        }
+        Workspace workspace = membership.orElseThrow().workspace();
+        WorkspaceMember member = membership.orElseThrow().member();
+        WorkspaceIdeLockState.WorkspaceLockState lockState = recorder.measure(
+                "read workspace ide lock",
+                () -> lockStateReader.read(workspace, cacheRoot, checkLock, offline),
+                WorkspaceIdeModelService::workspaceLockAttributes);
+        Map<String, IdeModel.ClasspathInfo> classpaths = recorder.measure(
+                "plan workspace ide classpaths",
+                () -> classpathPlanner.classpaths(
+                        workspace, cacheRoot, lockState.lockfile(), List.of(member)),
+                WorkspaceIdeModelService::workspaceClasspathAttributes);
+        return Optional.of(recorder.measure(
+                "export workspace ide projects",
+                () -> ideModelService.exportWithClasspaths(
+                        member.directory(),
+                        ProjectLockfile.in(workspace.root()),
+                        member.config(),
+                        classpaths.get(member.path()),
+                        lockState.diagnostics())));
+    }
+
     private WorkspaceIdeModel.WorkspaceInfo workspaceInfo(Workspace workspace) {
         return new WorkspaceIdeModel.WorkspaceInfo(
                 workspace.config().name(),
@@ -118,7 +162,7 @@ public final class WorkspaceIdeModelService {
     private List<WorkspaceIdeModel.ProjectModel> projectModels(
             Workspace workspace,
             Path cacheRoot,
-            WorkspaceLockState lockState,
+            WorkspaceIdeLockState.WorkspaceLockState lockState,
             IdeTimingRecorder timings) {
         List<WorkspaceIdeModel.ProjectModel> projects = new ArrayList<>();
         Map<String, IdeModel.ClasspathInfo> classpathsByMember = timings.measure(
@@ -138,7 +182,7 @@ public final class WorkspaceIdeModelService {
         return List.copyOf(projects);
     }
 
-    private static Map<String, String> workspaceLockAttributes(WorkspaceLockState lockState) {
+    private static Map<String, String> workspaceLockAttributes(WorkspaceIdeLockState.WorkspaceLockState lockState) {
         return Map.of(
                 "lockfilePresent", Boolean.toString(lockState.lockfile() != null),
                 "diagnostics", Integer.toString(lockState.diagnostics().size()));
@@ -173,107 +217,6 @@ public final class WorkspaceIdeModelService {
                 "projects", Integer.toString(model.projects().size()),
                 "edges", Integer.toString(model.edges().size()),
                 "diagnostics", Integer.toString(model.diagnostics().size()));
-    }
-
-    private WorkspaceLockState workspaceLockState(
-            Workspace workspace,
-            Path cacheRoot,
-            boolean checkLock,
-            boolean offline) {
-        Path lockfilePath = ProjectLockfile.in(workspace.root()).normalize();
-        if (!Files.exists(lockfilePath)) {
-            return new WorkspaceLockState(
-                    null,
-                    List.of(new IdeModel.Diagnostic(
-                            "error",
-                            "LOCKFILE_MISSING",
-                            "Could not find workspace zolt.lock.",
-                            lockfilePath,
-                            "Run zolt resolve --workspace.")));
-        }
-
-        try {
-            ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
-            if (!WorkspaceGraphLockCapability.supportsMemberGraphEvidence(lockfile)) {
-                return new WorkspaceLockState(
-                        null,
-                        List.of(new IdeModel.Diagnostic(
-                                "error",
-                                "LOCKFILE_GRAPH_SCHEMA_OUTDATED",
-                                "Workspace zolt.lock version "
-                                        + lockfile.version()
-                                        + " lacks version "
-                                        + WorkspaceGraphLockCapability.MINIMUM_VERSION
-                                        + " member-qualified optional-boundary evidence.",
-                                lockfilePath,
-                                "Run zolt resolve --workspace.")));
-            }
-            List<IdeModel.Diagnostic> diagnostics = new ArrayList<>();
-            if (checkLock && !ContentAddressedLockCapability.supportsArtifactCachePaths(lockfile)) {
-                diagnostics.add(new IdeModel.Diagnostic(
-                        "error",
-                        "LOCKFILE_MIGRATION_REQUIRED",
-                        "Workspace zolt.lock version "
-                                + lockfile.version()
-                                + " predates the version "
-                                + ContentAddressedLockCapability.MINIMUM_VERSION
-                                + " content-addressed artifact cache path contract required by this Zolt.",
-                        lockfilePath,
-                        "Run zolt resolve --workspace."));
-                return new WorkspaceLockState(lockfile, diagnostics);
-            }
-            if (checkLock) {
-                checkWorkspaceLockFreshness(workspace, cacheRoot, offline, lockfilePath, diagnostics);
-            }
-            return new WorkspaceLockState(lockfile, diagnostics);
-        } catch (LockfileReadException exception) {
-            return new WorkspaceLockState(
-                    null,
-                    List.of(new IdeModel.Diagnostic(
-                            "error",
-                            "LOCKFILE_UNREADABLE",
-                            exception.getMessage(),
-                            lockfilePath,
-                            "Run zolt resolve --workspace.")));
-        }
-    }
-
-    private void checkWorkspaceLockFreshness(
-            Workspace workspace,
-            Path cacheRoot,
-            boolean offline,
-            Path lockfilePath,
-            List<IdeModel.Diagnostic> diagnostics) {
-        try {
-            workspaceResolveService.resolve(workspace.root(), cacheRoot, true, offline);
-        } catch (ResolveException exception) {
-            diagnostics.add(new IdeModel.Diagnostic(
-                    "error",
-                    lockDiagnosticCode(exception),
-                    exception.getMessage(),
-                    lockfilePath,
-                    "Run zolt resolve --workspace."));
-        } catch (ArtifactCacheException exception) {
-            diagnostics.add(new IdeModel.Diagnostic(
-                    "error",
-                    "LOCKFILE_CHECK_UNAVAILABLE",
-                    exception.getMessage(),
-                    lockfilePath,
-                    "Run zolt resolve --workspace without --offline to seed the cache, then retry zolt ide model --workspace --offline."));
-        } catch (ActionableException exception) {
-            diagnostics.add(new IdeModel.Diagnostic(
-                    "error",
-                    "LOCKFILE_MIGRATION_REQUIRED",
-                    exception.getMessage(),
-                    lockfilePath,
-                    "Run zolt resolve --workspace."));
-        }
-    }
-
-    private static String lockDiagnosticCode(ResolveException exception) {
-        return exception.getMessage().contains("out of date")
-                ? "LOCKFILE_STALE"
-                : "LOCKFILE_CHECK_FAILED";
     }
 
     private static List<WorkspaceIdeModel.ProjectEdge> projectEdges(Workspace workspace) {
@@ -319,11 +262,5 @@ public final class WorkspaceIdeModelService {
 
     private static WorkspaceIdeModel.WorkspaceInfo emptyWorkspaceInfo() {
         return new WorkspaceIdeModel.WorkspaceInfo(null, null, null, null, List.of(), List.of(), List.of());
-    }
-
-    private record WorkspaceLockState(ZoltLockfile lockfile, List<IdeModel.Diagnostic> diagnostics) {
-        private WorkspaceLockState {
-            diagnostics = List.copyOf(diagnostics);
-        }
     }
 }
