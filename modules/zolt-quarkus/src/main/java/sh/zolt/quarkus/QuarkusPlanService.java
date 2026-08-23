@@ -78,15 +78,6 @@ public final class QuarkusPlanService {
         return plan(projectDirectory, config, lockfileReader.read(lockfilePath), cacheRoot);
     }
 
-    public QuarkusPlan planFrom(
-            Path projectDirectory,
-            ProjectConfig config,
-            Path lockfilePath,
-            Path cacheRoot) {
-        requireEnabled(config);
-        return plan(projectDirectory, config, lockfileReader.read(lockfilePath), cacheRoot);
-    }
-
     public QuarkusPlan plan(
             Path projectDirectory,
             ProjectConfig config,
