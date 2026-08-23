@@ -2,7 +2,7 @@
 name = "zolt-toolchain"
 
 [dependencies]
-"com.fasterxml.jackson.core:jackson-core" = "2.22.1"
+"com.fasterxml.jackson.core:jackson-core" = "2.22.2"
 "sh.zolt:zolt-model" = { workspace = true }
 "sh.zolt:zolt-toml" = { workspace = true }
 
