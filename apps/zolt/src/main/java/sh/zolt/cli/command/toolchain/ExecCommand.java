@@ -3,10 +3,10 @@ package sh.zolt.cli.command.toolchain;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.command.CommandProjectLockfile;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
 import sh.zolt.error.ActionableException;
-import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.ProjectVersionOverride;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.process.ProcessInputPolicy;
@@ -132,11 +132,15 @@ public final class ExecCommand implements java.util.concurrent.Callable<Integer>
                     "Java toolchain is not ready for exec",
                     "Run `zolt toolchain status` for details, then `zolt toolchain sync`, or choose a project with a usable Java toolchain.");
         }
-        ProjectConfig config = ProjectVersionOverride.apply(
-                projectLoader.load(projectRoot));
+        // Design §4.5: with no [toolchain.java] authored anywhere, the request comes from the
+        // project's own composed identity while the lock that could satisfy it lives at the root that
+        // owns it. The command boundary decides both directories, so a member's irrelevant local
+        // zolt.lock is never the file this reads — even to reject it.
+        ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
         return toolchains.environment(
-                projectRoot,
-                config,
+                context.projectRoot(),
+                context.lockRoot(),
+                ProjectVersionOverride.apply(context.config()),
                 HostPlatform.parse(toolchainTarget),
                 new ToolchainStore(toolchainInstallRoot));
     }

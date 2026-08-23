@@ -4,11 +4,11 @@ import sh.zolt.cli.CommandHumanOutput;
 import sh.zolt.cli.command.CommandFailures;
 import sh.zolt.cli.command.CommandProjectDirectory;
 import sh.zolt.cli.command.CommandProjectLockfile;
+import sh.zolt.cli.command.ProjectCommandContext;
 import sh.zolt.config.UserGlobalConfig;
 import sh.zolt.config.UserGlobalConfigException;
 import sh.zolt.config.UserGlobalConfigParser;
 import sh.zolt.error.ActionableException;
-import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.toolchain.JavaFeature;
 import sh.zolt.project.toolchain.JavaToolchainRequest;
 import sh.zolt.toml.ZoltConfigException;
@@ -91,37 +91,60 @@ public final class ToolchainListCommand implements Callable<Integer> {
             HostPlatform platform = HostPlatform.parse(target);
             ToolchainStore store = new ToolchainStore(installRoot);
             UserGlobalConfig globalConfig = globalConfigParser.read(globalConfigPath);
-            Optional<JavaToolchainStatus> project = projectStatus(projectRoot, platform, store);
+            ProjectToolchains project = projectToolchains(projectRoot, platform, store);
             Optional<JavaToolchainStatus> global = globalStatus(globalConfig, platform, store);
-            List<LockedJavaToolchain> projectLocks = lockfiles.readJava(
-                    CommandProjectLockfile.path(projectRoot));
+            List<LockedJavaToolchain> projectLocks = lockfiles.readJava(project.lockfile());
             List<LockedJavaToolchain> globalLocks = lockfiles.readJava(GlobalToolchainPaths.lockfile(globalConfigPath));
-            print(projectRoot, project, global, projectLocks, globalLocks, store);
+            print(projectRoot, project.status(), global, projectLocks, globalLocks, store);
             return 0;
         } catch (ActionableException | UserGlobalConfigException | ZoltConfigException exception) {
             throw CommandFailures.user(spec, exception);
         }
     }
 
-    private Optional<JavaToolchainStatus> projectStatus(
+    /**
+     * The project half of the listing, decided once: the active status and the one lockfile that
+     * governs this directory.
+     *
+     * <p>Design §4.5: a member authors its request in its own manifest while the lock that satisfies it
+     * lives at the workspace root, so the two directories are stated rather than derived from each
+     * other. Without that, the fallback below would evaluate the status against the started directory
+     * as its own lock root and consume — or be rejected by — a member-local {@code zolt.lock} that no
+     * command may read, before ambient Java is ever considered.
+     */
+    private ProjectToolchains projectToolchains(
             Path projectRoot,
             HostPlatform platform,
             ToolchainStore store) {
         Path configPath = projectRoot.resolve("zolt.toml");
         if (!Files.isRegularFile(configPath)) {
-            return Optional.empty();
+            return new ProjectToolchains(Optional.empty(), CommandProjectLockfile.path(projectRoot));
         }
         Optional<JavaToolchainRequest> configured = toolchainConfigReader.readJava(configPath);
         if (configured.isPresent()) {
-            return Optional.of(statusService.status(
-                    configured.orElseThrow(),
-                    "[toolchain.java]",
-                    CommandProjectLockfile.path(projectRoot),
-                    platform,
-                    store));
+            Path lockfile = CommandProjectLockfile.path(projectRoot);
+            return new ProjectToolchains(
+                    Optional.of(statusService.status(
+                            configured.orElseThrow(),
+                            "[toolchain.java]",
+                            lockfile,
+                            platform,
+                            store)),
+                    lockfile);
         }
-        ProjectConfig config = projectLoader.load(projectRoot);
-        return Optional.of(statusService.status(projectRoot, config, platform, store));
+        ProjectCommandContext context = ProjectCommandContext.load(projectLoader, projectRoot);
+        return new ProjectToolchains(
+                Optional.of(statusService.status(
+                        context.projectRoot(),
+                        context.lockRoot(),
+                        context.config(),
+                        platform,
+                        store)),
+                context.lockfilePath());
+    }
+
+    /** The active project status and the lockfile the "project lock" section lists, from one answer. */
+    private record ProjectToolchains(Optional<JavaToolchainStatus> status, Path lockfile) {
     }
 
     private Optional<JavaToolchainStatus> globalStatus(
