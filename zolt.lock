@@ -1,7 +1,7 @@
 version = 7
-projectResolutionFingerprint = "sha256:83d14536d2ebfa82ab95c1180c8172abc5c09c98fba46d25f60477c326c9a0d1"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:7fc594463dd514ad55e92ffa40a24e48e3436c1b1f2fcdf4917996178ed37b6c", "dependencies.compile=sha256:53fb1039d86bc528a791d43155f872d5f656b50a1676f6b4714084cfae45849b", "dependencies.provided=sha256:fb1d589a350c36415cc1f7ab6f5efe21de446b82ef4f93d2562b248243479fe7", "dependencies.test=sha256:1e9cde8e0518f887a95683f8464c275e2ee6ee885ae84289de9d12621dcda68e", "dependencyMetadata=sha256:cdc704285703fc71a1707e5059aebf9f5748acd917f12084b12d26ad88011dd1", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd"]
-workspaceResolutionInputFingerprint = "sha256:1676411e354cf2ff1c47fd384bd2aee48daa8caa9575eafa40484a9863a29b09"
+projectResolutionFingerprint = "sha256:9ca39c6744e2d90c6bbb91391fedcb713202ccb461d24c87dce3607426df97c3"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:7fc594463dd514ad55e92ffa40a24e48e3436c1b1f2fcdf4917996178ed37b6c", "dependencies.compile=sha256:53fb1039d86bc528a791d43155f872d5f656b50a1676f6b4714084cfae45849b", "dependencies.provided=sha256:fb1d589a350c36415cc1f7ab6f5efe21de446b82ef4f93d2562b248243479fe7", "dependencies.test=sha256:fc72b177678f1c6cef38eef35a63df83f455de5afda4844e833d762bf92e8a13", "dependencyMetadata=sha256:cdc704285703fc71a1707e5059aebf9f5748acd917f12084b12d26ad88011dd1", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd"]
+workspaceResolutionInputFingerprint = "sha256:2125a8bd8820ea00a02458e2cc4248ea016f9dd09843e6d9aef35f0f5809db84"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -188,14 +188,14 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "apps/zolt"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "apps/zolt-javac-worker"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -223,7 +223,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "apps/zolt-junit-worker"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -279,7 +279,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-build"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -300,7 +300,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-config"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -335,7 +335,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-explain"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -349,7 +349,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-framework-api"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -398,7 +398,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-ide"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -419,7 +419,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-init"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -433,14 +433,14 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-junit-client"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
 [[dependencyRoot]]
 member = "modules/zolt-model"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -468,7 +468,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-native-image"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -496,7 +496,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-plan"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -517,7 +517,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-policy"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -552,7 +552,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-publish"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -622,7 +622,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-quality"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -741,7 +741,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-quarkus"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -762,7 +762,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-release"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -776,7 +776,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-repository"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -804,7 +804,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-resolve"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -839,7 +839,7 @@ resolvedScope = "test"
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -895,7 +895,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-selfhost"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -909,7 +909,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-test-model"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -965,7 +965,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-test-runtime"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -986,7 +986,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-toml"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -1014,7 +1014,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-toolchain"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -1028,7 +1028,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-tree"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -1056,7 +1056,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-update"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -1133,7 +1133,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-workspace"
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 lane = "test"
 resolvedScope = "test"
 
@@ -1438,14 +1438,14 @@ dependencies = ["org.jacoco:org.jacoco.core:0.8.14:jar:tool-coverage"]
 
 [[package]]
 id = "org.junit.platform:junit-platform-console-standalone"
-version = "1.11.4"
+version = "1.14.4"
 source = "central"
 scope = "test"
 direct = true
-jar = "blobs/v2/sha256/b016ef6b1c3454d6d7c2c88ce081dabf289699686af6622d6e4e2e1b54b4a2fc/junit-platform-console-standalone-1.11.4.jar"
-pom = "blobs/v2/sha256/f44619c18edb94360cc382e6baf943e9300625d1a0a949ee158977eace5713d1/junit-platform-console-standalone-1.11.4.pom"
-jarSha256 = "b016ef6b1c3454d6d7c2c88ce081dabf289699686af6622d6e4e2e1b54b4a2fc"
-pomSha256 = "f44619c18edb94360cc382e6baf943e9300625d1a0a949ee158977eace5713d1"
+jar = "blobs/v2/sha256/7c6968cbcaf4301c729f202b23b7d736c5d88be625fc7d27ad5d746146a8bc28/junit-platform-console-standalone-1.14.4.jar"
+pom = "blobs/v2/sha256/85cde188a8fd9b177d451edcc10b1e554608907d2a29a580a8f75112cff78849/junit-platform-console-standalone-1.14.4.pom"
+jarSha256 = "7c6968cbcaf4301c729f202b23b7d736c5d88be625fc7d27ad5d746146a8bc28"
+pomSha256 = "85cde188a8fd9b177d451edcc10b1e554608907d2a29a580a8f75112cff78849"
 members = ["apps/zolt", "apps/zolt-javac-worker", "apps/zolt-junit-worker", "modules/zolt-build", "modules/zolt-config", "modules/zolt-explain", "modules/zolt-framework-api", "modules/zolt-ide", "modules/zolt-init", "modules/zolt-junit-client", "modules/zolt-model", "modules/zolt-native-image", "modules/zolt-plan", "modules/zolt-policy", "modules/zolt-publish", "modules/zolt-quality", "modules/zolt-quarkus", "modules/zolt-release", "modules/zolt-repository", "modules/zolt-resolve", "modules/zolt-sbom", "modules/zolt-selfhost", "modules/zolt-test-model", "modules/zolt-test-runtime", "modules/zolt-toml", "modules/zolt-toolchain", "modules/zolt-tree", "modules/zolt-update", "modules/zolt-workspace"]
 dependencies = []
 
@@ -1981,6 +1981,209 @@ id = "org.jboss.logging:jboss-logging"
 requested = "3.6.2.Final"
 source = "io.quarkus:quarkus-bootstrap-app-model:3.33.2"
 policy = "dependency edge exclusion from io.quarkus:quarkus-bootstrap-app-model:3.33.2 to org.jboss.logging:jboss-logging"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member apps/zolt-javac-worker"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member apps/zolt"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-build"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-config"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-explain"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-framework-api"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-ide"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-init"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-junit-client"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-model"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-native-image"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-plan"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-policy"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-publish"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-quality"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-quarkus"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-release"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-repository"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-resolve"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-sbom"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-selfhost"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-test-model"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-test-runtime"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-toml"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-toolchain"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-tree"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-update"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[policy]]
+kind = "workspace-mediation"
+id = "org.junit.platform:junit-platform-console-standalone"
+requested = "1.11.4"
+source = "workspace member modules/zolt-workspace"
+policy = "workspace-mediation: org.junit.platform:junit-platform-console-standalone requested 1.11.4 -> 1.14.4"
+
+[[conflict]]
+id = "org.junit.platform:junit-platform-console-standalone"
+members = ["apps/zolt", "apps/zolt-javac-worker", "apps/zolt-junit-worker", "modules/zolt-build", "modules/zolt-config", "modules/zolt-explain", "modules/zolt-framework-api", "modules/zolt-ide", "modules/zolt-init", "modules/zolt-junit-client", "modules/zolt-model", "modules/zolt-native-image", "modules/zolt-plan", "modules/zolt-policy", "modules/zolt-publish", "modules/zolt-quality", "modules/zolt-quarkus", "modules/zolt-release", "modules/zolt-repository", "modules/zolt-resolve", "modules/zolt-sbom", "modules/zolt-selfhost", "modules/zolt-test-model", "modules/zolt-test-runtime", "modules/zolt-toml", "modules/zolt-toolchain", "modules/zolt-tree", "modules/zolt-update", "modules/zolt-workspace"]
+selected = "1.14.4"
+requested = ["1.11.4", "1.14.4"]
+reason = "selected materialized graph wins"
 
 [[toolchain.java]]
 id = "java-graalvm-community-21-native-image"
