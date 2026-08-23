@@ -49,11 +49,17 @@ final class MemberProjectionFixture implements AutoCloseable {
     private final CliTestRepository repository;
     private final Path workspaceDir;
     private final Path cacheRoot;
+    private final boolean ownsRepository;
 
-    private MemberProjectionFixture(CliTestRepository repository, Path workspaceDir, Path cacheRoot) {
+    private MemberProjectionFixture(
+            CliTestRepository repository,
+            Path workspaceDir,
+            Path cacheRoot,
+            boolean ownsRepository) {
         this.repository = repository;
         this.workspaceDir = workspaceDir;
         this.cacheRoot = cacheRoot;
+        this.ownsRepository = ownsRepository;
     }
 
     static MemberProjectionFixture create(Path tempDir) throws IOException {
@@ -69,8 +75,26 @@ final class MemberProjectionFixture implements AutoCloseable {
         return create(tempDir, true);
     }
 
+    /**
+     * Two fixtures of the same workspace against ONE repository, for a caller comparing their outputs.
+     * A second repository would listen on a second port, which changes the workspace config and so the
+     * workspace resolution fingerprint the lock records — a difference that has nothing to do with what
+     * the caller is measuring. The caller owns the repository's lifecycle.
+     */
+    static MemberProjectionFixture createPublishable(Path tempDir, CliTestRepository repository)
+            throws IOException {
+        return create(tempDir, true, repository, false);
+    }
+
     private static MemberProjectionFixture create(Path tempDir, boolean publishable) throws IOException {
-        CliTestRepository repository = CliTestRepository.start();
+        return create(tempDir, publishable, CliTestRepository.start(), true);
+    }
+
+    private static MemberProjectionFixture create(
+            Path tempDir,
+            boolean publishable,
+            CliTestRepository repository,
+            boolean ownsRepository) throws IOException {
         repository.addArtifact("com.example", "api-only", "1.0.0", pom("api-only", API_ONLY_LICENSE));
         repository.addArtifact("com.example", "sibling-only", "1.0.0", pom("sibling-only", SIBLING_ONLY_LICENSE));
         repository.addArtifact("com.example", "unrelated-only", "1.0.0", pom("unrelated-only", LEAKED_LICENSE));
@@ -113,7 +137,8 @@ final class MemberProjectionFixture implements AutoCloseable {
                 "%s" = "1.0.0"
                 """.formatted(UNRELATED_ONLY));
 
-        MemberProjectionFixture fixture = new MemberProjectionFixture(repository, workspaceDir, cacheRoot);
+        MemberProjectionFixture fixture =
+                new MemberProjectionFixture(repository, workspaceDir, cacheRoot, ownsRepository);
         CommandResult resolved = execute("resolve", "--workspace",
                 "--cwd", workspaceDir.toString(), "--cache-root", cacheRoot.toString());
         assertEquals(0, resolved.exitCode(), resolved.stdout() + resolved.stderr());
@@ -205,7 +230,9 @@ final class MemberProjectionFixture implements AutoCloseable {
 
     @Override
     public void close() {
-        repository.close();
+        if (ownsRepository) {
+            repository.close();
+        }
     }
 
     /**

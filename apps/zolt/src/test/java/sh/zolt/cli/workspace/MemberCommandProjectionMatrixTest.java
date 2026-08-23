@@ -17,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import sh.zolt.cli.CliTestRepository;
 import sh.zolt.cli.CliTestSupport.CommandResult;
 
 /**
@@ -60,7 +61,9 @@ final class MemberCommandProjectionMatrixTest {
     @MethodSource("memberCommands")
     void plantedMemberLockChangesNothing(String name, Fixtures kind, List<String> arguments)
             throws IOException {
-        try (Scenario clean = open(kind); Scenario poisoned = open(kind)) {
+        try (CliTestRepository repository = CliTestRepository.start();
+                Scenario clean = open(kind, repository);
+                Scenario poisoned = open(kind, repository)) {
             CommandResult expected = clean.run(arguments);
             String planted = poisoned.plantPoisonedMemberLock();
 
@@ -91,7 +94,8 @@ final class MemberCommandProjectionMatrixTest {
     @MethodSource("memberCommands")
     void memberCommandNeverCreatesAMemberLocalLock(String name, Fixtures kind, List<String> arguments)
             throws IOException {
-        try (Scenario scenario = open(kind)) {
+        try (CliTestRepository repository = CliTestRepository.start();
+                Scenario scenario = open(kind, repository)) {
             CommandResult result = scenario.run(arguments);
 
             assertFalse(result.stdout().isBlank() && result.stderr().isBlank(),
@@ -123,10 +127,15 @@ final class MemberCommandProjectionMatrixTest {
                 Arguments.of("quarkus plan", Fixtures.QUARKUS, List.of("quarkus", "plan")));
     }
 
-    private Scenario open(Fixtures kind) throws IOException {
+    /**
+     * Both scenarios of a row share one repository, so the only difference between them is the planted
+     * lock. A second repository would listen on a second port and change the workspace resolution
+     * fingerprint the lock records, which would show up as a difference the poison did not cause.
+     */
+    private Scenario open(Fixtures kind, CliTestRepository repository) throws IOException {
         return kind == Fixtures.QUARKUS
                 ? new QuarkusScenario(MemberQuarkusFixture.create(tempDir))
-                : new ReportsScenario(MemberProjectionFixture.createPublishable(tempDir));
+                : new ReportsScenario(MemberProjectionFixture.createPublishable(tempDir, repository));
     }
 
     /** One workspace a row can run against, with the two facts the matrix asserts over. */
