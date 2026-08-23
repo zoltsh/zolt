@@ -118,6 +118,23 @@ final class MemberPublishProjectionTest {
     }
 
     /**
+     * A member with no {@code [publish]} at all is told exactly that — not told which repository key its
+     * version would have needed. The configuration rejection has to come before planning, the way the
+     * single-project planner orders it; otherwise routing a member through the workspace planner
+     * silently downgrades the message every unpublishable member sees.
+     */
+    @Test
+    void memberWithoutPublishConfigurationIsRejectedBeforeAnythingIsPlanned() throws IOException {
+        try (MemberProjectionFixture fixture = MemberProjectionFixture.createPublishable(tempDir)) {
+            CommandResult result = fixture.in(fixture.unrelatedDir(), "publish", "--dry-run");
+
+            assertEquals(1, result.exitCode(), result.stdout());
+            assertTrue(result.stderr().contains("No [publish] configuration found."), result.stderr());
+            assertFalse(result.stderr().contains("snapshotRepository"), result.stderr());
+        }
+    }
+
+    /**
      * Audit rule, workspace-root row: a root declares no {@code [project]}, so a single-project publish
      * there is an actionable rejection naming {@code --workspace}.
      */

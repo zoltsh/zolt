@@ -148,21 +148,25 @@ public final class WorkspacePublishService {
         if (discovered.isEmpty()) {
             return Optional.empty();
         }
-        String memberPath = discovered.orElseThrow().path();
+        WorkspaceMember member = discovered.orElseThrow();
+        // An unconfigured member is rejected BEFORE anything is planned, exactly as the single-project
+        // planner rejects it: a project with no [publish] at all should be told that, not told which
+        // repository key its version would have needed.
+        if (!publishSettingsLoader.read(member.directory().resolve("zolt.toml")).configured()) {
+            throw new PublishException("No [publish] configuration found. Add release/snapshot publish "
+                    + "repositories before running `zolt publish --dry-run`.");
+        }
+        String memberPath = member.path();
         WorkspaceBuildPlan plan = workspaceBuildService.planBuild(
                 directory, cacheRoot, offline, WorkspaceSelectionRequest.exact(List.of(memberPath)));
-        WorkspaceMember member = plan.workspace().members().stream()
+        WorkspaceMember resolved = plan.workspace().members().stream()
                 .filter(candidate -> candidate.path().equals(memberPath))
                 .findFirst()
                 .orElseThrow();
         WorkspaceMemberPlanner.Planned planned = memberPlanner.planOffline(
-                member, plan.workspace(), plan.lockfile(), cacheRoot, central, sbomGenerator);
-        if (!planned.publish().configured()) {
-            throw new PublishException("No [publish] configuration found. Add release/snapshot publish "
-                    + "repositories before running `zolt publish --dry-run`.");
-        }
+                resolved, plan.workspace(), plan.lockfile(), cacheRoot, central, sbomGenerator);
         return Optional.of(new WorkspaceMemberDryRun(
-                member.directory(),
+                resolved.directory(),
                 memberPath,
                 WorkspaceMemberPlanner.coordinateString(planned.config()),
                 planned.config(),
