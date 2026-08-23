@@ -1,6 +1,5 @@
 package sh.zolt.cli.command.supplychain;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -68,6 +67,7 @@ public final class LicensesCommand implements Runnable {
     private final LicenseReportJsonWriter jsonWriter = new LicenseReportJsonWriter();
     private final LicenseNoticesWriter noticesWriter = new LicenseNoticesWriter();
     private final ManifestWorkspaceLoader workspaceDiscovery = new ManifestWorkspaceLoader();
+    private final SupplyChainScope scope = new SupplyChainScope();
     private final WorkspaceMemberGraphRoots memberGraphRoots = new WorkspaceMemberGraphRoots();
     private final WorkspaceSbomAssembler workspaceAssembler = new WorkspaceSbomAssembler();
     private final WorkspaceLicensePolicyScopes workspaceScopes = new WorkspaceLicensePolicyScopes();
@@ -150,10 +150,20 @@ public final class LicensesCommand implements Runnable {
     }
 
     /**
-     * The one project this directory names. A member directory is governed by the workspace root's
-     * lock (design §4.5), so its licenses are read out of that lock, never a member-local one.
+     * The one project this directory names.
+     *
+     * <p>A member directory is governed by the workspace root's lock (design §4.5), and that lock is
+     * the WHOLE workspace's resolution. Reporting it verbatim here would attribute a sibling-only
+     * dependency's license — and any policy violation it carries — to this member, so a member reports
+     * out of the {@link SupplyChainScope} member projection instead: the licenses of the packages this
+     * member actually reaches.
      */
     private Resolved resolveProject(SbomScopeSelection selection) {
+        Optional<SupplyChainScope.Reported> member = scope.member(projectDirectory.path(), "zolt licenses");
+        if (member.isPresent()) {
+            SupplyChainScope.Reported reported = member.orElseThrow();
+            return resolveFrom(reported.config(), reported.lockfile(), selection);
+        }
         var project = projectLoader.project(projectDirectory.path());
         Path lockfilePath = sh.zolt.cli.command.CommandProjectLockfile.path(project);
         if (!Files.isRegularFile(lockfilePath)) {
@@ -162,8 +172,11 @@ public final class LicensesCommand implements Runnable {
                     "Run `" + sh.zolt.cli.command.CommandProjectLockfile.resolveCommand(project)
                             + "` to generate it, then re-run `zolt licenses`."));
         }
-        ProjectConfig config = project.config();
-        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
+        return resolveFrom(project.config(), lockfileReader.read(lockfilePath), selection);
+    }
+
+    /** The report and its enforced closure, from one project's config and the lock that governs it. */
+    private Resolved resolveFrom(ProjectConfig config, ZoltLockfile lockfile, SbomScopeSelection selection) {
         LicenseIndex index = resolveLicenses(lockfile, selection);
         SbomModel model = assembler.assemble(config, lockfile, selection, Optional.empty(), toolVersion, index);
         SbomModel enforcedModel =
@@ -181,7 +194,7 @@ public final class LicensesCommand implements Runnable {
                 .orElseThrow(() -> new ActionableException(ActionableError.of(
                         "No Zolt workspace was found for `zolt licenses --workspace`.",
                         "Run from a workspace root, or drop --workspace for a single-project report.")));
-        Path lockfilePath = ProjectLockfile.in(discovered.root());
+        Path lockfilePath = SupplyChainScope.workspaceLockfile(discovered);
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",

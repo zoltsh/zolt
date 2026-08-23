@@ -1,6 +1,5 @@
 package sh.zolt.cli.command.supplychain;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -60,6 +59,7 @@ public final class SbomCommand implements Runnable {
     private final Map<String, String> environment;
     private final String toolVersion;
     private final ManifestWorkspaceLoader workspaceDiscovery = new ManifestWorkspaceLoader();
+    private final SupplyChainScope scope = new SupplyChainScope();
     private final WorkspaceMemberGraphRoots memberGraphRoots = new WorkspaceMemberGraphRoots();
     private final WorkspaceSbomAssembler workspaceAssembler = new WorkspaceSbomAssembler();
 
@@ -162,9 +162,13 @@ public final class SbomCommand implements Runnable {
     }
 
     /**
-     * The SBOM of the one project this directory names. A member directory is governed by the
-     * workspace root's lock (design §4.5), so its components come from that lock, never a member-local
-     * one.
+     * The SBOM of the one project this directory names.
+     *
+     * <p>A member directory is governed by the workspace root's lock (design §4.5) — but finding the
+     * right lock is only half of it. The root lock is the WHOLE workspace's resolution, and an SBOM is
+     * supply-chain evidence: emitting the unfiltered root lock here would attest that this member
+     * depends on every package any sibling depends on. {@link SupplyChainScope} answers with the
+     * member's own reachable closure instead — transitive components, hashes, and edges intact.
      */
     private Assembled assembleProject(SbomScopeSelection selection, Optional<String> timestampValue) {
         ManifestProject project = projectLoader.project(projectDirectory.path());
@@ -182,6 +186,14 @@ public final class SbomCommand implements Runnable {
                     toolVersion,
                     LicenseIndex.empty());
             return new Assembled(model, LicenseIndex.empty());
+        }
+        Optional<SupplyChainScope.Reported> member = scope.member(projectDirectory.path(), "zolt sbom");
+        if (member.isPresent()) {
+            SupplyChainScope.Reported reported = member.orElseThrow();
+            LicenseIndex licenses = resolveLicenses(reported.lockfile(), selection);
+            SbomModel model = assembler.assemble(
+                    reported.config(), reported.lockfile(), selection, timestampValue, toolVersion, licenses);
+            return new Assembled(model, licenses);
         }
         Path lockfilePath = CommandProjectLockfile.path(project);
         if (!Files.isRegularFile(lockfilePath)) {
@@ -202,7 +214,7 @@ public final class SbomCommand implements Runnable {
                 .orElseThrow(() -> new ActionableException(ActionableError.of(
                         "No Zolt workspace was found for `zolt sbom --workspace`.",
                         "Run from a workspace root, or drop --workspace to build a single-project SBOM.")));
-        Path lockfilePath = ProjectLockfile.in(discovered.root());
+        Path lockfilePath = SupplyChainScope.workspaceLockfile(discovered);
         if (!Files.isRegularFile(lockfilePath)) {
             throw new ActionableException(ActionableError.of(
                     "No zolt.lock found at " + lockfilePath + ".",
