@@ -147,7 +147,7 @@ public final class NativeCommand implements Runnable {
                     projectRoot,
                     config,
                     cacheRoot,
-                    resolvedNativeImage(projectRoot, config),
+                    resolvedNativeImage(context, config),
                     nativeImageProgress(progress),
                     artifactIndex);
             CommandHumanOutput output = CommandHumanOutput.of(spec);
@@ -221,12 +221,18 @@ public final class NativeCommand implements Runnable {
         progress.result("Built native binaries for " + result.members().size() + " workspace members");
     }
 
-    private Path resolvedNativeImage(Path projectRoot, ProjectConfig config) {
+    /**
+     * Reached only after {@link ProjectCommandContext#workspaceMember()} answered no, so the two roots
+     * this states are the same directory — a standalone project owns its own lock (design §4.5). The
+     * member route builds through the workspace instead, with {@link #workspaceNativeImageResolver()}.
+     */
+    private Path resolvedNativeImage(ProjectCommandContext context, ProjectConfig config) {
         if (nativeImageExecutable != null) {
             return nativeImageExecutable;
         }
         return toolchains.nativeImage(
-                        projectRoot,
+                        context.projectRoot(),
+                        context.lockRoot(),
                         config,
                         HostPlatform.parse(toolchainTarget),
                         new ToolchainStore(toolchainInstallRoot))

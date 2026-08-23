@@ -20,18 +20,15 @@ public final class JavaToolchainExecutionService {
         this.statusService = statusService;
     }
 
-    public Optional<Path> nativeImage(Path projectRoot, ProjectConfig config) {
-        return nativeImage(projectRoot, config, HostPlatform.current(), ToolchainStore.defaults());
-    }
-
-    public Optional<Path> nativeImage(
-            Path projectRoot,
-            ProjectConfig config,
-            HostPlatform platform,
-            ToolchainStore store) {
-        return nativeImage(projectRoot, projectRoot, config, platform, store);
-    }
-
+    /**
+     * The Native Image executable for a command boundary.
+     *
+     * <p>Design §4.5 gives a command two roots: {@code projectRoot} owns the manifest that authors the
+     * request, {@code lockRoot} owns the one authoritative {@code zolt.lock}. Both are stated, never
+     * derived from each other — a standalone project passes its own directory twice. There is
+     * deliberately no one-root overload: from the signature alone a caller could not tell whether the
+     * directory it passed is allowed to own a lock, and for a workspace member it is not.
+     */
     public Optional<Path> nativeImage(
             Path projectRoot,
             Path lockRoot,
@@ -60,18 +57,7 @@ public final class JavaToolchainExecutionService {
         return Optional.empty();
     }
 
-    public JavaToolchainEnvironment environment(Path projectRoot, ProjectConfig config) {
-        return environment(projectRoot, config, HostPlatform.current(), ToolchainStore.defaults());
-    }
-
-    public JavaToolchainEnvironment environment(
-            Path projectRoot,
-            ProjectConfig config,
-            HostPlatform platform,
-            ToolchainStore store) {
-        return environment(projectRoot, projectRoot, config, platform, store);
-    }
-
+    /** As {@link #environment(Path, Path, ProjectConfig, HostPlatform, ToolchainStore, String, String)}, with exec's guidance. */
     public JavaToolchainEnvironment environment(
             Path projectRoot,
             Path lockRoot,
@@ -86,23 +72,6 @@ public final class JavaToolchainExecutionService {
                 store,
                 "Java toolchain is not ready for exec",
                 "Run `zolt toolchain status` for details, then `zolt toolchain sync`, or choose a project with a usable Java toolchain.");
-    }
-
-    public JavaToolchainEnvironment environment(
-            Path projectRoot,
-            ProjectConfig config,
-            HostPlatform platform,
-            ToolchainStore store,
-            String unresolvedSummary,
-            String unresolvedRemediation) {
-        return environment(
-                projectRoot,
-                projectRoot,
-                config,
-                platform,
-                store,
-                unresolvedSummary,
-                unresolvedRemediation);
     }
 
     public JavaToolchainEnvironment environment(
@@ -136,6 +105,13 @@ public final class JavaToolchainExecutionService {
         return environment(status, unresolvedSummary, unresolvedRemediation);
     }
 
+    /**
+     * The Java toolchain environment for a command boundary, with caller-supplied guidance.
+     *
+     * <p>Both roots are stated for the same reason {@link #nativeImage(Path, Path, ProjectConfig,
+     * HostPlatform, ToolchainStore)} states them: {@code projectRoot} authors the request,
+     * {@code lockRoot} owns the lock, and a standalone project passes its directory twice.
+     */
     public JavaToolchainEnvironment environment(
             Path projectRoot,
             Path lockRoot,

@@ -26,15 +26,12 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
     private final boolean capturedRequestPinned;
     private final String capturedRequestSource;
 
-    public static CommandJavaToolchainJdkChecker forCommand(
-            Path projectRoot,
-            ProjectConfig config,
-            String toolchainTarget,
-            Path toolchainInstallRoot,
-            String commandName) {
-        return forCommand(projectRoot, projectRoot, config, toolchainTarget, toolchainInstallRoot, commandName);
-    }
-
+    /**
+     * The build toolchain checker for a command boundary. Both roots are stated: {@code projectRoot}
+     * authors the request, {@code lockRoot} owns the lock (design §4.5). A standalone project passes
+     * its own directory twice; there is no one-root form, so no caller can pass a member directory as
+     * a lock root by accident.
+     */
     public static CommandJavaToolchainJdkChecker forCommand(
             Path projectRoot,
             Path lockRoot,
@@ -50,16 +47,6 @@ public final class CommandJavaToolchainJdkChecker implements JdkChecker {
                 HostPlatform.parse(toolchainTarget),
                 new ToolchainStore(toolchainInstallRoot),
                 commandName);
-    }
-
-    public CommandJavaToolchainJdkChecker(
-            Path projectRoot,
-            ProjectConfig config,
-            JavaToolchainExecutionService toolchains,
-            HostPlatform platform,
-            ToolchainStore store,
-            String commandName) {
-        this(projectRoot, projectRoot, config, toolchains, platform, store, commandName);
     }
 
     public CommandJavaToolchainJdkChecker(

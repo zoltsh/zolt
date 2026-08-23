@@ -49,6 +49,7 @@ final class JavaToolchainExecutionServiceTest {
 
         Optional<Path> nativeImage = service.nativeImage(
                 project,
+                project,
                 parse(project),
                 HostPlatform.parse("linux-x64"),
                 store);
@@ -67,7 +68,7 @@ final class JavaToolchainExecutionServiceTest {
 
         ActionableException exception = assertThrows(
                 ActionableException.class,
-                () -> service.nativeImage(project, parse(project), HostPlatform.parse("linux-x64"), store));
+                () -> service.nativeImage(project, project, parse(project), HostPlatform.parse("linux-x64"), store));
 
         assertTrue(exception.getMessage().contains("does not provide native-image"));
         assertTrue(exception.getMessage().contains("features = [\"native-image\"]"));
@@ -81,6 +82,7 @@ final class JavaToolchainExecutionServiceTest {
         ActionableException exception = assertThrows(
                 ActionableException.class,
                 () -> service.nativeImage(
+                        project,
                         project,
                         parse(project),
                         HostPlatform.parse("linux-x64"),
@@ -106,6 +108,7 @@ final class JavaToolchainExecutionServiceTest {
                 List.of()));
 
         Optional<Path> nativeImage = service.nativeImage(
+                project,
                 project,
                 parse(project),
                 HostPlatform.parse("linux-x64"),
@@ -134,6 +137,7 @@ final class JavaToolchainExecutionServiceTest {
                 ActionableException.class,
                 () -> service.environment(
                         project,
+                        project,
                         parse(project),
                         HostPlatform.parse("linux-x64"),
                         new ToolchainStore(tempDir.resolve("toolchains"))));
@@ -159,6 +163,7 @@ final class JavaToolchainExecutionServiceTest {
                 List.of()));
 
         JavaToolchainEnvironment environment = service.environment(
+                project,
                 project,
                 parse(project),
                 HostPlatform.parse("linux-x64"),

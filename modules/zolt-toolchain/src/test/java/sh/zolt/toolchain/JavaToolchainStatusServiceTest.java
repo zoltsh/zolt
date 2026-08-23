@@ -45,6 +45,7 @@ final class JavaToolchainStatusServiceTest {
 
         JavaToolchainStatus status = service.status(
                 project,
+                project,
                 parse(project),
                 HostPlatform.parse("linux-x64"),
                 store);
@@ -66,6 +67,7 @@ final class JavaToolchainStatusServiceTest {
 
         JavaToolchainStatus status = service.status(
                 project,
+                project,
                 parse(project),
                 HostPlatform.parse("linux-x64"),
                 store);
@@ -82,6 +84,7 @@ final class JavaToolchainStatusServiceTest {
         JavaToolchainStatusService service = serviceWithAmbientFailure();
 
         JavaToolchainStatus status = service.status(
+                project,
                 project,
                 parse(project),
                 HostPlatform.parse("linux-x64"),
@@ -103,6 +106,7 @@ final class JavaToolchainStatusServiceTest {
         JavaToolchainStatusService service = serviceWithAmbientSuccess();
 
         JavaToolchainStatus status = service.status(
+                project,
                 project,
                 parse(project),
                 HostPlatform.parse("linux-x64"),
@@ -206,10 +210,15 @@ final class JavaToolchainStatusServiceTest {
     }
 
     /**
-     * The CLI entry point: {@code zolt doctor} and {@code zolt toolchain status} know only the
-     * directory the command was started in, so they call the four-argument overload with the member
-     * directory as both roots. The enclosing workspace must still be discovered, or the member is
-     * composed against its own manifest and rejected for the identity it inherits (design §4.5).
+     * A caller that has not discovered the enclosing workspace states the started directory as both
+     * roots — now the only shape the API offers, since the one-root overload that hid this choice is
+     * gone. The enclosing workspace must still be discovered here, or the member is composed against
+     * its own manifest and rejected for the identity it legally inherits (design §4.5).
+     *
+     * <p>That is composition, not lock ownership: this resolves against the lock at whichever
+     * {@code lockRoot} the caller named, so a command must still name the workspace root. The member
+     * commands that used to name themselves are pinned shut by
+     * {@code MemberToolchainCommandLockProjectionTest}.
      */
     @Test
     void memberDirectoryAloneStillComposesAgainstTheDiscoveredWorkspaceRoot() throws IOException {
@@ -245,6 +254,7 @@ final class JavaToolchainStatusServiceTest {
         install(store, locked);
 
         JavaToolchainStatus status = serviceWithAmbientFailure().status(
+                member,
                 member,
                 parseMember(workspace, member, "apps/platform"),
                 HostPlatform.parse("linux-x64"),

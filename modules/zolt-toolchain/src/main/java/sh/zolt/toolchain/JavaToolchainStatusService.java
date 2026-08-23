@@ -47,18 +47,16 @@ public final class JavaToolchainStatusService {
         this.ambientProbe = ambientProbe;
     }
 
-    public JavaToolchainStatus status(Path projectRoot, ProjectConfig config) {
-        return status(projectRoot, config, HostPlatform.current(), ToolchainStore.defaults());
-    }
-
-    public JavaToolchainStatus status(
-            Path projectRoot,
-            ProjectConfig config,
-            HostPlatform platform,
-            ToolchainStore store) {
-        return status(projectRoot, projectRoot, config, platform, store);
-    }
-
+    /**
+     * The Java toolchain status for one command boundary.
+     *
+     * <p>Design §4.5 gives a command two roots and this signature demands both: {@code projectRoot}
+     * owns the manifest the request is composed from, {@code lockRoot} owns the one authoritative
+     * {@code zolt.lock}. A standalone project is its own lock root and passes the same directory
+     * twice, which is the point — there is deliberately no one-root overload, because a caller could
+     * not tell from it whether the directory it passed may own a lock, and for a workspace member it
+     * may not: reading {@code <member>/zolt.lock} at all, even to reject it as malformed, is the bug.
+     */
     public JavaToolchainStatus status(
             Path projectRoot,
             Path lockRoot,
