@@ -9,8 +9,6 @@
 #   * command boundary     - decides the (projectRoot, lockRoot) pair once, for everything downstream
 #   * workspace root       - the workspace owns its one authoritative lock
 #   * standalone entry     - a standalone project directory IS its own lock root
-# Entries marked "derives ahead of the member-projection adoption" are transitional: the concurrent
-# member-command wave replaces them, and the stale-entry check fails until they are pruned.
 
 # --- command boundary -------------------------------------------------------------------------
 apps/zolt/src/main/java/sh/zolt/cli/command/ProjectCommandContext.java|command boundary; loads the (projectRoot, lockRoot, lockfilePath, memberPath) pair once and hands it down
@@ -41,15 +39,10 @@ modules/zolt-toolchain/src/main/java/sh/zolt/toolchain/ToolchainSyncService.java
 modules/zolt-update/src/main/java/sh/zolt/update/OutdatedScopes.java|command boundary; the caller supplies the directory it discovered as the scope root for an outdated report
 
 # --- transitional: owned by the concurrent member-command matrix wave --------------------------
-modules/zolt-ide/src/main/java/sh/zolt/ide/IdeModelService.java|derives ahead of the member-projection adoption
-modules/zolt-ide/src/main/java/sh/zolt/ide/WorkspaceIdeModelService.java|derives ahead of the member-projection adoption
-modules/zolt-quarkus/src/main/java/sh/zolt/quarkus/QuarkusIdeFrameworkModelProvider.java|derives ahead of the member-projection adoption
-modules/zolt-quarkus/src/main/java/sh/zolt/quarkus/QuarkusPlanService.java|derives ahead of the member-projection adoption
-modules/zolt-quality/src/main/java/sh/zolt/quality/QualityCheckService.java|derives ahead of the member-projection adoption
-modules/zolt-quality/src/main/java/sh/zolt/quality/LockfileQualityCheck.java|derives ahead of the member-projection adoption
-modules/zolt-quality/src/main/java/sh/zolt/quality/DependencyQualityCheck.java|derives ahead of the member-projection adoption
-modules/zolt-quality/src/main/java/sh/zolt/quality/WorkspaceQualityProjectionService.java|derives ahead of the member-projection adoption
-modules/zolt-quality/src/main/java/sh/zolt/quality/execution/ExecutionContextQualityCheck.java|derives ahead of the member-projection adoption
-modules/zolt-publish/src/main/java/sh/zolt/publish/PublishDryRunService.java|derives ahead of the member-projection adoption
-apps/zolt/src/main/java/sh/zolt/cli/command/supplychain/SbomCommand.java|derives ahead of the member-projection adoption
-apps/zolt/src/main/java/sh/zolt/cli/command/supplychain/LicensesCommand.java|derives ahead of the member-projection adoption
+modules/zolt-ide/src/main/java/sh/zolt/ide/IdeModelService.java|standalone entry point only; the member route projects through WorkspaceIdeModelService
+modules/zolt-ide/src/main/java/sh/zolt/ide/WorkspaceIdeModelService.java|workspace-root ownership for the workspace ide export
+modules/zolt-quality/src/main/java/sh/zolt/quality/QualityCheckService.java|standalone entry point only; a member check routes through the workspace quality projection
+modules/zolt-quality/src/main/java/sh/zolt/quality/LockfileQualityCheck.java|standalone lock check; member scope receives the projected view
+modules/zolt-quality/src/main/java/sh/zolt/quality/DependencyQualityCheck.java|standalone dependency facts; member scope receives the projected view
+modules/zolt-quality/src/main/java/sh/zolt/quality/execution/ExecutionContextQualityCheck.java|standalone execution evidence; member scope receives the projected view
+modules/zolt-publish/src/main/java/sh/zolt/publish/PublishDryRunService.java|standalone entry point only; every member publish mode consumes the workspace projection
