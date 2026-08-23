@@ -7,5 +7,5 @@ name = "zolt-sbom"
 "sh.zolt:zolt-toml" = { workspace = true }
 
 [dependencies.test]
-"com.networknt:json-schema-validator" = "2.0.4"
+"com.networknt:json-schema-validator" = "2.0.7"
 "org.junit.platform:junit-platform-console-standalone" = "1.11.4"

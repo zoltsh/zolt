@@ -1,7 +1,7 @@
 version = 7
-projectResolutionFingerprint = "sha256:bafa528c586ef3502e4dfd55dc7898ab0e9b37e7e52f5edb947845290938caf3"
-projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:7fc594463dd514ad55e92ffa40a24e48e3436c1b1f2fcdf4917996178ed37b6c", "dependencies.compile=sha256:53fb1039d86bc528a791d43155f872d5f656b50a1676f6b4714084cfae45849b", "dependencies.provided=sha256:fb1d589a350c36415cc1f7ab6f5efe21de446b82ef4f93d2562b248243479fe7", "dependencies.test=sha256:773992c79b9679cfdf2c510a43dab664efacebe4ca515346b22e05a9e19bab40", "dependencyMetadata=sha256:cdc704285703fc71a1707e5059aebf9f5748acd917f12084b12d26ad88011dd1", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd"]
-workspaceResolutionInputFingerprint = "sha256:a93fb68d2ea611a7d9227b5824ba937a6f27d6397155734688538e236e2816c8"
+projectResolutionFingerprint = "sha256:83d14536d2ebfa82ab95c1180c8172abc5c09c98fba46d25f60477c326c9a0d1"
+projectResolutionInputFingerprints = ["dependencies.api.workspace=sha256:e278f2c880bafff02f44f9d403dd68e11930a5f8e5c1d8c49e6cb9ae74963d17", "dependencies.api=sha256:4ce39b687df3a02e2eb24d4b1b2d55903971a2cfeb8593fba3cb52c81fd3bd9c", "dependencies.compile.workspace=sha256:7fc594463dd514ad55e92ffa40a24e48e3436c1b1f2fcdf4917996178ed37b6c", "dependencies.compile=sha256:53fb1039d86bc528a791d43155f872d5f656b50a1676f6b4714084cfae45849b", "dependencies.provided=sha256:fb1d589a350c36415cc1f7ab6f5efe21de446b82ef4f93d2562b248243479fe7", "dependencies.test=sha256:1e9cde8e0518f887a95683f8464c275e2ee6ee885ae84289de9d12621dcda68e", "dependencyMetadata=sha256:cdc704285703fc71a1707e5059aebf9f5748acd917f12084b12d26ad88011dd1", "framework.quarkus=sha256:1a03038e3b6c11a6598e959b5526786bc942bd2d0e7cb6aec2401dcd36bafc1b", "framework.springBoot.native=sha256:cf597ee2519b656c8bdeb8a1aaaf81b8c9da20d7b82a94cb0643edd20e98e19f", "java=sha256:c822ebc7e176990dd66771c2496f47b8ee0f6451df7ddfa87c44aebff0a6edf6", "package=sha256:ba2fd61e998d4fab4a9205d2785ca9a48464a401346bebf655e28156a0a304c1", "repositories=sha256:e50e1129945e4af12f6d6b822fe1b5548c9425f8a3f0cfeadfb1fb4a646902e1", "schema=sha256:a08549d13c2f16087cfcaf4458dbe9436970632fe503bb7217f88c16428d2ddd"]
+workspaceResolutionInputFingerprint = "sha256:1676411e354cf2ff1c47fd384bd2aee48daa8caa9575eafa40484a9863a29b09"
 
 [[dependencyRoot]]
 member = "apps/zolt"
@@ -832,7 +832,7 @@ resolvedScope = "compile"
 [[dependencyRoot]]
 member = "modules/zolt-sbom"
 id = "com.networknt:json-schema-validator"
-version = "2.0.4"
+version = "2.0.7"
 lane = "test"
 resolvedScope = "test"
 
@@ -1165,14 +1165,14 @@ dependencies = []
 
 [[package]]
 id = "com.fasterxml.jackson.core:jackson-annotations"
-version = "2.18.4"
+version = "2.22"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/2166156094cd146397eb4814bd117cabe3353390dfa894bcc06ce46b15bd428e/jackson-annotations-2.18.4.jar"
-pom = "blobs/v2/sha256/f05adc2a123aa642a763c608113bf371b16d9206a911069ef07a82abc44561f2/jackson-annotations-2.18.4.pom"
-jarSha256 = "2166156094cd146397eb4814bd117cabe3353390dfa894bcc06ce46b15bd428e"
-pomSha256 = "f05adc2a123aa642a763c608113bf371b16d9206a911069ef07a82abc44561f2"
+jar = "blobs/v2/sha256/21ddb598807d3a51a876704eb979d9296e1c6a6f47ab1826ff88c6d6a127a2d0/jackson-annotations-2.22.jar"
+pom = "blobs/v2/sha256/38c3ba52a0eade3e3eacc5b13499d56e1038ccbad8ec4bb79426dc21432b46d0/jackson-annotations-2.22.pom"
+jarSha256 = "21ddb598807d3a51a876704eb979d9296e1c6a6f47ab1826ff88c6d6a127a2d0"
+pomSha256 = "38c3ba52a0eade3e3eacc5b13499d56e1038ccbad8ec4bb79426dc21432b46d0"
 members = ["modules/zolt-sbom"]
 dependencies = []
 
@@ -1204,42 +1204,42 @@ dependencies = []
 
 [[package]]
 id = "com.fasterxml.jackson.core:jackson-databind"
-version = "2.18.4"
+version = "2.22.1"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/452dcfd2cf381390090b7e14479d294d134320c55c3b744405c2270827a83c03/jackson-databind-2.18.4.jar"
-pom = "blobs/v2/sha256/47f62dc652dd037c78664ac38646fbed39a314f054ade0c6230bd3950ea0e27d/jackson-databind-2.18.4.pom"
-jarSha256 = "452dcfd2cf381390090b7e14479d294d134320c55c3b744405c2270827a83c03"
-pomSha256 = "47f62dc652dd037c78664ac38646fbed39a314f054ade0c6230bd3950ea0e27d"
+jar = "blobs/v2/sha256/7dcd7e53bec1f56c7ad278bd1ca0840bebcc595d61ce44d6a8439abb75b965b2/jackson-databind-2.22.1.jar"
+pom = "blobs/v2/sha256/0bc8f98c7bd7232bc90324fc63c2f56f7ae92dee2bf0dc303669f4e2de8c1f69/jackson-databind-2.22.1.pom"
+jarSha256 = "7dcd7e53bec1f56c7ad278bd1ca0840bebcc595d61ce44d6a8439abb75b965b2"
+pomSha256 = "0bc8f98c7bd7232bc90324fc63c2f56f7ae92dee2bf0dc303669f4e2de8c1f69"
 members = ["modules/zolt-sbom"]
-dependencies = ["com.fasterxml.jackson.core:jackson-annotations:2.18.4:jar:test", "com.fasterxml.jackson.core:jackson-core:2.22.1:jar:test"]
+dependencies = ["com.fasterxml.jackson.core:jackson-annotations:2.22:jar:test", "com.fasterxml.jackson.core:jackson-core:2.22.1:jar:test"]
 
 [[package]]
 id = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
-version = "2.18.4"
+version = "2.22.1"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/496ba696703eab7d8f2b307711cfa8d83b59efae748e22e36f814a3bbf3d7659/jackson-dataformat-yaml-2.18.4.jar"
-pom = "blobs/v2/sha256/e5e8a829b1409e03372f3672d96e0bf1bc47520d2427e440d69394b7c09ce84c/jackson-dataformat-yaml-2.18.4.pom"
-jarSha256 = "496ba696703eab7d8f2b307711cfa8d83b59efae748e22e36f814a3bbf3d7659"
-pomSha256 = "e5e8a829b1409e03372f3672d96e0bf1bc47520d2427e440d69394b7c09ce84c"
+jar = "blobs/v2/sha256/cc3a0e540791a9a1cbcd7584767b84572ffda0b72823856558f47dea69ae8ed1/jackson-dataformat-yaml-2.22.1.jar"
+pom = "blobs/v2/sha256/48345abc9f63837e73ef0af83193b268e05d1c0e63e2934fdcbd78e26e8932ff/jackson-dataformat-yaml-2.22.1.pom"
+jarSha256 = "cc3a0e540791a9a1cbcd7584767b84572ffda0b72823856558f47dea69ae8ed1"
+pomSha256 = "48345abc9f63837e73ef0af83193b268e05d1c0e63e2934fdcbd78e26e8932ff"
 members = ["modules/zolt-sbom"]
-dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.1:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.18.4:jar:test", "org.yaml:snakeyaml:2.3:jar:test"]
+dependencies = ["com.fasterxml.jackson.core:jackson-core:2.22.1:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.22.1:jar:test", "org.yaml:snakeyaml:2.5:jar:test"]
 
 [[package]]
 id = "com.networknt:json-schema-validator"
-version = "2.0.4"
+version = "2.0.7"
 source = "central"
 scope = "test"
 direct = true
-jar = "blobs/v2/sha256/4856729c8f38ffba02380b0895b7e98a511f6e68a1fb6424782f3e6549dbba07/json-schema-validator-2.0.4.jar"
-pom = "blobs/v2/sha256/62d6e73f4fae551533b4c39ba60cbdbb2508f961f1f752f6431549b165b34604/json-schema-validator-2.0.4.pom"
-jarSha256 = "4856729c8f38ffba02380b0895b7e98a511f6e68a1fb6424782f3e6549dbba07"
-pomSha256 = "62d6e73f4fae551533b4c39ba60cbdbb2508f961f1f752f6431549b165b34604"
+jar = "blobs/v2/sha256/7d01cefd6f0d656666b94778c7a13ada2941aace48e76830809c0dbf61ad5be2/json-schema-validator-2.0.7.jar"
+pom = "blobs/v2/sha256/e0286a6ed4c21958edc64545666385e60501ad2c5aa75164211edb8e397f8bbd/json-schema-validator-2.0.7.pom"
+jarSha256 = "7d01cefd6f0d656666b94778c7a13ada2941aace48e76830809c0dbf61ad5be2"
+pomSha256 = "e0286a6ed4c21958edc64545666385e60501ad2c5aa75164211edb8e397f8bbd"
 members = ["modules/zolt-sbom"]
-dependencies = ["com.ethlo.time:itu:1.14.0:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.18.4:jar:test", "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.4:jar:test", "org.slf4j:slf4j-api:2.0.17:jar:test"]
+dependencies = ["com.ethlo.time:itu:1.14.0:jar:test", "com.fasterxml.jackson.core:jackson-databind:2.22.1:jar:test", "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.1:jar:test", "org.slf4j:slf4j-api:2.0.17:jar:test"]
 
 [[package]]
 id = "info.picocli:picocli"
@@ -1530,14 +1530,14 @@ dependencies = []
 
 [[package]]
 id = "org.yaml:snakeyaml"
-version = "2.3"
+version = "2.5"
 source = "central"
 scope = "test"
 direct = false
-jar = "blobs/v2/sha256/63a76fe66b652360bd4c2c107e6f0258daa7d4bb492008ba8c26fcd230ff9146/snakeyaml-2.3.jar"
-pom = "blobs/v2/sha256/0f5a265a06331b0049e352be32ca322de18b17f3d4dbb70635d40da692e3582f/snakeyaml-2.3.pom"
-jarSha256 = "63a76fe66b652360bd4c2c107e6f0258daa7d4bb492008ba8c26fcd230ff9146"
-pomSha256 = "0f5a265a06331b0049e352be32ca322de18b17f3d4dbb70635d40da692e3582f"
+jar = "blobs/v2/sha256/e6682acf1ace77508ef13649cbf4f8d09d2cf5457bdb61d25ffb6ac0233d78dd/snakeyaml-2.5.jar"
+pom = "blobs/v2/sha256/ba01ae7a744cb52fe8ecf3b023cbc32e0ccc8c6beef9f26de77a47808239447d/snakeyaml-2.5.pom"
+jarSha256 = "e6682acf1ace77508ef13649cbf4f8d09d2cf5457bdb61d25ffb6ac0233d78dd"
+pomSha256 = "ba01ae7a744cb52fe8ecf3b023cbc32e0ccc8c6beef9f26de77a47808239447d"
 members = ["modules/zolt-sbom"]
 dependencies = []
 
@@ -1981,34 +1981,6 @@ id = "org.jboss.logging:jboss-logging"
 requested = "3.6.2.Final"
 source = "io.quarkus:quarkus-bootstrap-app-model:3.33.2"
 policy = "dependency edge exclusion from io.quarkus:quarkus-bootstrap-app-model:3.33.2 to org.jboss.logging:jboss-logging"
-
-[[policy]]
-kind = "workspace-mediation"
-id = "com.fasterxml.jackson.core:jackson-core"
-requested = "2.18.4"
-source = "com.fasterxml.jackson.core:jackson-databind:2.18.4"
-policy = "workspace-mediation: com.fasterxml.jackson.core:jackson-core requested 2.18.4 -> 2.22.1"
-
-[[policy]]
-kind = "workspace-mediation"
-id = "com.fasterxml.jackson.core:jackson-core"
-requested = "2.18.4"
-source = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.4"
-policy = "workspace-mediation: com.fasterxml.jackson.core:jackson-core requested 2.18.4 -> 2.22.1"
-
-[[policy]]
-kind = "workspace-mediation"
-id = "com.fasterxml.jackson.core:jackson-core"
-requested = "2.18.4"
-source = "workspace member modules/zolt-sbom"
-policy = "workspace-mediation: com.fasterxml.jackson.core:jackson-core requested 2.18.4 -> 2.22.1"
-
-[[conflict]]
-id = "com.fasterxml.jackson.core:jackson-core"
-members = ["modules/zolt-sbom", "modules/zolt-toolchain"]
-selected = "2.22.1"
-requested = ["2.18.4", "2.22.1"]
-reason = "selected materialized graph wins"
 
 [[toolchain.java]]
 id = "java-graalvm-community-21-native-image"
