@@ -1,6 +1,5 @@
 package sh.zolt.build;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.classpath.ClasspathBuilder;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -19,6 +18,7 @@ import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.generated.GeneratedSourceException;
 import sh.zolt.generated.ProtobufGeneratedSourceService;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.provenance.BuildProvenanceSource;
 import sh.zolt.resolve.ResolveResult;
@@ -118,7 +118,8 @@ public final class BuildService {
             Path cacheRoot,
             boolean offline,
             VerifiedArtifactIndex artifactIndex) {
-        return build(new BuildRequest(projectDirectory, config, cacheRoot, offline, artifactIndex));
+        return build(new BuildRequest(
+                ProjectBuildContext.standalone(projectDirectory), config, cacheRoot, offline, artifactIndex));
     }
 
     private BuildResult build(BuildRequest request) {
@@ -144,8 +145,8 @@ public final class BuildService {
             Path cacheRoot,
             boolean offline,
             VerifiedArtifactIndex artifactIndex) {
-        return buildWithClasspaths(
-                new BuildRequest(projectDirectory, config, cacheRoot, offline, artifactIndex));
+        return buildWithClasspaths(new BuildRequest(
+                ProjectBuildContext.standalone(projectDirectory), config, cacheRoot, offline, artifactIndex));
     }
 
     /** Builds against a command-specific projection of the fully verified lockfile packages. */
@@ -156,8 +157,9 @@ public final class BuildService {
             boolean offline,
             VerifiedArtifactIndex artifactIndex,
             java.util.function.Predicate<ResolvedClasspathPackage> packageFilter) {
-        return buildWithClasspaths(
-                new BuildRequest(projectDirectory, config, cacheRoot, offline, artifactIndex, packageFilter));
+        return buildWithClasspaths(new BuildRequest(
+                ProjectBuildContext.standalone(projectDirectory), config, cacheRoot, offline, artifactIndex,
+                packageFilter));
     }
 
     private BuildResultWithClasspaths buildWithClasspaths(BuildRequest request) {
@@ -173,24 +175,34 @@ public final class BuildService {
         execGeneratedSourceService.generateMain(
                 request.projectDirectory(), request.config(), classpathPackages, request.offline());
         return new BuildResultWithClasspaths(
-                build(request.projectDirectory(), request.config(), classpaths, resolved.resolveResult(), classpathPackages,
+                build(request.context(), request.config(), classpaths, resolved.resolveResult(), classpathPackages,
                         request.offline()),
                 classpaths,
                 classpathPackages);
     }
 
     public BuildResult build(Path projectDirectory, ProjectConfig config, ClasspathSet classpaths) {
-        return build(projectDirectory, config, classpaths, Optional.empty(), List.of(), false);
+        return build(
+                ProjectBuildContext.standalone(projectDirectory),
+                config,
+                classpaths,
+                Optional.empty(),
+                List.of(),
+                false);
     }
 
-    /** Builds a projected workspace member with the package identities needed by tooling lanes. */
+    /**
+     * Builds a projected workspace member against the authoritative lockfile its context names. Design
+     * §4.5: the lock's content hash is a build-fingerprint input, so deriving it from the member
+     * directory would fingerprint a {@code zolt.lock} no command writes and none may consume.
+     */
     public BuildResult build(
-            Path projectDirectory,
+            ProjectBuildContext context,
             ProjectConfig config,
             ClasspathSet classpaths,
             List<ResolvedClasspathPackage> classpathPackages) {
         return build(
-                projectDirectory,
+                context,
                 config,
                 classpaths,
                 Optional.empty(),
@@ -208,12 +220,13 @@ public final class BuildService {
     }
 
     private BuildResult build(
-            Path projectDirectory,
+            ProjectBuildContext context,
             ProjectConfig config,
             ClasspathSet classpaths,
             Optional<ResolveResult> resolveResult,
             List<ResolvedClasspathPackage> classpathPackages,
             boolean offline) {
+        Path projectDirectory = context.projectRoot();
         if (config.packageSettings().mode() == sh.zolt.project.PackageMode.BOM) {
             // A BOM has no compiled sources; keep it in the build graph for ordering, but skip the
             // compile wave and produce no class output.
@@ -227,8 +240,9 @@ public final class BuildService {
         }
 
         Path outputDirectory = projectDirectory.resolve(config.build().output());
-        Path generatedSourcesDirectory = generatedSourcesDirectory(projectDirectory, config.compilerSettings().generatedSources());
-        Path lockfilePath = ProjectLockfile.in(projectDirectory);
+        Path generatedSourcesDirectory =
+                GeneratedSourcesDirectory.main(projectDirectory, config.compilerSettings().generatedSources());
+        Path lockfilePath = context.lockfilePath();
         long fingerprintCheckStarted = System.nanoTime();
         BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkMainCompileCurrent(
                 projectDirectory,
@@ -325,19 +339,6 @@ public final class BuildService {
 
     private static long elapsedSince(long started) {
         return Math.max(0L, System.nanoTime() - started);
-    }
-
-    private static Path generatedSourcesDirectory(Path projectDirectory, String configuredPath) {
-        Path configured = Path.of(configuredPath);
-        Path projectRoot = projectDirectory.toAbsolutePath().normalize();
-        Path path = projectRoot.resolve(configured).normalize();
-        if (configured.isAbsolute() || !path.startsWith(projectRoot) || path.equals(projectRoot)) {
-            throw new BuildException(
-                    "Invalid generated source output path `"
-                            + configuredPath
-                            + "`. Use a project-relative path under the project directory.");
-        }
-        return path;
     }
 
 }

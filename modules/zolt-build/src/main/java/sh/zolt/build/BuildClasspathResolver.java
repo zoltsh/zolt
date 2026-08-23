@@ -1,6 +1,5 @@
 package sh.zolt.build;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -24,7 +23,7 @@ final class BuildClasspathResolver {
     }
 
     Result resolve(BuildRequest request) {
-        Path lockfilePath = ProjectLockfile.in(request.projectDirectory());
+        Path lockfilePath = request.lockfilePath();
         Optional<ResolveResult> resolveResult = Optional.empty();
         if (!Files.isRegularFile(lockfilePath) || generatedToolingMissing(request)) {
             resolveResult = Optional.of(resolveService.resolve(
@@ -48,9 +47,9 @@ final class BuildClasspathResolver {
 
     private boolean generatedToolingMissing(BuildRequest request) {
         return GeneratedSourceToolingGate.openApiToolingMissing(
-                        lockfileReader, request.projectDirectory(), request.config(), request.offline())
+                        lockfileReader, request.lockfilePath(), request.config(), request.offline())
                 || GeneratedSourceToolingGate.execToolingMissing(
-                        lockfileReader, request.projectDirectory(), request.config(), request.offline());
+                        lockfileReader, request.lockfilePath(), request.config(), request.offline());
     }
 
     record Result(

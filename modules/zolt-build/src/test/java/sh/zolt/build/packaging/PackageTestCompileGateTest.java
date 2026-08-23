@@ -13,6 +13,7 @@ import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
@@ -260,7 +261,7 @@ final class PackageTestCompileGateTest {
             PackageTestCompileGate gate) {
         void requireCurrent(ProjectConfig currentConfig) {
             gate.requireCurrent(
-                    project,
+                    ProjectBuildContext.standalone(project),
                     currentConfig,
                     new BuildResult(
                             Optional.empty(),

@@ -1,10 +1,10 @@
 package sh.zolt.build.testruntime.compile;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.build.BuildException;
+import sh.zolt.build.GeneratedSourcesDirectory;
 import sh.zolt.build.fingerprint.BuildFingerprintService;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.BuildResultWithClasspaths;
@@ -30,6 +30,7 @@ import sh.zolt.doctor.JdkDetector;
 import sh.zolt.doctor.JdkStatus;
 import sh.zolt.generated.GeneratedSourceException;
 import sh.zolt.generated.ProtobufGeneratedSourceService;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveService;
 import java.nio.file.Path;
@@ -160,12 +161,7 @@ public final class TestCompileService {
             ProjectConfig config,
             Path cacheRoot,
             VerifiedArtifactIndex artifactIndex) {
-        return buildService.buildWithClasspaths(
-                projectDirectory,
-                config,
-                cacheRoot,
-                false,
-                artifactIndex);
+        return buildService.buildWithClasspaths(projectDirectory, config, cacheRoot, false, artifactIndex);
     }
 
     public TestCompileResult compileTests(
@@ -182,6 +178,27 @@ public final class TestCompileService {
             ClasspathSet classpaths,
             BuildResult buildResult,
             List<ResolvedClasspathPackage> classpathPackages) {
+        return compileTests(
+                ProjectBuildContext.standalone(projectDirectory),
+                config,
+                classpaths,
+                buildResult,
+                classpathPackages);
+    }
+
+    /**
+     * Compiles a member's tests against the authoritative lockfile its context names.
+     *
+     * <p>Design §4.5: the lock's content hash feeds test freshness and the test build-cache key, so a
+     * member lane handed only its own directory would fingerprint a member-local {@code zolt.lock}.
+     */
+    public TestCompileResult compileTests(
+            ProjectBuildContext context,
+            ProjectConfig config,
+            ClasspathSet classpaths,
+            BuildResult buildResult,
+            List<ResolvedClasspathPackage> classpathPackages) {
+        Path projectDirectory = context.projectRoot();
         openApiGeneratedSourceService.generateTest(projectDirectory, config, classpathPackages);
         try {
             protobufGeneratedSourceService.generateTest(projectDirectory, config);
@@ -211,8 +228,9 @@ public final class TestCompileService {
         groovyCompileEntries.add(outputDirectory);
         groovyCompileEntries.addAll(testCompileEntries);
         Classpath groovyCompileClasspath = new Classpath(groovyCompileEntries);
-        Path generatedSourcesDirectory = generatedSourcesDirectory(projectDirectory, config.compilerSettings().generatedTestSources());
-        Path lockfilePath = ProjectLockfile.in(projectDirectory);
+        Path generatedSourcesDirectory = GeneratedSourcesDirectory.test(
+                projectDirectory, config.compilerSettings().generatedTestSources());
+        Path lockfilePath = context.lockfilePath();
         long fingerprintCheckStarted = System.nanoTime();
         BuildFingerprintCheck fingerprintCheck = buildFingerprintService.checkTestCompileCurrent(
                 projectDirectory,
@@ -309,19 +327,6 @@ public final class TestCompileService {
 
     private static long elapsedSince(long started) {
         return Math.max(0L, System.nanoTime() - started);
-    }
-
-    private static Path generatedSourcesDirectory(Path projectDirectory, String configuredPath) {
-        Path configured = Path.of(configuredPath);
-        Path projectRoot = projectDirectory.toAbsolutePath().normalize();
-        Path path = projectRoot.resolve(configured).normalize();
-        if (configured.isAbsolute() || !path.startsWith(projectRoot) || path.equals(projectRoot)) {
-            throw new BuildException(
-                    "Invalid generated test source output path `"
-                            + configuredPath
-                            + "`. Use a project-relative path under the project directory.");
-        }
-        return path;
     }
 
 }

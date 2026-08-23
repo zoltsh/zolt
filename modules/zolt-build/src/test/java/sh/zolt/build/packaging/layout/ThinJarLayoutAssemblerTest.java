@@ -49,6 +49,7 @@ final class ThinJarLayoutAssemblerTest {
 
         PackageResult result = assembler.assemble(
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 config(),
                 new BuildResult(Optional.empty(), 1, 0, outputDirectory, ""),
                 jarPath,
@@ -88,6 +89,7 @@ final class ThinJarLayoutAssemblerTest {
 
         assembler.assemble(
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 config,
                 new BuildResult(Optional.empty(), 1, 0, outputDirectory, ""),
                 firstJar,
@@ -96,6 +98,7 @@ final class ThinJarLayoutAssemblerTest {
                 Optional.empty());
         assembler.assemble(
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 config,
                 new BuildResult(Optional.empty(), 1, 0, outputDirectory, ""),
                 secondJar,

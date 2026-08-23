@@ -17,6 +17,7 @@ import sh.zolt.classpath.ResolvedClasspathPackage;
 import sh.zolt.classpath.ResolvedPackage;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.dependency.PackageId;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.toml.manifest.adapter.ManifestProjectConfigLoader;
@@ -323,7 +324,7 @@ final class PackageTestGeneratedProducerFreshnessTest {
             PackageTestCompileGate gate) {
         void requireCurrent() {
             gate.requireCurrent(
-                    project,
+                    ProjectBuildContext.standalone(project),
                     config,
                     new BuildResult(
                             Optional.empty(),

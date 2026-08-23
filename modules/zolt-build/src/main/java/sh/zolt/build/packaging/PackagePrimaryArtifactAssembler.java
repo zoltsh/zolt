@@ -46,6 +46,7 @@ final class PackagePrimaryArtifactAssembler {
 
     PackageResult assemble(
             Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             BuildResult buildResult,
             Optional<Path> cacheRoot,
@@ -55,6 +56,7 @@ final class PackagePrimaryArtifactAssembler {
             PackageArchiveDigests digests) {
         return packagers.assemble(new PackageAssemblyRequest(
                 projectDirectory,
+                lockfilePath,
                 config,
                 buildResult,
                 cacheRoot,
@@ -83,6 +85,7 @@ final class PackageModePackagerRegistry {
         EnumMap<PackageMode, PackageModePackager> packagers = new EnumMap<>(PackageMode.class);
         packagers.put(PackageMode.THIN, request -> thinJarLayoutAssembler.assemble(
                 request.projectDirectory(),
+                request.lockfilePath(),
                 request.config(),
                 request.buildResult(),
                 artifactPathPlanner.jarPath(request.projectDirectory(), request.config()),
@@ -93,6 +96,7 @@ final class PackageModePackagerRegistry {
                 request.digests()));
         packagers.put(PackageMode.SPRING_BOOT, request -> archiveModePackager.packageSpringBootJar(
                 request.projectDirectory(),
+                request.lockfilePath(),
                 request.config(),
                 request.buildResult(),
                 artifactPathPlanner.jarPath(request.projectDirectory(), request.config()),
@@ -102,6 +106,7 @@ final class PackageModePackagerRegistry {
                 request.classpathPackages()));
         packagers.put(PackageMode.WAR, request -> archiveModePackager.packageWar(
                 request.projectDirectory(),
+                request.lockfilePath(),
                 request.config(),
                 request.buildResult(),
                 artifactPathPlanner.archivePath(request.projectDirectory(), request.config(), "war"),
@@ -114,6 +119,7 @@ final class PackageModePackagerRegistry {
                 request.digests()));
         packagers.put(PackageMode.SPRING_BOOT_WAR, request -> archiveModePackager.packageSpringBootWar(
                 request.projectDirectory(),
+                request.lockfilePath(),
                 request.config(),
                 request.buildResult(),
                 artifactPathPlanner.archivePath(request.projectDirectory(), request.config(), "war"),
@@ -123,6 +129,7 @@ final class PackageModePackagerRegistry {
                 request.classpathPackages()));
         packagers.put(PackageMode.QUARKUS, request -> archiveModePackager.packageFrameworkJar(
                 request.projectDirectory(),
+                request.lockfilePath(),
                 request.config(),
                 request.buildResult(),
                 PackageMode.QUARKUS,
@@ -131,6 +138,7 @@ final class PackageModePackagerRegistry {
                         "Framework package mode `quarkus` requires dependency jar access from zolt.lock. Use single-project `zolt package --mode quarkus` for now; workspace framework packaging is not wired yet.")));
         packagers.put(PackageMode.UBER, request -> archiveModePackager.packageUberJar(
                 request.projectDirectory(),
+                request.lockfilePath(),
                 request.config(),
                 request.buildResult(),
                 artifactPathPlanner.jarPath(request.projectDirectory(), request.config()),
@@ -188,6 +196,7 @@ interface PackageModePackager {
 
 record PackageAssemblyRequest(
         Path projectDirectory,
+        Path lockfilePath,
         ProjectConfig config,
         BuildResult buildResult,
         Optional<Path> cacheRoot,
@@ -197,6 +206,7 @@ record PackageAssemblyRequest(
         PackageArchiveDigests digests) {
     PackageAssemblyRequest {
         Objects.requireNonNull(projectDirectory, "projectDirectory");
+        Objects.requireNonNull(lockfilePath, "lockfilePath");
         Objects.requireNonNull(config, "config");
         Objects.requireNonNull(buildResult, "buildResult");
         Objects.requireNonNull(applicationInputs, "applicationInputs");

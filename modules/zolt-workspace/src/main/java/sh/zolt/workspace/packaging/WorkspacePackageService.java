@@ -288,7 +288,7 @@ public final class WorkspacePackageService {
                 new WorkspacePackageResult.MemberPackageResult(
                         member.path(),
                         packageService.packageJar(
-                                member.directory(),
+                                workspace.memberContext(member),
                                 memberConfig,
                                 memberBuild.result(),
                                 Optional.of(cacheRoot),

@@ -50,7 +50,7 @@ final class WorkspaceTestTasks {
                                         member.config(),
                                         memberBuild.classpaths(),
                                         testRunService.compileTests(
-                                                member.directory(),
+                                                workspace.memberContext(member),
                                                 member.config(),
                                                 testInputs(memberBuild)),
                                         testSelection,
@@ -97,7 +97,7 @@ final class WorkspaceTestTasks {
                         return new WorkspaceTestResult.MemberTestRunResult(
                                 member.path(),
                                 testRunService.runTests(
-                                        member.directory(),
+                                        workspace.memberContext(member),
                                         integrationConfig,
                                         testInputs(memberBuild),
                                         testSelection,

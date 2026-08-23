@@ -17,6 +17,7 @@ import sh.zolt.build.junit.PlainJunitWorkerPoolRunner;
 import sh.zolt.build.junit.PlainJunitWorkerProcessSessionFactory;
 import sh.zolt.build.junit.PlainJunitWorkerRunner;
 import sh.zolt.build.profile.TestProfileSettings;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.resolve.ResolveService;
 import sh.zolt.test.runtime.TestJvmArguments;
@@ -300,36 +301,41 @@ public final class TestRunService extends CompiledTestRunService {
             List<String> cliEvents,
             String suiteName,
             TestShardSpec shard) {
-        return TestRunFromBuildResult.run(
-                this, projectDirectory, config, buildResult,
+        return runTests(
+                ProjectBuildContext.standalone(projectDirectory), config, buildResult,
                 selection, jvmArguments, reportSettings, cliEvents, suiteName, shard);
     }
 
-    public TestCompileResult compileTests(
-            Path projectDirectory, ProjectConfig config, ClasspathSet classpaths, BuildResult buildResult) {
-        return testCompileService.compileTests(projectDirectory, config, classpaths, buildResult);
-    }
-
-    public TestCompileResult compileTests(
-            Path projectDirectory,
+    /** Compiles and runs one member's tests against the authoritative lockfile its context names. */
+    public TestRunResult runTests(
+            ProjectBuildContext context,
             ProjectConfig config,
-            ClasspathSet classpaths,
-            BuildResult buildResult,
-            List<ResolvedClasspathPackage> classpathPackages) {
-        return testCompileService.compileTests(
-                projectDirectory,
-                config,
-                classpaths,
-                buildResult,
-                classpathPackages);
+            BuildResultWithClasspaths buildResult,
+            TestSelection selection,
+            TestJvmArguments jvmArguments,
+            TestReportSettings reportSettings,
+            List<String> cliEvents,
+            String suiteName,
+            TestShardSpec shard) {
+        return TestRunFromBuildResult.run(
+                this, context, config, buildResult,
+                selection, jvmArguments, reportSettings, cliEvents, suiteName, shard);
     }
 
     public TestCompileResult compileTests(
             Path projectDirectory,
             ProjectConfig config,
             BuildResultWithClasspaths buildResult) {
-        return compileTests(
-                projectDirectory,
+        return compileTests(ProjectBuildContext.standalone(projectDirectory), config, buildResult);
+    }
+
+    /** Compiles one member's tests against the authoritative lockfile its context names (design §4.5). */
+    public TestCompileResult compileTests(
+            ProjectBuildContext context,
+            ProjectConfig config,
+            BuildResultWithClasspaths buildResult) {
+        return testCompileService.compileTests(
+                context,
                 config,
                 buildResult.classpaths(),
                 buildResult.buildResult(),

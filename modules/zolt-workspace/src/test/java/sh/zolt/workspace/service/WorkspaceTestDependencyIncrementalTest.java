@@ -24,12 +24,24 @@ import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/**
+ * A test-scope dependency bump touches one member. What the workspace must not do is turn that into
+ * work for the member next to it.
+ *
+ * <p>The main compile of the member that owns the changed dependency DOES re-run, because the
+ * authoritative lockfile's content hash is a direct main-compile fingerprint input (design §4.5) and
+ * the bump rewrote that lockfile. That is the same coarse-but-conservative rule a standalone project
+ * has always followed. It became true for workspace members only when the member lane stopped
+ * deriving {@code <member>/zolt.lock} — a file that never exists, so every member's main fingerprint
+ * used to hash "missing" and no change to the workspace lock could reach it. This test asserted that
+ * blindness before; the assertion below is what the fixed lane does.
+ */
 final class WorkspaceTestDependencyIncrementalTest {
     @TempDir
     private Path tempDir;
 
     @Test
-    void changingOneMembersTestPackageDoesNotInvalidateMainOrSiblingTestCompile()
+    void changingOneMembersTestPackageDoesNotInvalidateTheSiblingMemberAtAll()
             throws IOException {
         Path cacheRoot = tempDir.resolve("cache");
         prepareWorkspace(cacheRoot);
@@ -53,11 +65,19 @@ final class WorkspaceTestDependencyIncrementalTest {
                         WorkspaceTestCompileResult.MemberTestCompileResult::member,
                         WorkspaceTestCompileResult.MemberTestCompileResult::result));
 
-        assertEquals(2, changed.mainCompilationSkippedCount());
-        assertTrue(builds.get("apps/a").result().mainCompilationSkipped());
+        // apps/b is untouched in both scopes: the bump is not its dependency, and nothing about its
+        // inputs moved. That isolation is the property worth protecting.
+        assertEquals(1, changed.mainCompilationSkippedCount());
         assertTrue(builds.get("apps/b").result().mainCompilationSkipped());
-        assertFalse(tests.get("apps/a").testCompilationSkipped());
         assertTrue(tests.get("apps/b").testCompilationSkipped());
+
+        // apps/a re-runs both scopes: its test classpath changed, and the workspace lock it compiles
+        // against changed with it.
+        assertFalse(builds.get("apps/a").result().mainCompilationSkipped());
+        assertEquals(
+                "fingerprint-mismatch:lockfile",
+                builds.get("apps/a").result().mainIncrementalFallbackReason());
+        assertFalse(tests.get("apps/a").testCompilationSkipped());
     }
 
     private WorkspaceTestCompileResult compile(

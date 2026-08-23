@@ -25,10 +25,22 @@ public final class SelfHostingCheckService {
     public SelfHostingCheckResult check(Path projectDirectory) {
         Path root = projectDirectory.toAbsolutePath().normalize();
         ProjectConfig config = manifestLoader.loadProject(root);
-        return check(root, config);
+        return check(root, ProjectLockfile.in(root), config);
     }
 
     public SelfHostingCheckResult check(Path projectDirectory, ProjectConfig config) {
+        Path root = projectDirectory.toAbsolutePath().normalize();
+        return check(root, ProjectLockfile.in(root), config);
+    }
+
+    /**
+     * Checks self-hosting readiness against the authoritative lockfile the caller names.
+     *
+     * <p>Design §4.5: run from a workspace member, the lock that exists is the workspace root's.
+     * Deriving the path from {@code projectDirectory} makes {@code zolt doctor --self-hosting} report a
+     * missing lockfile for a member whose workspace lock is present and current.
+     */
+    public SelfHostingCheckResult check(Path projectDirectory, Path lockfilePath, ProjectConfig config) {
         Path root = projectDirectory.toAbsolutePath().normalize();
         List<SelfHostingCheckResult.SelfHostingCheck> checks = new ArrayList<>();
         add(checks, "main class",
@@ -36,7 +48,7 @@ public final class SelfHostingCheckService {
                 "project main is " + config.project().main().orElse("<missing>"),
                 "add [project].main so Zolt can run and package itself");
         add(checks, "lockfile",
-                Files.isRegularFile(ProjectLockfile.in(root)),
+                Files.isRegularFile(lockfilePath),
                 "zolt.lock exists",
                 "run zolt resolve to create zolt.lock");
         add(checks, "main sources",

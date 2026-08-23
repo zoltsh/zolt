@@ -1,6 +1,5 @@
 package sh.zolt.build.packaging.layout;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.manifest.GeneratedManifest;
 import sh.zolt.build.manifest.ManifestGenerator;
@@ -43,6 +42,7 @@ public final class ThinJarLayoutAssembler {
 
     public PackageResult assemble(
             Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             BuildResult buildResult,
             Path jarPath,
@@ -51,6 +51,7 @@ public final class ThinJarLayoutAssembler {
             Optional<ClasspathSet> classpaths) {
         return assemble(
                 projectDirectory,
+                lockfilePath,
                 config,
                 buildResult,
                 jarPath,
@@ -65,6 +66,7 @@ public final class ThinJarLayoutAssembler {
 
     public PackageResult assemble(
             Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             BuildResult buildResult,
             Path jarPath,
@@ -96,7 +98,7 @@ public final class ThinJarLayoutAssembler {
                 writeRuntimeClasspath(runtimeClasspathPath, classpaths.orElseThrow());
                 writtenRuntimeClasspathPath = Optional.of(runtimeClasspathPath);
             } else if (cacheRoot.isPresent()) {
-                writeRuntimeClasspath(projectDirectory, cacheRoot.orElseThrow(), runtimeClasspathPath);
+                writeRuntimeClasspath(lockfilePath, cacheRoot.orElseThrow(), runtimeClasspathPath);
                 writtenRuntimeClasspathPath = Optional.of(runtimeClasspathPath);
             }
             return new PackageResult(
@@ -126,10 +128,10 @@ public final class ThinJarLayoutAssembler {
     }
 
     private void writeRuntimeClasspath(
-            Path projectDirectory,
+            Path lockfilePath,
             Path cacheRoot,
             Path runtimeClasspathPath) throws IOException {
-        ZoltLockfile lockfile = lockfileReader.read(ProjectLockfile.in(projectDirectory));
+        ZoltLockfile lockfile = lockfileReader.read(lockfilePath);
         writeRuntimeClasspath(runtimeClasspathPath, packagedClasspathPackages(lockfile, cacheRoot));
     }
 

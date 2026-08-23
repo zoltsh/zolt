@@ -71,6 +71,7 @@ final class PackageModePackagerRegistryTest {
     private static PackageAssemblyRequest request(PackageMode mode) {
         return new PackageAssemblyRequest(
                 Path.of("project"),
+                Path.of("project/zolt.lock"),
                 projectConfig(mode),
                 buildResult(),
                 Optional.empty(),

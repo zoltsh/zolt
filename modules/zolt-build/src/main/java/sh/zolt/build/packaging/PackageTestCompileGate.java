@@ -1,6 +1,5 @@
 package sh.zolt.build.packaging;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.BuildException;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.PackageException;
@@ -14,6 +13,7 @@ import sh.zolt.build.generatedsource.GeneratedSourceProducerFingerprintService;
 import sh.zolt.classpath.Classpath;
 import sh.zolt.classpath.ClasspathSet;
 import sh.zolt.classpath.ResolvedClasspathPackage;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.GeneratedSourceKind;
@@ -64,7 +64,7 @@ final class PackageTestCompileGate {
     }
 
     void requireCurrent(
-            Path projectDirectory,
+            ProjectBuildContext context,
             ProjectConfig config,
             BuildResult buildResult,
             Optional<Path> cacheRoot,
@@ -73,7 +73,8 @@ final class PackageTestCompileGate {
         if (!config.packageSettings().tests()) {
             return;
         }
-        Path projectRoot = ProjectPaths.root(projectDirectory);
+        Path projectRoot = ProjectPaths.root(context.projectRoot());
+        Path lockfilePath = context.lockfilePath();
         Path testOutput = ProjectPaths.output(
                 projectRoot,
                 "[build.output].test",
@@ -89,7 +90,7 @@ final class PackageTestCompileGate {
                                         || generatedProducerClasspathRequired(
                                                 config)
                                 ? packagesFromLock(
-                                        projectRoot,
+                                        lockfilePath,
                                         cacheRoot)
                                 : List.of());
         ClasspathSet resolvedClasspaths = classpaths.orElseGet(() ->
@@ -110,7 +111,7 @@ final class PackageTestCompileGate {
                 fingerprintService.checkTestEvidenceCurrent(
                         projectRoot,
                         config,
-                        ProjectLockfile.in(projectRoot),
+                        lockfilePath,
                         sources,
                         generatedProducerFingerprints,
                         new Classpath(testCompileEntries),
@@ -127,9 +128,8 @@ final class PackageTestCompileGate {
     }
 
     private List<ResolvedClasspathPackage> packagesFromLock(
-            Path projectRoot,
+            Path lockfilePath,
             Optional<Path> cacheRoot) {
-        Path lockfilePath = ProjectLockfile.in(projectRoot);
         if (!Files.isRegularFile(lockfilePath)) {
             return List.of();
         }

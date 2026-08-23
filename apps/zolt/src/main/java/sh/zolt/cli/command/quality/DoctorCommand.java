@@ -100,7 +100,11 @@ public final class DoctorCommand implements Runnable {
                 ok = printTestRuntimeStatus(testRuntime.orElseThrow()) && ok;
             }
             if (selfHosting) {
-                SelfHostingCheckResult result = selfHostingCheckService.check(projectRoot);
+                // Design §4.5: the member's manifest authors the project; the workspace root's lock is
+                // the one that exists. Deriving it here reports a missing lockfile for a member whose
+                // workspace lock is present.
+                SelfHostingCheckResult result = selfHostingCheckService.check(
+                        context.projectRoot(), context.lockfilePath(), config);
                 printSelfHostingStatus(result);
                 ok = ok && result.ok();
             }

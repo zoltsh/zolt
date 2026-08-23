@@ -15,6 +15,7 @@ import sh.zolt.build.packageplan.PackagePlanService;
 import sh.zolt.build.manifest.ManifestGenerator;
 import sh.zolt.build.springboot.SpringBootPackageToolingPreparer;
 import sh.zolt.framework.FrameworkPackageAugmenter;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.project.PackageMode;
 import sh.zolt.project.ProjectConfig;
@@ -143,17 +144,7 @@ public final class PackageService {
             ProjectConfig config,
             Path cacheRoot,
             VerifiedArtifactIndex artifactIndex) {
-        Path projectRoot = projectRoot(projectDirectory);
-        PackageMode mode = config.packageSettings().mode();
-        PackageModeValidator.ensureSupported(mode);
-        preparePackageToolingIfNeeded(projectRoot, config, cacheRoot);
-        BuildResultWithClasspaths buildResult = buildService.buildWithClasspaths(
-                projectRoot,
-                config,
-                cacheRoot,
-                false,
-                artifactIndex);
-        return packageJar(projectRoot, config, buildResult, cacheRoot);
+        return packageJar(projectDirectory, config, config, cacheRoot, artifactIndex);
     }
 
     /**
@@ -180,8 +171,10 @@ public final class PackageService {
         return packageJar(projectRoot, packageConfig, buildResult, cacheRoot);
     }
 
+    /** Standalone lane: the project directory is the lock root, so it may declare itself one. */
     public void preparePackageToolingIfNeeded(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
-        packageToolingPreparer.prepareIfNeeded(projectDirectory, config, cacheRoot);
+        ProjectBuildContext context = ProjectBuildContext.standalone(projectDirectory);
+        packageToolingPreparer.prepareIfNeeded(context.projectRoot(), context.lockfilePath(), config, cacheRoot);
     }
 
     public PackageResult packageJar(
@@ -192,7 +185,7 @@ public final class PackageService {
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
         return packageJar(
-                projectRoot(projectDirectory),
+                ProjectBuildContext.standalone(projectDirectory),
                 config,
                 buildResult,
                 Optional.of(cacheRoot),
@@ -210,7 +203,7 @@ public final class PackageService {
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
         return packageJar(
-                projectRoot(projectDirectory),
+                ProjectBuildContext.standalone(projectDirectory),
                 config,
                 buildResult.buildResult(),
                 Optional.of(cacheRoot),
@@ -227,7 +220,7 @@ public final class PackageService {
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
         return packageJar(
-                projectRoot(projectDirectory),
+                ProjectBuildContext.standalone(projectDirectory),
                 config,
                 buildResult,
                 Optional.empty(),
@@ -245,7 +238,7 @@ public final class PackageService {
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
         return packageJar(
-                projectRoot(projectDirectory),
+                ProjectBuildContext.standalone(projectDirectory),
                 config,
                 buildResult,
                 Optional.empty(),
@@ -264,7 +257,7 @@ public final class PackageService {
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
         return packageJar(
-                projectRoot(projectDirectory),
+                ProjectBuildContext.standalone(projectDirectory),
                 config,
                 buildResult,
                 Optional.empty(),
@@ -275,10 +268,12 @@ public final class PackageService {
     }
 
     /**
-     * Packages one workspace member against that command's shared package input index.
+     * Packages one workspace member against that command's shared package input index, using the
+     * authoritative lockfile the context names. Design §4.5: the tests-JAR evidence gate fingerprints
+     * against that lock and, on the reconstruct path, reads it.
      */
     public PackageResult packageJar(
-            Path projectDirectory,
+            ProjectBuildContext context,
             ProjectConfig config,
             BuildResult buildResult,
             Optional<Path> cacheRoot,
@@ -289,7 +284,7 @@ public final class PackageService {
         PackageMode mode = config.packageSettings().mode();
         PackageModeValidator.ensureSupported(mode);
         return packageJar(
-                projectRoot(projectDirectory),
+                context,
                 config,
                 buildResult,
                 cacheRoot,
@@ -304,7 +299,7 @@ public final class PackageService {
     }
 
     private PackageResult packageJar(
-            Path projectDirectory,
+            ProjectBuildContext context,
             ProjectConfig config,
             BuildResult buildResult,
             Optional<Path> cacheRoot,
@@ -312,10 +307,11 @@ public final class PackageService {
             Optional<ClasspathSet> classpaths,
             Optional<PackagePlan> suppliedPlan,
             PackageOutputFingerprintIndex inputs) {
+        Path projectDirectory = context.projectRoot();
         testCompileGate.requireCurrent(
-                projectDirectory, config, buildResult, cacheRoot, classpathPackages, classpaths);
+                context, config, buildResult, cacheRoot, classpathPackages, classpaths);
         PackagePlan plan = suppliedPlan.orElseGet(() ->
-                packagePlanResolver.plan(projectDirectory, config, cacheRoot, inputs));
+                packagePlanResolver.plan(context, config, cacheRoot, inputs));
         try {
             Optional<PackageResult> reused =
                     reuseService.reuse(projectDirectory, config, buildResult, plan);
@@ -325,6 +321,7 @@ public final class PackageService {
             PackageArchiveDigests digests = new PackageArchiveDigests();
             PackageResult result = primaryArtifactAssembler.assemble(
                     projectDirectory,
+                    context.lockfilePath(),
                     config,
                     buildResult,
                     cacheRoot,

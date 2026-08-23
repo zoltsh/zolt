@@ -109,7 +109,7 @@ final class WorkspaceTestCompileExecutor {
             return new WorkspaceTestCompileResult.MemberTestCompileResult(
                     member.path(),
                     testRunService.compileTests(
-                            member.directory(),
+                            workspace.memberContext(member),
                             member.config(),
                             testInputs(memberBuild)));
         };

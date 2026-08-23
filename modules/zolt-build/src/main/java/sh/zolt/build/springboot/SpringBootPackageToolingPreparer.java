@@ -1,6 +1,5 @@
 package sh.zolt.build.springboot;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
 import sh.zolt.lockfile.SpringBootLoaderArtifact;
@@ -23,12 +22,17 @@ public final class SpringBootPackageToolingPreparer {
         this.lockfileReader = lockfileReader;
     }
 
-    public void prepareIfNeeded(Path projectDirectory, ProjectConfig config, Path cacheRoot) {
+    /**
+     * Design §4.5: the caller names the authoritative lockfile. Deriving it from the project directory
+     * would consult a member-local {@code zolt.lock} to decide whether Spring Boot loader tooling is
+     * already locked.
+     */
+    public void prepareIfNeeded(
+            Path projectDirectory, Path lockfilePath, ProjectConfig config, Path cacheRoot) {
         Path projectRoot = projectDirectory.toAbsolutePath().normalize();
         if (!isSpringBootArchive(config.packageSettings().mode())) {
             return;
         }
-        Path lockfilePath = ProjectLockfile.in(projectRoot);
         if (!Files.isRegularFile(lockfilePath)) {
             return;
         }

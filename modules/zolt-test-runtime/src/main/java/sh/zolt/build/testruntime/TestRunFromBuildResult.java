@@ -1,6 +1,7 @@
 package sh.zolt.build.testruntime;
 
 import sh.zolt.build.BuildResultWithClasspaths;
+import sh.zolt.lockfile.ProjectBuildContext;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.test.TestSelection;
 import sh.zolt.test.runtime.TestJvmArguments;
@@ -15,7 +16,7 @@ final class TestRunFromBuildResult {
 
     static TestRunResult run(
             TestRunService service,
-            Path projectDirectory,
+            ProjectBuildContext context,
             ProjectConfig config,
             BuildResultWithClasspaths buildResult,
             TestSelection selection,
@@ -25,10 +26,10 @@ final class TestRunFromBuildResult {
             String suiteName,
             TestShardSpec shard) {
         return service.runCompiledTests(
-                projectDirectory,
+                context.projectRoot(),
                 config,
                 buildResult.classpaths(),
-                service.compileTests(projectDirectory, config, buildResult),
+                service.compileTests(context, config, buildResult),
                 selection,
                 jvmArguments,
                 reportSettings,

@@ -1,6 +1,5 @@
 package sh.zolt.build;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.dependency.DependencyScope;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.lockfile.toml.ZoltLockfileReader;
@@ -22,12 +21,12 @@ final class GeneratedSourceToolingGate {
 
     static boolean openApiToolingMissing(
             ZoltLockfileReader lockfileReader,
-            Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             boolean offline) {
         return toolingMissing(
                 lockfileReader,
-                projectDirectory,
+                lockfilePath,
                 offline,
                 hasKind(config, GeneratedSourceKind.OPENAPI),
                 DependencyScope.TOOL_OPENAPI,
@@ -38,12 +37,12 @@ final class GeneratedSourceToolingGate {
 
     static boolean execToolingMissing(
             ZoltLockfileReader lockfileReader,
-            Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             boolean offline) {
         return toolingMissing(
                 lockfileReader,
-                projectDirectory,
+                lockfilePath,
                 offline,
                 hasJvmExecStep(config),
                 DependencyScope.TOOL_EXEC,
@@ -54,7 +53,7 @@ final class GeneratedSourceToolingGate {
 
     private static boolean toolingMissing(
             ZoltLockfileReader lockfileReader,
-            Path projectDirectory,
+            Path lockfilePath,
             boolean offline,
             boolean hasSteps,
             DependencyScope toolScope,
@@ -63,7 +62,6 @@ final class GeneratedSourceToolingGate {
         if (!hasSteps) {
             return false;
         }
-        Path lockfilePath = ProjectLockfile.in(projectDirectory);
         if (!Files.isRegularFile(lockfilePath)) {
             return false;
         }

@@ -182,7 +182,7 @@ final class WorkspaceMemberBuildExecutor {
                                     .checker(jdkCheckers, workspace, member))
                             .withBuildCache(buildCacheService)
                             .build(
-                                    member.directory(),
+                                    workspace.memberContext(member),
                                     member.config(),
                                     memberClasspaths,
                                     memberPackages),

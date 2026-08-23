@@ -38,6 +38,7 @@ final class SpringBootPackageToolingPreparerTest {
 
         preparer.prepareIfNeeded(
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 config(PackageMode.THIN, Map.of(), Map.of(SpringBootLoaderSupport.SPRING_BOOT_LOADER_PACKAGE.toString(), "3.3.6"), Map.of()),
                 projectDir.resolve("cache"));
 
@@ -53,6 +54,7 @@ final class SpringBootPackageToolingPreparerTest {
 
         preparer.prepareIfNeeded(
                 projectDir,
+                projectDir.resolve("zolt.lock"),
                 config(PackageMode.SPRING_BOOT, Map.of(), Map.of(SpringBootLoaderSupport.SPRING_BOOT_LOADER_PACKAGE.toString(), "3.3.6"), Map.of()),
                 projectDir.resolve("cache"));
 
@@ -73,7 +75,7 @@ final class SpringBootPackageToolingPreparerTest {
                 Map.of(),
                 Map.of());
 
-        preparer.prepareIfNeeded(projectDir, config, cacheRoot);
+        preparer.prepareIfNeeded(projectDir, projectDir.resolve("zolt.lock"), config, cacheRoot);
 
         assertEquals(1, resolver.calls);
         assertEquals(projectDir.toAbsolutePath().normalize(), resolver.projectRoot);

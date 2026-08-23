@@ -1,0 +1,55 @@
+# path|reason
+# Files allowed to CALL sh.zolt.lockfile.ProjectLockfile.in. The seam turns a lock ROOT into a path;
+# this list says who is allowed to decide which directory is the lock root. Design §4.5: a command
+# started inside a workspace member has two roots, and the member-local `zolt.lock` is observationally
+# irrelevant, so a core build/test/package operation RECEIVES the authoritative path — as a
+# ProjectBuildContext or an explicit lockfilePath parameter — and never derives one.
+#
+# Three kinds of entry are legitimate, and the reason must say which:
+#   * command boundary     - decides the (projectRoot, lockRoot) pair once, for everything downstream
+#   * workspace root       - the workspace owns its one authoritative lock
+#   * standalone entry     - a standalone project directory IS its own lock root
+# Entries marked "derives ahead of the member-projection adoption" are transitional: the concurrent
+# member-command wave replaces them, and the stale-entry check fails until they are pruned.
+
+# --- command boundary -------------------------------------------------------------------------
+apps/zolt/src/main/java/sh/zolt/cli/command/ProjectCommandContext.java|command boundary; loads the (projectRoot, lockRoot, lockfilePath, memberPath) pair once and hands it down
+apps/zolt/src/main/java/sh/zolt/cli/command/CommandProjectLockfile.java|command boundary; resolves a started directory to the workspace root that owns the lock
+apps/zolt/src/main/java/sh/zolt/cli/command/WorkspaceCommandToolchainState.java|command boundary; fingerprints the workspace root's lock for the toolchain state a workspace command carries
+apps/zolt/src/main/java/sh/zolt/cli/command/dependency/ManifestMutationScope.java|command boundary; establishes the lock root a manifest mutation writes back through
+apps/zolt/src/main/java/sh/zolt/cli/command/dependency/DependencyUpdateScopeResolver.java|command boundary; reads the discovered workspace root's lock to scope an update
+apps/zolt/src/main/java/sh/zolt/cli/command/insight/TreeCommand.java|command boundary; reads the discovered root's lock, which discovery already resolved to the workspace root
+
+# --- designated owners ------------------------------------------------------------------------
+modules/zolt-model/src/main/java/sh/zolt/lockfile/ProjectBuildContext.java|designated owner; the standalone factory is where a standalone project declares itself its own lock root
+modules/zolt-workspace/src/main/java/sh/zolt/workspace/service/Workspace.java|workspace root; the one place the workspace lane names its authoritative lock, handed to members as a context
+modules/zolt-workspace/src/main/java/sh/zolt/workspace/resolve/WorkspaceResolveService.java|workspace root; resolve writes the workspace's one authoritative lock
+modules/zolt-workspace/src/main/java/sh/zolt/workspace/resolve/WorkspaceLockFreshnessService.java|workspace root; lock currency is a property of the workspace root's lock
+modules/zolt-resolve/src/main/java/sh/zolt/resolve/lockfile/persistence/ResolveLockfilePersistence.java|designated owner; the resolve writer names the file it persists for the directory it was told to resolve
+modules/zolt-plan/src/main/java/sh/zolt/plan/BuildPlanRequest.java|designated owner; models lockfilePath as a field and derives only in its standalone factory and its member comparison
+modules/zolt-plan/src/main/java/sh/zolt/plan/BuildPlan.java|designated owner; models lockfilePath as a field and derives only for the standalone default and its member comparison
+
+# --- standalone entry points ------------------------------------------------------------------
+modules/zolt-build/src/main/java/sh/zolt/doctor/SelfHostingCheckService.java|standalone entry; the two directory-only convenience overloads derive, the checking overload takes lockfilePath
+modules/zolt-build/src/main/java/sh/zolt/build/packageplan/PackagePlanService.java|standalone entry; the directory-only plan overload, which no command uses - every caller passes a lockfile or lockfilePath
+modules/zolt-native-image/src/main/java/sh/zolt/build/nativeimage/NativeBuildService.java|standalone entry; reached only when NativeCommand has established the project is not a workspace member
+modules/zolt-native-image/src/main/java/sh/zolt/build/nativeimage/NativeProtectedPaths.java|declarative; adds the project's own lock path to an unconditional reserved-path list that never reads the file
+modules/zolt-test-runtime/src/main/java/sh/zolt/build/coverage/CoverageToolingLock.java|standalone entry; the workspace coverage lane passes the parsed root lock, this overload serves the standalone run
+modules/zolt-toolchain/src/main/java/sh/zolt/toolchain/JavaToolchainStatusService.java|command boundary; the caller supplies lockRoot, which DoctorCommand and toolchain status take from the command context
+modules/zolt-toolchain/src/main/java/sh/zolt/toolchain/TestRuntimeToolchainResolver.java|command boundary; the caller supplies lockRoot, which the member toolchain lane takes from the command context
+modules/zolt-toolchain/src/main/java/sh/zolt/toolchain/ToolchainSyncService.java|standalone entry; the directory-only sync overload has no production caller - the CLI passes CommandProjectLockfile.path
+modules/zolt-update/src/main/java/sh/zolt/update/OutdatedScopes.java|command boundary; the caller supplies the directory it discovered as the scope root for an outdated report
+
+# --- transitional: owned by the concurrent member-command matrix wave --------------------------
+modules/zolt-ide/src/main/java/sh/zolt/ide/IdeModelService.java|derives ahead of the member-projection adoption
+modules/zolt-ide/src/main/java/sh/zolt/ide/WorkspaceIdeModelService.java|derives ahead of the member-projection adoption
+modules/zolt-quarkus/src/main/java/sh/zolt/quarkus/QuarkusIdeFrameworkModelProvider.java|derives ahead of the member-projection adoption
+modules/zolt-quarkus/src/main/java/sh/zolt/quarkus/QuarkusPlanService.java|derives ahead of the member-projection adoption
+modules/zolt-quality/src/main/java/sh/zolt/quality/QualityCheckService.java|derives ahead of the member-projection adoption
+modules/zolt-quality/src/main/java/sh/zolt/quality/LockfileQualityCheck.java|derives ahead of the member-projection adoption
+modules/zolt-quality/src/main/java/sh/zolt/quality/DependencyQualityCheck.java|derives ahead of the member-projection adoption
+modules/zolt-quality/src/main/java/sh/zolt/quality/WorkspaceQualityProjectionService.java|derives ahead of the member-projection adoption
+modules/zolt-quality/src/main/java/sh/zolt/quality/execution/ExecutionContextQualityCheck.java|derives ahead of the member-projection adoption
+modules/zolt-publish/src/main/java/sh/zolt/publish/PublishDryRunService.java|derives ahead of the member-projection adoption
+apps/zolt/src/main/java/sh/zolt/cli/command/supplychain/SbomCommand.java|derives ahead of the member-projection adoption
+apps/zolt/src/main/java/sh/zolt/cli/command/supplychain/LicensesCommand.java|derives ahead of the member-projection adoption

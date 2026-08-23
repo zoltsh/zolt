@@ -6,6 +6,7 @@ import static sh.zolt.workspace.service.WorkspaceTestServiceTestSupport.workspac
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import sh.zolt.build.BuildResultWithClasspaths;
 import sh.zolt.build.testruntime.TestRunService;
 import sh.zolt.workspace.service.WorkspacePlanTarget;
 import sh.zolt.workspace.test.WorkspaceTestService;
@@ -87,11 +88,14 @@ final class WorkspaceTestDependencyVisibilityTest {
                 .filter(member -> member.path().equals("apps/api"))
                 .findFirst()
                 .orElseThrow();
+        // The workspace lane compiles a member against the workspace root's lock (design §4.5), which
+        // is what Workspace.memberContext hands the service; the standalone overload would fingerprint
+        // apps/api/zolt.lock instead.
         new TestRunService().compileTests(
-                appMember.directory(),
+                plan.workspace().memberContext(appMember),
                 appMember.config(),
-                app.classpaths(),
-                app.result());
+                new BuildResultWithClasspaths(
+                        app.result(), app.classpaths(), app.classpathPackages()));
 
         assertTrue(Files.exists(tempDir.resolve("apps/api/target/test-classes/com/acme/api/ApiTest.class")));
     }

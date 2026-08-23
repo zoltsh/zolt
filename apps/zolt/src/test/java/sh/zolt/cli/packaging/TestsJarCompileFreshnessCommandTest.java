@@ -217,11 +217,16 @@ final class TestsJarCompileFreshnessCommandTest {
                             memberBuild.member()))
                     .findFirst()
                     .orElseThrow();
+            // Design §4.5: the workspace test-compile lane records evidence against the workspace
+            // root's lock. Using the standalone overload here would fingerprint the member's own
+            // absent zolt.lock, and the package gate would then reject current test classes.
             tests.compileTests(
-                    member.directory(),
+                    plan.workspace().memberContext(member),
                     member.config(),
-                    memberBuild.classpaths(),
-                    memberBuild.result());
+                    new BuildResultWithClasspaths(
+                            memberBuild.result(),
+                            memberBuild.classpaths(),
+                            memberBuild.classpathPackages()));
         }
     }
 

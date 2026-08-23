@@ -1,6 +1,5 @@
 package sh.zolt.workspace.service;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.build.lockfile.VerifiedArtifactIndex;
 import sh.zolt.lockfile.WorkspaceGraphLockCapability;
@@ -91,7 +90,7 @@ final class WorkspaceBuildPlanner {
                 ? members.select(workspace, selectionRequest)
                 : members.selectMain(workspace, selectionRequest);
         long selectionNanos = elapsedSince(selectionStarted);
-        Path lockfilePath = ProjectLockfile.in(workspace.root());
+        Path lockfilePath = workspace.lockfilePath();
         Optional<ResolveResult> resolveResult = Optional.empty();
         long resolutionNanos = 0L;
         if (!Files.isRegularFile(lockfilePath)) {

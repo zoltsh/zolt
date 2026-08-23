@@ -1,6 +1,5 @@
 package sh.zolt.build.packaging;
 
-import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.build.BuildResult;
 import sh.zolt.build.PackageException;
 import sh.zolt.classpath.ResolvedClasspathPackage;
@@ -51,6 +50,7 @@ final class PackageArchiveModePackager {
 
     PackageResult packageSpringBootJar(
             Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             BuildResult buildResult,
             Path jarPath,
@@ -62,7 +62,7 @@ final class PackageArchiveModePackager {
         List<PackageRuntimeJar> runtimeJars = classpathPackages
                 .map(runtimeJarSelector::runtimeJars)
                 .orElseGet(() -> runtimeJarSelector.runtimeJars(
-                        lockfileReader.read(ProjectLockfile.in(projectDirectory)),
+                        lockfileReader.read(lockfilePath),
                         cacheRoot));
         PackageRuntimeJarMaterializer.Result inputs =
                 runtimeJarMaterializer.materialize(projectDirectory, config, runtimeJars);
@@ -73,6 +73,7 @@ final class PackageArchiveModePackager {
 
     PackageResult packageWar(
             Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             BuildResult buildResult,
             Path warPath,
@@ -83,7 +84,7 @@ final class PackageArchiveModePackager {
         Path outputDirectory = requireOutputDirectory(buildResult);
         List<ResolvedClasspathPackage> resolvedPackages = classpathPackages
                 .orElseGet(() -> runtimeJarSelector.allClasspathPackages(
-                        lockfileReader.read(ProjectLockfile.in(projectDirectory)),
+                        lockfileReader.read(lockfilePath),
                         cacheRoot));
         ProvidedPackagingOverrides providedOverrides =
                 ProvidedPackagingOverrides.fromConfigAndClasspathPackages(
@@ -111,6 +112,7 @@ final class PackageArchiveModePackager {
 
     PackageResult packageUberJar(
             Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             BuildResult buildResult,
             Path jarPath,
@@ -122,7 +124,7 @@ final class PackageArchiveModePackager {
         List<PackageRuntimeJar> runtimeJars = classpathPackages
                 .map(runtimeJarSelector::runtimeJars)
                 .orElseGet(() -> runtimeJarSelector.runtimeJars(
-                        lockfileReader.read(ProjectLockfile.in(projectDirectory)),
+                        lockfileReader.read(lockfilePath),
                         cacheRoot));
         return uberJarLayoutAssembler.assemble(
                 projectDirectory,
@@ -137,6 +139,7 @@ final class PackageArchiveModePackager {
 
     PackageResult packageSpringBootWar(
             Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             BuildResult buildResult,
             Path warPath,
@@ -147,7 +150,7 @@ final class PackageArchiveModePackager {
         Path outputDirectory = requireOutputDirectory(buildResult);
         List<ResolvedClasspathPackage> resolvedPackages = classpathPackages
                 .orElseGet(() -> runtimeJarSelector.allClasspathPackages(
-                        lockfileReader.read(ProjectLockfile.in(projectDirectory)),
+                        lockfileReader.read(lockfilePath),
                         cacheRoot));
         ProvidedPackagingOverrides providedOverrides =
                 ProvidedPackagingOverrides.fromConfigAndClasspathPackages(
@@ -182,6 +185,7 @@ final class PackageArchiveModePackager {
 
     PackageResult packageFrameworkJar(
             Path projectDirectory,
+            Path lockfilePath,
             ProjectConfig config,
             BuildResult buildResult,
             PackageMode mode,
