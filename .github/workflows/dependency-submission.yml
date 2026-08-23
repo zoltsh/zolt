@@ -29,6 +29,6 @@ jobs:
           persist-credentials: false
 
       - name: Submit Zolt dependency graph
-        uses: zoltsh/submit-dependencies@7ce3ea00569495920a57989c3767bb5c1a8d2c76 # v0.1.1
+        uses: zoltsh/submit-dependencies@597d83804f23381928015eafbd3f5cc214033653 # v0.2.0
         with:
           workspace: "true"
