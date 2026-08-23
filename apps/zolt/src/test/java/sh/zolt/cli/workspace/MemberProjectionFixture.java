@@ -75,9 +75,10 @@ final class MemberProjectionFixture implements AutoCloseable {
         repository.addArtifact("com.example", "sibling-only", "1.0.0", pom("sibling-only", SIBLING_ONLY_LICENSE));
         repository.addArtifact("com.example", "unrelated-only", "1.0.0", pom("unrelated-only", LEAKED_LICENSE));
 
-        Path workspaceDir = tempDir.resolve("workspace");
-        Path cacheRoot = tempDir.resolve("cache");
-        Files.createDirectories(workspaceDir);
+        // A unique directory per fixture: the matrix builds two of the same workspace side by side and
+        // compares their output, so they must not share a tree.
+        Path workspaceDir = Files.createTempDirectory(tempDir, "workspace");
+        Path cacheRoot = workspaceDir.resolveSibling(workspaceDir.getFileName() + "-cache");
         Files.writeString(workspaceDir.resolve("zolt.toml"), """
                 [workspace]
                 name = "family"
