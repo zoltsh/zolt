@@ -1,5 +1,6 @@
 package sh.zolt.cli.command.supplychain;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -12,8 +13,8 @@ import sh.zolt.sbom.LicensePolicyScope;
 import sh.zolt.sbom.SbomComponent;
 import sh.zolt.sbom.SbomScopeGroup;
 import sh.zolt.sbom.SbomScopeSelection;
-import sh.zolt.workspace.publish.WorkspaceMemberSbomLockProjection;
-import sh.zolt.workspace.resolve.WorkspaceMemberPolicyResolver;
+import sh.zolt.workspace.member.MemberResolvedView;
+import sh.zolt.workspace.member.MemberResolvedViewService;
 import sh.zolt.workspace.service.Workspace;
 import sh.zolt.workspace.service.WorkspaceMember;
 
@@ -26,10 +27,11 @@ import sh.zolt.workspace.service.WorkspaceMember;
  * aggregate would let a strict member deny a coordinate it never depends on, and the report would then
  * contradict the very command it names as the enforcer.
  *
- * <p>The closure comes from {@link WorkspaceMemberSbomLockProjection}, the same projection the workspace
- * quality check consumes. Holding this in the CLI — which already sees both zolt-workspace and
- * zolt-sbom — is what keeps zolt-sbom free of any workspace dependency: only the projected result
- * crosses the boundary, as a plain list of components.
+ * <p>The closure is {@link MemberResolvedView#dependencyGraphLock()}, the same projection the workspace
+ * quality check enforces over and the same one {@code zolt sbom} prints from a member directory — so
+ * this report cannot disagree with either. Holding this in the CLI — which already sees both
+ * zolt-workspace and zolt-sbom — is what keeps zolt-sbom free of any workspace dependency: only the
+ * projected result crosses the boundary, as a plain list of components.
  *
  * <p>The projection is filtered at {@link SbomScopeSelection#requiredOnly()} whatever scopes the report
  * was asked for, because that is what {@code zolt check --workspace --check license-policy} evaluates.
@@ -37,8 +39,7 @@ import sh.zolt.workspace.service.WorkspaceMember;
  * unannotated rather than marked against a policy the named command never applies to it.
  */
 final class WorkspaceLicensePolicyScopes {
-    private final WorkspaceMemberPolicyResolver policyResolver = new WorkspaceMemberPolicyResolver();
-    private final WorkspaceMemberSbomLockProjection projection = new WorkspaceMemberSbomLockProjection();
+    private final MemberResolvedViewService viewService = new MemberResolvedViewService();
 
     /**
      * One scope per member that configures a policy. Members without one are skipped rather than
@@ -53,14 +54,16 @@ final class WorkspaceLicensePolicyScopes {
             List<SbomComponent> components) {
         SbomScopeSelection enforced = SbomScopeSelection.requiredOnly();
         List<LicensePolicyScope> scopes = new ArrayList<>();
+        Path authoritativeLockfile = MemberResolvedViewService.authoritativeLockfile(workspace);
         for (WorkspaceMember member : workspace.members()) {
-            ProjectConfig effectiveConfig = policyResolver.merge(workspace, member);
+            MemberResolvedView view =
+                    viewService.view(workspace, lockfile, member, authoritativeLockfile);
+            ProjectConfig effectiveConfig = view.effectiveConfig();
             if (effectiveConfig.dependencyPolicy().licenses().isDefault()) {
                 continue;
             }
-            ZoltLockfile memberLock =
-                    projection.project(member.path(), effectiveConfig, lockfile, workspace, policyResolver);
-            Set<String> consumed = consumedCoordinates(memberLock, enforced);
+            // The view is lazy, so a member without a policy costs a config merge and nothing more.
+            Set<String> consumed = consumedCoordinates(view.dependencyGraphLock(), enforced);
             scopes.add(new LicensePolicyScope(
                     effectiveConfig,
                     components.stream()
