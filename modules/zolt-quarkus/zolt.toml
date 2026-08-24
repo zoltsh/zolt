@@ -24,7 +24,7 @@ name = "zolt-quarkus"
 "io.quarkus:quarkus-core" = { versionRef = "quarkus" }
 "io.quarkus:quarkus-fs-util" = "1.4.2"
 "io.quarkus:quarkus-test-common" = { versionRef = "quarkus", exclude = ["commons-io:commons-io", "io.quarkus:quarkus-bootstrap-gradle-resolver", "io.quarkus:quarkus-bootstrap-maven-resolver", "io.quarkus:quarkus-core-deployment", "io.rest-assured:rest-assured", "io.smallrye:jandex", "org.jboss.logging:commons-logging-jboss-logging"] }
-"io.smallrye.config:smallrye-config-core" = "3.17.2"
+"io.smallrye.config:smallrye-config-core" = "3.18.2"
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 "org.wildfly.common:wildfly-common" = "2.0.1"
 
