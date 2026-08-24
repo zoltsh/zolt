@@ -15,7 +15,7 @@ name = "zolt-quarkus"
 "io.quarkus:quarkus-builder" = { versionRef = "quarkus" }
 "io.quarkus:quarkus-core-deployment" = { versionRef = "quarkus" }
 "io.quarkus:quarkus-junit" = { versionRef = "quarkus" }
-"io.smallrye:jandex" = "3.5.3"
+"io.smallrye:jandex" = "3.6.0"
 
 [dependencies.test]
 "io.quarkus:quarkus-arc-deployment" = { versionRef = "quarkus", exclude = ["io.quarkus:quarkus-arc", "io.quarkus:quarkus-arc-dev", "io.quarkus:quarkus-arc-test-supplement", "io.quarkus:quarkus-arc-test-supplement-decorator", "io.quarkus:quarkus-core-deployment", "io.quarkus:quarkus-devui-deployment-spi", "io.quarkus:quarkus-smallrye-context-propagation-spi", "io.quarkus.arc:arc-processor"] }
