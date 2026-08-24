@@ -20,7 +20,7 @@ name = "zolt-quarkus"
 [dependencies.test]
 "io.quarkus:quarkus-arc-deployment" = { versionRef = "quarkus", exclude = ["io.quarkus:quarkus-arc", "io.quarkus:quarkus-arc-dev", "io.quarkus:quarkus-arc-test-supplement", "io.quarkus:quarkus-arc-test-supplement-decorator", "io.quarkus:quarkus-core-deployment", "io.quarkus:quarkus-devui-deployment-spi", "io.quarkus:quarkus-smallrye-context-propagation-spi", "io.quarkus.arc:arc-processor"] }
 "io.quarkus:quarkus-bootstrap-app-model" = { versionRef = "quarkus", exclude = ["io.quarkus:quarkus-fs-util", "org.jboss.logging:commons-logging-jboss-logging", "org.jboss.logging:jboss-logging"] }
-"io.quarkus:quarkus-fs-util" = "1.3.0"
+"io.quarkus:quarkus-fs-util" = "1.4.2"
 "io.quarkus:quarkus-test-common" = { versionRef = "quarkus", exclude = ["commons-io:commons-io", "io.quarkus:quarkus-bootstrap-gradle-resolver", "io.quarkus:quarkus-bootstrap-maven-resolver", "io.quarkus:quarkus-core-deployment", "io.rest-assured:rest-assured", "io.smallrye:jandex", "org.jboss.logging:commons-logging-jboss-logging"] }
 "org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 "org.wildfly.common:wildfly-common" = { version = "2.0.1", exclude = ["io.smallrye.common:smallrye-common-cpu", "io.smallrye.common:smallrye-common-expression", "io.smallrye.common:smallrye-common-net", "io.smallrye.common:smallrye-common-os", "io.smallrye.common:smallrye-common-ref", "org.jboss.logging:jboss-logging"] }
