@@ -19,11 +19,30 @@ fi
 grep -F 'unknown argument --publish' "$WORK_DIR/legacy-publish.log" >/dev/null \
   || fail "removed direct-publication flag did not fail clearly"
 
+if ZOLT_RELEASE_CHANNEL=preview scripts/zap-distribution \
+    >"$WORK_DIR/preview-version-required.log" 2>&1; then
+  fail "preview candidate builder accepted a missing release version"
+fi
+grep -F 'preview requires ZOLT_RELEASE_VERSION' \
+    "$WORK_DIR/preview-version-required.log" >/dev/null \
+  || fail "missing preview version did not fail clearly"
+
+if ZOLT_RELEASE_CHANNEL=preview ZOLT_RELEASE_VERSION=0.2.0-alpha.1 \
+    scripts/zap-distribution >"$WORK_DIR/preview-core-mismatch.log" 2>&1; then
+  fail "preview candidate builder accepted a version for another core release"
+fi
+grep -F 'does not match workspace version' \
+    "$WORK_DIR/preview-core-mismatch.log" >/dev/null \
+  || fail "mismatched preview core version did not fail clearly"
+
 python3 - <<'PY'
 import pathlib
 
 ci = pathlib.Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
 dispatch = pathlib.Path(".github/workflows/dispatch-zap.yml").read_text(
+    encoding="utf-8"
+)
+preview_dispatch = pathlib.Path(".github/workflows/dispatch-preview.yml").read_text(
     encoding="utf-8"
 )
 builder = pathlib.Path("scripts/zap-distribution").read_text(encoding="utf-8")
@@ -37,7 +56,9 @@ for forbidden in ("DO_SPACES_", "aws s3", "s3://", "publish_install_script"):
         )
 required_builder_contracts = (
     "https://github.com/zoltsh/releases/releases/download/${RELEASE_TAG}",
-    "Build and verify one zap-channel native Zolt candidate",
+    "Build and verify one zap or preview native Zolt candidate",
+    'RELEASE_TAG="zolt-preview-v${VERSION}"',
+    "preview requires ZOLT_RELEASE_VERSION",
 )
 missing_builder = [value for value in required_builder_contracts if value not in builder]
 if missing_builder:
@@ -72,6 +93,30 @@ missing = [value for value in required_dispatch_contracts if value not in dispat
 if missing:
     raise SystemExit(
         "error: zap dispatch handoff is missing: " + ", ".join(repr(value) for value in missing)
+    )
+
+required_preview_dispatch_contracts = (
+    "      - 'v*.*.*-*'",
+    "gh workflow run preview-candidate.yml",
+    "--repo zoltsh/releases",
+    "--ref main",
+    'source_repository=${SOURCE_REPOSITORY}',
+    'source_sha=${SOURCE_SHA}',
+    'source_tag=${SOURCE_TAG}',
+    "permission-actions: write",
+    "Verify and resolve protected source tag",
+    'select(.object.type == "tag")',
+    '.verification.verified == true',
+    '.verification.reason == "valid"',
+    'SOURCE_SHA: ${{ steps.source.outputs.source_sha }}',
+)
+missing_preview = [
+    value for value in required_preview_dispatch_contracts if value not in preview_dispatch
+]
+if missing_preview:
+    raise SystemExit(
+        "error: preview dispatch handoff is missing: "
+        + ", ".join(repr(value) for value in missing_preview)
     )
 PY
 

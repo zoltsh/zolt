@@ -1,6 +1,7 @@
 package sh.zolt.release.signing;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -14,6 +15,15 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class ReleaseSignatureVerifierTest {
+    @Test
+    void bundlesSeparateZapAndPreviewTrustKeys() {
+        assertEquals(
+                List.of("zolt-release-2026", "zolt-preview-2026"),
+                ReleaseTrustedKeys.bundled().stream()
+                        .map(ReleaseSigningKey::keyId)
+                        .toList());
+    }
+
     @Test
     void verifiesEd25519SidecarWithTrustedKey() throws GeneralSecurityException {
         SignatureFixture fixture = SignatureFixture.create("test-release-key");

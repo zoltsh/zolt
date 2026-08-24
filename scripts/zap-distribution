@@ -35,12 +35,13 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/zap-distribution [--target <target>]
 
-Build and verify one zap-channel native Zolt candidate. The trusted
+Build and verify one zap or preview native Zolt candidate. The trusted
 zoltsh/releases controller publishes immutable GitHub Release assets and signed
 moving metadata after it independently validates all target candidates.
 
 Environment:
-  ZOLT_RELEASE_VERSION        Override computed version.
+  ZOLT_RELEASE_CHANNEL        zap or preview. Default: zap.
+  ZOLT_RELEASE_VERSION        Override computed version; required for preview.
   ZOLT_RELEASE_TARGET         Release target. Default: current host target.
   ZOLT_RELEASE_INDEX_LIMIT    Maximum versions to keep in releases/<channel>.json. Default: 200.
 USAGE
@@ -101,11 +102,6 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-if [[ "$CHANNEL" != "zap" ]]; then
-  printf 'error: scripts/zap-distribution only builds the zap channel; got %s\n' "$CHANNEL" >&2
-  exit 2
-fi
-
 BASE_VERSION="$(
   awk -F '"' '
     /^\[/ { section = $0 }
@@ -121,7 +117,28 @@ COMMIT="$(git rev-parse HEAD)"
 SHORT_COMMIT="$(git rev-parse --short=12 HEAD)"
 STAMP="$(date -u +%Y%m%d)"
 CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-VERSION="${ZOLT_RELEASE_VERSION:-${BASE_VERSION}-${CHANNEL}.${STAMP}.${SHORT_COMMIT}}"
+case "$CHANNEL" in
+  zap)
+    VERSION="${ZOLT_RELEASE_VERSION:-${BASE_VERSION}-${CHANNEL}.${STAMP}.${SHORT_COMMIT}}"
+    RELEASE_TAG="zolt-zap-${VERSION}"
+    ;;
+  preview)
+    VERSION="${ZOLT_RELEASE_VERSION:-}"
+    if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(alpha|beta|rc)\.(0|[1-9][0-9]*)$ ]]; then
+      printf 'error: preview requires ZOLT_RELEASE_VERSION in a form like 0.1.0-alpha.1\n' >&2
+      exit 2
+    fi
+    if [[ "${VERSION%%-*}" != "$BASE_VERSION" ]]; then
+      printf 'error: preview version %s does not match workspace version %s\n' "$VERSION" "$BASE_VERSION" >&2
+      exit 2
+    fi
+    RELEASE_TAG="zolt-preview-v${VERSION}"
+    ;;
+  *)
+    printf 'error: unsupported release channel %s; expected zap or preview\n' "$CHANNEL" >&2
+    exit 2
+    ;;
+esac
 export ZOLT_VERSION_OVERRIDE="$VERSION"
 
 APP_DIR="$ROOT/apps/zolt"
@@ -138,7 +155,6 @@ CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
 RELEASE_MANIFEST_PATH="${APP_DIR}/${OUTPUT_DIR}/release-manifest.json"
 CHANNEL_MANIFEST_PATH="${APP_DIR}/${CHANNEL_DIR}/${CHANNEL}.json"
 RELEASE_INDEX_PATH="${APP_DIR}/${RELEASES_DIR}/${CHANNEL}.json"
-RELEASE_TAG="zolt-zap-${VERSION}"
 RELEASE_ORIGIN="https://github.com/zoltsh/releases/releases/download/${RELEASE_TAG}"
 ARCHIVE_URL="${RELEASE_ORIGIN}/${ARCHIVE_NAME}"
 CHECKSUM_URL="${ARCHIVE_URL}.sha256"
@@ -240,7 +256,13 @@ EOF
 printf 'Wrote %s\n' "$CHANNEL_MANIFEST_PATH"
 prepare_release_index "$CHANNEL_MANIFEST_PATH" "$RELEASE_INDEX_PATH"
 
-printf 'ZOLT_ZAP_VERSION=%s\n' "$VERSION"
-printf 'ZOLT_ZAP_ARCHIVE=%s\n' "$ARCHIVE_PATH"
-printf 'ZOLT_ZAP_CHANNEL_MANIFEST=%s\n' "$CHANNEL_MANIFEST_PATH"
-printf 'ZOLT_ZAP_RELEASE_INDEX=%s\n' "$RELEASE_INDEX_PATH"
+printf 'ZOLT_RELEASE_VERSION=%s\n' "$VERSION"
+printf 'ZOLT_RELEASE_ARCHIVE=%s\n' "$ARCHIVE_PATH"
+printf 'ZOLT_RELEASE_CHANNEL_MANIFEST=%s\n' "$CHANNEL_MANIFEST_PATH"
+printf 'ZOLT_RELEASE_INDEX=%s\n' "$RELEASE_INDEX_PATH"
+if [[ "$CHANNEL" == "zap" ]]; then
+  printf 'ZOLT_ZAP_VERSION=%s\n' "$VERSION"
+  printf 'ZOLT_ZAP_ARCHIVE=%s\n' "$ARCHIVE_PATH"
+  printf 'ZOLT_ZAP_CHANNEL_MANIFEST=%s\n' "$CHANNEL_MANIFEST_PATH"
+  printf 'ZOLT_ZAP_RELEASE_INDEX=%s\n' "$RELEASE_INDEX_PATH"
+fi

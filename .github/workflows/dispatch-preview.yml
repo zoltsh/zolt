@@ -1,0 +1,74 @@
+name: dispatch preview candidate
+
+on:
+  push:
+    tags:
+      - 'v*.*.*-*'
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Validate preview tag shape
+        env:
+          SOURCE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(alpha|beta|rc)\.(0|[1-9][0-9]*)$ ]]
+
+      - name: Verify and resolve protected source tag
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          gh api "repos/${SOURCE_REPOSITORY}/git/ref/tags/${SOURCE_TAG}" \
+              > out/source-tag-ref.json
+          tag_object_sha="$(jq -er \
+              'select(.object.type == "tag") | .object.sha' \
+              out/source-tag-ref.json)"
+          gh api "repos/${SOURCE_REPOSITORY}/git/tags/${tag_object_sha}" \
+              > out/source-tag.json
+          source_sha="$(jq -er --arg tag "$SOURCE_TAG" '
+              select(
+                  .tag == $tag and
+                  .object.type == "commit" and
+                  .verification.verified == true and
+                  .verification.reason == "valid"
+              ) | .object.sha
+          ' out/source-tag.json)"
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+          printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Create releases dispatcher token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.ZOLT_RELEASES_DISPATCH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ZOLT_RELEASES_DISPATCH_APP_PRIVATE_KEY }}
+          owner: zoltsh
+          repositories: releases
+          permission-actions: write
+
+      - name: Dispatch exact protected source tag
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          SOURCE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh workflow run preview-candidate.yml \
+              --repo zoltsh/releases \
+              --ref main \
+              --field "source_repository=${SOURCE_REPOSITORY}" \
+              --field "source_sha=${SOURCE_SHA}" \
+              --field "source_tag=${SOURCE_TAG}"
