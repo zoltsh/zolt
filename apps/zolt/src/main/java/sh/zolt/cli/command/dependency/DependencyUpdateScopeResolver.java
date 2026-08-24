@@ -4,6 +4,7 @@ import sh.zolt.lockfile.ProjectLockfile;
 import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.toml.ZoltConfigException;
+import sh.zolt.update.AliasReferenceScope;
 import sh.zolt.update.OutdatedScope;
 import sh.zolt.update.OutdatedScopes;
 import sh.zolt.update.UpdateTargetCatalog;
@@ -62,7 +63,8 @@ final class DependencyUpdateScopeResolver {
                 LOCKFILE,
                 manifestOf(workspace.configPath()),
                 workspace.config(),
-                lockfile)));
+                lockfile,
+                rootAliasReferences(workspace, workspace.root(), relative))));
         for (WorkspaceMember member : selectedMembers(workspace, start)) {
             reportScopes.add(new OutdatedScope(
                     member.path(),
@@ -70,7 +72,8 @@ final class DependencyUpdateScopeResolver {
                     LOCKFILE,
                     manifestOf(member.directory().resolve(MANIFEST)),
                     member.config(),
-                    lockfile));
+                    lockfile,
+                    memberAliasReferences(workspace, member, relative)));
         }
         return List.copyOf(reportScopes);
     }
@@ -95,6 +98,7 @@ final class DependencyUpdateScopeResolver {
                     scope.discovery(),
                     Optional.empty(),
                     scope.lockfile(),
+                    List.of(),
                     false));
         }
         Workspace workspace = discovered.orElseThrow();
@@ -114,6 +118,10 @@ final class DependencyUpdateScopeResolver {
                         workspace.config(),
                         Optional.empty(),
                         lockfile,
+                        rootAliasReferences(
+                                workspace,
+                                workspace.root(),
+                                CanonicalUpdatePath::relative),
                         true)));
         for (WorkspaceMember member : workspace.members()) {
             resolved.add(memberScope(workspace, member, lockfile, CanonicalUpdatePath::relative));
@@ -141,6 +149,7 @@ final class DependencyUpdateScopeResolver {
                     scope.discovery(),
                     Optional.empty(),
                     Optional.empty(),
+                    List.of(),
                     false);
         }
         Workspace workspace = discovered.orElseThrow();
@@ -171,6 +180,7 @@ final class DependencyUpdateScopeResolver {
                 member.config(),
                 Optional.of(member.config()),
                 lockfile,
+                memberAliasReferences(workspace, member, relative),
                 false);
     }
 
@@ -217,6 +227,30 @@ final class DependencyUpdateScopeResolver {
 
     private AuthoredManifest manifestOf(Path manifestPath) {
         return scopes.manifest(manifestPath);
+    }
+
+    private List<AliasReferenceScope> memberAliasReferences(
+            Workspace workspace,
+            WorkspaceMember member,
+            BiFunction<Path, Path, String> relative) {
+        if (!sameDirectory(member.directory(), workspace.root())) {
+            return List.of();
+        }
+        return rootAliasReferences(workspace, member.directory(), relative);
+    }
+
+    private List<AliasReferenceScope> rootAliasReferences(
+            Workspace workspace,
+            Path aliasOwner,
+            BiFunction<Path, Path, String> relative) {
+        return workspace.members().stream()
+                .filter(member -> !sameDirectory(member.directory(), aliasOwner))
+                .map(member -> {
+                    Path manifestPath = member.directory().resolve(MANIFEST);
+                    return new AliasReferenceScope(
+                            relative.apply(workspace.root(), manifestPath), manifestOf(manifestPath));
+                })
+                .toList();
     }
 
     private static boolean sameDirectory(Path left, Path right) {

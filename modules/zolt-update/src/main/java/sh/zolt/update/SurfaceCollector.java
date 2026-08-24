@@ -51,8 +51,13 @@ final class SurfaceCollector {
             new DependencyCoordinate("io.grpc:protoc-gen-grpc-java");
 
     List<SurfaceRequest> collect(AuthoredManifest manifest) {
+        return collect(manifest, List.of());
+    }
+
+    List<SurfaceRequest> collect(
+            AuthoredManifest manifest, List<AliasReferenceScope> aliasReferenceScopes) {
         Map<String, SurfaceRequest> requests = new LinkedHashMap<>();
-        collectAliases(manifest, requests);
+        collectAliases(manifest, aliasReferenceScopes, requests);
         collectDependencies(manifest, requests);
         collectPlatforms(manifest, requests);
         collectConstraints(manifest, requests);
@@ -61,7 +66,10 @@ final class SurfaceCollector {
         return List.copyOf(requests.values());
     }
 
-    private void collectAliases(AuthoredManifest manifest, Map<String, SurfaceRequest> requests) {
+    private void collectAliases(
+            AuthoredManifest manifest,
+            List<AliasReferenceScope> aliasReferenceScopes,
+            Map<String, SurfaceRequest> requests) {
         Map<LocalId, VersionAliasValue> aliases = manifest.versions()
                 .map(AuthoredVersionAliases::entries)
                 .orElseGet(Map::of);
@@ -69,7 +77,13 @@ final class SurfaceCollector {
             if (isSnapshot(value.value())) {
                 return;
             }
-            List<AliasReference> references = AliasReferences.referencing(manifest, alias.value());
+            List<AliasReference> references = new ArrayList<>(AliasReferences.referencing(manifest, alias.value()));
+            for (AliasReferenceScope scope : aliasReferenceScopes) {
+                AliasReferences.referencing(scope.manifest(), alias.value()).stream()
+                        .map(reference -> new AliasReference(
+                                scope.manifestPath() + ":" + reference.label(), reference.coordinate()))
+                        .forEach(references::add);
+            }
             List<DiscoveryCoordinate> coordinates = references.stream()
                     .map(AliasReference::coordinate)
                     .flatMap(Optional::stream)

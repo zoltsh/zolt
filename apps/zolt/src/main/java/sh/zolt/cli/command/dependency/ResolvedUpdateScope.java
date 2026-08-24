@@ -4,7 +4,9 @@ import sh.zolt.lockfile.ZoltLockfile;
 import sh.zolt.manifest.authored.AuthoredManifest;
 import sh.zolt.project.ProjectConfig;
 import sh.zolt.project.RepositoryConfiguration;
+import sh.zolt.update.AliasReferenceScope;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -26,6 +28,7 @@ record ResolvedUpdateScope(
         RepositoryConfiguration discovery,
         Optional<ProjectConfig> memberConfig,
         Optional<ZoltLockfile> lockfile,
+        List<AliasReferenceScope> aliasReferenceScopes,
         boolean workspaceRoot) {
     ResolvedUpdateScope {
         mutationRoot = normalize(mutationRoot, "mutationRoot");
@@ -37,6 +40,8 @@ record ResolvedUpdateScope(
         discovery = Objects.requireNonNull(discovery, "discovery");
         memberConfig = memberConfig == null ? Optional.empty() : memberConfig;
         lockfile = lockfile == null ? Optional.empty() : lockfile;
+        aliasReferenceScopes =
+                aliasReferenceScopes == null ? List.of() : List.copyOf(aliasReferenceScopes);
     }
 
     Path absoluteManifestPath() {

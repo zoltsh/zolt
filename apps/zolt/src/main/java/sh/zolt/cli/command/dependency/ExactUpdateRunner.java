@@ -73,7 +73,12 @@ final class ExactUpdateRunner {
             ResolvedUpdateScope scope = selected.scope();
             UnaryOperator<AuthoredManifest> mutation = current -> {
                 ExactUpdatePlan currentPlan = planner.plan(
-                        current, scope.manifestPath(), scope.lockfilePath(), targetId, options);
+                        current,
+                        scope.manifestPath(),
+                        scope.lockfilePath(),
+                        targetId,
+                        options,
+                        scope.aliasReferenceScopes());
                 executedPlan.set(currentPlan);
                 return applier.apply(current, currentPlan);
             };
@@ -111,7 +116,10 @@ final class ExactUpdateRunner {
         List<SelectedExactUpdate> matches = new ArrayList<>();
         for (ResolvedUpdateScope scope : scopes) {
             List<UpdateTarget> targets = catalog.collect(
-                    scope.manifest(), scope.manifestPath(), scope.lockfilePath());
+                    scope.manifest(),
+                    scope.manifestPath(),
+                    scope.lockfilePath(),
+                    scope.aliasReferenceScopes());
             for (UpdateTarget target : targets) {
                 if (target.targetId().equals(targetId)) {
                     matches.add(new SelectedExactUpdate(scope, planner.plan(target, options)));

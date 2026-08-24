@@ -23,9 +23,24 @@ public final class ExactUpdatePlanner {
             String lockfilePath,
             UpdateTargetId targetId,
             ExactUpdateOptions options) {
+        return plan(manifest, manifestPath, lockfilePath, targetId, options, List.of());
+    }
+
+    public ExactUpdatePlan plan(
+            AuthoredManifest manifest,
+            String manifestPath,
+            String lockfilePath,
+            UpdateTargetId targetId,
+            ExactUpdateOptions options,
+            List<AliasReferenceScope> aliasReferenceScopes) {
         UpdateTarget target;
         try {
-            target = catalog.require(manifest, manifestPath, lockfilePath, targetId);
+            target = catalog.require(
+                    manifest,
+                    manifestPath,
+                    lockfilePath,
+                    targetId,
+                    aliasReferenceScopes);
         } catch (IllegalArgumentException exception) {
             throw unknownTarget(targetId);
         }

@@ -51,7 +51,7 @@ public final class OutdatedEngine {
     private OutdatedScopeReport reportScope(OutdatedScope scope, OutdatedOptions options) {
         List<RepositoryAccess> repositories = planner.plan(scope.discovery());
         List<UpdateTargetCatalog.Entry> catalogEntries = catalog.entries(
-                scope.manifest(), scope.manifestPath(), scope.lockfilePath());
+                scope.manifest(), scope.manifestPath(), scope.lockfilePath(), scope.aliasReferenceScopes());
         Map<String, MetadataDiscovery> memo = new LinkedHashMap<>();
         List<OutdatedEntry> entries = new ArrayList<>();
         for (UpdateTargetCatalog.Entry catalogEntry : catalogEntries) {

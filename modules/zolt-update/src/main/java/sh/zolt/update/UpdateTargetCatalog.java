@@ -24,12 +24,37 @@ public final class UpdateTargetCatalog {
                 .toList();
     }
 
+    public List<UpdateTarget> collect(
+            AuthoredManifest manifest,
+            String manifestPath,
+            String lockfilePath,
+            List<AliasReferenceScope> aliasReferenceScopes) {
+        return entries(manifest, manifestPath, lockfilePath, aliasReferenceScopes).stream()
+                .map(Entry::target)
+                .toList();
+    }
+
     public UpdateTarget require(
             AuthoredManifest manifest,
             String manifestPath,
             String lockfilePath,
             UpdateTargetId targetId) {
         return requireEntry(manifest, manifestPath, lockfilePath, targetId).target();
+    }
+
+    public UpdateTarget require(
+            AuthoredManifest manifest,
+            String manifestPath,
+            String lockfilePath,
+            UpdateTargetId targetId,
+            List<AliasReferenceScope> aliasReferenceScopes) {
+        Objects.requireNonNull(targetId, "targetId");
+        return entries(manifest, manifestPath, lockfilePath, aliasReferenceScopes).stream()
+                .filter(entry -> entry.target().targetId().equals(targetId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Unknown Zolt update target `" + targetId + "`."))
+                .target();
     }
 
     public List<UpdateTargetReference> references(AuthoredManifest manifest, String manifestPath) {
@@ -42,11 +67,19 @@ public final class UpdateTargetCatalog {
             AuthoredManifest manifest,
             String manifestPath,
             String lockfilePath) {
+        return entries(manifest, manifestPath, lockfilePath, List.of());
+    }
+
+    List<Entry> entries(
+            AuthoredManifest manifest,
+            String manifestPath,
+            String lockfilePath,
+            List<AliasReferenceScope> aliasReferenceScopes) {
         Objects.requireNonNull(manifest, "manifest");
         String rawManifest = UpdateTargetKey.requirePath(manifestPath, "manifest path");
         String rawLockfile = UpdateTargetKey.requirePath(lockfilePath, "lockfile path");
         Map<UpdateTargetKey, Entry> entries = new LinkedHashMap<>();
-        for (SurfaceRequest request : collector.collect(manifest)) {
+        for (SurfaceRequest request : collector.collect(manifest, aliasReferenceScopes)) {
             addUnique(entries, entry(request, rawManifest, rawLockfile));
         }
         return List.copyOf(entries.values());
