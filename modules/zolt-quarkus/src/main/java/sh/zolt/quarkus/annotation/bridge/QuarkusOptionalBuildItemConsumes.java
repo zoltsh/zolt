@@ -21,8 +21,14 @@ public final class QuarkusOptionalBuildItemConsumes {
     public static BuildStepBuilder optional(
             BuildStepBuilder step,
             Class<? extends BuildItem> buildItemClass) {
+        return optional(step, buildItemClass, step.getClass().getClassLoader());
+    }
+
+    static BuildStepBuilder optional(
+            BuildStepBuilder step,
+            Class<? extends BuildItem> buildItemClass,
+            ClassLoader classLoader) {
         try {
-            ClassLoader classLoader = step.getClass().getClassLoader();
             Class<?> consumeFlagClass = Class.forName("io.quarkus.builder.ConsumeFlag", false, classLoader);
             Class<?> consumeFlagsClass = Class.forName("io.quarkus.builder.ConsumeFlags", false, classLoader);
             Object optional = enumValue(consumeFlagClass, "OPTIONAL");

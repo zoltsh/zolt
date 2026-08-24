@@ -12,6 +12,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -76,7 +77,7 @@ final class QuarkusBuildItemBridgeTest {
     }
 
     @Test
-    void optionalConsumesReportsDeterministicFallbackWhenFlagsCannotBeApplied() throws Exception {
+    void appliesOptionalConsumeFlagWhenSupported() throws Exception {
         try (URLClassLoader runtime = QuarkusProvidedRuntime.open()) {
             Path diagnosticFile = tempDir.resolve("diagnostics/optional-consume.txt");
             Object builder = buildChainClass(runtime).getMethod("builder").invoke(null);
@@ -101,9 +102,55 @@ final class QuarkusBuildItemBridgeTest {
             }
 
             assertSame(step, returned);
+            assertTrue(optionalConsumes(step).contains("OPTIONAL"));
+            assertTrue(Files.notExists(diagnosticFile));
+        }
+    }
+
+    @Test
+    void reportsDeterministicFallbackWhenConsumeFlagsCannotBeLoaded() throws Exception {
+        try (URLClassLoader runtime = QuarkusProvidedRuntime.open()) {
+            Path diagnosticFile = tempDir.resolve("diagnostics/optional-consume-fallback.txt");
+            Object builder = buildChainClass(runtime).getMethod("builder").invoke(null);
+            Object step = buildChainBuilderClass(runtime).getMethod("addBuildStep").invoke(builder);
+            Class<?> combinedIndex = Class.forName(
+                    "io.quarkus.deployment.builditem.CombinedIndexBuildItem",
+                    false,
+                    runtime);
+            ClassLoader missingFlags = new ClassLoader(runtime) {
+                @Override
+                protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+                    if ("io.quarkus.builder.ConsumeFlag".equals(name)) {
+                        throw new ClassNotFoundException(name);
+                    }
+                    return super.loadClass(name, resolve);
+                }
+            };
+            String previousDiagnostic = System.getProperty(DIAGNOSTIC_FILE_PROPERTY);
+            Object returned;
+            try {
+                System.setProperty(DIAGNOSTIC_FILE_PROPERTY, diagnosticFile.toString());
+
+                Method optional = Class.forName(
+                                "sh.zolt.quarkus.annotation.bridge.QuarkusOptionalBuildItemConsumes",
+                                false,
+                                runtime)
+                        .getDeclaredMethod(
+                                "optional",
+                                buildStepBuilderClass(runtime),
+                                Class.class,
+                                ClassLoader.class);
+                optional.setAccessible(true);
+                returned = optional.invoke(null, step, combinedIndex, missingFlags);
+            } finally {
+                restore(DIAGNOSTIC_FILE_PROPERTY, previousDiagnostic);
+            }
+
+            assertSame(step, returned);
             String diagnostic = Files.readString(diagnosticFile);
             assertTrue(diagnostic.contains("CombinedIndexBuildItem.optionalConsume=false"), diagnostic);
-            assertTrue(diagnostic.contains("CombinedIndexBuildItem.optionalConsumeReason="), diagnostic);
+            assertTrue(diagnostic.contains("CombinedIndexBuildItem.optionalConsumeReason=ClassNotFoundException"),
+                    diagnostic);
         }
     }
 
@@ -256,6 +303,17 @@ final class QuarkusBuildItemBridgeTest {
             return;
         }
         System.setProperty(property, previous);
+    }
+
+    private static String optionalConsumes(Object step) throws Exception {
+        Method getConsumes = step.getClass().getDeclaredMethod("getConsumes");
+        getConsumes.setAccessible(true);
+        Map<?, ?> consumes = (Map<?, ?>) getConsumes.invoke(step);
+        assertEquals(1, consumes.size());
+        Object consume = consumes.values().iterator().next();
+        Method flags = consume.getClass().getMethod("flags");
+        flags.setAccessible(true);
+        return flags.invoke(consume).toString();
     }
 
     public static final class DotNameScopeBuilder {
