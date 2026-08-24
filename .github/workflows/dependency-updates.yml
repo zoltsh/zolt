@@ -37,7 +37,7 @@ jobs:
 
       - name: Update dependencies
         id: updates
-        uses: zoltsh/update-dependencies@84221108b5604f61f77c6d026b6a25b348be27a7 # v0.2.0
+        uses: zoltsh/update-dependencies@3fc8751777e9a52a11698433f65824d8410b837c # root alias support
         with:
           workspace: "true"
           update-ceiling: minor
