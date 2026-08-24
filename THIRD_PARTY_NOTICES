@@ -36,7 +36,7 @@ picocli
 
 Jackson-core
     Maven coordinates: com.fasterxml.jackson.core:jackson-core
-    Version:           2.22.1
+    Version:           2.22.2
     License:           Apache-2.0 (see LICENSE in this distribution)
     Homepage:          https://github.com/FasterXML/jackson-core
 
