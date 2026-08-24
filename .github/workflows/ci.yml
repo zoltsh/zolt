@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up GraalVM
-        uses: graalvm/setup-graalvm@bef4b0e916c7dd079bf60fb95d49139f67e32c5f
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2
         with:
           distribution: graalvm
           java-version: "21"
@@ -113,7 +113,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up GraalVM
-        uses: graalvm/setup-graalvm@bef4b0e916c7dd079bf60fb95d49139f67e32c5f
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2
         with:
           distribution: graalvm
           java-version: "21"
@@ -199,7 +199,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up GraalVM
-        uses: graalvm/setup-graalvm@bef4b0e916c7dd079bf60fb95d49139f67e32c5f
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2
         with:
           distribution: graalvm
           java-version: "21"
@@ -282,7 +282,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up bootstrap GraalVM
-        uses: graalvm/setup-graalvm@bef4b0e916c7dd079bf60fb95d49139f67e32c5f
+        uses: graalvm/setup-graalvm@5298d94fb55a4f185c602eeac5de1b553882abe2
         with:
           distribution: graalvm
           java-version: "21"
