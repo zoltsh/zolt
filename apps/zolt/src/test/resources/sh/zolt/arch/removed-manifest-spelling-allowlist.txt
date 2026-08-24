@@ -55,7 +55,3 @@ modules/zolt-model/src/main/java/sh/zolt/manifest/adapter/ProjectConfigRepositor
 modules/zolt-model/src/main/java/sh/zolt/manifest/adapter/EffectiveProjectConfigAdapter.java|compiler-release|abolished field citation
 modules/zolt-publish/src/main/java/sh/zolt/publish/ManifestPublishSettingsAdapter.java|publish-signing-enabled|abolished field citation
 apps/zolt/src/main/java/sh/zolt/cli/command/dependency/PlatformsCommand.java|platform-command|abolished command citation
-docs/manifest-language-design.md|compiler-release|design counter-example
-docs/manifest-language-design.md|framework-spring-boot|design counter-example
-docs/manifest-language-design.md|platform-command|design counter-example
-docs/manifest-language-design.md|workspace-default-members|dated pre-cut re-review note
