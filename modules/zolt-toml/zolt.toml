@@ -5,7 +5,7 @@ name = "zolt-toml"
 "sh.zolt:zolt-model" = { workspace = true }
 
 [dependencies.api]
-"org.tomlj:tomlj" = "1.1.1"
+"org.tomlj:tomlj" = { versionRef = "tomlj" }
 
 [dependencies.test]
-"org.junit.platform:junit-platform-console-standalone" = "1.14.4"
+"org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }

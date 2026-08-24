@@ -13,7 +13,7 @@ name = "zolt-build"
 "sh.zolt:zolt-framework-api" = { workspace = true }
 
 [dependencies.test]
-"org.junit.platform:junit-platform-console-standalone" = "1.14.4"
+"org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 
 [test.suites.test-execution]
 classes = [

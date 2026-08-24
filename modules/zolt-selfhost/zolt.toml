@@ -11,4 +11,4 @@ name = "zolt-selfhost"
 "sh.zolt:zolt-workspace" = { workspace = true }
 
 [dependencies.test]
-"org.junit.platform:junit-platform-console-standalone" = "1.14.4"
+"org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }

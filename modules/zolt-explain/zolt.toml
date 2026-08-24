@@ -2,10 +2,10 @@
 name = "zolt-explain"
 
 [dependencies]
-"org.tomlj:tomlj" = "1.1.1"
+"org.tomlj:tomlj" = { versionRef = "tomlj" }
 "sh.zolt:zolt-model" = { workspace = true }
 "sh.zolt:zolt-repository" = { workspace = true }
 "sh.zolt:zolt-resolve" = { workspace = true }
 
 [dependencies.test]
-"org.junit.platform:junit-platform-console-standalone" = "1.14.4"
+"org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }

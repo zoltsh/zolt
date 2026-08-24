@@ -3,7 +3,7 @@ name = "zolt-javac-worker"
 main = "sh.zolt.javac.JavacWorkerMain"
 
 [dependencies.test]
-"org.junit.platform:junit-platform-console-standalone" = "1.14.4"
+"org.junit.platform:junit-platform-console-standalone" = { versionRef = "junit-platform" }
 
 [package]
 mode = "uber-jar"
