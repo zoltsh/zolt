@@ -164,7 +164,22 @@ final class ProcessSupervisorTest {
     }
 
     private static String testClasspath() {
-        return System.getProperty("java.class.path");
+        return String.join(
+                java.io.File.pathSeparator,
+                java.util.stream.Stream.of(codeSource(ProcessSupervisorTest.class), codeSource(ProcessSupervisor.class))
+                        .distinct()
+                        .map(Path::toString)
+                        .toList());
+    }
+
+    private static Path codeSource(Class<?> type) {
+        try {
+            return Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
+                    .toAbsolutePath()
+                    .normalize();
+        } catch (java.net.URISyntaxException exception) {
+            throw new AssertionError("Could not resolve classpath entry for " + type.getName() + ".", exception);
+        }
     }
 
     private static boolean isWindows() {
