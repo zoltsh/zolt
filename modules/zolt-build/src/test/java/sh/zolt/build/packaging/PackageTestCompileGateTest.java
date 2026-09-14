@@ -56,7 +56,7 @@ final class PackageTestCompileGateTest {
         Files.writeString(
                 fixture.project().resolve(
                         "src/test/resources/fixture.txt"),
-                "changed\n");
+                "changed resource bytes\n");
 
         assertStale(fixture, fixture.config());
     }
